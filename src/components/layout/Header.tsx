@@ -26,10 +26,10 @@ export default function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="Renovision Ana"
             width={40}
-            height={44}
+            height={46}
             priority
             className="h-10 w-auto"
           />

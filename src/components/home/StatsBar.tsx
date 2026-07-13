@@ -14,7 +14,7 @@ export default function StatsBar() {
   ];
 
   return (
-    <section className="bg-navy pb-16">
+    <section className="bg-navy py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 lg:grid-cols-4">
           {stats.map(({ icon: Icon, value, label }) => (
