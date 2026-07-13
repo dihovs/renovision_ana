@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #2b2b2b;
+
+  /* Brand */
+  --color-brand-blue: #2b5c9e;
+  --color-brand-blue-dark: #1f4677;
+  --color-brand-blue-light: #eaf1fb;
+  --color-brand-green: #4e9e2e;
+  --color-brand-green-dark: #3d7d24;
+  --color-brand-green-light: #eef8e9;
+  --color-charcoal: #2b2b2b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-blue: var(--color-brand-blue);
+  --color-brand-blue-dark: var(--color-brand-blue-dark);
+  --color-brand-blue-light: var(--color-brand-blue-light);
+  --color-brand-green: var(--color-brand-green);
+  --color-brand-green-dark: var(--color-brand-green-dark);
+  --color-brand-green-light: var(--color-brand-green-light);
+  --color-charcoal: var(--color-charcoal);
+  --font-heading: var(--font-poppins);
+  --font-body: var(--font-inter);
+}
+
+/* Intentionally no dark-mode override: brand calls for a bright, light
+   site regardless of OS color-scheme preference. */
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--color-brand-blue);
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 32s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+}
