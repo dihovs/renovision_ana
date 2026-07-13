@@ -67,7 +67,7 @@ const en: Record<string, unknown> & {
     headlineStart: "Renovation and Water Damage Restoration",
     headlineAccent: "You Can Trust.",
     subheadline:
-      "From emergency water damage repair to full kitchen and bathroom remodels, Renovision Ana delivers reliable craftsmanship for property managers, insurers, and homeowners.",
+      "From emergency water damage repair to full kitchen and bathroom remodels, Renovision AnA delivers reliable craftsmanship for property managers, insurers, and homeowners.",
     ctaEstimate: "Get an Instant Estimate",
     ctaCall: "Call Now",
     beforeLabel: "Before",
@@ -140,7 +140,7 @@ const en: Record<string, unknown> & {
   },
   chat: {
     launcherLabel: "Get a Free Estimate",
-    title: "Renovision Ana Assistant",
+    title: "Renovision AnA Assistant",
     subtitle: "Get a rough project estimate in minutes",
     welcome:
       "Hi! I can give you a rough estimate for your renovation, water damage, or remodeling project. What are you looking to have done?",
@@ -149,7 +149,7 @@ const en: Record<string, unknown> & {
     disclaimer:
       "This is an automated estimate tool and only discusses renovation, water damage, and remodeling topics.",
     offTopic:
-      "I'm just able to help with renovation, water damage restoration, and remodeling questions for Renovision Ana. Could you tell me more about your project?",
+      "I'm just able to help with renovation, water damage restoration, and remodeling questions for Renovision AnA. Could you tell me more about your project?",
     restart: "Start over",
     send: "Send",
     photoAttached: "Photo attached",
@@ -210,7 +210,7 @@ const fr: typeof en = {
     headlineStart: "Rénovation et restauration de dégâts d'eau",
     headlineAccent: "en qui vous pouvez avoir confiance.",
     subheadline:
-      "De la réparation d'urgence des dégâts d'eau aux rénovations complètes de cuisines et salles de bain, Renovision Ana offre un travail fiable pour les gestionnaires immobiliers, les assureurs et les propriétaires.",
+      "De la réparation d'urgence des dégâts d'eau aux rénovations complètes de cuisines et salles de bain, Renovision AnA offre un travail fiable pour les gestionnaires immobiliers, les assureurs et les propriétaires.",
     ctaEstimate: "Estimation instantanée",
     ctaCall: "Appelez maintenant",
     beforeLabel: "Avant",
@@ -283,7 +283,7 @@ const fr: typeof en = {
   },
   chat: {
     launcherLabel: "Estimation gratuite",
-    title: "Assistant Renovision Ana",
+    title: "Assistant Renovision AnA",
     subtitle: "Obtenez une estimation approximative en quelques minutes",
     welcome:
       "Bonjour! Je peux vous donner une estimation approximative pour votre projet de rénovation, de dégâts d'eau ou de remodelage. Que souhaitez-vous faire?",
@@ -292,7 +292,7 @@ const fr: typeof en = {
     disclaimer:
       "Cet outil d'estimation automatisé ne traite que des sujets liés à la rénovation, aux dégâts d'eau et au remodelage.",
     offTopic:
-      "Je ne peux vous aider qu'avec des questions sur la rénovation, la restauration de dégâts d'eau et le remodelage pour Renovision Ana. Pouvez-vous m'en dire plus sur votre projet?",
+      "Je ne peux vous aider qu'avec des questions sur la rénovation, la restauration de dégâts d'eau et le remodelage pour Renovision AnA. Pouvez-vous m'en dire plus sur votre projet?",
     restart: "Recommencer",
     send: "Envoyer",
     photoAttached: "Photo jointe",

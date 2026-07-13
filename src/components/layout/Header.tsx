@@ -27,14 +27,14 @@ export default function Header() {
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <Image
             src="/renovision-logo.png"
-            alt="Renovision Ana"
+            alt="Renovision AnA"
             width={40}
             height={46}
             priority
             className="h-10 w-auto"
           />
           <span className="hidden font-heading text-xl font-semibold text-brand-blue sm:block">
-            Renovision <span className="text-brand-green">Ana</span>
+            Renovision <span className="text-brand-green">AnA</span>
           </span>
         </Link>
 

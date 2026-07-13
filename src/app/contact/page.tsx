@@ -4,7 +4,7 @@ import { SITE_EMAIL, SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with Renovision Ana for a renovation, water damage restoration, or remodeling estimate.",
+    "Get in touch with Renovision AnA for a renovation, water damage restoration, or remodeling estimate.",
 };
 
 export default function ContactPage() {

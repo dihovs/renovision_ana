@@ -5,7 +5,7 @@ import { IconHammer, IconDroplet, IconKitchen } from "@/components/ui/icons";
 export const metadata: Metadata = {
   title: "Services",
   description:
-    "Renovision Ana offers general renovations, water damage repair and restoration, and kitchen & bathroom remodeling.",
+    "Renovision AnA offers general renovations, water damage repair and restoration, and kitchen & bathroom remodeling.",
 };
 
 const SERVICES = [

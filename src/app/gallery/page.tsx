@@ -4,7 +4,7 @@ import PlaceholderPage from "@/components/ui/PlaceholderPage";
 export const metadata: Metadata = {
   title: "Gallery",
   description:
-    "Browse completed renovation, water damage restoration, and kitchen & bathroom remodeling projects by Renovision Ana.",
+    "Browse completed renovation, water damage restoration, and kitchen & bathroom remodeling projects by Renovision AnA.",
 };
 
 export default function GalleryPage() {

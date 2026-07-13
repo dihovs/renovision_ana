@@ -4,7 +4,7 @@ import PlaceholderPage from "@/components/ui/PlaceholderPage";
 export const metadata: Metadata = {
   title: "Water Damage Restoration",
   description:
-    "Rapid response water extraction, drying, and repair services from Renovision Ana.",
+    "Rapid response water extraction, drying, and repair services from Renovision AnA.",
 };
 
 export default function WaterDamagePage() {

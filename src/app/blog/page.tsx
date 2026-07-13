@@ -4,7 +4,7 @@ import PlaceholderPage from "@/components/ui/PlaceholderPage";
 export const metadata: Metadata = {
   title: "Blog",
   description:
-    "Renovation tips, water damage prevention advice, and project stories from Renovision Ana.",
+    "Renovation tips, water damage prevention advice, and project stories from Renovision AnA.",
 };
 
 export default function BlogPage() {

@@ -1,4 +1,4 @@
-export const SITE_NAME = "Renovision Ana";
+export const SITE_NAME = "Renovision AnA";
 export const SITE_PHONE = "(555) 123-4567";
 export const SITE_PHONE_TEL = "+15551234567";
 export const SITE_EMAIL = "info@renovisionana.com";

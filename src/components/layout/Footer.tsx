@@ -25,14 +25,14 @@ export default function Footer() {
             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1.5">
               <Image
                 src="/renovision-logo.png"
-                alt="Renovision Ana"
+                alt="Renovision AnA"
                 width={36}
                 height={42}
                 className="h-9 w-auto"
               />
             </span>
             <span className="font-heading text-lg font-bold text-white">
-              Renovision Ana
+              Renovision AnA
             </span>
           </Link>
           <p className="mt-4 max-w-xs text-sm text-white/70">{t.footer.tagline}</p>
@@ -88,7 +88,7 @@ export default function Footer() {
 
       <div className="border-t border-white/10 py-5">
         <p className="text-center text-xs text-white/60">
-          &copy; {year} Renovision Ana. {t.footer.rights}
+          &copy; {year} Renovision AnA. {t.footer.rights}
         </p>
       </div>
     </footer>

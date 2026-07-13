@@ -83,7 +83,7 @@ export default function ScrollBeforeAfter() {
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-black/5 shadow-xl">
               <Image
                 src="/images/placeholder-before.svg"
-                alt="Kitchen before Renovision Ana's water damage restoration work"
+                alt="Kitchen before Renovision AnA's water damage restoration work"
                 fill
                 sizes="(min-width: 1024px) 40vw, 90vw"
                 className="object-cover"
@@ -94,7 +94,7 @@ export default function ScrollBeforeAfter() {
               >
                 <Image
                   src="/images/placeholder-after.svg"
-                  alt="Renovated kitchen after Renovision Ana's remodeling work"
+                  alt="Renovated kitchen after Renovision AnA's remodeling work"
                   fill
                   sizes="(min-width: 1024px) 40vw, 90vw"
                   className="object-cover"

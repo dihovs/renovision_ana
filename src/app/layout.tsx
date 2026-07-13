@@ -30,17 +30,17 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Renovision Ana | Renovation & Water Damage Restoration",
-    template: "%s | Renovision Ana",
+    default: "Renovision AnA | Renovation & Water Damage Restoration",
+    template: "%s | Renovision AnA",
   },
   description:
-    "Renovision Ana provides general renovations, water damage repair and restoration, and kitchen & bathroom remodeling for property managers, insurers, and homeowners.",
+    "Renovision AnA provides general renovations, water damage repair and restoration, and kitchen & bathroom remodeling for property managers, insurers, and homeowners.",
   openGraph: {
-    title: "Renovision Ana | Renovation & Water Damage Restoration",
+    title: "Renovision AnA | Renovation & Water Damage Restoration",
     description:
       "General renovations, water damage repair and restoration, and kitchen & bathroom remodeling for property managers, insurers, and homeowners.",
     url: SITE_URL,
-    siteName: "Renovision Ana",
+    siteName: "Renovision AnA",
     locale: "en_US",
     type: "website",
   },

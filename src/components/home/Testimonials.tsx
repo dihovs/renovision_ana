@@ -9,7 +9,7 @@ const TESTIMONIALS = [
     role: "Property Manager, Meridian Residential",
     rating: 5,
     quote:
-      "Renovision Ana turns around unit repairs faster than any contractor we've worked with. Communication is excellent and tenants are always satisfied.",
+      "Renovision AnA turns around unit repairs faster than any contractor we've worked with. Communication is excellent and tenants are always satisfied.",
   },
   {
     name: "James K.",
@@ -110,7 +110,7 @@ function TestimonialSchema() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    name: "Renovision Ana",
+    name: "Renovision AnA",
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: avg.toFixed(1),
