@@ -5,6 +5,7 @@ const en: Record<string, unknown> & {
   nav: Record<string, string>;
   header: Record<string, string>;
   hero: Record<string, string>;
+  stats: Record<"years" | "projects" | "satisfaction" | "emergency", { value: string; label: string }>;
   trustBar: Record<string, string>;
   audience: {
     title: string;
@@ -63,13 +64,20 @@ const en: Record<string, unknown> & {
   },
   hero: {
     eyebrow: "Renovations & Water Damage Restoration",
-    headline: "Renovation and Water Damage Restoration You Can Trust",
+    headlineStart: "Renovation and Water Damage Restoration",
+    headlineAccent: "You Can Trust.",
     subheadline:
       "From emergency water damage repair to full kitchen and bathroom remodels, Renovision Ana delivers reliable craftsmanship for property managers, insurers, and homeowners.",
     ctaEstimate: "Get an Instant Estimate",
     ctaCall: "Call Now",
     beforeLabel: "Before",
     afterLabel: "After",
+  },
+  stats: {
+    years: { value: "15+", label: "Years of Experience" },
+    projects: { value: "500+", label: "Projects Completed" },
+    satisfaction: { value: "98%", label: "Client Satisfaction" },
+    emergency: { value: "24/7", label: "Emergency Response" },
   },
   trustBar: {
     item1: "Trusted by property management companies",
@@ -199,13 +207,20 @@ const fr: typeof en = {
   },
   hero: {
     eyebrow: "Rénovations et restauration de dégâts d'eau",
-    headline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance",
+    headlineStart: "Rénovation et restauration de dégâts d'eau",
+    headlineAccent: "en qui vous pouvez avoir confiance.",
     subheadline:
       "De la réparation d'urgence des dégâts d'eau aux rénovations complètes de cuisines et salles de bain, Renovision Ana offre un travail fiable pour les gestionnaires immobiliers, les assureurs et les propriétaires.",
     ctaEstimate: "Estimation instantanée",
     ctaCall: "Appelez maintenant",
     beforeLabel: "Avant",
     afterLabel: "Après",
+  },
+  stats: {
+    years: { value: "15+", label: "Années d'expérience" },
+    projects: { value: "500+", label: "Projets réalisés" },
+    satisfaction: { value: "98%", label: "Satisfaction client" },
+    emergency: { value: "24/7", label: "Intervention d'urgence" },
   },
   trustBar: {
     item1: "La confiance des sociétés de gestion immobilière",

@@ -11,7 +11,10 @@
   --color-brand-green: #4e9e2e;
   --color-brand-green-dark: #3d7d24;
   --color-brand-green-light: #eef8e9;
+  --color-brand-green-soft: #6fbf4c;
   --color-charcoal: #2b2b2b;
+  --color-navy: #10233c;
+  --color-navy-light: #1a3355;
 }
 
 @theme inline {
@@ -23,22 +26,28 @@
   --color-brand-green: var(--color-brand-green);
   --color-brand-green-dark: var(--color-brand-green-dark);
   --color-brand-green-light: var(--color-brand-green-light);
+  --color-brand-green-soft: var(--color-brand-green-soft);
   --color-charcoal: var(--color-charcoal);
-  --font-heading: var(--font-poppins);
+  --color-navy: var(--color-navy);
+  --color-navy-light: var(--color-navy-light);
+  --font-heading: var(--font-playfair);
+  --font-label: var(--font-poppins);
   --font-body: var(--font-inter);
 }
 
 /* Intentionally no dark-mode override: brand calls for a bright, light
    site regardless of OS color-scheme preference. */
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-}
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  color: var(--color-brand-blue);
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    color: var(--color-brand-blue);
+  }
 }
 
 @keyframes marquee {

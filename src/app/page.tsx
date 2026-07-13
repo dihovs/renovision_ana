@@ -1,4 +1,5 @@
 import ScrollBeforeAfter from "@/components/home/ScrollBeforeAfter";
+import StatsBar from "@/components/home/StatsBar";
 import TrustBar from "@/components/home/TrustBar";
 import AudienceSections from "@/components/home/AudienceSections";
 import ServicesSection from "@/components/home/ServicesSection";
@@ -10,6 +11,7 @@ export default function Home() {
   return (
     <>
       <ScrollBeforeAfter />
+      <StatsBar />
       <TrustBar />
       <AudienceSections />
       <ServicesSection />

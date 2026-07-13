@@ -18,16 +18,16 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-brand-blue-dark text-white/90">
+    <footer className="bg-navy text-white/90">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
         <div>
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/logo.png"
+              src="/logo-white.svg"
               alt="Renovision Ana"
               width={40}
-              height={45}
-              className="h-10 w-auto brightness-0 invert"
+              height={44}
+              className="h-10 w-auto"
             />
             <span className="font-heading text-lg font-bold text-white">
               Renovision Ana

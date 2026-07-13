@@ -26,14 +26,14 @@ export default function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="Renovision Ana"
-            width={44}
-            height={49}
+            width={40}
+            height={44}
             priority
-            className="h-11 w-auto"
+            className="h-10 w-auto"
           />
-          <span className="hidden font-heading text-lg font-bold text-brand-blue sm:block">
+          <span className="hidden font-heading text-xl font-semibold text-brand-blue sm:block">
             Renovision <span className="text-brand-green">Ana</span>
           </span>
         </Link>

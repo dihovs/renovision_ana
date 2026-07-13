@@ -48,20 +48,21 @@ export default function ScrollBeforeAfter() {
   const revealPercent = Math.round(progress * 100);
 
   return (
-    <div ref={wrapperRef} className="relative h-[220vh]">
+    <div ref={wrapperRef} className="relative h-[220vh] bg-navy">
       <div className="sticky top-0 flex h-screen items-center overflow-hidden">
         <div className="mx-auto grid w-full max-w-7xl items-center gap-10 px-4 pt-20 sm:px-6 lg:grid-cols-2 lg:pt-16 lg:px-8">
           <div>
-            <p className="mb-3 text-sm font-bold uppercase tracking-wide text-brand-green">
+            <p className="mb-4 font-label text-xs font-semibold uppercase tracking-[0.25em] text-brand-green-soft">
               {t.hero.eyebrow}
             </p>
-            <h1 className="font-heading text-4xl font-extrabold leading-tight text-brand-blue sm:text-5xl">
-              {t.hero.headline}
+            <h1 className="font-heading text-4xl font-semibold leading-[1.15] text-white sm:text-5xl lg:text-[3.4rem]">
+              {t.hero.headlineStart}{" "}
+              <em className="italic text-brand-green-soft">{t.hero.headlineAccent}</em>
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-charcoal/80">
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
               {t.hero.subheadline}
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-9 flex flex-wrap gap-4">
               <button
                 type="button"
                 onClick={openChat}
@@ -71,7 +72,7 @@ export default function ScrollBeforeAfter() {
               </button>
               <a
                 href={`tel:${SITE_PHONE_TEL}`}
-                className="inline-flex items-center justify-center rounded-full border-2 border-brand-blue px-7 py-3.5 text-base font-bold text-brand-blue transition-colors hover:bg-brand-blue-light"
+                className="inline-flex items-center justify-center rounded-full border border-white/40 px-7 py-3.5 text-base font-bold text-white transition-colors hover:border-white hover:bg-white/10"
               >
                 {t.hero.ctaCall}
               </a>
@@ -79,7 +80,7 @@ export default function ScrollBeforeAfter() {
           </div>
 
           <div className="relative">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-black/5 shadow-xl">
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
               <Image
                 src="/images/placeholder-before.svg"
                 alt="Kitchen before Renovision Ana's water damage restoration work"
@@ -110,7 +111,7 @@ export default function ScrollBeforeAfter() {
                 {t.hero.afterLabel}
               </span>
             </div>
-            <p className="mt-3 text-center text-xs text-charcoal/50">
+            <p className="mt-3 text-center text-xs text-white/40">
               Scroll to see the transformation
             </p>
           </div>
