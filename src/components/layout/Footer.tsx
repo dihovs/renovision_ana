@@ -24,7 +24,7 @@ export default function Footer() {
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1.5">
               <Image
-                src="/logo.png"
+                src="/renovision-logo.png"
                 alt="Renovision Ana"
                 width={36}
                 height={42}
