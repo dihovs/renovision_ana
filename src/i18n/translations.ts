@@ -25,7 +25,14 @@ const en: Record<string, unknown> & {
   howItWorks: {
     title: string;
     subtitle: string;
+    stepLabel: string;
     steps: Record<"inspection" | "estimate" | "approval" | "completion", { title: string; desc: string }>;
+  };
+  ctaBand: {
+    title: string;
+    subtitle: string;
+    ctaEstimate: string;
+    ctaCall: string;
   };
   testimonials: { title: string };
   partners: { title: string };
@@ -134,12 +141,19 @@ const en: Record<string, unknown> & {
   howItWorks: {
     title: "How It Works",
     subtitle: "A simple, transparent process from first call to final walkthrough.",
+    stepLabel: "Step",
     steps: {
       inspection: { title: "Inspection", desc: "We assess the property and scope of work in person or via photos." },
       estimate: { title: "Estimate", desc: "You receive a clear, itemized estimate with no hidden surprises." },
       approval: { title: "Approval", desc: "We schedule the work once you and/or your insurer sign off." },
       completion: { title: "Completion", desc: "Our crew completes the job on time, with a final walkthrough." },
     },
+  },
+  ctaBand: {
+    title: "Ready to start your project?",
+    subtitle: "Get a rough estimate in minutes with our instant estimate tool, or call us directly.",
+    ctaEstimate: "Get an Instant Estimate",
+    ctaCall: "Call Now",
   },
   testimonials: {
     title: "What Our Clients Say",
@@ -291,12 +305,19 @@ const fr: typeof en = {
   howItWorks: {
     title: "Comment ça fonctionne",
     subtitle: "Un processus simple et transparent, du premier appel à la visite finale.",
+    stepLabel: "Étape",
     steps: {
       inspection: { title: "Inspection", desc: "Nous évaluons la propriété et l'étendue des travaux, en personne ou par photos." },
       estimate: { title: "Estimation", desc: "Vous recevez une estimation claire et détaillée, sans surprise cachée." },
       approval: { title: "Approbation", desc: "Nous planifions les travaux une fois que vous et/ou votre assureur avez donné votre accord." },
       completion: { title: "Réalisation", desc: "Notre équipe termine les travaux à temps, avec une visite finale." },
     },
+  },
+  ctaBand: {
+    title: "Prêt à commencer votre projet?",
+    subtitle: "Obtenez une estimation approximative en quelques minutes avec notre outil d'estimation instantanée, ou appelez-nous directement.",
+    ctaEstimate: "Estimation instantanée",
+    ctaCall: "Appelez maintenant",
   },
   testimonials: {
     title: "Ce que disent nos clients",
