@@ -1,4 +1,10 @@
-export type ProjectType = "renovations" | "waterDamage" | "kitchenBath";
+export type ProjectType =
+  | "waterDamage"
+  | "flooring"
+  | "kitchenBath"
+  | "interior"
+  | "basements"
+  | "repairs";
 export type ProjectSize = "small" | "medium" | "large";
 export type QualityTier = "standard" | "premium" | "luxury";
 
@@ -19,20 +25,35 @@ export type ChatMessage = {
 };
 
 const PRICING: Record<ProjectType, Record<ProjectSize, [number, number]>> = {
-  renovations: {
-    small: [5000, 12000],
-    medium: [12000, 30000],
-    large: [30000, 75000],
-  },
   waterDamage: {
     small: [1500, 4000],
     medium: [4000, 12000],
     large: [12000, 30000],
   },
+  flooring: {
+    small: [2000, 5000],
+    medium: [5000, 14000],
+    large: [14000, 30000],
+  },
   kitchenBath: {
     small: [8000, 18000],
     medium: [18000, 35000],
     large: [35000, 70000],
+  },
+  interior: {
+    small: [5000, 12000],
+    medium: [12000, 30000],
+    large: [30000, 75000],
+  },
+  basements: {
+    small: [10000, 20000],
+    medium: [20000, 45000],
+    large: [45000, 90000],
+  },
+  repairs: {
+    small: [300, 1200],
+    medium: [1200, 3500],
+    large: [3500, 8000],
   },
 };
 

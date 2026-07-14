@@ -122,6 +122,7 @@ export default function CaseStudiesContent() {
                       src="/images/placeholder-before.svg"
                       alt={c.beforeAlt + title}
                       fill
+                      sizes="(min-width: 1024px) 320px, 50vw"
                       className="object-cover"
                     />
                     <span className="absolute left-3 top-3 rounded-full bg-charcoal/80 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
@@ -133,6 +134,7 @@ export default function CaseStudiesContent() {
                       src="/images/placeholder-after.svg"
                       alt={c.afterAlt + title}
                       fill
+                      sizes="(min-width: 1024px) 320px, 50vw"
                       className="object-cover"
                     />
                     <span className="absolute right-3 top-3 rounded-full bg-brand-green px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">

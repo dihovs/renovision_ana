@@ -122,8 +122,20 @@ export default function ChatWidget() {
         handleProjectType("waterDamage", t.chat.projectType.waterDamage);
         return true;
       }
-      if (/(renovat|remodel)/.test(lower)) {
-        handleProjectType("renovations", t.chat.projectType.renovations);
+      if (/(floor|tile|hardwood|vinyl)/.test(lower)) {
+        handleProjectType("flooring", t.chat.projectType.flooring);
+        return true;
+      }
+      if (/(basement)/.test(lower)) {
+        handleProjectType("basements", t.chat.projectType.basements);
+        return true;
+      }
+      if (/(repair|patch|touch.?up|color match|colour match)/.test(lower)) {
+        handleProjectType("repairs", t.chat.projectType.repairs);
+        return true;
+      }
+      if (/(renovat|remodel|room|interior)/.test(lower)) {
+        handleProjectType("interior", t.chat.projectType.interior);
         return true;
       }
       return false;
@@ -268,9 +280,12 @@ export default function ChatWidget() {
               {step === "projectType" && (
                 <OptionRow
                   options={[
-                    { value: "renovations", label: t.chat.projectType.renovations },
                     { value: "waterDamage", label: t.chat.projectType.waterDamage },
+                    { value: "flooring", label: t.chat.projectType.flooring },
                     { value: "kitchenBath", label: t.chat.projectType.kitchenBath },
+                    { value: "interior", label: t.chat.projectType.interior },
+                    { value: "basements", label: t.chat.projectType.basements },
+                    { value: "repairs", label: t.chat.projectType.repairs },
                   ]}
                   onSelect={(v, label) => handleProjectType(v as ProjectType, label)}
                 />

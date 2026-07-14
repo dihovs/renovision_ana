@@ -51,7 +51,10 @@ const en: Record<string, unknown> & {
     photoAttached: string;
     removePhoto: string;
     skip: string;
-    projectType: Record<"question" | "renovations" | "waterDamage" | "kitchenBath", string>;
+    projectType: Record<
+      "question" | "waterDamage" | "flooring" | "kitchenBath" | "interior" | "basements" | "repairs",
+      string
+    >;
     size: Record<"question" | "small" | "medium" | "large", string>;
     tier: Record<"question" | "standard" | "premium" | "luxury", string>;
     photo: Record<"question", string>;
@@ -190,9 +193,12 @@ const en: Record<string, unknown> & {
     skip: "Skip",
     projectType: {
       question: "What type of project are you looking to have done?",
-      renovations: "Renovation",
       waterDamage: "Water Damage Repair",
+      flooring: "Flooring",
       kitchenBath: "Kitchen / Bath Remodel",
+      interior: "Interior Renovation",
+      basements: "Basement Transformation",
+      repairs: "Small Repair / Color Match",
     },
     size: {
       question: "Roughly how big is the project?",
@@ -358,9 +364,12 @@ const fr: typeof en = {
     skip: "Passer",
     projectType: {
       question: "Quel type de projet souhaitez-vous réaliser?",
-      renovations: "Rénovation",
       waterDamage: "Réparation de dégâts d'eau",
+      flooring: "Revêtement de sol",
       kitchenBath: "Rénovation cuisine / salle de bain",
+      interior: "Rénovation intérieure",
+      basements: "Transformation de sous-sol",
+      repairs: "Petite réparation / agencement de couleurs",
     },
     size: {
       question: "Quelle est approximativement l'ampleur du projet?",
