@@ -16,6 +16,7 @@ const copy = {
     afterAlt: "After: ",
     studies: [
       {
+        image: "water-damage",
         tag: "Water Damage · Property Management",
         title: "Burst Pipe Across Two Occupied Floors",
         problem:
@@ -26,6 +27,7 @@ const copy = {
           "Both units fully restored in under three weeks with tenants in place. Complete photo documentation supported the insurance claim from first visit to final walkthrough.",
       },
       {
+        image: "kitchen",
         tag: "Kitchen Remodel · Homeowner",
         title: "1980s Kitchen, Full Transformation",
         problem:
@@ -36,6 +38,7 @@ const copy = {
           "A bright, functional kitchen delivered on schedule and on the agreed budget — now the family's favourite room in the house.",
       },
       {
+        image: "basement",
         tag: "Basement · Homeowner",
         title: "Unfinished Basement to Family Space",
         problem:
@@ -59,6 +62,7 @@ const copy = {
     afterAlt: "Après : ",
     studies: [
       {
+        image: "water-damage",
         tag: "Dégât d'eau · Gestion immobilière",
         title: "Tuyau éclaté sur deux étages occupés",
         problem:
@@ -69,6 +73,7 @@ const copy = {
           "Deux logements entièrement restaurés en moins de trois semaines, locataires en place. Une documentation photo complète a appuyé la réclamation d'assurance du premier jour à la visite finale.",
       },
       {
+        image: "kitchen",
         tag: "Rénovation de cuisine · Propriétaire",
         title: "Cuisine des années 1980, transformation complète",
         problem:
@@ -79,6 +84,7 @@ const copy = {
           "Une cuisine lumineuse et fonctionnelle, livrée dans les délais et le budget convenus — maintenant la pièce préférée de la famille.",
       },
       {
+        image: "basement",
         tag: "Sous-sol · Propriétaire",
         title: "D'un sous-sol non aménagé à un espace familial",
         problem:
@@ -110,7 +116,7 @@ export default function CaseStudiesContent() {
         </div>
 
         <div className="mt-16 space-y-16">
-          {c.studies.map(({ tag, title, problem, solution, result }) => (
+          {c.studies.map(({ image, tag, title, problem, solution, result }) => (
             <article
               key={title}
               className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5"
@@ -119,7 +125,7 @@ export default function CaseStudiesContent() {
                 <div className="relative grid grid-cols-2">
                   <div className="relative min-h-56">
                     <Image
-                      src="/images/placeholder-before.svg"
+                      src={`/images/${image}-before.svg`}
                       alt={c.beforeAlt + title}
                       fill
                       sizes="(min-width: 1024px) 320px, 50vw"
@@ -131,7 +137,7 @@ export default function CaseStudiesContent() {
                   </div>
                   <div className="relative min-h-56">
                     <Image
-                      src="/images/placeholder-after.svg"
+                      src={`/images/${image}-after.svg`}
                       alt={c.afterAlt + title}
                       fill
                       sizes="(min-width: 1024px) 320px, 50vw"

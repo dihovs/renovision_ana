@@ -82,7 +82,7 @@ export default function ScrollBeforeAfter() {
           <div className="relative">
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-black/5 shadow-xl">
               <Image
-                src="/images/placeholder-before.svg"
+                src="/images/kitchen-before.svg"
                 alt="Kitchen before Renovision AnA's water damage restoration work"
                 fill
                 sizes="(min-width: 1024px) 40vw, 90vw"
@@ -93,7 +93,7 @@ export default function ScrollBeforeAfter() {
                 style={{ clipPath: `inset(0 ${100 - revealPercent}% 0 0)` }}
               >
                 <Image
-                  src="/images/placeholder-after.svg"
+                  src="/images/kitchen-after.svg"
                   alt="Renovated kitchen after Renovision AnA's remodeling work"
                   fill
                   sizes="(min-width: 1024px) 40vw, 90vw"

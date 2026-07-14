@@ -1,0 +1,48 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="bbTitle">
+  <title id="bbTitle">Illustration: unfinished basement with bare concrete and exposed framing, before renovation</title>
+
+  <polygon points="0,0 100,42 100,430 0,430" fill="#a8a29a"/>
+  <rect x="100" y="0" width="700" height="430" fill="#bdb7ae"/>
+  <polygon points="0,430 100,430 750,430 800,600 0,600" fill="#918b83"/>
+  <polygon points="750,430 800,430 800,600 750,600" fill="#7c766f" opacity="0.6"/>
+
+  <!-- bare concrete floor texture -->
+  <g stroke="#7c766f" stroke-width="1.5" opacity="0.5">
+    <line x1="60" y1="470" x2="720" y2="470"/>
+    <line x1="40" y1="512" x2="760" y2="512"/>
+    <path d="M300 460 l10 140"/>
+    <path d="M520 465 l-16 135"/>
+  </g>
+
+  <!-- exposed stud framing -->
+  <g stroke="#8a7a66" stroke-width="10" fill="none">
+    <line x1="180" y1="60" x2="180" y2="430"/>
+    <line x1="280" y1="60" x2="280" y2="430"/>
+    <line x1="380" y1="60" x2="380" y2="430"/>
+  </g>
+  <line x1="180" y1="60" x2="380" y2="60" stroke="#8a7a66" stroke-width="10"/>
+
+  <!-- exposed ductwork -->
+  <rect x="440" y="30" width="220" height="34" rx="4" fill="#9c8d78" stroke="#6f6151" stroke-width="2"/>
+  <line x1="470" y1="30" x2="470" y2="64" stroke="#6f6151" stroke-width="1.5"/>
+  <line x1="510" y1="30" x2="510" y2="64" stroke="#6f6151" stroke-width="1.5"/>
+  <line x1="550" y1="30" x2="550" y2="64" stroke="#6f6151" stroke-width="1.5"/>
+
+  <!-- moisture concern in corner -->
+  <g opacity="0.5" fill="#6f6151">
+    <path d="M0 430 Q40 380 90 430 Q60 460 0 460 Z"/>
+  </g>
+  <ellipse cx="40" cy="480" rx="60" ry="16" fill="#6f6151" opacity="0.3"/>
+
+  <!-- small window well -->
+  <rect x="600" y="70" width="120" height="80" fill="#cfc9c1" stroke="#7c766f" stroke-width="4"/>
+  <line x1="660" y1="70" x2="660" y2="150" stroke="#7c766f" stroke-width="3"/>
+
+  <!-- storage boxes -->
+  <rect x="470" y="360" width="70" height="60" fill="#9c8d78" stroke="#6f6151" stroke-width="2"/>
+  <rect x="550" y="380" width="55" height="40" fill="#8f8069" stroke="#6f6151" stroke-width="2"/>
+
+  <!-- bare bulb -->
+  <line x1="300" y1="0" x2="300" y2="70" stroke="#7c766f" stroke-width="2"/>
+  <circle cx="300" cy="80" r="12" fill="#cfc9c1" stroke="#7c766f" stroke-width="2"/>
+</svg>

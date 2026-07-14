@@ -1,0 +1,51 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="baTitle">
+  <title id="baTitle">Illustration: finished basement family room with media wall, after renovation</title>
+
+  <polygon points="0,0 100,42 100,430 0,430" fill="#dce8f9"/>
+  <rect x="100" y="0" width="700" height="430" fill="#eaf1fb"/>
+  <polygon points="0,430 100,430 750,430 800,600 0,600" fill="#f5f7fa"/>
+  <polygon points="750,430 800,430 800,600 750,600" fill="#e3ecf7"/>
+
+  <!-- clean vinyl plank floor -->
+  <g stroke="#dce8f9" stroke-width="2">
+    <line x1="60" y1="470" x2="720" y2="470"/>
+    <line x1="40" y1="512" x2="760" y2="512"/>
+    <line x1="20" y1="558" x2="790" y2="558"/>
+    <line x1="260" y1="450" x2="220" y2="600"/>
+    <line x1="460" y1="450" x2="460" y2="600"/>
+  </g>
+
+  <!-- drywalled ceiling with pot lights -->
+  <g fill="#2b2b2b" opacity="0.7">
+    <circle cx="220" cy="18" r="7"/>
+    <circle cx="400" cy="18" r="7"/>
+    <circle cx="580" cy="18" r="7"/>
+  </g>
+
+  <!-- media wall with green accent panel -->
+  <rect x="150" y="90" width="360" height="220" rx="6" fill="#ffffff" stroke="#2b5c9e" stroke-width="4"/>
+  <rect x="180" y="120" width="300" height="90" rx="4" fill="#2b2b2b"/>
+  <rect x="180" y="230" width="140" height="60" rx="4" fill="#eef8e9"/>
+  <rect x="340" y="230" width="140" height="60" rx="4" fill="#4e9e2e"/>
+
+  <!-- window well, bright -->
+  <rect x="600" y="70" width="120" height="80" fill="#ffffff" stroke="#2b5c9e" stroke-width="4"/>
+  <line x1="660" y1="70" x2="660" y2="150" stroke="#2b5c9e" stroke-width="2"/>
+
+  <!-- sectional seating -->
+  <g>
+    <rect x="150" y="380" width="220" height="60" rx="14" fill="#2b5c9e"/>
+    <rect x="145" y="355" width="230" height="40" rx="16" fill="#2b5c9e"/>
+    <rect x="365" y="365" width="20" height="70" rx="8" fill="#2b5c9e"/>
+  </g>
+
+  <!-- rug -->
+  <ellipse cx="330" cy="470" rx="160" ry="30" fill="#4e9e2e" opacity="0.25"/>
+
+  <!-- side table + plant -->
+  <rect x="580" y="400" width="60" height="10" rx="4" fill="#2b5c9e"/>
+  <line x1="588" y1="410" x2="588" y2="440" stroke="#2b5c9e" stroke-width="4"/>
+  <line x1="632" y1="410" x2="632" y2="440" stroke="#2b5c9e" stroke-width="4"/>
+  <path d="M600 400 h20 l-3 24 h-14 z" fill="#4e9e2e"/>
+  <path d="M610 400 q-16 -18 -2 -34 q16 10 2 34" fill="#6fbf4c"/>
+</svg>

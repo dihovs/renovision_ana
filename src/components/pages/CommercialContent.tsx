@@ -2,6 +2,7 @@
 
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
+import FeatureCard from "@/components/ui/FeatureCard";
 import {
   IconBuilding,
   IconClipboard,
@@ -18,8 +19,6 @@ const copy = {
     title: "A Renovation Partner That Keeps Your Portfolio Moving",
     intro:
       "Vacant units cost money every day they sit empty. We help property managers turn units fast, respond to emergencies, and keep tenants happy — with one point of contact and paperwork your office can actually use.",
-    ctaEstimate: "Get an Instant Estimate",
-    ctaCall: "Call Now",
     benefitsTitle: "Why property managers work with us",
     benefits: [
       {
@@ -67,8 +66,6 @@ const copy = {
     title: "Un partenaire de rénovation qui fait avancer votre portefeuille",
     intro:
       "Un logement vacant coûte de l'argent chaque jour. Nous aidons les gestionnaires immobiliers à retourner les unités rapidement, à répondre aux urgences et à garder les locataires satisfaits — avec un seul point de contact et une documentation que votre bureau peut vraiment utiliser.",
-    ctaEstimate: "Estimation instantanée",
-    ctaCall: "Appelez maintenant",
     benefitsTitle: "Pourquoi les gestionnaires immobiliers travaillent avec nous",
     benefits: [
       {
@@ -123,7 +120,7 @@ const icons = {
 } as const;
 
 export default function CommercialContent() {
-  const { locale } = useLanguage();
+  const { locale, t } = useLanguage();
   const { openChat } = useChat();
   const c = copy[locale];
 
@@ -143,13 +140,13 @@ export default function CommercialContent() {
               onClick={openChat}
               className="rounded-full bg-brand-green px-7 py-3.5 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
             >
-              {c.ctaEstimate}
+              {t.ctaBand.ctaEstimate}
             </button>
             <a
               href={`tel:${SITE_PHONE_TEL}`}
               className="rounded-full border-2 border-brand-blue px-7 py-3.5 text-center font-heading font-bold text-brand-blue transition-colors hover:bg-brand-blue-light"
             >
-              {c.ctaCall} · {SITE_PHONE}
+              {t.ctaBand.ctaCall} · {SITE_PHONE}
             </a>
           </div>
         </div>
@@ -161,26 +158,14 @@ export default function CommercialContent() {
             {c.benefitsTitle}
           </h2>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {c.benefits.map(({ icon, title, desc }) => {
-              const Icon = icons[icon as keyof typeof icons];
-              return (
-                <div
-                  key={title}
-                  className="rounded-2xl bg-white p-7 shadow-sm ring-1 ring-black/5"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green-light text-brand-green">
-                    <Icon />
-                  </div>
-                  <h3 className="mt-5 font-heading text-lg font-bold text-brand-blue">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-charcoal/75">{desc}</p>
-                </div>
-              );
-            })}
+            {c.benefits.map(({ icon, title, desc }) => (
+              <FeatureCard key={title} icon={icons[icon as keyof typeof icons]} title={title} desc={desc} />
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-navy py-16">
+      <section className="bg-charcoal-dark py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-heading text-3xl font-bold text-white">{c.processTitle}</h2>

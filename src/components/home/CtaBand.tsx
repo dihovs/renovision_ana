@@ -9,7 +9,7 @@ export default function CtaBand() {
   const { openChat } = useChat();
 
   return (
-    <section className="bg-navy py-16">
+    <section className="bg-charcoal-dark py-16">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 text-center sm:px-6 lg:flex-row lg:justify-between lg:text-left lg:px-8">
         <div>
           <h2 className="font-heading text-3xl font-bold text-white sm:text-4xl">

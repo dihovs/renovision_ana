@@ -14,13 +14,13 @@ export default function StatsBar() {
   ];
 
   return (
-    <section className="bg-navy py-14">
+    <section className="bg-charcoal-dark py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 lg:grid-cols-4">
           {stats.map(({ icon: Icon, value, label }) => (
             <div
               key={label}
-              className="flex flex-col items-center gap-2 bg-navy-light/80 px-6 py-8 text-center"
+              className="flex flex-col items-center gap-2 bg-charcoal-dark-light/80 px-6 py-8 text-center"
             >
               <Icon className="h-6 w-6 text-brand-green-soft" />
               <span className="font-heading text-3xl font-semibold text-white">{value}</span>

@@ -22,7 +22,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="border-t border-white/10 bg-navy text-white/90">
+    <footer className="border-t border-white/10 bg-charcoal-dark text-white/90">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
         <div>
           <Link href="/" className="flex items-center gap-2">

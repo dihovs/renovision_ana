@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import FeatureCard from "@/components/ui/FeatureCard";
 import {
   IconDroplet,
   IconTiles,
@@ -64,18 +64,8 @@ export default function ServicesPage() {
         Any interior job, big or small — from full transformations to cost-effective local repairs.
       </p>
       <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {SERVICES.map(({ href, icon: Icon, title, desc }) => (
-          <Link
-            key={href}
-            href={href}
-            className="rounded-2xl bg-white p-7 shadow-sm ring-1 ring-black/5 transition-all hover:-translate-y-1 hover:shadow-lg"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green-light text-brand-green">
-              <Icon />
-            </div>
-            <h2 className="mt-5 font-heading text-lg font-bold text-brand-blue">{title}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-charcoal/75">{desc}</p>
-          </Link>
+        {SERVICES.map(({ href, icon, title, desc }) => (
+          <FeatureCard key={href} icon={icon} href={href} title={title} desc={desc} headingLevel="h2" />
         ))}
       </div>
     </section>

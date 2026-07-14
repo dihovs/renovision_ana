@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/i18n/LanguageProvider";
+import FeatureCard from "@/components/ui/FeatureCard";
 import { IconHammer, IconCheckCircle, IconHome, IconShield } from "@/components/ui/icons";
 import { SITE_EMAIL } from "@/lib/constants";
 
@@ -110,18 +111,14 @@ export default function CareersContent() {
             {c.whyTitle}
           </h2>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {c.reasons.map(({ icon, title, desc }) => {
-              const Icon = icons[icon as keyof typeof icons];
-              return (
-                <div key={title} className="rounded-2xl bg-white p-7 shadow-sm ring-1 ring-black/5">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green-light text-brand-green">
-                    <Icon />
-                  </div>
-                  <h3 className="mt-5 font-heading text-lg font-bold text-brand-blue">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-charcoal/75">{desc}</p>
-                </div>
-              );
-            })}
+            {c.reasons.map(({ icon, title, desc }) => (
+              <FeatureCard
+                key={title}
+                icon={icons[icon as keyof typeof icons]}
+                title={title}
+                desc={desc}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -129,7 +126,7 @@ export default function CareersContent() {
       <section className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:px-8">
         <h2 className="font-heading text-3xl font-bold text-brand-blue">{c.rolesTitle}</h2>
         <p className="mt-4 leading-relaxed text-charcoal/75">{c.rolesDesc}</p>
-        <div className="mt-12 rounded-2xl bg-navy p-8">
+        <div className="mt-12 rounded-2xl bg-charcoal-dark p-8">
           <h3 className="font-heading text-2xl font-bold text-white">{c.applyTitle}</h3>
           <p className="mt-3 text-white/75">{c.applyDesc}</p>
           <a

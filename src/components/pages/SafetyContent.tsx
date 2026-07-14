@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/i18n/LanguageProvider";
+import FeatureCard from "@/components/ui/FeatureCard";
 import { IconShield, IconCheckCircle, IconClipboard, IconBuilding } from "@/components/ui/icons";
 
 const copy = {
@@ -100,7 +101,7 @@ export default function SafetyContent() {
   return (
     <>
       {/* Dark charcoal hero — the reference site's safety page treatment */}
-      <section className="bg-navy py-20">
+      <section className="bg-charcoal-dark py-20">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
           <p className="text-xs font-bold uppercase tracking-widest text-brand-green-soft">
             {c.eyebrow}
@@ -117,18 +118,14 @@ export default function SafetyContent() {
           {c.certsTitle}
         </h2>
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
-          {c.certs.map(({ icon, title, desc }) => {
-            const Icon = icons[icon as keyof typeof icons];
-            return (
-              <div key={title} className="rounded-2xl bg-white p-7 shadow-sm ring-1 ring-black/5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green-light text-brand-green">
-                  <Icon />
-                </div>
-                <h3 className="mt-5 font-heading text-lg font-bold text-brand-blue">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal/75">{desc}</p>
-              </div>
-            );
-          })}
+          {c.certs.map(({ icon, title, desc }) => (
+            <FeatureCard
+              key={title}
+              icon={icons[icon as keyof typeof icons]}
+              title={title}
+              desc={desc}
+            />
+          ))}
         </div>
       </section>
 
@@ -145,7 +142,7 @@ export default function SafetyContent() {
               </li>
             ))}
           </ul>
-          <div className="mt-12 rounded-2xl bg-navy p-8 text-center">
+          <div className="mt-12 rounded-2xl bg-charcoal-dark p-8 text-center">
             <p className="text-white/85">{c.note}</p>
             <a
               href="/contact"
