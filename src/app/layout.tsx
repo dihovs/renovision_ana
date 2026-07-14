@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Poppins, Inter } from "next/font/google";
+import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { ChatProvider } from "@/components/chat/ChatProvider";
@@ -8,13 +8,6 @@ import Footer from "@/components/layout/Footer";
 import ChatWidget from "@/components/chat/ChatWidget";
 import LocalBusinessSchema from "@/components/seo/LocalBusinessSchema";
 import { SITE_URL } from "@/lib/constants";
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-  style: ["normal", "italic"],
-});
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -54,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${poppins.variable} ${inter.variable} h-full antialiased`}
+      className={`${poppins.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-white text-charcoal font-body">
         <LocalBusinessSchema />

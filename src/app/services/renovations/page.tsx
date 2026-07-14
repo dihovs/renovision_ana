@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import PlaceholderPage from "@/components/ui/PlaceholderPage";
 
 export const metadata: Metadata = {
-  title: "Renovations",
+  title: "Interior Renovations",
   description:
-    "General renovation services for residential and commercial properties from Renovision AnA.",
+    "Complete interior renovations for any room — bedrooms, living rooms, offices — from Renovision AnA.",
 };
 
 export default function RenovationsPage() {
   return (
     <PlaceholderPage
-      title="Renovations"
-      description="Full and partial renovations for residential and commercial properties, from single rooms to entire units."
+      title="Interior Renovations"
+      description="Bedrooms, living rooms, offices — complete renovations for any room and any interior space, residential or commercial."
     />
   );
 }

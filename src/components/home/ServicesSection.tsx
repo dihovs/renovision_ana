@@ -2,15 +2,25 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { IconHammer, IconDroplet, IconKitchen } from "@/components/ui/icons";
+import {
+  IconDroplet,
+  IconTiles,
+  IconKitchen,
+  IconHammer,
+  IconStairs,
+  IconBrush,
+} from "@/components/ui/icons";
 
 export default function ServicesSection() {
   const { t } = useLanguage();
 
   const services = [
-    { icon: IconHammer, href: "/services/renovations", ...t.services.renovations },
-    { icon: IconDroplet, href: "/services/water-damage", ...t.services.waterDamage },
-    { icon: IconKitchen, href: "/services/kitchen-bath", ...t.services.kitchenBath },
+    { icon: IconDroplet, href: "/services/water-damage", ...t.services.items.waterDamage },
+    { icon: IconTiles, href: "/services/flooring", ...t.services.items.flooring },
+    { icon: IconKitchen, href: "/services/kitchen-bath", ...t.services.items.kitchenBath },
+    { icon: IconHammer, href: "/services/renovations", ...t.services.items.interior },
+    { icon: IconStairs, href: "/services/basements", ...t.services.items.basements },
+    { icon: IconBrush, href: "/services/repairs", ...t.services.items.repairs },
   ];
 
   return (
@@ -23,7 +33,7 @@ export default function ServicesSection() {
           <p className="mt-3 text-charcoal/70">{t.services.subtitle}</p>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-3">
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map(({ icon: Icon, href, title, desc }) => (
             <Link
               key={href}

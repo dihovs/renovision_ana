@@ -83,6 +83,35 @@ export function IconCalendar({ className = base }: IconProps) {
   );
 }
 
+export function IconTiles({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1" />
+      <rect x="13" y="3.5" width="7.5" height="7.5" rx="1" />
+      <rect x="3.5" y="13" width="7.5" height="7.5" rx="1" />
+      <rect x="13" y="13" width="7.5" height="7.5" rx="1" />
+    </svg>
+  );
+}
+
+export function IconStairs({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <path d="M4 20h4v-4h4v-4h4V8h4V4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 20V4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconBrush({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <path d="M20 3s-7 5.5-9.5 8L13 13.5C15.5 11 20 3 20 3Z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 12.5c-1.8.3-2.6 1.4-3 2.9-.4 1.6-1 2.6-3 3.1 1.3 1.6 4.2 2.1 6 .8 1.4-1 1.9-2.6 1.5-4.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconFlag({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>

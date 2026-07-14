@@ -17,9 +17,10 @@ const en: Record<string, unknown> & {
     title: string;
     subtitle: string;
     learnMore: string;
-    renovations: { title: string; desc: string };
-    waterDamage: { title: string; desc: string };
-    kitchenBath: { title: string; desc: string };
+    items: Record<
+      "waterDamage" | "flooring" | "kitchenBath" | "interior" | "basements" | "repairs",
+      { title: string; desc: string }
+    >;
   };
   howItWorks: {
     title: string;
@@ -101,19 +102,33 @@ const en: Record<string, unknown> & {
   },
   services: {
     title: "Our Services",
-    subtitle: "Comprehensive renovation and restoration services, done right the first time.",
+    subtitle: "Any interior job, big or small — from full transformations to cost-effective local repairs.",
     learnMore: "Learn more",
-    renovations: {
-      title: "Renovations",
-      desc: "Full and partial renovations for residential and commercial properties, from single rooms to entire units.",
-    },
-    waterDamage: {
-      title: "Water Damage Restoration",
-      desc: "Rapid response water extraction, drying, and repair to protect your property and minimize downtime.",
-    },
-    kitchenBath: {
-      title: "Kitchen & Bath Remodeling",
-      desc: "Modern, functional kitchen and bathroom remodels tailored to your budget and style.",
+    items: {
+      waterDamage: {
+        title: "Water Damage Restoration",
+        desc: "Rapid response water extraction, drying, and repair to protect your property and minimize downtime.",
+      },
+      flooring: {
+        title: "Flooring",
+        desc: "Tile, hardwood, and vinyl flooring installed and refinished with precision, built to last.",
+      },
+      kitchenBath: {
+        title: "Kitchens & Bathrooms",
+        desc: "Modern, functional kitchen and bathroom remodels tailored to your budget and style.",
+      },
+      interior: {
+        title: "Interior Renovations",
+        desc: "Bedrooms, living rooms, offices — complete renovations for any room and any interior space.",
+      },
+      basements: {
+        title: "Basement Transformations",
+        desc: "Full basement transformations, from unfinished space to beautiful, livable rooms.",
+      },
+      repairs: {
+        title: "Small Repairs & Color Matching",
+        desc: "Cost-effective local repairs with precise color matching that blends seamlessly into the existing finish.",
+      },
     },
   },
   howItWorks: {
@@ -244,19 +259,33 @@ const fr: typeof en = {
   },
   services: {
     title: "Nos services",
-    subtitle: "Des services complets de rénovation et de restauration, bien faits du premier coup.",
+    subtitle: "Tout travail intérieur, grand ou petit — des transformations complètes aux réparations locales économiques.",
     learnMore: "En savoir plus",
-    renovations: {
-      title: "Rénovations",
-      desc: "Rénovations complètes ou partielles pour propriétés résidentielles et commerciales, d'une seule pièce à une unité complète.",
-    },
-    waterDamage: {
-      title: "Restauration de dégâts d'eau",
-      desc: "Extraction d'eau rapide, séchage et réparation pour protéger votre propriété et réduire les interruptions.",
-    },
-    kitchenBath: {
-      title: "Rénovation cuisine et salle de bain",
-      desc: "Des rénovations de cuisines et salles de bain modernes et fonctionnelles, adaptées à votre budget et à votre style.",
+    items: {
+      waterDamage: {
+        title: "Restauration de dégâts d'eau",
+        desc: "Extraction d'eau rapide, séchage et réparation pour protéger votre propriété et réduire les interruptions.",
+      },
+      flooring: {
+        title: "Planchers",
+        desc: "Céramique, bois franc et vinyle — installation et finition de planchers avec précision, faits pour durer.",
+      },
+      kitchenBath: {
+        title: "Cuisines et salles de bain",
+        desc: "Des rénovations de cuisines et salles de bain modernes et fonctionnelles, adaptées à votre budget et à votre style.",
+      },
+      interior: {
+        title: "Rénovations intérieures",
+        desc: "Chambres, salons, bureaux — des rénovations complètes pour toute pièce et tout espace intérieur.",
+      },
+      basements: {
+        title: "Transformations de sous-sol",
+        desc: "Transformations complètes de sous-sol, d'un espace non aménagé à de belles pièces habitables.",
+      },
+      repairs: {
+        title: "Petites réparations et agencement de couleurs",
+        desc: "Réparations locales économiques avec un agencement de couleurs précis qui se fond parfaitement dans le fini existant.",
+      },
     },
   },
   howItWorks: {

@@ -4,9 +4,12 @@ import { SITE_URL } from "@/lib/constants";
 const routes = [
   "",
   "/services",
-  "/services/renovations",
   "/services/water-damage",
+  "/services/flooring",
   "/services/kitchen-bath",
+  "/services/renovations",
+  "/services/basements",
+  "/services/repairs",
   "/about",
   "/gallery",
   "/blog",
