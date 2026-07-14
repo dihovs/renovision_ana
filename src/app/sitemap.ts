@@ -10,8 +10,12 @@ const routes = [
   "/services/renovations",
   "/services/basements",
   "/services/repairs",
+  "/commercial",
   "/about",
   "/gallery",
+  "/case-studies",
+  "/safety",
+  "/careers",
   "/blog",
   "/contact",
 ];

@@ -11,8 +11,12 @@ export default function Footer() {
 
   const navLinks = [
     { href: "/services", label: t.nav.services },
+    { href: "/commercial", label: t.nav.commercial },
     { href: "/about", label: t.nav.about },
     { href: "/gallery", label: t.nav.gallery },
+    { href: "/case-studies", label: t.nav.caseStudies },
+    { href: "/safety", label: t.nav.safety },
+    { href: "/careers", label: t.nav.careers },
     { href: "/blog", label: t.nav.blog },
     { href: "/contact", label: t.nav.contact },
   ];

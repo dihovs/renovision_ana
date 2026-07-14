@@ -65,6 +65,10 @@ const en: Record<string, unknown> & {
     gallery: "Gallery",
     blog: "Blog",
     contact: "Contact",
+    commercial: "Commercial",
+    safety: "Safety & Certifications",
+    careers: "Careers",
+    caseStudies: "Case Studies",
   },
   header: {
     freeEstimate: "Get a Free Estimate",
@@ -229,6 +233,10 @@ const fr: typeof en = {
     gallery: "Galerie",
     blog: "Blogue",
     contact: "Contact",
+    commercial: "Commercial",
+    safety: "Sécurité et certifications",
+    careers: "Carrières",
+    caseStudies: "Études de cas",
   },
   header: {
     freeEstimate: "Estimation gratuite",
