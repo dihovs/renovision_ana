@@ -50,6 +50,12 @@
     font-family: var(--font-heading);
     color: var(--color-brand-blue);
   }
+
+  /* Tailwind v4 preflight defaults buttons to cursor:default */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 @keyframes marquee {
