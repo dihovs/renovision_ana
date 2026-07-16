@@ -1,17 +1,13 @@
-import type { Metadata } from "next";
-import PlaceholderPage from "@/components/ui/PlaceholderPage";
+import GalleryContent from "@/components/pages/GalleryContent";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildMetadata({
   title: "Gallery",
   description:
-    "Browse completed renovation, water damage restoration, and kitchen & bathroom remodeling projects by Renovision AnA.",
-};
+    "Browse completed renovation, water damage restoration, and basement transformation projects by Renovision AnA.",
+  path: "/gallery",
+});
 
 export default function GalleryPage() {
-  return (
-    <PlaceholderPage
-      title="Completed Projects"
-      description="A look at recent renovation, restoration, and remodeling work from our team."
-    />
-  );
+  return <GalleryContent />;
 }

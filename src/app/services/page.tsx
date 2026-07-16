@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import FeatureCard from "@/components/ui/FeatureCard";
 import {
   IconDroplet,
@@ -8,12 +7,14 @@ import {
   IconStairs,
   IconBrush,
 } from "@/components/ui/icons";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildMetadata({
   title: "Services",
   description:
     "Water damage restoration, flooring, kitchens & bathrooms, interior renovations, basement transformations, and small repairs with color matching.",
-};
+  path: "/services",
+});
 
 const SERVICES = [
   {

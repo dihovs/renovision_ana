@@ -5,6 +5,7 @@ import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import SmoothScroll from "@/components/layout/SmoothScroll";
 import ChatWidget from "@/components/chat/ChatWidget";
 import LocalBusinessSchema from "@/components/seo/LocalBusinessSchema";
 import { SITE_URL } from "@/lib/constants";
@@ -39,6 +40,12 @@ export const metadata: Metadata = {
     locale: "en_US",
     type: "website",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Renovision AnA | Renovation & Water Damage Restoration",
+    description:
+      "General renovations, water damage repair and restoration, and kitchen & bathroom remodeling for property managers, insurers, and homeowners.",
+  },
 };
 
 export default function RootLayout({
@@ -53,6 +60,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-white text-charcoal font-body">
         <LocalBusinessSchema />
+        <SmoothScroll />
         <LanguageProvider>
           <ChatProvider>
             <Header />

@@ -1,17 +1,13 @@
-import type { Metadata } from "next";
-import PlaceholderPage from "@/components/ui/PlaceholderPage";
+import BasementsContent from "@/components/pages/BasementsContent";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildMetadata({
   title: "Basement Transformations",
   description:
     "Full basement transformations from unfinished space to beautiful, livable rooms by Renovision AnA.",
-};
+  path: "/services/basements",
+});
 
 export default function BasementsPage() {
-  return (
-    <PlaceholderPage
-      title="Basement Transformations"
-      description="Full basement transformations — from unfinished space to beautiful, livable rooms your family will actually use."
-    />
-  );
+  return <BasementsContent />;
 }

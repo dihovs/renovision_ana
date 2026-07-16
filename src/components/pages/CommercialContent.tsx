@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import FeatureCard from "@/components/ui/FeatureCard";
+import Reveal from "@/components/ui/Reveal";
 import {
   IconBuilding,
   IconClipboard,
@@ -19,6 +21,13 @@ const copy = {
     title: "A Renovation Partner That Keeps Your Portfolio Moving",
     intro:
       "Vacant units cost money every day they sit empty. We help property managers turn units fast, respond to emergencies, and keep tenants happy — with one point of contact and paperwork your office can actually use.",
+    narrativeTitle: "Built to Make a Property Manager's Job Easier",
+    narrativeParagraphs: [
+      "You manage more buildings than there are hours in the day. Every vacant unit is lost revenue, every maintenance call is a tenant relationship on the line, and every new vendor is one more phone number to track down when something goes wrong. That's the day-to-day reality of property management in Laval and greater Montreal — and it's exactly what Renovision AnA was built around.",
+      "Instead of juggling a painter, a flooring installer, and a water damage crew separately, you call one number. We handle interior renovations, flooring, kitchen and bathroom remodels, basement build-outs, water damage restoration, and small color-matched repairs — all under one roof, with one coordinator who already knows your portfolio and your timelines.",
+      "When a unit floods at 11pm or a tenant reports a leak on a Sunday, you need a crew that shows up — not a voicemail. We respond quickly, document everything with dated photos and itemized reports your owners and insurers can act on immediately, and our crews work cleanly around occupied units and common areas, because your tenants' patience is part of what you're protecting.",
+      "The result: shorter vacancy windows, fewer vendor headaches, and documentation that holds up when an owner or an insurance adjuster asks questions.",
+    ],
     benefitsTitle: "Why property managers work with us",
     benefits: [
       {
@@ -56,7 +65,7 @@ const copy = {
     processDesc:
       "From single-unit refreshes to multi-floor water damage response, we scale crews to the job and report progress as we go.",
     stats: [
-      { value: "24/7", label: "Emergency response" },
+      { value: "7 days", label: "Emergency response" },
       { value: "48h", label: "Typical estimate turnaround" },
       { value: "1", label: "Point of contact per portfolio" },
     ],
@@ -66,6 +75,13 @@ const copy = {
     title: "Un partenaire de rénovation qui fait avancer votre portefeuille",
     intro:
       "Un logement vacant coûte de l'argent chaque jour. Nous aidons les gestionnaires immobiliers à retourner les unités rapidement, à répondre aux urgences et à garder les locataires satisfaits — avec un seul point de contact et une documentation que votre bureau peut vraiment utiliser.",
+    narrativeTitle: "Conçu pour faciliter le travail des gestionnaires immobiliers",
+    narrativeParagraphs: [
+      "Vous gérez plus d'immeubles qu'il n'y a d'heures dans une journée. Chaque unité vacante représente des revenus perdus, chaque appel de maintenance met en jeu une relation avec un locataire, et chaque nouveau fournisseur est un numéro de téléphone de plus à retracer quand quelque chose tourne mal. C'est le quotidien de la gestion immobilière à Laval et dans le grand Montréal — et c'est exactement ce pour quoi Renovision AnA a été conçue.",
+      "Plutôt que de jongler séparément avec un peintre, un poseur de plancher et une équipe de restauration de dégâts d'eau, vous appelez un seul numéro. Nous prenons en charge les rénovations intérieures, les planchers, les rénovations de cuisine et de salle de bain, l'aménagement de sous-sols, la restauration de dégâts d'eau et les petites réparations avec agencement de couleurs — le tout sous un même toit, avec un seul coordonnateur qui connaît déjà votre portefeuille et vos échéanciers.",
+      "Quand une unité est inondée à 23h ou qu'un locataire signale une fuite un dimanche, vous avez besoin d'une équipe qui se présente — pas d'une boîte vocale. Nous répondons rapidement, documentons tout avec des photos datées et des rapports détaillés que vos propriétaires et vos assureurs peuvent utiliser immédiatement, et nos équipes travaillent proprement autour des unités occupées et des aires communes, parce que la patience de vos locataires fait aussi partie de ce que vous protégez.",
+      "Le résultat : des périodes de vacance plus courtes, moins de maux de tête liés aux fournisseurs, et une documentation qui tient la route quand un propriétaire ou un expert en sinistres pose des questions.",
+    ],
     benefitsTitle: "Pourquoi les gestionnaires immobiliers travaillent avec nous",
     benefits: [
       {
@@ -103,7 +119,7 @@ const copy = {
     processDesc:
       "Du rafraîchissement d'une seule unité à l'intervention après dégât d'eau sur plusieurs étages, nous adaptons nos équipes au travail et rapportons l'avancement en continu.",
     stats: [
-      { value: "24/7", label: "Réponse d'urgence" },
+      { value: "7 jours", label: "Réponse d'urgence" },
       { value: "48h", label: "Délai d'estimation typique" },
       { value: "1", label: "Point de contact par portefeuille" },
     ],
@@ -149,6 +165,32 @@ export default function CommercialContent() {
               {t.ctaBand.ctaCall} · {SITE_PHONE}
             </a>
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-12 lg:grid-cols-2">
+          <Reveal className="relative order-2 aspect-[4/3] overflow-hidden rounded-2xl lg:order-1">
+            <Image
+              src="/images/office-interior.jpg"
+              alt="Modern property management office with city skyline view and a maintenance cart staged with tools and a hard hat"
+              fill
+              sizes="(min-width: 1024px) 45vw, 90vw"
+              className="object-cover"
+            />
+          </Reveal>
+          <Reveal delayMs={150} className="order-1 lg:order-2">
+            <h2 className="font-heading text-2xl font-bold text-brand-blue sm:text-3xl">
+              {c.narrativeTitle}
+            </h2>
+            <div className="mt-5 space-y-4">
+              {c.narrativeParagraphs.map((p) => (
+                <p key={p.slice(0, 24)} className="text-sm leading-relaxed text-charcoal/75">
+                  {p}
+                </p>
+              ))}
+            </div>
+          </Reveal>
         </div>
       </section>
 

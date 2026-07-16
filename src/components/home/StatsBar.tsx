@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { IconCalendar, IconCheckCircle, IconHome, IconShield } from "@/components/ui/icons";
+import { IconCalendar, IconCheckCircle, IconHome, IconMapPin } from "@/components/ui/icons";
 
 export default function StatsBar() {
   const { t } = useLanguage();
@@ -10,7 +10,7 @@ export default function StatsBar() {
     { icon: IconCalendar, ...t.stats.years },
     { icon: IconHome, ...t.stats.projects },
     { icon: IconCheckCircle, ...t.stats.satisfaction },
-    { icon: IconShield, ...t.stats.emergency },
+    { icon: IconMapPin, ...t.stats.emergency },
   ];
 
   return (

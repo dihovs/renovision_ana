@@ -1,0 +1,64 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="handoverTitle">
+  <title id="handoverTitle">Illustration: contractor and client shaking hands in a finished, bright room</title>
+
+  <!-- room shell -->
+  <polygon points="0,0 100,42 100,430 0,430" fill="#dce8f9"/>
+  <rect x="100" y="0" width="700" height="430" fill="#eaf1fb"/>
+  <polygon points="0,430 100,430 750,430 800,600 0,600" fill="#f5f7fa"/>
+  <polygon points="750,430 800,430 800,600 750,600" fill="#e3ecf7"/>
+
+  <!-- finished floor -->
+  <g stroke="#dce8f9" stroke-width="2">
+    <line x1="60" y1="470" x2="720" y2="470"/>
+    <line x1="40" y1="510" x2="760" y2="510"/>
+    <line x1="20" y1="555" x2="790" y2="555"/>
+  </g>
+
+  <!-- window with plant -->
+  <rect x="560" y="60" width="150" height="140" fill="#ffffff" stroke="#2b5c9e" stroke-width="5"/>
+  <line x1="635" y1="60" x2="635" y2="200" stroke="#2b5c9e" stroke-width="3"/>
+  <line x1="560" y1="130" x2="710" y2="130" stroke="#2b5c9e" stroke-width="3"/>
+  <g>
+    <rect x="700" y="190" width="24" height="18" rx="2" fill="#4e9e2e"/>
+    <path d="M712 190 q-16 -24 0 -36 q16 12 0 36" fill="#6fbf4c"/>
+  </g>
+
+  <!-- framed art -->
+  <rect x="150" y="90" width="80" height="60" fill="#ffffff" stroke="#2b5c9e" stroke-width="4"/>
+  <rect x="160" y="100" width="60" height="40" fill="#eef8e9"/>
+
+  <!-- contractor figure (green shirt, left) -->
+  <g>
+    <rect x="290" y="280" width="60" height="100" rx="18" fill="#4e9e2e"/>
+    <circle cx="320" cy="256" r="24" fill="#c98a5a"/>
+    <path d="M297 244 a23 20 0 0 1 46 0 q-6 -8 -23 -8 t-23 8" fill="#2b2b2b"/>
+    <!-- extended arm to shake hands -->
+    <path d="M348 320 q30 4 42 -2" stroke="#c98a5a" stroke-width="13" fill="none" stroke-linecap="round"/>
+    <!-- legs -->
+    <rect x="296" y="374" width="24" height="56" rx="8" fill="#33383f"/>
+    <rect x="326" y="374" width="24" height="56" rx="8" fill="#33383f"/>
+  </g>
+
+  <!-- client figure (blue top, right) -->
+  <g>
+    <rect x="440" y="280" width="60" height="100" rx="18" fill="#2b5c9e"/>
+    <circle cx="470" cy="256" r="24" fill="#e8b98a"/>
+    <path d="M448 246 a22 18 0 0 1 44 0 q-6 -6 -22 -6 t-22 6" fill="#4a3728"/>
+    <!-- extended arm to shake hands -->
+    <path d="M442 320 q-30 4 -42 -2" stroke="#e8b98a" stroke-width="13" fill="none" stroke-linecap="round"/>
+    <!-- legs -->
+    <rect x="446" y="374" width="24" height="56" rx="8" fill="#7c6b57"/>
+    <rect x="476" y="374" width="24" height="56" rx="8" fill="#7c6b57"/>
+  </g>
+
+  <!-- handshake clasp -->
+  <ellipse cx="393" cy="320" rx="16" ry="10" fill="#e0a878"/>
+
+  <!-- clipboard on the floor beside them, work complete -->
+  <g>
+    <rect x="360" y="400" width="40" height="52" rx="3" fill="#ffffff" stroke="#2b5c9e" stroke-width="3"/>
+    <line x1="368" y1="412" x2="392" y2="412" stroke="#dce8f9" stroke-width="2"/>
+    <line x1="368" y1="422" x2="392" y2="422" stroke="#dce8f9" stroke-width="2"/>
+    <path d="M370 434 l6 6 l12 -14" stroke="#4e9e2e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

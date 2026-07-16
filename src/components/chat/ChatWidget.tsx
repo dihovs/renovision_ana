@@ -34,6 +34,7 @@ export default function ChatWidget() {
   const listEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const seeded = useRef(false);
+  const [launcherVisible, setLauncherVisible] = useState(false);
 
   useEffect(() => {
     if (isOpen && !seeded.current) {
@@ -43,6 +44,14 @@ export default function ChatWidget() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Delay the launcher's entrance instead of showing it immediately on load —
+  // a beat of stillness first, then it animates in, reads more intentional
+  // than a chat bubble slamming onto the screen the instant the page paints.
+  useEffect(() => {
+    const timer = setTimeout(() => setLauncherVisible(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -240,8 +249,12 @@ export default function ChatWidget() {
         <button
           type="button"
           onClick={openChat}
-          className="fixed bottom-5 right-5 z-50 flex cursor-pointer items-center gap-2 rounded-full bg-brand-green px-5 py-3.5 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-green-dark"
           aria-label={t.chat.launcherLabel}
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-brand-green px-5 py-3.5 text-sm font-bold text-white shadow-lg transition-all duration-500 ease-out hover:scale-105 hover:bg-brand-green-dark ${
+            launcherVisible
+              ? "translate-y-0 scale-100 cursor-pointer opacity-100"
+              : "pointer-events-none translate-y-4 scale-75 opacity-0"
+          }`}
         >
           <ChatIcon />
           <span className="hidden sm:inline">{t.chat.launcherLabel}</span>

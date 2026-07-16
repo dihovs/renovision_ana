@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
 import PlaceholderPage from "@/components/ui/PlaceholderPage";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildMetadata({
   title: "Blog",
   description:
     "Renovation tips, water damage prevention advice, and project stories from Renovision AnA.",
-};
+  path: "/blog",
+});
 
 export default function BlogPage() {
   return (

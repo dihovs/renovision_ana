@@ -1,17 +1,13 @@
-import type { Metadata } from "next";
-import PlaceholderPage from "@/components/ui/PlaceholderPage";
+import WaterDamageContent from "@/components/pages/WaterDamageContent";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildMetadata({
   title: "Water Damage Restoration",
   description:
     "Rapid response water extraction, drying, and repair services from Renovision AnA.",
-};
+  path: "/services/water-damage",
+});
 
 export default function WaterDamagePage() {
-  return (
-    <PlaceholderPage
-      title="Water Damage Restoration"
-      description="Rapid response water extraction, drying, and repair to protect your property and minimize downtime."
-    />
-  );
+  return <WaterDamageContent />;
 }

@@ -34,7 +34,11 @@ const en: Record<string, unknown> & {
     ctaEstimate: string;
     ctaCall: string;
   };
-  testimonials: { title: string };
+  testimonials: {
+    title: string;
+    googleReview: string;
+    items: Array<{ name: string; rating: number; quote: string }>;
+  };
   partners: { title: string };
   footer: Record<string, string>;
   chat: {
@@ -72,6 +76,7 @@ const en: Record<string, unknown> & {
     safety: "Safety & Certifications",
     careers: "Careers",
     caseStudies: "Case Studies",
+    company: "Company",
   },
   header: {
     freeEstimate: "Get a Free Estimate",
@@ -89,10 +94,10 @@ const en: Record<string, unknown> & {
     afterLabel: "After",
   },
   stats: {
-    years: { value: "15+", label: "Years of Experience" },
-    projects: { value: "500+", label: "Projects Completed" },
-    satisfaction: { value: "98%", label: "Client Satisfaction" },
-    emergency: { value: "24/7", label: "Emergency Response" },
+    years: { value: "5+", label: "Years of Experience" },
+    projects: { value: "100+", label: "Projects Completed" },
+    satisfaction: { value: "5★", label: "Google Reviews" },
+    emergency: { value: "Laval & Montreal", label: "Proudly Local" },
   },
   trustBar: {
     item1: "Trusted by property management companies",
@@ -164,6 +169,39 @@ const en: Record<string, unknown> & {
   },
   testimonials: {
     title: "What Our Clients Say",
+    googleReview: "Google review",
+    items: [
+      {
+        name: "Anahid Vardanian",
+        rating: 5,
+        quote:
+          "Best renovation company! They changed my entire bathroom a week ago. I am very satisfied with the results! Very professional team! Highly recommend.",
+      },
+      {
+        name: "Naira Shukuryan",
+        rating: 5,
+        quote:
+          "We are extremely satisfied with the complete renovation of our bathroom. The team was professional, punctual, and very thorough from start to finish. The site always stayed clean and the final result is beautiful.",
+      },
+      {
+        name: "Firdaous Dahha",
+        rating: 5,
+        quote:
+          "Excellent service! The Renovision AnA team repaired my basement with great professionalism. The work was carried out with care, the site stayed clean throughout the project, and the result is flawless.",
+      },
+      {
+        name: "Gilbert Aoun",
+        rating: 5,
+        quote:
+          "Very good price and very efficient, they did great work in my bathroom, I highly recommend them.",
+      },
+      {
+        name: "Frederic Aoun",
+        rating: 5,
+        quote:
+          "Excellent service! Professional team, great quality work, and completed everything on time. Highly recommend!",
+      },
+    ],
   },
   partners: {
     title: "Trusted By",
@@ -171,7 +209,10 @@ const en: Record<string, unknown> & {
   footer: {
     tagline: "Renovation and water damage restoration you can trust.",
     quickLinks: "Quick Links",
+    explore: "Explore",
     contactUs: "Contact Us",
+    followUs: "Follow Us",
+    viewOnMap: "View on map",
     rights: "All rights reserved.",
   },
   chat: {
@@ -243,6 +284,7 @@ const fr: typeof en = {
     safety: "Sécurité et certifications",
     careers: "Carrières",
     caseStudies: "Études de cas",
+    company: "Entreprise",
   },
   header: {
     freeEstimate: "Estimation gratuite",
@@ -260,10 +302,10 @@ const fr: typeof en = {
     afterLabel: "Après",
   },
   stats: {
-    years: { value: "15+", label: "Années d'expérience" },
-    projects: { value: "500+", label: "Projets réalisés" },
-    satisfaction: { value: "98%", label: "Satisfaction client" },
-    emergency: { value: "24/7", label: "Intervention d'urgence" },
+    years: { value: "5+", label: "Années d'expérience" },
+    projects: { value: "100+", label: "Projets réalisés" },
+    satisfaction: { value: "5★", label: "Avis Google" },
+    emergency: { value: "Laval et Montréal", label: "Fièrement local" },
   },
   trustBar: {
     item1: "La confiance des sociétés de gestion immobilière",
@@ -335,6 +377,39 @@ const fr: typeof en = {
   },
   testimonials: {
     title: "Ce que disent nos clients",
+    googleReview: "Avis Google",
+    items: [
+      {
+        name: "Anahid Vardanian",
+        rating: 5,
+        quote:
+          "Meilleure entreprise de rénovation ! Ils ont refait toute ma salle de bain il y a une semaine. Je suis très satisfaite des résultats ! Équipe très professionnelle ! Je recommande vivement.",
+      },
+      {
+        name: "Naira Shukuryan",
+        rating: 5,
+        quote:
+          "Nous sommes extrêmement satisfaits de la rénovation complète de notre salle de bain. L'équipe a été professionnelle, ponctuelle et très minutieuse du début à la fin. Le chantier est toujours resté propre et le résultat final est magnifique.",
+      },
+      {
+        name: "Firdaous Dahha",
+        rating: 5,
+        quote:
+          "Excellent service ! L'équipe de Renovision AnA a réparé mon sous-sol avec beaucoup de professionnalisme. Les travaux ont été réalisés avec soin, le chantier est resté propre tout au long du projet et le résultat est impeccable.",
+      },
+      {
+        name: "Gilbert Aoun",
+        rating: 5,
+        quote:
+          "Très bon prix et très efficace ils ont fait du bon travail dans mes toilettes je le recommande fortement.",
+      },
+      {
+        name: "Frederic Aoun",
+        rating: 5,
+        quote:
+          "Excellent service ! Équipe professionnelle, travail de grande qualité, tout terminé à temps. Je recommande vivement !",
+      },
+    ],
   },
   partners: {
     title: "Ils nous font confiance",
@@ -342,7 +417,10 @@ const fr: typeof en = {
   footer: {
     tagline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance.",
     quickLinks: "Liens rapides",
+    explore: "Explorer",
     contactUs: "Nous joindre",
+    followUs: "Suivez-nous",
+    viewOnMap: "Voir sur la carte",
     rights: "Tous droits réservés.",
   },
   chat: {

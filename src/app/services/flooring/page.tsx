@@ -1,17 +1,13 @@
-import type { Metadata } from "next";
-import PlaceholderPage from "@/components/ui/PlaceholderPage";
+import FlooringContent from "@/components/pages/FlooringContent";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = buildMetadata({
   title: "Flooring",
   description:
     "Tile, hardwood, and vinyl flooring installation and refinishing from Renovision AnA.",
-};
+  path: "/services/flooring",
+});
 
 export default function FlooringPage() {
-  return (
-    <PlaceholderPage
-      title="Flooring"
-      description="Tile, hardwood, and vinyl flooring installed and refinished with precision — built to last and matched to your space."
-    />
-  );
+  return <FlooringContent />;
 }

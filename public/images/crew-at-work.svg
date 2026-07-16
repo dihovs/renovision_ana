@@ -1,0 +1,83 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="crewTitle">
+  <title id="crewTitle">Illustration: renovation crew working on flooring installation in a bright room</title>
+
+  <!-- room shell -->
+  <polygon points="0,0 100,42 100,430 0,430" fill="#dce8f9"/>
+  <rect x="100" y="0" width="700" height="430" fill="#eaf1fb"/>
+  <polygon points="0,430 100,430 750,430 800,600 0,600" fill="#f5f7fa"/>
+  <polygon points="750,430 800,430 800,600 750,600" fill="#e3ecf7"/>
+
+  <!-- window -->
+  <rect x="580" y="60" width="150" height="150" fill="#ffffff" stroke="#2b5c9e" stroke-width="5"/>
+  <line x1="655" y1="60" x2="655" y2="210" stroke="#2b5c9e" stroke-width="3"/>
+  <line x1="580" y1="135" x2="730" y2="135" stroke="#2b5c9e" stroke-width="3"/>
+
+  <!-- flooring planks being laid (half room finished, half subfloor) -->
+  <g>
+    <rect x="100" y="430" width="330" height="170" fill="#f5f7fa"/>
+    <g stroke="#dce8f9" stroke-width="2">
+      <line x1="120" y1="470" x2="410" y2="470"/>
+      <line x1="110" y1="510" x2="420" y2="510"/>
+      <line x1="100" y1="555" x2="425" y2="555"/>
+    </g>
+  </g>
+  <g>
+    <rect x="430" y="430" width="320" height="170" fill="#e8ddc9"/>
+    <g stroke="#d8cbb0" stroke-width="1.5">
+      <line x1="450" y1="460" x2="760" y2="460"/>
+      <line x1="450" y1="490" x2="760" y2="490"/>
+      <line x1="450" y1="520" x2="760" y2="520"/>
+      <line x1="450" y1="550" x2="760" y2="550"/>
+      <line x1="450" y1="580" x2="760" y2="580"/>
+    </g>
+  </g>
+
+  <!-- stack of plank boxes -->
+  <g>
+    <rect x="560" y="360" width="110" height="60" rx="3" fill="#ffffff" stroke="#2b5c9e" stroke-width="3"/>
+    <line x1="560" y1="380" x2="670" y2="380" stroke="#2b5c9e" stroke-width="2"/>
+    <line x1="560" y1="400" x2="670" y2="400" stroke="#2b5c9e" stroke-width="2"/>
+  </g>
+
+  <!-- worker kneeling, installing plank -->
+  <g>
+    <!-- torso -->
+    <rect x="230" y="330" width="46" height="66" rx="14" fill="#2b5c9e"/>
+    <!-- head -->
+    <circle cx="253" cy="312" r="20" fill="#e8b98a"/>
+    <!-- hard hat -->
+    <path d="M231 306 a22 18 0 0 1 44 0 z" fill="#4e9e2e"/>
+    <rect x="229" y="304" width="48" height="8" rx="4" fill="#3d7d24"/>
+    <!-- arm reaching to plank -->
+    <path d="M270 350 q30 10 40 34" stroke="#e8b98a" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <!-- kneeling legs -->
+    <rect x="228" y="392" width="20" height="46" rx="8" fill="#33383f"/>
+    <rect x="260" y="392" width="20" height="30" rx="8" fill="#33383f"/>
+    <ellipse cx="238" cy="440" rx="16" ry="8" fill="#2b2b2b"/>
+  </g>
+
+  <!-- plank being placed -->
+  <rect x="330" y="418" width="70" height="16" rx="2" fill="#e8ddc9" stroke="#c9b98f" stroke-width="1.5"/>
+
+  <!-- second worker standing, measuring -->
+  <g>
+    <rect x="500" y="270" width="42" height="90" rx="14" fill="#4e9e2e"/>
+    <circle cx="521" cy="252" r="19" fill="#c98a5a"/>
+    <path d="M501 247 a20 16 0 0 1 40 0 z" fill="#2b5c9e"/>
+    <rect x="499" y="245" width="44" height="7" rx="3" fill="#1f4677"/>
+    <!-- arm holding tape measure -->
+    <path d="M500 300 q-24 6 -30 40" stroke="#c98a5a" stroke-width="11" fill="none" stroke-linecap="round"/>
+    <circle cx="470" cy="342" r="9" fill="#f5f7fa" stroke="#2b2b2b" stroke-width="2"/>
+    <!-- legs -->
+    <rect x="502" y="358" width="18" height="52" rx="7" fill="#33383f"/>
+    <rect x="524" y="358" width="18" height="52" rx="7" fill="#33383f"/>
+    <ellipse cx="511" cy="412" rx="14" ry="7" fill="#2b2b2b"/>
+    <ellipse cx="533" cy="412" rx="14" ry="7" fill="#2b2b2b"/>
+  </g>
+
+  <!-- toolbox -->
+  <g>
+    <rect x="160" y="400" width="46" height="30" rx="3" fill="#4e9e2e"/>
+    <rect x="176" y="392" width="14" height="10" rx="2" fill="#3d7d24"/>
+  </g>
+</svg>

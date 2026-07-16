@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
 import CommercialContent from "@/components/pages/CommercialContent";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Commercial & Property Management",
+export const metadata = buildMetadata({
+  title: "Renovation & Restoration for Property Managers | Laval & Montreal",
   description:
-    "Renovation services for property management companies: fast unit turnovers, clear documentation, one point of contact, and 24/7 emergency response.",
-};
+    "Property management renovation partner in Laval and greater Montreal: fast unit turnovers, one point of contact for all trades, insurer-ready documentation, and 7-day-a-week water damage response for occupied buildings.",
+  path: "/commercial",
+});
 
 export default function CommercialPage() {
   return <CommercialContent />;

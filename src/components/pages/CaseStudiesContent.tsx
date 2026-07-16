@@ -16,7 +16,8 @@ const copy = {
     afterAlt: "After: ",
     studies: [
       {
-        image: "water-damage",
+        before: "/images/water-damage-before-real.jpg",
+        after: "/images/water-damage-after-real.jpg",
         tag: "Water Damage · Property Management",
         title: "Burst Pipe Across Two Occupied Floors",
         problem:
@@ -27,7 +28,20 @@ const copy = {
           "Both units fully restored in under three weeks with tenants in place. Complete photo documentation supported the insurance claim from first visit to final walkthrough.",
       },
       {
-        image: "kitchen",
+        before: "/images/bathtub-before.jpg",
+        after: "/images/bathtub-after.jpg",
+        tag: "Small Repair & Color Matching · Homeowner",
+        title: "Bathtub Surround Repair After Water Leak",
+        problem:
+          "A water leak damaged the tile surround of a corner bathtub. The original tile was no longer available, making a seamless match difficult.",
+        solution:
+          "Removed the damaged tile and substrate down to the framing, installed a new waterproofing membrane around the tub, then retiled with a marble-look tile chosen to blend as closely as possible with the rest of the bathroom.",
+        result:
+          "A clean, finished repair the customer was happy with — proof that even a tricky color-match job can come out looking intentional.",
+      },
+      {
+        before: "/images/kitchen-before.svg",
+        after: "/images/kitchen-concept.jpg",
         tag: "Kitchen Remodel · Homeowner",
         title: "1980s Kitchen, Full Transformation",
         problem:
@@ -38,7 +52,8 @@ const copy = {
           "A bright, functional kitchen delivered on schedule and on the agreed budget — now the family's favourite room in the house.",
       },
       {
-        image: "basement",
+        before: "/images/basement-before.svg",
+        after: "/images/basement-after.svg",
         tag: "Basement · Homeowner",
         title: "Unfinished Basement to Family Space",
         problem:
@@ -62,7 +77,8 @@ const copy = {
     afterAlt: "Après : ",
     studies: [
       {
-        image: "water-damage",
+        before: "/images/water-damage-before-real.jpg",
+        after: "/images/water-damage-after-real.jpg",
         tag: "Dégât d'eau · Gestion immobilière",
         title: "Tuyau éclaté sur deux étages occupés",
         problem:
@@ -73,7 +89,20 @@ const copy = {
           "Deux logements entièrement restaurés en moins de trois semaines, locataires en place. Une documentation photo complète a appuyé la réclamation d'assurance du premier jour à la visite finale.",
       },
       {
-        image: "kitchen",
+        before: "/images/bathtub-before.jpg",
+        after: "/images/bathtub-after.jpg",
+        tag: "Petite réparation et agencement de couleurs · Propriétaire",
+        title: "Réparation du pourtour de baignoire après dégât d'eau",
+        problem:
+          "Un dégât d'eau a endommagé la céramique entourant une baignoire d'angle. La céramique d'origine n'était plus disponible, rendant l'agencement difficile.",
+        solution:
+          "Retrait de la céramique et du support endommagés jusqu'à l'ossature, installation d'une nouvelle membrane d'étanchéité autour de la baignoire, puis pose d'une céramique effet marbre choisie pour s'agencer le plus fidèlement possible au reste de la salle de bain.",
+        result:
+          "Une réparation propre et soignée qui a satisfait le client — la preuve qu'un agencement de couleurs délicat peut donner un résultat qui semble intentionnel.",
+      },
+      {
+        before: "/images/kitchen-before.svg",
+        after: "/images/kitchen-concept.jpg",
         tag: "Rénovation de cuisine · Propriétaire",
         title: "Cuisine des années 1980, transformation complète",
         problem:
@@ -84,7 +113,8 @@ const copy = {
           "Une cuisine lumineuse et fonctionnelle, livrée dans les délais et le budget convenus — maintenant la pièce préférée de la famille.",
       },
       {
-        image: "basement",
+        before: "/images/basement-before.svg",
+        after: "/images/basement-after.svg",
         tag: "Sous-sol · Propriétaire",
         title: "D'un sous-sol non aménagé à un espace familial",
         problem:
@@ -116,7 +146,7 @@ export default function CaseStudiesContent() {
         </div>
 
         <div className="mt-16 space-y-16">
-          {c.studies.map(({ image, tag, title, problem, solution, result }) => (
+          {c.studies.map(({ before, after, tag, title, problem, solution, result }) => (
             <article
               key={title}
               className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5"
@@ -125,7 +155,7 @@ export default function CaseStudiesContent() {
                 <div className="relative grid grid-cols-2">
                   <div className="relative min-h-56">
                     <Image
-                      src={`/images/${image}-before.svg`}
+                      src={before}
                       alt={c.beforeAlt + title}
                       fill
                       sizes="(min-width: 1024px) 320px, 50vw"
@@ -137,7 +167,7 @@ export default function CaseStudiesContent() {
                   </div>
                   <div className="relative min-h-56">
                     <Image
-                      src={`/images/${image}-after.svg`}
+                      src={after}
                       alt={c.afterAlt + title}
                       fill
                       sizes="(min-width: 1024px) 320px, 50vw"
