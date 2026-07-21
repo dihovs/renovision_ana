@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import LanguageToggle from "./LanguageToggle";
+import { IconPhone } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 
 export default function Header() {
@@ -189,6 +190,13 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-2 xl:hidden">
+          <a
+            href={`tel:${SITE_PHONE_TEL}`}
+            aria-label={SITE_PHONE}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-blue-light text-brand-blue transition-colors hover:bg-brand-blue hover:text-white"
+          >
+            <IconPhone className="h-4.5 w-4.5" />
+          </a>
           <LanguageToggle className="text-xs" />
           <button
             type="button"
