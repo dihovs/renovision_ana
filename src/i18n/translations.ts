@@ -92,6 +92,7 @@ const en: Record<string, unknown> & {
     ctaCall: "Call Now",
     beforeLabel: "Before",
     afterLabel: "After",
+    dragHint: "Drag to see the transformation",
   },
   stats: {
     years: { value: "5+", label: "Years of Experience" },
@@ -300,6 +301,7 @@ const fr: typeof en = {
     ctaCall: "Appelez maintenant",
     beforeLabel: "Avant",
     afterLabel: "Après",
+    dragHint: "Glissez pour voir la transformation",
   },
   stats: {
     years: { value: "5+", label: "Années d'expérience" },
