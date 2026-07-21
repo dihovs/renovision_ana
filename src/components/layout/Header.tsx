@@ -188,21 +188,24 @@ export default function Header() {
           </button>
         </div>
 
-        <button
-          type="button"
-          className="flex items-center justify-center rounded-md p-2 text-brand-blue xl:hidden"
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-expanded={mobileOpen}
-          aria-label="Toggle menu"
-        >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            {mobileOpen ? (
-              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-            ) : (
-              <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
-            )}
-          </svg>
-        </button>
+        <div className="flex items-center gap-2 xl:hidden">
+          <LanguageToggle className="text-xs" />
+          <button
+            type="button"
+            className="flex items-center justify-center rounded-md p-2 text-brand-blue"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-expanded={mobileOpen}
+            aria-label="Toggle menu"
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {mobileOpen ? (
+                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+              ) : (
+                <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {mobileOpen && (
@@ -244,11 +247,10 @@ export default function Header() {
               </Link>
             ))}
           </nav>
-          <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="mt-4">
             <a href={`tel:${SITE_PHONE_TEL}`} className="text-sm font-semibold text-brand-blue">
               {SITE_PHONE}
             </a>
-            <LanguageToggle />
           </div>
           <button
             type="button"
