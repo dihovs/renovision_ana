@@ -216,62 +216,73 @@ export default function Header() {
         </div>
       </div>
 
-      {mobileOpen && (
-        <div className="border-t border-black/5 bg-white px-4 pb-6 pt-2 xl:hidden">
-          <nav className="flex flex-col gap-1" aria-label="Mobile">
-            {navLinks.slice(0, -1).map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="rounded-md px-2 py-2.5 text-base font-semibold text-charcoal hover:bg-brand-blue-light hover:text-brand-blue"
-              >
-                {link.label}
-              </Link>
-            ))}
-
-            <span className="mt-2 px-2 text-xs font-bold uppercase tracking-wide text-charcoal/40">
-              {t.nav.company}
-            </span>
-            {companyLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="rounded-md px-2 py-2.5 text-base font-semibold text-charcoal hover:bg-brand-blue-light hover:text-brand-blue"
-              >
-                {link.label}
-              </Link>
-            ))}
-
-            {navLinks.slice(-1).map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="mt-2 rounded-md px-2 py-2.5 text-base font-semibold text-charcoal hover:bg-brand-blue-light hover:text-brand-blue"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="mt-4">
-            <a href={`tel:${SITE_PHONE_TEL}`} className="text-sm font-semibold text-brand-blue">
-              {SITE_PHONE}
-            </a>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setMobileOpen(false);
-              openChat();
-            }}
-            className="mt-4 w-full cursor-pointer rounded-full bg-brand-green px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-green-dark"
+      <div
+        aria-hidden={!mobileOpen}
+        className={`grid transition-[grid-template-rows] duration-300 ease-out xl:hidden ${
+          mobileOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div
+            className={`border-t border-black/5 bg-white px-4 pb-6 pt-2 transition-[opacity,transform] duration-300 ease-out ${
+              mobileOpen ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+            }`}
           >
-            {t.header.freeEstimate}
-          </button>
+            <nav className="flex flex-col gap-1" aria-label="Mobile">
+              {navLinks.slice(0, -1).map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-md px-2 py-2.5 text-base font-semibold text-charcoal hover:bg-brand-blue-light hover:text-brand-blue"
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              <span className="mt-2 px-2 text-xs font-bold uppercase tracking-wide text-charcoal/40">
+                {t.nav.company}
+              </span>
+              {companyLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-md px-2 py-2.5 text-base font-semibold text-charcoal hover:bg-brand-blue-light hover:text-brand-blue"
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              {navLinks.slice(-1).map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="mt-2 rounded-md px-2 py-2.5 text-base font-semibold text-charcoal hover:bg-brand-blue-light hover:text-brand-blue"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="mt-4">
+              <a href={`tel:${SITE_PHONE_TEL}`} className="text-sm font-semibold text-brand-blue">
+                {SITE_PHONE}
+              </a>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                openChat();
+              }}
+              className="mt-4 w-full cursor-pointer rounded-full bg-brand-green px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-green-dark"
+            >
+              {t.header.freeEstimate}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }
