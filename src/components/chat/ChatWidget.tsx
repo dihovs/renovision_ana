@@ -57,6 +57,19 @@ export default function ChatWidget() {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, step]);
 
+  // Lock the background page while the chat is open, full-screen on mobile.
+  // Without this, iOS Safari lets the page behind a fixed overlay scroll
+  // independently, which can shove the overlay's own content out of the
+  // visible area — reads as text randomly vanishing.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   function pushAssistant(content: string) {
     setMessages((prev) => [...prev, { id: nextId(), role: "assistant", content }]);
   }
@@ -262,7 +275,7 @@ export default function ChatWidget() {
       )}
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-end sm:inset-auto sm:bottom-5 sm:right-5">
+        <div className="fixed inset-0 z-50 flex h-dvh items-end justify-end sm:inset-auto sm:h-auto sm:bottom-5 sm:right-5">
           <div className="flex h-full w-full flex-col bg-white shadow-2xl sm:h-[640px] sm:max-h-[85vh] sm:w-96 sm:rounded-2xl sm:border sm:border-black/10">
             <div className="flex items-center justify-between rounded-t-2xl bg-brand-blue px-4 py-3.5 text-white">
               <div>
@@ -376,7 +389,7 @@ export default function ChatWidget() {
                     if (e.key === "Enter") handleSend();
                   }}
                   placeholder={t.chat.placeholder}
-                  className="flex-1 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-sm outline-none focus:border-brand-blue"
+                  className="flex-1 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-base outline-none focus:border-brand-blue"
                 />
                 <button
                   type="button"

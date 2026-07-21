@@ -41,21 +41,21 @@ export default function LeadCaptureForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder={t.chat.leadCapture.name}
-        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand-blue"
+        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-base outline-none focus:border-brand-blue"
       />
       <input
         type="tel"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
         placeholder={t.chat.leadCapture.phone}
-        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand-blue"
+        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-base outline-none focus:border-brand-blue"
       />
       <input
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder={t.chat.leadCapture.email}
-        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-brand-blue"
+        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-base outline-none focus:border-brand-blue"
       />
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex items-center gap-3">
