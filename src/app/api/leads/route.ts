@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { mkdir, appendFile } from "fs/promises";
 import path from "path";
 import { Resend } from "resend";
-import { LEADS_NOTIFY_EMAIL, SITE_NAME } from "@/lib/constants";
+import { LEADS_NOTIFY_EMAIL, SITE_EMAIL, SITE_NAME } from "@/lib/constants";
 
 type LeadPayload = {
   name: string;
@@ -86,7 +86,12 @@ export async function POST(request: Request) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const { data, error } = await resend.emails.send({
-        from: process.env.LEADS_FROM_EMAIL || "Renovision AnA Leads <onboarding@resend.dev>",
+        // Default to the verified renovisionana.ca domain so lead emails
+        // actually deliver. The old fallback (onboarding@resend.dev) is
+        // Resend's sandbox sender, which can ONLY reach the account owner's
+        // address — every real lead notification to LEADS_NOTIFY_EMAIL was
+        // being silently 403-rejected. LEADS_FROM_EMAIL can still override.
+        from: process.env.LEADS_FROM_EMAIL || `${SITE_NAME} <${SITE_EMAIL}>`,
         to: LEADS_NOTIFY_EMAIL,
         replyTo: lead.email,
         subject: `New lead: ${lead.name}`,
