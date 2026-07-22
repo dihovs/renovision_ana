@@ -11,7 +11,7 @@ export default function LanguageToggle({ className = "" }: { className?: string 
       role="group"
       aria-label="Language selector"
     >
-      {(["en", "fr"] as const).map((code) => (
+      {(["fr", "en"] as const).map((code) => (
         <button
           key={code}
           type="button"

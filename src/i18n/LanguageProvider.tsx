@@ -21,7 +21,7 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 const STORAGE_KEY = "renovision-ana-locale";
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("en");
+  const [locale, setLocaleState] = useState<Locale>("fr");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
