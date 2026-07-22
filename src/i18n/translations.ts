@@ -218,14 +218,14 @@ const en: Record<string, unknown> & {
   },
   chat: {
     launcherLabel: "Get a Free Estimate",
-    title: "Renovision AnA Assistant",
+    title: "Vision AI",
     subtitle: "Get a rough project estimate in minutes",
     welcome:
-      "Hi! I can give you a rough estimate for your renovation, water damage, or remodeling project. What are you looking to have done?",
+      "Hi, I'm Vision AI from Renovision AnA! I can give you a rough estimate for your renovation, water damage, or remodeling project. What are you looking to have done?",
     placeholder: "Type your message...",
     uploadLabel: "Attach a photo",
     disclaimer:
-      "This is an automated estimate tool and only discusses renovation, water damage, and remodeling topics.",
+      "Vision AI is an automated estimate tool and only discusses renovation, water damage, and remodeling topics.",
     offTopic:
       "I'm just able to help with renovation, water damage restoration, and remodeling questions for Renovision AnA. Could you tell me more about your project?",
     restart: "Start over",
@@ -427,14 +427,14 @@ const fr: typeof en = {
   },
   chat: {
     launcherLabel: "Estimation gratuite",
-    title: "Assistant Renovision AnA",
+    title: "Vision IA",
     subtitle: "Obtenez une estimation approximative en quelques minutes",
     welcome:
-      "Bonjour! Je peux vous donner une estimation approximative pour votre projet de rénovation, de dégâts d'eau ou de remodelage. Que souhaitez-vous faire?",
+      "Bonjour, je suis Vision IA de Renovision AnA! Je peux vous donner une estimation approximative pour votre projet de rénovation, de dégâts d'eau ou de remodelage. Que souhaitez-vous faire?",
     placeholder: "Écrivez votre message...",
     uploadLabel: "Joindre une photo",
     disclaimer:
-      "Cet outil d'estimation automatisé ne traite que des sujets liés à la rénovation, aux dégâts d'eau et au remodelage.",
+      "Vision IA est un outil d'estimation automatisé qui ne traite que des sujets liés à la rénovation, aux dégâts d'eau et au remodelage.",
     offTopic:
       "Je ne peux vous aider qu'avec des questions sur la rénovation, la restauration de dégâts d'eau et le remodelage pour Renovision AnA. Pouvez-vous m'en dire plus sur votre projet?",
     restart: "Recommencer",
