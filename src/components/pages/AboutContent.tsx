@@ -7,7 +7,7 @@ import FeatureCard from "@/components/ui/FeatureCard";
 import Reveal from "@/components/ui/Reveal";
 import StatsBar from "@/components/home/StatsBar";
 import CtaBand from "@/components/home/CtaBand";
-import { IconHammer, IconClipboard, IconCheckCircle, IconShield } from "@/components/ui/icons";
+import { IconHammer, IconClipboard, IconCheckCircle, IconShield, IconMapPin } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 
 const copy = {
@@ -22,6 +22,27 @@ const copy = {
       "That range matters most when something goes wrong. A burst pipe doesn't just need water extraction — it needs drywall, insulation, flooring, and paint afterward, all coordinated by people who already know the property and the timeline. Splitting that across separate vendors is where delays and miscommunication creep in. Keeping it under one roof is how we avoid that.",
       "We work across Laval and the greater Montreal area for three kinds of clients with different needs: property managers who need fast, documented turnarounds across a portfolio; insurers and adjusters who need photo-backed reports that hold up in a claim; and homeowners who just want the job done right and explained clearly along the way. The standard doesn't change between them — only the paperwork does.",
     ],
+    areaServedHeading: "Where We Work",
+    areaServedText:
+      "Based in Laval, our crews regularly work in Chomedey, Sainte-Rose, Duvernay, Laval-des-Rapides, Pont-Viau, Vimont, and Fabreville, along with the neighbouring Montreal boroughs of Ahuntsic-Cartierville, Saint-Laurent, LaSalle, and Montreal-North, out to Longueuil and Terrebonne, and west to the West Island and Île-Perrot and surrounding areas. Not seeing your area? Call us — we take on projects across the greater Montreal region.",
+    areas: [
+      "Chomedey",
+      "Sainte-Rose",
+      "Duvernay",
+      "Laval-des-Rapides",
+      "Pont-Viau",
+      "Vimont",
+      "Fabreville",
+      "Ahuntsic-Cartierville",
+      "Saint-Laurent",
+      "LaSalle",
+      "Montreal-North",
+      "West Island",
+      "Île-Perrot",
+      "Longueuil",
+      "Terrebonne",
+    ],
+    areaServedMore: "& more",
     processTitle: "How a Project Actually Happens With Us",
     processIntro:
       "The same four steps whether it's a burst pipe at 11pm or a kitchen you've been planning for years.",
@@ -82,6 +103,27 @@ const copy = {
       "Cette polyvalence compte le plus quand quelque chose tourne mal. Un tuyau éclaté n'a pas seulement besoin d'extraction d'eau — il faut ensuite du gypse, de l'isolation, du plancher et de la peinture, le tout coordonné par des gens qui connaissent déjà la propriété et l'échéancier. Répartir cela entre plusieurs fournisseurs, c'est là que les retards et les malentendus s'installent. Garder tout sous un même toit, c'est notre façon de l'éviter.",
       "Nous desservons Laval et le grand Montréal pour trois types de clients aux besoins différents : les gestionnaires immobiliers qui ont besoin de délais rapides et documentés à l'échelle d'un portefeuille; les assureurs et experts en sinistres qui ont besoin de rapports appuyés par des photos qui tiennent la route dans une réclamation; et les propriétaires qui veulent simplement un travail bien fait et expliqué clairement en cours de route. La norme ne change pas d'un client à l'autre — seule la documentation change.",
     ],
+    areaServedHeading: "Où nous travaillons",
+    areaServedText:
+      "Basées à Laval, nos équipes interviennent régulièrement à Chomedey, Sainte-Rose, Duvernay, Laval-des-Rapides, Pont-Viau, Vimont et Fabreville, ainsi que dans les arrondissements montréalais voisins d'Ahuntsic-Cartierville, Saint-Laurent, LaSalle et Montréal-Nord, jusqu'à Longueuil et Terrebonne, en plus de l'Ouest-de-l'Île et de l'Île-Perrot et ses environs. Votre secteur n'y figure pas? Appelez-nous — nous acceptons des projets partout dans le grand Montréal.",
+    areas: [
+      "Chomedey",
+      "Sainte-Rose",
+      "Duvernay",
+      "Laval-des-Rapides",
+      "Pont-Viau",
+      "Vimont",
+      "Fabreville",
+      "Ahuntsic-Cartierville",
+      "Saint-Laurent",
+      "LaSalle",
+      "Montréal-Nord",
+      "Ouest-de-l'Île",
+      "Île-Perrot",
+      "Longueuil",
+      "Terrebonne",
+    ],
+    areaServedMore: "et plus",
     processTitle: "Comment un projet se déroule vraiment avec nous",
     processIntro:
       "Les quatre mêmes étapes, qu'il s'agisse d'un tuyau éclaté à 23h ou d'une cuisine que vous planifiez depuis des années.",
@@ -187,18 +229,41 @@ export default function AboutContent() {
               ))}
             </div>
           </Reveal>
-          <Reveal delayMs={150} className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5">
-            <Image
-              src="/images/about-overview.jpg"
-              alt={
-                locale === "fr"
-                  ? "Illustration en coupe d'une maison montrant l'intérieur rénové, superposée à une carte de la région de Laval et Montréal que nous desservons"
-                  : "Cross-section illustration of a house showing the renovated interior, overlaid on a map of the Laval and Montreal area we serve"
-              }
-              fill
-              sizes="(min-width: 1024px) 45vw, 90vw"
-              className="object-cover"
+          <Reveal
+            delayMs={150}
+            className="relative overflow-hidden rounded-2xl bg-brand-blue-light/40 p-8 ring-1 ring-black/5"
+          >
+            {/* Whisper of Fleurdelisé blue (#003DA5) — a nod to Quebec's own
+                colours, kept faint enough to read as ambient warmth rather
+                than a visible tint. Scoped to this card only. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(60% 50% at 10% 0%, rgba(0,61,165,0.07), transparent 60%), radial-gradient(55% 45% at 100% 100%, rgba(0,61,165,0.06), transparent 60%)",
+              }}
             />
+            <div className="relative flex items-center gap-2 text-brand-green">
+              <IconMapPin className="h-5 w-5" />
+              <h3 className="font-heading text-sm font-bold uppercase tracking-wide">
+                {c.areaServedHeading}
+              </h3>
+            </div>
+            <div className="relative mt-5 flex flex-wrap gap-2">
+              {c.areas.map((area) => (
+                <span
+                  key={area}
+                  className="cursor-default rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-brand-blue shadow-sm ring-1 ring-black/5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-brand-blue hover:text-white hover:shadow-md hover:ring-brand-blue"
+                >
+                  {area}
+                </span>
+              ))}
+              <span className="cursor-default rounded-full border border-dashed border-brand-blue/30 px-4 py-1.5 text-sm font-semibold text-charcoal/45 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-green hover:text-brand-green">
+                {c.areaServedMore}
+              </span>
+            </div>
+            <p className="relative mt-6 text-sm leading-relaxed text-charcoal/70">{c.areaServedText}</p>
           </Reveal>
         </div>
       </section>
