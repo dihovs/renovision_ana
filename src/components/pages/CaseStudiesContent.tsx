@@ -40,7 +40,7 @@ const copy = {
           "A clean, finished repair the customer was happy with — proof that even a tricky color-match job can come out looking intentional.",
       },
       {
-        before: "/images/kitchen-before.svg",
+        before: "/images/kitchen-before-real.jpg",
         after: "/images/kitchen-concept.jpg",
         tag: "Kitchen Remodel · Homeowner",
         title: "1980s Kitchen, Full Transformation",
@@ -101,7 +101,7 @@ const copy = {
           "Une réparation propre et soignée qui a satisfait le client — la preuve qu'un agencement de couleurs délicat peut donner un résultat qui semble intentionnel.",
       },
       {
-        before: "/images/kitchen-before.svg",
+        before: "/images/kitchen-before-real.jpg",
         after: "/images/kitchen-concept.jpg",
         tag: "Rénovation de cuisine · Propriétaire",
         title: "Cuisine des années 1980, transformation complète",

@@ -21,7 +21,7 @@ const copy = {
         desc: "Full gut and rebuild: framing, insulation, drywall, recessed lighting, and plank flooring throughout.",
       },
       {
-        before: "/images/kitchen-before.svg",
+        before: "/images/kitchen-before-real.jpg",
         after: "/images/kitchen-concept.jpg",
         tag: "Kitchen Remodel",
         title: "1980s Kitchen, Full Transformation",
@@ -59,7 +59,7 @@ const copy = {
         desc: "Démolition et reconstruction complètes : ossature, isolation, gypse, éclairage encastré et plancher partout.",
       },
       {
-        before: "/images/kitchen-before.svg",
+        before: "/images/kitchen-before-real.jpg",
         after: "/images/kitchen-concept.jpg",
         tag: "Rénovation de cuisine",
         title: "Cuisine des années 1980, transformation complète",
