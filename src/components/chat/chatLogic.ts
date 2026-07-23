@@ -63,9 +63,9 @@ const TIER_MULTIPLIER: Record<QualityTier, number> = {
   luxury: 1.7,
 };
 
-const currencyFormatter = new Intl.NumberFormat("en-US", {
+const currencyFormatter = new Intl.NumberFormat("en-CA", {
   style: "currency",
-  currency: "USD",
+  currency: "CAD",
   maximumFractionDigits: 0,
 });
 
