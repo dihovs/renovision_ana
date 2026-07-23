@@ -4,15 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import LeadCaptureForm from "./LeadCaptureForm";
-import {
-  ChatMessage,
-  ChatStep,
-  ProjectSize,
-  ProjectType,
-  QualityTier,
-  estimateRange,
-  isOnTopic,
-} from "./chatLogic";
+import { ChatMessage, ProjectSize, ProjectType, QualityTier } from "./chatLogic";
 
 let idCounter = 0;
 const nextId = () => `msg-${++idCounter}`;
@@ -23,27 +15,61 @@ type Selections = {
   tier?: QualityTier;
 };
 
+type UiStep = "chat" | "leadCapture" | "done";
+
+type ChatStreamEvent =
+  | { type: "text"; text: string }
+  | { type: "estimate"; projectType: ProjectType; size: ProjectSize; tier: QualityTier; low: string; high: string }
+  | { type: "error"; message: string }
+  | { type: "done" };
+
+async function streamChat(
+  history: { role: "user" | "assistant"; content: string; imageDataUrl?: string }[],
+  locale: "en" | "fr",
+  onEvent: (event: ChatStreamEvent) => void,
+) {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: history, locale }),
+  });
+
+  if (!res.ok || !res.body) {
+    onEvent({ type: "error", message: "Request failed" });
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex;
+    while ((newlineIndex = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+      if (!line) continue;
+      onEvent(JSON.parse(line) as ChatStreamEvent);
+    }
+  }
+}
+
 export default function ChatWidget() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { isOpen, openChat, closeChat } = useChat();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [step, setStep] = useState<ChatStep>("projectType");
+  const [step, setStep] = useState<UiStep>("chat");
   const [selections, setSelections] = useState<Selections>({});
   const [inputValue, setInputValue] = useState("");
   const [leadSubmitted, setLeadSubmitted] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const listEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const seeded = useRef(false);
   const [launcherVisible, setLauncherVisible] = useState(false);
-
-  useEffect(() => {
-    if (isOpen && !seeded.current) {
-      seeded.current = true;
-      pushAssistant(t.chat.welcome);
-      pushAssistant(t.chat.projectType.question);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
 
   // Delay the launcher's entrance instead of showing it immediately on load —
   // a beat of stillness first, then it animates in, reads more intentional
@@ -74,166 +100,70 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { id: nextId(), role: "assistant", content }]);
   }
 
-  function pushUser(content: string, imageDataUrl?: string) {
-    setMessages((prev) => [...prev, { id: nextId(), role: "user", content, imageDataUrl }]);
-  }
-
-  function goToEstimate(finalSelections: Selections) {
-    if (!finalSelections.type || !finalSelections.size || !finalSelections.tier) return;
-    const { low, high } = estimateRange(
-      finalSelections.type,
-      finalSelections.size,
-      finalSelections.tier,
+  function pushError() {
+    pushAssistant(
+      locale === "fr"
+        ? "Désolé, une erreur est survenue. Veuillez réessayer."
+        : "Sorry, something went wrong. Please try again.",
     );
-    pushAssistant(`${t.chat.estimate.intro} ${low} – ${high}`);
-    pushAssistant(t.chat.estimate.disclaimer);
-    pushAssistant(t.chat.leadCapture.intro);
-    setStep("leadCapture");
   }
 
-  function handleProjectType(value: ProjectType, label: string) {
-    pushUser(label);
-    setSelections((s) => ({ ...s, type: value }));
-    pushAssistant(t.chat.size.question);
-    setStep("size");
-  }
+  async function sendToAI(text: string, imageDataUrl?: string) {
+    const userMessage: ChatMessage = { id: nextId(), role: "user", content: text, imageDataUrl };
+    const history = [...messages, userMessage];
+    setMessages(history);
+    setIsSending(true);
 
-  function handleSize(value: ProjectSize, label: string) {
-    pushUser(label);
-    setSelections((s) => ({ ...s, size: value }));
-    pushAssistant(t.chat.tier.question);
-    setStep("tier");
-  }
+    const assistantId = nextId();
+    let assistantStarted = false;
 
-  function handleTier(value: QualityTier, label: string) {
-    pushUser(label);
-    const updated = { ...selections, tier: value };
-    setSelections(updated);
-    pushAssistant(t.chat.photo.question);
-    setStep("photo");
-  }
-
-  function handleSkipPhoto() {
-    pushUser(t.chat.skip);
-    setStep("estimate");
-    goToEstimate(selections);
+    try {
+      await streamChat(
+        history.map((m) => ({ role: m.role, content: m.content, imageDataUrl: m.imageDataUrl })),
+        locale,
+        (event) => {
+          if (event.type === "text") {
+            if (!assistantStarted) {
+              assistantStarted = true;
+              setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: event.text }]);
+            } else {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + event.text } : m)),
+              );
+            }
+          } else if (event.type === "estimate") {
+            setSelections({ type: event.projectType, size: event.size, tier: event.tier });
+            pushAssistant(`${t.chat.estimate.intro} ${event.low} – ${event.high}`);
+            pushAssistant(t.chat.estimate.disclaimer);
+            pushAssistant(t.chat.leadCapture.intro);
+            setStep("leadCapture");
+          } else if (event.type === "error") {
+            pushError();
+          }
+        },
+      );
+    } catch (err) {
+      console.error("[chat] stream failed:", err);
+      pushError();
+    } finally {
+      setIsSending(false);
+    }
   }
 
   function handlePhotoFile(file: File) {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      pushUser(t.chat.photoAttached, dataUrl);
-      if (step === "photo") {
-        setStep("estimate");
-        goToEstimate(selections);
-      }
+      sendToAI(t.chat.photoAttached, dataUrl);
     };
     reader.readAsDataURL(file);
   }
 
-  function tryFreeTextForStep(text: string): boolean {
-    const lower = text.toLowerCase();
-
-    if (step === "projectType") {
-      if (/(kitchen|bath)/.test(lower)) {
-        handleProjectType("kitchenBath", t.chat.projectType.kitchenBath);
-        return true;
-      }
-      if (/(water|flood|leak|damage)/.test(lower)) {
-        handleProjectType("waterDamage", t.chat.projectType.waterDamage);
-        return true;
-      }
-      if (/(floor|tile|hardwood|vinyl)/.test(lower)) {
-        handleProjectType("flooring", t.chat.projectType.flooring);
-        return true;
-      }
-      if (/(basement)/.test(lower)) {
-        handleProjectType("basements", t.chat.projectType.basements);
-        return true;
-      }
-      if (/(repair|patch|touch.?up|color match|colour match)/.test(lower)) {
-        handleProjectType("repairs", t.chat.projectType.repairs);
-        return true;
-      }
-      if (/(renovat|remodel|room|interior)/.test(lower)) {
-        handleProjectType("interior", t.chat.projectType.interior);
-        return true;
-      }
-      return false;
-    }
-    if (step === "size") {
-      if (/small|one room|single/.test(lower)) {
-        handleSize("small", t.chat.size.small);
-        return true;
-      }
-      if (/medium|few rooms|multiple/.test(lower)) {
-        handleSize("medium", t.chat.size.medium);
-        return true;
-      }
-      if (/large|whole|entire|floor/.test(lower)) {
-        handleSize("large", t.chat.size.large);
-        return true;
-      }
-      return false;
-    }
-    if (step === "tier") {
-      if (/lux/.test(lower)) {
-        handleTier("luxury", t.chat.tier.luxury);
-        return true;
-      }
-      if (/premium|high.?end/.test(lower)) {
-        handleTier("premium", t.chat.tier.premium);
-        return true;
-      }
-      if (/standard|basic|budget/.test(lower)) {
-        handleTier("standard", t.chat.tier.standard);
-        return true;
-      }
-      return false;
-    }
-    return false;
-  }
-
   function handleSend() {
     const text = inputValue.trim();
-    if (!text) return;
+    if (!text || isSending) return;
     setInputValue("");
-
-    if (step === "photo") {
-      pushUser(text);
-      setStep("estimate");
-      goToEstimate(selections);
-      return;
-    }
-
-    if (step === "projectType" || step === "size" || step === "tier") {
-      const matched = tryFreeTextForStep(text);
-      if (matched) return;
-
-      if (!isOnTopic(text)) {
-        pushUser(text);
-        pushAssistant(t.chat.offTopic);
-        return;
-      }
-
-      pushUser(text);
-      const question =
-        step === "projectType"
-          ? t.chat.projectType.question
-          : step === "size"
-            ? t.chat.size.question
-            : t.chat.tier.question;
-      pushAssistant(question);
-      return;
-    }
-
-    pushUser(text);
-    if (!isOnTopic(text)) {
-      pushAssistant(t.chat.offTopic);
-    } else {
-      pushAssistant(t.chat.leadCapture.intro);
-    }
+    sendToAI(text);
   }
 
   async function handleLeadSubmit(data: { name: string; phone: string; email: string }) {
@@ -269,9 +199,7 @@ export default function ChatWidget() {
               : "pointer-events-none translate-y-4 scale-75 opacity-0"
           }`}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/vision-ai-mark.png" alt="" className="h-6 w-6 object-contain" />
-          <span className="hidden sm:inline">{t.chat.launcherLabel}</span>
+          <span>{t.chat.launcherLabel}</span>
         </button>
       )}
 
@@ -329,11 +257,18 @@ export default function ChatWidget() {
               className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
               style={{ background: "linear-gradient(180deg, #FFFFFF 0%, #EAF1FB 100%)" }}
             >
+              {/* Rendered live from the current translation instead of stored in
+                  state, so it switches instantly if the site language changes —
+                  even if the chat was opened (and this greeting shown) earlier
+                  under a different language. It's also intentionally excluded
+                  from `messages`, so it's never sent to Claude as fake history. */}
+              <MessageBubble message={{ id: "welcome", role: "assistant", content: t.chat.welcome }} />
+
               {messages.map((m) => (
                 <MessageBubble key={m.id} message={m} />
               ))}
 
-              {step === "projectType" && (
+              {step === "chat" && messages.length === 0 && !isSending && (
                 <OptionRow
                   options={[
                     { value: "waterDamage", label: t.chat.projectType.waterDamage },
@@ -343,46 +278,8 @@ export default function ChatWidget() {
                     { value: "basements", label: t.chat.projectType.basements },
                     { value: "repairs", label: t.chat.projectType.repairs },
                   ]}
-                  onSelect={(v, label) => handleProjectType(v as ProjectType, label)}
+                  onSelect={(_, label) => sendToAI(label)}
                 />
-              )}
-              {step === "size" && (
-                <OptionRow
-                  options={[
-                    { value: "small", label: t.chat.size.small },
-                    { value: "medium", label: t.chat.size.medium },
-                    { value: "large", label: t.chat.size.large },
-                  ]}
-                  onSelect={(v, label) => handleSize(v as ProjectSize, label)}
-                />
-              )}
-              {step === "tier" && (
-                <OptionRow
-                  options={[
-                    { value: "standard", label: t.chat.tier.standard },
-                    { value: "premium", label: t.chat.tier.premium },
-                    { value: "luxury", label: t.chat.tier.luxury },
-                  ]}
-                  onSelect={(v, label) => handleTier(v as QualityTier, label)}
-                />
-              )}
-              {step === "photo" && (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="cursor-pointer rounded-full bg-brand-blue-light px-4 py-1.5 text-xs font-bold text-brand-blue hover:bg-brand-blue/20"
-                  >
-                    {t.chat.uploadLabel}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSkipPhoto}
-                    className="cursor-pointer rounded-full bg-black/5 px-4 py-1.5 text-xs font-bold text-charcoal/60 hover:bg-black/10"
-                  >
-                    {t.chat.skip}
-                  </button>
-                </div>
               )}
 
               <div ref={listEndRef} />
@@ -406,8 +303,9 @@ export default function ChatWidget() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={isSending}
                   aria-label={t.chat.uploadLabel}
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-blue hover:bg-brand-blue-light"
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-blue hover:bg-brand-blue-light disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <PaperclipIcon />
                 </button>
@@ -418,14 +316,16 @@ export default function ChatWidget() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSend();
                   }}
+                  disabled={isSending}
                   placeholder={t.chat.placeholder}
-                  className="flex-1 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-base outline-none focus:border-brand-blue"
+                  className="flex-1 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-base outline-none focus:border-brand-blue disabled:opacity-60"
                 />
                 <button
                   type="button"
                   onClick={handleSend}
+                  disabled={isSending}
                   aria-label={t.chat.send}
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-brand-green text-white hover:bg-brand-green-dark"
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-brand-green text-white hover:bg-brand-green-dark disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <SendIcon />
                 </button>
