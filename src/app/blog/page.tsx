@@ -1,4 +1,4 @@
-import PlaceholderPage from "@/components/ui/PlaceholderPage";
+import BlogContent from "@/components/pages/BlogContent";
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
@@ -9,10 +9,5 @@ export const metadata = buildMetadata({
 });
 
 export default function BlogPage() {
-  return (
-    <PlaceholderPage
-      title="Blog"
-      description="Renovation tips, before & after project stories, and advice for property managers, insurers, and homeowners."
-    />
-  );
+  return <BlogContent />;
 }
