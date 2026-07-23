@@ -12,6 +12,8 @@ type LeadPayload = {
   projectType?: string;
   size?: string;
   tier?: string;
+  floorMaterial?: string;
+  wallMaterial?: string;
   estimateLow?: string;
   estimateHigh?: string;
 };
@@ -21,6 +23,8 @@ const LEAD_FIELD_LABELS: Record<keyof Omit<LeadPayload, "name" | "phone" | "emai
   projectType: "Project type",
   size: "Size",
   tier: "Tier",
+  floorMaterial: "Floor material",
+  wallMaterial: "Wall material",
   estimateLow: "Estimate (low)",
   estimateHigh: "Estimate (high)",
 };

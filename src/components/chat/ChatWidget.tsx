@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import LeadCaptureForm from "./LeadCaptureForm";
-import { ChatMessage, ProjectSize, ProjectType, QualityTier } from "./chatLogic";
+import { ChatMessage, FloorMaterial, ProjectSize, ProjectType, QualityTier, WallMaterial } from "./chatLogic";
 
 let idCounter = 0;
 const nextId = () => `msg-${++idCounter}`;
@@ -13,13 +13,24 @@ type Selections = {
   type?: ProjectType;
   size?: ProjectSize;
   tier?: QualityTier;
+  floorMaterial?: FloorMaterial;
+  wallMaterial?: WallMaterial;
 };
 
 type UiStep = "chat" | "leadCapture" | "done";
 
 type ChatStreamEvent =
   | { type: "text"; text: string }
-  | { type: "estimate"; projectType: ProjectType; size: ProjectSize; tier: QualityTier; low: string; high: string }
+  | {
+      type: "estimate";
+      projectType: ProjectType;
+      size: ProjectSize;
+      tier: QualityTier;
+      floorMaterial?: FloorMaterial;
+      wallMaterial?: WallMaterial;
+      low: string;
+      high: string;
+    }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -132,7 +143,13 @@ export default function ChatWidget() {
               );
             }
           } else if (event.type === "estimate") {
-            setSelections({ type: event.projectType, size: event.size, tier: event.tier });
+            setSelections({
+              type: event.projectType,
+              size: event.size,
+              tier: event.tier,
+              floorMaterial: event.floorMaterial,
+              wallMaterial: event.wallMaterial,
+            });
             pushAssistant(`${t.chat.estimate.intro} ${event.low} – ${event.high}`);
             pushAssistant(t.chat.estimate.disclaimer);
             pushAssistant(t.chat.leadCapture.intro);
@@ -175,6 +192,8 @@ export default function ChatWidget() {
         projectType: selections.type,
         size: selections.size,
         tier: selections.tier,
+        floorMaterial: selections.floorMaterial,
+        wallMaterial: selections.wallMaterial,
       }),
     });
     pushAssistant(t.chat.leadCapture.success);

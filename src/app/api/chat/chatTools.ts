@@ -4,7 +4,7 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
   {
     name: "estimate_price",
     description:
-      "Calculate a ballpark price range for a renovation or restoration project. Call this only once you know the project type, size, and quality tier — do not guess at missing values, and never state a dollar figure yourself before calling this tool.",
+      "Calculate a ballpark price range for a renovation or restoration project. Call this only once you have the required details for the project type (see field descriptions) — do not guess at missing values, and never state a dollar figure yourself before calling this tool.",
     input_schema: {
       type: "object",
       properties: {
@@ -24,6 +24,18 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
           enum: ["standard", "premium", "luxury"],
           description: "The finish quality / budget level the customer wants.",
         },
+        floorMaterial: {
+          type: "string",
+          enum: ["tile", "hardwood", "vinylLaminate", "carpet", "concreteUnfinished", "other"],
+          description:
+            "Required when projectType is 'basements': the current or planned floor material. Omit for other project types.",
+        },
+        wallMaterial: {
+          type: "string",
+          enum: ["drywall", "woodPaneling", "concrete", "other"],
+          description:
+            "Required when projectType is 'basements': the current or planned wall material. Omit for other project types.",
+        },
       },
       required: ["projectType", "size", "tier"],
     },
@@ -38,5 +50,7 @@ Scope: only discuss renovation, remodeling, interior repairs, water/flood/mold d
 
 Goal: have a short, natural conversation to learn (1) what kind of project it is, (2) roughly how big it is, and (3) what quality/budget tier they want (standard, premium, or luxury finishes). Ask concise follow-up questions one at a time — do not ask for all three at once. If the customer attaches a photo, look at it to help judge the project type and scope.
 
-Once you have all three, call the estimate_price tool immediately — never calculate, guess, or state a price yourself. After the tool result comes back, briefly confirm you've got a ballpark ready in one short sentence; the exact figures and next steps will be shown separately, so do not restate the dollar amounts yourself. Keep every reply short: 1-3 sentences, no headers or bullet lists.`;
+If the project type is "basements", also ask two more questions before estimating, one at a time: what the floor material is (tile, hardwood, vinyl/laminate, carpet, or unfinished concrete) and what the walls are made of (drywall, wood paneling, unfinished concrete, or other) — these materially change the scope of a basement job, so include them in the estimate_price call.
+
+Once you have the required details for the project type, call the estimate_price tool immediately — never calculate, guess, or state a price yourself. After the tool result comes back, briefly confirm you've got a ballpark ready in one short sentence; the exact figures and next steps will be shown separately, so do not restate the dollar amounts yourself. Keep every reply short: 1-3 sentences, no headers or bullet lists.`;
 }

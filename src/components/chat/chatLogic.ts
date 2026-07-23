@@ -7,6 +7,8 @@ export type ProjectType =
   | "repairs";
 export type ProjectSize = "small" | "medium" | "large";
 export type QualityTier = "standard" | "premium" | "luxury";
+export type FloorMaterial = "tile" | "hardwood" | "vinylLaminate" | "carpet" | "concreteUnfinished" | "other";
+export type WallMaterial = "drywall" | "woodPaneling" | "concrete" | "other";
 
 export type ChatStep =
   | "projectType"

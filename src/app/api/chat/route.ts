@@ -1,5 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { estimateRange, type ProjectSize, type ProjectType, type QualityTier } from "@/components/chat/chatLogic";
+import {
+  estimateRange,
+  type FloorMaterial,
+  type ProjectSize,
+  type ProjectType,
+  type QualityTier,
+  type WallMaterial,
+} from "@/components/chat/chatLogic";
 import { CHAT_TOOLS, buildSystemPrompt } from "./chatTools";
 
 export const runtime = "nodejs";
@@ -89,7 +96,13 @@ export async function POST(request: Request) {
             if (block.type !== "tool_use") continue;
 
             if (block.name === "estimate_price") {
-              const input = block.input as { projectType: ProjectType; size: ProjectSize; tier: QualityTier };
+              const input = block.input as {
+                projectType: ProjectType;
+                size: ProjectSize;
+                tier: QualityTier;
+                floorMaterial?: FloorMaterial;
+                wallMaterial?: WallMaterial;
+              };
               const { low, high } = estimateRange(input.projectType, input.size, input.tier);
               emit({ type: "estimate", ...input, low, high });
               toolResults.push({

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { ChatProvider } from "@/components/chat/ChatProvider";
@@ -69,6 +70,7 @@ export default function RootLayout({
             <ChatWidget />
           </ChatProvider>
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );
