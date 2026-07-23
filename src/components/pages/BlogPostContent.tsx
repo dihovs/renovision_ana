@@ -86,6 +86,24 @@ export default function BlogPostContent({ post }: { post: BlogPost }) {
                 </p>
               );
             }
+            if (section.type === "timeline") {
+              return (
+                <div key={i} className="relative space-y-8 border-l-2 border-brand-blue-light pl-6">
+                  {section.items.map((step, j) => (
+                    <div key={j} className="relative">
+                      <span
+                        aria-hidden
+                        className="absolute -left-[27px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-brand-green"
+                      />
+                      <p className="inline-block rounded-full bg-brand-blue px-3 py-1 font-heading text-xs font-bold text-white">
+                        {step.time}
+                      </p>
+                      <p className="mt-2 text-base leading-relaxed text-charcoal/80">{step.text}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
             // stats
             return (
               <div key={i} className="grid gap-4 sm:grid-cols-3">
