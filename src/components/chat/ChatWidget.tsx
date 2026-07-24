@@ -201,6 +201,7 @@ export default function ChatWidget() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...data,
+        locale,
         scopeSummary: estimate?.scopeSummary,
         estimateLow: estimate?.low,
         estimateHigh: estimate?.high,

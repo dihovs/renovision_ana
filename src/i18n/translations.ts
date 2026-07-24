@@ -289,7 +289,7 @@ const en: Record<string, unknown> & {
       consent: "Send me occasional tips and promotions from Renovision AnA.",
       submit: "Send me my quote",
       later: "Maybe later",
-      success: "Thanks! A member of our team will follow up with your detailed quote shortly.",
+      success: "Thanks! A confirmation email is on its way, and a member of our team will follow up with your detailed quote shortly.",
     },
   },
 };
@@ -504,7 +504,7 @@ const fr: typeof en = {
       consent: "Envoyez-moi des conseils et promotions de Renovision AnA à l'occasion.",
       submit: "Envoyer ma soumission",
       later: "Peut-être plus tard",
-      success: "Merci! Un membre de notre équipe vous enverra sous peu votre soumission détaillée.",
+      success: "Merci! Un courriel de confirmation s'en vient, et un membre de notre équipe vous enverra sous peu votre soumission détaillée.",
     },
   },
 };

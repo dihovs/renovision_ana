@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { mkdir, appendFile } from "fs/promises";
 import path from "path";
 import { Resend } from "resend";
-import { LEADS_NOTIFY_EMAIL, SITE_EMAIL, SITE_NAME } from "@/lib/constants";
+import {
+  LEADS_NOTIFY_EMAIL,
+  SITE_ADDRESS,
+  SITE_EMAIL,
+  SITE_NAME,
+  SITE_PHONE,
+  SITE_URL,
+} from "@/lib/constants";
 
 type EstimateLine = {
   name: string;
@@ -17,6 +24,7 @@ type LeadPayload = {
   phone: string;
   email: string;
   address?: string;
+  locale?: "en" | "fr";
   marketingConsent?: boolean;
   message?: string;
   scopeSummary?: string;
@@ -137,6 +145,90 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// The confirmation the CUSTOMER receives — a warm, personal note from Artush,
+// branded with the logo and company footer, in the language they used in chat.
+// Deliberately does NOT include the internal breakdown or labour hours.
+function renderCustomerConfirmationHtml(lead: LeadPayload): string {
+  const fr = lead.locale === "fr";
+  const firstName = escapeHtml(lead.name.trim().split(/\s+/)[0] || lead.name.trim());
+  const range =
+    lead.estimateLow && lead.estimateHigh
+      ? `${escapeHtml(lead.estimateLow)} – ${escapeHtml(lead.estimateHigh)}`
+      : escapeHtml(lead.estimateExpected ?? "");
+
+  const t = fr
+    ? {
+        greeting: `Bonjour ${firstName},`,
+        intro:
+          "Merci d'avoir communiqué avec Renovision AnA. Je tenais à vous confirmer personnellement que nous avons bien reçu votre demande et qu'un membre de notre équipe communiquera avec vous très bientôt.",
+        summaryHeading: "Voici un résumé de ce dont nous avons discuté :",
+        needLabel: "Votre besoin",
+        estimateLabel: "Estimation préliminaire",
+        estimateNote:
+          "une fourchette approximative seulement — ce n'est pas un prix final; le prix exact dépend d'une visite sur place.",
+        outro: `Nous ferons un suivi sous peu. Si quelque chose est urgent entre-temps, n'hésitez pas à nous appeler au ${SITE_PHONE}.`,
+        signoff: "Cordialement,",
+        title: "Président, Renovision AnA",
+      }
+    : {
+        greeting: `Hi ${firstName},`,
+        intro:
+          "Thank you for reaching out to Renovision AnA. I wanted to personally let you know that we've received your request and a member of our team will contact you very soon.",
+        summaryHeading: "Here's a quick summary of what we discussed:",
+        needLabel: "What you need",
+        estimateLabel: "Preliminary estimate",
+        estimateNote:
+          "a rough range only — not a final quote; the exact price depends on an in-person look at the work.",
+        outro: `We'll follow up shortly. If anything is urgent in the meantime, don't hesitate to call us at ${SITE_PHONE}.`,
+        signoff: "Warm regards,",
+        title: "President, Renovision AnA",
+      };
+
+  const summaryRows: string[] = [];
+  if (lead.scopeSummary) {
+    summaryRows.push(
+      `<tr><td style="padding:3px 12px 3px 0;color:#666;vertical-align:top;">${t.needLabel}</td><td style="padding:3px 0;">${escapeHtml(lead.scopeSummary)}</td></tr>`,
+    );
+  }
+  if (range) {
+    summaryRows.push(
+      `<tr><td style="padding:3px 12px 3px 0;color:#666;vertical-align:top;">${t.estimateLabel}</td><td style="padding:3px 0;"><strong>${range}</strong><br><span style="color:#888;font-size:12px;">${t.estimateNote}</span></td></tr>`,
+    );
+  }
+  const summary =
+    summaryRows.length > 0
+      ? `<p style="margin:16px 0 6px;">${t.summaryHeading}</p>
+         <table cellpadding="0" cellspacing="0" style="font-size:14px;">${summaryRows.join("")}</table>`
+      : "";
+
+  const addressLine = [
+    SITE_ADDRESS.streetAddress,
+    SITE_ADDRESS.addressLocality,
+    SITE_ADDRESS.addressRegion,
+    SITE_ADDRESS.postalCode,
+  ].join(", ");
+
+  return `
+  <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#2b2b2b;max-width:560px;">
+    <div style="padding-bottom:14px;border-bottom:2px solid #eaf1fb;">
+      <img src="${SITE_URL}/renovision-logo.png" alt="Renovision AnA" width="48" height="55" style="height:55px;width:auto;" />
+    </div>
+    <p style="margin:20px 0 12px;">${t.greeting}</p>
+    <p style="margin:0 0 12px;">${t.intro}</p>
+    ${summary}
+    <p style="margin:16px 0 24px;">${t.outro}</p>
+    <p style="margin:0;">${t.signoff}</p>
+    <p style="margin:2px 0 0;"><strong style="color:#2b5c9e;">Artush</strong><br><span style="color:#666;font-size:13px;">${t.title}</span></p>
+    <div style="margin-top:26px;padding-top:14px;border-top:1px solid #e5e5e5;color:#999;font-size:12px;">
+      <strong style="color:#2b5c9e;">${escapeHtml(SITE_NAME)}</strong><br>
+      ${escapeHtml(addressLine)}<br>
+      <a href="tel:${escapeHtml(SITE_PHONE)}" style="color:#2b5c9e;">${escapeHtml(SITE_PHONE)}</a> ·
+      <a href="mailto:${escapeHtml(SITE_EMAIL)}" style="color:#2b5c9e;">${escapeHtml(SITE_EMAIL)}</a> ·
+      <a href="${SITE_URL}" style="color:#2b5c9e;">${escapeHtml(SITE_URL.replace(/^https?:\/\//, ""))}</a>
+    </div>
+  </div>`;
+}
+
 export async function POST(request: Request) {
   const body = (await request.json()) as Partial<LeadPayload>;
 
@@ -163,29 +255,45 @@ export async function POST(request: Request) {
   }
 
   if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    // Default to the verified renovisionana.ca domain so emails actually
+    // deliver. The old fallback (onboarding@resend.dev) is Resend's sandbox
+    // sender, which can ONLY reach the account owner. LEADS_FROM_EMAIL can
+    // still override. The Resend SDK returns { data, error } instead of
+    // throwing on API-level rejections, so we check `error` explicitly.
+    const fromDomain = process.env.LEADS_FROM_EMAIL || SITE_EMAIL;
+
+    // 1. Internal notification to the team, with the full breakdown.
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const { data, error } = await resend.emails.send({
-        // Default to the verified renovisionana.ca domain so lead emails
-        // actually deliver. The old fallback (onboarding@resend.dev) is
-        // Resend's sandbox sender, which can ONLY reach the account owner's
-        // address — every real lead notification to LEADS_NOTIFY_EMAIL was
-        // being silently 403-rejected. LEADS_FROM_EMAIL can still override.
+      const { error } = await resend.emails.send({
         from: process.env.LEADS_FROM_EMAIL || `${SITE_NAME} <${SITE_EMAIL}>`,
         to: LEADS_NOTIFY_EMAIL,
         replyTo: lead.email,
         subject: `New lead: ${lead.name}`,
         html: renderLeadEmailHtml(lead),
       });
-      // The Resend SDK returns { data, error } instead of throwing on API-level
-      // rejections (e.g. sandbox sender restrictions) — must check explicitly.
-      if (error) {
-        console.error("Resend rejected the lead notification email:", error);
-      } else {
-        console.log("[lead email sent]", data);
-      }
+      if (error) console.error("Resend rejected the lead notification email:", error);
+      else console.log("[lead notification sent]");
     } catch (err) {
       console.error("Failed to send lead notification email:", err);
+    }
+
+    // 2. Personal confirmation to the customer, from Artush, in their language.
+    try {
+      const fr = lead.locale === "fr";
+      const { error } = await resend.emails.send({
+        from: `Artush from ${SITE_NAME} <${fromDomain}>`,
+        to: lead.email,
+        replyTo: LEADS_NOTIFY_EMAIL,
+        subject: fr
+          ? "Nous avons bien reçu votre demande — Renovision AnA"
+          : "We've received your request — Renovision AnA",
+        html: renderCustomerConfirmationHtml(lead),
+      });
+      if (error) console.error("Resend rejected the customer confirmation email:", error);
+      else console.log("[customer confirmation sent]");
+    } catch (err) {
+      console.error("Failed to send customer confirmation email:", err);
     }
   } else {
     console.warn("[lead email skipped] RESEND_API_KEY is not set — see .env.local.example");
