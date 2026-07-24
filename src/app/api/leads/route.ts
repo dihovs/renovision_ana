@@ -16,67 +16,92 @@ type LeadPayload = {
   estimateExpected?: string;
   estimateHigh?: string;
   lines?: EstimateLine[];
+  subtotal?: string;
+  gst?: string;
+  qst?: string;
+  total?: string;
   exclusions?: string[];
 };
 
-const LEAD_FIELD_LABELS: Record<
-  keyof Omit<LeadPayload, "name" | "phone" | "email" | "lines" | "exclusions">,
-  string
-> = {
-  message: "Message",
-  scopeSummary: "Scope summary",
-  estimateLow: "Estimate (low)",
-  estimateExpected: "Estimate (expected)",
-  estimateHigh: "Estimate (high)",
-};
+const SECTION_H = "color:#2b5c9e;margin:20px 0 6px;font-size:14px;";
 
 function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string {
-  const rows: string[] = [
-    `<tr><td style="padding:4px 12px 4px 0;color:#666;">Name</td><td><strong>${escapeHtml(lead.name)}</strong></td></tr>`,
-    `<tr><td style="padding:4px 12px 4px 0;color:#666;">Phone</td><td><a href="tel:${escapeHtml(lead.phone)}">${escapeHtml(lead.phone)}</a></td></tr>`,
-    `<tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td><a href="mailto:${escapeHtml(lead.email)}">${escapeHtml(lead.email)}</a></td></tr>`,
-  ];
+  // 1. Contact.
+  const contact = `
+    <table cellpadding="0" cellspacing="0" style="font-size:14px;">
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Name</td><td><strong>${escapeHtml(lead.name)}</strong></td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Phone</td><td><a href="tel:${escapeHtml(lead.phone)}">${escapeHtml(lead.phone)}</a></td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td><a href="mailto:${escapeHtml(lead.email)}">${escapeHtml(lead.email)}</a></td></tr>
+      ${lead.message ? `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top;">Message</td><td>${escapeHtml(lead.message)}</td></tr>` : ""}
+    </table>`;
 
-  for (const key of Object.keys(LEAD_FIELD_LABELS) as (keyof typeof LEAD_FIELD_LABELS)[]) {
-    const value = lead[key];
-    if (!value) continue;
-    rows.push(
-      `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top;">${LEAD_FIELD_LABELS[key]}</td><td>${escapeHtml(String(value))}</td></tr>`,
-    );
+  // 2. What the customer saw — the range and the scope summary, exactly as the
+  // widget presented it, so you know what was promised on screen.
+  let customerView = "";
+  if (lead.estimateLow || lead.estimateHigh) {
+    const range =
+      lead.estimateLow && lead.estimateHigh
+        ? `${escapeHtml(lead.estimateLow)} – ${escapeHtml(lead.estimateHigh)}`
+        : escapeHtml(lead.estimateExpected ?? lead.estimateLow ?? lead.estimateHigh ?? "");
+    customerView = `
+      <h3 style="${SECTION_H}">What the customer saw</h3>
+      <div style="background:#eaf1fb;border-radius:8px;padding:12px 14px;">
+        <div style="font-size:20px;font-weight:bold;color:#1f4677;">${range}</div>
+        <div style="font-size:12px;color:#666;margin-top:2px;">Preliminary range shown in the chat (pre-tax)</div>
+        ${lead.scopeSummary ? `<div style="font-size:13px;color:#2b2b2b;margin-top:8px;">${escapeHtml(lead.scopeSummary)}</div>` : ""}
+      </div>`;
   }
 
-  // Itemized breakdown of exactly what the estimator priced — this is the
-  // traceability the team needs to sanity-check or turn into a real quote.
+  // 3. Detailed breakdown — how the estimator got there: the exact line items
+  // Vision AI selected, plus the tax math. This is the traceability you need to
+  // understand what the AI did and turn it into a real quote.
   let breakdown = "";
   if (lead.lines && lead.lines.length > 0) {
     const lineRows = lead.lines
       .map(
         (l) =>
-          `<tr><td style="padding:2px 12px 2px 0;">${escapeHtml(l.name)}</td>` +
-          `<td style="padding:2px 12px 2px 0;color:#666;white-space:nowrap;">${escapeHtml(String(l.quantity))} ${escapeHtml(l.unit)}</td>` +
-          `<td style="padding:2px 0;text-align:right;white-space:nowrap;">${escapeHtml(l.total)}</td></tr>`,
+          `<tr><td style="padding:3px 12px 3px 0;">${escapeHtml(l.name)}</td>` +
+          `<td style="padding:3px 12px 3px 0;color:#666;white-space:nowrap;">${escapeHtml(String(l.quantity))} ${escapeHtml(l.unit)}</td>` +
+          `<td style="padding:3px 0;text-align:right;white-space:nowrap;">${escapeHtml(l.total)}</td></tr>`,
+      )
+      .join("");
+    const totalsRows = [
+      lead.subtotal ? ["Subtotal (labour, pre-tax)", lead.subtotal, false] : null,
+      lead.gst ? ["GST (5%)", lead.gst, false] : null,
+      lead.qst ? ["QST (9.975%)", lead.qst, false] : null,
+      lead.total ? ["Total with tax", lead.total, true] : null,
+    ]
+      .filter((r): r is [string, string, boolean] => r !== null)
+      .map(
+        ([label, value, bold]) =>
+          `<tr><td colspan="2" style="padding:3px 12px 3px 0;text-align:right;${bold ? "font-weight:bold;border-top:1px solid #ddd;" : "color:#666;"}">${escapeHtml(label)}</td>` +
+          `<td style="padding:3px 0;text-align:right;white-space:nowrap;${bold ? "font-weight:bold;border-top:1px solid #ddd;" : ""}">${escapeHtml(value)}</td></tr>`,
       )
       .join("");
     breakdown = `
-      <h3 style="color:#2b5c9e;margin:18px 0 6px;font-size:14px;">Estimator line items (labour, pre-tax)</h3>
-      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:13px;">${lineRows}</table>`;
+      <h3 style="${SECTION_H}">Detailed breakdown — what the estimator calculated</h3>
+      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:13px;">
+        ${lineRows}
+        ${totalsRows}
+      </table>`;
   }
 
   let exclusionsHtml = "";
   if (lead.exclusions && lead.exclusions.length > 0) {
     const items = lead.exclusions.map((e) => `<li>${escapeHtml(e)}</li>`).join("");
     exclusionsHtml = `
-      <h3 style="color:#2b5c9e;margin:18px 0 6px;font-size:14px;">Noted exclusions</h3>
+      <h3 style="${SECTION_H}">Noted exclusions</h3>
       <ul style="margin:0;padding-left:18px;color:#666;font-size:13px;">${items}</ul>`;
   }
 
   return `
-    <div style="font-family:Arial,sans-serif;font-size:14px;color:#2b2b2b;">
+    <div style="font-family:Arial,sans-serif;font-size:14px;color:#2b2b2b;max-width:560px;">
       <h2 style="color:#2b5c9e;margin:0 0 12px;">New lead from ${escapeHtml(SITE_NAME)}</h2>
-      <table cellpadding="0" cellspacing="0">${rows.join("")}</table>
+      ${contact}
+      ${customerView}
       ${breakdown}
       ${exclusionsHtml}
-      <p style="margin-top:16px;color:#999;font-size:12px;">Preliminary estimator figures — not a binding quote. Received ${escapeHtml(lead.receivedAt)}</p>
+      <p style="margin-top:18px;color:#999;font-size:12px;">Preliminary estimator figures — not a binding quote. Received ${escapeHtml(lead.receivedAt)}</p>
     </div>
   `;
 }

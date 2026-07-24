@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { calculateEstimate, formatCents } from "@/lib/estimator/calculate";
+import { calculateEstimate, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
 import type { ScopeLine } from "@/lib/estimator/types";
 import { CHAT_TOOLS, buildSystemPrompt } from "./chatTools";
 
@@ -102,7 +102,9 @@ export async function POST(request: Request) {
 
               const result = calculateEstimate(scope);
 
-              // Client gets the customer-facing shape (range + line breakdown).
+              // The customer sees only the range; the itemized breakdown and
+              // tax math ride along so the widget can forward them to the lead
+              // email (so the owner sees exactly what the estimator calculated).
               emit({
                 type: "estimate",
                 scopeSummary: input.scopeSummary ?? "",
@@ -113,8 +115,12 @@ export async function POST(request: Request) {
                   name: l.name,
                   quantity: l.quantity,
                   unit: l.unit,
-                  total: formatCents(l.lineTotalCents),
+                  total: formatCentsPrecise(l.lineTotalCents),
                 })),
+                subtotal: formatCentsPrecise(result.subtotalCents),
+                gst: formatCentsPrecise(result.gstCents),
+                qst: formatCentsPrecise(result.qstCents),
+                total: formatCentsPrecise(result.totalCents),
                 exclusions: result.exclusions,
               });
 

@@ -2,6 +2,12 @@
 // SAFE SUBSET ONLY: internal cost, calculated direct cost, and gross margin percent are
 // intentionally excluded. This repo is public and those are internal wage/margin figures.
 // Only the customer-facing sales rate and non-sensitive metadata are kept.
+//
+// MANUAL OVERRIDES (do not lose these on a CSV regen):
+//   Flooring install rates raised from the CSV baseline to match real pricing —
+//   FLR-LAM-INST 4.75→8.60, FLR-LVP-INST 4.55→8.25, FLR-ENG-INST 5.75→10.40,
+//   FLR-HW-NAIL 8.25→14.95. Tune these directly; they are the customer-facing
+//   sell rates per square foot.
 import type { LineItem } from "../types";
 
 export const LINE_ITEMS: LineItem[] = [
@@ -765,7 +771,7 @@ export const LINE_ITEMS: LineItem[] = [
     subcategory: "Laminate",
     name: "Install laminate flooring",
     unit: "sq ft",
-    salesRate: 4.75,
+    salesRate: 8.6,
     laborHoursPerUnit: 0.045,
     laborClass: "LAB-CARPENTER",
     taxable: true,
@@ -778,7 +784,7 @@ export const LINE_ITEMS: LineItem[] = [
     subcategory: "Vinyl Plank",
     name: "Install luxury vinyl plank",
     unit: "sq ft",
-    salesRate: 4.55,
+    salesRate: 8.25,
     laborHoursPerUnit: 0.042,
     laborClass: "LAB-CARPENTER",
     taxable: true,
@@ -791,7 +797,7 @@ export const LINE_ITEMS: LineItem[] = [
     subcategory: "Engineered Wood",
     name: "Install engineered hardwood floating",
     unit: "sq ft",
-    salesRate: 5.75,
+    salesRate: 10.4,
     laborHoursPerUnit: 0.055,
     laborClass: "LAB-CARPENTER",
     taxable: true,
@@ -804,7 +810,7 @@ export const LINE_ITEMS: LineItem[] = [
     subcategory: "Hardwood",
     name: "Install nail-down hardwood",
     unit: "sq ft",
-    salesRate: 8.25,
+    salesRate: 14.95,
     laborHoursPerUnit: 0.085,
     laborClass: "LAB-CARPENTER",
     taxable: true,

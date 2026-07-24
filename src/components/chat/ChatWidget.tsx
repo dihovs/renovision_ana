@@ -17,6 +17,10 @@ type EstimateDetails = {
   expected: string;
   high: string;
   lines: EstimateLine[];
+  subtotal: string;
+  gst: string;
+  qst: string;
+  total: string;
   exclusions: string[];
 };
 
@@ -184,6 +188,10 @@ export default function ChatWidget() {
         estimateHigh: estimate?.high,
         estimateExpected: estimate?.expected,
         lines: estimate?.lines,
+        subtotal: estimate?.subtotal,
+        gst: estimate?.gst,
+        qst: estimate?.qst,
+        total: estimate?.total,
         exclusions: estimate?.exclusions,
       }),
     });
