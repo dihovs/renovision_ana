@@ -4,33 +4,27 @@ import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import LeadCaptureForm from "./LeadCaptureForm";
-import { ChatMessage, FloorMaterial, ProjectSize, ProjectType, QualityTier, WallMaterial } from "./chatLogic";
+import { ChatMessage } from "./chatLogic";
 
 let idCounter = 0;
 const nextId = () => `msg-${++idCounter}`;
 
-type Selections = {
-  type?: ProjectType;
-  size?: ProjectSize;
-  tier?: QualityTier;
-  floorMaterial?: FloorMaterial;
-  wallMaterial?: WallMaterial;
+type EstimateLine = { name: string; quantity: number; unit: string; total: string };
+
+type EstimateDetails = {
+  scopeSummary: string;
+  low: string;
+  expected: string;
+  high: string;
+  lines: EstimateLine[];
+  exclusions: string[];
 };
 
 type UiStep = "chat" | "leadCapture" | "done";
 
 type ChatStreamEvent =
   | { type: "text"; text: string }
-  | {
-      type: "estimate";
-      projectType: ProjectType;
-      size: ProjectSize;
-      tier: QualityTier;
-      floorMaterial?: FloorMaterial;
-      wallMaterial?: WallMaterial;
-      low: string;
-      high: string;
-    }
+  | ({ type: "estimate" } & EstimateDetails)
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -74,7 +68,7 @@ export default function ChatWidget() {
   const { isOpen, openChat, closeChat } = useChat();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [step, setStep] = useState<UiStep>("chat");
-  const [selections, setSelections] = useState<Selections>({});
+  const [estimate, setEstimate] = useState<EstimateDetails | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [leadSubmitted, setLeadSubmitted] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -143,13 +137,9 @@ export default function ChatWidget() {
               );
             }
           } else if (event.type === "estimate") {
-            setSelections({
-              type: event.projectType,
-              size: event.size,
-              tier: event.tier,
-              floorMaterial: event.floorMaterial,
-              wallMaterial: event.wallMaterial,
-            });
+            const { type: _t, ...details } = event;
+            void _t;
+            setEstimate(details);
             pushAssistant(`${t.chat.estimate.intro} ${event.low} – ${event.high}`);
             pushAssistant(t.chat.estimate.disclaimer);
             pushAssistant(t.chat.leadCapture.intro);
@@ -189,11 +179,12 @@ export default function ChatWidget() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...data,
-        projectType: selections.type,
-        size: selections.size,
-        tier: selections.tier,
-        floorMaterial: selections.floorMaterial,
-        wallMaterial: selections.wallMaterial,
+        scopeSummary: estimate?.scopeSummary,
+        estimateLow: estimate?.low,
+        estimateHigh: estimate?.high,
+        estimateExpected: estimate?.expected,
+        lines: estimate?.lines,
+        exclusions: estimate?.exclusions,
       }),
     });
     pushAssistant(t.chat.leadCapture.success);

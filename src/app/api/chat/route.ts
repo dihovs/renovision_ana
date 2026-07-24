@@ -1,12 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import {
-  estimateRange,
-  type FloorMaterial,
-  type ProjectSize,
-  type ProjectType,
-  type QualityTier,
-  type WallMaterial,
-} from "@/components/chat/chatLogic";
+import { calculateEstimate, formatCents } from "@/lib/estimator/calculate";
+import type { ScopeLine } from "@/lib/estimator/types";
 import { CHAT_TOOLS, buildSystemPrompt } from "./chatTools";
 
 export const runtime = "nodejs";
@@ -72,7 +66,7 @@ export async function POST(request: Request) {
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
           const messageStream = client.messages.stream({
             model: "claude-opus-4-8",
-            max_tokens: 1024,
+            max_tokens: 2048,
             system: [
               {
                 type: "text",
@@ -95,20 +89,48 @@ export async function POST(request: Request) {
           for (const block of finalMessage.content) {
             if (block.type !== "tool_use") continue;
 
-            if (block.name === "estimate_price") {
+            if (block.name === "build_estimate") {
               const input = block.input as {
-                projectType: ProjectType;
-                size: ProjectSize;
-                tier: QualityTier;
-                floorMaterial?: FloorMaterial;
-                wallMaterial?: WallMaterial;
+                scopeSummary?: string;
+                lines?: { itemCode?: string; quantity?: number }[];
               };
-              const { low, high } = estimateRange(input.projectType, input.size, input.tier);
-              emit({ type: "estimate", ...input, low, high });
+              const scope: ScopeLine[] = (input.lines ?? [])
+                .filter((l): l is { itemCode: string; quantity: number } =>
+                  typeof l.itemCode === "string" && typeof l.quantity === "number",
+                )
+                .map((l) => ({ itemCode: l.itemCode, quantity: l.quantity }));
+
+              const result = calculateEstimate(scope);
+
+              // Client gets the customer-facing shape (range + line breakdown).
+              emit({
+                type: "estimate",
+                scopeSummary: input.scopeSummary ?? "",
+                low: formatCents(result.lowCents),
+                expected: formatCents(result.expectedCents),
+                high: formatCents(result.highCents),
+                lines: result.lines.map((l) => ({
+                  name: l.name,
+                  quantity: l.quantity,
+                  unit: l.unit,
+                  total: formatCents(l.lineTotalCents),
+                })),
+                exclusions: result.exclusions,
+              });
+
+              // Claude gets only a terse confirmation — not the dollar figures,
+              // so it can't restate them (they're shown to the customer directly).
+              const note =
+                result.lines.length === 0
+                  ? "No valid catalog items were priced. Ask the customer for a clearer scope."
+                  : `Priced ${result.lines.length} line item(s). The range is now shown to the customer. Confirm the estimate is ready in one short sentence without restating any dollar figures.`;
+              const unknownNote = result.unknownItemCodes.length
+                ? ` Ignored unknown item codes: ${result.unknownItemCodes.join(", ")} — do not invent codes.`
+                : "";
               toolResults.push({
                 type: "tool_result",
                 tool_use_id: block.id,
-                content: `Estimated range: ${low} - ${high}. Briefly confirm the estimate is ready without restating the dollar figures yourself.`,
+                content: note + unknownNote,
               });
             } else {
               toolResults.push({

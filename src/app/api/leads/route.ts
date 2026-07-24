@@ -4,28 +4,29 @@ import path from "path";
 import { Resend } from "resend";
 import { LEADS_NOTIFY_EMAIL, SITE_EMAIL, SITE_NAME } from "@/lib/constants";
 
+type EstimateLine = { name: string; quantity: number; unit: string; total: string };
+
 type LeadPayload = {
   name: string;
   phone: string;
   email: string;
   message?: string;
-  projectType?: string;
-  size?: string;
-  tier?: string;
-  floorMaterial?: string;
-  wallMaterial?: string;
+  scopeSummary?: string;
   estimateLow?: string;
+  estimateExpected?: string;
   estimateHigh?: string;
+  lines?: EstimateLine[];
+  exclusions?: string[];
 };
 
-const LEAD_FIELD_LABELS: Record<keyof Omit<LeadPayload, "name" | "phone" | "email">, string> = {
+const LEAD_FIELD_LABELS: Record<
+  keyof Omit<LeadPayload, "name" | "phone" | "email" | "lines" | "exclusions">,
+  string
+> = {
   message: "Message",
-  projectType: "Project type",
-  size: "Size",
-  tier: "Tier",
-  floorMaterial: "Floor material",
-  wallMaterial: "Wall material",
+  scopeSummary: "Scope summary",
   estimateLow: "Estimate (low)",
+  estimateExpected: "Estimate (expected)",
   estimateHigh: "Estimate (high)",
 };
 
@@ -44,11 +45,38 @@ function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string
     );
   }
 
+  // Itemized breakdown of exactly what the estimator priced — this is the
+  // traceability the team needs to sanity-check or turn into a real quote.
+  let breakdown = "";
+  if (lead.lines && lead.lines.length > 0) {
+    const lineRows = lead.lines
+      .map(
+        (l) =>
+          `<tr><td style="padding:2px 12px 2px 0;">${escapeHtml(l.name)}</td>` +
+          `<td style="padding:2px 12px 2px 0;color:#666;white-space:nowrap;">${escapeHtml(String(l.quantity))} ${escapeHtml(l.unit)}</td>` +
+          `<td style="padding:2px 0;text-align:right;white-space:nowrap;">${escapeHtml(l.total)}</td></tr>`,
+      )
+      .join("");
+    breakdown = `
+      <h3 style="color:#2b5c9e;margin:18px 0 6px;font-size:14px;">Estimator line items (labour, pre-tax)</h3>
+      <table cellpadding="0" cellspacing="0" style="width:100%;font-size:13px;">${lineRows}</table>`;
+  }
+
+  let exclusionsHtml = "";
+  if (lead.exclusions && lead.exclusions.length > 0) {
+    const items = lead.exclusions.map((e) => `<li>${escapeHtml(e)}</li>`).join("");
+    exclusionsHtml = `
+      <h3 style="color:#2b5c9e;margin:18px 0 6px;font-size:14px;">Noted exclusions</h3>
+      <ul style="margin:0;padding-left:18px;color:#666;font-size:13px;">${items}</ul>`;
+  }
+
   return `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#2b2b2b;">
       <h2 style="color:#2b5c9e;margin:0 0 12px;">New lead from ${escapeHtml(SITE_NAME)}</h2>
       <table cellpadding="0" cellspacing="0">${rows.join("")}</table>
-      <p style="margin-top:16px;color:#999;font-size:12px;">Received ${escapeHtml(lead.receivedAt)}</p>
+      ${breakdown}
+      ${exclusionsHtml}
+      <p style="margin-top:16px;color:#999;font-size:12px;">Preliminary estimator figures — not a binding quote. Received ${escapeHtml(lead.receivedAt)}</p>
     </div>
   `;
 }
