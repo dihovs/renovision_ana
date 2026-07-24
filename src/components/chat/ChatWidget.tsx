@@ -367,6 +367,12 @@ export default function ChatWidget() {
                 >
                   <PaperclipIcon />
                 </button>
+                {/* Deliberately NOT disabled while sending. Disabling a focused
+                    input makes the browser blur it, and it doesn't regain focus
+                    when re-enabled — which forced the user to click back into the
+                    field after every reply. The send button and Enter handler
+                    already guard against sending mid-stream, so the field can
+                    stay active and keep focus (and let them pre-type). */}
                 <input
                   type="text"
                   value={inputValue}
@@ -374,9 +380,8 @@ export default function ChatWidget() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSend();
                   }}
-                  disabled={isSending}
                   placeholder={t.chat.placeholder}
-                  className="flex-1 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-base outline-none focus:border-brand-blue disabled:opacity-60"
+                  className="flex-1 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-base outline-none focus:border-brand-blue"
                 />
                 <button
                   type="button"
