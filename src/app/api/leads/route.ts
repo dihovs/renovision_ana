@@ -10,6 +10,8 @@ type LeadPayload = {
   name: string;
   phone: string;
   email: string;
+  address?: string;
+  marketingConsent?: boolean;
   message?: string;
   scopeSummary?: string;
   estimateLow?: string;
@@ -27,12 +29,17 @@ const SECTION_H = "color:#2b5c9e;margin:20px 0 6px;font-size:14px;";
 
 function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string {
   // 1. Contact.
+  const consentLabel = lead.marketingConsent
+    ? `<span style="color:#3d7d24;font-weight:bold;">Yes — opted in</span>`
+    : `<span style="color:#999;">No</span>`;
   const contact = `
     <table cellpadding="0" cellspacing="0" style="font-size:14px;">
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Name</td><td><strong>${escapeHtml(lead.name)}</strong></td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Phone</td><td><a href="tel:${escapeHtml(lead.phone)}">${escapeHtml(lead.phone)}</a></td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td><a href="mailto:${escapeHtml(lead.email)}">${escapeHtml(lead.email)}</a></td></tr>
+      ${lead.address ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Address</td><td>${escapeHtml(lead.address)}</td></tr>` : ""}
       ${lead.message ? `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top;">Message</td><td>${escapeHtml(lead.message)}</td></tr>` : ""}
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Marketing consent</td><td>${consentLabel}</td></tr>
     </table>`;
 
   // 2. What the customer saw — the range and the scope summary, exactly as the

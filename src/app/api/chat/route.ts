@@ -138,6 +138,14 @@ export async function POST(request: Request) {
                 tool_use_id: block.id,
                 content: note + unknownNote,
               });
+            } else if (block.name === "collect_contact") {
+              emit({ type: "collectContact" });
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content:
+                  "The contact form is now open for the customer to fill in. Acknowledge briefly (one sentence) and do not ask for the details yourself.",
+              });
             } else {
               toolResults.push({
                 type: "tool_result",

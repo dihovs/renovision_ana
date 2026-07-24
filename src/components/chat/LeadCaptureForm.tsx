@@ -8,13 +8,21 @@ export default function LeadCaptureForm({
   onSubmit,
   onSkip,
 }: {
-  onSubmit: (data: { name: string; phone: string; email: string }) => void;
+  onSubmit: (data: {
+    name: string;
+    phone: string;
+    email: string;
+    address?: string;
+    marketingConsent: boolean;
+  }) => void;
   onSkip: () => void;
 }) {
   const { t } = useLanguage();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +34,13 @@ export default function LeadCaptureForm({
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit({ name: name.trim(), phone: phone.trim(), email: email.trim() });
+      await onSubmit({
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        address: address.trim() || undefined,
+        marketingConsent,
+      });
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -34,29 +48,49 @@ export default function LeadCaptureForm({
     }
   }
 
+  const inputClass =
+    "w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-base outline-none focus:border-brand-blue";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-2.5 border-t border-black/10 bg-brand-blue-light/40 p-3">
+      <p className="text-sm font-semibold text-charcoal">{t.chat.leadCapture.intro}</p>
       <input
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder={t.chat.leadCapture.name}
-        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-base outline-none focus:border-brand-blue"
+        className={inputClass}
       />
       <input
         type="tel"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
         placeholder={t.chat.leadCapture.phone}
-        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-base outline-none focus:border-brand-blue"
+        className={inputClass}
       />
       <input
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder={t.chat.leadCapture.email}
-        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-base outline-none focus:border-brand-blue"
+        className={inputClass}
       />
+      <input
+        type="text"
+        value={address}
+        onChange={(e) => setAddress(e.target.value)}
+        placeholder={t.chat.leadCapture.address}
+        className={inputClass}
+      />
+      <label className="flex cursor-pointer items-start gap-2 text-xs leading-snug text-charcoal/70">
+        <input
+          type="checkbox"
+          checked={marketingConsent}
+          onChange={(e) => setMarketingConsent(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand-green"
+        />
+        <span>{t.chat.leadCapture.consent}</span>
+      </label>
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex items-center gap-3">
         <button

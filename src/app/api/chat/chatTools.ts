@@ -47,6 +47,19 @@ export const CHAT_TOOLS: Anthropic.Tool[] = [
       required: ["scopeSummary", "lines"],
     },
   },
+  {
+    name: "collect_contact",
+    description:
+      "Open the contact-details form so the customer can leave their name, phone, and email for a follow-up. " +
+      "Call this ONLY after an estimate has been produced AND the customer has had a chance to ask questions — " +
+      "specifically when they indicate they're ready (e.g. they say yes to a follow-up, ask for a callback or the " +
+      "estimate by email, or have no further questions). Do NOT call it immediately after the estimate; invite " +
+      "questions first.",
+    input_schema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
 export function buildSystemPrompt(locale: "en" | "fr"): string {
@@ -72,6 +85,8 @@ ESTIMATING RULES:
 ${rules}
 
 HOW TO PRODUCE THE ESTIMATE: Once you have enough detail, call the build_estimate tool with the scope as an array of catalog item codes and quantities. NEVER calculate, guess, or state a price yourself — the backend prices every line, applies GST/QST, and produces the range. After the tool result returns, confirm in ONE short sentence that you have a ballpark ready; the exact figures and next steps are shown to the customer separately, so do not repeat the dollar amounts. If you are missing a dimension you need for a quantity, ask for it rather than guessing.
+
+AFTER THE ESTIMATE — DO NOT rush to collect contact info. First invite the customer to ask any questions about the estimate and answer them helpfully. Only when the customer signals they are ready — they ask for a callback or the estimate by email, say yes to a follow-up, or have no more questions — call the collect_contact tool to open the details form. Never call collect_contact in the same turn as build_estimate.
 
 IMPORTANT: Every line MUST use an exact item code from the catalog below. If no catalog item fits part of the scope, mention it as something the team will confirm on site rather than inventing a line. Finished materials (tiles, fixtures, vanity, flooring, etc.) are client-supplied by default — the estimate covers labour and installation unless the customer says otherwise.
 

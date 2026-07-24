@@ -63,7 +63,20 @@ const en: Record<string, unknown> & {
     tier: Record<"question" | "standard" | "premium" | "luxury", string>;
     photo: Record<"question", string>;
     estimate: Record<"intro" | "disclaimer", string>;
-    leadCapture: Record<"intro" | "name" | "phone" | "email" | "submit" | "later" | "success", string>;
+    leadCapture: Record<
+      | "intro"
+      | "questionsPrompt"
+      | "getDetails"
+      | "name"
+      | "phone"
+      | "email"
+      | "address"
+      | "consent"
+      | "submit"
+      | "later"
+      | "success",
+      string
+    >;
   };
 } = {
   nav: {
@@ -263,10 +276,15 @@ const en: Record<string, unknown> & {
         "This is an automated approximation, not a final quote. Final pricing depends on an in-person or photo-based inspection.",
     },
     leadCapture: {
-      intro: "To send you a more precise quote, could you share a few details?",
+      questionsPrompt:
+        "Any questions about this estimate? Ask away — or when you're ready, tap below and I'll take your details so our team can follow up with a firm quote.",
+      getDetails: "Leave my details",
+      intro: "Great — just a few details so we can follow up:",
       name: "Full name",
       phone: "Phone number",
       email: "Email address",
+      address: "Address (optional — helps us refine pricing)",
+      consent: "Send me occasional tips and promotions from Renovision AnA.",
       submit: "Send me my quote",
       later: "Maybe later",
       success: "Thanks! A member of our team will follow up with your detailed quote shortly.",
@@ -472,10 +490,15 @@ const fr: typeof en = {
         "Il s'agit d'une approximation automatisée, non d'une soumission finale. Le prix final dépend d'une inspection en personne ou par photos.",
     },
     leadCapture: {
-      intro: "Pour vous envoyer une soumission plus précise, pourriez-vous partager quelques détails?",
+      questionsPrompt:
+        "Des questions sur cette estimation? N'hésitez pas — ou, quand vous êtes prêt, appuyez ci-dessous et je prendrai vos coordonnées pour qu'un membre de notre équipe vous envoie une soumission ferme.",
+      getDetails: "Laisser mes coordonnées",
+      intro: "Parfait — quelques détails pour faire le suivi :",
       name: "Nom complet",
       phone: "Numéro de téléphone",
       email: "Adresse courriel",
+      address: "Adresse (facultatif — aide à préciser le prix)",
+      consent: "Envoyez-moi des conseils et promotions de Renovision AnA à l'occasion.",
       submit: "Envoyer ma soumission",
       later: "Peut-être plus tard",
       success: "Merci! Un membre de notre équipe vous enverra sous peu votre soumission détaillée.",

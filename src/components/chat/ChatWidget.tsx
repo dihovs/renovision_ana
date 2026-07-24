@@ -29,6 +29,7 @@ type UiStep = "chat" | "leadCapture" | "done";
 type ChatStreamEvent =
   | { type: "text"; text: string }
   | ({ type: "estimate" } & EstimateDetails)
+  | { type: "collectContact" }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -146,7 +147,11 @@ export default function ChatWidget() {
             setEstimate(details);
             pushAssistant(`${t.chat.estimate.intro} ${event.low} – ${event.high}`);
             pushAssistant(t.chat.estimate.disclaimer);
-            pushAssistant(t.chat.leadCapture.intro);
+            pushAssistant(t.chat.leadCapture.questionsPrompt);
+            // Keep the chat open so the customer can ask questions. The form is
+            // opened later — either by the collect_contact tool once they're
+            // ready, or by the manual "Leave my details" button.
+          } else if (event.type === "collectContact") {
             setStep("leadCapture");
           } else if (event.type === "error") {
             pushError();
@@ -177,7 +182,13 @@ export default function ChatWidget() {
     sendToAI(text);
   }
 
-  async function handleLeadSubmit(data: { name: string; phone: string; email: string }) {
+  async function handleLeadSubmit(data: {
+    name: string;
+    phone: string;
+    email: string;
+    address?: string;
+    marketingConsent: boolean;
+  }) {
     await fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -306,7 +317,20 @@ export default function ChatWidget() {
             {step === "leadCapture" && !leadSubmitted ? (
               <LeadCaptureForm onSubmit={handleLeadSubmit} onSkip={handleSkipLead} />
             ) : (
-              <div className="flex items-center gap-2 border-t border-black/10 p-3">
+              <div className="border-t border-black/10">
+                {/* Once an estimate exists, offer the details form as an
+                    explicit next step — but keep the chat input below it so the
+                    customer can still ask questions first. */}
+                {estimate && step === "chat" && !leadSubmitted && (
+                  <button
+                    type="button"
+                    onClick={() => setStep("leadCapture")}
+                    className="w-full cursor-pointer bg-brand-green px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-green-dark"
+                  >
+                    {t.chat.leadCapture.getDetails}
+                  </button>
+                )}
+                <div className="flex items-center gap-2 p-3">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -347,6 +371,7 @@ export default function ChatWidget() {
                 >
                   <SendIcon />
                 </button>
+                </div>
               </div>
             )}
           </div>
