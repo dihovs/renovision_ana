@@ -9,7 +9,13 @@ import { ChatMessage } from "./chatLogic";
 let idCounter = 0;
 const nextId = () => `msg-${++idCounter}`;
 
-type EstimateLine = { name: string; quantity: number; unit: string; total: string };
+type EstimateLine = {
+  name: string;
+  quantity: number;
+  unit: string;
+  total: string;
+  laborHours: number;
+};
 
 type EstimateDetails = {
   scopeSummary: string;
@@ -21,6 +27,7 @@ type EstimateDetails = {
   gst: string;
   qst: string;
   total: string;
+  totalLaborHours: number;
   exclusions: string[];
 };
 
@@ -203,6 +210,7 @@ export default function ChatWidget() {
         gst: estimate?.gst,
         qst: estimate?.qst,
         total: estimate?.total,
+        totalLaborHours: estimate?.totalLaborHours,
         exclusions: estimate?.exclusions,
       }),
     });
@@ -329,6 +337,13 @@ export default function ChatWidget() {
                   >
                     {t.chat.leadCapture.getDetails}
                   </button>
+                )}
+                {/* Persistent, model-independent nudge to attach a photo — shown
+                    while gathering scope, before an estimate exists. */}
+                {step === "chat" && !estimate && (
+                  <p className="px-3 pt-2 text-[11px] leading-snug text-charcoal/50">
+                    {t.chat.photoHint}
+                  </p>
                 )}
                 <div className="flex items-center gap-2 p-3">
                 <input

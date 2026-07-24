@@ -58,6 +58,8 @@ export type EstimateLine = {
   unitRateCents: number;
   /** quantity × unitRate, in integer cents. */
   lineTotalCents: number;
+  /** Estimated crew hours for this line (laborHoursPerUnit × quantity). Owner-side only. */
+  laborHours: number;
   taxable: boolean;
   exclusions: string | null;
 };
@@ -72,6 +74,8 @@ export type EstimateResult = {
   gstCents: number;
   qstCents: number;
   totalCents: number;
+  /** Sum of estimated crew hours across all lines. Owner-side only. */
+  totalLaborHours: number;
   /** Low / expected / high band on the pre-tax subtotal, integer cents. */
   lowCents: number;
   expectedCents: number;

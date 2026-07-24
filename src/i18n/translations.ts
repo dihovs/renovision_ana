@@ -48,6 +48,7 @@ const en: Record<string, unknown> & {
     welcome: string;
     placeholder: string;
     uploadLabel: string;
+    photoHint: string;
     disclaimer: string;
     offTopic: string;
     restart: string;
@@ -237,6 +238,7 @@ const en: Record<string, unknown> & {
       "Hi, I'm Vision AI from Renovision AnA! I can give you a rough estimate for your renovation, water damage, or remodeling project. What are you looking to have done?",
     placeholder: "Type your message...",
     uploadLabel: "Attach a photo",
+    photoHint: "Tip: attach a photo (📎) for a more accurate estimate — optional.",
     disclaimer:
       "Vision AI is an automated estimate tool and only discusses renovation, water damage, and remodeling topics.",
     offTopic:
@@ -451,6 +453,7 @@ const fr: typeof en = {
       "Bonjour, je suis Vision IA de Renovision AnA! Je peux vous donner une estimation approximative pour votre projet de rénovation, de dégâts d'eau ou de remodelage. Que souhaitez-vous faire?",
     placeholder: "Écrivez votre message...",
     uploadLabel: "Joindre une photo",
+    photoHint: "Astuce : joignez une photo (📎) pour une estimation plus précise — facultatif.",
     disclaimer:
       "Vision IA est un outil d'estimation automatisé qui ne traite que des sujets liés à la rénovation, aux dégâts d'eau et au remodelage.",
     offTopic:

@@ -36,6 +36,7 @@ export function calculateEstimate(scope: ScopeLine[]): EstimateResult {
 
   let taxableSubtotalCents = 0;
   let nonTaxableSubtotalCents = 0;
+  let totalLaborHours = 0;
 
   for (const entry of scope) {
     const item = getLineItem(entry.itemCode);
@@ -49,12 +50,14 @@ export function calculateEstimate(scope: ScopeLine[]): EstimateResult {
 
     const unitRateCents = toCents(item.salesRate);
     const lineTotalCents = Math.round(unitRateCents * quantity);
+    const laborHours = Math.round(item.laborHoursPerUnit * quantity * 100) / 100;
 
     if (item.taxable) {
       taxableSubtotalCents += lineTotalCents;
     } else {
       nonTaxableSubtotalCents += lineTotalCents;
     }
+    totalLaborHours += laborHours;
 
     if (item.exclusions) exclusionSet.add(item.exclusions);
 
@@ -65,6 +68,7 @@ export function calculateEstimate(scope: ScopeLine[]): EstimateResult {
       quantity,
       unitRateCents,
       lineTotalCents,
+      laborHours,
       taxable: item.taxable,
       exclusions: item.exclusions,
     });
@@ -83,6 +87,7 @@ export function calculateEstimate(scope: ScopeLine[]): EstimateResult {
     gstCents,
     qstCents,
     totalCents,
+    totalLaborHours: Math.round(totalLaborHours * 10) / 10,
     lowCents: Math.round(subtotalCents * LOW_FACTOR),
     expectedCents: subtotalCents,
     highCents: Math.round(subtotalCents * HIGH_FACTOR),

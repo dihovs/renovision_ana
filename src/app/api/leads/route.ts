@@ -4,7 +4,13 @@ import path from "path";
 import { Resend } from "resend";
 import { LEADS_NOTIFY_EMAIL, SITE_EMAIL, SITE_NAME } from "@/lib/constants";
 
-type EstimateLine = { name: string; quantity: number; unit: string; total: string };
+type EstimateLine = {
+  name: string;
+  quantity: number;
+  unit: string;
+  total: string;
+  laborHours?: number;
+};
 
 type LeadPayload = {
   name: string;
@@ -22,6 +28,7 @@ type LeadPayload = {
   gst?: string;
   qst?: string;
   total?: string;
+  totalLaborHours?: number;
   exclusions?: string[];
 };
 
@@ -69,9 +76,11 @@ function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string
         (l) =>
           `<tr><td style="padding:3px 12px 3px 0;">${escapeHtml(l.name)}</td>` +
           `<td style="padding:3px 12px 3px 0;color:#666;white-space:nowrap;">${escapeHtml(String(l.quantity))} ${escapeHtml(l.unit)}</td>` +
+          `<td style="padding:3px 12px 3px 0;color:#888;text-align:right;white-space:nowrap;">${l.laborHours != null ? `${escapeHtml(String(l.laborHours))} h` : ""}</td>` +
           `<td style="padding:3px 0;text-align:right;white-space:nowrap;">${escapeHtml(l.total)}</td></tr>`,
       )
       .join("");
+    // colspan is 3 here because the table now has 4 columns (item, qty, hours, total).
     const totalsRows = [
       lead.subtotal ? ["Subtotal (labour, pre-tax)", lead.subtotal, false] : null,
       lead.gst ? ["GST (5%)", lead.gst, false] : null,
@@ -81,14 +90,21 @@ function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string
       .filter((r): r is [string, string, boolean] => r !== null)
       .map(
         ([label, value, bold]) =>
-          `<tr><td colspan="2" style="padding:3px 12px 3px 0;text-align:right;${bold ? "font-weight:bold;border-top:1px solid #ddd;" : "color:#666;"}">${escapeHtml(label)}</td>` +
+          `<tr><td colspan="3" style="padding:3px 12px 3px 0;text-align:right;${bold ? "font-weight:bold;border-top:1px solid #ddd;" : "color:#666;"}">${escapeHtml(label)}</td>` +
           `<td style="padding:3px 0;text-align:right;white-space:nowrap;${bold ? "font-weight:bold;border-top:1px solid #ddd;" : ""}">${escapeHtml(value)}</td></tr>`,
       )
       .join("");
+    const laborRow =
+      lead.totalLaborHours != null
+        ? `<tr><td colspan="3" style="padding:3px 12px 3px 0;text-align:right;color:#666;">Estimated crew labour</td>` +
+          `<td style="padding:3px 0;text-align:right;white-space:nowrap;color:#666;">${escapeHtml(String(lead.totalLaborHours))} h</td></tr>`
+        : "";
     breakdown = `
       <h3 style="${SECTION_H}">Detailed breakdown — what the estimator calculated</h3>
       <table cellpadding="0" cellspacing="0" style="width:100%;font-size:13px;">
+        <tr><td style="padding:0 12px 4px 0;color:#999;font-size:11px;">Item</td><td style="padding:0 12px 4px 0;color:#999;font-size:11px;">Qty</td><td style="padding:0 12px 4px 0;color:#999;font-size:11px;text-align:right;">Labour</td><td style="padding:0 0 4px 0;color:#999;font-size:11px;text-align:right;">Sell</td></tr>
         ${lineRows}
+        ${laborRow}
         ${totalsRows}
       </table>`;
   }

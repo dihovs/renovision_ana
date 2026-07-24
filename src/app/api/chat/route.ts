@@ -121,11 +121,13 @@ export async function POST(request: Request) {
                   quantity: l.quantity,
                   unit: l.unit,
                   total: formatCentsPrecise(l.lineTotalCents),
+                  laborHours: l.laborHours,
                 })),
                 subtotal: formatCentsPrecise(result.subtotalCents),
                 gst: formatCentsPrecise(result.gstCents),
                 qst: formatCentsPrecise(result.qstCents),
                 total: formatCentsPrecise(result.totalCents),
+                totalLaborHours: result.totalLaborHours,
                 exclusions: result.exclusions,
               });
 
