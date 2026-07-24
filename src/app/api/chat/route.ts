@@ -65,8 +65,15 @@ export async function POST(request: Request) {
 
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
           const messageStream = client.messages.stream({
-            model: "claude-opus-4-8",
+            // Sonnet 5 keeps this chat estimator fast and cheap (well under a
+            // few cents per turn once the catalog prompt is cached) while still
+            // handling the conversation, catalog matching, and tool calls well.
+            // Thinking is disabled explicitly: Sonnet 5 runs adaptive thinking
+            // by default when the field is omitted, which would add tokens and
+            // latency we don't want for a snappy chat.
+            model: "claude-sonnet-5",
             max_tokens: 2048,
+            thinking: { type: "disabled" },
             system: [
               {
                 type: "text",
