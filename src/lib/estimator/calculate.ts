@@ -24,6 +24,17 @@ const LOW_FACTOR = 0.85;
 const HIGH_FACTOR = 1.25;
 
 /**
+ * Duration assumptions, owner-confirmed 2026-07-24 (Artush): typical crew is
+ * 2 people, standard 8-hour workday. A flat +20% buffer is applied because
+ * delays (concealed conditions, material lead times, access) are common in
+ * this work — the buffer is baked into the hours before converting to days,
+ * not shown as a separate line, so the customer just sees one honest number.
+ */
+const CREW_SIZE = 2;
+const HOURS_PER_DAY = 8;
+const DELAY_BUFFER = 1.2;
+
+/**
  * Price a set of scope lines against the real catalog. The model supplies item
  * codes and quantities; every price, tax and total is computed here — the model
  * never sees a rate or produces a dollar figure. Unknown codes are collected
@@ -79,6 +90,10 @@ export function calculateEstimate(scope: ScopeLine[]): EstimateResult {
   const qstCents = Math.round(taxableSubtotalCents * QST_RATE);
   const totalCents = subtotalCents + gstCents + qstCents;
 
+  const bufferedHours = totalLaborHours * DELAY_BUFFER;
+  const estimatedWorkDays =
+    bufferedHours > 0 ? Math.max(1, Math.ceil(bufferedHours / (CREW_SIZE * HOURS_PER_DAY))) : 0;
+
   return {
     lines,
     taxableSubtotalCents,
@@ -88,6 +103,7 @@ export function calculateEstimate(scope: ScopeLine[]): EstimateResult {
     qstCents,
     totalCents,
     totalLaborHours: Math.round(totalLaborHours * 10) / 10,
+    estimatedWorkDays,
     lowCents: Math.round(subtotalCents * LOW_FACTOR),
     expectedCents: subtotalCents,
     highCents: Math.round(subtotalCents * HIGH_FACTOR),

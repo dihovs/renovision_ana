@@ -37,6 +37,7 @@ type LeadPayload = {
   qst?: string;
   total?: string;
   totalLaborHours?: number;
+  estimatedWorkDays?: number;
   exclusions?: string[];
 };
 
@@ -107,12 +108,20 @@ function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string
         ? `<tr><td colspan="3" style="padding:3px 12px 3px 0;text-align:right;color:#666;">Estimated crew labour</td>` +
           `<td style="padding:3px 0;text-align:right;white-space:nowrap;color:#666;">${escapeHtml(String(lead.totalLaborHours))} h</td></tr>`
         : "";
+    // 2-person crew, 8h/day, +20% delay buffer — see calculate.ts for the
+    // owner-confirmed assumptions this is derived from.
+    const durationRow =
+      lead.estimatedWorkDays != null
+        ? `<tr><td colspan="3" style="padding:3px 12px 3px 0;text-align:right;color:#666;">Est. duration (2-crew, +20% buffer)</td>` +
+          `<td style="padding:3px 0;text-align:right;white-space:nowrap;color:#666;">${escapeHtml(String(lead.estimatedWorkDays))} day${lead.estimatedWorkDays === 1 ? "" : "s"}</td></tr>`
+        : "";
     breakdown = `
       <h3 style="${SECTION_H}">Detailed breakdown — what the estimator calculated</h3>
       <table cellpadding="0" cellspacing="0" style="width:100%;font-size:13px;">
         <tr><td style="padding:0 12px 4px 0;color:#999;font-size:11px;">Item</td><td style="padding:0 12px 4px 0;color:#999;font-size:11px;">Qty</td><td style="padding:0 12px 4px 0;color:#999;font-size:11px;text-align:right;">Labour</td><td style="padding:0 0 4px 0;color:#999;font-size:11px;text-align:right;">Sell</td></tr>
         ${lineRows}
         ${laborRow}
+        ${durationRow}
         ${totalsRows}
       </table>`;
   }
@@ -156,6 +165,11 @@ function renderCustomerConfirmationHtml(lead: LeadPayload): string {
       ? `${escapeHtml(lead.estimateLow)} – ${escapeHtml(lead.estimateHigh)}`
       : escapeHtml(lead.estimateExpected ?? "");
 
+  // Only claim cleanup/disposal is included when the estimate actually has
+  // those line items — a tiny patch-repair job may not, and this email must
+  // stay accurate to what was actually quoted.
+  const includesCleanup = (lead.lines ?? []).some((l) => /cleanup|disposal|dump/i.test(l.name));
+
   const t = fr
     ? {
         greeting: `Bonjour ${firstName},`,
@@ -166,6 +180,12 @@ function renderCustomerConfirmationHtml(lead: LeadPayload): string {
         estimateLabel: "Estimation préliminaire",
         estimateNote:
           "une fourchette approximative seulement — ce n'est pas un prix final; le prix exact dépend d'une visite sur place.",
+        cleanupNote:
+          "Ce prix inclut le nettoyage du chantier et l'élimination des débris à la fin des travaux — vous n'aurez pas à gérer les résidus.",
+        durationLabel: "Durée approximative",
+        durationSuffix: (d: number) => `environ ${d} jour${d > 1 ? "s" : ""} ouvrable${d > 1 ? "s" : ""} de travail`,
+        durationNote:
+          "une estimation seulement — les échéanciers de rénovation peuvent varier selon ce qu'on découvre une fois les travaux commencés.",
         outro: `Nous ferons un suivi sous peu. Si quelque chose est urgent entre-temps, n'hésitez pas à nous appeler au ${SITE_PHONE}.`,
         signoff: "Cordialement,",
         title: "Président, Renovision AnA",
@@ -179,6 +199,12 @@ function renderCustomerConfirmationHtml(lead: LeadPayload): string {
         estimateLabel: "Preliminary estimate",
         estimateNote:
           "a rough range only — not a final quote; the exact price depends on an in-person look at the work.",
+        cleanupNote:
+          "This price includes site cleanup and debris disposal once the work is done — you won't be left to deal with the mess.",
+        durationLabel: "Approximate duration",
+        durationSuffix: (d: number) => `about ${d} working day${d > 1 ? "s" : ""}`,
+        durationNote:
+          "an estimate only — renovation timelines can shift depending on what we find once work is underway.",
         outro: `We'll follow up shortly. If anything is urgent in the meantime, don't hesitate to call us at ${SITE_PHONE}.`,
         signoff: "Warm regards,",
         title: "President, Renovision AnA",
@@ -193,6 +219,16 @@ function renderCustomerConfirmationHtml(lead: LeadPayload): string {
   if (range) {
     summaryRows.push(
       `<tr><td style="padding:3px 12px 3px 0;color:#666;vertical-align:top;">${t.estimateLabel}</td><td style="padding:3px 0;"><strong>${range}</strong><br><span style="color:#888;font-size:12px;">${t.estimateNote}</span></td></tr>`,
+    );
+  }
+  if (lead.estimatedWorkDays) {
+    summaryRows.push(
+      `<tr><td style="padding:3px 12px 3px 0;color:#666;vertical-align:top;">${t.durationLabel}</td><td style="padding:3px 0;"><strong>${escapeHtml(t.durationSuffix(lead.estimatedWorkDays))}</strong><br><span style="color:#888;font-size:12px;">${t.durationNote}</span></td></tr>`,
+    );
+  }
+  if (includesCleanup) {
+    summaryRows.push(
+      `<tr><td colspan="2" style="padding:8px 0 0;color:#555;font-size:13px;">${t.cleanupNote}</td></tr>`,
     );
   }
   const summary =

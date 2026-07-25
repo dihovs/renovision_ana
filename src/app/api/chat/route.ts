@@ -128,6 +128,7 @@ export async function POST(request: Request) {
                 qst: formatCentsPrecise(result.qstCents),
                 total: formatCentsPrecise(result.totalCents),
                 totalLaborHours: result.totalLaborHours,
+                estimatedWorkDays: result.estimatedWorkDays,
                 exclusions: result.exclusions,
               });
 

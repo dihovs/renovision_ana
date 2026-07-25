@@ -76,6 +76,14 @@ export type EstimateResult = {
   totalCents: number;
   /** Sum of estimated crew hours across all lines. Owner-side only. */
   totalLaborHours: number;
+  /**
+   * Rough on-site duration in working days: totalLaborHours spread across a
+   * standard crew and workday, with a delay buffer applied (see calculate.ts
+   * for the constants — owner-confirmed 2026-07-24: 2-person crew, 8h/day,
+   * +20% for typical real-world delays). Shown to both the owner and the
+   * customer; always framed as approximate.
+   */
+  estimatedWorkDays: number;
   /** Low / expected / high band on the pre-tax subtotal, integer cents. */
   lowCents: number;
   expectedCents: number;

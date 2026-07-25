@@ -28,6 +28,7 @@ type EstimateDetails = {
   qst: string;
   total: string;
   totalLaborHours: number;
+  estimatedWorkDays: number;
   exclusions: string[];
 };
 
@@ -212,6 +213,7 @@ export default function ChatWidget() {
         qst: estimate?.qst,
         total: estimate?.total,
         totalLaborHours: estimate?.totalLaborHours,
+        estimatedWorkDays: estimate?.estimatedWorkDays,
         exclusions: estimate?.exclusions,
       }),
     });
