@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 const PARTNERS = [
@@ -15,6 +15,13 @@ const PARTNERS = [
   { name: "TD Insurance", file: "td.svg" },
   { name: "Gestion Ajax", file: "gestionajax.png" },
 ];
+
+// How long the carousel stays paused after the last touch before auto-scroll
+// resumes on its own.
+const TOUCH_RESUME_DELAY_MS = 5500;
+// Minimum finger movement (px) before we commit to a swipe direction — avoids
+// a barely-moved tap being read as a tiny, jittery drag.
+const TOUCH_DIRECTION_THRESHOLD = 6;
 
 export default function PartnerLogos() {
   const { t } = useLanguage();
@@ -37,6 +44,18 @@ export default function PartnerLogos() {
   // hover state is instead driven from cursor position every frame.
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
   const hoveredCardRef = useRef<HTMLElement | null>(null);
+
+  // Once a real touch happens, ignore mouse enter/leave — touchscreens fire
+  // synthetic "ghost" mouse events after a tap that has no matching mouseleave,
+  // which would otherwise leave the carousel paused forever.
+  const isTouchRef = useRef(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef(0);
+  const touchStartOffsetRef = useRef(0);
+  const touchDirectionRef = useRef<"horizontal" | "vertical" | null>(null);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
 
   useEffect(() => {
     const el = trackRef.current;
@@ -104,7 +123,7 @@ export default function PartnerLogos() {
     let raf = 0;
     const step = () => {
       if (pausedRef.current) {
-        // Hovering: ease velocity toward the wheel-driven target, then let the target decay.
+        // Hovering/dragging: ease velocity toward the wheel-driven target, then let the target decay.
         wheelVelocityRef.current += (wheelTargetRef.current - wheelVelocityRef.current) * easeFactor;
         wheelTargetRef.current *= targetDecay;
         if (Math.abs(wheelTargetRef.current) < 0.01) wheelTargetRef.current = 0;
@@ -140,12 +159,92 @@ export default function PartnerLogos() {
     };
     container.addEventListener("mousemove", onMouseMove);
 
+    const clearResumeTimer = () => {
+      if (resumeTimerRef.current) {
+        clearTimeout(resumeTimerRef.current);
+        resumeTimerRef.current = null;
+      }
+    };
+    const scheduleResume = () => {
+      clearResumeTimer();
+      resumeTimerRef.current = setTimeout(() => {
+        pausedRef.current = false;
+      }, TOUCH_RESUME_DELAY_MS);
+    };
+
+    // Touch: a finger down pauses auto-scroll and lets the visitor drag the
+    // track directly; a finger up schedules auto-scroll to resume shortly
+    // after, so a brief pause never permanently "sticks."
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      isTouchRef.current = true;
+      touchStartXRef.current = touch.clientX;
+      touchStartYRef.current = touch.clientY;
+      touchStartOffsetRef.current = offsetRef.current;
+      touchDirectionRef.current = null;
+      pausedRef.current = true;
+      wheelTargetRef.current = 0;
+      wheelVelocityRef.current = 0;
+      clearResumeTimer();
+      setShowSwipeHint(false);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchStartXRef.current == null) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - touchStartXRef.current;
+      const dy = touch.clientY - touchStartYRef.current;
+
+      if (touchDirectionRef.current === null) {
+        if (Math.abs(dx) < TOUCH_DIRECTION_THRESHOLD && Math.abs(dy) < TOUCH_DIRECTION_THRESHOLD) return;
+        touchDirectionRef.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+      }
+
+      if (touchDirectionRef.current === "horizontal") {
+        // Swiping the logos — take over from the page (which otherwise has
+        // nothing to scroll here anyway).
+        e.preventDefault();
+        offsetRef.current = touchStartOffsetRef.current - dx;
+      }
+      // If the gesture reads as vertical, do nothing here so the page keeps
+      // scrolling natively underneath.
+    };
+
+    const onTouchEnd = () => {
+      touchStartXRef.current = null;
+      scheduleResume();
+    };
+
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd, { passive: true });
+    container.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
     return () => {
       cancelAnimationFrame(raf);
+      clearResumeTimer();
       window.removeEventListener("resize", measure);
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("mousemove", onMouseMove);
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("touchcancel", onTouchEnd);
       if (hoveredCardRef.current) applyHoverStyles(hoveredCardRef.current, false);
+    };
+  }, []);
+
+  // One-time, subtle hint on load that the strip is swipeable on mobile —
+  // fades in briefly, then fades back out (or disappears the moment someone
+  // actually touches it).
+  useEffect(() => {
+    const showTimer = setTimeout(() => setShowSwipeHint(true), 700);
+    const hideTimer = setTimeout(() => setShowSwipeHint(false), 3200);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
     };
   }, []);
 
@@ -156,13 +255,18 @@ export default function PartnerLogos() {
       </h2>
       <div
         ref={containerRef}
-        onMouseEnter={() => (pausedRef.current = true)}
+        onMouseEnter={() => {
+          if (isTouchRef.current) return;
+          pausedRef.current = true;
+        }}
         onMouseLeave={() => {
+          if (isTouchRef.current) return;
           pausedRef.current = false;
           mousePosRef.current = null;
         }}
         data-lenis-prevent
-        className="mt-8 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
+        style={{ touchAction: "pan-y" }}
+        className="relative mt-8 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
       >
         <div ref={trackRef} className="flex w-max gap-8 will-change-transform">
           {track.map((partner, i) => (
@@ -180,6 +284,19 @@ export default function PartnerLogos() {
               />
             </div>
           ))}
+        </div>
+
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center pr-1 transition-opacity duration-700 ease-out sm:hidden ${
+            showSwipeHint ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-charcoal/60 text-white shadow-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M15 6l6 6-6 6M9 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         </div>
       </div>
     </section>
