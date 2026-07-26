@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { GESTION_AJAX_URL } from "@/lib/constants";
 
 const PARTNERS = [
   { name: "Desjardins Insurance", file: "desjardins.svg" },
@@ -13,7 +14,7 @@ const PARTNERS = [
   { name: "The Personal", file: "thepersonal.svg" },
   { name: "Aviva Canada", file: "aviva.svg" },
   { name: "TD Insurance", file: "td.svg" },
-  { name: "Gestion Ajax", file: "gestionajax.png" },
+  { name: "Gestion Ajax", file: "gestionajax.png", url: GESTION_AJAX_URL },
 ];
 
 // How long the carousel stays paused after the last touch before auto-scroll
@@ -172,9 +173,12 @@ export default function PartnerLogos() {
       }, TOUCH_RESUME_DELAY_MS);
     };
 
-    // Touch: a finger down pauses auto-scroll and lets the visitor drag the
-    // track directly; a finger up schedules auto-scroll to resume shortly
-    // after, so a brief pause never permanently "sticks."
+    // Touch: a finger down does NOT pause anything by itself — a touch that
+    // starts on the carousel is very often just the start of a normal page
+    // scroll (the visitor's thumb happening to land here), and that must
+    // keep scrolling uninterrupted. Only once the gesture is confirmed
+    // horizontal (an actual swipe on the logos) do we pause and take over;
+    // a confirmed-vertical gesture is left alone entirely, start to finish.
     const onTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       if (!touch) return;
@@ -183,11 +187,6 @@ export default function PartnerLogos() {
       touchStartYRef.current = touch.clientY;
       touchStartOffsetRef.current = offsetRef.current;
       touchDirectionRef.current = null;
-      pausedRef.current = true;
-      wheelTargetRef.current = 0;
-      wheelVelocityRef.current = 0;
-      clearResumeTimer();
-      setShowSwipeHint(false);
     };
 
     const onTouchMove = (e: TouchEvent) => {
@@ -200,6 +199,15 @@ export default function PartnerLogos() {
       if (touchDirectionRef.current === null) {
         if (Math.abs(dx) < TOUCH_DIRECTION_THRESHOLD && Math.abs(dy) < TOUCH_DIRECTION_THRESHOLD) return;
         touchDirectionRef.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+        if (touchDirectionRef.current === "horizontal") {
+          // Only now is this a deliberate swipe on the logos — pause and
+          // start dragging from here.
+          pausedRef.current = true;
+          wheelTargetRef.current = 0;
+          wheelVelocityRef.current = 0;
+          clearResumeTimer();
+          setShowSwipeHint(false);
+        }
       }
 
       if (touchDirectionRef.current === "horizontal") {
@@ -209,12 +217,14 @@ export default function PartnerLogos() {
         offsetRef.current = touchStartOffsetRef.current - dx;
       }
       // If the gesture reads as vertical, do nothing here so the page keeps
-      // scrolling natively underneath.
+      // scrolling natively underneath — the carousel was never paused.
     };
 
     const onTouchEnd = () => {
       touchStartXRef.current = null;
-      scheduleResume();
+      // Only schedule a resume if this gesture actually paused the carousel.
+      if (touchDirectionRef.current === "horizontal") scheduleResume();
+      touchDirectionRef.current = null;
     };
 
     container.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -268,22 +278,27 @@ export default function PartnerLogos() {
         style={{ touchAction: "pan-y" }}
         className="relative mt-8 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
       >
-        <div ref={trackRef} className="flex w-max gap-8 will-change-transform">
-          {track.map((partner, i) => (
-            <div
-              key={`${partner.name}-${i}`}
-              data-partner-card
-              className="relative flex h-20 w-44 shrink-0 items-center justify-center rounded-xl border border-black/5 bg-white px-6 py-4 transition-all duration-300 ease-out"
-            >
-              <Image
-                src={`/images/partners/${partner.file}`}
-                alt={partner.name}
-                width={160}
-                height={60}
-                className="h-full w-full object-contain grayscale opacity-70 transition-[filter,opacity] duration-300"
-              />
-            </div>
-          ))}
+        <div ref={trackRef} className="flex w-max items-start gap-8 will-change-transform">
+          {track.map((partner, i) =>
+            partner.url ? (
+              <div key={`${partner.name}-${i}`} className="flex w-44 shrink-0 flex-col items-center gap-1">
+                <PartnerLogoCard partner={partner} />
+                <a
+                  href={partner.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-brand-blue hover:underline"
+                >
+                  {partner.name}
+                </a>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-green/80">
+                  {t.partners.primePartner}
+                </span>
+              </div>
+            ) : (
+              <PartnerLogoCard key={`${partner.name}-${i}`} partner={partner} />
+            ),
+          )}
         </div>
 
         <div
@@ -300,5 +315,22 @@ export default function PartnerLogos() {
         </div>
       </div>
     </section>
+  );
+}
+
+function PartnerLogoCard({ partner }: { partner: { name: string; file: string } }) {
+  return (
+    <div
+      data-partner-card
+      className="relative flex h-20 w-44 shrink-0 items-center justify-center rounded-xl border border-black/5 bg-white px-6 py-4 transition-all duration-300 ease-out"
+    >
+      <Image
+        src={`/images/partners/${partner.file}`}
+        alt={partner.name}
+        width={160}
+        height={60}
+        className="h-full w-full object-contain grayscale opacity-70 transition-[filter,opacity] duration-300"
+      />
+    </div>
   );
 }

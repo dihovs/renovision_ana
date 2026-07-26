@@ -19,3 +19,6 @@ export const SOCIAL_LINKS = {
 };
 
 export const GOOGLE_REVIEWS_URL = "https://www.google.com/search?q=Renovision+AnA+Reviews";
+
+// Prime partner featured in the "Trusted By" logo strip.
+export const GESTION_AJAX_URL = "https://gestionajax.ca/en/home/";

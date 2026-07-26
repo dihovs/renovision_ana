@@ -40,7 +40,7 @@ const en: Record<string, unknown> & {
     overallRatingLabel: (ratingText: string, count: number) => string;
     items: Array<{ name: string; rating: number; quote: string }>;
   };
-  partners: { title: string };
+  partners: { title: string; primePartner: string };
   footer: Record<string, string>;
   chat: {
     launcherLabel: string;
@@ -244,6 +244,7 @@ const en: Record<string, unknown> & {
   },
   partners: {
     title: "Trusted By",
+    primePartner: "Prime Partner",
   },
   footer: {
     tagline: "Renovation and water damage restoration you can trust.",
@@ -486,6 +487,7 @@ const fr: typeof en = {
   },
   partners: {
     title: "Ils nous font confiance",
+    primePartner: "Partenaire Privilégié",
   },
   footer: {
     tagline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance.",
