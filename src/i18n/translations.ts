@@ -37,6 +37,7 @@ const en: Record<string, unknown> & {
   testimonials: {
     title: string;
     googleReview: string;
+    overallRatingLabel: (ratingText: string, count: number) => string;
     items: Array<{ name: string; rating: number; quote: string }>;
   };
   partners: { title: string };
@@ -56,6 +57,28 @@ const en: Record<string, unknown> & {
     photoAttached: string;
     removePhoto: string;
     skip: string;
+    track: Record<"question" | "handyman" | "renovation", string>;
+    handyman: Record<
+      | "intro"
+      | "hoursLabel"
+      | "minimumNote"
+      | "materialsNote"
+      | "labourLabel"
+      | "calculate"
+      | "estimateIntro"
+      | "postalCodeLabel"
+      | "postalCodePlaceholder"
+      | "checkTripFee"
+      | "checking"
+      | "tripFeeLabel"
+      | "tripFeeFree"
+      | "tripFeeTrafficNote"
+      | "tripFeeError"
+      | "tripFeeNotConfigured"
+      | "minDriveSuffix"
+      | "estimatedTotalLabel",
+      string
+    >;
     projectType: Record<
       "question" | "waterDamage" | "flooring" | "kitchenBath" | "interior" | "basements" | "repairs",
       string
@@ -185,6 +208,7 @@ const en: Record<string, unknown> & {
   testimonials: {
     title: "What Our Clients Say",
     googleReview: "Google review",
+    overallRatingLabel: (ratingText, count) => `${ratingText} based on ${count} Google reviews`,
     items: [
       {
         name: "Anahid Vardanian",
@@ -235,7 +259,7 @@ const en: Record<string, unknown> & {
     title: "Vision AI",
     subtitle: "Get a rough project estimate in minutes",
     welcome:
-      "Hi, I'm Vision AI from Renovision AnA! I can give you a rough estimate for your renovation, water damage, or remodeling project. What are you looking to have done?",
+      "Hi, I'm Vision AI from Renovision AnA! I can give you a rough estimate for your project. First, let's figure out what kind of help you need.",
     placeholder: "Type your message...",
     uploadLabel: "Attach a photo",
     photoHint: "Tip: attach a photo (📎) for a more accurate estimate — optional.",
@@ -248,6 +272,32 @@ const en: Record<string, unknown> & {
     photoAttached: "Photo attached",
     removePhoto: "Remove",
     skip: "Skip",
+    track: {
+      question: "What do you need help with?",
+      handyman: "Handyman Services",
+      renovation: "Full Renovation / Water Damage Restoration",
+    },
+    handyman: {
+      intro:
+        "Handyman work is billed at $80/hour with a 2-hour minimum, and materials are billed separately at cost (they're not included in this estimate). Use the calculator below to get a rough labour cost — roughly how many hours do you think the job will take?",
+      hoursLabel: "Estimated hours",
+      minimumNote: "2-hour minimum applies.",
+      materialsNote: "Materials billed separately, at cost — not included in this estimate.",
+      labourLabel: "Estimated labour",
+      calculate: "Get this estimate",
+      estimateIntro: "Here's your estimated labour cost:",
+      postalCodeLabel: "Postal code (for your trip fee)",
+      postalCodePlaceholder: "e.g. H7N 2A3",
+      checkTripFee: "Check trip fee",
+      checking: "Checking…",
+      tripFeeLabel: "Trip fee",
+      tripFeeFree: "You're within our free travel zone — no trip fee.",
+      tripFeeTrafficNote: "Includes a current-traffic adjustment.",
+      tripFeeError: "Couldn't calculate a trip fee for that postal code — we'll confirm it when we call you.",
+      tripFeeNotConfigured: "Trip fee: to be confirmed when we call you.",
+      minDriveSuffix: "min drive",
+      estimatedTotalLabel: "Estimated total (labour + trip fee)",
+    },
     projectType: {
       question: "What type of project are you looking to have done?",
       waterDamage: "Water Damage Repair",
@@ -400,6 +450,7 @@ const fr: typeof en = {
   testimonials: {
     title: "Ce que disent nos clients",
     googleReview: "Avis Google",
+    overallRatingLabel: (ratingText, count) => `${ratingText} basé sur ${count} avis Google`,
     items: [
       {
         name: "Anahid Vardanian",
@@ -450,7 +501,7 @@ const fr: typeof en = {
     title: "Vision IA",
     subtitle: "Obtenez une estimation approximative en quelques minutes",
     welcome:
-      "Bonjour, je suis Vision IA de Renovision AnA! Je peux vous donner une estimation approximative pour votre projet de rénovation, de dégâts d'eau ou de remodelage. Que souhaitez-vous faire?",
+      "Bonjour, je suis Vision IA de Renovision AnA! Je peux vous donner une estimation approximative pour votre projet. D'abord, voyons de quel type d'aide vous avez besoin.",
     placeholder: "Écrivez votre message...",
     uploadLabel: "Joindre une photo",
     photoHint: "Astuce : joignez une photo (📎) pour une estimation plus précise — facultatif.",
@@ -463,6 +514,33 @@ const fr: typeof en = {
     photoAttached: "Photo jointe",
     removePhoto: "Retirer",
     skip: "Passer",
+    track: {
+      question: "De quel type d'aide avez-vous besoin?",
+      handyman: "Services de bricolage (handyman)",
+      renovation: "Rénovation complète / dégâts d'eau",
+    },
+    handyman: {
+      intro:
+        "Les travaux de bricolage sont facturés 80 $/heure, avec un minimum de 2 heures, et les matériaux sont facturés séparément, au coût réel (ils ne sont pas inclus dans cette estimation). Utilisez la calculatrice ci-dessous pour obtenir un coût de main-d'œuvre approximatif — environ combien d'heures pensez-vous que ce travail prendra?",
+      hoursLabel: "Heures estimées",
+      minimumNote: "Un minimum de 2 heures s'applique.",
+      materialsNote: "Matériaux facturés séparément, au coût réel — non inclus dans cette estimation.",
+      labourLabel: "Main-d'œuvre estimée",
+      calculate: "Obtenir cette estimation",
+      estimateIntro: "Voici votre coût de main-d'œuvre estimé :",
+      postalCodeLabel: "Code postal (pour vos frais de déplacement)",
+      postalCodePlaceholder: "ex. H7N 2A3",
+      checkTripFee: "Vérifier les frais de déplacement",
+      checking: "Vérification…",
+      tripFeeLabel: "Frais de déplacement",
+      tripFeeFree: "Vous êtes dans notre zone de déplacement gratuite — aucuns frais.",
+      tripFeeTrafficNote: "Inclut un ajustement selon la circulation actuelle.",
+      tripFeeError:
+        "Impossible de calculer les frais de déplacement pour ce code postal — nous les confirmerons lors de notre appel.",
+      tripFeeNotConfigured: "Frais de déplacement : à confirmer lors de notre appel.",
+      minDriveSuffix: "min de route",
+      estimatedTotalLabel: "Total estimé (main-d'œuvre + déplacement)",
+    },
     projectType: {
       question: "Quel type de projet souhaitez-vous réaliser?",
       waterDamage: "Réparation de dégâts d'eau",

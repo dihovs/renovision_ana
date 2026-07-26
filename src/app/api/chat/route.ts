@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { calculateEstimate, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
 import type { ScopeLine } from "@/lib/estimator/types";
-import { CHAT_TOOLS, buildSystemPrompt } from "./chatTools";
+import { CHAT_TOOLS, HANDYMAN_CHAT_TOOLS, buildSystemPrompt, type ChatTrack } from "./chatTools";
 
 export const runtime = "nodejs";
 
@@ -43,9 +43,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = (await request.json()) as { messages?: IncomingMessage[]; locale?: "en" | "fr" };
+  const body = (await request.json()) as {
+    messages?: IncomingMessage[];
+    locale?: "en" | "fr";
+    track?: ChatTrack;
+  };
   const incoming = Array.isArray(body.messages) ? body.messages : [];
   const locale = body.locale === "fr" ? "fr" : "en";
+  const track: ChatTrack = body.track === "handyman" ? "handyman" : "renovation";
 
   if (incoming.length === 0) {
     return Response.json({ error: "No messages provided." }, { status: 400 });
@@ -75,11 +80,11 @@ export async function POST(request: Request) {
             system: [
               {
                 type: "text",
-                text: buildSystemPrompt(locale),
+                text: buildSystemPrompt(locale, track),
                 cache_control: { type: "ephemeral" },
               },
             ],
-            tools: CHAT_TOOLS,
+            tools: track === "handyman" ? HANDYMAN_CHAT_TOOLS : CHAT_TOOLS,
             messages: turnMessages,
           });
 

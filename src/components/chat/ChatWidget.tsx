@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import LeadCaptureForm from "./LeadCaptureForm";
+import HandymanCalculator, { type TripFeeOutcome } from "./HandymanCalculator";
 import { ChatMessage } from "./chatLogic";
+import { calculateHandymanEstimate, calculateTax, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
+
+type ChatTrack = "unset" | "handyman" | "renovation";
 
 let idCounter = 0;
 const nextId = () => `msg-${++idCounter}`;
@@ -44,12 +48,13 @@ type ChatStreamEvent =
 async function streamChat(
   history: { role: "user" | "assistant"; content: string; imageDataUrl?: string }[],
   locale: "en" | "fr",
+  track: "handyman" | "renovation",
   onEvent: (event: ChatStreamEvent) => void,
 ) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: history, locale }),
+    body: JSON.stringify({ messages: history, locale, track }),
   });
 
   if (!res.ok || !res.body) {
@@ -81,6 +86,7 @@ export default function ChatWidget() {
   const { isOpen, openChat, closeChat } = useChat();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [step, setStep] = useState<UiStep>("chat");
+  const [track, setTrack] = useState<ChatTrack>("unset");
   const [estimate, setEstimate] = useState<EstimateDetails | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [leadSubmitted, setLeadSubmitted] = useState(false);
@@ -118,6 +124,78 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { id: nextId(), role: "assistant", content }]);
   }
 
+  // Handyman is a UI-only branch (no AI round trip needed to pick it) — once
+  // chosen, explain the flat-rate model and let the calculator below do the math.
+  function handleSelectTrack(value: "handyman" | "renovation") {
+    setTrack(value);
+    if (value === "handyman") pushAssistant(t.chat.handyman.intro);
+  }
+
+  function handleHandymanCalculate(hours: number, tripFee: TripFeeOutcome) {
+    const calc = calculateHandymanEstimate(hours);
+    const lines: EstimateLine[] = [
+      {
+        name: t.chat.handyman.labourLabel,
+        quantity: calc.billedHours,
+        unit: "h",
+        total: formatCentsPrecise(calc.labourCents),
+        laborHours: calc.billedHours,
+      },
+    ];
+
+    // Trip fee is taxable the same as labour, so it's folded into one
+    // combined subtotal/tax rather than taxed twice separately.
+    let taxableCents = calc.labourCents;
+    if (tripFee && tripFee.cents > 0) {
+      lines.push({
+        name: tripFee.trafficMultiplier > 1 ? `${t.chat.handyman.tripFeeLabel} (${t.chat.handyman.tripFeeTrafficNote})` : t.chat.handyman.tripFeeLabel,
+        quantity: tripFee.billableRoundTripKm,
+        unit: "km",
+        total: formatCentsPrecise(tripFee.cents),
+        laborHours: 0,
+      });
+      taxableCents += tripFee.cents;
+    }
+    const tax = calculateTax(taxableCents);
+
+    const scopeSummary =
+      locale === "fr"
+        ? `Travail de bricolage — environ ${calc.billedHours} h de main-d'œuvre (minimum de 2 h)${
+            tripFee ? `, code postal ${tripFee.postalCode}` : ""
+          }. Matériaux facturés séparément, au coût réel.`
+        : `Handyman job — approx. ${calc.billedHours} hour(s) of labour (2-hour minimum applied)${
+            tripFee ? `, postal code ${tripFee.postalCode}` : ""
+          }. Materials billed separately, at cost.`;
+
+    const details: EstimateDetails = {
+      scopeSummary,
+      low: formatCents(taxableCents),
+      expected: formatCents(taxableCents),
+      high: formatCents(taxableCents),
+      lines,
+      subtotal: formatCentsPrecise(taxableCents),
+      gst: formatCentsPrecise(tax.gstCents),
+      qst: formatCentsPrecise(tax.qstCents),
+      total: formatCentsPrecise(tax.totalCents),
+      totalLaborHours: calc.billedHours,
+      estimatedWorkDays: 1,
+      exclusions: [t.chat.handyman.materialsNote],
+    };
+
+    setEstimate(details);
+    pushAssistant(`${t.chat.handyman.estimateIntro} ${formatCents(calc.labourCents)}`);
+    if (tripFee && tripFee.cents > 0) {
+      pushAssistant(
+        `${t.chat.handyman.tripFeeLabel}: ${formatCents(tripFee.cents)} (~${tripFee.trafficMinutes} ${t.chat.handyman.minDriveSuffix})`,
+      );
+    } else if (tripFee === null) {
+      pushAssistant(t.chat.handyman.tripFeeNotConfigured);
+    }
+    pushAssistant(`${t.chat.handyman.estimatedTotalLabel}: ${formatCents(taxableCents)}`);
+    pushAssistant(t.chat.handyman.materialsNote);
+    pushAssistant(t.chat.leadCapture.questionsPrompt);
+  }
+
   function pushError() {
     pushAssistant(
       locale === "fr"
@@ -139,6 +217,7 @@ export default function ChatWidget() {
       await streamChat(
         history.map((m) => ({ role: m.role, content: m.content, imageDataUrl: m.imageDataUrl })),
         locale,
+        track === "handyman" ? "handyman" : "renovation",
         (event) => {
           if (event.type === "text") {
             if (!assistantStarted) {
@@ -308,7 +387,17 @@ export default function ChatWidget() {
                 <MessageBubble key={m.id} message={m} />
               ))}
 
-              {step === "chat" && messages.length === 0 && !isSending && (
+              {step === "chat" && track === "unset" && messages.length === 0 && !isSending && (
+                <OptionRow
+                  options={[
+                    { value: "handyman", label: t.chat.track.handyman },
+                    { value: "renovation", label: t.chat.track.renovation },
+                  ]}
+                  onSelect={(value) => handleSelectTrack(value as "handyman" | "renovation")}
+                />
+              )}
+
+              {step === "chat" && track === "renovation" && messages.length === 0 && !isSending && (
                 <OptionRow
                   options={[
                     { value: "waterDamage", label: t.chat.projectType.waterDamage },
@@ -320,6 +409,10 @@ export default function ChatWidget() {
                   ]}
                   onSelect={(_, label) => sendToAI(label)}
                 />
+              )}
+
+              {step === "chat" && track === "handyman" && !estimate && (
+                <HandymanCalculator onCalculate={handleHandymanCalculate} />
               )}
 
               <div ref={listEndRef} />

@@ -112,6 +112,36 @@ export function calculateEstimate(scope: ScopeLine[]): EstimateResult {
   };
 }
 
+// Handyman jobs are simple hourly work, priced straight from the widget's own
+// calculator rather than the renovation catalog above: a flat rate with a
+// minimum call-out, taxed the same way as any other taxable labour. Materials
+// are billed separately at cost and deliberately never enter this figure.
+const HANDYMAN_HOURLY_RATE_CENTS = 8000; // $80/hour
+const HANDYMAN_MINIMUM_HOURS = 2;
+
+export type HandymanEstimate = {
+  billedHours: number;
+  labourCents: number;
+  gstCents: number;
+  qstCents: number;
+  totalCents: number;
+};
+
+export function calculateHandymanEstimate(hours: number): HandymanEstimate {
+  const safeHours = Number.isFinite(hours) && hours > 0 ? hours : 0;
+  const billedHours = Math.max(safeHours, HANDYMAN_MINIMUM_HOURS);
+  const labourCents = Math.round(billedHours * HANDYMAN_HOURLY_RATE_CENTS);
+  const { gstCents, qstCents, totalCents } = calculateTax(labourCents);
+  return { billedHours, labourCents, gstCents, qstCents, totalCents };
+}
+
+/** GST + QST on an already-taxable subtotal (e.g. labour, or labour + trip fee). */
+export function calculateTax(taxableCents: number): { gstCents: number; qstCents: number; totalCents: number } {
+  const gstCents = Math.round(taxableCents * GST_RATE);
+  const qstCents = Math.round(taxableCents * QST_RATE);
+  return { gstCents, qstCents, totalCents: taxableCents + gstCents + qstCents };
+}
+
 const CAD = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
