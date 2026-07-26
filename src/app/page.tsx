@@ -8,6 +8,7 @@ import Testimonials from "@/components/home/Testimonials";
 import PartnerLogos from "@/components/home/PartnerLogos";
 import CtaBand from "@/components/home/CtaBand";
 import { buildMetadata } from "@/lib/seo";
+import { getGoogleReviewsData } from "@/lib/googleReviews";
 
 export const metadata = buildMetadata({
   title: "Renovation & Water Damage Restoration in Laval & Montreal",
@@ -16,7 +17,9 @@ export const metadata = buildMetadata({
   path: "/",
 });
 
-export default function Home() {
+export default async function Home() {
+  const reviews = await getGoogleReviewsData();
+
   return (
     <>
       <ScrollBeforeAfter />
@@ -25,7 +28,11 @@ export default function Home() {
       <AudienceSections />
       <ServicesSection />
       <HowItWorks />
-      <Testimonials />
+      <Testimonials
+        liveReviews={reviews.items}
+        overallRating={reviews.overallRating}
+        reviewCount={reviews.reviewCount}
+      />
       <PartnerLogos />
       <CtaBand />
     </>

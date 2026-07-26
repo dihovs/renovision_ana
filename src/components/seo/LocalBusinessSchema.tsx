@@ -1,19 +1,26 @@
 import { SITE_ADDRESS, SITE_EMAIL, SITE_NAME, SITE_PHONE_TEL, SITE_URL } from "@/lib/constants";
 import { translations } from "@/i18n/translations";
+import { getGoogleReviewsData } from "@/lib/googleReviews";
 
 // The single canonical schema block for the business, rendered once in the
-// root layout so it's present on every page. Reviews are sourced from the
-// same static (real, Google-sourced) testimonial data the Testimonials
-// component displays — previously that component also emitted its own
-// separate "LocalBusiness" schema with a different @type and no address,
-// which gave Google two disconnected, competing records for one business
-// instead of one entity with a shared @id.
+// root layout so it's present on every page. Previously that component also
+// emitted its own separate "LocalBusiness" schema with a different @type and
+// no address, which gave Google two disconnected, competing records for one
+// business instead of one entity with a shared @id.
 const BUSINESS_ID = `${SITE_URL}/#business`;
 
-export default function LocalBusinessSchema() {
-  const reviews = translations.en.testimonials.items;
+export default async function LocalBusinessSchema() {
+  const live = await getGoogleReviewsData();
+  const staticReviews = translations.en.testimonials.items;
+  // Prefer the real, live-pulled Google aggregate — it reflects the whole
+  // review history, not just the curated 5-star set, which is exactly what
+  // Google expects to see even when only 5-star reviews are featured
+  // individually. Fall back to the average of the static reviews only when
+  // the live pull isn't configured or fails.
+  const reviews = live.items.length > 0 ? live.items : staticReviews;
   const avgRating =
-    reviews.reduce((sum, item) => sum + item.rating, 0) / reviews.length;
+    live.overallRating ?? staticReviews.reduce((sum, item) => sum + item.rating, 0) / staticReviews.length;
+  const reviewCount = live.reviewCount ?? staticReviews.length;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -49,7 +56,7 @@ export default function LocalBusinessSchema() {
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: avgRating.toFixed(1),
-      reviewCount: reviews.length,
+      reviewCount,
     },
     review: reviews.map((item) => ({
       "@type": "Review",
