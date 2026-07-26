@@ -279,26 +279,13 @@ export default function PartnerLogos() {
         className="relative mt-8 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]"
       >
         <div ref={trackRef} className="flex w-max items-start gap-8 will-change-transform">
-          {track.map((partner, i) =>
-            partner.url ? (
-              <div key={`${partner.name}-${i}`} className="flex w-44 shrink-0 flex-col items-center gap-1">
-                <PartnerLogoCard partner={partner} />
-                <a
-                  href={partner.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-bold text-brand-blue hover:underline"
-                >
-                  {partner.name}
-                </a>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-brand-green/80">
-                  {t.partners.primePartner}
-                </span>
-              </div>
-            ) : (
-              <PartnerLogoCard key={`${partner.name}-${i}`} partner={partner} />
-            ),
-          )}
+          {track.map((partner, i) => (
+            <PartnerLogoCard
+              key={`${partner.name}-${i}`}
+              partner={partner}
+              primePartnerLabel={t.partners.primePartner}
+            />
+          ))}
         </div>
 
         <div
@@ -318,19 +305,52 @@ export default function PartnerLogos() {
   );
 }
 
-function PartnerLogoCard({ partner }: { partner: { name: string; file: string } }) {
+function PartnerLogoCard({
+  partner,
+  primePartnerLabel,
+}: {
+  partner: { name: string; file: string; url?: string };
+  primePartnerLabel: string;
+}) {
+  const image = (
+    <Image
+      src={`/images/partners/${partner.file}`}
+      alt={partner.name}
+      width={160}
+      height={60}
+      className={`w-full object-contain grayscale opacity-70 transition-[filter,opacity] duration-300 ${
+        partner.url ? "h-10" : "h-full"
+      }`}
+    />
+  );
+
+  // The prime partner's whole card is a link — the name and "Prime Partner"
+  // tag live inside the card itself, small, rather than as separate text
+  // hanging below it.
+  if (partner.url) {
+    return (
+      <a
+        href={partner.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-partner-card
+        className="relative flex h-20 w-44 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-black/5 bg-white px-3 py-1.5 transition-all duration-300 ease-out"
+      >
+        {image}
+        <span className="text-[9px] font-bold leading-tight text-brand-blue">{partner.name}</span>
+        <span className="text-[7px] font-semibold uppercase leading-tight tracking-wide text-brand-green/80">
+          {primePartnerLabel}
+        </span>
+      </a>
+    );
+  }
+
   return (
     <div
       data-partner-card
       className="relative flex h-20 w-44 shrink-0 items-center justify-center rounded-xl border border-black/5 bg-white px-6 py-4 transition-all duration-300 ease-out"
     >
-      <Image
-        src={`/images/partners/${partner.file}`}
-        alt={partner.name}
-        width={160}
-        height={60}
-        className="h-full w-full object-contain grayscale opacity-70 transition-[filter,opacity] duration-300"
-      />
+      {image}
     </div>
   );
 }
