@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import FeatureCard from "@/components/ui/FeatureCard";
@@ -9,6 +10,21 @@ import StatsBar from "@/components/home/StatsBar";
 import CtaBand from "@/components/home/CtaBand";
 import { IconHammer, IconClipboard, IconCheckCircle, IconShield, IconMapPin } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
+import { serviceAreas } from "@/lib/serviceAreas";
+
+/** "Sainte-Rose" -> "sainte-rose", so badge labels can match page slugs. */
+function toAreaSlug(label: string): string {
+  return label
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function hasServiceAreaPage(slug: string): boolean {
+  return serviceAreas.some((area) => area.slug === slug);
+}
 
 const copy = {
   en: {
@@ -251,14 +267,23 @@ export default function AboutContent() {
               </h3>
             </div>
             <div className="relative mt-5 flex flex-wrap gap-2">
-              {c.areas.map((area) => (
-                <span
-                  key={area}
-                  className="cursor-default rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-brand-blue shadow-sm ring-1 ring-black/5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-brand-blue hover:text-white hover:shadow-md hover:ring-brand-blue"
-                >
-                  {area}
-                </span>
-              ))}
+              {c.areas.map((area) => {
+                // Areas with a dedicated page become real internal links; the
+                // rest stay plain badges rather than linking somewhere generic.
+                const slug = toAreaSlug(area);
+                const badgeClass =
+                  "rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-brand-blue shadow-sm ring-1 ring-black/5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-brand-blue hover:text-white hover:shadow-md hover:ring-brand-blue";
+
+                return hasServiceAreaPage(slug) ? (
+                  <Link key={area} href={`/service-areas/${slug}`} className={badgeClass}>
+                    {area}
+                  </Link>
+                ) : (
+                  <span key={area} className={`cursor-default ${badgeClass}`}>
+                    {area}
+                  </span>
+                );
+              })}
               <span className="cursor-default rounded-full border border-dashed border-brand-blue/30 px-4 py-1.5 text-sm font-semibold text-charcoal/45 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-green hover:text-brand-green">
                 {c.areaServedMore}
               </span>
