@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { calculateHandymanEstimate, formatCents } from "@/lib/estimator/calculate";
-import { isValidPostalCode } from "./chatLogic";
+import { isValidPostalCode, normalizePostalCode } from "./chatLogic";
 
 export type TripFeeOutcome = {
   postalCode: string;
@@ -37,6 +37,9 @@ export default function HandymanCalculator({
   const [tripFeeStatus, setTripFeeStatus] = useState<TripFeeStatus>("idle");
   const [tripFeeResult, setTripFeeResult] = useState<Extract<TripFeeApiResponse, { ok: true }> | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Set when the typed letter O/I was auto-swapped for 0/1, so the correction
+  // is shown rather than silently changing what they typed.
+  const [autoCorrected, setAutoCorrected] = useState(false);
 
   const calc = calculateHandymanEstimate(hours);
 
@@ -48,6 +51,7 @@ export default function HandymanCalculator({
   // directly (not just via state) so callers don't have to race React's state
   // update timing.
   async function runTripFeeCheck(): Promise<TripFeeOutcome> {
+    const normalized = normalizePostalCode(postalCode);
     if (!isValidPostalCode(postalCode)) {
       setTripFeeStatus("error");
       return null;
@@ -57,7 +61,7 @@ export default function HandymanCalculator({
       const res = await fetch("/api/trip-fee", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postalCode: postalCode.trim() }),
+        body: JSON.stringify({ postalCode: normalized }),
       });
       const data = (await res.json()) as TripFeeApiResponse;
 
@@ -69,7 +73,7 @@ export default function HandymanCalculator({
       setTripFeeResult(data);
       setTripFeeStatus(data.tripFeeCents > 0 ? "success" : "free");
       return {
-        postalCode: postalCode.trim(),
+        postalCode: normalized,
         cents: data.tripFeeCents,
         billableRoundTripKm: data.billableRoundTripKm,
         trafficMinutes: data.trafficMinutes,
@@ -109,38 +113,52 @@ export default function HandymanCalculator({
   const canGetEstimate = isValidPostalCode(postalCode) && !submitting;
 
   return (
-    <div className="rounded-xl border border-brand-blue/20 bg-white p-3">
+    <div className="rounded-xl border border-black/5 bg-white p-3 shadow-sm">
       <p className="text-xs font-bold text-charcoal/70">{t.chat.handyman.postalCodeLabel}</p>
       <div className="mt-1.5 flex items-center gap-2">
         <input
           type="text"
           value={postalCode}
           onChange={(e) => {
-            setPostalCode(e.target.value);
+            const raw = e.target.value;
+            const normalized = normalizePostalCode(raw);
+            setPostalCode(normalized);
+            setAutoCorrected(
+              normalized.replace(/\s/g, "") !== raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6),
+            );
             setTripFeeStatus("idle");
             setTripFeeResult(null);
           }}
           placeholder={t.chat.handyman.postalCodePlaceholder}
-          className="w-28 rounded-lg border border-black/10 bg-black/[0.02] px-3 py-1.5 text-sm uppercase outline-none focus:border-brand-blue"
+          className="w-28 rounded-lg border border-black/10 bg-black/[0.02] px-3 py-1.5 text-sm uppercase outline-none transition-colors focus:border-brand-blue focus:bg-white"
         />
         <button
           type="button"
           onClick={() => void runTripFeeCheck()}
           disabled={!isValidPostalCode(postalCode) || tripFeeStatus === "loading"}
-          className="cursor-pointer rounded-lg border border-brand-blue/30 px-3 py-1.5 text-xs font-bold text-brand-blue hover:bg-brand-blue-light disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer rounded-lg border border-brand-blue/30 px-3 py-1.5 text-xs font-bold text-brand-blue transition-colors hover:bg-brand-blue-light disabled:cursor-not-allowed disabled:opacity-40"
         >
           {tripFeeStatus === "loading" ? t.chat.handyman.checking : t.chat.handyman.checkTripFee}
         </button>
       </div>
 
+      {autoCorrected && (
+        <p className="mt-1.5 text-[11px] leading-snug text-brand-green-dark">
+          {t.chat.handyman.postalCodeAutoCorrected}
+        </p>
+      )}
+
       {tripFeeStatus === "success" && tripFeeResult && (
         <p className="mt-1.5 text-[11px] leading-snug text-charcoal/60">
-          {t.chat.handyman.tripFeeLabel}: <strong>{formatCents(tripFeeResult.tripFeeCents)}</strong> (~
-          {tripFeeResult.trafficMinutes} {t.chat.handyman.minDriveSuffix})
+          {/* Drive time deliberately not shown — customers read it as an ETA
+              for the visit rather than an input to the fee calculation. */}
+          {t.chat.handyman.tripFeeLabel}: <strong>{formatCents(tripFeeResult.tripFeeCents)}</strong>
           {tripFeeResult.trafficMultiplier > 1 ? ` — ${t.chat.handyman.tripFeeTrafficNote}` : ""}
         </p>
       )}
-      {tripFeeStatus === "free" && <p className="mt-1.5 text-[11px] text-brand-green">{t.chat.handyman.tripFeeFree}</p>}
+      {tripFeeStatus === "free" && (
+        <p className="mt-1.5 text-[11px] text-brand-green-dark">{t.chat.handyman.tripFeeFree}</p>
+      )}
       {tripFeeStatus === "error" && <p className="mt-1.5 text-[11px] text-red-600">{t.chat.handyman.tripFeeError}</p>}
       {tripFeeStatus === "not_configured" && (
         <p className="mt-1.5 text-[11px] text-charcoal/50">{t.chat.handyman.tripFeeNotConfigured}</p>
@@ -153,7 +171,7 @@ export default function HandymanCalculator({
             type="button"
             onClick={() => step(-0.5)}
             aria-label="-0.5"
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 text-lg font-bold text-brand-blue hover:bg-brand-blue-light"
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 text-lg font-bold text-brand-blue transition-colors hover:bg-brand-blue-light"
           >
             −
           </button>
@@ -163,13 +181,13 @@ export default function HandymanCalculator({
             step={0.5}
             value={hours}
             onChange={(e) => setHours(Math.max(0.5, Number(e.target.value) || 0.5))}
-            className="w-16 rounded-lg border border-black/10 bg-black/[0.02] px-2 py-1.5 text-center text-sm outline-none focus:border-brand-blue"
+            className="w-16 rounded-lg border border-black/10 bg-black/[0.02] px-2 py-1.5 text-center text-sm outline-none transition-colors focus:border-brand-blue focus:bg-white"
           />
           <button
             type="button"
             onClick={() => step(0.5)}
             aria-label="+0.5"
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 text-lg font-bold text-brand-blue hover:bg-brand-blue-light"
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 text-lg font-bold text-brand-blue transition-colors hover:bg-brand-blue-light"
           >
             +
           </button>
@@ -177,7 +195,7 @@ export default function HandymanCalculator({
         <p className="mt-1.5 text-[11px] text-charcoal/50">{t.chat.handyman.minimumNote}</p>
       </div>
 
-      <div className="mt-2.5 rounded-lg bg-brand-blue-light/50 px-3 py-2.5">
+      <div className="mt-2.5 rounded-lg bg-brand-blue-light/60 px-3 py-2.5">
         <p className="text-[11px] text-charcoal/60">{t.chat.handyman.labourLabel}</p>
         <p className="text-lg font-bold text-brand-blue">{formatCents(calc.labourCents)}</p>
         <p className="mt-0.5 text-[11px] leading-snug text-charcoal/50">{t.chat.handyman.materialsNote}</p>

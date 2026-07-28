@@ -92,6 +92,7 @@ export default function ChatWidget() {
   const [leadSubmitted, setLeadSubmitted] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const listEndRef = useRef<HTMLDivElement>(null);
+  const calculatorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [launcherVisible, setLauncherVisible] = useState(false);
 
@@ -103,9 +104,17 @@ export default function ChatWidget() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Scrolling to the very bottom is right for a stream of short bubbles, but
+  // wrong when the tall calculator card is on screen — it pushes the card's
+  // own heading and postal-code field above the visible area. When it's
+  // showing, align to its top instead.
   useEffect(() => {
-    listEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, step]);
+    const target = calculatorRef.current ?? listEndRef.current;
+    target?.scrollIntoView({
+      behavior: "smooth",
+      block: calculatorRef.current ? "start" : "end",
+    });
+  }, [messages, step, track, estimate]);
 
   // Lock the background page while the chat is open, full-screen on mobile.
   // Without this, iOS Safari lets the page behind a fixed overlay scroll
@@ -185,9 +194,7 @@ export default function ChatWidget() {
     setEstimate(details);
     pushAssistant(`${t.chat.handyman.estimateIntro} ${formatCents(calc.labourCents)}`);
     if (tripFee && tripFee.cents > 0) {
-      pushAssistant(
-        `${t.chat.handyman.tripFeeLabel}: ${formatCents(tripFee.cents)} (~${tripFee.trafficMinutes} ${t.chat.handyman.minDriveSuffix})`,
-      );
+      pushAssistant(`${t.chat.handyman.tripFeeLabel}: ${formatCents(tripFee.cents)}`);
     } else if (tripFee === null) {
       pushAssistant(t.chat.handyman.tripFeeNotConfigured);
     }
@@ -327,15 +334,13 @@ export default function ChatWidget() {
           data-lenis-prevent
           className="fixed inset-0 z-50 flex h-dvh items-end justify-end sm:inset-auto sm:h-auto sm:bottom-5 sm:right-5"
         >
-          <div className="flex h-full w-full flex-col bg-white shadow-2xl sm:h-[640px] sm:max-h-[85vh] sm:w-96 sm:rounded-2xl sm:border sm:border-black/10">
+          <div className="relative flex h-full w-full flex-col overflow-hidden bg-white shadow-2xl sm:h-[720px] sm:max-h-[88vh] sm:w-[26rem] sm:rounded-3xl sm:border sm:border-black/10">
             <div
-              className="relative overflow-hidden rounded-t-2xl px-4 py-3.5 text-white"
+              className="relative overflow-hidden px-5 pb-3 pt-4 text-white"
               style={{ background: "linear-gradient(135deg, #2B5C9E 0%, #1F4677 100%)" }}
             >
               {/* Whisper of Quebec blue/white depth — same restrained-gradient
-                  technique used on the About page's service-area card, just
-                  adapted for an already-blue surface: a soft white highlight
-                  up top, a deeper blue undertone in the opposite corner. */}
+                  technique used on the About page's service-area card. */}
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0"
@@ -345,21 +350,24 @@ export default function ChatWidget() {
                 }}
               />
               <div className="relative flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/images/vision-ai-mark.png" alt="" className="h-5 w-5 object-contain" />
-                    </span>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/images/vision-ai-mark.png" alt="" className="h-5 w-5 object-contain" />
+                  </span>
+                  <div>
                     <p className="font-heading text-sm font-bold">{t.chat.title}</p>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-green-soft" />
+                      <span className="text-[11px] font-medium text-white/70">{t.chat.subtitle}</span>
+                    </span>
                   </div>
-                  <p className="mt-0.5 text-xs text-white/75">{t.chat.subtitle}</p>
                 </div>
                 <button
                   type="button"
                   onClick={closeChat}
                   aria-label="Close chat"
-                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/15 hover:text-white"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -368,12 +376,12 @@ export default function ChatWidget() {
               </div>
             </div>
 
-            <p className="border-b border-black/5 bg-brand-blue-light/50 px-4 py-2 text-[11px] leading-snug text-charcoal/60">
+            <p className="border-b border-black/5 bg-brand-blue-light/50 px-5 py-2 text-[11px] leading-snug text-charcoal/60">
               {t.chat.disclaimer}
             </p>
 
             <div
-              className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+              className="relative flex-1 space-y-3 overflow-y-auto px-4 py-4"
               style={{ background: "linear-gradient(180deg, #FFFFFF 0%, #EAF1FB 100%)" }}
             >
               {/* Rendered live from the current translation instead of stored in
@@ -412,7 +420,9 @@ export default function ChatWidget() {
               )}
 
               {step === "chat" && track === "handyman" && !estimate && (
-                <HandymanCalculator onCalculate={handleHandymanCalculate} />
+                <div ref={calculatorRef} className="scroll-mt-2">
+                  <HandymanCalculator onCalculate={handleHandymanCalculate} />
+                </div>
               )}
 
               <div ref={listEndRef} />
@@ -421,7 +431,7 @@ export default function ChatWidget() {
             {step === "leadCapture" && !leadSubmitted ? (
               <LeadCaptureForm onSubmit={handleLeadSubmit} onSkip={handleSkipLead} />
             ) : (
-              <div className="border-t border-black/10">
+              <div className="relative border-t border-black/10 bg-white">
                 {/* Once an estimate exists, offer the details form as an
                     explicit next step — but keep the chat input below it so the
                     customer can still ask questions first. */}
@@ -437,7 +447,7 @@ export default function ChatWidget() {
                 {/* Persistent, model-independent nudge to attach a photo — shown
                     while gathering scope, before an estimate exists. */}
                 {step === "chat" && !estimate && (
-                  <p className="px-3 pt-2 text-[11px] leading-snug text-charcoal/50">
+                  <p className="px-4 pt-2.5 text-[11px] leading-snug text-charcoal/50">
                     {t.chat.photoHint}
                   </p>
                 )}
@@ -458,7 +468,7 @@ export default function ChatWidget() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isSending}
                   aria-label={t.chat.uploadLabel}
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-blue hover:bg-brand-blue-light disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-brand-blue/60 transition-all hover:scale-105 hover:bg-brand-blue-light hover:text-brand-blue disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <PaperclipIcon />
                 </button>
@@ -476,14 +486,14 @@ export default function ChatWidget() {
                     if (e.key === "Enter") handleSend();
                   }}
                   placeholder={t.chat.placeholder}
-                  className="flex-1 rounded-full border border-black/10 bg-black/[0.02] px-4 py-2 text-base outline-none focus:border-brand-blue"
+                  className="flex-1 rounded-xl border border-black/10 bg-black/[0.02] px-4 py-2 text-base outline-none transition-colors placeholder:text-charcoal/40 focus:border-brand-blue focus:bg-white"
                 />
                 <button
                   type="button"
                   onClick={handleSend}
                   disabled={isSending}
                   aria-label={t.chat.send}
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-brand-green text-white hover:bg-brand-green-dark disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-brand-green text-white shadow-lg transition-all hover:scale-110 hover:bg-brand-green-dark active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <SendIcon />
                 </button>
@@ -511,7 +521,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
           isUser
             ? "rounded-br-sm bg-brand-blue text-white"
-            : "rounded-bl-sm bg-black/5 text-charcoal"
+            : "rounded-bl-sm border border-black/5 bg-white text-charcoal shadow-sm"
         }`}
       >
         {message.imageDataUrl && (

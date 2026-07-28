@@ -337,8 +337,7 @@ function PartnerLogoCard({
         className="relative flex h-20 w-44 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-black/5 bg-white px-3 py-1.5 transition-all duration-300 ease-out"
       >
         {image}
-        <span className="text-[9px] font-bold leading-tight text-brand-blue">{partner.name}</span>
-        <span className="text-[7px] font-semibold uppercase leading-tight tracking-wide text-brand-green/80">
+        <span className="text-[7px] font-semibold uppercase leading-tight tracking-wide text-charcoal/40">
           {primePartnerLabel}
         </span>
       </a>

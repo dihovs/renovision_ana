@@ -39,6 +39,28 @@
 /* Intentionally no dark-mode override: brand calls for a bright, light
    site regardless of OS color-scheme preference. */
 
+/* Slow ambient drift for decorative background gradients (stats bar, etc.) —
+   large-radius so the pan never reveals a hard edge. */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate(-6%, -4%) scale(1.15);
+  }
+  50% {
+    transform: translate(6%, 4%) scale(1.15);
+  }
+}
+
+.animate-drift {
+  animation: drift 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-drift {
+    animation: none;
+  }
+}
+
 @layer base {
   body {
     background: var(--background);

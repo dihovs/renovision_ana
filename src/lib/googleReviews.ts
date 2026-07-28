@@ -8,7 +8,20 @@ export type GoogleReviewsData = {
   reviewCount: number | null;
 };
 
-const EMPTY: GoogleReviewsData = { items: [], overallRating: null, reviewCount: null };
+// Real aggregate read directly off the business's public Google listing on
+// 2026-07-27 (5.0 stars, 15 ratings). Used only when the live pull isn't
+// available — the moment the Places API starts responding, its numbers win.
+// Update this by hand if the live pull stays disabled and the count moves.
+const FALLBACK_OVERALL_RATING = 5.0;
+const FALLBACK_REVIEW_COUNT = 15;
+
+// `items` stays empty on purpose: callers fall back to their own curated set
+// of real review text. Only the aggregate is filled in here.
+const EMPTY: GoogleReviewsData = {
+  items: [],
+  overallRating: FALLBACK_OVERALL_RATING,
+  reviewCount: FALLBACK_REVIEW_COUNT,
+};
 
 // Google's Places API has no cron of its own — this just re-checks on the
 // first request after the cache goes stale, which for a fetch this cheap and

@@ -68,6 +68,7 @@ const en: Record<string, unknown> & {
       | "estimateIntro"
       | "postalCodeLabel"
       | "postalCodePlaceholder"
+      | "postalCodeAutoCorrected"
       | "checkTripFee"
       | "checking"
       | "tripFeeLabel"
@@ -240,6 +241,41 @@ const en: Record<string, unknown> & {
         quote:
           "Excellent service! Professional team, great quality work, and completed everything on time. Highly recommend!",
       },
+      {
+        name: "Tatoul Tatoian",
+        rating: 5,
+        quote:
+          "We hired Renovision AnA to completely renovate our basement, and from the first estimate to the final walkthrough, the experience was 5-star all the way. Their team was professional, on time, and clearly took pride in their work. They handled everything: framing, electrical, plumbing, insulation, drywall, flooring, lighting, and finishing touches.",
+      },
+      {
+        name: "MissArmine",
+        rating: 5,
+        quote:
+          "Renovision AnA renovated my parents' basement completely. What a beautiful job they did! They are super meticulous and detailed and very professional! Artush was beyond helpful with all recommendations and we trusted him with everything from A-Z. My family is very satisfied with the job their team did. I 100% recommend them for all your renovation projects.",
+      },
+      {
+        name: "Sabrina Mohamed",
+        rating: 5,
+        quote:
+          "Excellent experience! The team was professional, reliable, and did an amazing job on our bathroom renovation. The quality of the work exceeded our expectations, and we couldn't be happier with the final result. Highly recommend!",
+      },
+      {
+        name: "Louso S",
+        rating: 5,
+        quote:
+          "We recently had our parents' basement and bathroom renovated, and we couldn't be happier with the results. From start to finish, the team was professional, reliable, and paid close attention to every detail. The quality of the workmanship exceeded our expectations, and they kept the project organized and communicated with us throughout the entire process.",
+      },
+      {
+        name: "Mariia Voropai",
+        rating: 5,
+        quote: "Very good services, totally recommend!",
+      },
+      {
+        name: "Lianne Sargsyan",
+        rating: 5,
+        quote:
+          "They did a fantastic job; after 20 years, I can finally enjoy my basement. Maria demonstrated great professionalism and skill; my basement is unrecognizable.",
+      },
     ],
   },
   partners: {
@@ -256,7 +292,7 @@ const en: Record<string, unknown> & {
     rights: "All rights reserved.",
   },
   chat: {
-    launcherLabel: "Get a Free Estimate",
+    launcherLabel: "Get an Instant Estimate",
     title: "Vision AI",
     subtitle: "Get a rough project estimate in minutes",
     welcome:
@@ -289,6 +325,7 @@ const en: Record<string, unknown> & {
       estimateIntro: "Here's your estimated labour cost:",
       postalCodeLabel: "Postal code (for your trip fee)",
       postalCodePlaceholder: "e.g. H7N 2A3",
+      postalCodeAutoCorrected: "Adjusted to a valid format — Canadian postal codes use 0/1, not the letters O/I.",
       checkTripFee: "Check trip fee",
       checking: "Checking…",
       tripFeeLabel: "Trip fee",
@@ -483,6 +520,41 @@ const fr: typeof en = {
         quote:
           "Excellent service ! Équipe professionnelle, travail de grande qualité, tout terminé à temps. Je recommande vivement !",
       },
+      {
+        name: "Tatoul Tatoian",
+        rating: 5,
+        quote:
+          "Nous avons engagé Renovision AnA pour rénover complètement notre sous-sol, et de la première estimation à la visite finale, l'expérience a été exceptionnelle du début à la fin. Leur équipe a été professionnelle, ponctuelle et a clairement mis un point d'honneur à bien faire le travail. Ils se sont occupés de tout : charpente, électricité, plomberie, isolation, gypse, plancher, éclairage et finitions.",
+      },
+      {
+        name: "MissArmine",
+        rating: 5,
+        quote:
+          "Renovision AnA a complètement rénové le sous-sol de mes parents. Quel beau travail ! Ils sont super méticuleux, minutieux et très professionnels ! Artush nous a énormément aidés avec ses recommandations et nous lui avons fait confiance de A à Z. Ma famille est très satisfaite du travail de leur équipe. Je les recommande à 100 % pour tous vos projets de rénovation.",
+      },
+      {
+        name: "Sabrina Mohamed",
+        rating: 5,
+        quote:
+          "Expérience excellente ! L'équipe a été professionnelle, fiable, et a fait un travail incroyable dans la rénovation de notre salle de bain. La qualité du travail a dépassé nos attentes et nous sommes ravis du résultat final. Je recommande vivement !",
+      },
+      {
+        name: "Louso S",
+        rating: 5,
+        quote:
+          "Nous avons récemment fait rénover le sous-sol et la salle de bain de nos parents, et nous sommes ravis du résultat. Du début à la fin, l'équipe a été professionnelle, fiable, et très attentive aux détails. La qualité du travail a dépassé nos attentes, et ils ont gardé le projet bien organisé en communiquant avec nous tout au long du processus.",
+      },
+      {
+        name: "Mariia Voropai",
+        rating: 5,
+        quote: "Très bons services, je recommande totalement !",
+      },
+      {
+        name: "Lianne Sargsyan",
+        rating: 5,
+        quote:
+          "Ils ont fait un travail fantastique ; après 20 ans, je peux enfin profiter de mon sous-sol. Maria a fait preuve d'un grand professionnalisme et d'un vrai savoir-faire ; mon sous-sol est méconnaissable.",
+      },
     ],
   },
   partners: {
@@ -499,7 +571,7 @@ const fr: typeof en = {
     rights: "Tous droits réservés.",
   },
   chat: {
-    launcherLabel: "Estimation gratuite",
+    launcherLabel: "Estimation instantanée",
     title: "Vision IA",
     subtitle: "Obtenez une estimation approximative en quelques minutes",
     welcome:
@@ -532,6 +604,8 @@ const fr: typeof en = {
       estimateIntro: "Voici votre coût de main-d'œuvre estimé :",
       postalCodeLabel: "Code postal (pour vos frais de déplacement)",
       postalCodePlaceholder: "ex. H7N 2A3",
+      postalCodeAutoCorrected:
+        "Ajusté au format valide — les codes postaux canadiens utilisent 0/1, et non les lettres O/I.",
       checkTripFee: "Vérifier les frais de déplacement",
       checking: "Vérification…",
       tripFeeLabel: "Frais de déplacement",

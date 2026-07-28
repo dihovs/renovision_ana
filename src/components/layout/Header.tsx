@@ -97,8 +97,9 @@ export default function Header() {
   ];
 
   return (
+    <>
     <header
-      className={`sticky top-0 z-40 w-full border-b border-black/5 bg-white/95 backdrop-blur transition-transform duration-300 ease-out ${
+      className={`sticky top-0 z-40 w-full border-b border-black/5 bg-white/95 shadow-[0_1px_3px_rgba(0,0,0,0.06)] backdrop-blur transition-transform duration-300 ease-out ${
         hidden ? "-translate-y-full" : "translate-y-0"
       }`}
     >
@@ -183,7 +184,7 @@ export default function Header() {
           <button
             type="button"
             onClick={openChat}
-            className="cursor-pointer whitespace-nowrap rounded-full bg-brand-green px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-green-dark"
+            className="cursor-pointer whitespace-nowrap rounded-full bg-brand-green px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-px hover:bg-brand-green-dark hover:shadow-lg"
           >
             {t.header.freeEstimate}
           </button>
@@ -284,5 +285,23 @@ export default function Header() {
         </div>
       </div>
     </header>
+
+    {/* Floating language toggle: the header itself hides on scroll-down to
+        save vertical space, but language should stay reachable at all
+        times, so this fades in only while the header is hidden. Rendered as
+        a sibling of <header>, not a child — the header has an active CSS
+        transform (its own hide/show translate), which makes it a
+        containing block for `position: fixed` descendants, so a fixed child
+        would track the header's translate instead of staying pinned to the
+        viewport. */}
+    <div
+      aria-hidden={!hidden}
+      className={`fixed right-4 top-4 z-40 transition-[opacity,transform] duration-300 ease-out ${
+        hidden ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
+      }`}
+    >
+      <LanguageToggle className="text-xs shadow-md" />
+    </div>
+    </>
   );
 }

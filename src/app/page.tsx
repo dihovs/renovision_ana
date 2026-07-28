@@ -22,17 +22,17 @@ export default async function Home() {
 
   return (
     <>
-      <ScrollBeforeAfter />
+      <ScrollBeforeAfter overallRating={reviews.overallRating} reviewCount={reviews.reviewCount} />
       <StatsBar />
-      <TrustBar />
-      <AudienceSections />
-      <ServicesSection />
-      <HowItWorks />
       <Testimonials
         liveReviews={reviews.items}
         overallRating={reviews.overallRating}
         reviewCount={reviews.reviewCount}
       />
+      <TrustBar />
+      <AudienceSections />
+      <ServicesSection />
+      <HowItWorks />
       <PartnerLogos />
       <CtaBand />
     </>

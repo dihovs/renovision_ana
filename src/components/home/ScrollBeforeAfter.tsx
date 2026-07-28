@@ -6,7 +6,13 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import { SITE_PHONE_TEL } from "@/lib/constants";
 
-export default function ScrollBeforeAfter() {
+export default function ScrollBeforeAfter({
+  overallRating,
+  reviewCount,
+}: {
+  overallRating?: number | null;
+  reviewCount?: number | null;
+}) {
   const { t } = useLanguage();
   const { openChat } = useChat();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -87,23 +93,29 @@ export default function ScrollBeforeAfter() {
 
   return (
     <div className="relative overflow-hidden bg-white">
-      {/* Soft radial wash so the section isn't stark flat white — ties the
-          photo card to its surroundings instead of floating on a void. */}
+      {/* Soft whole-section wash (white to a faint blue/green tint) plus two
+          tighter radial washes behind the photo card — together they keep
+          the section from reading as a flat white void without introducing
+          any new colours outside the brand palette. */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(60% 55% at 78% 45%, rgba(43,92,158,0.07), transparent 70%), radial-gradient(40% 45% at 85% 80%, rgba(78,158,46,0.06), transparent 70%)",
+            "linear-gradient(115deg, rgba(43,92,158,0.05) 0%, transparent 35%, transparent 65%, rgba(78,158,46,0.05) 100%), radial-gradient(60% 55% at 78% 45%, rgba(43,92,158,0.07), transparent 70%), radial-gradient(40% 45% at 85% 80%, rgba(78,158,46,0.06), transparent 70%)",
         }}
       />
       <div className="relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-20 lg:px-8">
-        <div>
+        <div className="lg:-translate-y-3">
           <p className="mb-4 font-label text-xs font-semibold uppercase tracking-[0.25em] text-brand-green">
             {t.hero.eyebrow}
           </p>
-          <h1 className="font-heading text-4xl font-semibold leading-[1.15] text-brand-blue sm:text-5xl lg:text-[3.4rem]">
-            {t.hero.headlineStart}{" "}
-            <em className="italic text-brand-green">{t.hero.headlineAccent}</em>
+          <h1 className="font-heading leading-[1.1] text-brand-blue">
+            <span className="text-3xl font-medium sm:text-4xl lg:text-[2.75rem]">
+              {t.hero.headlineStart}{" "}
+            </span>
+            <em className="block text-4xl font-extrabold italic text-brand-green sm:text-5xl lg:text-[3.75rem]">
+              {t.hero.headlineAccent}
+            </em>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-charcoal/80">
             {t.hero.subheadline}
@@ -123,9 +135,37 @@ export default function ScrollBeforeAfter() {
               {t.hero.ctaCall}
             </a>
           </div>
+
+          {/* Quiet credibility signal — deliberately small and muted so it
+              supports the CTAs above without competing with them. Uses the
+              real, live-pulled Google rating when configured; otherwise
+              falls back to the already-established "Licensed & insured"
+              trust-bar claim rather than inventing a number. */}
+          <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-charcoal/60">
+            {overallRating != null && reviewCount != null ? (
+              <>
+                <span className="flex text-brand-green" aria-hidden="true">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <svg key={i} viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.2L4.6 17.8l1.3-6-4.6-4.1 6.1-.6L10 1.5Z" />
+                    </svg>
+                  ))}
+                </span>
+                {t.testimonials.overallRatingLabel(overallRating.toFixed(1), reviewCount)}
+              </>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 text-brand-green">
+                  <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+                {t.trustBar.item3}
+              </>
+            )}
+          </div>
         </div>
 
-        <div>
+        <div className="lg:ml-[-3rem] lg:translate-y-3">
           {/* Grounding shapes behind the photo card — without these the card
               reads as a UI element dropped on empty white space rather than
               something designed into the layout. Scoped to a wrapper that
@@ -146,7 +186,7 @@ export default function ScrollBeforeAfter() {
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
-              className="relative aspect-[4/3] w-full touch-none select-none overflow-hidden rounded-2xl border border-black/5 shadow-[0_30px_60px_-20px_rgba(43,92,158,0.35)]"
+              className="relative aspect-[4/3] w-full touch-none select-none overflow-hidden rounded-2xl border border-black/5 shadow-[0_20px_60px_rgba(0,0,0,0.15),0_30px_60px_-20px_rgba(43,92,158,0.35)]"
             >
               <Image
                 src="/images/hero-basement-before-v2.jpg"
