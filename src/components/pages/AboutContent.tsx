@@ -305,7 +305,11 @@ export default function AboutContent() {
         <div className="mt-14 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {c.processSteps.map(({ image, title, desc }, i) => (
             <div key={title}>
-              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
+              {/* Border and soft shadow only. These are four small tiles in a
+                  row, so the hero's offset shapes would repeat four times and
+                  read as noise — the goal is just to stop them sitting flat on
+                  the background. */}
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-black/5 shadow-[0_18px_40px_-20px_rgba(43,92,158,0.35)]">
                 <Image
                   src={image}
                   alt={title}

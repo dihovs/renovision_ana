@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import FeatureCard from "@/components/ui/FeatureCard";
+import GroundedImage from "@/components/ui/GroundedImage";
 import Reveal from "@/components/ui/Reveal";
 import {
   IconBuilding,
@@ -168,15 +168,26 @@ export default function CommercialContent() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2">
-          <Reveal className="relative order-2 aspect-[4/3] overflow-hidden rounded-2xl lg:order-1">
-            <Image
+      {/* Same grounding treatment as the homepage hero: a soft wash behind the
+          section plus offset shapes under the photo. Without them the image
+          reads as a rectangle pasted onto white rather than something sitting
+          in the layout. Mirrored from the hero, since the photo is on the left
+          here and on the right there. */}
+      <section className="relative overflow-hidden pb-20">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(60% 55% at 22% 45%, rgba(43,92,158,0.07), transparent 70%), radial-gradient(40% 45% at 15% 80%, rgba(78,158,46,0.06), transparent 70%)",
+          }}
+        />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+          <Reveal className="order-2 lg:order-1">
+            <GroundedImage
+              flip
               src="/images/office-interior.jpg"
               alt="Modern property management office with city skyline view and a maintenance cart staged with tools and a hard hat"
-              fill
-              sizes="(min-width: 1024px) 45vw, 90vw"
-              className="object-cover"
             />
           </Reveal>
           <Reveal delayMs={150} className="order-1 lg:order-2">

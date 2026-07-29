@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ComponentType } from "react";
+import { useEffect, useRef, type ComponentType } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { IconBuilding, IconShield, IconHome } from "@/components/ui/icons";
 
@@ -17,6 +17,76 @@ type AudienceCard = {
 export default function AudienceSections() {
   const { t, locale } = useLanguage();
   const fr = locale === "fr";
+  const cardRefs = useRef<(HTMLElement | null)[]>([]);
+
+  // The accent rule fills on hover, which touch devices never trigger — so
+  // there it's driven by scroll position instead: full at the vertical centre
+  // of the viewport, receding symmetrically as the card moves away in either
+  // direction. Only runs where hover is unavailable; on pointer devices the
+  // custom property stays unset and the hover behaviour is untouched.
+  useEffect(() => {
+    const hoverless = window.matchMedia("(hover: none)");
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let raf = 0;
+
+    const setAll = (value: string | null) => {
+      for (const el of cardRefs.current) {
+        if (!el) continue;
+        if (value === null) el.style.removeProperty("--accent-fill");
+        else el.style.setProperty("--accent-fill", value);
+      }
+    };
+
+    const update = () => {
+      raf = 0;
+      const viewportCentre = window.innerHeight / 2;
+      // Reaches zero well before the viewport edge, so the bar is visibly
+      // moving through most of the card's travel rather than only at the ends.
+      const range = window.innerHeight * 0.42;
+      for (const el of cardRefs.current) {
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        const cardCentre = rect.top + rect.height / 2;
+        const fill = Math.max(0, 1 - Math.abs(cardCentre - viewportCentre) / range);
+        el.style.setProperty("--accent-fill", fill.toFixed(3));
+      }
+    };
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
+    const detach = () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+
+    const apply = () => {
+      detach();
+      if (!hoverless.matches) {
+        setAll(null);
+        return;
+      }
+      if (reduced.matches) {
+        // Matches the existing motion-reduce treatment: shown, not animated.
+        setAll("1");
+        return;
+      }
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+      update();
+    };
+
+    apply();
+    hoverless.addEventListener("change", apply);
+    reduced.addEventListener("change", apply);
+    return () => {
+      hoverless.removeEventListener("change", apply);
+      reduced.removeEventListener("change", apply);
+      detach();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 
   const cards: AudienceCard[] = [
     {
@@ -59,9 +129,12 @@ export default function AudienceSections() {
         </div>
 
         <div className="mt-12 grid gap-6 lg:grid-cols-3">
-          {cards.map(({ icon: Icon, title, desc, services }) => (
+          {cards.map(({ icon: Icon, title, desc, services }, i) => (
             <article
               key={title}
+              ref={(el) => {
+                cardRefs.current[i] = el;
+              }}
               className="group relative flex flex-col overflow-hidden rounded-2xl bg-white p-7 pl-8 shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl motion-reduce:transform-none motion-reduce:transition-none"
             >
               {/* Oversized watermark bleeding off the corner, replacing the
@@ -72,11 +145,15 @@ export default function AudienceSections() {
                 className="pointer-events-none absolute -right-6 -top-6 h-36 w-36 text-brand-blue/[0.06] transition-colors duration-300 group-hover:text-brand-blue/[0.10]"
               />
 
-              {/* Accent rule that fills top-to-bottom on hover — the one moving
-                  part, so the motion reads as deliberate rather than scattered. */}
+              {/* Accent rule that fills top-to-bottom — the one moving part, so
+                  the motion reads as deliberate rather than scattered. Height
+                  falls back to the resting 2.5rem when --accent-fill is unset,
+                  which is the case on every pointer device; there hover still
+                  drives it. On touch the effect tracks scroll directly, so the
+                  transition is dropped to avoid lagging behind the finger. */}
               <span
                 aria-hidden
-                className="absolute left-0 top-0 w-1 bg-brand-green transition-[height] duration-500 ease-out h-10 group-hover:h-full motion-reduce:h-full motion-reduce:transition-none"
+                className="accent-rule absolute inset-y-0 left-0 w-1 bg-brand-green"
               />
 
               <h3 className="relative font-heading text-xl font-bold leading-snug text-brand-blue">

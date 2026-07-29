@@ -39,6 +39,46 @@
 /* Intentionally no dark-mode override: brand calls for a bright, light
    site regardless of OS color-scheme preference. */
 
+/* Audience-card accent rule. Height is driven by --accent-fill (0–1) rather
+   than by a height utility, so the hover and scroll behaviours drive the same
+   property instead of competing over `height`.
+
+   On pointer devices the variable is never set: the bar rests at 2.5rem and
+   hover fills it. On touch devices AudienceSections.tsx sets it from scroll
+   position (full at the vertical centre of the viewport), and the transition
+   is dropped so the bar tracks scrolling directly instead of lagging behind.
+
+   Written here rather than as a Tailwind arbitrary value because v4 silently
+   emits no rule for `h-[max(2.5rem,calc(var(--accent-fill,0)*100%))]` — the
+   class lands in the DOM and does nothing. */
+.accent-rule {
+  /* Full height via inset (not `height: 100%`) and scaled from the top.
+     Percentage heights do not resolve against this card's containing block —
+     even a plain `height: 50%` computes to the resting value — so the fill is
+     expressed as a transform instead. It also keeps the scroll-driven update
+     on the compositor rather than triggering layout every frame. */
+  transform-origin: top;
+  transform: scaleY(max(0.12, var(--accent-fill, 0)));
+  transition: transform 500ms ease-out;
+}
+
+.group:hover .accent-rule {
+  --accent-fill: 1;
+}
+
+@media (hover: none) {
+  .accent-rule {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accent-rule {
+    --accent-fill: 1;
+    transition: none;
+  }
+}
+
 /* Slow ambient drift for decorative background gradients (stats bar, etc.) —
    large-radius so the pan never reveals a hard edge. */
 @keyframes drift {

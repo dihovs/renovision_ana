@@ -2,6 +2,7 @@
 
 import type { ComponentType } from "react";
 import Image from "next/image";
+import GroundedImage from "@/components/ui/GroundedImage";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -115,15 +116,26 @@ export default function ServiceDetailContent({
           >
             {copy.media.map((item) => (
               <figure key={item.src}>
-                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-black/5 shadow-[0_20px_60px_-25px_rgba(43,92,158,0.45)]">
-                  <Image
+                {/* A lone feature image gets the hero's grounding shapes; a
+                    pair does not — the shapes would collide in the gap between
+                    them and read as clutter rather than depth. */}
+                {copy.media!.length === 1 ? (
+                  <GroundedImage
                     src={item.src}
                     alt={item.alt}
-                    fill
                     sizes="(min-width: 640px) 45vw, 90vw"
-                    className="object-cover"
                   />
-                </div>
+                ) : (
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-black/5 shadow-[0_20px_60px_-25px_rgba(43,92,158,0.45)]">
+                    <Image
+                      src={item.src}
+                      alt={item.alt}
+                      fill
+                      sizes="(min-width: 640px) 45vw, 90vw"
+                      className="object-cover"
+                    />
+                  </div>
+                )}
                 <figcaption className="mt-2.5 text-center text-xs text-charcoal/55">
                   {item.caption}
                 </figcaption>
@@ -182,15 +194,28 @@ export default function ServiceDetailContent({
         </div>
       </section>
 
+      {/* Editorial section, set apart from the rest of the page by air rather
+          than by a border. The heading is near-white instead of brand blue:
+          #2b5c9e on this background sits around 2.4:1, which fails contrast
+          for large text and reads muddy — the accent stays on the link, where
+          it has a job. The opening paragraph is set a step larger and brighter
+          because it carries the point of the section; the rest recede. */}
       {copy.localContext && (
-        <section className="bg-charcoal py-16 text-white">
-          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+        <section className="bg-charcoal-dark py-24 text-white sm:py-32">
+          <div className="mx-auto max-w-[44rem] px-6 lg:px-8">
+            <h2 className="font-heading text-3xl font-bold leading-[1.1] tracking-[-0.02em] text-white sm:text-[2.75rem]">
               {copy.localContext.heading}
             </h2>
-            <div className="mt-5 space-y-4">
-              {copy.localContext.paragraphs.map((paragraph) => (
-                <p key={paragraph.slice(0, 40)} className="text-[15px] leading-relaxed text-white/75">
+            <div className="mt-8 space-y-6 sm:mt-10 sm:space-y-7">
+              {copy.localContext.paragraphs.map((paragraph, i) => (
+                <p
+                  key={paragraph.slice(0, 40)}
+                  className={
+                    i === 0
+                      ? "text-lg leading-[1.6] text-white/90 sm:text-xl"
+                      : "text-base leading-[1.7] text-white/60 sm:text-[1.0625rem]"
+                  }
+                >
                   {paragraph}
                 </p>
               ))}
@@ -198,10 +223,15 @@ export default function ServiceDetailContent({
             {copy.localContext.readMore && (
               <Link
                 href={copy.localContext.readMore.href}
-                className="mt-6 inline-flex items-center gap-1.5 text-sm font-bold text-brand-green transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-green"
+                className="group mt-10 inline-flex items-center gap-1.5 text-base text-brand-green transition-colors hover:text-brand-green-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-green sm:mt-12"
               >
                 {copy.localContext.readMore.label}
-                <span aria-hidden>&rarr;</span>
+                <span
+                  aria-hidden
+                  className="text-lg leading-none transition-transform duration-200 motion-safe:group-hover:translate-x-1"
+                >
+                  &rsaquo;
+                </span>
               </Link>
             )}
           </div>
