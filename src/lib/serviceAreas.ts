@@ -438,6 +438,282 @@ export const serviceAreas: ServiceArea[] = [
       ],
     },
   },
+
+  // ---------------------------------------------------------------------
+  // Montreal boroughs. Same sourcing rule as the Laval sectors above: the
+  // `context` facts come from Ville de Montréal's own borough pages and
+  // published borough histories, never from pattern-matching one borough
+  // onto another. Ahuntsic-Cartierville and Montréal-Nord both sit on the
+  // south bank of the Rivière des Prairies, directly opposite Laval.
+  // ---------------------------------------------------------------------
+
+  {
+    slug: "ahuntsic-cartierville",
+    relatedServices: [WATER_DAMAGE, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING, FLOORING],
+    sources: [
+      { label: "Ville de Montréal — Ahuntsic-Cartierville", url: "https://montreal.ca/ahuntsic-cartierville" },
+      {
+        label: "Ahuntsic-Cartierville — Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Ahuntsic-Cartierville",
+      },
+    ],
+    en: {
+      name: "Ahuntsic-Cartierville",
+      tagline: "Renovation and water damage restoration in Ahuntsic-Cartierville, Montreal",
+      metaDescription:
+        "Renovation and water damage restoration in Ahuntsic-Cartierville. Post-war brick duplex and triplex work, kitchens and bathrooms, plus older homes in the Sault-au-Récollet core.",
+      context: [
+        "Ahuntsic-Cartierville sits on the south bank of the Rivière des Prairies, directly across the water from Laval. Its oldest core, Sault-au-Récollet, grew from a Sulpician settlement established in 1696 and still holds houses dating from the 18th and 19th centuries.",
+        "Cartierville developed later and for a different reason: it became the northern terminus of the Montreal Park and Island Railway tramway line in 1898 and was incorporated as a village in 1906, named for Sir George-Étienne Cartier. Most of the borough's current housing came later still, in the post-war push northward — solid brick duplexes and triplexes, bungalows, and two-storey homes.",
+      ],
+      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeans: [
+        "This is really two housing stocks in one borough, and they call for different work. A 19th-century house in Sault-au-Récollet and a 1950s brick triplex a few streets away have almost nothing in common once the walls are open.",
+        "The post-war duplexes and triplexes are the bulk of it, and their units are typically larger than the narrow Plateau format — which means full kitchen and bathroom renovations are common rather than the compact reworks that tighter floor plans force.",
+        "In a triplex, work in one unit is work in a shared building. We plan containment and access before demolition starts, the same way we do in Laval's multiplex sectors across the river.",
+      ],
+      faq: [
+        {
+          question: "Do you work on older houses in Sault-au-Récollet?",
+          answer:
+            "Yes. Housing of that age needs decisions made deliberately — what gets restored, what gets replaced, and where a modern assembly is genuinely the better answer. We raise those before demolition, not after.",
+        },
+        {
+          question: "How quickly can you get here from Laval?",
+          answer:
+            "The borough is directly across the Rivière des Prairies from us, so it is one of the closest areas we serve. For water damage that matters, because the useful window is measured in hours.",
+        },
+      ],
+    },
+    fr: {
+      name: "Ahuntsic-Cartierville",
+      tagline: "Rénovation et restauration après dégât d'eau à Ahuntsic-Cartierville, Montréal",
+      metaDescription:
+        "Rénovation et restauration après dégât d'eau à Ahuntsic-Cartierville. Duplex et triplex de brique d'après-guerre, cuisines et salles de bain, et maisons anciennes du noyau du Sault-au-Récollet.",
+      context: [
+        "Ahuntsic-Cartierville borde la rive sud de la rivière des Prairies, directement en face de Laval. Son noyau le plus ancien, le Sault-au-Récollet, est né d'un établissement sulpicien fondé en 1696 et conserve encore des maisons des XVIIIe et XIXe siècles.",
+        "Cartierville s'est développé plus tard et pour une autre raison : le secteur est devenu en 1898 le terminus nord de la ligne de tramway du Montreal Park and Island Railway, puis un village en 1906, nommé en l'honneur de sir George-Étienne Cartier. L'essentiel du parc actuel est toutefois plus récent, issu de l'expansion d'après-guerre vers le nord — duplex et triplex de brique massive, bungalows et maisons à deux étages.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeans: [
+        "Il s'agit en réalité de deux parcs immobiliers dans un même arrondissement, et ils appellent des travaux différents. Une maison du XIXe siècle au Sault-au-Récollet et un triplex de brique des années 1950 à quelques rues de là n'ont pratiquement rien en commun une fois les murs ouverts.",
+        "Les duplex et triplex d'après-guerre forment le gros du parc, et leurs logements sont généralement plus grands que l'étroit format du Plateau — ce qui rend courantes les rénovations complètes de cuisine et de salle de bain, plutôt que les réaménagements compacts qu'imposent des plans plus serrés.",
+        "Dans un triplex, intervenir dans un logement, c'est intervenir dans un immeuble partagé. Nous planifions le confinement et les accès avant le début de la démolition, comme nous le faisons dans les secteurs de multiplex de Laval, de l'autre côté de la rivière.",
+      ],
+      faq: [
+        {
+          question: "Travaillez-vous sur les maisons anciennes du Sault-au-Récollet ?",
+          answer:
+            "Oui. Un parc de cet âge exige des décisions prises délibérément : ce qu'on restaure, ce qu'on remplace, et les endroits où un assemblage moderne est réellement la meilleure réponse. Nous soulevons ces questions avant la démolition, pas après.",
+        },
+        {
+          question: "Combien de temps pour vous rendre depuis Laval ?",
+          answer:
+            "L'arrondissement est directement de l'autre côté de la rivière des Prairies : c'est l'un des secteurs les plus proches que nous desservons. Pour un dégât d'eau, cela compte, car la fenêtre utile se mesure en heures.",
+        },
+      ],
+    },
+  },
+
+  {
+    slug: "montreal-nord",
+    // 70% of households here rent, so the work skews heavily to landlord and
+    // property-manager turnover rather than owner-occupier projects.
+    relatedServices: [WATER_DAMAGE, DRYWALL, PAINTING, REPAIRS, FLOORING, KITCHEN_BATH],
+    sources: [
+      { label: "Ville de Montréal — Montréal-Nord", url: "https://montreal.ca/montreal-nord" },
+      { label: "Montréal-Nord — Britannica", url: "https://www.britannica.com/place/Montreal-Nord" },
+    ],
+    en: {
+      name: "Montréal-Nord",
+      tagline: "Renovation and water damage restoration in Montréal-Nord",
+      metaDescription:
+        "Renovation and water damage restoration in Montréal-Nord. Apartment and duplex turnover work, water damage repair, drywall and painting — for landlords, property managers, and owners.",
+      context: [
+        "Montréal-Nord follows the south shore of the Rivière des Prairies, across the water from Laval. It was incorporated as a town in 1915, grew quickly after the Second World War, became a city in 1959, and was merged into Montreal as a borough in 2002.",
+        "About half its buildings went up in the 1960s and 1970s, with most of the remainder predating 1960. Small apartment buildings are the most common housing type, duplexes are common too, and roughly 70% of households here rent rather than own.",
+      ],
+      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeans: [
+        "A borough where seven households in ten are renters produces a particular kind of work: turnover between tenants, scheduled against lease dates rather than preference, and priced to be worth doing repeatedly. Patch, prime, paint and flooring make up a large share of it.",
+        "The 1960s-70s stock that dominates here is the same era we work in constantly across the river in Chomedey, and it fails in the same places — supply lines, shut-off valves, and original bathroom waterproofing at or past the end of their service life.",
+        "In a small apartment building, one failure rarely stays in one unit. Water finds the units below before anyone notices, which is why we document conditions in writing for owners and insurers from the first visit.",
+      ],
+      faq: [
+        {
+          question: "Do you handle turnover work between tenants?",
+          answer:
+            "Regularly. It is one of the most common reasons we are called in this borough. We work backwards from the date the next tenant moves in, and tell you upfront if that date is not realistic rather than discovering it halfway through.",
+        },
+        {
+          question: "Can you work in an occupied building?",
+          answer:
+            "Yes. Most of the buildings here are occupied while we work. We set up containment, protect shared corridors, and keep the noisy phases inside agreed hours.",
+        },
+      ],
+    },
+    fr: {
+      name: "Montréal-Nord",
+      tagline: "Rénovation et restauration après dégât d'eau à Montréal-Nord",
+      metaDescription:
+        "Rénovation et restauration après dégât d'eau à Montréal-Nord. Remise en état entre locataires, dégâts d'eau, gypse et peinture — pour propriétaires-bailleurs et gestionnaires immobiliers.",
+      context: [
+        "Montréal-Nord longe la rive sud de la rivière des Prairies, en face de Laval. L'arrondissement a été constitué en ville en 1915, a connu une croissance rapide après la Seconde Guerre mondiale, est devenu une cité en 1959, puis a été fusionné à Montréal comme arrondissement en 2002.",
+        "Environ la moitié des bâtiments datent des années 1960 et 1970, et la majeure partie du reste est antérieure à 1960. Les petits immeubles à logements y sont le type d'habitation le plus courant, les duplex sont fréquents, et environ 70 % des ménages y sont locataires plutôt que propriétaires.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeans: [
+        "Un arrondissement où sept ménages sur dix sont locataires génère un type de travail bien précis : la remise en état entre deux locataires, planifiée en fonction des dates de bail et non des préférences, et chiffrée pour valoir la peine d'être refaite souvent. Rebouchage, apprêt, peinture et revêtements de sol en composent une grande part.",
+        "Le parc des années 1960-70 qui domine ici correspond à l'époque dans laquelle nous travaillons constamment de l'autre côté de la rivière, à Chomedey, et il cède aux mêmes endroits : conduites d'alimentation, valves d'arrêt et imperméabilisation d'origine des salles de bain en fin de vie utile.",
+        "Dans un petit immeuble, une défaillance reste rarement dans un seul logement. L'eau atteint les unités du dessous avant que quiconque s'en aperçoive : c'est pourquoi nous documentons les conditions par écrit pour les propriétaires et les assureurs dès la première visite.",
+      ],
+      faq: [
+        {
+          question: "Faites-vous la remise en état entre deux locataires ?",
+          answer:
+            "Régulièrement. C'est l'une des raisons les plus fréquentes pour lesquelles on nous appelle dans cet arrondissement. Nous remontons le calendrier à partir de la date d'entrée du prochain locataire, et nous vous disons d'avance si cette date n'est pas réaliste plutôt que de le découvrir à mi-chemin.",
+        },
+        {
+          question: "Pouvez-vous travailler dans un immeuble occupé ?",
+          answer:
+            "Oui. La plupart des immeubles ici sont occupés pendant nos travaux. Nous installons le confinement, protégeons les corridors communs et gardons les phases bruyantes dans des heures convenues.",
+        },
+      ],
+    },
+  },
+
+  {
+    slug: "saint-laurent",
+    relatedServices: [RENOVATIONS, KITCHEN_BATH, BASEMENTS, DRYWALL, FLOORING, PAINTING],
+    sources: [
+      { label: "Ville de Montréal — Saint-Laurent", url: "https://montreal.ca/en/about/saint-laurent" },
+      {
+        label: "Saint-Laurent, Quebec — Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Saint-Laurent,_Quebec",
+      },
+    ],
+    en: {
+      name: "Saint-Laurent",
+      tagline: "Renovation and water damage restoration in Saint-Laurent, Montreal",
+      metaDescription:
+        "Renovation and water damage restoration in Saint-Laurent, Montreal. Wartime-era house renovations, kitchens and bathrooms, basements — across Norvick, Vieux-Saint-Laurent and Bois-Franc.",
+      context: [
+        "Saint-Laurent's residential character was shaped by the Second World War. Wartime Housing Limited, created by the federal government to house workers supporting the war effort, built several hundred modest, near-identical houses here — including 248 single-family homes in the Norvick sector beginning in 1942.",
+        "After the war the borough boomed, becoming Quebec's second industrial city behind Montreal itself, helped by available land near Dorval and highway access. Its neighbourhoods have genuinely different origins: the historic Vieux-Saint-Laurent core, the 1940s wartime housing, and Bois-Franc, a residential development launched in 1993 on the former Cartierville Airport grounds.",
+      ],
+      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeans: [
+        "The wartime houses were built quickly, modestly, and to a common plan. That standardization is useful for estimating in the same way Vimont's bungalows are — comparable projects price predictably. It also means the same constraints recur: small footprints, tight room dimensions, and original systems now more than eighty years old.",
+        "Houses built as modest wartime dwellings are frequently the ones where owners want space opened up. That is a structural question first, so we establish what is load-bearing before anyone starts choosing finishes.",
+        "Bois-Franc is a different proposition entirely. Housing from the mid-1990s onward is now reaching its first real renovation cycle — kitchens and bathrooms dated rather than failing, and systems that are aging rather than finished.",
+      ],
+      faq: [
+        {
+          question: "Can you open up the layout in a small wartime-era house?",
+          answer:
+            "Often, yes — it is one of the most common requests in this borough. Whether a specific wall can come out is a structural question, and we answer it before finishes are chosen rather than after.",
+        },
+        {
+          question: "Do you work in the newer Bois-Franc area?",
+          answer:
+            "Yes. That housing is now old enough for a first significant renovation, which is usually kitchens, bathrooms and flooring rather than the deeper structural work the older stock needs.",
+        },
+      ],
+    },
+    fr: {
+      name: "Saint-Laurent",
+      tagline: "Rénovation et restauration après dégât d'eau à Saint-Laurent, Montréal",
+      metaDescription:
+        "Rénovation et restauration après dégât d'eau à Saint-Laurent, Montréal. Rénovation de maisons de guerre, cuisines et salles de bain, sous-sols — Norvick, Vieux-Saint-Laurent et Bois-Franc.",
+      context: [
+        "Le caractère résidentiel de Saint-Laurent a été façonné par la Seconde Guerre mondiale. Wartime Housing Limited, société créée par le gouvernement fédéral pour loger les travailleurs de l'effort de guerre, y a construit plusieurs centaines de maisons modestes et quasi identiques — dont 248 maisons unifamiliales dans le secteur Norvick à partir de 1942.",
+        "Après la guerre, l'arrondissement a connu un essor considérable, devenant la deuxième ville industrielle du Québec derrière Montréal, favorisé par les terrains disponibles près de Dorval et l'accès aux autoroutes. Ses quartiers ont des origines réellement distinctes : le noyau historique du Vieux-Saint-Laurent, les maisons de guerre des années 1940, et Bois-Franc, un projet résidentiel lancé en 1993 sur les anciens terrains de l'aéroport de Cartierville.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeans: [
+        "Les maisons de guerre ont été bâties rapidement, modestement et sur un plan commun. Cette standardisation aide à l'estimation, comme pour les bungalows de Vimont : des projets comparables se chiffrent de façon prévisible. Elle signifie aussi que les mêmes contraintes reviennent — petites superficies, pièces exiguës et systèmes d'origine aujourd'hui vieux de plus de quatre-vingts ans.",
+        "Les maisons conçues comme logements de guerre modestes sont souvent celles où les propriétaires souhaitent ouvrir l'espace. C'est d'abord une question structurale : nous déterminons ce qui est porteur avant que quiconque choisisse des finis.",
+        "Bois-Franc est tout autre chose. Le parc bâti à partir du milieu des années 1990 atteint maintenant son premier véritable cycle de rénovation — des cuisines et des salles de bain démodées plutôt que défaillantes, et des systèmes qui vieillissent sans être finis.",
+      ],
+      faq: [
+        {
+          question: "Pouvez-vous ouvrir l'aménagement d'une petite maison de guerre ?",
+          answer:
+            "Souvent, oui — c'est l'une des demandes les plus fréquentes dans cet arrondissement. Savoir si un mur précis peut être retiré est une question structurale, et nous y répondons avant le choix des finis, pas après.",
+        },
+        {
+          question: "Travaillez-vous dans le secteur plus récent de Bois-Franc ?",
+          answer:
+            "Oui. Ce parc a maintenant l'âge d'une première rénovation d'importance, généralement cuisines, salles de bain et revêtements de sol plutôt que les travaux structuraux plus profonds qu'exige le parc ancien.",
+        },
+      ],
+    },
+  },
+
+  {
+    slug: "lasalle",
+    relatedServices: [WATER_DAMAGE, RENOVATIONS, KITCHEN_BATH, DRYWALL, PAINTING, FLOORING],
+    sources: [
+      { label: "Ville de Montréal — LaSalle", url: "https://montreal.ca/lasalle" },
+      { label: "LaSalle, Quebec — Wikipedia", url: "https://en.wikipedia.org/wiki/LaSalle,_Quebec" },
+    ],
+    en: {
+      name: "LaSalle",
+      tagline: "Renovation and water damage restoration in LaSalle, Montreal",
+      metaDescription:
+        "Renovation and water damage restoration in LaSalle, Montreal. Post-war bungalow, duplex and low-rise apartment work, kitchens and bathrooms, plus riverside and condo properties.",
+      context: [
+        "LaSalle formed part of Lachine from 1669 until 1848 and became an independent city in 1912, named for the explorer René-Robert Cavelier de La Salle. It was merged into Montreal as a borough in 2002.",
+        "The Lachine Canal, cut in the 1820s to bypass the rapids, brought industry and the workers who settled beside it — modest workers' housing, early duplexes, and stone houses along the river. After the Second World War the borough grew quickly into a family-oriented suburb of bungalows, duplexes, triplexes and low-rise apartment buildings, and since the early 2000s former industrial land has been redeveloped with new low-rise condominiums near the water.",
+      ],
+      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeans: [
+        "Three eras sit side by side here, and the right approach differs sharply between them. Canal-era workers' housing and riverside stone, post-war suburban bungalows and triplexes, and 2000s condominium stock are effectively three different trades.",
+        "The post-war suburban housing is the volume of it, and it behaves the way that stock does everywhere on the island: dated finishes over systems that have reached the end of their service life, and closed layouts owners want opened.",
+        "The newer condominium stock brings syndicate work with it. Quebec's Bill 16 requires every syndicate to obtain a contingency fund study by August 2028, and buildings that have one tend to plan common-area work rather than defer it.",
+      ],
+      faq: [
+        {
+          question: "Do you work on older stone houses near the river?",
+          answer:
+            "Yes, and they need decisions made deliberately. What gets restored versus replaced is worth settling before demolition, because the wrong call is visible afterwards and expensive to undo.",
+        },
+        {
+          question: "Can you work with a condo syndicate on common areas?",
+          answer:
+            "That is a routine part of our commercial work. We provide written scope, photo documentation before and after, and invoicing in the form a syndicate or insurer needs.",
+        },
+      ],
+    },
+    fr: {
+      name: "LaSalle",
+      tagline: "Rénovation et restauration après dégât d'eau à LaSalle, Montréal",
+      metaDescription:
+        "Rénovation et restauration après dégât d'eau à LaSalle, Montréal. Bungalows, duplex et petits immeubles d'après-guerre, cuisines et salles de bain, propriétés riveraines et copropriétés.",
+      context: [
+        "LaSalle a fait partie de Lachine de 1669 à 1848 avant de devenir une ville indépendante en 1912, nommée en l'honneur de l'explorateur René-Robert Cavelier de La Salle. Le territoire a été fusionné à Montréal comme arrondissement en 2002.",
+        "Le canal de Lachine, creusé dans les années 1820 pour contourner les rapides, a amené l'industrie et les travailleurs qui se sont installés à proximité — logements ouvriers modestes, premiers duplex et maisons de pierre le long du fleuve. Après la Seconde Guerre mondiale, l'arrondissement est rapidement devenu une banlieue familiale de bungalows, duplex, triplex et petits immeubles à logements; depuis le début des années 2000, d'anciens terrains industriels ont été réaménagés en copropriétés de faible hauteur près de l'eau.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeans: [
+        "Trois époques cohabitent ici, et l'approche appropriée diffère nettement de l'une à l'autre. Les logements ouvriers de l'époque du canal et la pierre riveraine, les bungalows et triplex de banlieue d'après-guerre, et le parc de copropriétés des années 2000 constituent en pratique trois métiers différents.",
+        "Le parc de banlieue d'après-guerre représente le volume, et il se comporte comme partout ailleurs sur l'île : des finis désuets par-dessus des systèmes arrivés en fin de vie utile, et des aménagements fermés que les propriétaires veulent ouvrir.",
+        "Le parc de copropriétés plus récent amène avec lui le travail avec les syndicats. La loi 16 du Québec exige que chaque syndicat obtienne une étude du fonds de prévoyance d'ici août 2028, et les immeubles qui en disposent tendent à planifier les travaux des parties communes plutôt qu'à les reporter.",
+      ],
+      faq: [
+        {
+          question: "Travaillez-vous sur les maisons de pierre anciennes près du fleuve ?",
+          answer:
+            "Oui, et elles exigent des décisions délibérées. Ce qu'on restaure et ce qu'on remplace mérite d'être tranché avant la démolition, car un mauvais choix se voit après coup et coûte cher à corriger.",
+        },
+        {
+          question: "Pouvez-vous travailler avec un syndicat de copropriété sur les parties communes ?",
+          answer:
+            "C'est une partie courante de nos mandats commerciaux. Nous fournissons une portée de travaux écrite, une documentation photo avant et après, et une facturation dans la forme dont un syndicat ou un assureur a besoin.",
+        },
+      ],
+    },
+  },
 ];
 
 export function getServiceArea(slug: string): ServiceArea | undefined {
