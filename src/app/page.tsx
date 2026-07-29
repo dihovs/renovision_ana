@@ -1,3 +1,4 @@
+import HeroBanner from "@/components/home/HeroBanner";
 import ScrollBeforeAfter from "@/components/home/ScrollBeforeAfter";
 import StatsBar from "@/components/home/StatsBar";
 import TrustBar from "@/components/home/TrustBar";
@@ -22,8 +23,9 @@ export default async function Home() {
 
   return (
     <>
-      <ScrollBeforeAfter overallRating={reviews.overallRating} reviewCount={reviews.reviewCount} />
+      <HeroBanner overallRating={reviews.overallRating} reviewCount={reviews.reviewCount} />
       <StatsBar />
+      <ScrollBeforeAfter />
       <Testimonials
         liveReviews={reviews.items}
         overallRating={reviews.overallRating}

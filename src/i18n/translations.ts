@@ -9,6 +9,7 @@ const en: Record<string, unknown> & {
   hero: Record<string, string>;
   stats: Record<"years" | "projects" | "satisfaction" | "emergency", { value: string; label: string }>;
   trustBar: Record<string, string>;
+  beforeAfter: { title: string; subtitle: string };
   audience: {
     title: string;
     subtitle: string;
@@ -153,6 +154,10 @@ const en: Record<string, unknown> & {
     projects: { value: "100+", label: "Projects Completed" },
     satisfaction: { value: "5★", label: "Google Reviews" },
     emergency: { value: "Laval & Montreal", label: "Proudly Local" },
+  },
+  beforeAfter: {
+    title: "See the Difference",
+    subtitle: "A real Laval basement, before and after. Drag the handle to reveal the finished room.",
   },
   trustBar: {
     item1: "Trusted by property management companies",
@@ -450,6 +455,10 @@ const fr: typeof en = {
     projects: { value: "100+", label: "Projets réalisés" },
     satisfaction: { value: "5★", label: "Avis Google" },
     emergency: { value: "Laval et Montréal", label: "Fièrement local" },
+  },
+  beforeAfter: {
+    title: "Voyez la différence",
+    subtitle: "Un vrai sous-sol lavallois, avant et après. Glissez la poignée pour révéler la pièce terminée.",
   },
   trustBar: {
     item1: "La confiance des sociétés de gestion immobilière",
