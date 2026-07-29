@@ -530,6 +530,234 @@ export const blogPosts: BlogPost[] = [
       ],
     },
   },
+  {
+    slug: "finishing-a-basement-laval-permits-moisture-radon",
+    categoryTag: { en: "Basements", fr: "Sous-sols" },
+    publishedAt: "2026-07-29",
+    readTimeMinutes: 7,
+    heroImage: "/images/blog/basement-finishing-header.png",
+    heroStat: {
+      value: "200 Bq/m³",
+      label: {
+        en: "Health Canada's radon guideline — which starts applying to a basement once you finish it",
+        fr: "La ligne directrice de Santé Canada sur le radon — qui s'applique au sous-sol dès qu'il est aménagé",
+      },
+    },
+    en: {
+      title: "Finishing a Basement in Laval: Permits, Moisture and Radon",
+      excerpt:
+        "Finishing a basement isn't a cosmetic job. It changes which municipal rules apply and which health guidelines your space falls under — here's what Laval and Health Canada actually require.",
+      metaDescription:
+        "What Laval requires a permit for in a basement renovation, why insulating a damp basement makes moisture worse, and the radon rule that only starts applying once the space becomes livable.",
+      sections: [
+        {
+          type: "paragraph",
+          text: "Most people think of finishing a basement as decorating — flooring, drywall, paint, lighting. The work looks cosmetic. But the moment that space becomes somewhere people actually spend time, two things change that have nothing to do with how it looks: what the city requires of you, and which health guidelines your basement now falls under. Both catch homeowners out, and both are easier to handle before the work starts than after.",
+        },
+        { type: "heading", text: "When Laval requires a permit" },
+        {
+          type: "paragraph",
+          text: "Ville de Laval's rule for basement renovation is short: a permit is required when the number of rooms or the structure is modified. The underlying test, set out in the city's Code de l'urbanisme, is clearer still — the maintenance exemption is lost if any one of three things happens: foundations or load-bearing components are modified, floor area increases, or the number of dwelling units or bedrooms changes.",
+        },
+        {
+          type: "paragraph",
+          text: "That last item is the one that surprises people. Adding a bedroom counts, and Laval lists it explicitly as requiring a permit. So does adding a bathroom — though renovating a bathroom that already exists does not. Moving or rebuilding the basement staircase requires one too, which catches a lot of basement projects.",
+        },
+        {
+          type: "list",
+          items: [
+            "Permit required: adding a bedroom, adding a bathroom, adding a dwelling unit, modifying an interior staircase, changing the structure",
+            "No municipal permit listed: painting, renovating an existing bathroom, kitchen renovation, replacing an electrical panel, modifying wiring inside walls, replacing plumbing",
+            "Laval gives an approximate 30-day processing time — and the clock only starts once every required document is in",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "One caution: \"no municipal permit\" is not the same as \"no rules.\" Licensing requirements and the Quebec construction code still apply to the work itself regardless of whether the city needs to issue a piece of paper.",
+        },
+        { type: "heading", text: "Why finishing a damp basement makes it worse" },
+        {
+          type: "paragraph",
+          text: "This is the part that costs people real money, and the mechanism is genuinely counterintuitive. Natural Resources Canada puts it plainly: adding insulation to the inside makes the foundation walls even colder, and any humid air that reaches those colder walls will condense. So a basement that seemed merely a bit damp before can develop an active moisture problem after it's finished — created by the finishing itself.",
+        },
+        {
+          type: "paragraph",
+          text: "Their instruction is unambiguous: do not insulate a basement that has moisture problems from the inside. If you must, eliminate the moisture first, or the new walls will rot. Persistent leaks, spring flooding, and any trouble with sump pumps or sewer backup get corrected before insulation goes anywhere near the wall.",
+        },
+        {
+          type: "list",
+          items: [
+            "Staining or mould growth on foundations or finishes",
+            "Blistering or peeling paint",
+            "Efflorescence — a whitish mineral deposit on the surface",
+            "Spalling, where the concrete surface itself is deteriorating",
+            "A musty smell",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "One more timing note worth knowing if the foundation is new: NRCan puts the drying time for new concrete at roughly a year before it should be finished.",
+        },
+        {
+          type: "linkParagraph",
+          text: "This is the same reason we open up enough of a wall or floor to see what's actually wet before quoting restoration work, rather than drying what's visible and hoping.",
+          linkText: "How we approach water damage",
+          href: "/services/water-damage",
+        },
+        { type: "heading", text: "Radon: the rule that switches on when you finish" },
+        {
+          type: "paragraph",
+          text: "Health Canada's radon guideline is 200 Bq/m³, and it applies to what they call a normal occupancy area — anywhere someone is likely to spend more than four hours a day. An unfinished basement is explicitly excluded from that definition. A finished basement with a family room, office or guest room is explicitly included, as is a basement apartment.",
+        },
+        {
+          type: "paragraph",
+          text: "Read those two sentences together and the implication is clear: finishing a basement converts space the guideline ignores into space the guideline governs. Health Canada's own measurement guide anticipates exactly this, naming basement renovation before adding a bedroom as a reason to test in advance.",
+        },
+        {
+          type: "stats",
+          items: [
+            { value: "200 Bq/m³", label: "Health Canada's action level" },
+            { value: "12.1%", label: "Laval-region homes above it in Health Canada's cross-Canada survey" },
+            { value: "91 days", label: "Minimum test duration, during heating season" },
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "That Laval figure deserves its caveat: it comes from a survey run in 2009–2011 with 107 participating homes in the Laval health region, so it's indicative rather than a precise current rate. It is, for context, higher than the 6.9% recorded for Montréal and above the provincial figure. Quebec's own guidance puts the average basement concentration around 37 Bq/m³ while noting that levels can occasionally exceed 1,000. Levels vary widely between homes on the same street, which is why testing your specific house is the only way to know.",
+        },
+        {
+          type: "paragraph",
+          text: "Testing is slow rather than difficult: a detector must sit on the lowest lived-in level for at least 91 days, with those days falling in the heating season — October through April in practice. That's a long enough window that it's worth starting before the renovation, not after. Health Canada also recommends re-testing the following heating season after any renovation that changes the structure or ventilation of a home, and basement work is on their list of examples.",
+        },
+        {
+          type: "paragraph",
+          text: "There's a code angle too, and it cuts the opposite way to what you might expect. Since June 2022, Quebec's construction code has required soil-gas protection measures across the whole province for new construction and transformations. A newly built Laval home should already have those provisions. An older home having its basement finished has no equivalent code trigger — which means testing is the only route to knowing.",
+        },
+        { type: "heading", text: "The order that saves money" },
+        {
+          type: "paragraph",
+          text: "None of this makes finishing a basement a bad idea. It's usually the cheapest square footage you'll ever add to a house, and it's most of what we've been building this year. But the sequence matters more here than in any other room: establish whether the space is dry, start a radon test early because it takes a season, confirm what the city needs before the layout is settled, and only then start choosing finishes.",
+        },
+        {
+          type: "linkParagraph",
+          text: "Get that order right and a basement is a straightforward project. Get it wrong and you find out a year later, behind a wall you've already paid to build.",
+          linkText: "See our basement work",
+          href: "/services/basements",
+        },
+        {
+          type: "paragraph",
+          text: "Sources: Ville de Laval, Permis de rénovation résidentielle intérieure and Code de l'urbanisme article 2072; Natural Resources Canada, Keeping the Heat In, Section 6; Health Canada, Government of Canada radon guideline, Guide for radon measurements in homes, and the Cross-Canada Survey of Radon Concentrations in Homes; Gouvernement du Québec, Residential radon; Régie du bâtiment du Québec, on soil-gas protection measures. Permit rules and fees change and fees are indexed annually — confirm current requirements with Ville de Laval for your own project.",
+        },
+      ],
+    },
+    fr: {
+      title: "Aménager un sous-sol à Laval : permis, humidité et radon",
+      excerpt:
+        "Aménager un sous-sol n'est pas un travail cosmétique. Cela change les règles municipales qui s'appliquent et les lignes directrices sanitaires qui régissent la pièce — voici ce qu'exigent réellement Laval et Santé Canada.",
+      metaDescription:
+        "Ce qui exige un permis à Laval pour un sous-sol, pourquoi isoler un sous-sol humide aggrave le problème, et la règle sur le radon qui ne s'applique qu'une fois la pièce habitable.",
+      sections: [
+        {
+          type: "paragraph",
+          text: "La plupart des gens voient l'aménagement d'un sous-sol comme de la décoration : plancher, gypse, peinture, éclairage. Le travail a l'air cosmétique. Mais dès que cette pièce devient un endroit où l'on passe réellement du temps, deux choses changent qui n'ont rien à voir avec l'apparence : ce que la ville exige de vous, et les lignes directrices sanitaires qui régissent désormais votre sous-sol. Les deux prennent les propriétaires au dépourvu, et les deux sont plus faciles à gérer avant le début des travaux qu'après.",
+        },
+        { type: "heading", text: "Quand Laval exige un permis" },
+        {
+          type: "paragraph",
+          text: "La règle de la Ville de Laval pour la rénovation d'un sous-sol est brève : un permis est requis lorsque le nombre de pièces ou la structure est modifié. Le critère de fond, énoncé dans le Code de l'urbanisme de la ville, est encore plus clair — l'exemption pour entretien normal est perdue si l'une de trois choses se produit : les fondations ou les composantes portantes sont modifiées, la superficie de plancher augmente, ou le nombre de logements ou de chambres change.",
+        },
+        {
+          type: "paragraph",
+          text: "C'est ce dernier point qui surprend. L'ajout d'une chambre compte, et Laval l'inscrit explicitement comme exigeant un permis. L'ajout d'une salle de bain aussi — alors que la rénovation d'une salle de bain existante, non. Déplacer ou reconstruire l'escalier du sous-sol en exige également un, ce qui touche beaucoup de projets de sous-sol.",
+        },
+        {
+          type: "list",
+          items: [
+            "Permis requis : ajout d'une chambre, ajout d'une salle de bain, ajout d'un logement, modification d'un escalier intérieur, modification de la structure",
+            "Aucun permis municipal inscrit : peinture, rénovation d'une salle de bain existante, rénovation de cuisine, remplacement du panneau électrique, modification du filage dans les murs, remplacement de la plomberie",
+            "Laval indique un délai approximatif de 30 jours — et le compte à rebours ne commence qu'une fois tous les documents reçus",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "Une mise en garde : « aucun permis municipal » ne veut pas dire « aucune règle ». Les exigences de licence et le Code de construction du Québec s'appliquent aux travaux eux-mêmes, que la ville ait ou non un papier à délivrer.",
+        },
+        { type: "heading", text: "Pourquoi aménager un sous-sol humide empire les choses" },
+        {
+          type: "paragraph",
+          text: "C'est la partie qui coûte réellement de l'argent, et le mécanisme est vraiment contre-intuitif. Ressources naturelles Canada le dit simplement : ajouter de l'isolant à l'intérieur rend les murs de fondation encore plus froids, et tout air humide qui atteint ces murs froids va s'y condenser. Un sous-sol qui ne semblait qu'un peu humide peut donc développer un véritable problème d'humidité après son aménagement — créé par l'aménagement lui-même.",
+        },
+        {
+          type: "paragraph",
+          text: "Leur consigne est sans ambiguïté : ne pas isoler par l'intérieur un sous-sol qui présente des problèmes d'humidité. Si vous devez le faire, éliminez l'humidité d'abord, sinon vos nouveaux murs pourriront. Les infiltrations persistantes, les inondations printanières et tout problème de pompe de puisard ou de refoulement d'égout se corrigent avant que l'isolant n'approche du mur.",
+        },
+        {
+          type: "list",
+          items: [
+            "Taches ou moisissures sur les fondations ou les finis",
+            "Peinture qui cloque ou qui pèle",
+            "Efflorescence — un dépôt minéral blanchâtre à la surface",
+            "Écaillage, quand la surface du béton se détériore",
+            "Une odeur de moisi",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "Autre point de calendrier utile si la fondation est neuve : RNCan évalue le temps de séchage d'un béton neuf à environ un an avant qu'il ne soit fini.",
+        },
+        {
+          type: "linkParagraph",
+          text: "C'est la même raison pour laquelle nous ouvrons suffisamment de mur ou de plancher pour voir ce qui est réellement mouillé avant de chiffrer une restauration, plutôt que d'assécher ce qui est visible en espérant.",
+          linkText: "Notre approche des dégâts d'eau",
+          href: "/services/water-damage",
+        },
+        { type: "heading", text: "Radon : la règle qui s'active à l'aménagement" },
+        {
+          type: "paragraph",
+          text: "La ligne directrice de Santé Canada sur le radon est de 200 Bq/m³, et elle s'applique à ce qu'on appelle une aire normalement occupée — tout endroit où une personne est susceptible de passer plus de quatre heures par jour. Un sous-sol non aménagé en est explicitement exclu. Un sous-sol aménagé avec une salle familiale, un bureau ou une chambre d'invités y est explicitement inclus, tout comme un logement au sous-sol.",
+        },
+        {
+          type: "paragraph",
+          text: "Lisez ces deux phrases ensemble et l'implication est claire : aménager un sous-sol convertit un espace que la ligne directrice ignore en un espace qu'elle régit. Le guide de mesure de Santé Canada prévoit exactement ce cas, citant la rénovation d'un sous-sol avant l'ajout d'une chambre comme motif de tester à l'avance.",
+        },
+        {
+          type: "stats",
+          items: [
+            { value: "200 Bq/m³", label: "Le seuil d'intervention de Santé Canada" },
+            { value: "12,1 %", label: "Domiciles de la région de Laval au-dessus du seuil dans l'enquête pancanadienne" },
+            { value: "91 jours", label: "Durée minimale du test, en saison de chauffage" },
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "Ce chiffre lavallois mérite sa nuance : il provient d'une enquête menée de 2009 à 2011 auprès de 107 domiciles participants dans la région sociosanitaire de Laval — il est donc indicatif plutôt qu'un taux actuel précis. À titre de comparaison, il est supérieur au 6,9 % relevé pour Montréal et au chiffre provincial. Le gouvernement du Québec situe la concentration moyenne dans les sous-sols autour de 37 Bq/m³, tout en notant que les niveaux peuvent parfois dépasser 1 000. Les niveaux varient beaucoup d'une maison à l'autre sur une même rue, et c'est pourquoi tester votre maison précise est la seule façon de savoir.",
+        },
+        {
+          type: "paragraph",
+          text: "Le test est long plutôt que difficile : un détecteur doit demeurer au niveau habité le plus bas pendant au moins 91 jours, ces jours devant se situer en saison de chauffage — d'octobre à avril en pratique. C'est une fenêtre assez longue pour valoir la peine d'être amorcée avant la rénovation, pas après. Santé Canada recommande aussi de refaire le test la saison de chauffage suivante après toute rénovation qui modifie la structure ou la ventilation d'une maison, et les travaux de sous-sol figurent dans leurs exemples.",
+        },
+        {
+          type: "paragraph",
+          text: "Il y a aussi un volet réglementaire, et il joue à l'inverse de ce qu'on pourrait croire. Depuis juin 2022, le Code de construction du Québec exige des mesures de protection contre les gaz souterrains sur tout le territoire, pour les constructions neuves et les transformations. Une maison lavalloise récente devrait déjà les avoir. Une maison plus ancienne dont on aménage le sous-sol n'a aucun déclencheur équivalent — ce qui fait du test la seule voie pour savoir.",
+        },
+        { type: "heading", text: "L'ordre qui fait économiser" },
+        {
+          type: "paragraph",
+          text: "Rien de tout cela ne fait de l'aménagement d'un sous-sol une mauvaise idée. C'est habituellement la superficie la moins chère que vous ajouterez à une maison, et c'est l'essentiel de ce que nous avons construit cette année. Mais la séquence compte ici plus que dans toute autre pièce : établir si l'espace est sec, amorcer un test de radon tôt puisqu'il prend une saison, confirmer ce qu'exige la ville avant d'arrêter l'aménagement, et seulement ensuite choisir les finis.",
+        },
+        {
+          type: "linkParagraph",
+          text: "Respectez cet ordre et un sous-sol est un projet simple. Manquez-le et vous l'apprenez un an plus tard, derrière un mur que vous avez déjà payé pour construire.",
+          linkText: "Voir nos projets de sous-sol",
+          href: "/services/basements",
+        },
+        {
+          type: "paragraph",
+          text: "Sources : Ville de Laval, Permis de rénovation résidentielle intérieure et Code de l'urbanisme article 2072; Ressources naturelles Canada, Garder la chaleur, section 6; Santé Canada, Ligne directrice du gouvernement du Canada sur le radon, Guide sur les mesures de radon dans les habitations, et l'Enquête pancanadienne sur les concentrations de radon dans les habitations; Gouvernement du Québec, Radon résidentiel; Régie du bâtiment du Québec, sur les mesures de protection contre les gaz souterrains. Les règles et tarifs de permis changent et les tarifs sont indexés annuellement — confirmez les exigences courantes auprès de la Ville de Laval pour votre projet.",
+        },
+      ],
+    },
+  },
 ];
 
 export function getBlogPost(slug: string): BlogPost | undefined {
