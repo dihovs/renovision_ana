@@ -443,3 +443,17 @@ export const serviceAreas: ServiceArea[] = [
 export function getServiceArea(slug: string): ServiceArea | undefined {
   return serviceAreas.find((area) => area.slug === slug);
 }
+
+/**
+ * The reverse of `relatedServices`: which areas list a given service page.
+ *
+ * Derived from the same data rather than maintained as a second list, so the
+ * two directions cannot drift apart — a service added to an area shows up
+ * here automatically, and one removed disappears. A service no area lists
+ * returns an empty array and the linking section simply doesn't render.
+ */
+export function getAreasForService(serviceHref: string): ServiceArea[] {
+  return serviceAreas.filter((area) =>
+    area.relatedServices.some((service) => service.href === serviceHref),
+  );
+}

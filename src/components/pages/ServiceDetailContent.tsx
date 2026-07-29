@@ -2,7 +2,10 @@
 
 import type { ComponentType } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { getAreasForService } from "@/lib/serviceAreas";
 import { useChat } from "@/components/chat/ChatProvider";
 import CtaBand from "@/components/home/CtaBand";
 import { IconCheckCircle } from "@/components/ui/icons";
@@ -46,8 +49,12 @@ export default function ServiceDetailContent({
   icon: ComponentType<{ className?: string }>;
   copy: ServiceDetailCopy;
 }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { openChat } = useChat();
+  // Read the current path rather than taking it as a prop, so none of the
+  // eight service pages that render this component need to pass anything.
+  const pathname = usePathname();
+  const areas = getAreasForService(pathname ?? "");
 
   return (
     <>
@@ -156,6 +163,41 @@ export default function ServiceDetailContent({
           ))}
         </div>
       </section>
+
+      {/* Reciprocal half of the service/location linking: the area pages
+          already point here, this points back. Only the areas that actually
+          list this service are shown — derived from the same data, so the
+          two directions stay in step and neither becomes link-everything-to-
+          everything. Renders nothing when no area lists the service. */}
+      {areas.length > 0 && (
+        <section className="border-t border-black/5 bg-brand-blue-light/20 py-14">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 className="font-heading text-lg font-bold text-brand-blue">
+              {locale === "fr"
+                ? "Ce service, secteur par secteur"
+                : "This service, area by area"}
+            </h2>
+            <p className="mt-1.5 text-sm text-charcoal/60">
+              {locale === "fr"
+                ? "Ce que le parc immobilier de chaque secteur implique pour ce type de travaux."
+                : "What each sector's housing stock means for this kind of work."}
+            </p>
+            <ul className="mt-5 flex flex-wrap gap-2.5">
+              {areas.map((area) => (
+                <li key={area.slug}>
+                  <Link
+                    href={`/service-areas/${area.slug}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-brand-blue/15 bg-white px-4 py-2 text-sm font-semibold text-brand-blue transition-colors hover:border-brand-blue hover:bg-brand-blue hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
+                  >
+                    {locale === "fr" ? area.fr.name : area.en.name}
+                    <span aria-hidden>&rarr;</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       <CtaBand />
     </>
