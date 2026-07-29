@@ -50,6 +50,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Bedrooms, living rooms, home offices, or light commercial interiors — same standard of work across all of them.",
       },
     ],
+    localContext: {
+      heading: "Renovating Laval's post-war housing",
+      paragraphs: [
+        "A lot of this work is opening up layouts that made sense in 1958 and don't now. The 1950s-60s bungalow stock — Vimont is almost entirely that era — was built with small, closed rooms, so the common request is removing a wall between kitchen and living space. That's a structural question before it's a design one, and we establish whether a wall is load-bearing before anyone starts picking finishes.",
+        "Homes of that age also tend to have dated finishes sitting on systems that have reached the end of their service life. It's worth knowing which of the two you're dealing with, because replacing finishes over tired systems means opening the same walls again in a few years.",
+        "In condo and multiplex work, the paperwork matters as much as the trade. Quebec's Bill 16 now requires every syndicate to obtain a contingency fund study by August 2028, and once a building has a repair timeline, common-area work tends to get planned rather than deferred.",
+      ],
+      readMore: {
+        label: "Read what Bill 16 means for condo syndicates",
+        href: "/blog/quebec-bill-16-condo-contingency-fund-study",
+      },
+    },
   },
   fr: {
     eyebrow: "Rénovations intérieures",
@@ -96,6 +108,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Chambres, salons, bureaux à domicile ou espaces commerciaux légers — la même norme de travail pour tous.",
       },
     ],
+    localContext: {
+      heading: "Rénover le parc immobilier d'après-guerre de Laval",
+      paragraphs: [
+        "Une bonne partie de ce travail consiste à ouvrir des aménagements qui avaient du sens en 1958 et qui n'en ont plus. Le parc de bungalows des années 1950-60 — Vimont en est presque entièrement constitué — a été bâti avec de petites pièces fermées; la demande courante est donc d'abattre un mur entre la cuisine et l'aire de vie. C'est une question structurale avant d'être une question de design, et nous déterminons si un mur est porteur avant que quiconque choisisse des finis.",
+        "Les maisons de cet âge présentent aussi souvent des finis désuets posés sur des systèmes arrivés en fin de vie utile. Il vaut la peine de savoir auquel des deux on a affaire, car remplacer les finis par-dessus des systèmes fatigués signifie rouvrir les mêmes murs dans quelques années.",
+        "En copropriété et en multiplex, la paperasse compte autant que le métier. La loi 16 du Québec exige désormais que chaque syndicat obtienne une étude du fonds de prévoyance d'ici le 14 août 2028, et une fois qu'un immeuble dispose d'un calendrier de travaux, les rénovations des parties communes tendent à être planifiées plutôt que reportées.",
+      ],
+      readMore: {
+        label: "Lire ce que la loi 16 implique pour les syndicats de copropriété",
+        href: "/blog/quebec-bill-16-condo-contingency-fund-study",
+      },
+    },
   },
 };
 

@@ -50,6 +50,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Faucets, sinks, tubs, and lighting updated to match the finished look of the room.",
       },
     ],
+    localContext: {
+      heading: "What a bathroom is worth in Laval and Montreal",
+      paragraphs: [
+        "Royal LePage puts the average home value increase from a bathroom renovation at 16%, and RE/MAX's data points to the same combination doing most of that work: vanity, tile, fixtures and lighting. The pattern in the numbers is that mid-range wins — a $15,000 to $35,000 renovation historically recoups more of its cost, proportionally, than an ultra-premium build does.",
+        "Tile choice is where local budgets actually move. Large-format 12x24 is the economical option; smaller formats, mosaics and anything requiring intricate cuts carry noticeably more labour, which is why two bathrooms of identical size can price very differently. We flag that early rather than at invoice time.",
+        "One caveat specific to this trade: if the room is being redone after a leak, the moisture problem gets solved before any finish goes on. Cosmetic work laid over a wet assembly doesn't hold its value, and it's the fastest way to spend the renovation budget twice.",
+      ],
+      readMore: {
+        label: "Read the bathroom renovation ROI breakdown",
+        href: "/blog/bathroom-renovation-roi-laval-montreal",
+      },
+    },
   },
   fr: {
     eyebrow: "Cuisines et salles de bain",
@@ -96,6 +108,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Robinets, éviers, baignoires et éclairage mis à jour pour compléter l'apparence finale de la pièce.",
       },
     ],
+    localContext: {
+      heading: "Ce que vaut une salle de bain à Laval et à Montréal",
+      paragraphs: [
+        "Royal LePage évalue à 16 % la hausse moyenne de valeur d'une maison à la suite d'une rénovation de salle de bain, et les données de RE/MAX pointent vers la même combinaison pour l'essentiel de ce rendement : vanité, céramique, robinetterie et éclairage. La tendance dans les chiffres est claire : le milieu de gamme l'emporte — une rénovation de 15 000 $ à 35 000 $ récupère historiquement une plus grande part de son coût, en proportion, qu'un projet ultra haut de gamme.",
+        "C'est le choix de la céramique qui fait vraiment bouger les budgets ici. Le grand format 12x24 est l'option économique; les petits formats, les mosaïques et tout ce qui exige des coupes complexes demandent nettement plus de main-d'œuvre, ce qui explique que deux salles de bain de dimensions identiques se chiffrent très différemment. Nous le signalons dès le départ, pas au moment de la facture.",
+        "Une réserve propre à ce métier : si la pièce est refaite à la suite d'une fuite, le problème d'humidité se règle avant la pose de tout fini. Des travaux cosmétiques par-dessus un assemblage humide ne conservent pas leur valeur, et c'est la façon la plus rapide de dépenser deux fois le budget de rénovation.",
+      ],
+      readMore: {
+        label: "Lire l'analyse du rendement d'une rénovation de salle de bain",
+        href: "/blog/bathroom-renovation-roi-laval-montreal",
+      },
+    },
   },
 };
 

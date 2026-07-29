@@ -50,6 +50,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "The detail work that makes a repair disappear into the existing finish instead of standing out.",
       },
     ],
+    localContext: {
+      heading: "Why small repairs are their own trade here",
+      paragraphs: [
+        "A lot of this work comes from Chomedey and the surrounding multiplex stock, where roughly a third of the housing was built between 1960 and 1980. Tenant turnover in those buildings generates a steady stream of small, awkward jobs — a patched wall, a cracked tile, a water-stained section of trim — that most contractors won't schedule because they're too small to be worth mobilizing for.",
+        "The hard part is almost never the repair itself, it's the match. Paint that has been on a wall for fifteen years is no longer the colour it started as, and tile from a discontinued line has to be sourced or approximated. Matching against the aged finish rather than the original spec is what decides whether a patch disappears or announces itself.",
+        "In occupied units that also means working around people. Containment, dust control and access get planned in advance, and the job gets finished in one visit wherever it can be, because a tenant living around an unfinished repair is its own kind of cost.",
+      ],
+      readMore: {
+        label: "See how we work with property managers",
+        href: "/commercial",
+      },
+    },
   },
   fr: {
     eyebrow: "Petites réparations et agencement de couleurs",
@@ -96,6 +108,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Le travail de détail qui fait disparaître une réparation dans la finition existante plutôt que de la faire ressortir.",
       },
     ],
+    localContext: {
+      heading: "Pourquoi les petites réparations sont un métier en soi",
+      paragraphs: [
+        "Une bonne part de ce travail vient de Chomedey et du parc de multiplex environnant, où environ le tiers des logements ont été bâtis entre 1960 et 1980. Le roulement des locataires dans ces immeubles génère un flux constant de petits travaux ingrats — un mur à reboucher, une céramique fissurée, une section de moulure tachée par l'eau — que la plupart des entrepreneurs refusent de planifier parce qu'ils sont trop petits pour justifier un déplacement.",
+        "Le plus difficile n'est presque jamais la réparation elle-même, c'est l'agencement. Une peinture appliquée il y a quinze ans n'a plus la couleur de départ, et une céramique d'une gamme discontinuée doit être trouvée ou approchée. C'est le fait de s'agencer au fini vieilli plutôt qu'à la spécification d'origine qui détermine si un raccord disparaît ou se remarque.",
+        "Dans les logements occupés, cela signifie aussi travailler autour des gens. Confinement, contrôle de la poussière et accès sont planifiés d'avance, et le travail se termine en une seule visite chaque fois que c'est possible, parce qu'un locataire qui vit autour d'une réparation inachevée représente un coût en soi.",
+      ],
+      readMore: {
+        label: "Voir comment nous travaillons avec les gestionnaires immobiliers",
+        href: "/commercial",
+      },
+    },
   },
 };
 

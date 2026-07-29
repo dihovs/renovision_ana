@@ -50,6 +50,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Baseboards, thresholds, and transitions between rooms finished cleanly, not left as an afterthought.",
       },
     ],
+    localContext: {
+      heading: "Flooring in older Laval housing",
+      paragraphs: [
+        "Most of the flooring we replace sits on a subfloor that predates it by decades. In the 1950s-60s bungalow stock that dominates sectors like Vimont, and in the mixed pre-1960 to 1980s stock across Chomedey, what's underneath is rarely flat and occasionally soft. That gets checked before anything is ordered, because a level finish over an unlevel subfloor is a warranty claim waiting to happen.",
+        "Basements are their own case. On slabs poured before modern moisture detailing, the material choice matters more than the look — which is the difference between flooring that lasts and flooring that cups the first humid spring.",
+        "Where flooring is being replaced after water damage, the sequence is not negotiable: the subfloor gets opened up and dried properly first. Laying new material over a subfloor that's still holding moisture traps it there, and the problem resurfaces months later as cupping, odour, or worse.",
+      ],
+      readMore: {
+        label: "See how we handle water damage first",
+        href: "/services/water-damage",
+      },
+    },
   },
   fr: {
     eyebrow: "Planchers",
@@ -96,6 +108,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Plinthes, seuils et transitions entre les pièces finis proprement, pas laissés en plan.",
       },
     ],
+    localContext: {
+      heading: "Les revêtements de sol dans le parc immobilier ancien",
+      paragraphs: [
+        "La plupart des planchers que nous remplaçons reposent sur un sous-plancher qui les précède de plusieurs décennies. Dans le parc de bungalows des années 1950-60 qui domine des secteurs comme Vimont, et dans le parc mixte d'avant 1960 aux années 1980 à Chomedey, ce qui se trouve dessous est rarement de niveau et parfois ramolli. Nous le vérifions avant toute commande, car un fini de niveau sur un sous-plancher qui ne l'est pas mène droit à une réclamation de garantie.",
+        "Les sous-sols sont un cas à part. Sur des dalles coulées avant les pratiques modernes de gestion de l'humidité, le choix du matériau compte plus que l'apparence — c'est la différence entre un plancher qui dure et un plancher qui tuile au premier printemps humide.",
+        "Quand un plancher est remplacé après un dégât d'eau, la séquence n'est pas négociable : le sous-plancher est d'abord ouvert et asséché correctement. Poser un matériau neuf sur un sous-plancher encore humide y emprisonne l'eau, et le problème refait surface des mois plus tard sous forme de tuilage, d'odeurs ou pire.",
+      ],
+      readMore: {
+        label: "Voir comment nous traitons d'abord les dégâts d'eau",
+        href: "/services/water-damage",
+      },
+    },
   },
 };
 
