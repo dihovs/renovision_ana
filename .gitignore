@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Lead exports — contain customer names, phones and addresses. Never commit.
+exports/

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
+import { isConfigured as isLeadStoreConfigured, saveLead } from "@/lib/leadStore";
 import {
   LEADS_NOTIFY_EMAIL,
   SITE_ADDRESS,
@@ -300,9 +301,27 @@ export async function POST(request: Request) {
 
   // The local-file append that used to sit here was dead code in production:
   // the deployment bundle is read-only, so it threw on every invocation and was
-  // swallowed. Until a database is wired up, the owner notification below is
-  // the only copy of a lead — which is why its failure now fails the request.
+  // swallowed.
+  //
+  // A lead counts as recorded if EITHER the database stored it or the owner
+  // notification sent. Either alone is a durable enough record; only losing
+  // both means the lead reached nobody, and that is what fails the request.
   let recorded = false;
+
+  // Storage runs first so a database outage can't be masked by a working
+  // mailbox. No-ops until SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are set,
+  // which is why the site keeps working email-only in the meantime.
+  if (isLeadStoreConfigured) {
+    try {
+      const storedId = await saveLead({ ...lead, address: lead.address ?? undefined });
+      if (storedId) {
+        recorded = true;
+        console.log("[lead stored]", { leadId, rowId: storedId });
+      }
+    } catch (err) {
+      console.error("Failed to store lead:", { leadId, err });
+    }
+  }
 
   if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
