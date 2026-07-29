@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { isValidEmail, isValidPhone } from "./chatLogic";
@@ -14,10 +15,23 @@ export default function LeadCaptureForm({
     email: string;
     address?: string;
     marketingConsent: boolean;
+    /**
+     * Evidence of consent, not just the answer. The burden of proving consent
+     * sits with us, and a bare boolean proves nothing about what was actually
+     * agreed to — so we record when it was given, the exact wording shown, the
+     * language it was shown in, and where in the site it happened.
+     * Only populated when consent was actually granted.
+     */
+    consent?: {
+      grantedAt: string;
+      wording: string;
+      locale: string;
+      source: string;
+    };
   }) => void;
   onSkip: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -40,6 +54,14 @@ export default function LeadCaptureForm({
         email: email.trim(),
         address: address.trim() || undefined,
         marketingConsent,
+        consent: marketingConsent
+          ? {
+              grantedAt: new Date().toISOString(),
+              wording: t.chat.leadCapture.consent,
+              locale,
+              source: "chat-widget-lead-form",
+            }
+          : undefined,
       });
     } catch {
       setError("Something went wrong. Please try again.");
@@ -91,6 +113,19 @@ export default function LeadCaptureForm({
         />
         <span>{t.chat.leadCapture.consent}</span>
       </label>
+      {/* Notice at collection. Belongs at the point the details are handed
+          over, not only behind a footer link — this is where someone decides
+          whether to give them. */}
+      <p className="text-[11px] leading-snug text-charcoal/55">
+        {t.chat.leadCapture.privacyNotice}{" "}
+        <Link
+          href="/privacy"
+          target="_blank"
+          className="font-semibold text-brand-blue underline-offset-2 hover:underline"
+        >
+          {t.footer.privacy}
+        </Link>
+      </p>
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex items-center gap-3">
         <button

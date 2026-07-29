@@ -113,7 +113,8 @@ const en: Record<string, unknown> & {
       | "submit"
       | "later"
       | "success"
-      | "failed",
+      | "failed"
+      | "privacyNotice",
       string
     >;
   };
@@ -316,6 +317,7 @@ const en: Record<string, unknown> & {
     followUs: "Follow Us",
     viewOnMap: "View on map",
     rights: "All rights reserved.",
+    privacy: "Privacy Policy",
   },
   chat: {
     launcherLabel: "Get an Instant Estimate",
@@ -401,6 +403,8 @@ const en: Record<string, unknown> & {
       email: "Email address",
       address: "Address (optional — helps us refine pricing)",
       consent: "Send me occasional tips and promotions from Renovision AnA.",
+      privacyNotice:
+        "We use your details only to answer you and quote your project, and never sell them. You can ask to see, correct or delete them at any time.",
       submit: "Book my free visit",
       later: "Maybe later",
       success: "Thanks! A confirmation email is on its way, and a member of our team will reach out shortly to schedule your free in-person visit.",
@@ -608,6 +612,7 @@ const fr: typeof en = {
     followUs: "Suivez-nous",
     viewOnMap: "Voir sur la carte",
     rights: "Tous droits réservés.",
+    privacy: "Politique de confidentialité",
   },
   chat: {
     launcherLabel: "Estimation instantanée",
@@ -695,6 +700,8 @@ const fr: typeof en = {
       email: "Adresse courriel",
       address: "Adresse (facultatif — aide à préciser le prix)",
       consent: "Envoyez-moi des conseils et promotions de Renovision AnA à l'occasion.",
+      privacyNotice:
+        "Nous utilisons vos coordonnées uniquement pour vous répondre et estimer votre projet, et ne les vendons jamais. Vous pouvez demander à les consulter, les corriger ou les supprimer en tout temps.",
       submit: "Réserver ma visite gratuite",
       later: "Peut-être plus tard",
       success: "Merci! Un courriel de confirmation s'en vient, et un membre de notre équipe communiquera avec vous sous peu pour planifier votre visite gratuite.",

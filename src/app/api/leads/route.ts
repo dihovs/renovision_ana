@@ -25,6 +25,8 @@ type LeadPayload = {
   address?: string;
   locale?: "en" | "fr";
   marketingConsent?: boolean;
+  /** Consent evidence — see LeadCaptureForm for why a boolean isn't enough. */
+  consent?: { grantedAt: string; wording: string; locale: string; source: string };
   message?: string;
   scopeSummary?: string;
   estimateLow?: string;
@@ -44,8 +46,19 @@ const SECTION_H = "color:#2b5c9e;margin:20px 0 6px;font-size:14px;";
 
 function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string {
   // 1. Contact.
+  // Record the evidence, not just the answer — the exact wording shown, when,
+  // and in which language. Until leads are stored in a database this email is
+  // the only place that proof exists, so it has to travel with the lead.
+  const consentEvidence = lead.consent
+    ? `<div style="margin-top:4px;color:#888;font-size:11px;line-height:1.5;">
+         ${escapeHtml(new Date(lead.consent.grantedAt).toLocaleString("en-CA", { timeZone: "America/Toronto" }))}
+         &middot; ${escapeHtml(lead.consent.locale.toUpperCase())}
+         &middot; ${escapeHtml(lead.consent.source)}<br />
+         <em>&ldquo;${escapeHtml(lead.consent.wording)}&rdquo;</em>
+       </div>`
+    : "";
   const consentLabel = lead.marketingConsent
-    ? `<span style="color:#3d7d24;font-weight:bold;">Yes — opted in</span>`
+    ? `<span style="color:#3d7d24;font-weight:bold;">Yes — opted in</span>${consentEvidence}`
     : `<span style="color:#999;">No</span>`;
   const contact = `
     <table cellpadding="0" cellspacing="0" style="font-size:14px;">

@@ -23,6 +23,7 @@ const routes = [
   "/blog",
   "/contact",
   "/service-areas",
+  "/privacy",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

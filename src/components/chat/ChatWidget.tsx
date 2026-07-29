@@ -282,6 +282,7 @@ export default function ChatWidget() {
     email: string;
     address?: string;
     marketingConsent: boolean;
+    consent?: { grantedAt: string; wording: string; locale: string; source: string };
   }) {
     const res = await fetch("/api/leads", {
       method: "POST",

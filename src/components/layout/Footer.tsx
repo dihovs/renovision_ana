@@ -137,8 +137,16 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-white/10 py-5">
-        <p className="text-center text-xs text-white/60">
-          &copy; {year} Renovision AnA. {t.footer.rights}
+        <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-white/60">
+          <span>
+            &copy; {year} Renovision AnA. {t.footer.rights}
+          </span>
+          <span aria-hidden className="text-white/25">
+            &middot;
+          </span>
+          <Link href="/privacy" className="text-white/60 underline-offset-2 hover:text-white hover:underline">
+            {t.footer.privacy}
+          </Link>
         </p>
       </div>
     </footer>
