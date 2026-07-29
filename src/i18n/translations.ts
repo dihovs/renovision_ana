@@ -9,6 +9,9 @@ const en: Record<string, unknown> & {
   trustBar: Record<string, string>;
   audience: {
     title: string;
+    subtitle: string;
+    /** Label above each card's list of services that client type usually needs. */
+    commonWork: string;
     propertyManagers: { title: string; desc: string };
     insurance: { title: string; desc: string };
     homeowners: { title: string; desc: string };
@@ -153,6 +156,9 @@ const en: Record<string, unknown> & {
   },
   audience: {
     title: "Built for Every Client",
+    subtitle:
+      "Same crew, three different jobs. A property manager needs the unit back fast, an insurer needs it documented, and a homeowner needs to trust who's in the house.",
+    commonWork: "Usually",
     propertyManagers: {
       title: "Property Management Companies",
       desc: "Fast response times and dependable crews so your units are turned around quickly and tenants stay happy.",
@@ -441,6 +447,9 @@ const fr: typeof en = {
   },
   audience: {
     title: "Conçu pour chaque client",
+    subtitle:
+      "La même équipe, trois mandats différents. Un gestionnaire veut relouer vite, un assureur veut un dossier documenté, et un propriétaire veut savoir à qui il ouvre sa porte.",
+    commonWork: "Souvent",
     propertyManagers: {
       title: "Sociétés de gestion immobilière",
       desc: "Des délais de réponse rapides et des équipes fiables pour que vos unités soient remises en état rapidement et que vos locataires restent satisfaits.",
