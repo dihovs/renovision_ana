@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { ChatProvider } from "@/components/chat/ChatProvider";
+import ChromeGate from "@/components/layout/ChromeGate";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import SmoothScroll from "@/components/layout/SmoothScroll";
@@ -64,10 +65,14 @@ export default function RootLayout({
         <SmoothScroll />
         <LanguageProvider>
           <ChatProvider>
-            <Header />
+            <ChromeGate>
+              <Header />
+            </ChromeGate>
             <main className="flex-1">{children}</main>
-            <Footer />
-            <ChatWidget />
+            <ChromeGate>
+              <Footer />
+              <ChatWidget />
+            </ChromeGate>
           </ChatProvider>
         </LanguageProvider>
         <Analytics />
