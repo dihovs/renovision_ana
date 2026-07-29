@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { mkdir, appendFile } from "fs/promises";
-import path from "path";
+import { randomUUID } from "crypto";
 import { Resend } from "resend";
 import {
   LEADS_NOTIFY_EMAIL,
@@ -280,15 +279,17 @@ export async function POST(request: Request) {
     receivedAt: new Date().toISOString(),
   };
 
-  console.log("[lead captured]", lead);
+  // Correlation id only — never the lead itself. Logging the payload put the
+  // customer's name, phone, email and home address into the hosting provider's
+  // logs, on a retention schedule we don't control and can't purge on request.
+  const leadId = randomUUID();
+  console.log("[lead captured]", { leadId, receivedAt: lead.receivedAt, locale: lead.locale });
 
-  try {
-    const dataDir = path.join(process.cwd(), "data");
-    await mkdir(dataDir, { recursive: true });
-    await appendFile(path.join(dataDir, "leads.jsonl"), `${JSON.stringify(lead)}\n`, "utf-8");
-  } catch (err) {
-    console.error("Could not persist lead to local file (expected on read-only hosts):", err);
-  }
+  // The local-file append that used to sit here was dead code in production:
+  // the deployment bundle is read-only, so it threw on every invocation and was
+  // swallowed. Until a database is wired up, the owner notification below is
+  // the only copy of a lead — which is why its failure now fails the request.
+  let recorded = false;
 
   if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -308,10 +309,13 @@ export async function POST(request: Request) {
         subject: `New lead: ${lead.name}`,
         html: renderLeadEmailHtml(lead),
       });
-      if (error) console.error("Resend rejected the lead notification email:", error);
-      else console.log("[lead notification sent]");
+      if (error) console.error("Resend rejected the lead notification email:", { leadId, error });
+      else {
+        recorded = true;
+        console.log("[lead notification sent]", { leadId });
+      }
     } catch (err) {
-      console.error("Failed to send lead notification email:", err);
+      console.error("Failed to send lead notification email:", { leadId, err });
     }
 
     // 2. Personal confirmation to the customer, from Artush, in their language.
@@ -326,14 +330,26 @@ export async function POST(request: Request) {
           : "We've received your request — Renovision AnA",
         html: renderCustomerConfirmationHtml(lead),
       });
-      if (error) console.error("Resend rejected the customer confirmation email:", error);
-      else console.log("[customer confirmation sent]");
+      // Best-effort by design: the customer's own copy failing does not mean
+      // the lead was lost, so it must not fail the request.
+      if (error) console.error("Resend rejected the customer confirmation email:", { leadId, error });
+      else console.log("[customer confirmation sent]", { leadId });
     } catch (err) {
-      console.error("Failed to send customer confirmation email:", err);
+      console.error("Failed to send customer confirmation email:", { leadId, err });
     }
   } else {
     console.warn("[lead email skipped] RESEND_API_KEY is not set — see .env.local.example");
   }
 
-  return NextResponse.json({ ok: true });
+  // Report the truth. Previously this returned ok unconditionally, so a lead
+  // that reached nobody still showed the customer a thank-you — the worst
+  // possible failure mode, since they believe they're waiting on a callback.
+  if (!recorded) {
+    return NextResponse.json(
+      { ok: false, error: "Lead could not be recorded" },
+      { status: 502 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, leadId });
 }

@@ -1,3 +1,5 @@
+import { SITE_PHONE } from "@/lib/constants";
+
 export const locales = ["en", "fr"] as const;
 export type Locale = (typeof locales)[number];
 
@@ -110,7 +112,8 @@ const en: Record<string, unknown> & {
       | "consent"
       | "submit"
       | "later"
-      | "success",
+      | "success"
+      | "failed",
       string
     >;
   };
@@ -401,6 +404,7 @@ const en: Record<string, unknown> & {
       submit: "Book my free visit",
       later: "Maybe later",
       success: "Thanks! A confirmation email is on its way, and a member of our team will reach out shortly to schedule your free in-person visit.",
+      failed: `Sorry — we couldn't record your details just now, so please don't wait on a callback. Call us directly at ${SITE_PHONE} and we'll pick this up right away.`,
     },
   },
 };
@@ -694,6 +698,7 @@ const fr: typeof en = {
       submit: "Réserver ma visite gratuite",
       later: "Peut-être plus tard",
       success: "Merci! Un courriel de confirmation s'en vient, et un membre de notre équipe communiquera avec vous sous peu pour planifier votre visite gratuite.",
+      failed: `Désolé — nous n'avons pas pu enregistrer vos coordonnées, alors n'attendez pas notre appel. Téléphonez-nous directement au ${SITE_PHONE} et nous nous en occupons tout de suite.`,
     },
   },
 };

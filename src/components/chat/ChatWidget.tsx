@@ -283,7 +283,7 @@ export default function ChatWidget() {
     address?: string;
     marketingConsent: boolean;
   }) {
-    await fetch("/api/leads", {
+    const res = await fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -303,6 +303,15 @@ export default function ChatWidget() {
         exclusions: estimate?.exclusions,
       }),
     });
+
+    // Only claim success when the lead actually reached someone. Telling a
+    // customer we'll be in touch when nothing was recorded is worse than
+    // showing an error — they stop chasing and wait for a call that can't come.
+    if (!res.ok) {
+      pushAssistant(t.chat.leadCapture.failed);
+      return;
+    }
+
     pushAssistant(t.chat.leadCapture.success);
     setLeadSubmitted(true);
     setStep("done");
