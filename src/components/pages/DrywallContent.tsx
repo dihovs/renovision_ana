@@ -68,6 +68,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Skim coats to even out a tired surface, plus corner bead installed and finished for clean, durable edges.",
       },
     ],
+    localContext: {
+      heading: "Board choice in Laval buildings",
+      paragraphs: [
+        "Which board goes up isn't a preference, it's determined by where it's going. Shared walls and ceilings in the multiplex stock that makes up much of Chomedey need fire-rated 5/8 Type X; bathrooms and below-grade rooms need moisture-resistant board. Standard 1/2 is for everywhere else. Getting that wrong is expensive to discover later, so it's settled before anything is ordered.",
+        "Most of the drywall work here follows something else. After water damage the wet board comes out and new board goes back in, which is why so many of these jobs start on the restoration side rather than as a planned renovation. In finished basements across the 1950s-60s bungalow stock, that usually means opening up more than the visible damage suggests.",
+        "Level of finish is the other decision worth making deliberately. Level 4 is what gets primed and painted in a living space; Level 1 or 2 is fine where the surface stays concealed behind cabinetry or in a utility area. Finishing everything to Level 4 is a way of paying for work nobody will ever see.",
+      ],
+      readMore: {
+        label: "See how we handle water damage first",
+        href: "/services/water-damage",
+      },
+    },
   },
   fr: {
     eyebrow: "Installation et finition de gypse",
@@ -127,6 +139,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Ratissage pour égaliser une surface fatiguée, et pose et finition de coins métalliques pour des arêtes nettes et durables.",
       },
     ],
+    localContext: {
+      heading: "Le choix des panneaux dans les immeubles lavallois",
+      paragraphs: [
+        "Le panneau à poser n'est pas une préférence : il est déterminé par l'endroit. Les murs mitoyens et les plafonds du parc de multiplex qui compose une bonne part de Chomedey exigent du 5/8 type X résistant au feu; les salles de bain et les pièces en sous-sol demandent du panneau hydrofuge. Le 1/2 standard va partout ailleurs. Se tromper là-dessus coûte cher à découvrir plus tard, alors la question se règle avant toute commande.",
+        "La plupart des travaux de gypse ici font suite à autre chose. Après un dégât d'eau, le panneau imbibé sort et le neuf entre — c'est pourquoi tant de ces chantiers commencent du côté restauration plutôt que comme une rénovation planifiée. Dans les sous-sols finis du parc de bungalows des années 1950-60, cela suppose habituellement d'ouvrir plus grand que ce que les dommages visibles laissent croire.",
+        "Le niveau de finition est l'autre décision à prendre délibérément. Le niveau 4 est celui qu'on apprête et peint dans une pièce habitable; le niveau 1 ou 2 suffit là où la surface reste dissimulée derrière des armoires ou dans un local technique. Tout finir au niveau 4, c'est payer pour un travail que personne ne verra jamais.",
+      ],
+      readMore: {
+        label: "Voir comment nous traitons d'abord les dégâts d'eau",
+        href: "/services/water-damage",
+      },
+    },
   },
 };
 

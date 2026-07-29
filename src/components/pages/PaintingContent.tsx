@@ -67,6 +67,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Extra colour changes and dark or high-hide colours are quoted as line items, so the price you're given is the price that holds.",
       },
     ],
+    localContext: {
+      heading: "Painting around a Quebec calendar",
+      paragraphs: [
+        "Interior painting is the one trade that doesn't slow down in winter, which is exactly why it fills the months when exterior work can't happen. The constraint that time of year isn't temperature, it's ventilation — a sealed-up house in February holds solvent smell far longer than an open one in June, so low-VOC products and staging the work by room matter more than they do in summer.",
+        "A steady share of this work is turnover repainting in the multiplex and apartment stock around Chomedey, where roughly a third of the housing dates from 1960 to 1980. Those are scheduled against a lease date rather than a preference, so the job gets planned backwards from when the next tenant moves in.",
+        "Where new drywall is involved, priming isn't optional. Bare board and joint compound absorb paint at completely different rates, and skipping the primer coat is what produces a wall where every taped seam reads through the finish once the light hits it.",
+      ],
+      readMore: {
+        label: "See our drywall installation and finishing",
+        href: "/services/drywall",
+      },
+    },
   },
   fr: {
     eyebrow: "Peinture intérieure",
@@ -126,6 +138,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Les changements de couleur supplémentaires et les couleurs foncées ou très couvrantes sont chiffrés en postes distincts, pour que le prix annoncé soit le prix final.",
       },
     ],
+    localContext: {
+      heading: "Peindre au rythme du calendrier québécois",
+      paragraphs: [
+        "La peinture intérieure est le seul métier qui ne ralentit pas en hiver — c'est justement pourquoi elle occupe les mois où les travaux extérieurs sont impossibles. À cette période, la contrainte n'est pas la température mais la ventilation : une maison fermée en février retient l'odeur des solvants bien plus longtemps qu'une maison ouverte en juin, alors les produits à faible COV et l'organisation des travaux pièce par pièce comptent plus qu'en été.",
+        "Une part constante de ce travail est la remise en peinture entre deux locataires dans le parc de multiplex et d'immeubles à logements autour de Chomedey, où environ le tiers des logements datent de 1960 à 1980. Ces chantiers sont planifiés en fonction d'une date de bail et non d'une préférence : on remonte le calendrier à partir de l'arrivée du prochain locataire.",
+        "Quand il y a du gypse neuf, l'apprêt n'est pas facultatif. Le panneau nu et le composé à joints absorbent la peinture à des rythmes complètement différents, et sauter la couche d'apprêt produit un mur où chaque joint tiré transparaît sous le fini dès que la lumière l'atteint.",
+      ],
+      readMore: {
+        label: "Voir notre installation et finition de gypse",
+        href: "/services/drywall",
+      },
+    },
   },
 };
 
