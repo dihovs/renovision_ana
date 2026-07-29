@@ -6,6 +6,8 @@ import {
   IconHammer,
   IconStairs,
   IconBrush,
+  IconDrywall,
+  IconWrench,
 } from "@/components/ui/icons";
 import { buildMetadata } from "@/lib/seo";
 
@@ -49,7 +51,7 @@ const SERVICES = [
   },
   {
     href: "/services/drywall",
-    icon: IconHammer,
+    icon: IconDrywall,
     title: "Drywall Installation & Finishing",
     desc: "Hung, taped, and finished flat — plus patches of any size.",
   },
@@ -61,7 +63,7 @@ const SERVICES = [
   },
   {
     href: "/services/repairs",
-    icon: IconBrush,
+    icon: IconWrench,
     title: "Small Repairs & Color Matching",
     desc: "Cost-effective local repairs with seamless color matching.",
   },

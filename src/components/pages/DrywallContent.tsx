@@ -2,7 +2,7 @@
 
 import { useLanguage } from "@/i18n/LanguageProvider";
 import ServiceDetailContent, { type ServiceDetailCopy } from "./ServiceDetailContent";
-import { IconHammer } from "@/components/ui/icons";
+import { IconDrywall } from "@/components/ui/icons";
 
 // Content is grounded in what the estimator actually prices (see
 // src/lib/estimator/data/lineItems.ts, category "Drywall"): 1/2", 5/8" Type X
@@ -132,5 +132,5 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
 
 export default function DrywallContent() {
   const { locale } = useLanguage();
-  return <ServiceDetailContent icon={IconHammer} copy={copy[locale]} />;
+  return <ServiceDetailContent icon={IconDrywall} copy={copy[locale]} />;
 }

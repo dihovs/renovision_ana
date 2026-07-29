@@ -2,7 +2,7 @@
 
 import { useLanguage } from "@/i18n/LanguageProvider";
 import ServiceDetailContent, { type ServiceDetailCopy } from "./ServiceDetailContent";
-import { IconBrush } from "@/components/ui/icons";
+import { IconWrench } from "@/components/ui/icons";
 
 const copy: Record<"en" | "fr", ServiceDetailCopy> = {
   en: {
@@ -101,5 +101,5 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
 
 export default function RepairsContent() {
   const { locale } = useLanguage();
-  return <ServiceDetailContent icon={IconBrush} copy={copy[locale]} />;
+  return <ServiceDetailContent icon={IconWrench} copy={copy[locale]} />;
 }
