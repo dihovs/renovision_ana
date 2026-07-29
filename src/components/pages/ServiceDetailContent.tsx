@@ -26,6 +26,23 @@ export type ServiceIncludedItem = { title: string; desc: string };
  */
 export type ServiceMediaItem = { src: string; alt: string; caption: string };
 
+/**
+ * Local context for a service — what this work actually involves in Laval and
+ * greater Montreal specifically, rather than copy that would read identically
+ * for a contractor in Ontario or Ohio.
+ *
+ * Every claim here has to trace back to something already established and
+ * sourced elsewhere in the repo: the housing-stock facts in serviceAreas.ts
+ * (Ville de Laval municipal histories, StatCan 2021), or the citations inside
+ * the blog posts. `readMore` points at the post carrying those citations, so
+ * the detail lives in one place instead of being restated and drifting.
+ */
+export type ServiceLocalContext = {
+  heading: string;
+  paragraphs: string[];
+  readMore?: { label: string; href: string };
+};
+
 export type ServiceDetailCopy = {
   eyebrow: string;
   title: string;
@@ -40,6 +57,7 @@ export type ServiceDetailCopy = {
   includesTitle: string;
   includesIntro: string;
   includes: ServiceIncludedItem[];
+  localContext?: ServiceLocalContext;
 };
 
 export default function ServiceDetailContent({
@@ -163,6 +181,32 @@ export default function ServiceDetailContent({
           ))}
         </div>
       </section>
+
+      {copy.localContext && (
+        <section className="bg-charcoal py-16 text-white">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+              {copy.localContext.heading}
+            </h2>
+            <div className="mt-5 space-y-4">
+              {copy.localContext.paragraphs.map((paragraph) => (
+                <p key={paragraph.slice(0, 40)} className="text-[15px] leading-relaxed text-white/75">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+            {copy.localContext.readMore && (
+              <Link
+                href={copy.localContext.readMore.href}
+                className="mt-6 inline-flex items-center gap-1.5 text-sm font-bold text-brand-green transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-green"
+              >
+                {copy.localContext.readMore.label}
+                <span aria-hidden>&rarr;</span>
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Reciprocal half of the service/location linking: the area pages
           already point here, this points back. Only the areas that actually

@@ -50,6 +50,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Flooring, paint, trim, and finishing work completed by the same crew that handled the extraction.",
       },
     ],
+    localContext: {
+      heading: "Water damage in Laval housing stock",
+      paragraphs: [
+        "The clock matters more here than the calendar does. The EPA's benchmark is that wet material is very likely growing mould within 24 to 48 hours, and that window doesn't move for a Quebec winter — a pipe that lets go in a heated house in January behaves the same as one in July. What changes is access: burst supply lines cluster in the cold months, and the units that flood are often the ones nobody was standing in.",
+        "The sector shapes the job. In Chomedey, roughly a third of the housing was built between 1960 and 1980, much of it multiplex and apartment stock where units share stacks and structure — so containment and access get planned before demolition starts, and conditions get documented in writing for syndicates and insurers. In Duvernay's El Rancho enclave the flat roofs create a different infiltration profile entirely, landing on ceilings and upper walls first rather than coming up from below.",
+        "In finished basements across the 1950s-60s bungalow stock in sectors like Vimont, the damage is usually hidden behind something: subfloor under laminate, insulation behind studwork. That's why we open up enough to see what's actually wet rather than drying what's visible and hoping.",
+      ],
+      readMore: {
+        label: "Read the hidden water damage and mould timeline",
+        href: "/blog/hidden-water-damage-and-mold-timeline",
+      },
+    },
   },
   fr: {
     eyebrow: "Restauration de dégâts d'eau",
@@ -96,6 +108,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Plancher, peinture, moulures et finition réalisés par la même équipe qui a effectué l'extraction.",
       },
     ],
+    localContext: {
+      heading: "Les dégâts d'eau dans le parc immobilier lavallois",
+      paragraphs: [
+        "Le chronomètre compte plus que le calendrier. Selon l'EPA, un matériau encore humide développe très probablement de la moisissure en 24 à 48 heures, et cette fenêtre ne s'allonge pas parce qu'on est en hiver — un tuyau qui cède dans une maison chauffée en janvier se comporte comme en juillet. Ce qui change, c'est l'accès : les ruptures de conduites d'alimentation se concentrent en saison froide, et les logements inondés sont souvent ceux où personne ne se trouvait.",
+        "Le secteur détermine le chantier. À Chomedey, environ le tiers du parc a été bâti entre 1960 et 1980, en bonne partie des multiplex et des immeubles à logements où les unités partagent colonnes et structure — le confinement et les accès sont donc planifiés avant le début de la démolition, et l'état des lieux est consigné par écrit pour les syndicats et les assureurs. Dans l'enclave El Rancho à Duvernay, les toits plats créent un profil d'infiltration tout autre, qui touche d'abord les plafonds et le haut des murs plutôt que de remonter du sous-sol.",
+        "Dans les sous-sols finis du parc de bungalows des années 1950-60, à Vimont notamment, les dommages sont presque toujours cachés derrière quelque chose : le sous-plancher sous un flottant, l'isolant derrière la charpente. C'est pourquoi nous ouvrons assez pour voir ce qui est réellement mouillé, au lieu de sécher ce qui est visible en espérant que ça suffise.",
+      ],
+      readMore: {
+        label: "Lire l'article sur les dégâts d'eau cachés et la moisissure",
+        href: "/blog/hidden-water-damage-and-mold-timeline",
+      },
+    },
   },
 };
 

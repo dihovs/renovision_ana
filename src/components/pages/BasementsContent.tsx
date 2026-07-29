@@ -50,6 +50,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Optional built-in media walls, wet bars, or storage — added when the layout calls for it.",
       },
     ],
+    localContext: {
+      heading: "What Laval basements are actually like",
+      paragraphs: [
+        "A large share of the work here is in the 1950s-60s bungalow stock — Vimont in particular is unusually uniform, almost entirely that era. That consistency is genuinely useful for estimating: comparable basement projects in those sectors price more predictably than the mixed-era stock elsewhere on the island. It also means the same handful of constraints keep reappearing — head height under existing ductwork, a stairwell in the wrong place, and a slab that predates modern moisture detailing.",
+        "Because of that last one, moisture comes before framing. There is no point boarding and painting a basement that will wick moisture back through the assembly in the spring. We check what the slab and walls are doing first, and say so if the honest answer is that the space needs work before it needs finishes.",
+        "Where a basement has already taken on water, finishing is a restoration job before it's a renovation job — the wet material comes out and the assembly gets dried properly first, rather than being closed up behind new drywall.",
+      ],
+      readMore: {
+        label: "See how we handle water damage first",
+        href: "/services/water-damage",
+      },
+    },
   },
   fr: {
     eyebrow: "Transformations de sous-sol",
@@ -96,6 +108,18 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         desc: "Murs média intégrés, bars ou espaces de rangement en option, ajoutés selon les besoins de l'aménagement.",
       },
     ],
+    localContext: {
+      heading: "À quoi ressemblent vraiment les sous-sols lavallois",
+      paragraphs: [
+        "Une bonne part du travail se fait dans le parc de bungalows des années 1950-60 — Vimont est particulièrement homogène, presque entièrement de cette époque. Cette constance aide réellement à l'estimation : des projets de sous-sol comparables s'y chiffrent de façon plus prévisible que dans le parc d'époques mélangées ailleurs sur l'île. Cela signifie aussi que les mêmes contraintes reviennent : la hauteur libre sous les conduits existants, une cage d'escalier mal placée, et une dalle antérieure aux pratiques modernes de gestion de l'humidité.",
+        "À cause de ce dernier point, l'humidité passe avant la charpente. Rien ne sert de poser du gypse et de peindre un sous-sol qui laissera remonter l'humidité au printemps. Nous vérifions d'abord le comportement de la dalle et des murs, et nous le disons franchement si la réponse honnête est que l'espace a besoin de travaux avant d'avoir besoin de finis.",
+        "Quand un sous-sol a déjà pris l'eau, l'aménagement est d'abord un chantier de restauration : les matériaux imbibés sortent et l'assemblage est asséché correctement, plutôt que d'être refermé derrière du gypse neuf.",
+      ],
+      readMore: {
+        label: "Voir comment nous traitons d'abord les dégâts d'eau",
+        href: "/services/water-damage",
+      },
+    },
   },
 };
 
