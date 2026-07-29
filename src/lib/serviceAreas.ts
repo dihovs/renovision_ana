@@ -64,11 +64,29 @@ const RENOVATIONS = {
   href: "/services/renovations",
 };
 const REPAIRS = { labelEn: "Small repairs", labelFr: "Petites réparations", href: "/services/repairs" };
+// Drywall and painting appear on every area, which is deliberate rather than
+// blanket linking: they are finishing trades that follow the work already
+// listed for each sector — wet board comes out and goes back in after water
+// damage, a finished basement is boarded and painted, a renovation ends in
+// paint. They are ordered per area by how directly they follow that area's
+// primary work, not appended in a fixed position.
+const DRYWALL = {
+  labelEn: "Drywall installation & finishing",
+  labelFr: "Installation et finition de gypse",
+  href: "/services/drywall",
+};
+const PAINTING = {
+  labelEn: "Interior painting",
+  labelFr: "Peinture intérieure",
+  href: "/services/painting",
+};
 
 export const serviceAreas: ServiceArea[] = [
   {
     slug: "chomedey",
-    relatedServices: [WATER_DAMAGE, KITCHEN_BATH, FLOORING, REPAIRS],
+    // Multiplex water-damage work here is largely a board-and-paint job once
+    // the wet material is out, and tenant turnover drives repainting.
+    relatedServices: [WATER_DAMAGE, DRYWALL, KITCHEN_BATH, FLOORING, PAINTING, REPAIRS],
     sources: [
       {
         label: "Ville de Laval — Chomedey municipal history",
@@ -139,7 +157,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "sainte-rose",
-    relatedServices: [WATER_DAMAGE, BASEMENTS, RENOVATIONS, KITCHEN_BATH],
+    relatedServices: [WATER_DAMAGE, BASEMENTS, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING],
     sources: [
       {
         // Laval abbreviates this sector's slug to "ste-rose" — the spelled-out
@@ -211,7 +229,9 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "vimont",
-    relatedServices: [BASEMENTS, RENOVATIONS, FLOORING, KITCHEN_BATH],
+    // Bungalow basement finishing is board, tape and paint more than anything
+    // else, so those two sit high in this sector's list.
+    relatedServices: [BASEMENTS, DRYWALL, RENOVATIONS, PAINTING, FLOORING, KITCHEN_BATH],
     sources: [
       {
         label: "Ville de Laval — Vimont municipal history",
@@ -281,7 +301,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "fabreville",
-    relatedServices: [RENOVATIONS, KITCHEN_BATH, FLOORING, BASEMENTS],
+    relatedServices: [RENOVATIONS, KITCHEN_BATH, FLOORING, BASEMENTS, DRYWALL, PAINTING],
     sources: [
       {
         label: "Ville de Laval — Fabreville municipal history",
@@ -349,7 +369,9 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "duvernay",
-    relatedServices: [WATER_DAMAGE, RENOVATIONS, BASEMENTS, FLOORING],
+    // Flat-roof infiltration in the El Rancho stock lands on ceilings and
+    // walls first, which is drywall work before it is anything else.
+    relatedServices: [WATER_DAMAGE, DRYWALL, RENOVATIONS, BASEMENTS, PAINTING, FLOORING],
     sources: [
       {
         label: "Ville de Laval — Duvernay municipal history",
