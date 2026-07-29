@@ -37,7 +37,10 @@ export default function ServicesSection() {
           <p className="mt-3 text-charcoal/70">{t.services.subtitle}</p>
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {/* 2 or 4 columns, never 3: there are eight services, and eight
+            divides evenly by 2 and 4 but leaves an orphan card in a
+            three-column row. */}
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {services.map(({ icon, href, title, desc }) => (
             <FeatureCard
               key={href}

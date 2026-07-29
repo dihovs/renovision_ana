@@ -78,7 +78,9 @@ export default function ServicesPage() {
       <p className="mx-auto mt-3 max-w-2xl text-center text-charcoal/70">
         Any interior job, big or small — from full transformations to cost-effective local repairs.
       </p>
-      <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {/* 2 or 4 columns, never 3 — eight services leave an orphan in a
+          three-column row. See ServicesSection for the same reasoning. */}
+      <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {SERVICES.map(({ href, icon, title, desc }) => (
           <FeatureCard key={href} icon={icon} href={href} title={title} desc={desc} headingLevel="h2" />
         ))}
