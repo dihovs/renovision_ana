@@ -7,6 +7,7 @@ import LeadCaptureForm from "./LeadCaptureForm";
 import HandymanCalculator, { type TripFeeOutcome } from "./HandymanCalculator";
 import { ChatMessage } from "./chatLogic";
 import { calculateHandymanEstimate, calculateTax, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
+import { stripImageMetadata } from "@/lib/stripImageMetadata";
 
 type ChatTrack = "unset" | "handyman" | "renovation";
 
@@ -260,13 +261,17 @@ export default function ChatWidget() {
     }
   }
 
-  function handlePhotoFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+  async function handlePhotoFile(file: File) {
+    // Re-encode before the photo goes anywhere. A phone photo carries the GPS
+    // coordinates of the customer's home in its EXIF; this drops them on the
+    // device rather than trusting the server to remove them later.
+    try {
+      const dataUrl = await stripImageMetadata(file);
       sendToAI(t.chat.photoAttached, dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("[chat] could not process photo:", err);
+      pushAssistant(t.chat.photoFailed);
+    }
   }
 
   function handleSend() {

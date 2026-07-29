@@ -68,6 +68,7 @@ const en: Record<string, unknown> & {
     restart: string;
     send: string;
     photoAttached: string;
+    photoFailed: string;
     removePhoto: string;
     skip: string;
     track: Record<"question" | "handyman" | "renovation", string>;
@@ -335,6 +336,8 @@ const en: Record<string, unknown> & {
     restart: "Start over",
     send: "Send",
     photoAttached: "Photo attached",
+    photoFailed:
+      "Sorry, I couldn't process that photo. You can describe the damage instead, or try a different picture.",
     removePhoto: "Remove",
     skip: "Skip",
     track: {
@@ -630,6 +633,8 @@ const fr: typeof en = {
     restart: "Recommencer",
     send: "Envoyer",
     photoAttached: "Photo jointe",
+    photoFailed:
+      "Désolé, je n'ai pas pu traiter cette photo. Vous pouvez décrire les dommages, ou essayer une autre image.",
     removePhoto: "Retirer",
     skip: "Passer",
     track: {
