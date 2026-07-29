@@ -1,4 +1,4 @@
-import { SITE_ADDRESS, SITE_NAME } from "@/lib/constants";
+import { SITE_NAME } from "@/lib/constants";
 
 export type GoogleReviewItem = { name: string; rating: number; quote: string };
 
@@ -28,25 +28,20 @@ const EMPTY: GoogleReviewsData = {
 // this rarely-changing amounts to "about once a week," per the owner's ask.
 const REVALIDATE_SECONDS = 60 * 60 * 24 * 7;
 
-async function resolvePlaceId(apiKey: string): Promise<string | null> {
-  const address = `${SITE_ADDRESS.streetAddress}, ${SITE_ADDRESS.addressLocality}, ${SITE_ADDRESS.addressRegion}, Canada`;
-  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "places.id",
-    },
-    body: JSON.stringify({ textQuery: `${SITE_NAME}, ${address}` }),
-    next: { revalidate: REVALIDATE_SECONDS },
-  });
-  if (!res.ok) {
-    console.error("[google-reviews] place search failed:", res.status, await res.text().catch(() => ""));
-    return null;
-  }
-  const data = (await res.json()) as { places?: { id: string }[] };
-  return data.places?.[0]?.id ?? null;
-}
+/**
+ * The business's real Google Place ID, verified 2026-07-28 against the live
+ * API (returns "Renovision AnA", 5.0, 15 ratings).
+ *
+ * This is pinned rather than resolved by text search, and that matters. The
+ * previous version searched `places:searchText` for the business name plus
+ * the street address and took the first hit — but the Google profile is a
+ * service-area business with no public street address, so that search never
+ * matched it. Once the API was enabled the top result came back as a nearby
+ * competitor, which would have published a competitor's rating and reviews on
+ * this site. Pinning the ID removes that failure mode entirely, and skips a
+ * billed API call per refresh.
+ */
+const PLACE_ID = "ChIJrzwHvK8U16oRCX0SicFiAek";
 
 /**
  * Pulls five-star Google reviews for the testimonials section, plus the
@@ -61,13 +56,10 @@ export async function getGoogleReviewsData(): Promise<GoogleReviewsData> {
   if (!apiKey) return EMPTY;
 
   try {
-    const placeId = await resolvePlaceId(apiKey);
-    if (!placeId) return EMPTY;
-
-    const res = await fetch(`https://places.googleapis.com/v1/places/${placeId}?languageCode=en`, {
+    const res = await fetch(`https://places.googleapis.com/v1/places/${PLACE_ID}?languageCode=en`, {
       headers: {
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "rating,userRatingCount,reviews",
+        "X-Goog-FieldMask": "displayName,rating,userRatingCount,reviews",
       },
       next: { revalidate: REVALIDATE_SECONDS },
     });
@@ -77,6 +69,7 @@ export async function getGoogleReviewsData(): Promise<GoogleReviewsData> {
     }
 
     const data = (await res.json()) as {
+      displayName?: { text?: string };
       rating?: number;
       userRatingCount?: number;
       reviews?: {
@@ -85,6 +78,17 @@ export async function getGoogleReviewsData(): Promise<GoogleReviewsData> {
         authorAttribution?: { displayName?: string };
       }[];
     };
+
+    // Refuse to publish anything unless the place we fetched is actually this
+    // business. Cheap insurance against a mistyped or stale PLACE_ID quietly
+    // putting another company's rating and reviews on the site — the exact
+    // failure the old text-search lookup produced.
+    if (data.displayName?.text !== SITE_NAME) {
+      console.error(
+        `[google-reviews] place ${PLACE_ID} resolved to "${data.displayName?.text ?? "unknown"}", expected "${SITE_NAME}" — ignoring.`,
+      );
+      return EMPTY;
+    }
 
     const items = (data.reviews ?? [])
       .filter(

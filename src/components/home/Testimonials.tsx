@@ -16,11 +16,20 @@ export default function Testimonials({
   reviewCount?: number | null;
 }) {
   const { t } = useLanguage();
-  // Real, live-pulled reviews take priority; otherwise fall back to the
-  // curated static ones (which are also real, just not fetched live). Real
-  // review text is never translated, so live reviews show as written
-  // regardless of site language — only the fallback set is locale-aware.
-  const testimonials = liveReviews && liveReviews.length > 0 ? liveReviews : t.testimonials.items;
+  // Merge rather than choose. The Places API returns at most 5 reviews no
+  // matter how many the business has, so preferring live outright would drop
+  // the section from 11 cards to 5. Both sets are real — the curated ones
+  // were transcribed from the Google Business Profile dashboard — so live
+  // entries go first (freshest, and authoritative on wording), then any
+  // curated review Google didn't return, deduplicated by author so nobody
+  // appears twice. Review text is never translated; only the curated set is
+  // locale-aware.
+  const live = liveReviews ?? [];
+  const seen = new Set(live.map((r) => r.name.trim().toLowerCase()));
+  const testimonials = [
+    ...live,
+    ...t.testimonials.items.filter((r) => !seen.has(r.name.trim().toLowerCase())),
+  ];
 
   // Split into disjoint columns so no review is ever on screen twice at
   // once — every column showing the whole list (rotated) made the same
