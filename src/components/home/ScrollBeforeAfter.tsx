@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
-import { SITE_PHONE_TEL } from "@/lib/constants";
+import { REVIEW_COUNT_DISPLAY_THRESHOLD, SITE_PHONE_TEL } from "@/lib/constants";
 
 export default function ScrollBeforeAfter({
   overallRating,
@@ -142,7 +142,7 @@ export default function ScrollBeforeAfter({
               falls back to the already-established "Licensed & insured"
               trust-bar claim rather than inventing a number. */}
           <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-charcoal/60">
-            {overallRating != null && reviewCount != null ? (
+            {overallRating != null ? (
               <>
                 <span className="flex text-brand-green" aria-hidden="true">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -151,7 +151,9 @@ export default function ScrollBeforeAfter({
                     </svg>
                   ))}
                 </span>
-                {t.testimonials.overallRatingLabel(overallRating.toFixed(1), reviewCount)}
+                {reviewCount != null && reviewCount >= REVIEW_COUNT_DISPLAY_THRESHOLD
+                  ? t.testimonials.overallRatingLabel(overallRating.toFixed(1), reviewCount)
+                  : t.testimonials.overallRatingOnlyLabel(overallRating.toFixed(1))}
               </>
             ) : (
               <>

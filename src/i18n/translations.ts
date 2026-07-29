@@ -18,7 +18,14 @@ const en: Record<string, unknown> & {
     subtitle: string;
     learnMore: string;
     items: Record<
-      "waterDamage" | "flooring" | "kitchenBath" | "interior" | "basements" | "repairs",
+      | "waterDamage"
+      | "flooring"
+      | "kitchenBath"
+      | "interior"
+      | "basements"
+      | "drywall"
+      | "painting"
+      | "repairs",
       { title: string; desc: string }
     >;
   };
@@ -38,6 +45,7 @@ const en: Record<string, unknown> & {
     title: string;
     googleReview: string;
     overallRatingLabel: (ratingText: string, count: number) => string;
+    overallRatingOnlyLabel: (ratingText: string) => string;
     items: Array<{ name: string; rating: number; quote: string }>;
   };
   partners: { title: string; primePartner: string };
@@ -183,6 +191,14 @@ const en: Record<string, unknown> & {
         title: "Basement Transformations",
         desc: "Full basement transformations, from unfinished space to beautiful, livable rooms.",
       },
+      drywall: {
+        title: "Drywall Installation & Finishing",
+        desc: "Board hung, taped, and finished flat — from a single patch to a full room, ready for primer.",
+      },
+      painting: {
+        title: "Interior Painting",
+        desc: "Walls, ceilings, trim, and doors in full two-coat coverage, with priming on new drywall.",
+      },
       repairs: {
         title: "Small Repairs & Color Matching",
         desc: "Cost-effective local repairs with precise color matching that blends seamlessly into the existing finish.",
@@ -210,6 +226,7 @@ const en: Record<string, unknown> & {
     title: "What Our Clients Say",
     googleReview: "Google review",
     overallRatingLabel: (ratingText, count) => `${ratingText} based on ${count} Google reviews`,
+    overallRatingOnlyLabel: (ratingText) => `${ratingText} rating on Google`,
     items: [
       {
         name: "Anahid Vardanian",
@@ -462,6 +479,14 @@ const fr: typeof en = {
         title: "Transformations de sous-sol",
         desc: "Transformations complètes de sous-sol, d'un espace non aménagé à de belles pièces habitables.",
       },
+      drywall: {
+        title: "Installation et finition de gypse",
+        desc: "Panneaux posés, joints tirés et finition plane — d'un simple raccord à une pièce complète, prête pour l'apprêt.",
+      },
+      painting: {
+        title: "Peinture intérieure",
+        desc: "Murs, plafonds, moulures et portes en deux couches complètes, avec apprêt sur le gypse neuf.",
+      },
       repairs: {
         title: "Petites réparations et agencement de couleurs",
         desc: "Réparations locales économiques avec un agencement de couleurs précis qui se fond parfaitement dans le fini existant.",
@@ -489,6 +514,7 @@ const fr: typeof en = {
     title: "Ce que disent nos clients",
     googleReview: "Avis Google",
     overallRatingLabel: (ratingText, count) => `${ratingText} basé sur ${count} avis Google`,
+    overallRatingOnlyLabel: (ratingText) => `Note de ${ratingText} sur Google`,
     items: [
       {
         name: "Anahid Vardanian",

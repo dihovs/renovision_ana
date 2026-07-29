@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
+import Image from "next/image";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import CtaBand from "@/components/home/CtaBand";
@@ -10,10 +11,26 @@ import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 export type ServiceStep = { title: string; desc: string };
 export type ServiceIncludedItem = { title: string; desc: string };
 
+/**
+ * An optional photo for a service page. `caption` lives here (rather than in a
+ * shared translation table) so it travels with the per-locale copy object and
+ * gets translated alongside everything else on the page.
+ *
+ * Captions are load-bearing, not decoration: where an image is a concept or
+ * illustration rather than a photo of a job we actually completed, the caption
+ * is where that gets said. See the `-concept` vs `-real` split in
+ * public/images.
+ */
+export type ServiceMediaItem = { src: string; alt: string; caption: string };
+
 export type ServiceDetailCopy = {
   eyebrow: string;
   title: string;
   intro: string;
+  media?: ServiceMediaItem[];
+  /** Disclosure shown once under the photo grid — e.g. flagging that the
+   *  images illustrate the process rather than depicting a specific job. */
+  mediaNote?: string;
   processTitle: string;
   processIntro: string;
   processSteps: ServiceStep[];
@@ -61,6 +78,39 @@ export default function ServiceDetailContent({
             </a>
           </div>
         </div>
+
+        {/* Optional photos. Omitted entirely by pages that don't define
+            `media`, so service pages without photography render exactly as
+            they did before rather than leaving an empty gap. */}
+        {copy.media && copy.media.length > 0 && (
+          <div
+            className={`mx-auto mt-14 grid max-w-5xl gap-6 ${
+              copy.media.length > 1 ? "sm:grid-cols-2" : "max-w-3xl"
+            }`}
+          >
+            {copy.media.map((item) => (
+              <figure key={item.src}>
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-black/5 shadow-[0_20px_60px_-25px_rgba(43,92,158,0.45)]">
+                  <Image
+                    src={item.src}
+                    alt={item.alt}
+                    fill
+                    sizes="(min-width: 640px) 45vw, 90vw"
+                    className="object-cover"
+                  />
+                </div>
+                <figcaption className="mt-2.5 text-center text-xs text-charcoal/55">
+                  {item.caption}
+                </figcaption>
+              </figure>
+            ))}
+            {copy.mediaNote && (
+              <p className="col-span-full text-center text-[11px] italic text-charcoal/40">
+                {copy.mediaNote}
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="bg-brand-blue-light/40 py-20">

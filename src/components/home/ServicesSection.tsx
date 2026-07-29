@@ -20,6 +20,8 @@ export default function ServicesSection() {
     { icon: IconKitchen, href: "/services/kitchen-bath", ...t.services.items.kitchenBath },
     { icon: IconHammer, href: "/services/renovations", ...t.services.items.interior },
     { icon: IconStairs, href: "/services/basements", ...t.services.items.basements },
+    { icon: IconHammer, href: "/services/drywall", ...t.services.items.drywall },
+    { icon: IconBrush, href: "/services/painting", ...t.services.items.painting },
     { icon: IconBrush, href: "/services/repairs", ...t.services.items.repairs },
   ];
 

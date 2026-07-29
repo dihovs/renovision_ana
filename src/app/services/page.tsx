@@ -12,7 +12,7 @@ import { buildMetadata } from "@/lib/seo";
 export const metadata = buildMetadata({
   title: "Services",
   description:
-    "Water damage restoration, flooring, kitchens & bathrooms, interior renovations, basement transformations, and small repairs with color matching.",
+    "Water damage restoration, flooring, kitchens & bathrooms, interior renovations, basement transformations, drywall, interior painting, and small repairs with color matching.",
   path: "/services",
 });
 
@@ -46,6 +46,18 @@ const SERVICES = [
     icon: IconStairs,
     title: "Basement Transformations",
     desc: "From unfinished space to beautiful, livable rooms.",
+  },
+  {
+    href: "/services/drywall",
+    icon: IconHammer,
+    title: "Drywall Installation & Finishing",
+    desc: "Hung, taped, and finished flat — plus patches of any size.",
+  },
+  {
+    href: "/services/painting",
+    icon: IconBrush,
+    title: "Interior Painting",
+    desc: "Walls, ceilings, trim, and doors in full two-coat coverage.",
   },
   {
     href: "/services/repairs",

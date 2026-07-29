@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { GOOGLE_REVIEWS_URL } from "@/lib/constants";
+import { GOOGLE_REVIEWS_URL, REVIEW_COUNT_DISPLAY_THRESHOLD } from "@/lib/constants";
 import { TestimonialsColumn } from "@/components/ui/testimonials-columns-1";
 
 type ReviewItem = { name: string; rating: number; quote: string };
@@ -41,7 +41,7 @@ export default function Testimonials({
           {t.testimonials.title}
         </h2>
 
-        {overallRating != null && reviewCount != null && (
+        {overallRating != null && (
           <a
             href={GOOGLE_REVIEWS_URL}
             target="_blank"
@@ -49,7 +49,9 @@ export default function Testimonials({
             className="mx-auto mt-3 flex w-fit items-center gap-1.5 text-sm font-semibold text-charcoal/60 hover:text-brand-blue hover:underline"
           >
             <StarIcon className="h-4 w-4 text-brand-green" />
-            {t.testimonials.overallRatingLabel(overallRating.toFixed(1), reviewCount)}
+            {reviewCount != null && reviewCount >= REVIEW_COUNT_DISPLAY_THRESHOLD
+              ? t.testimonials.overallRatingLabel(overallRating.toFixed(1), reviewCount)
+              : t.testimonials.overallRatingOnlyLabel(overallRating.toFixed(1))}
           </a>
         )}
 

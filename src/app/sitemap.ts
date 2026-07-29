@@ -11,6 +11,8 @@ const routes = [
   "/services/kitchen-bath",
   "/services/renovations",
   "/services/basements",
+  "/services/drywall",
+  "/services/painting",
   "/services/repairs",
   "/commercial",
   "/about",

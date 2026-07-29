@@ -24,6 +24,8 @@ const SERVICES = [
   ["Kitchen & bathroom remodeling", "/services/kitchen-bath"],
   ["General renovations", "/services/renovations"],
   ["Basement finishing", "/services/basements"],
+  ["Drywall installation & finishing", "/services/drywall"],
+  ["Interior painting", "/services/painting"],
   ["Small repairs & handyman work", "/services/repairs"],
 ] as const;
 
