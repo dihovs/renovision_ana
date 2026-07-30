@@ -124,7 +124,10 @@ export default function Header() {
             width={40}
             height={46}
             priority
-            className="h-8 w-auto"
+            /* Bigger on phones: below sm the wordmark is hidden, so this mark
+               is the ONLY branding in the bar and 32px read as almost nothing.
+               Steps back down from sm up, where the wordmark carries it. */
+            className="h-11 w-auto sm:h-8"
           />
           <span
             className={`hidden font-heading text-lg font-semibold transition-colors sm:block ${

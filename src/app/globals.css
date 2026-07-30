@@ -145,27 +145,44 @@
   }
 }
 
-/* Page-by-page scroll snapping. Classes are applied at runtime by
-   SnapSections, which measures each top-level section and tags it:
+/* Scroll snapping. Classes are applied at runtime by SnapSections, which
+   measures each top-level section and tags it `.snap-page` (fits on screen) or
+   `.snap-free` (taller than the screen, exempt).
 
-     .snap-page  section fits on screen -> becomes a rest point, stretched to
-                 a full viewport so the scroll settles on one section
-     .snap-free  section is taller than the screen -> exempt, scrolls normally
+   The behaviour is deliberately different by screen size:
 
-   That split is what makes `mandatory` safe here. Without it a section taller
-   than the viewport becomes a trap: snapping keeps pulling back to its top and
-   its lower half is unreachable.
+   PHONES AND TABLETS get `proximity` only — a gentle nudge when you come to
+   rest near a boundary, and nothing else. No forced section heights, no
+   scroll-snap-stop. `mandatory` was actively bad here: a section taller than a
+   phone viewport is exempt, so it has no snap point of its own, and iOS
+   momentum scrolling would carry straight past it to the next one — the
+   testimonials section got skipped entirely.
+
+   DESKTOP gets the full page-by-page treatment: each fitting section is
+   stretched to a viewport and becomes a hard rest point.
 
    Nothing applies unless <html> carries `snap-pages`. Flip PAGE_SNAP in
-   src/lib/experiments.ts to disable the whole thing. */
-@media (prefers-reduced-motion: no-preference) and (min-height: 640px) {
+   src/lib/experiments.ts to disable it everywhere. */
+@media (prefers-reduced-motion: no-preference) and (max-width: 1023px) {
+  html.snap-pages {
+    scroll-snap-type: y proximity;
+  }
+
+  /* Alignment only — heights stay natural so nothing can be skipped. */
+  html.snap-pages .snap-page {
+    scroll-snap-align: start;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) and (min-width: 1024px) and (min-height: 640px) {
   html.snap-pages {
     scroll-snap-type: y mandatory;
   }
 
   html.snap-pages .snap-page {
     scroll-snap-align: start;
-    /* Stops a fast flick skipping a whole section. */
+    /* Stops a fast flick skipping a section. Desktop only: on a touch screen
+       this is what makes momentum scrolling feel like it is fighting you. */
     scroll-snap-stop: always;
     min-height: 100svh;
     display: flex;

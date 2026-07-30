@@ -20,6 +20,10 @@ import { PAGE_SNAP, PAGE_SNAP_EXCLUDED_PREFIXES } from "@/lib/experiments";
  * pulling you back to its top and its lower half is unreachable. The service
  * pages, blog posts and the privacy policy all have sections like that.
  *
+ * The tagging is the same on every device; how much the tags DO differs by
+ * screen size in globals.css. Phones get a light proximity nudge only, because
+ * mandatory snapping plus iOS momentum skipped whole exempt sections.
+ *
  * Heights are measured BEFORE any class is applied — once a section has
  * min-height: 100svh it would always measure as tall enough, and every section
  * would look like it fits.
