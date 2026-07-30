@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/admin/actions";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 
@@ -131,6 +131,7 @@ function LeadCard({
   const [pending, startTransition] = useTransition();
   const [notes, setNotes] = useState(lead.notes ?? "");
   const [savedNote, setSavedNote] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   return (
     <li className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
@@ -210,12 +211,12 @@ function LeadCard({
               </p>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {photos.map((url, i) => (
-                  <a
+                  <button
                     key={url}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0"
+                    type="button"
+                    onClick={() => setViewerIndex(i)}
+                    aria-label={`Open customer photo ${i + 1}`}
+                    className="shrink-0 cursor-zoom-in"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -223,7 +224,7 @@ function LeadCard({
                       alt={`Customer photo ${i + 1}`}
                       className="h-24 w-24 rounded-lg border border-black/10 object-cover transition-opacity hover:opacity-90"
                     />
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -299,7 +300,115 @@ function LeadCard({
           </div>
         </div>
       )}
+
+      {viewerIndex !== null && (
+        <PhotoViewer
+          photos={photos}
+          index={viewerIndex}
+          onIndex={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </li>
+  );
+}
+
+/**
+ * Full-screen photo viewer.
+ *
+ * Thumbnails used to be links opening the signed URL in a new tab, which on a
+ * phone dumps you on a bare image with no route back to the lead. This keeps
+ * you in the CRM and offers every ordinary way out: the close button, Escape,
+ * and tapping the backdrop.
+ */
+function PhotoViewer({
+  photos,
+  index,
+  onIndex,
+  onClose,
+}: {
+  photos: string[];
+  index: number;
+  onIndex: (i: number) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight" && index < photos.length - 1) onIndex(index + 1);
+      if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    // Stop the page behind scrolling under the overlay on touch devices.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [index, photos.length, onClose, onIndex]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Customer photo"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close photo"
+        className="absolute right-4 top-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {photos.length > 1 && (
+        <p className="absolute left-1/2 top-6 -translate-x-1/2 text-sm font-semibold text-white/70">
+          {index + 1} / {photos.length}
+        </p>
+      )}
+
+      {index > 0 && (
+        <ViewerArrow side="left" onClick={() => onIndex(index - 1)} />
+      )}
+      {index < photos.length - 1 && (
+        <ViewerArrow side="right" onClick={() => onIndex(index + 1)} />
+      )}
+
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={photos[index]}
+        alt={`Customer photo ${index + 1}`}
+        // Stop a tap on the photo itself from closing the overlay.
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-full max-w-full rounded-lg object-contain"
+      />
+    </div>
+  );
+}
+
+function ViewerArrow({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={side === "left" ? "Previous photo" : "Next photo"}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`absolute top-1/2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25 ${
+        side === "left" ? "left-3" : "right-3"
+      }`}
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d={side === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   );
 }
 
