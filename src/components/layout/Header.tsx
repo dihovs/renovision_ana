@@ -10,6 +10,14 @@ import LanguageToggle from "./LanguageToggle";
 import { IconPhone } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 
+/**
+ * Routes that render a full-bleed hero behind the header. Used to pick the
+ * header's INITIAL transparency during render — measuring the hero can only
+ * happen after mount, and starting from the wrong state produced a visible
+ * white flash on every refresh of the homepage.
+ */
+const FULL_BLEED_HERO_PATHS = ["/"];
+
 export default function Header() {
   const { t } = useLanguage();
   const { openChat } = useChat();
@@ -17,43 +25,38 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [overHero, setOverHero] = useState(() => FULL_BLEED_HERO_PATHS.includes(pathname));
 
-  // Auto-hide on scroll down, reappear on scroll up — gives the page more
-  // vertical room (especially on mobile) without losing quick access to nav.
-  // Always visible while any menu is open. On the homepage, also always
-  // visible until the scroll-jacked hero's before/after reveal finishes and
-  // the sticky pin releases into normal scrolling — on other pages (no hero),
-  // that threshold falls back to a small fixed offset near the very top.
+  // Two behaviours, one scroll listener:
+  //
+  // 1. Auto-hide: the bar shows only at the very top of the page. Once you have
+  //    scrolled it stays gone, deliberately — reappearing mid-page drops an
+  //    opaque strip over whatever you are reading.
+  // 2. Transparency: over a full-bleed hero the bar drops its background and
+  //    switches to white text until the hero has scrolled past. Pages with no
+  //    hero never go transparent.
+  //
+  // A plain scroll listener is sufficient again now that Lenis has been removed
+  // — while Lenis was mounted it swallowed native scroll events and this
+  // listener never ran, which is why the bar used to stay put.
   useEffect(() => {
-    let lastY = window.scrollY;
     let ticking = false;
-    let releaseY = 80;
+    let heroBottom = 0;
 
-    const measureRelease = () => {
+    const measureHero = () => {
       const heroEl = document.querySelector("[data-scroll-hero]");
-      if (!heroEl) {
-        releaseY = 80;
-        return;
-      }
-      const rect = heroEl.getBoundingClientRect();
-      const documentTop = window.scrollY + rect.top;
-      releaseY = documentTop + (rect.height - window.innerHeight);
+      heroBottom = heroEl ? window.scrollY + heroEl.getBoundingClientRect().bottom : 0;
+      // A page with no hero can never be "over" one.
+      if (!heroEl) setOverHero(false);
     };
-    measureRelease();
-    window.addEventListener("resize", measureRelease);
 
     const update = () => {
       ticking = false;
       const y = window.scrollY;
-      const delta = y - lastY;
-      if (mobileOpen || companyOpen || y < releaseY) {
-        setHidden(false);
-      } else if (delta > 4) {
-        setHidden(true);
-      } else if (delta < -4) {
-        setHidden(false);
-      }
-      lastY = y;
+      setHidden(!(mobileOpen || companyOpen || y < 8));
+      // Swap to the solid treatment slightly before the hero fully clears, so
+      // white text never lands on the pale section underneath.
+      setOverHero(heroBottom > 0 && y < heroBottom - 96);
     };
 
     const onScroll = () => {
@@ -63,12 +66,15 @@ export default function Header() {
       }
     };
 
+    measureHero();
+    update();
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", measureHero);
     return () => {
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", measureRelease);
+      window.removeEventListener("resize", measureHero);
     };
-  }, [mobileOpen, companyOpen]);
+  }, [mobileOpen, companyOpen, pathname]);
 
   function handleLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
     setMobileOpen(false);
@@ -96,14 +102,21 @@ export default function Header() {
     { href: "/careers", label: t.nav.careers },
   ];
 
+  // The mobile panel is a white sheet, so the bar must go solid with it.
+  const transparent = overHero && !mobileOpen;
+
   return (
     <>
     <header
-      className={`sticky top-0 z-40 w-full border-b border-black/5 bg-white/95 shadow-[0_1px_3px_rgba(0,0,0,0.06)] backdrop-blur transition-transform duration-300 ease-out ${
+      className={`sticky top-0 z-40 w-full transition-[transform,background-color,border-color,box-shadow] duration-300 ease-out ${
         hidden ? "-translate-y-full" : "translate-y-0"
+      } ${
+        transparent
+          ? "border-b border-transparent bg-transparent"
+          : "border-b border-black/5 bg-white/95 shadow-[0_1px_3px_rgba(0,0,0,0.06)] backdrop-blur"
       }`}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-5 sm:px-6 lg:px-8">
         <Link href="/" onClick={handleLogoClick} className="flex shrink-0 items-center gap-2">
           <Image
             src="/renovision-logo.png"
@@ -111,19 +124,25 @@ export default function Header() {
             width={40}
             height={46}
             priority
-            className="h-10 w-auto"
+            className="h-8 w-auto"
           />
-          <span className="hidden font-heading text-xl font-semibold text-brand-blue sm:block">
+          <span
+            className={`hidden font-heading text-lg font-semibold transition-colors sm:block ${
+              transparent ? "text-white" : "text-brand-blue"
+            }`}
+          >
             Renovision <span className="text-brand-green">AnA</span>
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-5 xl:flex" aria-label="Main">
+        <nav className="hidden items-center gap-8 xl:flex" aria-label="Main">
           {navLinks.slice(0, -1).map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="whitespace-nowrap text-sm font-semibold text-charcoal transition-colors hover:text-brand-blue"
+              className={`whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.18em] transition-colors ${
+                transparent ? "text-white/85 hover:text-white" : "text-charcoal hover:text-brand-blue"
+              }`}
             >
               {link.label}
             </Link>
@@ -136,7 +155,9 @@ export default function Header() {
           >
             <button
               type="button"
-              className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-sm font-semibold text-charcoal transition-colors hover:text-brand-blue"
+              className={`flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.18em] transition-colors ${
+                transparent ? "text-white/85 hover:text-white" : "text-charcoal hover:text-brand-blue"
+              }`}
               onClick={() => setCompanyOpen((v) => !v)}
               aria-expanded={companyOpen}
               aria-haspopup="true"
@@ -166,42 +187,48 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="whitespace-nowrap text-sm font-semibold text-charcoal transition-colors hover:text-brand-blue"
+              className={`whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.18em] transition-colors ${
+                transparent ? "text-white/85 hover:text-white" : "text-charcoal hover:text-brand-blue"
+              }`}
             >
               {link.label}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-4 xl:flex">
+        <div className="hidden items-center gap-5 xl:flex">
           <a
             href={`tel:${SITE_PHONE_TEL}`}
-            className="whitespace-nowrap text-sm font-semibold text-brand-blue hover:text-brand-blue-dark"
+            className={`whitespace-nowrap text-[13px] font-semibold tracking-wide transition-colors ${
+              transparent ? "text-white hover:text-white/80" : "text-brand-blue hover:text-brand-blue-dark"
+            }`}
           >
             {SITE_PHONE}
           </a>
-          <LanguageToggle />
-          <button
-            type="button"
-            onClick={openChat}
-            className="cursor-pointer whitespace-nowrap rounded-full bg-brand-green px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-px hover:bg-brand-green-dark hover:shadow-lg"
-          >
-            {t.header.freeEstimate}
-          </button>
+          <LanguageToggle transparent={transparent} />
+          {/* No estimate button here on purpose. The hero carries the primary
+              call to action and the floating launcher takes over once it
+              scrolls away, so the same ask never appears twice at once. */}
         </div>
 
         <div className="flex items-center gap-2 xl:hidden">
           <a
             href={`tel:${SITE_PHONE_TEL}`}
             aria-label={SITE_PHONE}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-blue-light text-brand-blue transition-colors hover:bg-brand-blue hover:text-white"
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+              transparent
+                ? "bg-white/15 text-white hover:bg-white/25"
+                : "bg-brand-blue-light text-brand-blue hover:bg-brand-blue hover:text-white"
+            }`}
           >
             <IconPhone className="h-4.5 w-4.5" />
           </a>
-          <LanguageToggle className="text-xs" />
+          <LanguageToggle className="text-xs" transparent={transparent} />
           <button
             type="button"
-            className="flex items-center justify-center rounded-md p-2 text-brand-blue"
+            className={`flex items-center justify-center rounded-md p-2 transition-colors ${
+              transparent ? "text-white" : "text-brand-blue"
+            }`}
             onClick={() => setMobileOpen((v) => !v)}
             aria-expanded={mobileOpen}
             aria-label="Toggle menu"
@@ -277,7 +304,7 @@ export default function Header() {
                 setMobileOpen(false);
                 openChat();
               }}
-              className="mt-4 w-full cursor-pointer rounded-full bg-brand-green px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-green-dark"
+              className="mt-4 w-full cursor-pointer rounded-full uppercase tracking-[0.08em] bg-brand-green px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-green-dark"
             >
               {t.header.freeEstimate}
             </button>

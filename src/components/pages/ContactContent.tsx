@@ -114,7 +114,7 @@ export default function ContactContent() {
         <p className="mt-5 text-lg leading-relaxed text-charcoal/75">{c.intro}</p>
         <button
           onClick={openChat}
-          className="mt-6 rounded-full bg-brand-green px-7 py-3.5 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
+          className="mt-6 rounded-full uppercase tracking-[0.08em] bg-brand-green px-7 py-3.5 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
         >
           {c.estimateCta}
         </button>

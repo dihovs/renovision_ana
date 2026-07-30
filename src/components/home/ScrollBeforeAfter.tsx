@@ -83,7 +83,7 @@ export default function ScrollBeforeAfter() {
   const featherPct = 6; // width of the soft blend zone at the wipe edge, in %
 
   return (
-    <section className="relative overflow-hidden bg-white py-20">
+    <section className="relative overflow-hidden bg-white py-14 sm:py-16">
       {/* Soft brand wash so the section isn't a flat white void between two
           darker neighbours. */}
       <div
@@ -93,7 +93,7 @@ export default function ScrollBeforeAfter() {
             "linear-gradient(115deg, rgba(43,92,158,0.05) 0%, transparent 35%, transparent 65%, rgba(78,158,46,0.05) 100%), radial-gradient(55% 50% at 50% 40%, rgba(43,92,158,0.06), transparent 70%)",
         }}
       />
-      <div className="relative mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
             {t.beforeAfter.title}
@@ -122,7 +122,7 @@ export default function ScrollBeforeAfter() {
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
-              className="relative aspect-[4/3] w-full touch-none select-none overflow-hidden rounded-2xl border border-black/5 shadow-[0_20px_60px_rgba(0,0,0,0.15),0_30px_60px_-20px_rgba(43,92,158,0.35)]"
+              className="relative aspect-[16/10] w-full touch-none select-none overflow-hidden rounded-2xl border border-black/5 shadow-[0_20px_60px_rgba(0,0,0,0.15),0_30px_60px_-20px_rgba(43,92,158,0.35)]"
             >
               <Image
                 src="/images/hero-basement-before-v2.jpg"

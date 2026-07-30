@@ -20,13 +20,13 @@ export default function CtaBand() {
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             onClick={openChat}
-            className="whitespace-nowrap rounded-full bg-brand-green px-5 py-3.5 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark sm:px-7"
+            className="whitespace-nowrap rounded-full uppercase tracking-[0.08em] bg-brand-green px-5 py-3.5 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark sm:px-7"
           >
             {t.ctaBand.ctaEstimate}
           </button>
           <a
             href={`tel:${SITE_PHONE_TEL}`}
-            className="whitespace-nowrap rounded-full border-2 border-white/40 px-5 py-3.5 text-center font-heading font-bold text-white transition-colors hover:border-white hover:bg-white/10 sm:px-7"
+            className="whitespace-nowrap rounded-full uppercase tracking-[0.08em] border-2 border-white/40 px-5 py-3.5 text-center font-heading font-bold text-white transition-colors hover:border-white hover:bg-white/10 sm:px-7"
           >
             {t.ctaBand.ctaCall} · {SITE_PHONE}
           </a>

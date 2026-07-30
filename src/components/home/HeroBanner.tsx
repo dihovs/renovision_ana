@@ -35,16 +35,32 @@ export default function HeroBanner({
   const { openChat } = useChat();
 
   return (
-    <section className="relative isolate flex min-h-[88svh] items-center overflow-hidden bg-charcoal-dark">
+    <section
+      /* Header measures this to decide when it may hide on scroll and when to
+         drop its transparent state — without it the threshold falls back to
+         80px and the nav starts hiding almost immediately. */
+      data-scroll-hero
+      // Cancels the sticky header's space in flow so the photo runs behind it.
+      // The pt-32 below already clears the bar, so nothing lands under the nav.
+      // The negative margin slides the photo behind the header, but it also
+      // shifts the flex centring up by the same amount, which is what made the
+      // content sit high and feel cramped under the nav. Matching top padding
+      // gives the centring back the visible band rather than the full box.
+      style={{
+        marginTop: "calc(var(--header-h) * -1)",
+        paddingTop: "var(--header-h)",
+      }}
+      className="relative isolate flex min-h-[88svh] items-center overflow-hidden bg-charcoal-dark"
+    >
       {/* Illustration, not a project photo. The alt text describes the room
           without claiming it is completed work — the real before/after of an
           actual Laval basement is the section directly below this one. */}
       <Image
-        src="/images/hero-basement-banner.png"
+        src="/images/hero-basement-banner.jpg"
         alt="A finished basement family room with plank flooring, painted walls and recessed lighting"
         fill
         priority
-        sizes="100vw"
+        sizes="(min-width: 1672px) 1672px, 100vw"
         className="object-cover"
       />
 
@@ -74,34 +90,40 @@ export default function HeroBanner({
         className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-charcoal-dark via-charcoal-dark/60 to-transparent"
       />
 
-      <div className="relative mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="max-w-3xl">
+      <div className="relative mx-auto grid w-full max-w-7xl gap-8 px-4 pb-16 pt-2 sm:px-6 lg:grid-cols-[1.35fr_0.65fr] lg:items-end lg:gap-14 lg:pb-20 lg:pt-4 lg:px-8">
+        <div>
           <p className="mb-4 font-label text-xs font-semibold uppercase tracking-[0.25em] text-brand-green-soft">
             {t.hero.eyebrow}
           </p>
           <h1 className="font-heading leading-[1.08] text-white">
-            <span className="text-4xl font-medium sm:text-5xl lg:text-[3.5rem]">
+            <span className="text-[2.35rem] font-medium sm:text-5xl lg:text-[4.25rem]">
               {t.hero.headlineStart}{" "}
             </span>
-            <em className="block text-5xl font-extrabold italic text-brand-green-soft sm:text-6xl lg:text-[4.5rem]">
+            <em className="block text-[2.35rem] font-extrabold italic text-brand-green-soft sm:text-5xl lg:text-[4.25rem]">
               {t.hero.headlineAccent}
             </em>
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/85">
+        </div>
+
+        {/* Supporting column: sits under the headline on narrow screens, moves
+            to the right of it from lg up. */}
+        <div className="lg:pb-2 lg:pl-6 lg:pt-24">
+          <p className="max-w-sm text-sm leading-relaxed text-white/80 lg:text-[15px]">
             {t.hero.subheadline}
           </p>
 
-          <div className="mt-9 flex flex-wrap gap-4">
+          <div className="mt-7 flex flex-wrap gap-3 lg:gap-4">
             <button
               type="button"
+              data-estimate-cta
               onClick={openChat}
-              className="inline-flex cursor-pointer items-center justify-center rounded-full bg-brand-green px-7 py-3.5 text-base font-bold text-white shadow-lg transition-all hover:-translate-y-px hover:bg-brand-green-dark hover:shadow-xl"
+              className="inline-flex cursor-pointer items-center justify-center rounded-full bg-brand-green px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.1em] text-white shadow-lg transition-all hover:-translate-y-px hover:bg-brand-green-dark hover:shadow-xl"
             >
               {t.hero.ctaEstimate}
             </button>
             <a
               href={`tel:${SITE_PHONE_TEL}`}
-              className="inline-flex items-center justify-center rounded-full border-2 border-white/70 px-7 py-3.5 text-base font-bold text-white backdrop-blur-sm transition-colors hover:border-white hover:bg-white/10"
+              className="inline-flex items-center justify-center rounded-full border border-white/60 px-5 py-2.5 text-[13px] font-bold uppercase tracking-[0.1em] text-white backdrop-blur-sm transition-colors hover:border-white hover:bg-white/10"
             >
               {t.hero.ctaCall}
             </a>
@@ -110,7 +132,7 @@ export default function HeroBanner({
           {/* Same quiet credibility line as before — real rating when the
               Google pull is configured, otherwise the licensed-and-insured
               claim rather than an invented number. */}
-          <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-white/70">
+          <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-white/60">
             {overallRating != null ? (
               <>
                 <span className="flex text-brand-green-soft" aria-hidden="true">
@@ -141,6 +163,20 @@ export default function HeroBanner({
             )}
           </div>
         </div>
+      </div>
+
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-6 hidden flex-col items-center gap-2.5 lg:flex"
+      >
+        <span className="font-label text-[10px] font-bold uppercase tracking-[0.35em] text-white/55">
+          {t.hero.scrollHint}
+        </span>
+        {/* Track keeps the space reserved so the animated line doesn't shift
+            the label as it grows and retracts. */}
+        <span className="relative h-9 w-px bg-white/15">
+          <span className="animate-scroll-cue absolute inset-0 block bg-gradient-to-b from-white/0 via-white/80 to-white/0" />
+        </span>
       </div>
     </section>
   );

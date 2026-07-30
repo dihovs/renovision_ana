@@ -148,6 +148,7 @@ const en: Record<string, unknown> & {
     beforeLabel: "Before",
     afterLabel: "After",
     dragHint: "Drag to see the transformation",
+    scrollHint: "Scroll",
   },
   stats: {
     years: { value: "5+", label: "Years of Experience" },
@@ -449,6 +450,7 @@ const fr: typeof en = {
     beforeLabel: "Avant",
     afterLabel: "Après",
     dragHint: "Glissez pour voir la transformation",
+    scrollHint: "Défiler",
   },
   stats: {
     years: { value: "5+", label: "Années d'expérience" },

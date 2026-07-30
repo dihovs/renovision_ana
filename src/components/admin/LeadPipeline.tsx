@@ -160,13 +160,13 @@ function LeadCard({
           <div className="flex flex-wrap gap-2">
             <a
               href={`tel:${lead.phone}`}
-              className="flex-1 rounded-full bg-brand-green px-4 py-2.5 text-center text-sm font-bold text-white hover:bg-brand-green-dark"
+              className="flex-1 rounded-full uppercase tracking-[0.08em] bg-brand-green px-4 py-2.5 text-center text-sm font-bold text-white hover:bg-brand-green-dark"
             >
               Call {lead.phone}
             </a>
             <a
               href={`mailto:${lead.email}`}
-              className="flex-1 rounded-full border-2 border-brand-blue px-4 py-2.5 text-center text-sm font-bold text-brand-blue hover:bg-brand-blue-light"
+              className="flex-1 rounded-full uppercase tracking-[0.08em] border-2 border-brand-blue px-4 py-2.5 text-center text-sm font-bold text-brand-blue hover:bg-brand-blue-light"
             >
               Email
             </a>

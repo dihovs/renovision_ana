@@ -105,6 +105,27 @@ export default function ChatWidget() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Suppress the floating launcher while the header's own estimate button is on
+  // screen — otherwise the identical call to action shows twice at once. The
+  // header hides on scroll-down, so this naturally hands off: bar visible →
+  // launcher hidden, bar gone → launcher appears.
+  //
+  // Below xl the header has no text CTA at all (just phone/language/menu), so
+  // the element is absent and the launcher behaves as it always did. That's the
+  // reason for observing the element rather than reading a breakpoint.
+  const [headerCtaOnScreen, setHeaderCtaOnScreen] = useState(false);
+  useEffect(() => {
+    const cta = document.querySelector("[data-estimate-cta]");
+    if (!cta) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeaderCtaOnScreen(entry.isIntersecting),
+      // A sliver is enough to count as present; this isn't a reading target.
+      { threshold: 0.01 },
+    );
+    observer.observe(cta);
+    return () => observer.disconnect();
+  }, []);
+
   // Scrolling to the very bottom is right for a stream of short bubbles, but
   // wrong when the tall calculator card is on screen — it pushes the card's
   // own heading and postal-code field above the visible area. When it's
@@ -334,8 +355,8 @@ export default function ChatWidget() {
           type="button"
           onClick={openChat}
           aria-label={t.chat.launcherLabel}
-          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-brand-green px-5 py-3.5 text-sm font-bold text-white shadow-lg transition-all duration-500 ease-out hover:scale-105 hover:bg-brand-green-dark ${
-            launcherVisible
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full uppercase tracking-[0.08em] bg-brand-green px-5 py-3.5 text-sm font-bold text-white shadow-lg transition-all duration-500 ease-out hover:scale-105 hover:bg-brand-green-dark ${
+            launcherVisible && !headerCtaOnScreen
               ? "translate-y-0 scale-100 cursor-pointer opacity-100"
               : "pointer-events-none translate-y-4 scale-75 opacity-0"
           }`}

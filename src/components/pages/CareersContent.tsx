@@ -131,7 +131,7 @@ export default function CareersContent() {
           <p className="mt-3 text-white/75">{c.applyDesc}</p>
           <a
             href={`mailto:${SITE_EMAIL}?subject=Job%20Application`}
-            className="mt-6 inline-block rounded-full bg-brand-green px-7 py-3 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
+            className="mt-6 inline-block rounded-full uppercase tracking-[0.08em] bg-brand-green px-7 py-3 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
           >
             {c.applyCta}
           </a>

@@ -146,7 +146,7 @@ export default function SafetyContent() {
             <p className="text-white/85">{c.note}</p>
             <a
               href="/contact"
-              className="mt-5 inline-block rounded-full bg-brand-green px-7 py-3 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
+              className="mt-5 inline-block rounded-full uppercase tracking-[0.08em] bg-brand-green px-7 py-3 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
             >
               {c.contactCta}
             </a>

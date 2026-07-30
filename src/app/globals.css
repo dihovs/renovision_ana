@@ -16,6 +16,12 @@
   /* Dark accent sections: charcoal/near-black per brief. */
   --color-charcoal-dark: #23272c;
   --color-charcoal-dark-light: #33383f;
+
+  /* Rendered height of the site header. The header is sticky, so it occupies
+     space in normal flow; a full-bleed hero cancels that with a negative top
+     margin of this value so its photo sits BEHIND the transparent bar rather
+     than starting below it. Declared once here so the two never drift. */
+  --header-h: 83px;
 }
 
 @theme inline {
@@ -98,6 +104,77 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-drift {
     animation: none;
+  }
+}
+
+/* Scroll cue: a hairline that draws downward, then retracts from the top, so
+   the motion reads as "keep going down" rather than a line that merely blinks.
+   Switching transform-origin mid-animation is what produces the travel. */
+@keyframes scroll-cue {
+  0% {
+    transform: scaleY(0);
+    transform-origin: top;
+    opacity: 0;
+  }
+  30% {
+    transform: scaleY(1);
+    transform-origin: top;
+    opacity: 1;
+  }
+  60% {
+    transform: scaleY(1);
+    transform-origin: bottom;
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(0);
+    transform-origin: bottom;
+    opacity: 0;
+  }
+}
+
+.animate-scroll-cue {
+  animation: scroll-cue 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-scroll-cue {
+    /* Keep the line visible as a static cue rather than removing the hint. */
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Page-by-page scroll snapping. Classes are applied at runtime by
+   SnapSections, which measures each top-level section and tags it:
+
+     .snap-page  section fits on screen -> becomes a rest point, stretched to
+                 a full viewport so the scroll settles on one section
+     .snap-free  section is taller than the screen -> exempt, scrolls normally
+
+   That split is what makes `mandatory` safe here. Without it a section taller
+   than the viewport becomes a trap: snapping keeps pulling back to its top and
+   its lower half is unreachable.
+
+   Nothing applies unless <html> carries `snap-pages`. Flip PAGE_SNAP in
+   src/lib/experiments.ts to disable the whole thing. */
+@media (prefers-reduced-motion: no-preference) and (min-height: 640px) {
+  html.snap-pages {
+    scroll-snap-type: y mandatory;
+  }
+
+  html.snap-pages .snap-page {
+    scroll-snap-align: start;
+    /* Stops a fast flick skipping a whole section. */
+    scroll-snap-stop: always;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  html.snap-pages .snap-free {
+    scroll-snap-align: none;
   }
 }
 

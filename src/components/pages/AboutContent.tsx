@@ -217,13 +217,13 @@ export default function AboutContent() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <button
               onClick={openChat}
-              className="rounded-full bg-brand-green px-7 py-3.5 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
+              className="rounded-full uppercase tracking-[0.08em] bg-brand-green px-7 py-3.5 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
             >
               {t.ctaBand.ctaEstimate}
             </button>
             <a
               href={`tel:${SITE_PHONE_TEL}`}
-              className="rounded-full border-2 border-brand-blue px-7 py-3.5 text-center font-heading font-bold text-brand-blue transition-colors hover:bg-brand-blue-light"
+              className="rounded-full uppercase tracking-[0.08em] border-2 border-brand-blue px-7 py-3.5 text-center font-heading font-bold text-brand-blue transition-colors hover:bg-brand-blue-light"
             >
               {t.ctaBand.ctaCall} · {SITE_PHONE}
             </a>

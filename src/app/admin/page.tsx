@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { logoutAction } from "./actions";
 import LoginForm from "@/components/admin/LoginForm";
 import LeadPipeline from "@/components/admin/LeadPipeline";
+import AdminShell from "@/components/admin/AdminShell";
 import { isAuthConfigured, isSignedIn } from "@/lib/adminAuth";
 import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@/lib/leadStore";
 
@@ -69,25 +70,32 @@ export default async function AdminPage() {
 }
 
 function Shell({ children, onSignOut }: { children: React.ReactNode; onSignOut?: boolean }) {
-  return (
-    <div className="min-h-dvh bg-brand-blue-light/20">
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="font-heading text-2xl font-bold text-brand-blue">Leads</h1>
-          {onSignOut && (
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="cursor-pointer text-sm font-semibold text-charcoal/50 hover:text-brand-blue"
-              >
-                Sign out
-              </button>
-            </form>
-          )}
-        </div>
-        {children}
+  // The sign-in screen deliberately skips the shell — showing a nav rail to
+  // someone who isn't authenticated advertises the structure of the tool and
+  // gives them nothing they can use.
+  if (!onSignOut) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-[#f6f8fb] px-4">
+        <div className="w-full max-w-sm">{children}</div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <AdminShell
+      onSignOut={
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="cursor-pointer text-sm font-semibold text-charcoal/50 transition-colors hover:text-brand-blue"
+          >
+            Sign out
+          </button>
+        </form>
+      }
+    >
+      {children}
+    </AdminShell>
   );
 }
 
