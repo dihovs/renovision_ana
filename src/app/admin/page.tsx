@@ -4,7 +4,12 @@ import LoginForm from "@/components/admin/LoginForm";
 import LeadPipeline from "@/components/admin/LeadPipeline";
 import AdminShell from "@/components/admin/AdminShell";
 import { isAuthConfigured, isSignedIn } from "@/lib/adminAuth";
-import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@/lib/leadStore";
+import {
+  isConfigured as isStoreConfigured,
+  listLeads,
+  signPhotoUrls,
+  type StoredLead,
+} from "@/lib/leadStore";
 
 // Never index or cache the lead list.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -46,9 +51,18 @@ export default async function AdminPage() {
   }
 
   let leads: StoredLead[] = [];
+  let photoUrls: Record<string, string[]> = {};
   let error: string | null = null;
   try {
     leads = await listLeads();
+    // Signed per request, never stored: a persisted URL would outlive its own
+    // expiry and render as a broken image later.
+    const withPhotos = leads.filter((l) => l.photo_paths?.length);
+    photoUrls = Object.fromEntries(
+      await Promise.all(
+        withPhotos.map(async (l) => [l.id, await signPhotoUrls(l.photo_paths)] as const),
+      ),
+    );
   } catch (err) {
     // Most likely a paused free-tier project. Say so plainly rather than
     // showing an empty list, which would read as "no leads".
@@ -63,7 +77,7 @@ export default async function AdminPage() {
           dashboard to resume it. Leads are still arriving by email in the meantime.
         </Notice>
       ) : (
-        <LeadPipeline leads={leads} />
+        <LeadPipeline leads={leads} photoUrls={photoUrls} />
       )}
     </Shell>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -85,9 +86,15 @@ export default function AdminShell({
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-14 shrink-0 items-center gap-2 px-4">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-green text-xs font-bold text-white">
-            R
+        <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/95 p-1">
+            <Image
+              src="/renovision-logo.png"
+              alt=""
+              width={28}
+              height={28}
+              className="h-full w-auto object-contain"
+            />
           </span>
           <span className="font-heading text-sm font-bold text-white">
             Renovision <span className="text-brand-green-soft">AnA</span>

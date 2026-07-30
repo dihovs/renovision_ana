@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
-import { isConfigured as isLeadStoreConfigured, saveLead } from "@/lib/leadStore";
+import { isConfigured as isLeadStoreConfigured, saveLead, uploadLeadPhotos } from "@/lib/leadStore";
 import {
   LEADS_NOTIFY_EMAIL,
   SITE_ADDRESS,
@@ -324,7 +324,11 @@ export async function POST(request: Request) {
   // which is why the site keeps working email-only in the meantime.
   if (isLeadStoreConfigured) {
     try {
-      const storedId = await saveLead({ ...lead, address: lead.address ?? undefined });
+      // Upload first so the row records where the photos actually landed.
+      // Upload failures return fewer paths rather than throwing — losing a
+      // photo must never cost the customer their enquiry.
+      const photoPaths = await uploadLeadPhotos((lead.photos ?? []).slice(0, MAX_PHOTOS));
+      const storedId = await saveLead({ ...lead, address: lead.address ?? undefined, photoPaths });
       if (storedId) {
         recorded = true;
         console.log("[lead stored]", { leadId, rowId: storedId });

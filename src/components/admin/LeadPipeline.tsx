@@ -33,7 +33,14 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("en-CA");
 }
 
-export default function LeadPipeline({ leads }: { leads: StoredLead[] }) {
+export default function LeadPipeline({
+  leads,
+  photoUrls = {},
+}: {
+  leads: StoredLead[];
+  /** Signed, short-lived URLs keyed by lead id. */
+  photoUrls?: Record<string, string[]>;
+}) {
   const [filter, setFilter] = useState<LeadStatus | "all">("all");
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -67,6 +74,7 @@ export default function LeadPipeline({ leads }: { leads: StoredLead[] }) {
             <LeadCard
               key={lead.id}
               lead={lead}
+              photos={photoUrls[lead.id] ?? []}
               open={openId === lead.id}
               onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
             />
@@ -101,10 +109,12 @@ function FilterChip({
 
 function LeadCard({
   lead,
+  photos,
   open,
   onToggle,
 }: {
   lead: StoredLead;
+  photos: string[];
   open: boolean;
   onToggle: () => void;
 }) {
@@ -171,6 +181,32 @@ function LeadCard({
               Email
             </a>
           </div>
+
+          {photos.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-charcoal/45">
+                Photos from the customer
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {photos.map((url, i) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`Customer photo ${i + 1}`}
+                      className="h-24 w-24 rounded-lg border border-black/10 object-cover transition-opacity hover:opacity-90"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           <dl className="mt-4 space-y-1.5 text-sm">
             <Row label="Email" value={lead.email} />

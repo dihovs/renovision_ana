@@ -31,7 +31,13 @@ export type StoredLead = {
   estimated_work_days: number | null;
   status: LeadStatus;
   notes: string | null;
+  photo_paths: string[];
 };
+
+/** Bucket is private; photos are only ever reachable via a signed URL. */
+const PHOTO_BUCKET = "lead-photos";
+/** Long enough to read a lead on site, short enough that a copied link dies. */
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 export const LEAD_STATUSES = ["new", "contacted", "quoted", "won", "lost"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
@@ -56,6 +62,8 @@ export type NewLead = {
   total?: string;
   totalLaborHours?: number;
   estimatedWorkDays?: number;
+  /** Storage object paths, not URLs — see uploadLeadPhotos. */
+  photoPaths?: string[];
 };
 
 const url = process.env.SUPABASE_URL;
@@ -109,6 +117,7 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
       total: lead.total ?? null,
       total_labor_hours: lead.totalLaborHours ?? null,
       estimated_work_days: lead.estimatedWorkDays ?? null,
+      photo_paths: lead.photoPaths ?? [],
     })
     .select("id")
     .single();
@@ -145,4 +154,59 @@ export async function updateLeadNotes(id: string, notes: string): Promise<void> 
   if (!db) throw new Error("Lead storage is not configured");
   const { error } = await db.from("leads").update({ notes }).eq("id", id);
   if (error) throw new Error(`Supabase update failed: ${error.message}`);
+}
+
+/**
+ * Upload customer photos to the private bucket, returning storage paths.
+ *
+ * Failures are swallowed per-photo on purpose: a photo that won't upload must
+ * not cost the customer their enquiry. The lead is the thing that matters; the
+ * picture is supporting evidence, and it still reaches the owner by email.
+ */
+export async function uploadLeadPhotos(dataUrls: string[]): Promise<string[]> {
+  const db = getClient();
+  if (!db || dataUrls.length === 0) return [];
+
+  const paths: string[] = [];
+  for (const [i, dataUrl] of dataUrls.entries()) {
+    const match = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(dataUrl);
+    if (!match) continue;
+    const [, mime, base64] = match;
+    const ext = mime.split("/")[1].replace("jpeg", "jpg");
+    // Date-prefixed so the bucket stays browsable as it grows.
+    const stamp = new Date().toISOString().slice(0, 10);
+    const path = `${stamp}/${crypto.randomUUID()}-${i + 1}.${ext}`;
+    try {
+      const { error } = await db.storage
+        .from(PHOTO_BUCKET)
+        .upload(path, Buffer.from(base64, "base64"), { contentType: mime, upsert: false });
+      if (error) {
+        console.error("[leadStore] photo upload failed:", error.message);
+        continue;
+      }
+      paths.push(path);
+    } catch (err) {
+      console.error("[leadStore] photo upload threw:", err);
+    }
+  }
+  return paths;
+}
+
+/**
+ * Swap storage paths for short-lived signed URLs so the admin can display
+ * them. Generated per request and never persisted — a stored URL would
+ * outlive its own expiry and turn into a broken image.
+ */
+export async function signPhotoUrls(paths: string[]): Promise<string[]> {
+  const db = getClient();
+  if (!db || paths.length === 0) return [];
+  const { data, error } = await db.storage
+    .from(PHOTO_BUCKET)
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+  if (error) {
+    console.error("[leadStore] could not sign photo urls:", error.message);
+    return [];
+  }
+  // createSignedUrls can return a null url per entry when one path fails.
+  return (data ?? []).flatMap((d) => (d.signedUrl ? [d.signedUrl] : []));
 }
