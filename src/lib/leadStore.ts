@@ -136,7 +136,11 @@ export async function listLeads(limit = 200): Promise<StoredLead[]> {
   const { data, error } = await db
     .from("leads")
     .select(
-      "id, created_at, name, email, phone, address, locale, marketing_consent, scope_summary, estimate_low, estimate_expected, estimate_high, total, estimated_work_days, status, notes",
+      // Must list every field on StoredLead. The result is cast, so a column
+      // missing here is silently undefined at runtime rather than a type
+      // error — which is exactly how photo_paths and opened_at were added to
+      // the type, shipped, and rendered as nothing.
+      "id, created_at, name, email, phone, address, locale, marketing_consent, scope_summary, estimate_low, estimate_expected, estimate_high, total, estimated_work_days, status, notes, photo_paths, opened_at",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
