@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setNotesAction, setStatusAction } from "@/app/admin/actions";
+import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/admin/actions";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
@@ -49,6 +49,7 @@ export default function LeadPipeline({
     return acc;
   }, {});
 
+  const unreadCount = leads.filter((l) => !l.opened_at).length;
   const visible = filter === "all" ? leads : leads.filter((l) => l.status === filter);
 
   return (
@@ -58,6 +59,11 @@ export default function LeadPipeline({
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
         <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
           All {leads.length}
+          {unreadCount > 0 && (
+            <span className="ml-1.5 rounded-full bg-brand-green px-1.5 py-0.5 text-[10px] text-white">
+              {unreadCount} new
+            </span>
+          )}
         </FilterChip>
         {LEAD_STATUSES.map((status) => (
           <FilterChip key={status} active={filter === status} onClick={() => setFilter(status)}>
@@ -76,7 +82,11 @@ export default function LeadPipeline({
               lead={lead}
               photos={photoUrls[lead.id] ?? []}
               open={openId === lead.id}
-              onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
+              onToggle={() => {
+                const opening = openId !== lead.id;
+                setOpenId(opening ? lead.id : null);
+                if (opening && !lead.opened_at) void markOpenedAction(lead.id);
+              }}
             />
           ))}
         </ul>
@@ -132,7 +142,18 @@ function LeadCard({
       >
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="truncate font-heading text-base font-bold text-brand-blue">
+            {!lead.opened_at && (
+              <span
+                aria-label="Unopened"
+                title="Not opened yet"
+                className="h-2 w-2 shrink-0 rounded-full bg-brand-green"
+              />
+            )}
+            <span
+              className={`truncate font-heading text-base text-brand-blue ${
+                lead.opened_at ? "font-semibold" : "font-extrabold"
+              }`}
+            >
               {lead.name}
             </span>
             <span

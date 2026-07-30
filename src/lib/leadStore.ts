@@ -32,6 +32,9 @@ export type StoredLead = {
   status: LeadStatus;
   notes: string | null;
   photo_paths: string[];
+  /** Null until the operator first opens it. Deliberately separate from
+   *  `status`: reading a lead must never advance the pipeline. */
+  opened_at: string | null;
 };
 
 /** Bucket is private; photos are only ever reachable via a signed URL. */
@@ -209,4 +212,20 @@ export async function signPhotoUrls(paths: string[]): Promise<string[]> {
   }
   // createSignedUrls can return a null url per entry when one path fails.
   return (data ?? []).flatMap((d) => (d.signedUrl ? [d.signedUrl] : []));
+}
+
+/**
+ * Record the first time a lead was opened. Only ever writes once — a later
+ * open must not overwrite the original, because "when did I first respond to
+ * this" is the question the timestamp exists to answer.
+ */
+export async function markLeadOpened(id: string): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  const { error } = await db
+    .from("leads")
+    .update({ opened_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("opened_at", null);
+  if (error) throw new Error(`Supabase update failed: ${error.message}`);
 }

@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { isSignedIn, signIn, signOut, verifyPassword } from "@/lib/adminAuth";
-import { LEAD_STATUSES, updateLeadNotes, updateLeadStatus, type LeadStatus } from "@/lib/leadStore";
+import {
+  LEAD_STATUSES,
+  markLeadOpened,
+  updateLeadNotes,
+  updateLeadStatus,
+  type LeadStatus,
+} from "@/lib/leadStore";
 
 export type LoginState = { error?: string };
 
@@ -44,5 +50,11 @@ export async function setStatusAction(id: string, status: string): Promise<void>
 export async function setNotesAction(id: string, notes: string): Promise<void> {
   await requireSession();
   await updateLeadNotes(id, notes.slice(0, 5000));
+  revalidatePath("/admin");
+}
+
+export async function markOpenedAction(id: string): Promise<void> {
+  await requireSession();
+  await markLeadOpened(id);
   revalidatePath("/admin");
 }
