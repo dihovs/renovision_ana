@@ -1,0 +1,4 @@
+# Planning docs live in the repo for backup and version history, but they are
+# not part of the site and should never reach a production build.
+Docs/
+docs/
