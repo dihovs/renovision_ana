@@ -90,7 +90,8 @@ const en: Record<string, unknown> & {
       | "tripFeeError"
       | "tripFeeNotConfigured"
       | "minDriveSuffix"
-      | "estimatedTotalLabel",
+      | "estimatedTotalLabel"
+      | "describePrompt",
       string
     >;
     projectType: Record<
@@ -365,6 +366,8 @@ const en: Record<string, unknown> & {
       tripFeeNotConfigured: "Trip fee: to be confirmed when we call you.",
       minDriveSuffix: "min drive",
       estimatedTotalLabel: "Estimated total (labour + trip fee)",
+      describePrompt:
+        "Before I pass this to Artush — in a few words, what needs doing? A photo helps too if you have one (tap the paperclip). It means we turn up already knowing what we're walking into.",
     },
     projectType: {
       question: "What type of project are you looking to have done?",
@@ -664,6 +667,8 @@ const fr: typeof en = {
       tripFeeNotConfigured: "Frais de déplacement : à confirmer lors de notre appel.",
       minDriveSuffix: "min de route",
       estimatedTotalLabel: "Total estimé (main-d'œuvre + déplacement)",
+      describePrompt:
+        "Avant que je transmette ça à Artush — en quelques mots, qu'est-ce qu'il y a à faire? Une photo aide aussi si vous en avez une (touchez le trombone). Ça nous permet d'arriver en sachant déjà ce qui nous attend.",
     },
     projectType: {
       question: "Quel type de projet souhaitez-vous réaliser?",

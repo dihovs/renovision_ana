@@ -16,6 +16,18 @@ const copy = {
     afterAlt: "After: ",
     studies: [
       {
+        before: "/images/hero-basement-before-v2.jpg",
+        after: "/images/hero-basement-after-v2.jpg",
+        tag: "Water Damage · Basement Rebuild · Chomedey",
+        title: "Two Months of Water Behind a Finished Wall",
+        problem:
+          "A galvanized supply line failed inside a finished basement in Chomedey and leaked for roughly two months before anyone noticed. By the time it surfaced, water had moved through the assembly and mould had taken hold behind the finishes. What the owners expected to be a plumbing repair was already a containment and demolition job.",
+        solution:
+          "We opened the basement back to structure rather than guessing at the extent — with a slow leak, the damage is always wider than the stain. Affected material was removed, the assembly dried and readings logged, and the rebuild started only once the structure was verified dry. With the space already open, the owners chose to rebuild it as a full renovation instead of restoring it to what it had been.",
+        result:
+          "A basement finished to a better standard than before the failure, with a written record of what was found and what was replaced at each stage. That documentation is what turns a claim conversation into a short one.",
+      },
+      {
         before: "/images/water-damage-before-real.jpg",
         after: "/images/water-damage-after-real.jpg",
         tag: "Water Damage · Property Management",
@@ -76,6 +88,18 @@ const copy = {
     beforeAlt: "Avant : ",
     afterAlt: "Après : ",
     studies: [
+      {
+        before: "/images/hero-basement-before-v2.jpg",
+        after: "/images/hero-basement-after-v2.jpg",
+        tag: "Dégât d'eau · Reconstruction de sous-sol · Chomedey",
+        title: "Deux mois d'eau derrière un mur fini",
+        problem:
+          "Une conduite d'alimentation galvanisée a cédé dans un sous-sol aménagé de Chomedey et a fui pendant environ deux mois avant d'être remarquée. Quand le problème est apparu, l'eau avait migré dans l'assemblage et la moisissure s'était installée derrière les finis. Ce que les propriétaires croyaient être une réparation de plomberie était déjà un chantier de confinement et de démolition.",
+        solution:
+          "Nous avons ouvert le sous-sol jusqu'à la structure plutôt que d'estimer l'étendue des dommages — avec une fuite lente, l'eau va toujours plus loin que la tache. Les matériaux atteints ont été retirés, l'assemblage asséché et les relevés consignés, et la reconstruction n'a commencé qu'une fois la structure confirmée sèche. L'espace étant déjà ouvert, les propriétaires ont choisi de le reconstruire en rénovation complète plutôt que de le remettre dans son état d'origine.",
+        result:
+          "Un sous-sol fini à un meilleur standard qu'avant le bris, accompagné d'un relevé écrit de ce qui a été trouvé et remplacé à chaque étape. C'est cette documentation qui rend une discussion de réclamation courte.",
+      },
       {
         before: "/images/water-damage-before-real.jpg",
         after: "/images/water-damage-after-real.jpg",

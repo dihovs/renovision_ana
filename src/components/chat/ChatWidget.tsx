@@ -236,7 +236,7 @@ export default function ChatWidget() {
     }
     pushAssistant(`${t.chat.handyman.estimatedTotalLabel}: ${formatCents(taxableCents)}`);
     pushAssistant(t.chat.handyman.materialsNote);
-    pushAssistant(t.chat.leadCapture.questionsPrompt);
+    pushAssistant(t.chat.handyman.describePrompt);
   }
 
   function pushError() {
@@ -331,6 +331,13 @@ export default function ChatWidget() {
         ...data,
         locale,
         scopeSummary: estimate?.scopeSummary,
+        customerNotes: messages
+          .filter((m) => m.role === "user" && m.content && m.content !== t.chat.photoAttached)
+          .map((m) => m.content)
+          .join("\n"),
+        // Photos were only ever sent to Claude to judge scope; they never
+        // reached the owner, which defeats the point of asking for them.
+        photos: messages.flatMap((m) => (m.role === "user" && m.imageDataUrl ? [m.imageDataUrl] : [])),
         estimateLow: estimate?.low,
         estimateHigh: estimate?.high,
         estimateExpected: estimate?.expected,

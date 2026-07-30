@@ -11,6 +11,10 @@ import {
   SITE_URL,
 } from "@/lib/constants";
 
+/** Photos attached to the owner notification. See the build site below. */
+const MAX_PHOTOS = 4;
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+
 type EstimateLine = {
   name: string;
   quantity: number;
@@ -41,6 +45,13 @@ type LeadPayload = {
   totalLaborHours?: number;
   estimatedWorkDays?: number;
   exclusions?: string[];
+  /** Whatever the customer typed in the chat — for handyman jobs this is the
+   *  only actual description of the work; the generated scope summary records
+   *  only hours and postal code. */
+  customerNotes?: string;
+  /** data: URLs from the chat. Previously these went to Claude to judge scope
+   *  and stopped there, so the owner never saw the photo they asked for. */
+  photos?: string[];
 };
 
 const SECTION_H = "color:#2b5c9e;margin:20px 0 6px;font-size:14px;";
@@ -323,6 +334,27 @@ export async function POST(request: Request) {
     }
   }
 
+  // Customer photos, attached to the OWNER email only. They were previously
+  // sent to Claude to judge scope and stopped there, so the person who needs to
+  // see the damage never got the picture they were asked for.
+  //
+  // Capped deliberately: Resend rejects oversized messages outright, and a
+  // rejected email is worse than a missing photo because the lead itself
+  // travels in that message. The chat already re-encodes to ~1568px JPEG, so
+  // four photos is comfortably inside the limit.
+  const photoAttachments = (lead.photos ?? [])
+    .slice(0, MAX_PHOTOS)
+    .map((dataUrl, i) => {
+      const match = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(dataUrl);
+      if (!match) return null;
+      const [, mime, base64] = match;
+      const ext = mime.split("/")[1].replace("jpeg", "jpg");
+      // base64 inflates by ~4/3; check the decoded size against the budget.
+      if ((base64.length * 3) / 4 > MAX_PHOTO_BYTES) return null;
+      return { filename: `photo-${i + 1}.${ext}`, content: base64 };
+    })
+    .filter((a): a is { filename: string; content: string } => a !== null);
+
   if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     // Default to the verified renovisionana.ca domain so emails actually
@@ -340,6 +372,7 @@ export async function POST(request: Request) {
         replyTo: lead.email,
         subject: `New lead: ${lead.name}`,
         html: renderLeadEmailHtml(lead),
+        ...(photoAttachments.length > 0 ? { attachments: photoAttachments } : {}),
       });
       if (error) console.error("Resend rejected the lead notification email:", { leadId, error });
       else {
