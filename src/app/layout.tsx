@@ -7,7 +7,6 @@ import { ChatProvider } from "@/components/chat/ChatProvider";
 import ChromeGate from "@/components/layout/ChromeGate";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import SnapSections from "@/components/layout/SnapSections";
 import ChatWidget from "@/components/chat/ChatWidget";
 import LocalBusinessSchema from "@/components/seo/LocalBusinessSchema";
 import { SITE_URL } from "@/lib/constants";
@@ -62,7 +61,6 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-white text-charcoal font-body">
         <LocalBusinessSchema />
-        <SnapSections />
         <LanguageProvider>
           <ChatProvider>
             <ChromeGate>

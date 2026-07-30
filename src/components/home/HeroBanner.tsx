@@ -41,7 +41,8 @@ export default function HeroBanner({
          80px and the nav starts hiding almost immediately. */
       data-scroll-hero
       // Cancels the sticky header's space in flow so the photo runs behind it.
-      // The pt-32 below already clears the bar, so nothing lands under the nav.
+      // The matching paddingTop below keeps content clear of the nav. The value
+      // is published at runtime by Header, so it tracks the real bar height.
       // The negative margin slides the photo behind the header, but it also
       // shifts the flex centring up by the same amount, which is what made the
       // content sit high and feel cramped under the nav. Matching top padding

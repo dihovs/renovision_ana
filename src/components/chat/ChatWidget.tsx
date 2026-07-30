@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import LeadCaptureForm from "./LeadCaptureForm";
@@ -85,6 +86,7 @@ async function streamChat(
 export default function ChatWidget() {
   const { t, locale } = useLanguage();
   const { isOpen, openChat, closeChat } = useChat();
+  const pathname = usePathname();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [step, setStep] = useState<UiStep>("chat");
   const [track, setTrack] = useState<ChatTrack>("unset");
@@ -105,26 +107,38 @@ export default function ChatWidget() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Suppress the floating launcher while the header's own estimate button is on
-  // screen — otherwise the identical call to action shows twice at once. The
-  // header hides on scroll-down, so this naturally hands off: bar visible →
-  // launcher hidden, bar gone → launcher appears.
+  // Suppress the floating launcher while a page's own estimate CTA is on
+  // screen, so the identical call to action never appears twice at once. The
+  // marker currently lives on the homepage hero button; pages without one show
+  // the launcher normally.
   //
-  // Below xl the header has no text CTA at all (just phone/language/menu), so
-  // the element is absent and the launcher behaves as it always did. That's the
-  // reason for observing the element rather than reading a breakpoint.
-  const [headerCtaOnScreen, setHeaderCtaOnScreen] = useState(false);
+  // Keyed on `pathname` because ChatWidget is mounted in the root layout and
+  // never remounts between marketing pages. With an empty dep array the
+  // observer was wired once, to whatever existed at first load — so arriving on
+  // /services and then navigating home left suppression permanently off and
+  // both CTAs visible together.
+  const [pageCtaOnScreen, setPageCtaOnScreen] = useState(false);
   useEffect(() => {
     const cta = document.querySelector("[data-estimate-cta]");
-    if (!cta) return;
+    if (!cta) {
+      // Nothing to suppress against on this page. Reset via the cleanup path
+      // rather than setting state during the effect body, which React flags as
+      // a render-phase update.
+      return () => setPageCtaOnScreen(false);
+    }
     const observer = new IntersectionObserver(
-      ([entry]) => setHeaderCtaOnScreen(entry.isIntersecting),
-      // A sliver is enough to count as present; this isn't a reading target.
+      (entries) => {
+        // Read the LAST record: the UA can queue several between passes, and
+        // entries[0] is the oldest, which inverts the result.
+        const latest = entries[entries.length - 1];
+        setPageCtaOnScreen(latest.isIntersecting);
+      },
+      // A sliver counts as present; this isn't a reading target.
       { threshold: 0.01 },
     );
     observer.observe(cta);
     return () => observer.disconnect();
-  }, []);
+  }, [pathname]);
 
   // Scrolling to the very bottom is right for a stream of short bubbles, but
   // wrong when the tall calculator card is on screen — it pushes the card's
@@ -356,7 +370,7 @@ export default function ChatWidget() {
           onClick={openChat}
           aria-label={t.chat.launcherLabel}
           className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full uppercase tracking-[0.08em] bg-brand-green px-5 py-3.5 text-sm font-bold text-white shadow-lg transition-all duration-500 ease-out hover:scale-105 hover:bg-brand-green-dark ${
-            launcherVisible && !headerCtaOnScreen
+            launcherVisible && !pageCtaOnScreen
               ? "translate-y-0 scale-100 cursor-pointer opacity-100"
               : "pointer-events-none translate-y-4 scale-75 opacity-0"
           }`}

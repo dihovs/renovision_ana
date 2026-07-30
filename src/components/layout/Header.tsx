@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import LanguageToggle from "./LanguageToggle";
@@ -26,6 +26,7 @@ export default function Header() {
   const [companyOpen, setCompanyOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [overHero, setOverHero] = useState(() => FULL_BLEED_HERO_PATHS.includes(pathname));
+  const headerRef = useRef<HTMLElement>(null);
 
   // Two behaviours, one scroll listener:
   //
@@ -39,16 +40,28 @@ export default function Header() {
   // A plain scroll listener is sufficient again now that Lenis has been removed
   // — while Lenis was mounted it swallowed native scroll events and this
   // listener never ran, which is why the bar used to stay put.
+  // Publish the header's real rendered height so a full-bleed hero can cancel
+  // it exactly. A hardcoded value cannot work: the row height is set by the
+  // hamburger below xl and by the language pill at xl+, so it differs by
+  // breakpoint — and the hero both subtracts and adds it, doubling any error.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const publish = () => {
+      const h = el.getBoundingClientRect().height;
+      if (h > 0) document.documentElement.style.setProperty("--header-h", `${h}px`);
+    };
+
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     let ticking = false;
     let heroBottom = 0;
-
-    const measureHero = () => {
-      const heroEl = document.querySelector("[data-scroll-hero]");
-      heroBottom = heroEl ? window.scrollY + heroEl.getBoundingClientRect().bottom : 0;
-      // A page with no hero can never be "over" one.
-      if (!heroEl) setOverHero(false);
-    };
 
     const update = () => {
       ticking = false;
@@ -57,6 +70,17 @@ export default function Header() {
       // Swap to the solid treatment slightly before the hero fully clears, so
       // white text never lands on the pale section underneath.
       setOverHero(heroBottom > 0 && y < heroBottom - 96);
+    };
+
+    const measureHero = () => {
+      const heroEl = document.querySelector("[data-scroll-hero]");
+      heroBottom = heroEl ? window.scrollY + heroEl.getBoundingClientRect().bottom : 0;
+      // A page with no hero can never be "over" one.
+      if (!heroEl) setOverHero(false);
+      // Re-decide immediately: a resize can shorten the hero past the current
+      // scroll position without scrollY changing, which used to leave the bar
+      // transparent over pale content below it.
+      else update();
     };
 
     const onScroll = () => {
@@ -108,6 +132,7 @@ export default function Header() {
   return (
     <>
     <header
+      ref={headerRef}
       className={`sticky top-0 z-40 w-full transition-[transform,background-color,border-color,box-shadow] duration-300 ease-out ${
         hidden ? "-translate-y-full" : "translate-y-0"
       } ${

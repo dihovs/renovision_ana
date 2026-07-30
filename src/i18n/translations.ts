@@ -66,11 +66,9 @@ const en: Record<string, unknown> & {
     photoHint: string;
     disclaimer: string;
     offTopic: string;
-    restart: string;
     send: string;
     photoAttached: string;
     photoFailed: string;
-    removePhoto: string;
     skip: string;
     track: Record<"question" | "handyman" | "renovation", string>;
     handyman: Record<
@@ -135,7 +133,6 @@ const en: Record<string, unknown> & {
   },
   header: {
     freeEstimate: "Get a Free Estimate",
-    callNow: "Call Now",
   },
   hero: {
     eyebrow: "Renovations & Water Damage Restoration",
@@ -318,10 +315,8 @@ const en: Record<string, unknown> & {
   },
   footer: {
     tagline: "Renovation and water damage restoration you can trust.",
-    quickLinks: "Quick Links",
     explore: "Explore",
     contactUs: "Contact Us",
-    followUs: "Follow Us",
     viewOnMap: "View on map",
     rights: "All rights reserved.",
     privacy: "Privacy Policy",
@@ -339,12 +334,10 @@ const en: Record<string, unknown> & {
       "Vision AI is an automated estimate tool and only discusses renovation, water damage, and remodeling topics.",
     offTopic:
       "I'm just able to help with renovation, water damage restoration, and remodeling questions for Renovision AnA. Could you tell me more about your project?",
-    restart: "Start over",
     send: "Send",
     photoAttached: "Photo attached",
     photoFailed:
       "Sorry, I couldn't process that photo. You can describe the damage instead, or try a different picture.",
-    removePhoto: "Remove",
     skip: "Skip",
     track: {
       question: "What do you need help with?",
@@ -437,7 +430,6 @@ const fr: typeof en = {
   },
   header: {
     freeEstimate: "Estimation gratuite",
-    callNow: "Appelez maintenant",
   },
   hero: {
     eyebrow: "Rénovations et restauration de dégâts d'eau",
@@ -620,10 +612,8 @@ const fr: typeof en = {
   },
   footer: {
     tagline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance.",
-    quickLinks: "Liens rapides",
     explore: "Explorer",
     contactUs: "Nous joindre",
-    followUs: "Suivez-nous",
     viewOnMap: "Voir sur la carte",
     rights: "Tous droits réservés.",
     privacy: "Politique de confidentialité",
@@ -641,12 +631,10 @@ const fr: typeof en = {
       "Vision IA est un outil d'estimation automatisé qui ne traite que des sujets liés à la rénovation, aux dégâts d'eau et au remodelage.",
     offTopic:
       "Je ne peux vous aider qu'avec des questions sur la rénovation, la restauration de dégâts d'eau et le remodelage pour Renovision AnA. Pouvez-vous m'en dire plus sur votre projet?",
-    restart: "Recommencer",
     send: "Envoyer",
     photoAttached: "Photo jointe",
     photoFailed:
       "Désolé, je n'ai pas pu traiter cette photo. Vous pouvez décrire les dommages, ou essayer une autre image.",
-    removePhoto: "Retirer",
     skip: "Passer",
     track: {
       question: "De quel type d'aide avez-vous besoin?",

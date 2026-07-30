@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconBuilding,
   IconCalendar,
@@ -50,6 +50,17 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // The rail is a drawer below lg and a permanent column from lg up; `inert`
+  // must only apply in the drawer case.
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
   const current = NAV.find((item) => item.href === pathname);
 
   return (
@@ -63,7 +74,13 @@ export default function AdminShell({
         />
       )}
 
+      {/* Below lg the rail is hidden by transform alone, which leaves its links
+          focusable and in the accessibility tree while off-screen — a keyboard
+          user tabbing off the burger walked through seven invisible controls.
+          `inert` removes them properly; it is cleared from lg up, where the
+          rail is permanently visible rather than a drawer. */}
       <aside
+        inert={!mobileNavOpen && !isDesktop}
         className={`fixed inset-y-0 left-0 z-40 flex w-[232px] flex-col bg-charcoal-dark transition-transform duration-300 ease-out lg:static lg:translate-x-0 ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}

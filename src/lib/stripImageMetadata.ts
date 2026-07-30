@@ -30,19 +30,27 @@ export async function stripImageMetadata(file: File): Promise<string> {
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas not available; refusing to send the original file.");
+  let dataUrl: string;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not available; refusing to send the original file.");
 
-  // White base: transparent PNGs would otherwise flatten to black on JPEG.
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, width, height);
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  if ("close" in bitmap) bitmap.close();
+    // White base: transparent PNGs would otherwise flatten to black on JPEG.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(bitmap, 0, 0, width, height);
 
-  const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+    dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+  } finally {
+    // Release the decoded bitmap on EVERY path. A 12MP photo holds tens of MB
+    // of backing store, and the canvas allocation or encode is exactly what
+    // fails on a memory-constrained phone — the case where leaking hurts most.
+    if ("close" in bitmap) bitmap.close();
+  }
+
   // A tainted canvas throws on export; a failed encode returns "data:,".
   if (!dataUrl.startsWith("data:image/jpeg;base64,")) {
     throw new Error("Could not re-encode the image.");
