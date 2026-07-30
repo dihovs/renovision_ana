@@ -93,3 +93,17 @@ begin
   return removed;
 end;
 $$;
+
+-- Data API privileges.
+--
+-- Supabase's "Automatically expose new tables" is deliberately OFF for this
+-- project, so a new table gets NO privileges for the PostgREST roles. That is
+-- the safer default, but it means the grant has to be explicit — without it
+-- the server key connects successfully and Postgres then refuses the insert
+-- with "permission denied for table leads", which is how this was discovered.
+--
+-- Granting only to service_role is narrower than re-enabling auto-expose:
+-- anon and authenticated get nothing, so the publishable key cannot read
+-- customer records even if RLS is misconfigured later.
+grant select, insert, update, delete on table public.leads to service_role;
+grant execute on function public.purge_stale_leads() to service_role;
