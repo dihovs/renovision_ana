@@ -51,7 +51,7 @@ export default function HeroBanner({
         marginTop: "calc(var(--header-h) * -1)",
         paddingTop: "var(--header-h)",
       }}
-      className="relative isolate flex min-h-[88svh] items-center overflow-hidden bg-charcoal-dark"
+      className="relative isolate flex min-h-[68svh] items-center overflow-hidden bg-charcoal-dark sm:min-h-[78svh] lg:min-h-[88svh]"
     >
       {/* Illustration, not a project photo. The alt text describes the room
           without claiming it is completed work — the real before/after of an
@@ -91,16 +91,16 @@ export default function HeroBanner({
         className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-charcoal-dark via-charcoal-dark/60 to-transparent"
       />
 
-      <div className="relative mx-auto grid w-full max-w-7xl gap-8 px-4 pb-16 pt-2 sm:px-6 lg:grid-cols-[1.35fr_0.65fr] lg:items-end lg:gap-14 lg:pb-20 lg:pt-4 lg:px-8">
+      <div className="relative mx-auto grid w-full max-w-7xl gap-6 px-4 pb-10 pt-2 sm:gap-8 sm:px-6 sm:pb-14 lg:grid-cols-[1.35fr_0.65fr] lg:items-end lg:gap-14 lg:pb-20 lg:pt-4 lg:px-8">
         <div>
-          <p className="mb-4 font-label text-xs font-semibold uppercase tracking-[0.25em] text-brand-green-soft">
+          <p className="mb-3 font-label text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-green-soft sm:mb-4 sm:text-xs">
             {t.hero.eyebrow}
           </p>
           <h1 className="font-heading leading-[1.08] text-white">
-            <span className="text-[2.35rem] font-medium sm:text-5xl lg:text-[4.25rem]">
+            <span className="text-[1.75rem] font-medium sm:text-4xl lg:text-[4.25rem]">
               {t.hero.headlineStart}{" "}
             </span>
-            <em className="block text-[2.35rem] font-extrabold italic text-brand-green-soft sm:text-5xl lg:text-[4.25rem]">
+            <em className="block text-[1.75rem] font-extrabold italic text-brand-green-soft sm:text-4xl lg:text-[4.25rem]">
               {t.hero.headlineAccent}
             </em>
           </h1>
@@ -109,11 +109,11 @@ export default function HeroBanner({
         {/* Supporting column: sits under the headline on narrow screens, moves
             to the right of it from lg up. */}
         <div className="lg:pb-2 lg:pl-6 lg:pt-24">
-          <p className="max-w-sm text-sm leading-relaxed text-white/80 lg:text-[15px]">
+          <p className="max-w-sm text-[13px] leading-relaxed text-white/80 sm:text-sm lg:text-[15px]">
             {t.hero.subheadline}
           </p>
 
-          <div className="mt-7 flex flex-wrap gap-3 lg:gap-4">
+          <div className="mt-5 flex flex-wrap gap-2.5 sm:mt-7 sm:gap-3 lg:gap-4">
             <button
               type="button"
               data-estimate-cta
