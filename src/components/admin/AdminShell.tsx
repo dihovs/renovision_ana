@@ -43,6 +43,7 @@ const NAV: NavItem[] = [
   { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/calls", label: "Calls", icon: IconPhone, ready: true },
+  { href: "/admin/inbox", label: "Inbox", icon: IconClipboard, ready: true },
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
   { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },

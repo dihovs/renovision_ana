@@ -11,6 +11,7 @@ import { createFromJobAction } from "../../invoices/actions";
 import AdminNotice from "@/components/admin/AdminNotice";
 import AskClaude from "@/components/admin/AskClaude";
 import JobDetail from "@/components/admin/JobDetail";
+import JobThread from "@/components/admin/JobThread";
 import { db, MigrationPendingError } from "@/lib/crm/db";
 import { getJob } from "@/lib/crm/jobs";
 import { calculateQuoteTotals } from "@/lib/crm/money";
@@ -133,6 +134,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       </div>
 
       <AskClaude subject={{ kind: "job", id: job.id }} />
+
+      <JobThread jobId={job.id} />
 
       <JobDetail
         jobId={job.id}
