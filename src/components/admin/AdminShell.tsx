@@ -36,11 +36,24 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/admin", label: "Leads", icon: IconFlag, ready: true },
-  { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: false },
+  { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: false },
   { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: false },
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: false },
 ];
+
+/** What the ＋ button offers. Grows as each section becomes real. */
+const CREATE_ACTIONS = [{ href: "/admin/clients/new", label: "Client" }];
+
+/**
+ * Longest matching prefix, so /admin/clients/new still reads as "Clients"
+ * rather than falling through to the /admin root and titling itself "Leads".
+ */
+function activeNav(pathname: string): NavItem | undefined {
+  return NAV.filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)).sort(
+    (a, b) => b.href.length - a.href.length,
+  )[0];
+}
 
 export default function AdminShell({
   children,
@@ -51,6 +64,7 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   // The rail is a drawer below lg and a permanent column from lg up; `inert`
   // must only apply in the drawer case.
   const [isDesktop, setIsDesktop] = useState(false);
@@ -62,7 +76,15 @@ export default function AdminShell({
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
-  const current = NAV.find((item) => item.href === pathname);
+
+  // Any navigation closes both overlays. Without this the create menu survives
+  // the route change and hangs over the page it just opened.
+  useEffect(() => {
+    setCreateOpen(false);
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  const current = activeNav(pathname);
 
   return (
     <div className="min-h-dvh bg-[#f1f3f5] lg:flex">
@@ -101,21 +123,61 @@ export default function AdminShell({
           </span>
         </div>
 
-        {/* Jobber's rail leads with Create. Disabled until there's a database to
-            write a manually-entered lead into. */}
-        <div className="px-3 pb-2">
-          <span
-            aria-disabled="true"
-            className="flex cursor-not-allowed items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-brand-green-soft/45"
+        {/* Jobber's rail leads with Create — the one control that has to be
+            reachable from anywhere in the tool. */}
+        <div className="relative px-3 pb-2">
+          <button
+            type="button"
+            onClick={() => setCreateOpen((open) => !open)}
+            aria-expanded={createOpen}
+            aria-haspopup="menu"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-brand-green-soft transition-colors hover:bg-white/[0.08]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
             </svg>
             Create
-            <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/40">
-              Soon
-            </span>
-          </span>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              aria-hidden
+              className={`ml-auto transition-transform ${createOpen ? "rotate-180" : ""}`}
+            >
+              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          {createOpen && (
+            <>
+              {/* Full-screen catcher so a click anywhere dismisses the menu.
+                  Placed under the menu, above everything else. */}
+              <button
+                type="button"
+                aria-label="Close menu"
+                onClick={() => setCreateOpen(false)}
+                className="fixed inset-0 z-40 cursor-default"
+              />
+              <div
+                role="menu"
+                className="absolute left-3 right-3 z-50 mt-1 overflow-hidden rounded-md border border-black/10 bg-white py-1 shadow-lg"
+              >
+                {CREATE_ACTIONS.map(({ href, label }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    role="menuitem"
+                    className="block px-3 py-2 text-sm font-medium text-charcoal transition-colors hover:bg-black/[0.04]"
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <nav className="flex-1 space-y-0.5 px-3" aria-label="Admin">
@@ -187,7 +249,7 @@ export default function AdminShell({
         </header>
 
         <main className="min-w-0 flex-1 p-4 sm:p-6">
-          <div className="mx-auto max-w-4xl">{children}</div>
+          <div className="mx-auto max-w-5xl">{children}</div>
         </main>
       </div>
     </div>
