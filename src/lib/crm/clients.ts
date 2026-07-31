@@ -17,6 +17,13 @@ import type {
  * hold no column the operator shouldn't see, so there is nothing to withhold.
  */
 
+/** Channel ids to the labels used in the lead-source picker. */
+const LEAD_SOURCE_LABELS: Record<string, string> = {
+  website: "Website",
+  phone: "Phone",
+  whatsapp: "Referral",
+};
+
 function requireDb() {
   const client = db();
   if (!client) throw new Error("Database is not configured");
@@ -279,7 +286,7 @@ export async function convertLeadToClient(leadId: string): Promise<string> {
 
   const { data: lead, error: readError } = await client
     .from("leads")
-    .select("id, name, email, phone, address, client_id")
+    .select("id, name, email, phone, address, client_id, source")
     .eq("id", leadId)
     .maybeSingle();
 
@@ -310,7 +317,9 @@ export async function convertLeadToClient(leadId: string): Promise<string> {
       phones: lead.phone
         ? [{ number: String(lead.phone), type: "mobile", primary: true, smsAllowed: false }]
         : [],
-      leadSource: "Website",
+      // Carried from the lead rather than assumed. Hardcoding "Website"
+      // silently mis-attributed every phone-originated client in reports.
+      leadSource: LEAD_SOURCE_LABELS[String(lead.source ?? "website")] ?? "Website",
     },
     // The chat widget collects a single free-text address, which is the
     // service address, not a parsed billing one. It goes on the property as

@@ -39,6 +39,40 @@ type EstimateDetails = {
   exclusions: string[];
 };
 
+/** Server-side cap; mirrored here so the request is trimmed before it is sent. */
+const MAX_PHOTOS_TO_SEND = 4;
+
+/**
+ * Total base64 budget for the photo array.
+ *
+ * The platform rejects request bodies over 4.5 MB. Base64 inflates bytes by a
+ * third, and the rest of the payload — brief, line items, notes — needs room
+ * too, so this leaves a deliberate margin rather than aiming at the ceiling.
+ */
+const MAX_PHOTO_PAYLOAD_CHARS = 3_200_000;
+
+/**
+ * The photos most worth keeping, newest first.
+ *
+ * Newest wins because a customer who keeps photographing is narrowing in on
+ * the problem: the last shot is usually the close-up of the damage, and the
+ * first is the doorway they took on the way in.
+ */
+function selectPhotosToSend(all: string[]): string[] {
+  const kept: string[] = [];
+  let budget = MAX_PHOTO_PAYLOAD_CHARS;
+
+  for (const photo of [...all].reverse()) {
+    if (kept.length >= MAX_PHOTOS_TO_SEND) break;
+    if (photo.length > budget) continue;
+    budget -= photo.length;
+    kept.push(photo);
+  }
+
+  // Back into the order they were taken, which is the order they get described.
+  return kept.reverse();
+}
+
 type UiStep = "chat" | "leadCapture" | "done";
 
 type ChatStreamEvent =
@@ -344,7 +378,16 @@ export default function ChatWidget() {
           .join("\n"),
         // Photos were only ever sent to Claude to judge scope; they never
         // reached the owner, which defeats the point of asking for them.
-        photos: messages.flatMap((m) => (m.role === "user" && m.imageDataUrl ? [m.imageDataUrl] : [])),
+        //
+        // Capped HERE, in the browser, not just on the server. The platform
+        // rejects an oversized request body at the edge, which means the route
+        // handler never runs and its own "fail loudly" path never fires — the
+        // lead just vanishes. A customer photographing ten rooms of water
+        // damage is exactly the lead you least want to lose, so the trimming
+        // has to happen before the request is sent.
+        photos: selectPhotosToSend(
+          messages.flatMap((m) => (m.role === "user" && m.imageDataUrl ? [m.imageDataUrl] : [])),
+        ),
         estimateLow: estimate?.low,
         estimateHigh: estimate?.high,
         estimateExpected: estimate?.expected,

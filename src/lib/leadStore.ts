@@ -40,6 +40,8 @@ export type StoredLead = {
    *  leads captured before the brief existed, and for any conversation that
    *  ended without one. */
   project_brief: ProjectBrief | null;
+  /** Which channel it arrived through: website, phone, whatsapp. */
+  source: string;
 };
 
 /** Bucket is private; photos are only ever reachable via a signed URL. */
@@ -73,6 +75,8 @@ export type NewLead = {
   /** Storage object paths, not URLs — see uploadLeadPhotos. */
   photoPaths?: string[];
   projectBrief?: ProjectBrief | null;
+  /** Defaults to "website" — the only channel that existed originally. */
+  source?: string;
 };
 
 const url = process.env.SUPABASE_URL;
@@ -126,6 +130,7 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
       estimated_work_days: lead.estimatedWorkDays ?? null,
       photo_paths: lead.photoPaths ?? [],
       project_brief: lead.projectBrief ?? null,
+      source: lead.source ?? "website",
   };
 
   const first = await db.from("leads").insert(row).select("id").single();
@@ -162,13 +167,13 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
 // exactly how photo_paths and opened_at were added to the type, shipped, and
 // rendered as nothing.
 const LEAD_COLUMNS =
-  "id, created_at, name, email, phone, address, locale, marketing_consent, scope_summary, estimate_low, estimate_expected, estimate_high, total, estimated_work_days, status, notes, photo_paths, opened_at";
+  "id, created_at, name, email, phone, address, locale, marketing_consent, scope_summary, estimate_low, estimate_expected, estimate_high, total, estimated_work_days, status, notes, photo_paths, opened_at, source";
 
 // Columns added by a migration that may not have run yet in every environment.
 // Selecting one that doesn't exist fails the whole query, which once took the
 // admin page down entirely; asking for them separately means a pending
 // migration costs a feature rather than the page.
-const LEAD_PENDING_COLUMNS = ["project_brief"];
+const LEAD_PENDING_COLUMNS = ["project_brief", "source"];
 
 /** Newest first — the only order the pipeline view ever needs. */
 export async function listLeads(limit = 200): Promise<StoredLead[]> {

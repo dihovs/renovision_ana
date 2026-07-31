@@ -222,8 +222,10 @@ export function streamAnswer(
       {
         type: "text",
         text: SYSTEM_PROMPT,
-        // The system prompt is byte-identical on every request, so caching it
-        // makes each follow-up question cheaper than the first.
+        // Byte-identical on every request, so it is marked cacheable — but
+        // Haiku 4.5 only caches prefixes of 4096+ tokens and this one is far
+        // shorter, so today this is a no-op that fails silently rather than a
+        // saving. Kept for when the prompt grows past the threshold.
         cache_control: { type: "ephemeral" },
       },
       { type: "text", text: `THE RECORD\n\n${context}` },

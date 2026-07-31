@@ -171,6 +171,7 @@ function LeadCard({
           <p className="mt-1 text-xs text-charcoal/45">
             {timeAgo(lead.created_at)}
             {lead.estimate_expected ? ` · ${lead.estimate_expected}` : ""}
+            {lead.source && lead.source !== "website" ? ` · ${lead.source}` : ""}
           </p>
         </div>
         <svg

@@ -82,8 +82,12 @@ export async function replyTo(
       {
         type: "text",
         text: systemPrompt(options.locale),
-        // Identical on every turn of every call, so caching it makes turn two
-        // onward cheaper and, more usefully, slightly faster.
+        // Marked cacheable, but be honest about what this buys today: Haiku
+        // 4.5 only caches prefixes of 4096 tokens or more, and this prompt is
+        // nowhere near that, so the cache silently never engages (no error,
+        // cache_creation_input_tokens comes back 0). Left in place because it
+        // costs nothing and starts working if the prompt grows — not because
+        // it is doing anything right now.
         cache_control: { type: "ephemeral" },
       },
     ],

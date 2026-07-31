@@ -174,3 +174,27 @@ The voice figure assumes ~12 turns per call at Twilio's published $0.02 per
 speech recognition. **Design the prompts to gather several facts per turn** —
 a 25-turn call costs $0.50 in recognition alone, and per-turn pricing punishes
 one-question-at-a-time conversations.
+
+---
+
+## One setting only you can see: the Vercel function region
+
+`supabase/migrations/0001_leads.sql` says the database was deliberately put in
+Montreal *"to avoid a cross-border transfer assessment for every lead."* But
+nothing in this repo pins where the **compute** runs, so it inherits Vercel's
+default — `iad1`, Virginia.
+
+If that is the case today, every lead already round-trips through the United
+States on its way to a Montreal database, which is the exact assessment the
+region choice was meant to avoid. Call transcripts are more sensitive again.
+
+Only you can see this: **Vercel dashboard → Project → Settings → Functions →
+Function Region.** Check what it says.
+
+I have deliberately not pinned a region in code, because picking the wrong
+identifier breaks every deploy and I would be guessing at which region code is
+closest to Montreal. Tell me what the dashboard offers and I will set it.
+
+There is a second, smaller reason to care: every database round trip inside a
+voice turn currently crosses the border twice, which is 30–60ms of a latency
+budget measured in hundreds of milliseconds.
