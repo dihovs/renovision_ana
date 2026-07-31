@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { calculateEstimate, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
 import type { ScopeLine } from "@/lib/estimator/types";
+import { sanitizeBrief } from "@/lib/projectBrief";
 import { CHAT_TOOLS, HANDYMAN_CHAT_TOOLS, buildSystemPrompt, type ChatTrack } from "./chatTools";
 
 export const runtime = "nodejs";
@@ -152,7 +153,12 @@ export async function POST(request: Request) {
                 content: note + unknownNote,
               });
             } else if (block.name === "collect_contact") {
-              emit({ type: "collectContact" });
+              // The brief rides along with the form-open event. It is never
+              // shown to the customer — it is an internal handover note, and
+              // the owner's copy of "no water damage reported" is not something
+              // to read back to the person who said it.
+              const input = block.input as { brief?: unknown };
+              emit({ type: "collectContact", brief: sanitizeBrief(input.brief) });
               toolResults.push({
                 type: "tool_result",
                 tool_use_id: block.id,

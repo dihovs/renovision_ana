@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { ProjectBrief } from "./projectBrief";
 
 /**
  * Lead persistence.
@@ -35,6 +36,10 @@ export type StoredLead = {
   /** Null until the operator first opens it. Deliberately separate from
    *  `status`: reading a lead must never advance the pipeline. */
   opened_at: string | null;
+  /** What the AI established during the chat, in job-sheet form. Null for
+   *  leads captured before the brief existed, and for any conversation that
+   *  ended without one. */
+  project_brief: ProjectBrief | null;
 };
 
 /** Bucket is private; photos are only ever reachable via a signed URL. */
@@ -67,6 +72,7 @@ export type NewLead = {
   estimatedWorkDays?: number;
   /** Storage object paths, not URLs — see uploadLeadPhotos. */
   photoPaths?: string[];
+  projectBrief?: ProjectBrief | null;
 };
 
 const url = process.env.SUPABASE_URL;
@@ -121,6 +127,7 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
       total_labor_hours: lead.totalLaborHours ?? null,
       estimated_work_days: lead.estimatedWorkDays ?? null,
       photo_paths: lead.photoPaths ?? [],
+      project_brief: lead.projectBrief ?? null,
     })
     .select("id")
     .single();
@@ -129,24 +136,51 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
   return data.id as string;
 }
 
+// Must list every field on StoredLead. The result is cast, so a column missing
+// here is silently undefined at runtime rather than a type error — which is
+// exactly how photo_paths and opened_at were added to the type, shipped, and
+// rendered as nothing.
+const LEAD_COLUMNS =
+  "id, created_at, name, email, phone, address, locale, marketing_consent, scope_summary, estimate_low, estimate_expected, estimate_high, total, estimated_work_days, status, notes, photo_paths, opened_at";
+
+// Columns added by a migration that may not have run yet in every environment.
+// Selecting one that doesn't exist fails the whole query, which once took the
+// admin page down entirely; asking for them separately means a pending
+// migration costs a feature rather than the page.
+const LEAD_PENDING_COLUMNS = ["project_brief"];
+
 /** Newest first — the only order the pipeline view ever needs. */
 export async function listLeads(limit = 200): Promise<StoredLead[]> {
   const db = getClient();
   if (!db) return [];
-  const { data, error } = await db
-    .from("leads")
-    .select(
-      // Must list every field on StoredLead. The result is cast, so a column
-      // missing here is silently undefined at runtime rather than a type
-      // error — which is exactly how photo_paths and opened_at were added to
-      // the type, shipped, and rendered as nothing.
-      "id, created_at, name, email, phone, address, locale, marketing_consent, scope_summary, estimate_low, estimate_expected, estimate_high, total, estimated_work_days, status, notes, photo_paths, opened_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(limit);
 
-  if (error) throw new Error(`Supabase select failed: ${error.message}`);
-  return (data ?? []) as StoredLead[];
+  async function query(columns: string) {
+    return db!
+      .from("leads")
+      .select(columns)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+  }
+
+  const full = await query([LEAD_COLUMNS, ...LEAD_PENDING_COLUMNS].join(", "));
+  if (!full.error) return (full.data ?? []) as unknown as StoredLead[];
+
+  // 42703 is undefined_column; PGRST204 is PostgREST's equivalent.
+  const missingColumn =
+    full.error.code === "42703" ||
+    full.error.code === "PGRST204" ||
+    /column .* does not exist/i.test(full.error.message);
+
+  if (!missingColumn) throw new Error(`Supabase select failed: ${full.error.message}`);
+
+  console.warn(
+    `[leadStore] falling back — a migration is pending: ${full.error.message}. ` +
+      `Run the newest file in supabase/migrations.`,
+  );
+
+  const base = await query(LEAD_COLUMNS);
+  if (base.error) throw new Error(`Supabase select failed: ${base.error.message}`);
+  return (base.data ?? []) as unknown as StoredLead[];
 }
 
 export async function updateLeadStatus(id: string, status: LeadStatus): Promise<void> {

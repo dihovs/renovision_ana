@@ -51,14 +51,82 @@ const BUILD_ESTIMATE_TOOL: Anthropic.Tool = {
 const COLLECT_CONTACT_TOOL: Anthropic.Tool = {
   name: "collect_contact",
   description:
-    "Open the contact-details form so the customer can leave their name, phone, and email for a follow-up. " +
+    "Open the contact-details form so the customer can leave their name, phone, and email for a follow-up, " +
+    "and file your internal briefing on the job at the same time. " +
     "Call this ONLY after an estimate has been produced AND the customer has had a chance to ask questions — " +
     "specifically when they indicate they're ready (e.g. they say yes to a follow-up, ask for a callback or the " +
     "estimate by email, or have no further questions). Do NOT call it immediately after the estimate; invite " +
     "questions first.",
+  // The brief is attached here rather than to build_estimate for two reasons:
+  // the handyman track has no build_estimate tool and would otherwise file no
+  // brief at all, and by this point the conversation is finished, so the model
+  // is summarising everything it learned rather than only what it priced.
   input_schema: {
     type: "object",
-    properties: {},
+    properties: {
+      brief: {
+        type: "object",
+        description:
+          "Your internal handover note to the owner, who will phone this customer and then visit the site. " +
+          "He does NOT want the transcript — he wants the facts you established, so he can walk in already " +
+          "knowing the job. Write it for a tradesperson: short, concrete, no sales language.",
+        properties: {
+          headline: {
+            type: "string",
+            description:
+              "The job in one short line, the way a contractor would write it on a job sheet. " +
+              "Examples: 'Living room laminate floor, approx. 320 sq ft'. " +
+              "'Basement flood, dishwasher line, ~200 sq ft wet'. 'Mount 3 TVs, assemble 2 wardrobes'.",
+          },
+          facts: {
+            type: "array",
+            description:
+              "Every material fact the customer gave you, as short label/value pairs — the things that " +
+              "change the price or the plan. Include measurements, room, existing and desired materials, " +
+              "condition, age of the building, access, and how long a problem has been going on. " +
+              "Also record the significant NEGATIVES you confirmed, because 'no water damage' and " +
+              "'never asked about water damage' are completely different for the person quoting it. " +
+              "Only record what the customer actually told you or what you can see in a photo they sent. " +
+              "Never infer, never fill a gap with a typical value — an unasked question belongs in " +
+              "openQuestions, not here.",
+            items: {
+              type: "object",
+              properties: {
+                label: {
+                  type: "string",
+                  description: "Two or three words, e.g. 'Room', 'Area', 'Subfloor', 'Water damage'.",
+                },
+                value: {
+                  type: "string",
+                  description:
+                    "The answer, short and concrete, e.g. 'Living room', 'approx. 320 sq ft', " +
+                    "'plywood, no soft spots reported', 'none — customer confirmed dry'.",
+                },
+              },
+              required: ["label", "value"],
+            },
+          },
+          customerWords: {
+            type: "string",
+            description:
+              "How the customer described the problem themselves, in their own words, tidied only for " +
+              "typos. Keep their original language (French or English) — do not translate. This is the " +
+              "one part that must not be paraphrased; the owner reads it to hear the customer's tone and " +
+              "how urgent it feels to them.",
+          },
+          openQuestions: {
+            type: "array",
+            description:
+              "What you could NOT establish that would move the price, phrased as the question to ask on " +
+              "the call. Be honest here — an empty list when you actually guessed at a dimension is worse " +
+              "than a long one. Example: 'Confirm subfloor condition once the old flooring is lifted.'",
+            items: { type: "string" },
+          },
+        },
+        required: ["headline", "facts"],
+      },
+    },
+    required: ["brief"],
   },
 };
 
@@ -79,7 +147,9 @@ LANGUAGE: The site is currently set to ${language}, so open in ${language}. But 
 
 URGENT SITUATIONS COME FIRST: If the visitor describes something active or unsafe — water still leaking or flowing, a burst pipe, a safety hazard, or visible/spreading mould — do not continue the estimate flow. Urge them to call us right away at ${SITE_PHONE} so we can respond quickly, and only continue with an estimate if they say the situation is already under control.
 
-NEVER OVER-PROMISE: Do not guarantee insurance coverage, claim-approval timelines, or any structural condition you cannot verify from a chat or photo. If asked about legal advice, insurance-claim strategy, or anything outside estimating, gently say our team can go over that with them on the call. Never discuss competitors' pricing or speak negatively about other companies.`;
+NEVER OVER-PROMISE: Do not guarantee insurance coverage, claim-approval timelines, or any structural condition you cannot verify from a chat or photo. If asked about legal advice, insurance-claim strategy, or anything outside estimating, gently say our team can go over that with them on the call. Never discuss competitors' pricing or speak negatively about other companies.
+
+TAKE NOTES AS YOU GO: Everything the customer tells you — the room, the measurements, the materials, how long it has been wet, whether there is a musty smell, what is underneath — has to be handed to the owner at the end, in the brief argument of the collect_contact tool. He phones them and then drives out there, and he should already know the job before he knocks. So while you talk, notice what you have actually established and what you have only assumed. If you find yourself about to guess a dimension or a condition, ask instead — one short question — because a guess in the brief is worse than a gap in it.`;
 }
 
 function buildRenovationPrompt(language: string): string {

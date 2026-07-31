@@ -9,6 +9,7 @@ import HandymanCalculator, { type TripFeeOutcome } from "./HandymanCalculator";
 import { ChatMessage } from "./chatLogic";
 import { calculateHandymanEstimate, calculateTax, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
 import { stripImageMetadata } from "@/lib/stripImageMetadata";
+import type { ProjectBrief } from "@/lib/projectBrief";
 
 type ChatTrack = "unset" | "handyman" | "renovation";
 
@@ -43,7 +44,7 @@ type UiStep = "chat" | "leadCapture" | "done";
 type ChatStreamEvent =
   | { type: "text"; text: string }
   | ({ type: "estimate" } & EstimateDetails)
-  | { type: "collectContact" }
+  | { type: "collectContact"; brief?: ProjectBrief | null }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -91,6 +92,7 @@ export default function ChatWidget() {
   const [step, setStep] = useState<UiStep>("chat");
   const [track, setTrack] = useState<ChatTrack>("unset");
   const [estimate, setEstimate] = useState<EstimateDetails | null>(null);
+  const [brief, setBrief] = useState<ProjectBrief | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [leadSubmitted, setLeadSubmitted] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -282,6 +284,10 @@ export default function ChatWidget() {
             // opened later — either by the collect_contact tool once they're
             // ready, or by the manual "Leave my details" button.
           } else if (event.type === "collectContact") {
+            // Internal only — the brief is never rendered in the chat. It is
+            // the AI's handover note to the owner, and reading "customer
+            // seemed unsure" back to the customer would be absurd.
+            if (event.brief) setBrief(event.brief);
             setStep("leadCapture");
           } else if (event.type === "error") {
             pushError();
@@ -331,6 +337,7 @@ export default function ChatWidget() {
         ...data,
         locale,
         scopeSummary: estimate?.scopeSummary,
+        projectBrief: brief,
         customerNotes: messages
           .filter((m) => m.role === "user" && m.content && m.content !== t.chat.photoAttached)
           .map((m) => m.content)

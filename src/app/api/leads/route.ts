@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
 import { isConfigured as isLeadStoreConfigured, saveLead, uploadLeadPhotos } from "@/lib/leadStore";
+import { sanitizeBrief, type ProjectBrief } from "@/lib/projectBrief";
 import {
   LEADS_NOTIFY_EMAIL,
   SITE_ADDRESS,
@@ -52,6 +53,9 @@ type LeadPayload = {
   /** data: URLs from the chat. Previously these went to Claude to judge scope
    *  and stopped there, so the owner never saw the photo they asked for. */
   photos?: string[];
+  /** The AI's handover note — what it established, in job-sheet form. Comes
+   *  straight from the model, so it is re-validated here rather than trusted. */
+  projectBrief?: ProjectBrief | null;
 };
 
 const SECTION_H = "color:#2b5c9e;margin:20px 0 6px;font-size:14px;";
@@ -158,10 +162,47 @@ function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string
       <ul style="margin:0;padding-left:18px;color:#666;font-size:13px;">${items}</ul>`;
   }
 
+  // 2. The brief — first, because it is the thing you read before phoning.
+  // Everything below it explains how the number was reached; this is what the
+  // job actually is.
+  const brief = lead.projectBrief;
+  let briefHtml = "";
+  if (brief) {
+    const factRows = brief.facts
+      .map(
+        (f) =>
+          `<tr><td style="padding:3px 14px 3px 0;color:#666;vertical-align:top;white-space:nowrap;">${escapeHtml(f.label)}</td>` +
+          `<td style="padding:3px 0;">${escapeHtml(f.value)}</td></tr>`,
+      )
+      .join("");
+    const words = brief.customerWords
+      ? `<div style="margin-top:10px;padding-left:10px;border-left:3px solid #d5dee9;color:#555;font-style:italic;font-size:13px;">${escapeHtml(brief.customerWords)}</div>`
+      : "";
+    // Amber rather than the blue used elsewhere: these are the questions to
+    // ask on the call, and they should not blend into the reference material.
+    const questions = brief.openQuestions?.length
+      ? `<div style="margin-top:12px;background:#fdf6e3;border-radius:6px;padding:10px 12px;">
+           <div style="font-size:12px;font-weight:bold;color:#8a6d1f;text-transform:uppercase;letter-spacing:0.4px;">Still to confirm</div>
+           <ul style="margin:6px 0 0;padding-left:18px;color:#6b5514;font-size:13px;">${brief.openQuestions
+             .map((q) => `<li style="margin:2px 0;">${escapeHtml(q)}</li>`)
+             .join("")}</ul>
+         </div>`
+      : "";
+    briefHtml = `
+      <h3 style="${SECTION_H}">The job</h3>
+      <div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
+        ${brief.headline ? `<div style="font-size:15px;font-weight:bold;color:#1f4677;margin-bottom:8px;">${escapeHtml(brief.headline)}</div>` : ""}
+        ${factRows ? `<table style="border-collapse:collapse;font-size:13px;">${factRows}</table>` : ""}
+        ${words}
+        ${questions}
+      </div>`;
+  }
+
   return `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#2b2b2b;max-width:560px;">
       <h2 style="color:#2b5c9e;margin:0 0 12px;">New lead from ${escapeHtml(SITE_NAME)}</h2>
       ${contact}
+      ${briefHtml}
       ${customerView}
       ${breakdown}
       ${exclusionsHtml}
@@ -301,6 +342,10 @@ export async function POST(request: Request) {
     name: body.name,
     phone: body.phone,
     email: body.email,
+    // Re-validated at the boundary. The brief was written by the model and
+    // relayed through the browser, so by the time it arrives here it is
+    // untrusted input like any other field in this payload.
+    projectBrief: sanitizeBrief(body.projectBrief),
     receivedAt: new Date().toISOString(),
   };
 
@@ -328,7 +373,12 @@ export async function POST(request: Request) {
       // Upload failures return fewer paths rather than throwing — losing a
       // photo must never cost the customer their enquiry.
       const photoPaths = await uploadLeadPhotos((lead.photos ?? []).slice(0, MAX_PHOTOS));
-      const storedId = await saveLead({ ...lead, address: lead.address ?? undefined, photoPaths });
+      const storedId = await saveLead({
+        ...lead,
+        address: lead.address ?? undefined,
+        photoPaths,
+        projectBrief: lead.projectBrief ?? undefined,
+      });
       if (storedId) {
         recorded = true;
         console.log("[lead stored]", { leadId, rowId: storedId });
