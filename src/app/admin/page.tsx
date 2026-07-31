@@ -1,56 +1,286 @@
-import LeadPipeline from "@/components/admin/LeadPipeline";
+import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
-import {
-  isConfigured as isStoreConfigured,
-  listLeads,
-  signPhotoUrls,
-  type StoredLead,
-} from "@/lib/leadStore";
+import { countClients } from "@/lib/crm/clients";
+import { formatMoney, parseMoneyToCents } from "@/lib/crm/money";
+import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@/lib/leadStore";
 
-// Auth, the shell, and noindex all come from the layout.
+/**
+ * Home — the Jobber-dashboard idiom applied to what this business actually
+ * has today.
+ *
+ * Jobber's Home is: greeting, the workflow funnel (Requests → Quotes → Jobs →
+ * Invoices), a to-do list, business-at-a-glance numbers, recent activity.
+ * Here the funnel starts at Leads because that is our request object, and the
+ * stages that don't exist yet render as placeholders rather than being
+ * omitted — the empty slots ARE the roadmap, same as the greyed rail items.
+ *
+ * Every number on this page is computed from real rows. Where a figure is an
+ * AI estimate rather than an invoiced amount it says so, because a dashboard
+ * that silently promotes estimates to revenue is lying to its one user.
+ */
+
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+const OPEN_STATUSES = new Set(["new", "contacted", "quoted"]);
+
+export default async function AdminHomePage() {
   if (!isStoreConfigured) {
     return (
       <AdminNotice title="No database connected yet">
-        Leads are still arriving by email and nothing is being lost — they just aren&apos;t stored
-        anywhere this page can read. Set{" "}
-        <code className="font-mono text-brand-blue">SUPABASE_URL</code> and{" "}
+        Set <code className="font-mono text-brand-blue">SUPABASE_URL</code> and{" "}
         <code className="font-mono text-brand-blue">SUPABASE_SERVICE_ROLE_KEY</code>, run the
-        migration in <code className="font-mono text-brand-blue">supabase/migrations</code>, and
-        this list fills itself in.
+        migrations, and this dashboard fills itself in.
       </AdminNotice>
     );
   }
 
   let leads: StoredLead[] = [];
-  let photoUrls: Record<string, string[]> = {};
+  let clients = 0;
   let error: string | null = null;
   try {
-    leads = await listLeads();
-    // Signed per request, never stored: a persisted URL would outlive its own
-    // expiry and render as a broken image later.
-    const withPhotos = leads.filter((l) => l.photo_paths?.length);
-    photoUrls = Object.fromEntries(
-      await Promise.all(
-        withPhotos.map(async (l) => [l.id, await signPhotoUrls(l.photo_paths)] as const),
-      ),
-    );
+    [leads, clients] = await Promise.all([listLeads(500), countClients()]);
   } catch (err) {
-    // Most likely a paused free-tier project. Say so plainly rather than
-    // showing an empty list, which would read as "no leads".
-    error = err instanceof Error ? err.message : "Could not load leads";
+    error = err instanceof Error ? err.message : "Could not load the dashboard";
   }
 
   if (error) {
     return (
       <AdminNotice title="Could not reach the database">
         {error}. If the project has been idle for over a week it may be paused — open the Supabase
-        dashboard to resume it. Leads are still arriving by email in the meantime.
+        dashboard to resume it.
       </AdminNotice>
     );
   }
 
-  return <LeadPipeline leads={leads} photoUrls={photoUrls} />;
+  // --- Figures, all derived from real rows -------------------------------
+  const open = leads.filter((l) => OPEN_STATUSES.has(l.status));
+  const unread = leads.filter((l) => !l.opened_at);
+  const won = leads.filter((l) => l.status === "won");
+
+  const sumExpected = (subset: StoredLead[]) =>
+    subset.reduce((sum, lead) => sum + (parseMoneyToCents(lead.estimate_expected ?? "") ?? 0), 0);
+
+  const openValueCents = sumExpected(open);
+  const wonValueCents = sumExpected(won);
+
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const last30 = leads.filter((l) => new Date(l.created_at).getTime() >= thirtyDaysAgo);
+
+  // Greeting in the owner's timezone, not the server's — Vercel runs in UTC
+  // and "Good morning" at 9pm reads as broken.
+  const hour = Number(
+    new Intl.DateTimeFormat("en-CA", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: "America/Toronto",
+    }).format(new Date()),
+  );
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const today = new Intl.DateTimeFormat("en-CA", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "America/Toronto",
+  }).format(new Date());
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-heading text-xl font-bold text-charcoal">{greeting}, Artush</h2>
+        <p className="mt-0.5 text-sm text-charcoal/50">{today}</p>
+      </div>
+
+      {/* The workflow funnel. One live stage; the rest are the roadmap. */}
+      <section>
+        <SectionTitle>Workflow</SectionTitle>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Link
+            href="/admin/leads"
+            className="group rounded-xl border border-black/5 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide text-charcoal/45">
+                Leads
+              </span>
+              {unread.length > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-green px-1.5 text-[11px] font-bold text-white">
+                  {unread.length}
+                </span>
+              )}
+            </div>
+            <p className="mt-2 font-heading text-3xl font-bold text-charcoal">{open.length}</p>
+            <p className="mt-0.5 text-xs text-charcoal/50">
+              {openValueCents > 0
+                ? `${formatMoney(openValueCents)} estimated`
+                : "open in the pipeline"}
+            </p>
+          </Link>
+
+          <SoonCard label="Quotes" note="Being built now" />
+          <SoonCard label="Jobs" note="After quotes" />
+          <SoonCard label="Invoices" note="After jobs" />
+        </div>
+      </section>
+
+      {/* The to-do list. Unread leads are the only thing that genuinely
+          demands attention today, so that is all this shows — a padded-out
+          task list would bury the one row that matters. */}
+      <section>
+        <SectionTitle>Needs attention</SectionTitle>
+        {unread.length === 0 ? (
+          <div className="rounded-xl border border-black/5 bg-white p-4 text-sm text-charcoal/50 shadow-sm">
+            All caught up — every lead has been opened.
+          </div>
+        ) : (
+          <ul className="divide-y divide-black/5 overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
+            {unread.slice(0, 5).map((lead) => (
+              <li key={lead.id}>
+                <Link
+                  href="/admin/leads"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02]"
+                >
+                  <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-brand-green" />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-charcoal">
+                      {lead.name}
+                    </span>
+                    <span className="block truncate text-xs text-charcoal/55">
+                      {lead.scope_summary || "No scope recorded"}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-xs text-charcoal/40">
+                    {timeAgo(lead.created_at)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <SectionTitle>At a glance</SectionTitle>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Leads · 30 days" value={String(last30.length)} />
+          <Stat
+            label="Open pipeline"
+            value={formatMoney(openValueCents)}
+            note="AI estimates, pre-tax"
+          />
+          <Stat
+            label="Won"
+            value={String(won.length)}
+            note={wonValueCents > 0 ? `${formatMoney(wonValueCents)} estimated` : undefined}
+          />
+          <Stat label="Clients" value={String(clients)} />
+        </div>
+      </section>
+
+      <section>
+        <SectionTitle>Recent leads</SectionTitle>
+        {leads.length === 0 ? (
+          <div className="rounded-xl border border-black/5 bg-white p-4 text-sm text-charcoal/50 shadow-sm">
+            Nothing yet — leads from the chat widget land here.
+          </div>
+        ) : (
+          <ul className="divide-y divide-black/5 overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
+            {leads.slice(0, 5).map((lead) => (
+              <li key={lead.id}>
+                <Link
+                  href="/admin/leads"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-charcoal">
+                      {lead.name}
+                    </span>
+                    <span className="block truncate text-xs text-charcoal/55">
+                      {lead.scope_summary || "No scope recorded"}
+                    </span>
+                  </div>
+                  <StatusChip status={lead.status} />
+                  <span className="w-16 shrink-0 text-right text-xs text-charcoal/40">
+                    {timeAgo(lead.created_at)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-charcoal/45">{children}</h3>
+  );
+}
+
+/**
+ * A funnel stage that doesn't exist yet. Rendered rather than omitted: the
+ * empty slot is a promise of shape, and it keeps the live Leads card from
+ * floating alone in a layout built for four.
+ */
+function SoonCard({ label, note }: { label: string; note: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-black/10 p-4">
+      <span className="text-xs font-bold uppercase tracking-wide text-charcoal/30">{label}</span>
+      <p className="mt-2 font-heading text-3xl font-bold text-charcoal/20">—</p>
+      <p className="mt-0.5 text-xs text-charcoal/35">{note}</p>
+    </div>
+  );
+}
+
+function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+      <span className="text-xs font-bold uppercase tracking-wide text-charcoal/45">{label}</span>
+      <p className="mt-2 font-heading text-2xl font-bold text-charcoal">{value}</p>
+      {note && <p className="mt-0.5 text-[11px] text-charcoal/40">{note}</p>}
+    </div>
+  );
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  new: "bg-brand-blue/[0.08] text-brand-blue",
+  contacted: "bg-amber-100 text-amber-800",
+  quoted: "bg-violet-100 text-violet-800",
+  won: "bg-green-100 text-green-800",
+  lost: "bg-black/[0.05] text-charcoal/50",
+};
+
+// Same wording as the pipeline view — "contacted" is labelled "Called" there,
+// and the dashboard using a different word for the same state reads as two
+// different states.
+const STATUS_LABEL: Record<string, string> = {
+  new: "New",
+  contacted: "Called",
+  quoted: "Quoted",
+  won: "Won",
+  lost: "Lost",
+};
+
+function StatusChip({ status }: { status: string }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+        STATUS_STYLE[status] ?? STATUS_STYLE.new
+      }`}
+    >
+      {STATUS_LABEL[status] ?? status}
+    </span>
+  );
+}
+
+function timeAgo(iso: string): string {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 }

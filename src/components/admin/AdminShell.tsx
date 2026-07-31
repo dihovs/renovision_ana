@@ -8,6 +8,7 @@ import {
   IconBuilding,
   IconCalendar,
   IconClipboard,
+  IconDashboard,
   IconFlag,
   IconHammer,
   IconHome,
@@ -35,7 +36,8 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { href: "/admin", label: "Leads", icon: IconFlag, ready: true },
+  { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
+  { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: false },
   { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: false },

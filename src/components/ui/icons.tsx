@@ -27,6 +27,7 @@ import {
   Grid3x3,
   Hammer,
   House,
+  LayoutDashboard,
   MapPin,
   PaintRoller,
   Phone,
@@ -50,6 +51,7 @@ function make(Glyph: typeof Phone) {
 }
 
 export const IconPhone = make(Phone);
+export const IconDashboard = make(LayoutDashboard);
 export const IconDroplet = make(Droplets);
 export const IconBuilding = make(Building2);
 export const IconShield = make(ShieldCheck);
