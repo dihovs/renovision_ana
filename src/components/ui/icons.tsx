@@ -32,6 +32,7 @@ import {
   PaintRoller,
   Phone,
   ShieldCheck,
+  Tag,
   Wrench,
 } from "lucide-react";
 
@@ -52,6 +53,7 @@ function make(Glyph: typeof Phone) {
 
 export const IconPhone = make(Phone);
 export const IconDashboard = make(LayoutDashboard);
+export const IconTag = make(Tag);
 export const IconDroplet = make(Droplets);
 export const IconBuilding = make(Building2);
 export const IconShield = make(ShieldCheck);

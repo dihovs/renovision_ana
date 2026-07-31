@@ -112,8 +112,122 @@ export async function writeSetting(key: string, value: unknown): Promise<void> {
   if (error) throw new Error(`Could not save ${key}: ${error.message}`);
 }
 
+/**
+ * The company's own identity, as it appears on documents.
+ *
+ * `taxRegistered` is a hard gate, not a preference. GST/QST registration is
+ * mandatory only once worldwide taxable supplies pass $30,000 in a calendar
+ * quarter or the four preceding quarters; below that a small supplier "is not
+ * required to collect the taxes" — and collecting them anyway means taking
+ * money you have no authority to take. So when this is false the renderer
+ * suppresses tax lines entirely, whatever the per-line taxable flags say.
+ *
+ * Source: Revenu Québec, "Registering for the GST and the QST".
+ */
+export type CompanySetting = {
+  legalName: string;
+  tradeName: string;
+  street1: string;
+  street2: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  email: string;
+  website: string;
+  /** Building Act s. 57.1 — required on advertising, estimates, quotes,
+   *  contracts and statements of account. Omitting it is a penal offence. */
+  rbqLicence: string;
+  neq: string;
+  taxRegistered: boolean;
+  gstNumber: string;
+  qstNumber: string;
+  /** Office de la protection du consommateur permit, needed only if the
+   *  company ever concludes itinerant-merchant contracts. */
+  opcPermit: string;
+};
+
+export const DEFAULT_COMPANY: CompanySetting = {
+  legalName: "",
+  tradeName: "Renovision AnA",
+  street1: "",
+  street2: "",
+  city: "Laval",
+  province: "QC",
+  postalCode: "",
+  country: "Canada",
+  phone: "",
+  email: "",
+  website: "",
+  rbqLicence: "",
+  neq: "",
+  taxRegistered: false,
+  gstNumber: "",
+  qstNumber: "",
+  opcPermit: "",
+};
+
+export type QuoteDefaultsSetting = {
+  validDays: number;
+  depositKind: "none" | "amount" | "percent";
+  depositValue: number;
+  requireSignature: boolean;
+  showQuantities: boolean;
+  showUnitPrices: boolean;
+  showLineTotals: boolean;
+  showTotalsFooter: boolean;
+  /** French is the source text. Under CPA s. 26, where a French and a
+   *  non-French version diverge, the reading most favourable to the consumer
+   *  prevails — so the two must never say different things. */
+  clientMessageFr: string;
+  clientMessageEn: string;
+  contractTermsFr: string;
+  contractTermsEn: string;
+};
+
+export const DEFAULT_QUOTE_DEFAULTS: QuoteDefaultsSetting = {
+  validDays: 30,
+  depositKind: "none",
+  depositValue: 0,
+  requireSignature: false,
+  showQuantities: true,
+  showUnitPrices: true,
+  showLineTotals: true,
+  showTotalsFooter: true,
+  clientMessageFr: "",
+  clientMessageEn: "",
+  contractTermsFr: "",
+  contractTermsEn: "",
+};
+
 export function getTaxRates(): Promise<TaxRatesSetting> {
   return readSetting("tax_rates", DEFAULT_TAX_RATES);
+}
+
+export async function getCompany(): Promise<CompanySetting> {
+  // Merged over the defaults rather than returned raw: a settings row written
+  // before a field existed would otherwise come back missing that key, and
+  // `company.rbqLicence` would be undefined rather than "".
+  const stored = await readSetting("company", {} as Partial<CompanySetting>);
+  return { ...DEFAULT_COMPANY, ...stored };
+}
+
+export async function getQuoteDefaults(): Promise<QuoteDefaultsSetting> {
+  const stored = await readSetting("quote_defaults", {} as Partial<QuoteDefaultsSetting>);
+  return { ...DEFAULT_QUOTE_DEFAULTS, ...stored };
+}
+
+/**
+ * Whether tax may legally be charged at all.
+ *
+ * Both numbers must be present, not just the flag: a company that has ticked
+ * "registered" but not entered its numbers cannot produce a compliant invoice
+ * anyway, since Revenu Québec requires both to appear on any invoice of $100
+ * or more.
+ */
+export function canChargeTax(company: CompanySetting): boolean {
+  return Boolean(company.taxRegistered && company.gstNumber.trim() && company.qstNumber.trim());
 }
 
 export function getLeadSources(): Promise<string[]> {

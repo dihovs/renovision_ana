@@ -12,6 +12,8 @@ import {
   IconFlag,
   IconHammer,
   IconHome,
+  IconShield,
+  IconTag,
 } from "@/components/ui/icons";
 
 /**
@@ -39,13 +41,18 @@ const NAV: NavItem[] = [
   { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
-  { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: false },
+  { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
+  { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },
   { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: false },
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: false },
 ];
 
 /** What the ＋ button offers. Grows as each section becomes real. */
-const CREATE_ACTIONS = [{ href: "/admin/clients/new", label: "Client" }];
+const CREATE_ACTIONS = [
+  { href: "/admin/quotes/new", label: "Quote" },
+  { href: "/admin/clients/new", label: "Client" },
+  { href: "/admin/price-book", label: "Price book item" },
+];
 
 /**
  * Longest matching prefix, so /admin/clients/new still reads as "Clients"
@@ -220,6 +227,13 @@ export default function AdminShell({
         </nav>
 
         <div className="p-3">
+          <Link
+            href="/admin/settings"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white"
+          >
+            <IconShield className="h-4 w-4 shrink-0" />
+            Settings
+          </Link>
           <Link
             href="/"
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white"
