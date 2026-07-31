@@ -100,9 +100,7 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
   const db = getClient();
   if (!db) return null;
 
-  const { data, error } = await db
-    .from("leads")
-    .insert({
+  const row = {
       name: lead.name,
       email: lead.email,
       phone: lead.phone,
@@ -128,12 +126,35 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
       estimated_work_days: lead.estimatedWorkDays ?? null,
       photo_paths: lead.photoPaths ?? [],
       project_brief: lead.projectBrief ?? null,
-    })
-    .select("id")
-    .single();
+  };
 
-  if (error) throw new Error(`Supabase insert failed: ${error.message}`);
-  return data.id as string;
+  const first = await db.from("leads").insert(row).select("id").single();
+  if (!first.error) return first.data.id as string;
+
+  // A column added by a migration that hasn't run yet fails the WHOLE insert,
+  // which would cost a real customer's enquiry over a deploy-order mistake.
+  // Drop the pending columns and store what we can — an incomplete lead beats
+  // a lost one, and the warning says exactly what to run.
+  const missingColumn =
+    first.error.code === "42703" ||
+    first.error.code === "PGRST204" ||
+    /column .* does not exist/i.test(first.error.message);
+
+  if (!missingColumn) throw new Error(`Supabase insert failed: ${first.error.message}`);
+
+  console.warn(
+    `[leadStore] insert retried without pending columns: ${first.error.message}. ` +
+      `Run the newest file in supabase/migrations.`,
+  );
+
+  const reduced = { ...row };
+  for (const column of LEAD_PENDING_COLUMNS) {
+    delete (reduced as Record<string, unknown>)[column];
+  }
+
+  const retry = await db.from("leads").insert(reduced).select("id").single();
+  if (retry.error) throw new Error(`Supabase insert failed: ${retry.error.message}`);
+  return retry.data.id as string;
 }
 
 // Must list every field on StoredLead. The result is cast, so a column missing
