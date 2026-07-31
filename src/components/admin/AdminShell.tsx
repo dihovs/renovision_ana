@@ -47,6 +47,7 @@ const NAV: NavItem[] = [
   { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: true },
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: true },
   { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
+  { href: "/admin/reports", label: "Reports", icon: IconShield, ready: true },
 ];
 
 /** What the ＋ button offers. Grows as each section becomes real. */

@@ -8,12 +8,14 @@ import {
   createInvoiceFromJob,
   deletePayment,
   recordPayment,
+  getInvoice,
   sendInvoice,
   setInvoiceArchived,
   setInvoiceStatus,
   updateInvoice,
 } from "@/lib/crm/invoices";
 import { INVOICE_STATUSES, PAYMENT_METHODS, type InvoiceStatus, type PaymentMethod } from "@/lib/crm/opsTypes";
+import { emailInvoice } from "@/lib/crm/sendDocument";
 
 export type InvoiceState = { error?: string; ok?: string };
 
@@ -58,6 +60,16 @@ export async function updateInvoiceAction(
 export async function sendInvoiceAction(id: string): Promise<void> {
   await requireSession();
   await sendInvoice(id);
+
+  // Best-effort, same reasoning as quotes: the invoice is issued and has a
+  // link either way, and a mail outage must not leave it stuck in draft.
+  try {
+    const invoice = await getInvoice(id);
+    if (invoice) await emailInvoice(invoice);
+  } catch (err) {
+    console.error("[invoices] issued but the email failed:", err);
+  }
+
   revalidatePath("/admin/invoices");
   revalidatePath(`/admin/invoices/${id}`);
 }

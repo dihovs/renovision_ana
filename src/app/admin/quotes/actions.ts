@@ -13,6 +13,8 @@ import {
   type QuoteLineInput,
 } from "@/lib/crm/quotes";
 import { QUOTE_STATUSES, type QuoteStatus } from "@/lib/crm/quoteTypes";
+import { getQuote } from "@/lib/crm/quotes";
+import { emailQuote } from "@/lib/crm/sendDocument";
 
 export type QuoteFormState = { error?: string };
 
@@ -189,6 +191,18 @@ export async function updateQuoteAction(
 export async function sendQuoteAction(id: string): Promise<void> {
   await requireSession();
   await sendQuote(id);
+
+  // The email is best-effort. A quote is "sent" the moment it is frozen and
+  // has a link — if the mail provider is down the owner can still copy that
+  // link into a text message, and failing the whole action would leave the
+  // quote in draft with no way to share it.
+  try {
+    const quote = await getQuote(id);
+    if (quote) await emailQuote(quote);
+  } catch (err) {
+    console.error("[quotes] issued but the email failed:", err);
+  }
+
   revalidatePath("/admin/quotes");
   revalidatePath(`/admin/quotes/${id}`);
 }
