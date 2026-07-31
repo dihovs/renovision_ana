@@ -9,6 +9,7 @@ import {
 } from "../actions";
 import { createFromJobAction } from "../../invoices/actions";
 import AdminNotice from "@/components/admin/AdminNotice";
+import AskClaude from "@/components/admin/AskClaude";
 import JobDetail from "@/components/admin/JobDetail";
 import { db, MigrationPendingError } from "@/lib/crm/db";
 import { getJob } from "@/lib/crm/jobs";
@@ -130,6 +131,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           </div>
         )}
       </div>
+
+      <AskClaude subject={{ kind: "job", id: job.id }} />
 
       <JobDetail
         jobId={job.id}

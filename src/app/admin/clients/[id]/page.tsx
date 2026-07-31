@@ -9,6 +9,7 @@ import {
   updatePropertyAction,
 } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
+import AskClaude from "@/components/admin/AskClaude";
 import HubLink from "@/components/admin/HubLink";
 import PropertyEditor from "@/components/admin/PropertyEditor";
 import { SITE_URL } from "@/lib/constants";
@@ -176,6 +177,8 @@ export default async function ClientDetailPage({
           </div>
         )}
       </div>
+
+      <AskClaude subject={{ kind: "client", id: client.id }} />
 
       <PropertyEditor
         properties={client.properties}

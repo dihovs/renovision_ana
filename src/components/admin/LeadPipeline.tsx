@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/admin/actions";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
+import AskClaude from "./AskClaude";
 import type { ProjectBrief } from "@/lib/projectBrief";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
@@ -208,6 +209,12 @@ function LeadCard({
           {/* The brief sits directly under the call button because that is the
               order you use it in: read the job, then phone them. */}
           {lead.project_brief && <Brief brief={lead.project_brief} />}
+
+          {/* Rendered only while the card is open, so a list of thirty leads
+              doesn't mount thirty assistant panels. */}
+          <div className="mt-4">
+            <AskClaude subject={{ kind: "lead", id: lead.id }} />
+          </div>
 
           {photos.length > 0 && (
             <div className="mt-4">
