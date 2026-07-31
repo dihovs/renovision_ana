@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isSignedIn } from "@/lib/adminAuth";
+import { ensureHubToken, revokeHubToken } from "@/lib/crm/hub";
 import {
   archiveProperty,
   convertLeadToClient,
@@ -263,4 +264,16 @@ export async function convertLeadAction(leadId: string): Promise<void> {
   revalidatePath("/admin");
   revalidatePath("/admin/clients");
   redirect(`/admin/clients/${clientId}`);
+}
+
+export async function createHubLinkAction(clientId: string): Promise<void> {
+  await requireSession();
+  await ensureHubToken(clientId);
+  revalidatePath(`/admin/clients/${clientId}`);
+}
+
+export async function revokeHubLinkAction(clientId: string): Promise<void> {
+  await requireSession();
+  await revokeHubToken(clientId);
+  revalidatePath(`/admin/clients/${clientId}`);
 }

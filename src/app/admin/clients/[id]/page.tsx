@@ -2,12 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   addPropertyAction,
+  createHubLinkAction,
   removePropertyAction,
+  revokeHubLinkAction,
   setArchivedAction,
   updatePropertyAction,
 } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
+import HubLink from "@/components/admin/HubLink";
 import PropertyEditor from "@/components/admin/PropertyEditor";
+import { SITE_URL } from "@/lib/constants";
 import { getClient } from "@/lib/crm/clients";
 import { MigrationPendingError } from "@/lib/crm/db";
 import { formatRate, getTaxRates, resolveTaxRate } from "@/lib/crm/settings";
@@ -181,12 +185,27 @@ export default async function ClientDetailPage({
         removeAction={removePropertyAction.bind(null, client.id)}
       />
 
-      <section className="rounded-xl border border-dashed border-black/10 p-4 text-center sm:p-5">
-        <p className="text-sm font-semibold text-charcoal/45">Quotes, jobs and invoices</p>
-        <p className="mt-1 text-xs text-charcoal/40">
-          The estimate builder lands here next — it will read this client&apos;s properties and tax
-          rate directly.
+      <HubLink
+        url={
+          (client as { hub_token?: string | null }).hub_token
+            ? `${SITE_URL}/hub/${(client as { hub_token?: string | null }).hub_token}`
+            : null
+        }
+        createAction={createHubLinkAction.bind(null, client.id)}
+        revokeAction={revokeHubLinkAction.bind(null, client.id)}
+      />
+
+      <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="font-heading text-sm font-bold text-charcoal">Quotes</h2>
+        <p className="mt-0.5 text-xs text-charcoal/50">
+          Every quote for this client, and the jobs and invoices that follow from them.
         </p>
+        <Link
+          href={`/admin/quotes/new?client=${client.id}`}
+          className="mt-3 inline-block rounded-lg bg-brand-blue px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-blue/90"
+        >
+          New quote for this client
+        </Link>
       </section>
     </div>
   );

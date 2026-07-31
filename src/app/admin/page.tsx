@@ -1,6 +1,9 @@
 import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
 import { countClients } from "@/lib/crm/clients";
+import { countQuotesByStatus } from "@/lib/crm/quotes";
+import { countJobsByStatus } from "@/lib/crm/jobs";
+import { receivablesSummary } from "@/lib/crm/invoices";
 import { formatMoney, parseMoneyToCents } from "@/lib/crm/money";
 import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@/lib/leadStore";
 
@@ -36,9 +39,21 @@ export default async function AdminHomePage() {
 
   let leads: StoredLead[] = [];
   let clients = 0;
+  let quoteCounts: Record<string, number> = {};
+  let jobCounts: Record<string, number> = {};
+  let receivables = { outstandingCents: 0, overdueCents: 0, count: 0 };
   let error: string | null = null;
   try {
-    [leads, clients] = await Promise.all([listLeads(500), countClients()]);
+    // Each of these degrades to a zero on its own rather than failing the
+    // page: a migration that hasn't run yet should grey out one card, not
+    // take down the dashboard.
+    [leads, clients, quoteCounts, jobCounts, receivables] = await Promise.all([
+      listLeads(500),
+      countClients(),
+      countQuotesByStatus().catch(() => ({})),
+      countJobsByStatus().catch(() => ({})),
+      receivablesSummary().catch(() => ({ outstandingCents: 0, overdueCents: 0, count: 0 })),
+    ]);
   } catch (err) {
     error = err instanceof Error ? err.message : "Could not load the dashboard";
   }
@@ -116,9 +131,37 @@ export default async function AdminHomePage() {
             </p>
           </Link>
 
-          <SoonCard label="Quotes" note="Being built now" />
-          <SoonCard label="Jobs" note="After quotes" />
-          <SoonCard label="Invoices" note="After jobs" />
+          <FunnelCard
+            href="/admin/quotes"
+            label="Quotes"
+            count={(quoteCounts.sent ?? 0) + (quoteCounts.viewed ?? 0)}
+            note={
+              quoteCounts.approved
+                ? `${quoteCounts.approved} approved`
+                : "awaiting a decision"
+            }
+          />
+          <FunnelCard
+            href="/admin/jobs"
+            label="Jobs"
+            count={(jobCounts.scheduled ?? 0) + (jobCounts.in_progress ?? 0)}
+            note={
+              jobCounts.unscheduled
+                ? `${jobCounts.unscheduled} to schedule`
+                : "active"
+            }
+          />
+          <FunnelCard
+            href="/admin/invoices"
+            label="Invoices"
+            count={receivables.count}
+            note={
+              receivables.outstandingCents > 0
+                ? `${formatMoney(receivables.outstandingCents)} owing`
+                : "all settled"
+            }
+            alarm={receivables.overdueCents > 0}
+          />
         </div>
       </section>
 
@@ -173,6 +216,13 @@ export default async function AdminHomePage() {
             note={wonValueCents > 0 ? `${formatMoney(wonValueCents)} estimated` : undefined}
           />
           <Stat label="Clients" value={String(clients)} />
+          {receivables.overdueCents > 0 && (
+            <Stat
+              label="Overdue"
+              value={formatMoney(receivables.overdueCents)}
+              note="past the due date"
+            />
+          )}
         </div>
       </section>
 
@@ -218,18 +268,31 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * A funnel stage that doesn't exist yet. Rendered rather than omitted: the
- * empty slot is a promise of shape, and it keeps the live Leads card from
- * floating alone in a layout built for four.
- */
-function SoonCard({ label, note }: { label: string; note: string }) {
+/** One stage of the workflow funnel. */
+function FunnelCard({
+  href,
+  label,
+  count,
+  note,
+  alarm,
+}: {
+  href: string;
+  label: string;
+  count: number;
+  note: string;
+  alarm?: boolean;
+}) {
   return (
-    <div className="rounded-xl border border-dashed border-black/10 p-4">
-      <span className="text-xs font-bold uppercase tracking-wide text-charcoal/30">{label}</span>
-      <p className="mt-2 font-heading text-3xl font-bold text-charcoal/20">—</p>
-      <p className="mt-0.5 text-xs text-charcoal/35">{note}</p>
-    </div>
+    <Link
+      href={href}
+      className="group rounded-xl border border-black/5 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
+      <span className="text-xs font-bold uppercase tracking-wide text-charcoal/45">{label}</span>
+      <p className="mt-2 font-heading text-3xl font-bold text-charcoal">{count}</p>
+      <p className={`mt-0.5 text-xs ${alarm ? "font-semibold text-red-700" : "text-charcoal/50"}`}>
+        {note}
+      </p>
+    </Link>
   );
 }
 
