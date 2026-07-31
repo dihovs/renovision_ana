@@ -1,0 +1,161 @@
+"use client";
+
+import { useState } from "react";
+import AskClaude from "./AskClaude";
+import type { StoredCall } from "@/lib/crm/calls";
+
+/**
+ * Call transcripts.
+ *
+ * The whole dialogue, both sides. The escalation marker is shown inline
+ * because it is the most useful signal here: it marks the exact turn where the
+ * fast model stopped landing, which is where the prompt needs work.
+ */
+
+const STATUS_STYLE: Record<StoredCall["status"], string> = {
+  in_progress: "bg-brand-green text-white",
+  completed: "bg-black/[0.05] text-charcoal/60",
+  failed: "bg-red-100 text-red-800",
+  abandoned: "bg-amber-100 text-amber-800",
+};
+
+const STATUS_LABEL: Record<StoredCall["status"], string> = {
+  in_progress: "Live",
+  completed: "Completed",
+  failed: "Failed",
+  abandoned: "No answer",
+};
+
+export default function CallList({ calls }: { calls: StoredCall[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <ul className="space-y-3">
+      {calls.map((call) => {
+        const open = openId === call.id;
+        const callerSaid = call.turns?.find((t) => t.role === "caller")?.text;
+
+        return (
+          <li key={call.id} className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+            <button
+              type="button"
+              onClick={() => setOpenId(open ? null : call.id)}
+              aria-expanded={open}
+              className="flex w-full cursor-pointer items-start justify-between gap-3 p-4 text-left"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-heading text-base font-bold text-brand-blue">
+                    {call.from_number || "Unknown number"}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_STYLE[call.status]}`}
+                  >
+                    {STATUS_LABEL[call.status]}
+                  </span>
+                  {call.escalated_at && (
+                    <span
+                      title={call.escalation_reason ?? undefined}
+                      className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-800"
+                    >
+                      Escalated
+                    </span>
+                  )}
+                  <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-charcoal/50">
+                    {call.locale}
+                  </span>
+                </div>
+                <p className="mt-1 truncate text-sm text-charcoal/70">
+                  {callerSaid || "Nothing was said"}
+                </p>
+                <p className="mt-1 text-xs text-charcoal/45">
+                  {new Date(call.started_at).toLocaleString("en-CA", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                    timeZone: "America/Toronto",
+                  })}
+                  {call.duration_seconds != null && ` · ${formatDuration(call.duration_seconds)}`}
+                  {` · ${call.turns?.length ?? 0} turns`}
+                </p>
+              </div>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+                className={`mt-1 shrink-0 text-charcoal/40 transition-transform ${open ? "rotate-180" : ""}`}
+              >
+                <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            {open && (
+              <div className="border-t border-black/5 px-4 pb-4 pt-3">
+                {call.from_number && (
+                  <a
+                    href={`tel:${call.from_number.replace(/[^\d+]/g, "")}`}
+                    className="mb-4 block rounded-full bg-brand-green px-4 py-2.5 text-center text-sm font-bold uppercase tracking-[0.08em] text-white hover:bg-brand-green-dark"
+                  >
+                    Call {call.from_number} back
+                  </a>
+                )}
+
+                {call.escalation_reason && (
+                  <p className="mb-3 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-900">
+                    <strong className="font-bold">Escalated to the stronger model:</strong>{" "}
+                    {call.escalation_reason}
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  {(call.turns ?? []).map((turn, index) => (
+                    <div
+                      key={index}
+                      className={
+                        turn.role === "caller"
+                          ? "max-w-[85%] rounded-2xl rounded-tl-sm bg-black/[0.04] px-3 py-2"
+                          : "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-brand-blue/[0.07] px-3 py-2"
+                      }
+                    >
+                      <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
+                        {turn.role === "caller" ? "Caller" : "Anna"}
+                        {turn.escalated && " · escalated"}
+                      </span>
+                      <span className="block text-sm leading-relaxed text-charcoal/85">
+                        {turn.text}
+                      </span>
+                    </div>
+                  ))}
+                  {(call.turns ?? []).length === 0 && (
+                    <p className="text-sm text-charcoal/40">
+                      Nothing was recorded — the caller hung up before speaking.
+                    </p>
+                  )}
+                </div>
+
+                <p className="mt-3 text-[11px] text-charcoal/40">
+                  Text only. No audio of this call was recorded or stored.
+                </p>
+
+                {call.lead_id && (
+                  <div className="mt-4">
+                    <AskClaude subject={{ kind: "lead", id: call.lead_id }} />
+                  </div>
+                )}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return mins > 0 ? `${mins}m ${rest}s` : `${rest}s`;
+}
