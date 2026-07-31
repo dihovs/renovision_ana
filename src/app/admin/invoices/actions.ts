@@ -1,0 +1,119 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { isSignedIn } from "@/lib/adminAuth";
+import { parseMoneyToCents } from "@/lib/crm/money";
+import {
+  createInvoiceFromJob,
+  deletePayment,
+  recordPayment,
+  sendInvoice,
+  setInvoiceArchived,
+  setInvoiceStatus,
+  updateInvoice,
+} from "@/lib/crm/invoices";
+import { INVOICE_STATUSES, PAYMENT_METHODS, type InvoiceStatus, type PaymentMethod } from "@/lib/crm/opsTypes";
+
+export type InvoiceState = { error?: string; ok?: string };
+
+async function requireSession(): Promise<void> {
+  if (!(await isSignedIn())) throw new Error("Not authorised");
+}
+
+function str(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
+}
+
+export async function createFromJobAction(jobId: string, depositPercent?: number): Promise<void> {
+  await requireSession();
+  const id = await createInvoiceFromJob(jobId, { depositPercent });
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/jobs/${jobId}`);
+  redirect(`/admin/invoices/${id}`);
+}
+
+export async function updateInvoiceAction(
+  id: string,
+  _prev: InvoiceState,
+  formData: FormData,
+): Promise<InvoiceState> {
+  await requireSession();
+  try {
+    await updateInvoice(id, {
+      title: str(formData, "title"),
+      dueDate: str(formData, "dueDate") || null,
+      clientMessage: str(formData, "clientMessage"),
+      paymentTerms: str(formData, "paymentTerms"),
+      internalNotes: str(formData, "internalNotes"),
+      language: str(formData, "language") === "en" ? "en" : "fr",
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not save." };
+  }
+  revalidatePath(`/admin/invoices/${id}`);
+  return { ok: "Saved" };
+}
+
+export async function sendInvoiceAction(id: string): Promise<void> {
+  await requireSession();
+  await sendInvoice(id);
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/invoices/${id}`);
+}
+
+export async function setInvoiceStatusAction(id: string, status: string): Promise<void> {
+  await requireSession();
+  if (!INVOICE_STATUSES.includes(status as InvoiceStatus)) {
+    throw new Error(`Unknown status: ${status}`);
+  }
+  await setInvoiceStatus(id, status as InvoiceStatus);
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/invoices/${id}`);
+}
+
+export async function archiveInvoiceAction(id: string, archived: boolean): Promise<void> {
+  await requireSession();
+  await setInvoiceArchived(id, archived);
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/invoices/${id}`);
+}
+
+export async function recordPaymentAction(
+  invoiceId: string,
+  _prev: InvoiceState,
+  formData: FormData,
+): Promise<InvoiceState> {
+  await requireSession();
+
+  // parseMoneyToCents, never Number(): "1 234,56" from a French keyboard has
+  // to land as 123456 cents, not NaN.
+  const amount = parseMoneyToCents(str(formData, "amount"));
+  if (amount === null || amount === 0) return { error: "Enter the amount received." };
+
+  const method = str(formData, "method");
+
+  try {
+    await recordPayment(invoiceId, {
+      amountCents: amount,
+      method: (PAYMENT_METHODS.includes(method as PaymentMethod)
+        ? method
+        : "other") as PaymentMethod,
+      receivedOn: str(formData, "receivedOn") || undefined,
+      reference: str(formData, "reference"),
+      notes: str(formData, "notes"),
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not record the payment." };
+  }
+
+  revalidatePath("/admin/invoices");
+  revalidatePath(`/admin/invoices/${invoiceId}`);
+  return { ok: "Recorded" };
+}
+
+export async function removePaymentAction(invoiceId: string, paymentId: string): Promise<void> {
+  await requireSession();
+  await deletePayment(paymentId);
+  revalidatePath(`/admin/invoices/${invoiceId}`);
+}

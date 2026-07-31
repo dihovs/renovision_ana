@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import {
   IconBuilding,
   IconCalendar,
+  IconCheckCircle,
   IconClipboard,
   IconDashboard,
   IconFlag,
@@ -43,8 +44,9 @@ const NAV: NavItem[] = [
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
   { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },
-  { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: false },
-  { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: false },
+  { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: true },
+  { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: true },
+  { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
 ];
 
 /** What the ＋ button offers. Grows as each section becomes real. */

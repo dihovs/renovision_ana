@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { archiveQuoteAction, sendQuoteAction, setStatusAction } from "../actions";
+import { convertQuoteAction } from "../../jobs/actions";
 import AdminNotice from "@/components/admin/AdminNotice";
 import QuoteActions from "@/components/admin/QuoteActions";
 import { MigrationPendingError } from "@/lib/crm/db";
@@ -148,6 +149,16 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
               {quote.approved_signature}
             </p>
           )}
+          {/* Converting copies the agreed lines onto a job. Idempotent, so a
+              double tap on a phone cannot create two jobs. */}
+          <form action={convertQuoteAction.bind(null, quote.id)} className="mt-3">
+            <button
+              type="submit"
+              className="cursor-pointer rounded-lg bg-brand-green px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-green-dark"
+            >
+              Convert to a job
+            </button>
+          </form>
         </div>
       )}
 
