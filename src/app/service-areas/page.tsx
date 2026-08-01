@@ -2,9 +2,9 @@ import ServiceAreasIndexContent from "@/components/pages/ServiceAreasIndexConten
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
-  title: "Service Areas in Laval & Greater Montreal",
+  title: "Secteurs desservis à Laval et Montréal",
   description:
-    "The Laval sectors Renovision AnA works in most — Chomedey, Sainte-Rose, Vimont, Fabreville, and Duvernay — and what each area's housing stock means for renovation and water damage work.",
+    "Les secteurs où Renovision AnA travaille le plus — Chomedey, Sainte-Rose, Vimont, Fabreville, Duvernay et quatre arrondissements de Montréal. Découvrez-les.",
   path: "/service-areas",
 });
 

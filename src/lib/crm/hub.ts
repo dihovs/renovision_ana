@@ -18,7 +18,15 @@ export type HubData = {
   clientName: string;
   quotes: Pick<
     Quote,
-    "id" | "quote_number" | "title" | "status" | "total_cents" | "created_at" | "valid_until" | "public_token"
+    | "id"
+    | "quote_number"
+    | "title"
+    | "status"
+    | "total_cents"
+    | "created_at"
+    | "valid_until"
+    | "public_token"
+    | "language"
   >[];
   jobs: Pick<Job, "id" | "job_number" | "title" | "status" | "total_cents" | "starts_on">[];
   invoices: Pick<
@@ -32,6 +40,7 @@ export type HubData = {
     | "issue_date"
     | "due_date"
     | "public_token"
+    | "language"
   >[];
 };
 
@@ -100,7 +109,9 @@ export async function getHubData(token: string): Promise<HubData | null> {
   const [quotes, jobs, invoices] = await Promise.all([
     client
       .from("quotes")
-      .select("id, quote_number, title, status, total_cents, created_at, valid_until, public_token")
+      .select(
+        "id, quote_number, title, status, total_cents, created_at, valid_until, public_token, language",
+      )
       .eq("client_id", clientId)
       .is("archived_at", null)
       .neq("status", "draft")
@@ -114,7 +125,7 @@ export async function getHubData(token: string): Promise<HubData | null> {
     client
       .from("invoices")
       .select(
-        "id, invoice_number, title, status, total_cents, amount_paid_cents, issue_date, due_date, public_token",
+        "id, invoice_number, title, status, total_cents, amount_paid_cents, issue_date, due_date, public_token, language",
       )
       .eq("client_id", clientId)
       .is("archived_at", null)

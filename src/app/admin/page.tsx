@@ -2,7 +2,7 @@ import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
 import { countClients } from "@/lib/crm/clients";
 import { countQuotesByStatus } from "@/lib/crm/quotes";
-import { countJobsByStatus } from "@/lib/crm/jobs";
+import { countJobsByStatus, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { receivablesSummary } from "@/lib/crm/invoices";
 import { formatMoney, parseMoneyToCents } from "@/lib/crm/money";
 import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@/lib/leadStore";
@@ -11,11 +11,10 @@ import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@
  * Home — the Jobber-dashboard idiom applied to what this business actually
  * has today.
  *
- * Jobber's Home is: greeting, the workflow funnel (Requests → Quotes → Jobs →
- * Invoices), a to-do list, business-at-a-glance numbers, recent activity.
- * Here the funnel starts at Leads because that is our request object, and the
- * stages that don't exist yet render as placeholders rather than being
- * omitted — the empty slots ARE the roadmap, same as the greyed rail items.
+ * Jobber's Home is: greeting, today's appointments, the workflow funnel
+ * (Requests → Quotes → Jobs → Invoices), a to-do list, business-at-a-glance
+ * numbers, recent activity. Here the funnel starts at Leads because that is
+ * our request object.
  *
  * Every number on this page is computed from real rows. Where a figure is an
  * AI estimate rather than an invoiced amount it says so, because a dashboard
@@ -25,6 +24,9 @@ import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@
 export const dynamic = "force-dynamic";
 
 const OPEN_STATUSES = new Set(["new", "contacted", "quoted"]);
+
+/** The business runs on Montreal time; the server runs on UTC. */
+const TZ = "America/Toronto";
 
 export default async function AdminHomePage() {
   if (!isStoreConfigured) {
@@ -37,22 +39,34 @@ export default async function AdminHomePage() {
     );
   }
 
+  // A ±36h window is queried and then narrowed to the Montreal calendar day —
+  // querying "today" directly would need the UTC offset, which flips with DST.
+  const now = Date.now();
+  const todayKey = new Date(now).toLocaleDateString("en-CA", { timeZone: TZ });
+
   let leads: StoredLead[] = [];
   let clients = 0;
   let quoteCounts: Record<string, number> = {};
   let jobCounts: Record<string, number> = {};
   let receivables = { outstandingCents: 0, overdueCents: 0, count: 0 };
+  // Null means the visits table isn't reachable (migration not run yet) —
+  // distinct from an empty day, which is a real answer worth showing.
+  let visitsWindow: ScheduledVisit[] | null = [];
   let error: string | null = null;
   try {
     // Each of these degrades to a zero on its own rather than failing the
     // page: a migration that hasn't run yet should grey out one card, not
     // take down the dashboard.
-    [leads, clients, quoteCounts, jobCounts, receivables] = await Promise.all([
+    [leads, clients, quoteCounts, jobCounts, receivables, visitsWindow] = await Promise.all([
       listLeads(500),
       countClients(),
       countQuotesByStatus().catch(() => ({})),
       countJobsByStatus().catch(() => ({})),
       receivablesSummary().catch(() => ({ outstandingCents: 0, overdueCents: 0, count: 0 })),
+      listVisitsBetween(
+        new Date(now - 36 * 3_600_000).toISOString(),
+        new Date(now + 36 * 3_600_000).toISOString(),
+      ).catch(() => null),
     ]);
   } catch (err) {
     error = err instanceof Error ? err.message : "Could not load the dashboard";
@@ -77,6 +91,12 @@ export default async function AdminHomePage() {
 
   const openValueCents = sumExpected(open);
   const wonValueCents = sumExpected(won);
+
+  const todaysVisits =
+    visitsWindow?.filter(
+      (visit) =>
+        new Date(visit.starts_at).toLocaleDateString("en-CA", { timeZone: TZ }) === todayKey,
+    ) ?? null;
 
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const last30 = leads.filter((l) => new Date(l.created_at).getTime() >= thirtyDaysAgo);
@@ -104,6 +124,35 @@ export default async function AdminHomePage() {
         <h2 className="font-heading text-xl font-bold text-charcoal">{greeting}, Artush</h2>
         <p className="mt-0.5 text-sm text-charcoal/50">{today}</p>
       </div>
+
+      {/* Today's visits — what the day actually looks like, before any number
+          about the pipeline. Hidden entirely when the visits table hasn't been
+          migrated yet (the fetch degrades to null), because "no visits" and
+          "no calendar" must not read the same. */}
+      {todaysVisits !== null && (
+        <section>
+          <div className="flex items-baseline justify-between">
+            <SectionTitle>Today</SectionTitle>
+            <Link
+              href="/admin/schedule"
+              className="text-xs font-semibold text-brand-blue underline-offset-2 hover:underline"
+            >
+              Full schedule →
+            </Link>
+          </div>
+          {todaysVisits.length === 0 ? (
+            <div className="rounded-xl border border-black/5 bg-white p-4 text-sm text-charcoal/50 shadow-sm">
+              Nothing on the calendar today.
+            </div>
+          ) : (
+            <ul className="divide-y divide-black/5 overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
+              {todaysVisits.map((visit) => (
+                <VisitRow key={visit.id} visit={visit} />
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {/* The workflow funnel. One live stage; the rest are the roadmap. */}
       <section>
@@ -184,10 +233,13 @@ export default async function AdminHomePage() {
                 >
                   <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-brand-green" />
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-charcoal">
+                    <span className="block truncate text-sm font-bold text-charcoal" title={lead.name}>
                       {lead.name}
                     </span>
-                    <span className="block truncate text-xs text-charcoal/55">
+                    <span
+                      className="block truncate text-xs text-charcoal/55"
+                      title={lead.scope_summary || undefined}
+                    >
                       {lead.scope_summary || "No scope recorded"}
                     </span>
                   </div>
@@ -241,10 +293,13 @@ export default async function AdminHomePage() {
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02]"
                 >
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-charcoal">
+                    <span className="block truncate text-sm font-bold text-charcoal" title={lead.name}>
                       {lead.name}
                     </span>
-                    <span className="block truncate text-xs text-charcoal/55">
+                    <span
+                      className="block truncate text-xs text-charcoal/55"
+                      title={lead.scope_summary || undefined}
+                    >
                       {lead.scope_summary || "No scope recorded"}
                     </span>
                   </div>
@@ -265,6 +320,54 @@ export default async function AdminHomePage() {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-charcoal/45">{children}</h3>
+  );
+}
+
+/**
+ * One of today's visits. Same done/scheduled distinction as the schedule page
+ * — "overdue" can't happen here, because everything in this list is today's.
+ */
+function VisitRow({ visit }: { visit: ScheduledVisit }) {
+  const done = Boolean(visit.completed_at);
+  const time = visit.all_day
+    ? "All day"
+    : new Date(visit.starts_at).toLocaleTimeString("en-CA", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: TZ,
+      });
+  const title = visit.title || visit.job_title || `Job #${visit.job_number}`;
+
+  return (
+    <li>
+      <Link
+        href={`/admin/jobs/${visit.job_id}`}
+        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02]"
+      >
+        <span className="w-12 shrink-0 text-xs font-bold tabular-nums text-charcoal/60">
+          {time}
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-bold text-charcoal" title={title}>
+            {title}
+          </span>
+          <span
+            className="block truncate text-xs text-charcoal/55"
+            title={[visit.client_name, visit.address].filter(Boolean).join(" · ")}
+          >
+            {[visit.client_name, visit.address].filter(Boolean).join(" · ")}
+          </span>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            done ? "bg-green-100 text-green-800" : "bg-brand-blue/[0.08] text-brand-blue"
+          }`}
+        >
+          {done ? "Done" : "Scheduled"}
+        </span>
+      </Link>
+    </li>
   );
 }
 

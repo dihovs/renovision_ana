@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useId, useState, useTransition } from "react";
 import { inputClass, labelClass } from "./AddressFields";
 import type { InvoiceState } from "@/app/admin/invoices/actions";
 import { formatMoney } from "@/lib/crm/money";
@@ -47,6 +47,10 @@ export default function InvoiceDetail({
   const [copied, setCopied] = useState(false);
   const [recording, setRecording] = useState(false);
   const [payState, runPayment, paying] = useActionState(paymentAction, {} as InvoiceState);
+  const amountId = useId();
+  const methodId = useId();
+  const receivedOnId = useId();
+  const referenceId = useId();
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -109,6 +113,9 @@ export default function InvoiceDetail({
               >
                 {copied ? "Copied" : "Copy link"}
               </button>
+              <span aria-live="polite" className="sr-only">
+                {copied ? "Link copied to clipboard" : ""}
+              </span>
             </>
           )}
 
@@ -155,8 +162,11 @@ export default function InvoiceDetail({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <label className={labelClass}>Amount</label>
+                <label htmlFor={amountId} className={labelClass}>
+                  Amount
+                </label>
                 <input
+                  id={amountId}
                   name="amount"
                   inputMode="decimal"
                   // Pre-filled with the balance: paying an invoice in full is
@@ -167,8 +177,10 @@ export default function InvoiceDetail({
                 />
               </div>
               <div>
-                <label className={labelClass}>Method</label>
-                <select name="method" defaultValue="e_transfer" className={inputClass}>
+                <label htmlFor={methodId} className={labelClass}>
+                  Method
+                </label>
+                <select id={methodId} name="method" defaultValue="e_transfer" className={inputClass}>
                   {PAYMENT_METHODS.map((method) => (
                     <option key={method} value={method}>
                       {PAYMENT_METHOD_LABEL[method]}
@@ -177,8 +189,11 @@ export default function InvoiceDetail({
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Received on</label>
+                <label htmlFor={receivedOnId} className={labelClass}>
+                  Received on
+                </label>
                 <input
+                  id={receivedOnId}
                   type="date"
                   name="receivedOn"
                   defaultValue={new Date().toISOString().slice(0, 10)}
@@ -188,8 +203,11 @@ export default function InvoiceDetail({
             </div>
 
             <div>
-              <label className={labelClass}>Reference</label>
+              <label htmlFor={referenceId} className={labelClass}>
+                Reference
+              </label>
               <input
+                id={referenceId}
                 name="reference"
                 placeholder="Cheque number, e-transfer confirmation"
                 className={inputClass}
@@ -216,42 +234,49 @@ export default function InvoiceDetail({
         )}
       </section>
 
-      {payments.length > 0 && (
+      {(status !== "draft" || payments.length > 0) && (
         <section className="overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
           <h3 className="border-b border-black/5 px-4 py-3 font-heading text-sm font-bold text-charcoal">
             Payments
           </h3>
-          <ul className="divide-y divide-black/5">
-            {payments.map((payment) => (
-              <li key={payment.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-charcoal">
-                    {PAYMENT_METHOD_LABEL[payment.method]}
-                    {payment.reference && (
-                      <span className="ml-1.5 font-normal text-charcoal/45">
-                        {payment.reference}
-                      </span>
-                    )}
+          {payments.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-charcoal/40">
+              No payments recorded yet.
+            </p>
+          ) : (
+            <ul className="divide-y divide-black/5">
+              {payments.map((payment) => (
+                <li key={payment.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-charcoal">
+                      {PAYMENT_METHOD_LABEL[payment.method]}
+                      {payment.reference && (
+                        <span className="ml-1.5 font-normal text-charcoal/45">
+                          {payment.reference}
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-xs text-charcoal/50">{payment.received_on}</span>
+                  </div>
+                  <span
+                    className={`shrink-0 text-sm font-bold tabular-nums ${
+                      payment.amount_cents < 0 ? "text-red-700" : "text-green-700"
+                    }`}
+                  >
+                    {formatMoney(payment.amount_cents)}
                   </span>
-                  <span className="block text-xs text-charcoal/50">{payment.received_on}</span>
-                </div>
-                <span
-                  className={`shrink-0 text-sm font-bold tabular-nums ${
-                    payment.amount_cents < 0 ? "text-red-700" : "text-green-700"
-                  }`}
-                >
-                  {formatMoney(payment.amount_cents)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => run(() => removePaymentAction(payment.id))}
-                  className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-charcoal/30 transition-colors hover:bg-red-50 hover:text-red-600"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
+                  <button
+                    type="button"
+                    onClick={() => run(() => removePaymentAction(payment.id))}
+                    aria-label={`Remove ${formatMoney(payment.amount_cents)} payment received ${payment.received_on}`}
+                    className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-charcoal/30 transition-colors hover:bg-red-50 hover:text-red-600"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
     </div>

@@ -90,8 +90,22 @@ export function CompanyForm({
 
           {taxRegistered && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <Field name="gstNumber" label="GST number" defaultValue={initial.gstNumber} required />
-              <Field name="qstNumber" label="QST number" defaultValue={initial.qstNumber} required />
+              <TaxNumberField
+                name="gstNumber"
+                label="GST number"
+                defaultValue={initial.gstNumber}
+                required
+                pattern={GST_PATTERN}
+                example="123456789RT0001"
+              />
+              <TaxNumberField
+                name="qstNumber"
+                label="QST number"
+                defaultValue={initial.qstNumber}
+                required
+                pattern={QST_PATTERN}
+                example="1234567890TQ0001"
+              />
             </div>
           )}
         </div>
@@ -194,7 +208,7 @@ export function QuoteDefaultsForm({
 
 function SaveBar({ state, pending }: { state: SettingsState; pending: boolean }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <button
         type="submit"
         disabled={pending}
@@ -203,11 +217,89 @@ function SaveBar({ state, pending }: { state: SettingsState; pending: boolean })
         {pending ? "Saving…" : "Save"}
       </button>
       {state.error && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p
+          role="alert"
+          className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden className="shrink-0">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v5M12 16h.01" strokeLinecap="round" />
+          </svg>
           {state.error}
         </p>
       )}
-      {state.ok && <p className="text-sm font-medium text-green-700">{state.ok}</p>}
+      {state.ok && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden className="shrink-0">
+            <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Saved
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** BN (9 digits) + RT + a 4-digit reference number, e.g. 123456789RT0001. */
+const GST_PATTERN = /^\d{9}\s?RT\s?\d{4}$/i;
+/** Quebec enterprise number (10 digits) + TQ + a 4-digit reference, e.g. 1234567890TQ0001. */
+const QST_PATTERN = /^\d{10}\s?TQ\s?\d{4}$/i;
+
+/**
+ * A tax registration number field with a soft format check.
+ *
+ * The note is informational only — it never blocks the save. Revenu Québec's
+ * format is the common case, not a guarantee, and refusing a real number the
+ * owner typed correctly would be a worse failure than a missed typo.
+ */
+function TaxNumberField({
+  name,
+  label,
+  defaultValue,
+  required,
+  pattern,
+  example,
+}: {
+  name: string;
+  label: string;
+  defaultValue?: string;
+  required?: boolean;
+  pattern: RegExp;
+  example: string;
+}) {
+  const id = useId();
+  const [value, setValue] = useState(defaultValue ?? "");
+  const trimmed = value.trim();
+  const looksOff = trimmed !== "" && !pattern.test(trimmed);
+
+  return (
+    <div>
+      <label htmlFor={id} className={labelClass}>
+        {label}
+        {required && <span className="text-red-500"> *</span>}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        required={required}
+        aria-describedby={`${id}-hint`}
+        className={inputClass}
+      />
+      <p
+        id={`${id}-hint`}
+        className={`mt-1 text-[11px] leading-snug ${looksOff ? "text-amber-700" : "text-charcoal/50"}`}
+      >
+        {looksOff
+          ? `Doesn't look like the usual format — expected something like ${example}`
+          : `Format: ${example}`}
+      </p>
     </div>
   );
 }
@@ -234,8 +326,19 @@ function Field({
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
-      <input id={id} name={name} type={type} defaultValue={defaultValue} className={inputClass} />
-      {hint && <p className="mt-1 text-[11px] leading-snug text-charcoal/50">{hint}</p>}
+      <input
+        id={id}
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        className={inputClass}
+      />
+      {hint && (
+        <p id={`${id}-hint`} className="mt-1 text-[11px] leading-snug text-charcoal/50">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

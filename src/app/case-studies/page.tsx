@@ -2,9 +2,9 @@ import CaseStudiesContent from "@/components/pages/CaseStudiesContent";
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
-  title: "Featured Project Case Studies",
+  title: "Études de cas — projets avant-après",
   description:
-    "Before/after project breakdowns from Renovision AnA: the problem we found, the solution we delivered, and the result for the client.",
+    "Projets Renovision AnA décortiqués : le problème constaté, la solution livrée et le résultat pour le client, avec photos avant-après à l'appui.",
   path: "/case-studies",
 });
 

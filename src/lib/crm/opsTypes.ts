@@ -82,9 +82,49 @@ export type Visit = {
   all_day: boolean;
   completed_at: string | null;
   notes: string | null;
+  // Which recurrence generated this visit; null (or absent before migration
+  // 0014 runs) for one scheduled by hand. Optional so a database that hasn't
+  // run the migration still satisfies the type.
+  recurrence_id?: string | null;
 };
 
 export type JobWithLines = Job & { lines: DocumentLine[]; visits: Visit[] };
+
+// ---------------------------------------------------------------------------
+// Recurrences and checklists (migration 0014)
+// ---------------------------------------------------------------------------
+
+export const RECURRENCE_FREQUENCIES = ["weekly", "biweekly", "monthly"] as const;
+export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
+
+export const RECURRENCE_FREQUENCY_LABEL: Record<RecurrenceFrequency, string> = {
+  weekly: "Every week",
+  biweekly: "Every 2 weeks",
+  monthly: "Every month",
+};
+
+export type JobRecurrence = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  job_id: string;
+  frequency: RecurrenceFrequency;
+  anchor_starts_at: string;
+  anchor_ends_at: string | null;
+  all_day: boolean;
+  visit_title: string | null;
+  until_date: string | null;
+};
+
+export type ChecklistItem = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  job_id: string;
+  label: string;
+  done: boolean;
+  position: number;
+};
 
 export const INVOICE_STATUSES = [
   "draft",

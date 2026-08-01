@@ -3,7 +3,12 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getInvoiceByToken, invoiceTaxRate, recordInvoiceView } from "@/lib/crm/invoices";
 import { formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
-import { invoiceBalanceCents, isOverdue, PAYMENT_METHOD_LABEL } from "@/lib/crm/opsTypes";
+import {
+  invoiceBalanceCents,
+  isOverdue,
+  PAYMENT_METHOD_LABEL,
+  type PaymentMethod,
+} from "@/lib/crm/opsTypes";
 import { copyFor } from "@/lib/crm/quoteCopy";
 import { getCompany } from "@/lib/crm/settings";
 
@@ -19,6 +24,28 @@ import { getCompany } from "@/lib/crm/settings";
  */
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
+
+/**
+ * The shared PAYMENT_METHOD_LABEL is the admin's English wording; this is the
+ * customer's French. Local to this page because the public invoice is the one
+ * place a customer reads a payment method.
+ */
+const PAYMENT_METHOD_FR: Record<PaymentMethod, string> = {
+  cash: "Comptant",
+  cheque: "Chèque",
+  e_transfer: "Virement Interac",
+  card: "Carte",
+  bank_transfer: "Virement bancaire",
+  other: "Autre",
+};
+
+/** Date-only strings ("2026-08-15") formatted as a date, not an instant. */
+function formatDate(iso: string, locale: "fr" | "en"): string {
+  return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString(
+    locale === "fr" ? "fr-CA" : "en-CA",
+    { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" },
+  );
+}
 
 export default async function PublicInvoicePage({
   params,
@@ -42,7 +69,7 @@ export default async function PublicInvoicePage({
   const label = locale === "fr" ? "Facture" : "Invoice";
 
   return (
-    <main className="min-h-dvh bg-[#f6f8fb]">
+    <main lang={locale === "fr" ? "fr-CA" : "en-CA"} className="min-h-dvh bg-[#f6f8fb]">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
         <article className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
           <header className="border-b border-black/5 p-6 sm:p-8">
@@ -82,7 +109,7 @@ export default async function PublicInvoicePage({
                 <dl className="mt-3 space-y-0.5 text-xs text-charcoal/60">
                   <div>
                     <dt className="inline font-semibold">{t.date}: </dt>
-                    <dd className="inline">{invoice.issue_date}</dd>
+                    <dd className="inline">{formatDate(invoice.issue_date, locale)}</dd>
                   </div>
                   {invoice.due_date && (
                     <div>
@@ -90,7 +117,7 @@ export default async function PublicInvoicePage({
                         {locale === "fr" ? "Échéance" : "Due"}:{" "}
                       </dt>
                       <dd className={`inline ${overdue ? "font-bold text-red-700" : ""}`}>
-                        {invoice.due_date}
+                        {formatDate(invoice.due_date, locale)}
                       </dd>
                     </div>
                   )}
@@ -142,11 +169,17 @@ export default async function PublicInvoicePage({
             )}
           </header>
 
-          {balance <= 0 && (
+          {balance <= 0 ? (
             <div className="border-b border-green-200 bg-green-50 p-4 text-center text-sm font-bold text-green-900">
               {locale === "fr" ? "Payée — merci" : "Paid in full — thank you"}
             </div>
-          )}
+          ) : overdue ? (
+            <div className="border-b border-amber-200 bg-amber-50 p-4 text-center text-sm font-bold text-amber-900">
+              {locale === "fr"
+                ? `Échue — solde dû : ${formatMoney(balance, locale)}`
+                : `Overdue — balance due: ${formatMoney(balance, locale)}`}
+            </div>
+          ) : null}
 
           <div className="p-6 sm:p-8">
             <ul className="divide-y divide-black/5">
@@ -254,7 +287,10 @@ export default async function PublicInvoicePage({
                       className="flex justify-between text-xs tabular-nums text-charcoal/60"
                     >
                       <span>
-                        {payment.received_on} · {PAYMENT_METHOD_LABEL[payment.method]}
+                        {formatDate(payment.received_on, locale)} ·{" "}
+                        {locale === "fr"
+                          ? PAYMENT_METHOD_FR[payment.method]
+                          : PAYMENT_METHOD_LABEL[payment.method]}
                       </span>
                       <span>{formatMoney(payment.amount_cents, locale)}</span>
                     </li>

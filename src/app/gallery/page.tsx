@@ -2,9 +2,9 @@ import GalleryContent from "@/components/pages/GalleryContent";
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
-  title: "Gallery",
+  title: "Galerie de projets de rénovation à Laval et Montréal",
   description:
-    "Browse completed renovation, water damage restoration, and basement transformation projects by Renovision AnA.",
+    "Parcourez nos projets réalisés : rénovations, restaurations après dégât d'eau et sous-sols transformés à Laval et Montréal. Photos avant-après à l'appui.",
   path: "/gallery",
 });
 

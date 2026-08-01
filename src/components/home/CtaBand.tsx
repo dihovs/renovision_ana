@@ -24,11 +24,15 @@ export default function CtaBand() {
           >
             {t.ctaBand.ctaEstimate}
           </button>
+          {/* No whitespace-nowrap here: with the phone number appended, the
+              nowrap version rendered wider than a small phone's viewport and
+              clipped off both edges. The number keeps its own nowrap so a
+              break lands between label and number, never inside the number. */}
           <a
             href={`tel:${SITE_PHONE_TEL}`}
-            className="whitespace-nowrap rounded-full uppercase tracking-[0.08em] border-2 border-white/40 px-5 py-3.5 text-center font-heading font-bold text-white transition-colors hover:border-white hover:bg-white/10 sm:px-7"
+            className="max-w-full rounded-full uppercase tracking-[0.08em] border-2 border-white/40 px-5 py-3.5 text-center font-heading font-bold text-white transition-colors hover:border-white hover:bg-white/10 sm:px-7"
           >
-            {t.ctaBand.ctaCall} · {SITE_PHONE}
+            {t.ctaBand.ctaCall} · <span className="whitespace-nowrap">{SITE_PHONE}</span>
           </a>
         </div>
       </div>

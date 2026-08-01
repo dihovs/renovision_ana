@@ -47,7 +47,7 @@ const copy = {
       },
       {
         icon: "shield",
-        title: "Fully Licensed & Insured",
+        title: "Fully Insured",
         desc: "Liability coverage and credentials on file, ready for your vendor onboarding.",
       },
       {
@@ -101,7 +101,7 @@ const copy = {
       },
       {
         icon: "shield",
-        title: "Licencié et assuré",
+        title: "Entièrement assuré",
         desc: "Couverture de responsabilité et attestations au dossier, prêtes pour votre processus d'approbation des fournisseurs.",
       },
       {

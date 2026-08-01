@@ -6,7 +6,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: "/api/",
+      // /admin also carries meta noindex — the disallow is belt and
+      // suspenders, and keeps crawlers from wasting budget on it.
+      disallow: ["/api/", "/admin"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };

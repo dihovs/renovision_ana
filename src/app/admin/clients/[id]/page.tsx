@@ -9,6 +9,7 @@ import {
   updatePropertyAction,
 } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
+import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
 import AskClaude from "@/components/admin/AskClaude";
 import HubLink from "@/components/admin/HubLink";
 import PropertyEditor from "@/components/admin/PropertyEditor";
@@ -101,12 +102,7 @@ export default async function ClientDetailPage({
               Edit
             </Link>
             <form action={setArchivedAction.bind(null, client.id, !client.archived_at)}>
-              <button
-                type="submit"
-                className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-charcoal/45 transition-colors hover:bg-black/[0.03] hover:text-charcoal"
-              >
-                {client.archived_at ? "Restore" : "Archive"}
-              </button>
+              <ArchiveToggleButton archived={Boolean(client.archived_at)} />
             </form>
           </div>
         </div>

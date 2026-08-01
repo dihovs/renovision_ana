@@ -8,7 +8,7 @@ const copy = {
     eyebrow: "Featured Projects",
     title: "Case Studies: Problem, Solution, Result",
     intro:
-      "A closer look at how we take on real projects — what we found, what we did, and what it meant for the client. Real project photos coming soon; placeholders shown for now.",
+      "A closer look at how we take on real projects — what we found, what we did, and what it meant for the client.",
     problemLabel: "Problem",
     solutionLabel: "Solution",
     resultLabel: "Result",
@@ -81,7 +81,7 @@ const copy = {
     eyebrow: "Projets en vedette",
     title: "Études de cas : problème, solution, résultat",
     intro:
-      "Un regard détaillé sur nos projets réels — ce que nous avons trouvé, ce que nous avons fait et ce que cela a signifié pour le client. Photos de projets réels à venir; images temporaires pour l'instant.",
+      "Un regard détaillé sur nos projets réels — ce que nous avons trouvé, ce que nous avons fait et ce que cela a signifié pour le client.",
     problemLabel: "Problème",
     solutionLabel: "Solution",
     resultLabel: "Résultat",

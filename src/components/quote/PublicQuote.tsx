@@ -325,17 +325,19 @@ export default function PublicQuote({
                   placeholder={t.requestChangesPlaceholder}
                   className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/15"
                 />
+                <input type="hidden" name="locale" value={locale} />
                 <div className="flex items-center gap-3">
                   <button
                     type="submit"
                     disabled={sendingChanges}
-                    className="cursor-pointer rounded-lg bg-brand-blue px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-blue/90 disabled:opacity-60"
+                    className="cursor-pointer rounded-lg bg-brand-blue px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-blue/90 disabled:cursor-wait disabled:opacity-60"
                   >
                     {sendingChanges ? "…" : t.sendRequest}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowChanges(false)}
+                    aria-label={t.cancel}
                     className="cursor-pointer text-sm font-semibold text-charcoal/50 hover:text-charcoal"
                   >
                     ✕
@@ -364,6 +366,7 @@ export default function PublicQuote({
                   .map((l) => (
                     <input key={l.id} type="hidden" name={`line-${l.id}`} value="1" />
                   ))}
+                <input type="hidden" name="locale" value={locale} />
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block">
@@ -394,7 +397,7 @@ export default function PublicQuote({
                   <button
                     type="submit"
                     disabled={approving}
-                    className="cursor-pointer rounded-full bg-brand-green px-6 py-3 text-sm font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-brand-green-dark disabled:opacity-60"
+                    className="cursor-pointer rounded-full bg-brand-green px-6 py-3 text-sm font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-brand-green-dark disabled:cursor-wait disabled:opacity-60"
                   >
                     {approving ? "…" : t.approveButton}
                   </button>

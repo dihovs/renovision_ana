@@ -2,9 +2,9 @@ import SafetyContent from "@/components/pages/SafetyContent";
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
-  title: "Safety & Certifications",
+  title: "Sécurité, assurances et garantie",
   description:
-    "Renovision AnA is licensed and insured with safety-trained crews, documented compliance, and insurance claims experience. Certificates available on request.",
+    "Renovision AnA est un entrepreneur assuré : garantie d'un an sur la main-d'œuvre, équipes formées en sécurité et expérience des réclamations d'assurance.",
   path: "/safety",
 });
 

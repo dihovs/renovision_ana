@@ -2,9 +2,9 @@ import AboutContent from "@/components/pages/AboutContent";
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
-  title: "About Us",
+  title: "À propos — entrepreneur en rénovation à Laval",
   description:
-    "Learn about Renovision AnA, our team, and our commitment to quality renovation and water damage restoration work in Laval and greater Montreal.",
+    "Découvrez Renovision AnA : une équipe de rénovation et de restauration après dégât d'eau au service de Laval et du grand Montréal. Parlez-nous de votre projet.",
   path: "/about",
 });
 

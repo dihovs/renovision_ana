@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { copyFor, type QuoteLocale } from "@/lib/crm/quoteCopy";
 import { approveQuoteByToken, requestChangesByToken } from "@/lib/crm/quotes";
 
 /**
@@ -29,13 +30,24 @@ async function clientIp(): Promise<string | null> {
   return h.get("x-real-ip")?.slice(0, 60) ?? null;
 }
 
+/**
+ * The page renders in whatever language the quote itself was issued in
+ * (`quote.language`), and carries that along as a hidden field so the error
+ * text a customer sees back matches the document they're reading — a French
+ * quote should never bounce back an English validation message.
+ */
+function localeFrom(formData: FormData): QuoteLocale {
+  return formData.get("locale") === "en" ? "en" : "fr";
+}
+
 export async function approveAction(
   token: string,
   _prev: ApprovalState,
   formData: FormData,
 ): Promise<ApprovalState> {
+  const t = copyFor(localeFrom(formData));
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) return { error: "Please type your name to approve." };
+  if (!name) return { error: t.nameRequiredError };
 
   const signature = String(formData.get("signature") ?? "").trim() || null;
   // Checkbox names are prefixed so the ids can't collide with the other fields.
@@ -53,9 +65,9 @@ export async function approveAction(
       userAgent: h.get("user-agent"),
       selectedLineIds,
     });
-    if (!quote) return { error: "This quote is no longer open for approval." };
+    if (!quote) return { error: t.noLongerOpenApproval };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not record your approval." };
+    return { error: err instanceof Error ? err.message : t.approvalFailedGeneric };
   }
 
   revalidatePath(`/q/${token}`);
@@ -67,14 +79,15 @@ export async function requestChangesAction(
   _prev: ApprovalState,
   formData: FormData,
 ): Promise<ApprovalState> {
+  const t = copyFor(localeFrom(formData));
   const message = String(formData.get("message") ?? "").trim();
-  if (!message) return { error: "Tell us what you'd like changed." };
+  if (!message) return { error: t.messageRequiredError };
 
   try {
     const ok = await requestChangesByToken(token, message);
-    if (!ok) return { error: "This quote is no longer open." };
+    if (!ok) return { error: t.noLongerOpenChanges };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not send your message." };
+    return { error: err instanceof Error ? err.message : t.changesFailedGeneric };
   }
 
   revalidatePath(`/q/${token}`);

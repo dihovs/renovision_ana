@@ -46,10 +46,16 @@ export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
           <p className="mt-4 text-xs font-bold uppercase tracking-widest text-brand-green">
             {labels.eyebrow}
           </p>
-          <h1 className="mt-3 font-heading text-4xl font-extrabold text-brand-blue sm:text-5xl">
-            {copy.name}
+          {/* The H1 carries the full service tagline, not just the bare
+              borough name — "Chomedey" alone tells Google nothing about what
+              the page offers. The name stays visually dominant; the tagline
+              renders as a smaller second line inside the same heading. */}
+          <h1 className="mt-3 font-heading font-extrabold text-brand-blue">
+            <span className="block text-4xl sm:text-5xl">{copy.name}</span>
+            <span className="mt-4 block text-xl font-bold leading-snug text-brand-blue/80 sm:text-2xl">
+              {copy.tagline}
+            </span>
           </h1>
-          <p className="mt-5 text-lg leading-relaxed text-charcoal/75">{copy.tagline}</p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <button
               onClick={openChat}

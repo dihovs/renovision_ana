@@ -1,4 +1,11 @@
-import { SITE_ADDRESS, SITE_EMAIL, SITE_NAME, SITE_PHONE_TEL, SITE_URL } from "@/lib/constants";
+import {
+  SITE_ADDRESS,
+  SITE_EMAIL,
+  SITE_NAME,
+  SITE_PHONE_TEL,
+  SITE_URL,
+  SOCIAL_LINKS,
+} from "@/lib/constants";
 import { translations } from "@/i18n/translations";
 import { getGoogleReviewsData } from "@/lib/googleReviews";
 
@@ -34,6 +41,30 @@ export default async function LocalBusinessSchema() {
       "@type": "PostalAddress",
       ...SITE_ADDRESS,
     },
+    // Approximate coordinates for 68 Boulevard Cartier Ouest, Laval H7N 2A3
+    // (Laval-des-Rapides, just west of Boul. des Laurentides — NOT the Laval
+    // city centroid, which sits ~5 km away). Estimated from the street grid;
+    // owner should confirm against Google Maps if pin-level precision matters.
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: 45.5604,
+      longitude: -73.6889,
+    },
+    // Placeholder hours pending the owner's real schedule: weekdays 8-18 is
+    // the defensible default for a renovation crew; weekend work happens by
+    // arrangement so it is deliberately not declared as regular hours.
+    // TODO(owner): correct these if the real hours differ.
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        opens: "08:00",
+        closes: "18:00",
+      },
+    ],
+    logo: `${SITE_URL}/renovision-logo.png`,
+    image: `${SITE_URL}/renovision-logo.png`,
+    sameAs: [SOCIAL_LINKS.facebook, SOCIAL_LINKS.instagram],
     areaServed: [
       "Laval",
       "Chomedey",

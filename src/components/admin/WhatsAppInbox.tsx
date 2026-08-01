@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import AdminNotice from "./AdminNotice";
 import { inputClass } from "./AddressFields";
 import type { WhatsAppContact, WhatsAppMessage } from "@/lib/whatsapp/store";
 
@@ -56,9 +57,9 @@ export default function WhatsAppInbox({
 
   if (remaining.length === 0) {
     return (
-      <p className="rounded-xl border border-black/5 bg-white p-6 text-center text-sm text-charcoal/50 shadow-sm">
-        Inbox empty. Everything is filed.
-      </p>
+      <AdminNotice title="Inbox empty">
+        Everything that came in on WhatsApp has been filed against a job.
+      </AdminNotice>
     );
   }
 
@@ -88,7 +89,9 @@ export default function WhatsAppInbox({
           return (
             <li key={message.id} className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-bold text-charcoal">{who}</span>
+                <span title={who} className="min-w-0 truncate text-sm font-bold text-charcoal">
+                  {who}
+                </span>
                 <span className="shrink-0 text-xs text-charcoal/40">
                   {new Date(message.sent_at).toLocaleString("en-CA", {
                     dateStyle: "medium",
@@ -99,7 +102,7 @@ export default function WhatsAppInbox({
               </div>
 
               {message.body && (
-                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-charcoal/80">
+                <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-charcoal/80">
                   {message.body}
                 </p>
               )}

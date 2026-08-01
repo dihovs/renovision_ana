@@ -4,12 +4,42 @@ import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import { isValidEmail, isValidPhone } from "@/components/chat/chatLogic";
+import { stripImageMetadata } from "@/lib/stripImageMetadata";
 import {
   SITE_ADDRESS,
   SITE_EMAIL,
   SITE_PHONE,
   SITE_PHONE_TEL,
 } from "@/lib/constants";
+
+/**
+ * Photo payload discipline — deliberately duplicated from ChatWidget.tsx
+ * (selectPhotosToSend) rather than extracted, so neither lead path can drift
+ * under the other's feet. If you change the limits, change them there too.
+ *
+ * Why this exists: the platform rejects request bodies over ~4.5 MB at the
+ * edge, BEFORE /api/leads ever runs, so an oversized submission doesn't fail
+ * loudly — the lead silently vanishes. That happened once. Capping in the
+ * browser is lead-loss protection, not a nicety.
+ */
+const MAX_PHOTOS_TO_SEND = 4;
+const MAX_PHOTO_PAYLOAD_CHARS = 3_200_000;
+
+/** Newest first, same as the chat: the last photo taken is usually the
+ *  close-up of the damage, and the first is the doorway on the way in. */
+function selectPhotosToSend(all: string[]): string[] {
+  const kept: string[] = [];
+  let budget = MAX_PHOTO_PAYLOAD_CHARS;
+
+  for (const photo of [...all].reverse()) {
+    if (kept.length >= MAX_PHOTOS_TO_SEND) break;
+    if (photo.length > budget) continue;
+    budget -= photo.length;
+    kept.push(photo);
+  }
+
+  return kept.reverse();
+}
 
 const copy = {
   en: {
@@ -18,6 +48,38 @@ const copy = {
     intro:
       "Reach out for a renovation, water damage restoration, or remodeling estimate. Prefer an instant ballpark? Use the chat widget for a rough estimate in minutes.",
     formTitle: "Send us a message",
+    emergencyLabel: "Is this an emergency?",
+    emergencyYes: "Yes",
+    emergencyNo: "No",
+    emergencyCallout:
+      "For active water damage, call us right now — every minute of standing water grows the repair. The phone is always faster than a form.",
+    emergencyCall: "Call",
+    roleLabel: "I am the…",
+    heardLabel: "How did you hear about us?",
+    selectPlaceholder: "Select an option (optional)",
+    roleOptions: [
+      { value: "owner", label: "Property owner" },
+      { value: "property_manager", label: "Property manager" },
+      { value: "insurance", label: "Insurance adjuster or broker" },
+      { value: "syndicate", label: "Condo syndicate" },
+      { value: "other", label: "Other" },
+    ],
+    heardOptions: [
+      { value: "google", label: "Google" },
+      { value: "referral", label: "Referral from a friend" },
+      { value: "plumber", label: "Plumber" },
+      { value: "insurance_broker", label: "Insurance broker or adjuster" },
+      { value: "social", label: "Facebook / Instagram" },
+      { value: "neighbourhood", label: "Saw our work in the neighbourhood" },
+      { value: "other", label: "Other" },
+    ],
+    photosLabel: "Photos of the damage or project (optional)",
+    photosHint: "Up to 4 photos — they help us arrive prepared.",
+    photosAdd: "Attach photos",
+    photosProcessing: "Processing…",
+    photosLimit: "Photo limit reached — not every photo could be attached.",
+    photosFailed: "One of the photos couldn't be read. Please try a different one.",
+    photosRemove: "Remove photo",
     message: "Tell us about your project",
     submit: "Send Message",
     submitting: "Sending...",
@@ -40,6 +102,38 @@ const copy = {
     intro:
       "Contactez-nous pour une estimation de rénovation, de restauration de dégât d'eau ou de rénovation. Vous préférez un aperçu instantané? Utilisez l'outil de clavardage pour une estimation approximative en quelques minutes.",
     formTitle: "Envoyez-nous un message",
+    emergencyLabel: "Est-ce une urgence?",
+    emergencyYes: "Oui",
+    emergencyNo: "Non",
+    emergencyCallout:
+      "Pour un dégât d'eau en cours, appelez-nous immédiatement — chaque minute d'eau stagnante aggrave les dommages. Le téléphone est toujours plus rapide qu'un formulaire.",
+    emergencyCall: "Appelez le",
+    roleLabel: "Je suis…",
+    heardLabel: "Comment avez-vous entendu parler de nous?",
+    selectPlaceholder: "Choisissez une option (facultatif)",
+    roleOptions: [
+      { value: "owner", label: "Propriétaire" },
+      { value: "property_manager", label: "Gestionnaire immobilier" },
+      { value: "insurance", label: "Expert en sinistre ou courtier d'assurance" },
+      { value: "syndicate", label: "Syndicat de copropriété" },
+      { value: "other", label: "Autre" },
+    ],
+    heardOptions: [
+      { value: "google", label: "Google" },
+      { value: "referral", label: "Recommandation d'un proche" },
+      { value: "plumber", label: "Plombier" },
+      { value: "insurance_broker", label: "Courtier ou expert en assurance" },
+      { value: "social", label: "Facebook / Instagram" },
+      { value: "neighbourhood", label: "J'ai vu vos travaux dans le quartier" },
+      { value: "other", label: "Autre" },
+    ],
+    photosLabel: "Photos des dommages ou du projet (facultatif)",
+    photosHint: "Jusqu'à 4 photos — elles nous aident à arriver préparés.",
+    photosAdd: "Joindre des photos",
+    photosProcessing: "Traitement…",
+    photosLimit: "Limite de photos atteinte — certaines photos n'ont pas pu être jointes.",
+    photosFailed: "Une des photos n'a pas pu être lue. Veuillez en essayer une autre.",
+    photosRemove: "Retirer la photo",
     message: "Parlez-nous de votre projet",
     submit: "Envoyer le message",
     submitting: "Envoi en cours...",
@@ -67,6 +161,14 @@ export default function ContactContent() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  // Tri-state on purpose: "didn't answer" is not the same as "no", and only an
+  // explicit answer should be stored against the lead.
+  const [isEmergency, setIsEmergency] = useState<boolean | null>(null);
+  const [contactRole, setContactRole] = useState("");
+  const [heardAbout, setHeardAbout] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoNote, setPhotoNote] = useState<"limit" | "failed" | null>(null);
+  const [processingPhotos, setProcessingPhotos] = useState(false);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
 
   const canSubmit =
@@ -75,6 +177,43 @@ export default function ContactContent() {
   const mapQuery = encodeURIComponent(
     `${SITE_ADDRESS.streetAddress}, ${SITE_ADDRESS.addressLocality}, ${SITE_ADDRESS.addressRegion} ${SITE_ADDRESS.postalCode}`,
   );
+
+  /**
+   * Same pipeline as the chat widget's photos: re-encode on the device (drops
+   * EXIF/GPS, downscales to ~1568px JPEG), then enforce count and byte caps
+   * BEFORE anything is sent. A photo that won't fit is skipped with a note —
+   * it must never grow the payload past what the platform edge accepts.
+   */
+  async function handlePhotoFiles(files: File[]) {
+    if (files.length === 0) return;
+    setPhotoNote(null);
+    setProcessingPhotos(true);
+    try {
+      const next = [...photos];
+      let charsUsed = next.reduce((sum, p) => sum + p.length, 0);
+      for (const file of files) {
+        if (next.length >= MAX_PHOTOS_TO_SEND) {
+          setPhotoNote("limit");
+          break;
+        }
+        try {
+          const dataUrl = await stripImageMetadata(file);
+          if (charsUsed + dataUrl.length > MAX_PHOTO_PAYLOAD_CHARS) {
+            setPhotoNote("limit");
+            continue;
+          }
+          charsUsed += dataUrl.length;
+          next.push(dataUrl);
+        } catch (err) {
+          console.error("[contact] could not process photo:", err);
+          setPhotoNote("failed");
+        }
+      }
+      setPhotos(next);
+    } finally {
+      setProcessingPhotos(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,6 +228,15 @@ export default function ContactContent() {
           phone: phone.trim(),
           email: email.trim(),
           message: message.trim(),
+          locale,
+          // Only send what was actually answered — the qualifiers are
+          // optional, and an absent answer must store as null, not "no".
+          ...(isEmergency !== null ? { isEmergency } : {}),
+          ...(contactRole ? { contactRole } : {}),
+          ...(heardAbout ? { heardAbout } : {}),
+          // Belt and braces: attachment already enforces the caps, but the
+          // trim runs again at the door exactly like the chat path does.
+          ...(photos.length > 0 ? { photos: selectPhotosToSend(photos) } : {}),
         }),
       });
       if (!res.ok) throw new Error("Request failed");
@@ -97,6 +245,11 @@ export default function ContactContent() {
       setPhone("");
       setEmail("");
       setMessage("");
+      setIsEmergency(null);
+      setContactRole("");
+      setHeardAbout("");
+      setPhotos([]);
+      setPhotoNote(null);
     } catch {
       setStatus("error");
     }
@@ -128,6 +281,54 @@ export default function ContactContent() {
           <h2 className="font-heading text-xl font-bold text-brand-blue">{c.formTitle}</h2>
 
           <div className="mt-6 space-y-4">
+            {/* First question on purpose: someone standing in water should be
+                routed to the phone before they invest in typing a message.
+                Answering is optional and never blocks the form. */}
+            <div>
+              <span className="block text-sm font-semibold text-charcoal/80">
+                {c.emergencyLabel}
+              </span>
+              <div className="mt-2 flex gap-2" role="group" aria-label={c.emergencyLabel}>
+                <button
+                  type="button"
+                  aria-pressed={isEmergency === true}
+                  onClick={() => setIsEmergency(true)}
+                  className={`cursor-pointer rounded-lg border px-5 py-2.5 text-sm font-bold transition-colors ${
+                    isEmergency === true
+                      ? "border-red-600 bg-red-600 text-white"
+                      : "border-black/10 text-charcoal/70 hover:border-red-300"
+                  }`}
+                >
+                  {c.emergencyYes}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={isEmergency === false}
+                  onClick={() => setIsEmergency(false)}
+                  className={`cursor-pointer rounded-lg border px-5 py-2.5 text-sm font-bold transition-colors ${
+                    isEmergency === false
+                      ? "border-brand-blue bg-brand-blue text-white"
+                      : "border-black/10 text-charcoal/70 hover:border-brand-blue"
+                  }`}
+                >
+                  {c.emergencyNo}
+                </button>
+              </div>
+              {isEmergency === true && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                  <p className="text-sm font-semibold leading-relaxed text-red-700">
+                    {c.emergencyCallout}
+                  </p>
+                  <a
+                    href={`tel:${SITE_PHONE_TEL}`}
+                    className="mt-3 inline-block rounded-full bg-red-600 px-6 py-3 font-heading text-base font-bold uppercase tracking-[0.08em] text-white transition-colors hover:bg-red-700"
+                  >
+                    {c.emergencyCall} {SITE_PHONE}
+                  </a>
+                </div>
+              )}
+            </div>
+
             <div>
               <label htmlFor="contact-name" className="sr-only">
                 {t.chat.leadCapture.name}
@@ -175,6 +376,53 @@ export default function ContactContent() {
                 />
               </div>
             </div>
+            {/* Both optional. Select elements can't carry a placeholder, so
+                these get visible labels where the text inputs use sr-only. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="contact-role"
+                  className="mb-1.5 block text-sm font-semibold text-charcoal/80"
+                >
+                  {c.roleLabel}
+                </label>
+                <select
+                  id="contact-role"
+                  value={contactRole}
+                  onChange={(e) => setContactRole(e.target.value)}
+                  className="w-full cursor-pointer rounded-lg border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-brand-blue"
+                >
+                  <option value="">{c.selectPlaceholder}</option>
+                  {c.roleOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="contact-heard"
+                  className="mb-1.5 block text-sm font-semibold text-charcoal/80"
+                >
+                  {c.heardLabel}
+                </label>
+                <select
+                  id="contact-heard"
+                  value={heardAbout}
+                  onChange={(e) => setHeardAbout(e.target.value)}
+                  className="w-full cursor-pointer rounded-lg border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-brand-blue"
+                >
+                  <option value="">{c.selectPlaceholder}</option>
+                  {c.heardOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div>
               <label htmlFor="contact-message" className="sr-only">
                 {c.message}
@@ -188,6 +436,66 @@ export default function ContactContent() {
                 placeholder={c.message}
                 className="w-full resize-none rounded-lg border border-black/10 px-4 py-3 text-sm outline-none focus:border-brand-blue"
               />
+            </div>
+
+            <div>
+              <span className="block text-sm font-semibold text-charcoal/80">
+                {c.photosLabel}
+              </span>
+              <p className="mt-1 text-xs text-charcoal/55">{c.photosHint}</p>
+              {photos.length > 0 && (
+                <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+                  {photos.map((url, i) => (
+                    <div key={url.slice(-24) + i} className="relative shrink-0">
+                      {/* Data URLs — next/image has nothing to optimize here. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt=""
+                        className="h-20 w-20 rounded-lg border border-black/10 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                        aria-label={c.photosRemove}
+                        className="absolute -right-1.5 -top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-charcoal text-xs font-bold text-white transition-colors hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {photos.length < MAX_PHOTOS_TO_SEND && (
+                <label
+                  className={`mt-3 inline-block rounded-lg border border-dashed border-black/20 px-5 py-2.5 text-sm font-semibold text-charcoal/70 transition-colors ${
+                    processingPhotos
+                      ? "cursor-default opacity-60"
+                      : "cursor-pointer hover:border-brand-blue hover:text-brand-blue"
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    disabled={processingPhotos}
+                    className="sr-only"
+                    onChange={(e) => {
+                      // Snapshot before clearing the input — the FileList is
+                      // live, and resetting value would empty it mid-flight.
+                      const files = e.target.files ? Array.from(e.target.files) : [];
+                      e.target.value = "";
+                      void handlePhotoFiles(files);
+                    }}
+                  />
+                  {processingPhotos ? c.photosProcessing : `📎 ${c.photosAdd}`}
+                </label>
+              )}
+              {photoNote && (
+                <p className="mt-2 text-xs font-semibold text-amber-700">
+                  {photoNote === "limit" ? c.photosLimit : c.photosFailed}
+                </p>
+              )}
             </div>
           </div>
 

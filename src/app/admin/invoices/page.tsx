@@ -85,12 +85,24 @@ export default async function InvoicesPage({
       </div>
 
       {invoices.length === 0 ? (
-        <AdminNotice title="No invoices yet">
-          Invoices are created from a job. Open a{" "}
-          <Link href="/admin/jobs" className="font-semibold text-brand-blue">
-            job
-          </Link>{" "}
-          and bill it — either the whole thing, or a deposit up front.
+        <AdminNotice title={filter ? "No matches" : "No invoices yet"}>
+          {filter ? (
+            <>
+              Nothing is {INVOICE_STATUS_LABEL[filter].toLowerCase()} right now.{" "}
+              <Link href="/admin/invoices" className="font-semibold text-brand-blue">
+                Clear the filter
+              </Link>{" "}
+              to see every invoice.
+            </>
+          ) : (
+            <>
+              Invoices are created from a job. Open a{" "}
+              <Link href="/admin/jobs" className="font-semibold text-brand-blue">
+                job
+              </Link>{" "}
+              and bill it — either the whole thing, or a deposit up front.
+            </>
+          )}
         </AdminNotice>
       ) : (
         <ul className="divide-y divide-black/5 overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
@@ -128,9 +140,11 @@ export default async function InvoicesPage({
                     </span>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_STYLE[invoice.status]}`}
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      overdue ? "bg-red-100 text-red-800" : STATUS_STYLE[invoice.status]
+                    }`}
                   >
-                    {INVOICE_STATUS_LABEL[invoice.status]}
+                    {overdue ? "Overdue" : INVOICE_STATUS_LABEL[invoice.status]}
                   </span>
                   <div className="w-28 shrink-0 text-right">
                     <span className="block text-sm font-bold tabular-nums text-charcoal">

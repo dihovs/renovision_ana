@@ -795,6 +795,7 @@ function PriceBookPicker({
         onFocus={() => results.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
+        aria-label={placeholder}
         autoComplete="off"
         className={`${inputClass} font-medium`}
       />

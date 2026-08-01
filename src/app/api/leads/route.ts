@@ -34,6 +34,11 @@ type LeadPayload = {
   /** Consent evidence — see LeadCaptureForm for why a boolean isn't enough. */
   consent?: { grantedAt: string; wording: string; locale: string; source: string };
   message?: string;
+  /** Qualifying answers from the contact form. Fixed slugs, allowlisted below —
+   *  they arrive from the browser, so they are claims, not facts. */
+  isEmergency?: boolean;
+  contactRole?: string;
+  heardAbout?: string;
   scopeSummary?: string;
   estimateLow?: string;
   estimateExpected?: string;
@@ -56,6 +61,29 @@ type LeadPayload = {
   /** The AI's handover note — what it established, in job-sheet form. Comes
    *  straight from the model, so it is re-validated here rather than trusted. */
   projectBrief?: ProjectBrief | null;
+};
+
+/** The only values the contact form's "I am the…" select can send. Anything
+ *  else is dropped rather than stored: these render in the admin and in the
+ *  owner email, so junk in would be junk shown. Keys are the slugs on the
+ *  wire (and in the `contact_role` column); values are how they read. */
+const CONTACT_ROLE_LABELS: Record<string, string> = {
+  owner: "Property owner",
+  property_manager: "Property manager",
+  insurance: "Insurance adjuster / broker",
+  syndicate: "Condo syndicate",
+  other: "Other",
+};
+
+/** Same contract for "How did you hear about us?". */
+const HEARD_ABOUT_LABELS: Record<string, string> = {
+  google: "Google",
+  referral: "Referral from a friend",
+  plumber: "Plumber",
+  insurance_broker: "Insurance broker / adjuster",
+  social: "Facebook / Instagram",
+  neighbourhood: "Saw our work in the neighbourhood",
+  other: "Other",
 };
 
 const SECTION_H = "color:#2b5c9e;margin:20px 0 6px;font-size:14px;";
@@ -82,9 +110,19 @@ function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Phone</td><td><a href="tel:${escapeHtml(lead.phone)}">${escapeHtml(lead.phone)}</a></td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td><a href="mailto:${escapeHtml(lead.email)}">${escapeHtml(lead.email)}</a></td></tr>
       ${lead.address ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Address</td><td>${escapeHtml(lead.address)}</td></tr>` : ""}
+      ${lead.contactRole ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Role</td><td>${escapeHtml(CONTACT_ROLE_LABELS[lead.contactRole] ?? lead.contactRole)}</td></tr>` : ""}
+      ${lead.heardAbout ? `<tr><td style="padding:4px 12px 4px 0;color:#666;">Heard about us</td><td>${escapeHtml(HEARD_ABOUT_LABELS[lead.heardAbout] ?? lead.heardAbout)}</td></tr>` : ""}
       ${lead.message ? `<tr><td style="padding:4px 12px 4px 0;color:#666;vertical-align:top;">Message</td><td>${escapeHtml(lead.message)}</td></tr>` : ""}
       <tr><td style="padding:4px 12px 4px 0;color:#666;">Marketing consent</td><td>${consentLabel}</td></tr>
     </table>`;
+
+  // The one flag that reorders the owner's next five minutes, so it sits above
+  // everything — including the contact block it exists to escalate.
+  const emergencyBanner = lead.isEmergency
+    ? `<div style="background:#fbe9e7;border:1px solid #f2b8ae;border-radius:8px;padding:10px 14px;margin:0 0 14px;font-size:14px;font-weight:bold;color:#c0392b;">
+         🚨 The customer marked this as an EMERGENCY — call before reading further.
+       </div>`
+    : "";
 
   // 2. What the customer saw — the range and the scope summary, exactly as the
   // widget presented it, so you know what was promised on screen.
@@ -201,6 +239,7 @@ function renderLeadEmailHtml(lead: LeadPayload & { receivedAt: string }): string
   return `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#2b2b2b;max-width:560px;">
       <h2 style="color:#2b5c9e;margin:0 0 12px;">New lead from ${escapeHtml(SITE_NAME)}</h2>
+      ${emergencyBanner}
       ${contact}
       ${briefHtml}
       ${customerView}
@@ -346,6 +385,14 @@ export async function POST(request: Request) {
     // relayed through the browser, so by the time it arrives here it is
     // untrusted input like any other field in this payload.
     projectBrief: sanitizeBrief(body.projectBrief),
+    // Qualifiers pass only if they're slugs the form actually offers; a
+    // hand-crafted request with prose in these fields stores nothing rather
+    // than something that renders in the admin. The lead itself is unaffected.
+    contactRole:
+      body.contactRole && CONTACT_ROLE_LABELS[body.contactRole] ? body.contactRole : undefined,
+    heardAbout:
+      body.heardAbout && HEARD_ABOUT_LABELS[body.heardAbout] ? body.heardAbout : undefined,
+    isEmergency: typeof body.isEmergency === "boolean" ? body.isEmergency : undefined,
     receivedAt: new Date().toISOString(),
   };
 
@@ -424,7 +471,9 @@ export async function POST(request: Request) {
         from: process.env.LEADS_FROM_EMAIL || `${SITE_NAME} <${SITE_EMAIL}>`,
         to: LEADS_NOTIFY_EMAIL,
         replyTo: lead.email,
-        subject: `New lead: ${lead.name}`,
+        // The prefix is for the phone's lock screen: subjects survive
+        // truncation left-to-right, so URGENT has to come first.
+        subject: `${lead.isEmergency ? "🚨 URGENT — " : ""}New lead: ${lead.name}`,
         html: renderLeadEmailHtml(lead),
         ...(photoAttachments.length > 0 ? { attachments: photoAttachments } : {}),
       });

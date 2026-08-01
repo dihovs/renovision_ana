@@ -111,24 +111,36 @@ export default function CallList({ calls }: { calls: StoredCall[] }) {
                 )}
 
                 <div className="space-y-2">
-                  {(call.turns ?? []).map((turn, index) => (
-                    <div
-                      key={index}
-                      className={
-                        turn.role === "caller"
-                          ? "max-w-[85%] rounded-2xl rounded-tl-sm bg-black/[0.04] px-3 py-2"
-                          : "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-brand-blue/[0.07] px-3 py-2"
-                      }
-                    >
-                      <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
-                        {turn.role === "caller" ? "Caller" : "Anna"}
-                        {turn.escalated && " · escalated"}
-                      </span>
-                      <span className="block text-sm leading-relaxed text-charcoal/85">
-                        {turn.text}
-                      </span>
-                    </div>
-                  ))}
+                  {(call.turns ?? []).map((turn, index) => {
+                    const turnTime = formatTurnTime(turn.at);
+                    return (
+                      <div
+                        key={index}
+                        className={
+                          turn.role === "caller"
+                            ? "max-w-[85%] rounded-2xl rounded-tl-sm bg-black/[0.04] px-3 py-2"
+                            : "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-brand-blue/[0.07] px-3 py-2"
+                        }
+                      >
+                        <span className="mb-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
+                          <span>{turn.role === "caller" ? "Caller" : "Anna"}</span>
+                          {turn.escalated && (
+                            <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-800">
+                              Escalated
+                            </span>
+                          )}
+                          {turnTime && (
+                            <span className="ml-auto font-mono text-[10px] font-semibold normal-case tracking-normal text-charcoal/30">
+                              {turnTime}
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-sm leading-relaxed text-charcoal/85">
+                          {turn.text}
+                        </span>
+                      </div>
+                    );
+                  })}
                   {(call.turns ?? []).length === 0 && (
                     <p className="text-sm text-charcoal/40">
                       Nothing was recorded — the caller hung up before speaking.
@@ -158,4 +170,12 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return mins > 0 ? `${mins}m ${rest}s` : `${rest}s`;
+}
+
+/** "10:42:15 AM" for a turn, or "" if the call predates this field. */
+function formatTurnTime(at: string | undefined): string {
+  if (!at) return "";
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("en-CA", { timeStyle: "medium", timeZone: "America/Toronto" });
 }

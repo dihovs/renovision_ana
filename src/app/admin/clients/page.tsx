@@ -130,10 +130,16 @@ export default async function ClientsPage({
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02]"
                 >
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-charcoal">
+                    <span
+                      className="block truncate text-sm font-bold text-charcoal"
+                      title={clientDisplayName(client)}
+                    >
                       {clientDisplayName(client)}
                     </span>
-                    <span className="block truncate text-xs text-charcoal/55">
+                    <span
+                      className="block truncate text-xs text-charcoal/55"
+                      title={[person, email, phone].filter(Boolean).join(" · ") || billing || undefined}
+                    >
                       {[person, email, phone].filter(Boolean).join(" · ") || billing || "—"}
                     </span>
                   </div>

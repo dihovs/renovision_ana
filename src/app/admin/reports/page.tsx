@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
-import { db, isConfigured } from "@/lib/crm/db";
+import { db, isConfigured, isMissingTable } from "@/lib/crm/db";
+import { formatHours } from "@/lib/crm/expenses";
 import { formatMoney } from "@/lib/crm/money";
 
 export const dynamic = "force-dynamic";
@@ -27,15 +28,27 @@ export default async function ReportsPage() {
   }
 
   const client = db();
-  if (!client) return null;
+  if (!client) {
+    return (
+      <AdminNotice title="Could not reach the database">
+        The connection could not be established. Try reloading the page.
+      </AdminNotice>
+    );
+  }
 
-  const [quotesRes, invoicesRes, paymentsRes] = await Promise.all([
+  const [quotesRes, invoicesRes, paymentsRes, expensesRes, timeRes, jobsRes] = await Promise.all([
     client.from("quotes").select("status, total_cents, created_at").is("archived_at", null),
     client
       .from("invoices")
-      .select("status, total_cents, amount_paid_cents, issue_date")
+      .select("status, total_cents, amount_paid_cents, issue_date, job_id")
       .is("archived_at", null),
     client.from("payments").select("amount_cents, received_on"),
+    // The cost side. These three feed job costing only — an error here (most
+    // likely migration 0012 not run yet) must never take down the reports
+    // above, so they are deliberately excluded from the check below.
+    client.from("expenses").select("job_id, amount_cents, incurred_on"),
+    client.from("time_entries").select("job_id, minutes, worked_on"),
+    client.from("jobs").select("id, job_number, title, client_snapshot").is("archived_at", null),
   ]);
 
   if (quotesRes.error || invoicesRes.error || paymentsRes.error) {
@@ -58,8 +71,30 @@ export default async function ReportsPage() {
     total_cents: number;
     amount_paid_cents: number;
     issue_date: string;
+    job_id: string | null;
   }[];
   const payments = (paymentsRes.data ?? []) as { amount_cents: number; received_on: string }[];
+
+  // Absent tables (migration 0012 pending) leave costing off; the reports
+  // above render exactly as they always have.
+  const costingReady = !expensesRes.error && !timeRes.error && !jobsRes.error;
+  const costingPending = isMissingTable(expensesRes.error) || isMissingTable(timeRes.error);
+  const expenseRows = (costingReady ? (expensesRes.data ?? []) : []) as {
+    job_id: string | null;
+    amount_cents: number;
+    incurred_on: string;
+  }[];
+  const timeRows = (costingReady ? (timeRes.data ?? []) : []) as {
+    job_id: string;
+    minutes: number;
+    worked_on: string;
+  }[];
+  const jobRows = (costingReady ? (jobsRes.data ?? []) : []) as {
+    id: string;
+    job_number: number;
+    title: string | null;
+    client_snapshot: { displayName?: string } | null;
+  }[];
 
   // --- Quote conversion --------------------------------------------------
   // Drafts are excluded: a quote never sent was never a chance to win, and
@@ -94,6 +129,76 @@ export default async function ReportsPage() {
   const outstanding = invoices
     .filter((i) => i.status !== "draft" && i.status !== "bad_debt")
     .reduce((sum, i) => sum + Math.max(0, i.total_cents - i.amount_paid_cents), 0);
+
+  // --- Job costing ---------------------------------------------------------
+  // Revenue is INVOICED revenue per job, same rule as everything else on this
+  // page. Expenses come in dollars; labour comes in hours rather than dollars,
+  // because no wage lives in this system and a fabricated labour cost is worse
+  // than none. Margin is therefore invoiced minus expenses, with the hours
+  // beside it for the owner to price in their head.
+  const thisYear = String(new Date().getFullYear());
+  const spentYtd = expenseRows
+    .filter((e) => e.incurred_on.startsWith(thisYear))
+    .reduce((sum, e) => sum + e.amount_cents, 0);
+  const minutesYtd = timeRows
+    .filter((t) => t.worked_on.startsWith(thisYear))
+    .reduce((sum, t) => sum + t.minutes, 0);
+  const overheadSpend = expenseRows
+    .filter((e) => e.job_id === null)
+    .reduce((sum, e) => sum + e.amount_cents, 0);
+
+  const costingByJob = new Map<
+    string,
+    { label: string; client: string; revenueCents: number; spentCents: number; minutes: number }
+  >();
+  for (const job of jobRows) {
+    costingByJob.set(job.id, {
+      label: `#${job.job_number} · ${job.title ?? "Untitled"}`,
+      client: job.client_snapshot?.displayName ?? "",
+      revenueCents: 0,
+      spentCents: 0,
+      minutes: 0,
+    });
+  }
+  for (const invoice of invoices) {
+    if (!invoice.job_id || invoice.status === "draft") continue;
+    const row = costingByJob.get(invoice.job_id);
+    if (row) row.revenueCents += invoice.total_cents;
+  }
+  for (const expense of expenseRows) {
+    if (!expense.job_id) continue;
+    const row = costingByJob.get(expense.job_id);
+    if (row) row.spentCents += expense.amount_cents;
+  }
+  for (const entry of timeRows) {
+    const row = costingByJob.get(entry.job_id);
+    if (row) row.minutes += entry.minutes;
+  }
+  // Only jobs with any financial activity — a table of untouched jobs full of
+  // zeros would bury the handful of rows that mean something.
+  const costedJobs = [...costingByJob.entries()]
+    .map(([id, row]) => ({ id, ...row }))
+    .filter((row) => row.revenueCents !== 0 || row.spentCents !== 0 || row.minutes > 0)
+    .sort((a, b) => b.revenueCents - a.revenueCents || b.spentCents - a.spentCents);
+  const hasCosts = expenseRows.length > 0 || timeRows.length > 0;
+
+  if (
+    quotes.length === 0 &&
+    invoices.length === 0 &&
+    payments.length === 0 &&
+    expenseRows.length === 0 &&
+    timeRows.length === 0
+  ) {
+    return (
+      <AdminNotice title="Nothing to report yet">
+        These numbers fill in once quotes go out and invoices get paid.{" "}
+        <Link href="/admin/quotes/new" className="font-semibold text-brand-blue">
+          Create a quote
+        </Link>{" "}
+        to get started.
+      </AdminNotice>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -175,6 +280,109 @@ export default async function ReportsPage() {
         </div>
       </section>
 
+      {costingReady && hasCosts && (
+        <section>
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-charcoal/45">
+            Money out
+          </h3>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="Spent this year" value={formatMoney(spentYtd)} note="expenses recorded" />
+            <Stat label="Hours this year" value={formatHours(minutesYtd)} note="labour logged" />
+            <Stat
+              label="Overhead"
+              value={formatMoney(overheadSpend)}
+              note="expenses tied to no job"
+            />
+            <Stat
+              label="Jobs costed"
+              value={String(costedJobs.length)}
+              note="with money or hours against them"
+            />
+          </div>
+
+          {costedJobs.length > 0 && (
+            <div className="mt-3 overflow-x-auto rounded-xl border border-black/5 bg-white shadow-sm">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-b border-black/5 text-left text-[11px] font-bold uppercase tracking-wide text-charcoal/45">
+                    <th className="px-4 py-2.5 font-bold">Job</th>
+                    <th className="px-4 py-2.5 text-right font-bold">Invoiced</th>
+                    <th className="px-4 py-2.5 text-right font-bold">Spent</th>
+                    <th className="px-4 py-2.5 text-right font-bold">Hours</th>
+                    <th className="px-4 py-2.5 text-right font-bold">Margin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/5">
+                  {costedJobs.map((row) => {
+                    const margin = row.revenueCents - row.spentCents;
+                    return (
+                      <tr key={row.id}>
+                        <td className="max-w-[220px] px-4 py-2.5">
+                          <span className="block truncate font-semibold text-charcoal">
+                            {row.label}
+                          </span>
+                          {row.client && (
+                            <span className="block truncate text-xs text-charcoal/50">
+                              {row.client}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-charcoal/70">
+                          {row.revenueCents === 0 ? "—" : formatMoney(row.revenueCents)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-charcoal/70">
+                          {row.spentCents === 0 ? "—" : formatMoney(row.spentCents)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-charcoal/70">
+                          {row.minutes === 0 ? "—" : formatHours(row.minutes)}
+                        </td>
+                        <td
+                          className={`px-4 py-2.5 text-right font-bold tabular-nums ${
+                            margin < 0 ? "text-red-700" : "text-charcoal"
+                          }`}
+                        >
+                          {formatMoney(margin)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <p className="mt-2 text-xs leading-relaxed text-charcoal/45">
+            Margin is invoiced revenue minus recorded expenses. Labour shows as hours, not dollars
+            — no wage lives in this system, and a made-up labour cost would be worse than none.{" "}
+            <Link href="/admin/expenses" className="font-semibold text-brand-blue">
+              Record expenses and hours
+            </Link>{" "}
+            to keep it honest.
+          </p>
+        </section>
+      )}
+
+      {costingReady && !hasCosts && (
+        <p className="text-xs leading-relaxed text-charcoal/45">
+          Job costing switches on once the first expense or hour is{" "}
+          <Link href="/admin/expenses" className="font-semibold text-brand-blue">
+            recorded
+          </Link>
+          — then every job here shows what it cost next to what it billed.
+        </p>
+      )}
+
+      {costingPending && (
+        <p className="text-xs leading-relaxed text-charcoal/45">
+          One report is still waiting: run{" "}
+          <code className="font-mono text-brand-blue">
+            supabase/migrations/0012_expenses_time.sql
+          </code>{" "}
+          in the Supabase SQL editor to start tracking expenses and hours, and a job-costing view
+          appears here.
+        </p>
+      )}
+
       <p className="text-xs leading-relaxed text-charcoal/45">
         These figures count invoices and payments only — never quote or estimate totals. A quote is
         a hope, an invoice is a demand, and a payment is money.{" "}
@@ -202,7 +410,7 @@ function Stat({
     <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
       <span className="text-xs font-bold uppercase tracking-wide text-charcoal/45">{label}</span>
       <p
-        className={`mt-2 font-heading text-2xl font-bold ${alarm ? "text-charcoal" : "text-charcoal"}`}
+        className={`mt-2 font-heading text-2xl font-bold ${alarm ? "text-red-700" : "text-charcoal"}`}
       >
         {value}
       </p>

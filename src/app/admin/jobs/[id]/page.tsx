@@ -1,19 +1,28 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  addChecklistItemAction,
   addVisitAction,
   archiveJobAction,
   completeVisitAction,
+  moveChecklistItemAction,
+  removeChecklistItemAction,
   removeVisitAction,
   setJobStatusAction,
+  setRecurrenceAction,
+  stopRecurrenceAction,
+  toggleChecklistItemAction,
 } from "../actions";
 import { createFromJobAction } from "../../invoices/actions";
 import AdminNotice from "@/components/admin/AdminNotice";
+import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
 import AskClaude from "@/components/admin/AskClaude";
+import JobChecklist from "@/components/admin/JobChecklist";
 import JobDetail from "@/components/admin/JobDetail";
+import JobRecurrence, { type RecurrenceAnchor } from "@/components/admin/JobRecurrence";
 import JobThread from "@/components/admin/JobThread";
 import { db, MigrationPendingError } from "@/lib/crm/db";
-import { getJob } from "@/lib/crm/jobs";
+import { getJob, getJobExtras } from "@/lib/crm/jobs";
 import { calculateQuoteTotals } from "@/lib/crm/money";
 import { JOB_STATUS_LABEL, lineForTotals, priced, type JobWithLines } from "@/lib/crm/opsTypes";
 import { canChargeTax, getCompany } from "@/lib/crm/settings";
@@ -43,6 +52,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   if (!job) notFound();
 
+  // Recurrence + checklist arrive with migration 0014; until it runs they
+  // simply report "pending" and this screen renders exactly as before, plus
+  // one notice saying which file to run.
+  const extras = await getJobExtras(job.id);
+
   const company = await getCompany();
   const rate =
     canChargeTax(company) && job.tax_snapshot
@@ -61,6 +75,29 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         .eq("job_id", job.id)
         .is("archived_at", null)
     : { count: 0 };
+
+  // The pattern's anchor: what it was saved with, or — before one exists —
+  // the job's earliest visit, whose weekday and time the pattern would copy.
+  const firstVisit = job.visits[0] ?? null;
+  const anchor: RecurrenceAnchor | null = extras.recurrence
+    ? {
+        startsAt: extras.recurrence.anchor_starts_at,
+        endsAt: extras.recurrence.anchor_ends_at,
+        allDay: extras.recurrence.all_day,
+      }
+    : firstVisit
+      ? { startsAt: firstVisit.starts_at, endsAt: firstVisit.ends_at, allDay: firstVisit.all_day }
+      : null;
+
+  const now = new Date();
+  const upcomingGenerated = extras.recurrence
+    ? job.visits.filter(
+        (visit) =>
+          visit.recurrence_id === extras.recurrence?.id &&
+          !visit.completed_at &&
+          new Date(visit.starts_at) > now,
+      ).length
+    : 0;
 
   return (
     <div className="space-y-4">
@@ -111,12 +148,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               </Link>
             )}
             <form action={archiveJobAction.bind(null, job.id, !job.archived_at)}>
-              <button
-                type="submit"
-                className="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold text-charcoal/45 transition-colors hover:bg-black/[0.03] hover:text-charcoal"
-              >
-                {job.archived_at ? "Restore" : "Archive"}
-              </button>
+              <ArchiveToggleButton archived={Boolean(job.archived_at)} />
             </form>
           </div>
         </div>
@@ -154,7 +186,39 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         completeVisitAction={completeVisitAction.bind(null, job.id)}
         removeVisitAction={removeVisitAction.bind(null, job.id)}
         invoiceAction={createFromJobAction.bind(null, job.id)}
+        recurrenceSlot={
+          extras.migrationPending ? undefined : (
+            <JobRecurrence
+              recurrence={extras.recurrence}
+              anchor={anchor}
+              upcomingCount={upcomingGenerated}
+              saveAction={setRecurrenceAction.bind(null, job.id)}
+              stopAction={stopRecurrenceAction.bind(null, job.id)}
+            />
+          )
+        }
+        checklistSlot={
+          extras.migrationPending ? undefined : (
+            <JobChecklist
+              items={extras.checklist}
+              addAction={addChecklistItemAction.bind(null, job.id)}
+              toggleAction={toggleChecklistItemAction.bind(null, job.id)}
+              removeAction={removeChecklistItemAction.bind(null, job.id)}
+              moveAction={moveChecklistItemAction.bind(null, job.id)}
+            />
+          )
+        }
       />
+
+      {extras.migrationPending && (
+        <AdminNotice title="One migration left to run">
+          Run{" "}
+          <code className="font-mono text-brand-blue">
+            supabase/migrations/0014_recurring_checklists.sql
+          </code>{" "}
+          to turn on recurring visits and job checklists.
+        </AdminNotice>
+      )}
     </div>
   );
 }

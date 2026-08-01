@@ -104,7 +104,7 @@ const copy = {
       {
         icon: "shield",
         title: "Respect for Your Property",
-        desc: "Clean job sites, careful work around occupied units and family spaces, and full licensing and insurance on every job.",
+        desc: "Clean job sites, careful work around occupied units and family spaces, and full insurance coverage on every job.",
       },
     ],
   },
@@ -185,7 +185,7 @@ const copy = {
       {
         icon: "shield",
         title: "Respect de votre propriété",
-        desc: "Chantiers propres, travail soigné autour des logements occupés et des espaces familiaux, licence et assurance complètes sur chaque projet.",
+        desc: "Chantiers propres, travail soigné autour des logements occupés et des espaces familiaux, et assurance complète sur chaque projet.",
       },
     ],
   },

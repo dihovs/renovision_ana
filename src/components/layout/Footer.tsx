@@ -28,6 +28,7 @@ export default function Footer() {
 
   const exploreLinks = [
     { href: "/services", label: t.nav.services },
+    { href: "/estimation", label: t.nav.estimate },
     { href: "/commercial", label: t.nav.commercial },
     { href: "/gallery", label: t.nav.gallery },
     { href: "/blog", label: t.nav.blog },

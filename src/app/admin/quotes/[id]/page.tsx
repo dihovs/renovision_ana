@@ -167,7 +167,18 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
           Line items
         </h3>
         {quote.lines.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-charcoal/40">Nothing on this quote yet.</p>
+          <p className="px-4 py-6 text-center text-sm text-charcoal/40">
+            Nothing on this quote yet.
+            {editable && (
+              <>
+                {" "}
+                <Link href={`/admin/quotes/${quote.id}/edit`} className="font-semibold text-brand-blue hover:underline">
+                  Add line items
+                </Link>
+                .
+              </>
+            )}
+          </p>
         ) : (
           <ul className="divide-y divide-black/5">
             {quote.lines.map((line) => (

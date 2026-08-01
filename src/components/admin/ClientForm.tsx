@@ -421,11 +421,14 @@ function Check({
 
 function CustomField({ field, value }: { field: CustomFieldDef; value: string }) {
   const name = `custom__${field.id}`;
+  const id = useId();
   if (field.type === "select") {
     return (
       <div>
-        <label className={labelClass}>{field.label}</label>
-        <select name={name} defaultValue={value} className={inputClass}>
+        <label htmlFor={id} className={labelClass}>
+          {field.label}
+        </label>
+        <select id={id} name={name} defaultValue={value} className={inputClass}>
           <option value="">—</option>
           {(field.options ?? []).map((option) => (
             <option key={option} value={option}>

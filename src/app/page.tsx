@@ -12,9 +12,9 @@ import { buildMetadata } from "@/lib/seo";
 import { getGoogleReviewsData } from "@/lib/googleReviews";
 
 export const metadata = buildMetadata({
-  title: "Renovation & Water Damage Restoration in Laval & Montreal",
+  title: "Rénovation et dégât d'eau à Laval et Montréal",
   description:
-    "Interior renovations, flooring, kitchen & bath remodels, basement transformations, and water damage restoration for property managers, insurers, and homeowners across Laval and greater Montreal.",
+    "Rénovations intérieures, planchers, cuisines et salles de bain, sous-sols et restauration après dégât d'eau à Laval et Montréal. Soumission gratuite et rapide.",
   path: "/",
 });
 

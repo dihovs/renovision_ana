@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
+import { useFormStatus } from "react-dom";
 import AddressFields, {
   EMPTY_ADDRESS,
   inputClass,
@@ -130,12 +131,7 @@ export default function PropertyEditor({
                     Edit
                   </button>
                   <form action={removeAction.bind(null, property.id)}>
-                    <button
-                      type="submit"
-                      className="cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-charcoal/35 transition-colors hover:bg-red-50 hover:text-red-600"
-                    >
-                      Remove
-                    </button>
+                    <RemoveButton />
                   </form>
                 </div>
               </div>
@@ -161,6 +157,19 @@ export default function PropertyEditor({
   );
 }
 
+function RemoveButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-charcoal/35 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"
+    >
+      {pending ? "Removing…" : "Remove"}
+    </button>
+  );
+}
+
 function PropertyFields({
   taxRates,
   action,
@@ -180,6 +189,7 @@ function PropertyFields({
 }) {
   const [state, formAction, pending] = useActionState(action, {} as ClientFormState);
   const [address, setAddress] = useState<AddressValue>(initial);
+  const id = useId();
 
   // The action revalidates the page, so a successful save re-renders this list
   // from the server. Closing on the empty-object result avoids leaving the
@@ -206,8 +216,11 @@ function PropertyFields({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className={labelClass}>Access notes</label>
+          <label htmlFor={`${id}-access-notes`} className={labelClass}>
+            Access notes
+          </label>
           <input
+            id={`${id}-access-notes`}
             name="accessNotes"
             defaultValue={initialAccessNotes}
             placeholder="Gate code, parking, which door"
@@ -215,8 +228,15 @@ function PropertyFields({
           />
         </div>
         <div>
-          <label className={labelClass}>Tax rate</label>
-          <select name="propertyTaxRateId" defaultValue={initialTaxRateId} className={inputClass}>
+          <label htmlFor={`${id}-tax-rate`} className={labelClass}>
+            Tax rate
+          </label>
+          <select
+            id={`${id}-tax-rate`}
+            name="propertyTaxRateId"
+            defaultValue={initialTaxRateId}
+            className={inputClass}
+          >
             {/* Tax follows the place of supply, so a property outside Quebec
                 overrides whatever the client is normally billed. */}
             <option value="">Same as client</option>

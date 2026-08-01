@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import Link from "next/link";
+import { useActionState, useId, useState } from "react";
 import { inputClass, labelClass } from "./AddressFields";
 import type { PriceBookState } from "@/app/admin/price-book/actions";
 import { formatMoney } from "@/lib/crm/money";
@@ -23,6 +24,7 @@ export default function PriceBookManager({
   archiveAction,
   seedAction,
   totalCount,
+  search,
 }: {
   items: PriceBookItem[];
   categories: string[];
@@ -35,6 +37,8 @@ export default function PriceBookManager({
   archiveAction: (id: string, archived: boolean) => Promise<void>;
   seedAction: (prev: PriceBookState) => Promise<PriceBookState>;
   totalCount: number;
+  /** Current `?q=` value, so the box shows what's actually being searched. */
+  search: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,6 +51,7 @@ export default function PriceBookManager({
           <input
             type="search"
             name="q"
+            defaultValue={search}
             placeholder="Search name, code or keyword"
             aria-label="Search the price book"
             className={inputClass}
@@ -108,11 +113,40 @@ export default function PriceBookManager({
         </div>
       )}
 
-      {items.length === 0 && !adding ? (
+      {items.length === 0 && totalCount > 0 ? (
+        // Items exist, but this search matched none of them — a plain "empty"
+        // message here would read as "you have no price book", which isn't
+        // true, so the CTA points at the actual fix (clear the search).
+        <div className="rounded-xl border border-black/5 bg-white p-6 text-center shadow-sm">
+          <p className="text-sm text-charcoal/50">
+            {search ? (
+              <>No items match &ldquo;{search}&rdquo;.</>
+            ) : (
+              <>No items match that search.</>
+            )}
+          </p>
+          <Link
+            href="/admin/price-book"
+            className="mt-2 inline-block text-sm font-semibold text-brand-blue hover:underline"
+          >
+            Clear search
+          </Link>
+        </div>
+      ) : items.length === 0 && !adding ? (
+        // The catalog itself is empty. The import card above is the primary
+        // CTA for that; this just points at the manual alternative.
         <p className="rounded-xl border border-black/5 bg-white p-6 text-center text-sm text-charcoal/50 shadow-sm">
-          Nothing here yet.
+          Or add items one at a time with{" "}
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="cursor-pointer font-semibold text-brand-blue hover:underline"
+          >
+            New item
+          </button>
+          , above.
         </p>
-      ) : (
+      ) : items.length > 0 ? (
         <div className="overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">
           <ul className="divide-y divide-black/5">
             {items.map((item) => {
@@ -131,8 +165,11 @@ export default function PriceBookManager({
                 );
               }
               return (
-                <li key={item.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
+                <li
+                  key={item.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1 basis-40">
                     <div className="flex items-baseline gap-2">
                       <span className="truncate text-sm font-bold text-charcoal">{item.name}</span>
                       {item.item_code && (
@@ -187,7 +224,7 @@ export default function PriceBookManager({
             })}
           </ul>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -206,6 +243,7 @@ function ItemForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {} as PriceBookState);
+  const categoryId = useId();
 
   const money = (cents: number | null | undefined) =>
     cents === null || cents === undefined ? "" : (cents / 100).toFixed(2);
@@ -236,8 +274,11 @@ function ItemForm({
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label className={labelClass}>Category</label>
+          <label htmlFor={categoryId} className={labelClass}>
+            Category
+          </label>
           <input
+            id={categoryId}
             name="category"
             defaultValue={initial?.category ?? ""}
             list="price-book-categories"
@@ -333,15 +374,18 @@ function Field({
   required?: boolean;
   mono?: boolean;
 }) {
+  const id = useId();
   return (
     <div>
-      <label className={labelClass}>
+      <label htmlFor={id} className={labelClass}>
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
       <input
+        id={id}
         name={name}
         defaultValue={defaultValue}
+        required={required}
         className={`${inputClass} ${mono ? "font-mono text-xs" : ""}`}
       />
       {hint && <p className="mt-1 text-[11px] leading-snug text-charcoal/45">{hint}</p>}

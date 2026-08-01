@@ -24,28 +24,30 @@ const jakarta = Plus_Jakarta_Sans({
   weight: ["400", "500", "600"],
 });
 
+// French metadata throughout: the site serves French content on every URL
+// (SSR default fr), so titles and descriptions must match what Google indexes.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Renovision AnA | Renovation & Water Damage Restoration",
+    default: "Renovision AnA | Rénovation et restauration de dégâts d'eau",
     template: "%s | Renovision AnA",
   },
   description:
-    "Renovision AnA provides general renovations, water damage repair and restoration, and kitchen & bathroom remodeling for property managers, insurers, and homeowners.",
+    "Renovision AnA réalise rénovations intérieures, restauration après dégât d'eau et réfections de cuisines et salles de bain à Laval et dans le grand Montréal.",
   openGraph: {
-    title: "Renovision AnA | Renovation & Water Damage Restoration",
+    title: "Renovision AnA | Rénovation et restauration de dégâts d'eau",
     description:
-      "General renovations, water damage repair and restoration, and kitchen & bathroom remodeling for property managers, insurers, and homeowners.",
+      "Rénovations intérieures, restauration après dégât d'eau et réfections de cuisines et salles de bain à Laval et dans le grand Montréal.",
     url: SITE_URL,
     siteName: "Renovision AnA",
-    locale: "en_US",
+    locale: "fr_CA",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Renovision AnA | Renovation & Water Damage Restoration",
+    title: "Renovision AnA | Rénovation et restauration de dégâts d'eau",
     description:
-      "General renovations, water damage repair and restoration, and kitchen & bathroom remodeling for property managers, insurers, and homeowners.",
+      "Rénovations intérieures, restauration après dégât d'eau et réfections de cuisines et salles de bain à Laval et dans le grand Montréal.",
   },
 };
 

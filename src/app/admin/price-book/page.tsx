@@ -56,6 +56,7 @@ export default async function PriceBookPage({
       items={items}
       categories={categories}
       totalCount={total}
+      search={search}
       createAction={createItemAction}
       updateAction={updateItemAction}
       archiveAction={archiveItemAction}

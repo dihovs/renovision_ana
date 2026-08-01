@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useId, useState, useTransition } from "react";
 import { inputClass, labelClass } from "./AddressFields";
 import type { JobState } from "@/app/admin/jobs/actions";
 import { formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
@@ -29,6 +29,8 @@ export default function JobDetail({
   completeVisitAction,
   removeVisitAction,
   invoiceAction,
+  recurrenceSlot,
+  checklistSlot,
 }: {
   jobId: string;
   status: JobStatus;
@@ -41,11 +43,17 @@ export default function JobDetail({
   completeVisitAction: (visitId: string, completed: boolean) => Promise<void>;
   removeVisitAction: (visitId: string) => Promise<void>;
   invoiceAction: (depositPercent?: number) => Promise<void>;
+  // Server-rendered cards slotted in by the page: the recurrence card sits
+  // right under the visits it generates, the checklist under that. Slots
+  // rather than props keep this file out of the recurrence business entirely.
+  recurrenceSlot?: React.ReactNode;
+  checklistSlot?: React.ReactNode;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [visitState, runAddVisit, addingVisit] = useActionState(addVisitAction, {} as JobState);
+  const visitFormId = useId();
 
   function run(fn: () => Promise<void>) {
     setError(null);
@@ -153,8 +161,9 @@ export default function JobDetail({
               <button
                 type="button"
                 onClick={() => run(() => completeVisitAction(visit.id, !visit.completed_at))}
+                disabled={pending}
                 aria-label={visit.completed_at ? "Mark not done" : "Mark done"}
-                className={`mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors ${
+                className={`mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-wait disabled:opacity-50 ${
                   visit.completed_at
                     ? "border-brand-green bg-brand-green text-white"
                     : "border-black/20 hover:border-brand-green"
@@ -174,6 +183,11 @@ export default function JobDetail({
                   }`}
                 >
                   {visit.title || "Site visit"}
+                  {visit.recurrence_id && (
+                    <span className="ml-2 rounded-full bg-black/[0.04] px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-charcoal/45">
+                      Repeats
+                    </span>
+                  )}
                 </span>
                 <span className="block text-xs text-charcoal/55">{formatVisit(visit)}</span>
                 {visit.notes && (
@@ -184,8 +198,9 @@ export default function JobDetail({
               <button
                 type="button"
                 onClick={() => run(() => removeVisitAction(visit.id))}
+                disabled={pending}
                 aria-label="Remove visit"
-                className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-charcoal/35 transition-colors hover:bg-red-50 hover:text-red-600"
+                className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-xs font-bold text-charcoal/35 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"
               >
                 Remove
               </button>
@@ -205,29 +220,44 @@ export default function JobDetail({
               </p>
             )}
             <div>
-              <label className={labelClass}>What</label>
-              <input name="title" placeholder="Demolition, drying check, finishing" className={inputClass} />
+              <label htmlFor={`${visitFormId}-title`} className={labelClass}>
+                What
+              </label>
+              <input
+                id={`${visitFormId}-title`}
+                name="title"
+                placeholder="Demolition, drying check, finishing"
+                className={inputClass}
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <label className={labelClass}>Date</label>
-                <input type="date" name="date" required className={inputClass} />
+                <label htmlFor={`${visitFormId}-date`} className={labelClass}>
+                  Date
+                </label>
+                <input id={`${visitFormId}-date`} type="date" name="date" required className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Start</label>
-                <input type="time" name="time" className={inputClass} />
+                <label htmlFor={`${visitFormId}-start`} className={labelClass}>
+                  Start
+                </label>
+                <input id={`${visitFormId}-start`} type="time" name="time" className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>End</label>
-                <input type="time" name="endTime" className={inputClass} />
+                <label htmlFor={`${visitFormId}-end`} className={labelClass}>
+                  End
+                </label>
+                <input id={`${visitFormId}-end`} type="time" name="endTime" className={inputClass} />
               </div>
             </div>
             <p className="text-[11px] text-charcoal/45">
               Leave the times blank for an all-day visit.
             </p>
             <div>
-              <label className={labelClass}>Notes</label>
-              <input name="notes" className={inputClass} />
+              <label htmlFor={`${visitFormId}-notes`} className={labelClass}>
+                Notes
+              </label>
+              <input id={`${visitFormId}-notes`} name="notes" className={inputClass} />
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -248,6 +278,9 @@ export default function JobDetail({
           </form>
         )}
       </section>
+
+      {recurrenceSlot}
+      {checklistSlot}
 
       {/* Work ---------------------------------------------------------- */}
       <section className="overflow-hidden rounded-xl border border-black/5 bg-white shadow-sm">

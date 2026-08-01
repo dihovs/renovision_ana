@@ -131,9 +131,12 @@ const en: Record<string, unknown> & {
     careers: "Careers",
     caseStudies: "Case Studies",
     company: "Company",
+    estimate: "Free Estimate",
   },
   header: {
     freeEstimate: "Get a Free Estimate",
+    emergencyPrompt: "Water damage emergency?",
+    emergencyAvailability: "7 days a week",
   },
   hero: {
     eyebrow: "Renovations & Water Damage Restoration",
@@ -161,7 +164,7 @@ const en: Record<string, unknown> & {
   trustBar: {
     item1: "Trusted by property management companies",
     item2: "Insurance approved network",
-    item3: "Licensed & insured",
+    item3: "Fully insured · 1-year workmanship warranty",
   },
   audience: {
     title: "Built for Every Client",
@@ -430,9 +433,12 @@ const fr: typeof en = {
     careers: "Carrières",
     caseStudies: "Études de cas",
     company: "Entreprise",
+    estimate: "Estimation",
   },
   header: {
     freeEstimate: "Estimation gratuite",
+    emergencyPrompt: "Urgence dégât d'eau?",
+    emergencyAvailability: "7 jours sur 7",
   },
   hero: {
     eyebrow: "Rénovations et restauration de dégâts d'eau",
@@ -460,7 +466,7 @@ const fr: typeof en = {
   trustBar: {
     item1: "La confiance des sociétés de gestion immobilière",
     item2: "Réseau approuvé par les assureurs",
-    item3: "Licencié et assuré",
+    item3: "Entièrement assuré · Garantie d'un an sur la main-d'œuvre",
   },
   audience: {
     title: "Conçu pour chaque client",

@@ -7,6 +7,7 @@ import {
   sendInvoiceAction,
   setInvoiceStatusAction,
 } from "../actions";
+import ArchiveButton from "./ArchiveButton";
 import AdminNotice from "@/components/admin/AdminNotice";
 import InvoiceDetail from "@/components/admin/InvoiceDetail";
 import { MigrationPendingError } from "@/lib/crm/db";
@@ -104,14 +105,10 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             ) : (
               <p className="text-sm font-semibold text-green-700">Paid in full</p>
             )}
-            <form action={archiveInvoiceAction.bind(null, invoice.id, !invoice.archived_at)}>
-              <button
-                type="submit"
-                className="mt-1 cursor-pointer text-xs font-semibold text-charcoal/40 transition-colors hover:text-charcoal"
-              >
-                {invoice.archived_at ? "Restore" : "Archive"}
-              </button>
-            </form>
+            <ArchiveButton
+              archived={Boolean(invoice.archived_at)}
+              action={archiveInvoiceAction.bind(null, invoice.id, !invoice.archived_at)}
+            />
           </div>
         </div>
       </div>
@@ -134,7 +131,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           Line items
         </h3>
         <ul className="divide-y divide-black/5">
-          {invoice.lines.map((line) =>
+          {invoice.lines.length === 0 ? (
+            <li className="px-4 py-6 text-center text-sm text-charcoal/40">
+              No line items on this invoice.
+            </li>
+          ) : (
+            invoice.lines.map((line) =>
             line.kind === "text" ? (
               <li key={line.id} className="bg-black/[0.015] px-4 py-3">
                 <p className="text-sm font-semibold text-charcoal/70">{line.name}</p>
@@ -168,6 +170,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 </span>
               </li>
             ),
+            )
           )}
         </ul>
 

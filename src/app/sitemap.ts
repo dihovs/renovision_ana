@@ -5,6 +5,7 @@ import { serviceAreas } from "@/lib/serviceAreas";
 
 const routes = [
   "",
+  "/estimation",
   "/services",
   "/services/water-damage",
   "/services/flooring",

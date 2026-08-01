@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useFormStatus } from "react-dom";
 import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/admin/actions";
 import { convertLeadAction } from "@/app/admin/clients/actions";
+import AdminNotice from "./AdminNotice";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 import AskClaude from "./AskClaude";
 import type { ProjectBrief } from "@/lib/projectBrief";
@@ -23,6 +25,27 @@ const STATUS_STYLE: Record<LeadStatus, string> = {
   quoted: "bg-amber-500 text-white",
   won: "bg-emerald-700 text-white",
   lost: "bg-charcoal/40 text-white",
+};
+
+// Slug → label for the contact form's qualifying answers. Unknown slugs fall
+// back to the raw value rather than hiding — a value we didn't anticipate is
+// still information the owner typed a form to get.
+const ROLE_LABEL: Record<string, string> = {
+  owner: "Property owner",
+  property_manager: "Property manager",
+  insurance: "Insurance adjuster/broker",
+  syndicate: "Condo syndicate",
+  other: "Other",
+};
+
+const HEARD_LABEL: Record<string, string> = {
+  google: "Google",
+  referral: "Referral from a friend",
+  plumber: "Plumber",
+  insurance_broker: "Insurance broker/adjuster",
+  social: "Facebook/Instagram",
+  neighbourhood: "Saw our work nearby",
+  other: "Other",
 };
 
 function timeAgo(iso: string): string {
@@ -76,7 +99,25 @@ export default function LeadPipeline({
       </div>
 
       {visible.length === 0 ? (
-        <p className="mt-8 text-sm text-charcoal/60">Nothing here yet.</p>
+        <div className="mt-4">
+          <AdminNotice title={filter === "all" ? "No leads yet" : `No ${STATUS_LABEL[filter].toLowerCase()} leads`}>
+            {filter === "all" ? (
+              "New enquiries from the website and phone will show up here automatically."
+            ) : (
+              <>
+                Nothing in this stage right now.{" "}
+                <button
+                  type="button"
+                  onClick={() => setFilter("all")}
+                  className="cursor-pointer font-semibold text-brand-blue hover:underline"
+                >
+                  Show all leads
+                </button>
+                .
+              </>
+            )}
+          </AdminNotice>
+        </div>
       ) : (
         <ul className="mt-4 space-y-3">
           {visible.map((lead) => (
@@ -111,6 +152,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`shrink-0 cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
         active ? "bg-brand-blue text-white" : "bg-black/5 text-charcoal/70 hover:bg-black/10"
       }`}
@@ -154,19 +196,27 @@ function LeadCard({
               />
             )}
             <span
+              title={lead.name}
               className={`truncate font-heading text-base text-brand-blue ${
                 lead.opened_at ? "font-semibold" : "font-extrabold"
               }`}
             >
               {lead.name}
             </span>
+            {/* Truthy check on purpose: old leads and environments where the
+                0016 migration hasn't run yet give null/undefined — silence. */}
+            {lead.is_emergency && (
+              <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Emergency
+              </span>
+            )}
             <span
               className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_STYLE[lead.status]}`}
             >
               {STATUS_LABEL[lead.status]}
             </span>
           </div>
-          <p className="mt-1 truncate text-sm text-charcoal/70">
+          <p title={lead.scope_summary || undefined} className="mt-1 truncate text-sm text-charcoal/70">
             {lead.scope_summary || "No scope recorded"}
           </p>
           <p className="mt-1 text-xs text-charcoal/45">
@@ -215,12 +265,7 @@ function LeadCard({
               original numbers, and the tidied client record must not overwrite
               the evidence. */}
           <form action={convertLeadAction.bind(null, lead.id)} className="mt-2">
-            <button
-              type="submit"
-              className="w-full cursor-pointer rounded-full border-2 border-brand-green px-4 py-2.5 text-center text-sm font-bold uppercase tracking-[0.08em] text-brand-green transition-colors hover:bg-brand-green hover:text-white"
-            >
-              Convert to client
-            </button>
+            <ConvertButton />
           </form>
 
           {/* The brief sits directly under the call button because that is the
@@ -262,6 +307,17 @@ function LeadCard({
           <dl className="mt-4 space-y-1.5 text-sm">
             <Row label="Email" value={lead.email} />
             {lead.address && <Row label="Address" value={lead.address} />}
+            {/* Qualifiers render only when answered — chat/phone leads, old
+                leads, and a pending 0016 migration all simply show nothing. */}
+            {lead.is_emergency != null && (
+              <Row label="Emergency" value={lead.is_emergency ? "Yes" : "No"} />
+            )}
+            {lead.contact_role && (
+              <Row label="Role" value={ROLE_LABEL[lead.contact_role] ?? lead.contact_role} />
+            )}
+            {lead.heard_about && (
+              <Row label="Heard via" value={HEARD_LABEL[lead.heard_about] ?? lead.heard_about} />
+            )}
             <Row label="Language" value={lead.locale.toUpperCase()} />
             {lead.estimate_low && (
               <Row label="Range" value={`${lead.estimate_low} – ${lead.estimate_high}`} />
@@ -437,6 +493,19 @@ function ViewerArrow({ side, onClick }: { side: "left" | "right"; onClick: () =>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
         <path d={side === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
+    </button>
+  );
+}
+
+function ConvertButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full cursor-pointer rounded-full border-2 border-brand-green px-4 py-2.5 text-center text-sm font-bold uppercase tracking-[0.08em] text-brand-green transition-colors hover:bg-brand-green hover:text-white disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-brand-green"
+    >
+      {pending ? "Converting…" : "Convert to client"}
     </button>
   );
 }

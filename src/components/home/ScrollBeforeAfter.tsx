@@ -158,11 +158,15 @@ export default function ScrollBeforeAfter() {
                   <path d="M8 7 4 12l4 5M16 7l4 5-4 5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-3 py-1 text-xs font-bold uppercase text-white">
-                {t.hero.beforeLabel}
-              </span>
-              <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-brand-green px-3 py-1 text-xs font-bold uppercase text-white">
+              {/* The masked overlay is the FINISHED room and it reveals from
+                  the LEFT, so the left badge must say "after" and the right
+                  badge "before". These were inverted for months — on the
+                  page's single most persuasive asset. */}
+              <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-brand-green px-3 py-1 text-xs font-bold uppercase text-white">
                 {t.hero.afterLabel}
+              </span>
+              <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-black/55 px-3 py-1 text-xs font-bold uppercase text-white">
+                {t.hero.beforeLabel}
               </span>
             </div>
           </div>

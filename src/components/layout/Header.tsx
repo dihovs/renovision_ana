@@ -113,6 +113,7 @@ export default function Header() {
 
   const navLinks = [
     { href: "/services", label: t.nav.services },
+    { href: "/estimation", label: t.nav.estimate },
     { href: "/commercial", label: t.nav.commercial },
     { href: "/gallery", label: t.nav.gallery },
     { href: "/blog", label: t.nav.blog },
@@ -131,6 +132,22 @@ export default function Header() {
 
   return (
     <>
+    {/* Emergency strip: water damage is a phone-first, panic-driven search,
+        and the call path must be visible before anything else. Deliberately
+        says "7 jours sur 7", not "24/7" — after-hours currently goes to
+        voicemail, and we only publish claims that are true. Not sticky: it
+        scrolls away with the page top, leaving the header's phone icon as
+        the persistent call affordance. */}
+    <div className="bg-charcoal-dark px-3 py-1.5 text-center text-xs font-semibold text-white/85">
+      <span>{t.header.emergencyPrompt}</span>{" "}
+      <a
+        href={`tel:${SITE_PHONE_TEL}`}
+        className="font-bold text-brand-green-soft underline-offset-2 hover:underline"
+      >
+        {SITE_PHONE}
+      </a>
+      <span className="text-white/50"> · {t.header.emergencyAvailability}</span>
+    </div>
     <header
       ref={headerRef}
       className={`sticky top-0 z-40 w-full transition-[transform,background-color,border-color,box-shadow] duration-300 ease-out ${

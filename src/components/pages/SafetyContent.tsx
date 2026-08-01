@@ -7,15 +7,15 @@ import { IconShield, IconCheckCircle, IconClipboard, IconBuilding } from "@/comp
 const copy = {
   en: {
     eyebrow: "Safety & Certifications",
-    title: "Licensed, Insured, and Serious About Safety",
+    title: "Insured, Guaranteed, and Serious About Safety",
     intro:
       "Insurance companies and property managers need more than good work — they need proof. Here are the credentials, coverage, and practices behind every Renovision AnA job site.",
     certsTitle: "Credentials & coverage",
     certs: [
       {
         icon: "shield",
-        title: "Licensed & Insured",
-        desc: "Fully licensed for residential and commercial renovation work, with comprehensive liability insurance. Certificates available on request for vendor onboarding.",
+        title: "Insured & Guaranteed",
+        desc: "Comprehensive liability insurance on every job, and a one-year workmanship warranty in writing. Insurance certificates available on request for vendor onboarding.",
       },
       {
         icon: "check",
@@ -47,15 +47,15 @@ const copy = {
   },
   fr: {
     eyebrow: "Sécurité et certifications",
-    title: "Licenciés, assurés et sérieux en matière de sécurité",
+    title: "Assurés, garantis et sérieux en matière de sécurité",
     intro:
       "Les assureurs et les gestionnaires immobiliers ont besoin de plus que du bon travail — ils ont besoin de preuves. Voici les attestations, les couvertures et les pratiques derrière chaque chantier Renovision AnA.",
     certsTitle: "Attestations et couvertures",
     certs: [
       {
         icon: "shield",
-        title: "Licencié et assuré",
-        desc: "Pleinement licencié pour les travaux de rénovation résidentiels et commerciaux, avec une assurance responsabilité complète. Certificats disponibles sur demande.",
+        title: "Assuré et garanti",
+        desc: "Assurance responsabilité civile complète sur chaque chantier, et une garantie écrite d'un an sur la main-d'œuvre. Attestations d'assurance disponibles sur demande.",
       },
       {
         icon: "check",

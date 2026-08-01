@@ -42,6 +42,12 @@ export type StoredLead = {
   project_brief: ProjectBrief | null;
   /** Which channel it arrived through: website, phone, whatsapp. */
   source: string;
+  /** Contact-form qualifiers (0016). Null for chat and phone leads, for
+   *  anything captured before the questions existed, and — because these are
+   *  pending columns — undefined at runtime until the migration runs. */
+  contact_role: string | null;
+  is_emergency: boolean | null;
+  heard_about: string | null;
 };
 
 /** Bucket is private; photos are only ever reachable via a signed URL. */
@@ -77,6 +83,11 @@ export type NewLead = {
   projectBrief?: ProjectBrief | null;
   /** Defaults to "website" — the only channel that existed originally. */
   source?: string;
+  /** Contact-form qualifiers. Optional everywhere: the chat and phone paths
+   *  never ask these questions, and on the form itself they're not required. */
+  contactRole?: string;
+  isEmergency?: boolean;
+  heardAbout?: string;
 };
 
 const url = process.env.SUPABASE_URL;
@@ -131,6 +142,11 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
       photo_paths: lead.photoPaths ?? [],
       project_brief: lead.projectBrief ?? null,
       source: lead.source ?? "website",
+      // Null, not false, when unanswered: "didn't say" and "said no" are
+      // different answers, and only one of them should show in the pipeline.
+      contact_role: lead.contactRole ?? null,
+      is_emergency: lead.isEmergency ?? null,
+      heard_about: lead.heardAbout ?? null,
   };
 
   const first = await db.from("leads").insert(row).select("id").single();
@@ -173,7 +189,14 @@ const LEAD_COLUMNS =
 // Selecting one that doesn't exist fails the whole query, which once took the
 // admin page down entirely; asking for them separately means a pending
 // migration costs a feature rather than the page.
-const LEAD_PENDING_COLUMNS = ["project_brief", "source"];
+const LEAD_PENDING_COLUMNS = [
+  "project_brief",
+  "source",
+  // 0016_lead_qualifiers — the contact form's qualifying questions.
+  "contact_role",
+  "is_emergency",
+  "heard_about",
+];
 
 /** Newest first — the only order the pipeline view ever needs. */
 export async function listLeads(limit = 200): Promise<StoredLead[]> {

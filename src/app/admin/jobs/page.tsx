@@ -87,10 +87,16 @@ export default async function JobsPage({
                   #{job.job_number}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-charcoal">
+                  <span
+                    className="block truncate text-sm font-bold text-charcoal"
+                    title={job.title || job.client_name}
+                  >
                     {job.title || job.client_name}
                   </span>
-                  <span className="block truncate text-xs text-charcoal/55">
+                  <span
+                    className="block truncate text-xs text-charcoal/55"
+                    title={job.title ? job.client_name : undefined}
+                  >
                     {job.title ? job.client_name : "—"}
                     {job.visit_count > 0 &&
                       ` · ${job.visit_count} visit${job.visit_count === 1 ? "" : "s"}`}

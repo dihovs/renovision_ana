@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import GlobalSearch from "./GlobalSearch";
 import {
   IconBuilding,
   IconCalendar,
@@ -48,8 +49,10 @@ const NAV: NavItem[] = [
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
   { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },
   { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: true },
+  { href: "/admin/projects", label: "Projects", icon: IconBuilding, ready: true },
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: true },
   { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
+  { href: "/admin/expenses", label: "Expenses", icon: IconTag, ready: true },
   { href: "/admin/reports", label: "Reports", icon: IconShield, ready: true },
 ];
 
@@ -60,14 +63,19 @@ const CREATE_ACTIONS = [
   { href: "/admin/price-book", label: "Price book item" },
 ];
 
+/** Routes that live below the main rail list but still need a header title. */
+const FOOTER_NAV = [{ href: "/admin/settings", label: "Settings" }];
+
 /**
  * Longest matching prefix, so /admin/clients/new still reads as "Clients"
  * rather than falling through to the /admin root and titling itself "Leads".
+ * FOOTER_NAV is included so /admin/settings titles itself "Settings" instead
+ * of falling through to the /admin root and titling itself "Home".
  */
-function activeNav(pathname: string): NavItem | undefined {
-  return NAV.filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)).sort(
-    (a, b) => b.href.length - a.href.length,
-  )[0];
+function activeNav(pathname: string): { href: string; label: string } | undefined {
+  return [...NAV, ...FOOTER_NAV]
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0];
 }
 
 export default function AdminShell({
@@ -235,7 +243,12 @@ export default function AdminShell({
         <div className="p-3">
           <Link
             href="/admin/settings"
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white"
+            aria-current={pathname === "/admin/settings" ? "page" : undefined}
+            className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              pathname === "/admin/settings"
+                ? "bg-white/10 text-white"
+                : "text-white/45 hover:bg-white/[0.06] hover:text-white"
+            }`}
           >
             <IconShield className="h-4 w-4 shrink-0" />
             Settings
@@ -267,7 +280,11 @@ export default function AdminShell({
             {current?.label ?? "Admin"}
           </h1>
 
-          <div className="ml-auto flex items-center gap-3">{onSignOut}</div>
+          {/* Carries ml-auto itself, so it and the sign-out control sit
+              together on the right. */}
+          <GlobalSearch />
+
+          <div className="flex items-center gap-3">{onSignOut}</div>
         </header>
 
         <main className="min-w-0 flex-1 p-4 sm:p-6">

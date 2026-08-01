@@ -2,9 +2,9 @@ import CareersContent from "@/components/pages/CareersContent";
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
-  title: "Careers",
+  title: "Carrières en rénovation à Laval",
   description:
-    "Join the Renovision AnA team. We're hiring renovation carpenters, flooring installers, painters, drywall finishers, and apprentices.",
+    "Joignez-vous à l'équipe Renovision AnA : menuisiers, poseurs de planchers, peintres, tireurs de joints et apprentis. Postulez dès aujourd'hui à Laval.",
   path: "/careers",
 });
 

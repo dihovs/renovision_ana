@@ -211,3 +211,173 @@ export async function emailInvoice(invoice: {
   if (error) throw new Error(`Could not send the email: ${error.message}`);
   return { sent: to, skipped: "" };
 }
+
+// ---------------------------------------------------------------------------
+// Automated follow-ups (sent by the cron in src/lib/crm/followups.ts)
+// ---------------------------------------------------------------------------
+//
+// Same transport, same sender address, same shell — a follow-up must look
+// like it came from the same place as the document it is about. The wording
+// is strictly transactional: these go to people who asked for the quote or
+// owe the invoice, and under CASL they stay about that document and nothing
+// else. No offers, no news, no "while we have you".
+//
+// Contract with the caller: a returned `skipped` reason means NOTHING was
+// handed to the transport — the caller may safely retry another day. A throw
+// means the transport was attempted and the outcome is unknown, so the caller
+// must NOT retry.
+
+/** Polite nudge on a quote that was sent and never answered. */
+export async function emailQuoteFollowup(quote: {
+  id: string;
+  client_id: string;
+  quote_number: number;
+  title: string | null;
+  total_cents: number;
+  language: "fr" | "en";
+  public_token: string | null;
+  valid_until: string | null;
+}): Promise<SendResult> {
+  if (!process.env.RESEND_API_KEY) {
+    return { sent: [], skipped: "Email is not configured (RESEND_API_KEY is missing)." };
+  }
+  if (!quote.public_token) {
+    return { sent: [], skipped: "Quote has no public link." };
+  }
+
+  const [company, to] = await Promise.all([
+    getCompany(),
+    recipientsFor(quote.client_id, "quote"),
+  ]);
+
+  if (to.length === 0) {
+    return { sent: [], skipped: "No email address on this client is set to receive quotes." };
+  }
+
+  const locale = quote.language as QuoteLocale;
+  const t = copyFor(locale);
+  const url = `${SITE_URL}/q/${quote.public_token}`;
+  const fr = locale === "fr";
+
+  const subject = fr
+    ? `Suivi — Soumission #${quote.quote_number} — ${company.tradeName || SITE_NAME}`
+    : `Follow-up — Quote #${quote.quote_number} — ${company.tradeName || SITE_NAME}`;
+
+  const body = `
+    <p>${fr ? "Bonjour," : "Hello,"}</p>
+    <p>${
+      fr
+        ? `Nous vous avons transmis la soumission n°${quote.quote_number}${quote.title ? ` pour ${escapeHtml(quote.title)}` : ""} il y a quelques jours et nous n'avons pas encore eu de vos nouvelles. Elle demeure valide.`
+        : `We sent you quote #${quote.quote_number}${quote.title ? ` for ${escapeHtml(quote.title)}` : ""} a few days ago and haven't heard back. It is still valid.`
+    }</p>
+    <p style="font-size:22px;font-weight:bold;color:#1f4677;margin:18px 0 4px;">
+      ${escapeHtml(formatMoney(quote.total_cents, locale))}
+    </p>
+    ${
+      quote.valid_until
+        ? `<p style="font-size:13px;color:#666;margin:0 0 18px;">${escapeHtml(t.validUntil)} ${escapeHtml(quote.valid_until)}</p>`
+        : ""
+    }
+    <p style="margin:22px 0;">
+      <a href="${url}" style="display:inline-block;background:#2b5c9e;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:bold;">
+        ${escapeHtml(fr ? "Voir la soumission" : "View the quote")}
+      </a>
+    </p>
+    <p style="font-size:13px;color:#666;">${
+      fr
+        ? "Si vous avez des questions ou souhaitez y apporter des modifications, répondez simplement à ce courriel."
+        : "If you have any questions or would like any changes, just reply to this email."
+    }</p>`;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: process.env.LEADS_FROM_EMAIL || `${SITE_NAME} <${SITE_EMAIL}>`,
+    to,
+    subject,
+    html: shell(
+      company,
+      body,
+      fr ? "Cette soumission n'est pas une facture." : "This quote is not an invoice.",
+    ),
+  });
+
+  if (error) throw new Error(`Could not send the email: ${error.message}`);
+  return { sent: to, skipped: "" };
+}
+
+/** Payment reminder on an overdue invoice. Stage 2 is firmer but still civil. */
+export async function emailInvoiceReminder(
+  invoice: {
+    id: string;
+    client_id: string;
+    invoice_number: number;
+    total_cents: number;
+    amount_paid_cents: number;
+    due_date: string | null;
+    language: "fr" | "en";
+    public_token: string | null;
+  },
+  stage: 1 | 2,
+): Promise<SendResult> {
+  if (!process.env.RESEND_API_KEY) {
+    return { sent: [], skipped: "Email is not configured (RESEND_API_KEY is missing)." };
+  }
+  if (!invoice.public_token) {
+    return { sent: [], skipped: "Invoice has no public link." };
+  }
+
+  const [company, to] = await Promise.all([
+    getCompany(),
+    recipientsFor(invoice.client_id, "invoice"),
+  ]);
+
+  if (to.length === 0) {
+    return { sent: [], skipped: "No email address on this client is set to receive invoices." };
+  }
+
+  const locale = invoice.language as QuoteLocale;
+  const url = `${SITE_URL}/i/${invoice.public_token}`;
+  const fr = locale === "fr";
+  const balance = invoice.total_cents - invoice.amount_paid_cents;
+
+  const subject = fr
+    ? `${stage === 2 ? "Deuxième rappel" : "Rappel"} — Facture #${invoice.invoice_number} — ${company.tradeName || SITE_NAME}`
+    : `${stage === 2 ? "Second reminder" : "Reminder"} — Invoice #${invoice.invoice_number} — ${company.tradeName || SITE_NAME}`;
+
+  const opening = fr
+    ? stage === 2
+      ? `Malgré notre rappel précédent, la facture n°${invoice.invoice_number}${invoice.due_date ? `, échue le ${escapeHtml(invoice.due_date)},` : ""} demeure impayée.`
+      : `Un simple rappel : la facture n°${invoice.invoice_number}${invoice.due_date ? ` est arrivée à échéance le ${escapeHtml(invoice.due_date)} et` : ""} demeure impayée.`
+    : stage === 2
+      ? `Despite our earlier reminder, invoice #${invoice.invoice_number}${invoice.due_date ? `, due ${escapeHtml(invoice.due_date)},` : ""} remains unpaid.`
+      : `A friendly reminder: invoice #${invoice.invoice_number}${invoice.due_date ? ` was due on ${escapeHtml(invoice.due_date)} and` : ""} remains unpaid.`;
+
+  const body = `
+    <p>${fr ? "Bonjour," : "Hello,"}</p>
+    <p>${opening}</p>
+    <p style="font-size:13px;color:#666;margin:18px 0 0;">${fr ? "Solde dû" : "Balance due"}</p>
+    <p style="font-size:22px;font-weight:bold;color:#1f4677;margin:2px 0 18px;">
+      ${escapeHtml(formatMoney(balance, locale))}
+    </p>
+    <p style="margin:22px 0;">
+      <a href="${url}" style="display:inline-block;background:#2b5c9e;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:bold;">
+        ${escapeHtml(fr ? "Voir la facture" : "View the invoice")}
+      </a>
+    </p>
+    <p style="font-size:13px;color:#666;">${
+      fr
+        ? "Si le paiement a déjà été effectué, veuillez ne pas tenir compte de ce message. Pour toute question sur cette facture, répondez simplement à ce courriel."
+        : "If you have already paid, please disregard this message. For any question about this invoice, just reply to this email."
+    }</p>`;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: process.env.LEADS_FROM_EMAIL || `${SITE_NAME} <${SITE_EMAIL}>`,
+    to,
+    subject,
+    html: shell(company, body, fr ? "Merci de votre confiance." : "Thank you for your business."),
+  });
+
+  if (error) throw new Error(`Could not send the email: ${error.message}`);
+  return { sent: to, skipped: "" };
+}

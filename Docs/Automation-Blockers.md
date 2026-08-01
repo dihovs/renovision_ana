@@ -94,7 +94,14 @@ ElevenLabs into one $0.07/min line — still no separate accounts.
 ## Run the migrations
 
 Migrations are applied by hand in the Supabase SQL editor; there is no runner.
-Outstanding: **0006, 0007, 0008, 0009, 0010, 0011**.
+Outstanding: **0006, 0007, 0008, 0009, 0010, 0011**, and since the 2026-07-31
+overnight build wave: **0012** (expenses + time tracking), **0013** (quote
+follow-ups / invoice reminders — the daily cron refuses politely until it
+exists), **0014** (recurring jobs + job checklists), **0015** (Projects section
++ the private `project-files` storage bucket), **0016** (lead qualifier fields:
+emergency flag, caller role, heard-about). Run them in numeric order; each
+screen shows a "run the migration" notice until its table exists, nothing
+crashes.
 
 Also set **`CRON_SECRET`** in Vercel (any long random string). The daily
 retention purge — the 24-month deletion the privacy policy promises — refuses
@@ -106,12 +113,37 @@ it is easy to forget.
 
 ---
 
+## The RBQ licence — bigger than a settings field
+
+Confirmed 2026-07-31: **there is no RBQ licence yet.** Consequences already
+handled in software: the site no longer claims "licensed" anywhere (claims are
+now insurance + the 1-year workmanship warranty, both true), and quoting stays
+gated in the CRM. What software cannot do: renovation contracting in Quebec
+generally requires the licence, the quote gate stays shut without it, and the
+best local directories and insurer panels ask for the number. **Starting the
+RBQ application is the single highest-value slow task on this list** — it
+takes weeks, so start it before it blocks something urgent.
+
+## Free ranking levers only the owner can pull (from the 2026-07-31 SEO audit)
+
+1. **Google Business Profile** — you have 5.0★(15) on Google while the Laval
+   map-pack incumbents for "dégât d'eau" sit at 3.9★(18)–4.9★(30). Set the
+   primary category to water-damage restoration, add service areas and photos,
+   and keep the review velocity going. Map pack ≫ organic for emergency calls.
+2. **Search Console** — add the domain property, submit sitemap.xml, request
+   indexing on the money pages. Flushes the old WordPress ghosts and gets the
+   new French metadata indexed. (Claude can drive this with you in-browser.)
+3. **Directory profiles** — soumissionrenovation.ca, 411habitation.com,
+   renoquotes.com, HomeStars, Houzz, PagesJaunes: they hold 2–5 of the top 8
+   on nearly every renovation SERP. Occupy them; several will want the RBQ
+   number (see above).
+
 ## Before a quote can be sent at all
 
-**Enter the RBQ licence number in Settings.** Quoting refuses without it:
-Building Act s. 57.1 requires it on every estimate, quote, contract and
-statement of account, and omitting it is a penal offence. Until it is entered,
-half the CRM is inert.
+**Enter the RBQ licence number in Settings** (once it exists). Quoting refuses
+without it: Building Act s. 57.1 requires it on every estimate, quote,
+contract and statement of account, and omitting it is a penal offence. Until
+it is entered, half the CRM is inert.
 
 While you are there, decide the **GST/QST registered** toggle. Registration is
 mandatory only above $30,000 of taxable supplies in a quarter or the four

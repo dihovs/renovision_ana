@@ -2,9 +2,9 @@ import BlogContent from "@/components/pages/BlogContent";
 import { buildMetadata } from "@/lib/seo";
 
 export const metadata = buildMetadata({
-  title: "Blog",
+  title: "Blogue — conseils rénovation et dégât d'eau",
   description:
-    "Renovation tips, water damage prevention advice, and project stories from Renovision AnA.",
+    "Conseils de rénovation, prévention des dégâts d'eau et histoires de projets par l'équipe Renovision AnA, au service de Laval et du grand Montréal.",
   path: "/blog",
 });
 
