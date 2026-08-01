@@ -123,7 +123,7 @@ export default function CallList({ calls }: { calls: StoredCall[] }) {
                         }
                       >
                         <span className="mb-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
-                          <span>{turn.role === "caller" ? "Caller" : "Anna"}</span>
+                          <span>{turn.role === "caller" ? "Caller" : "Ana"}</span>
                           {turn.escalated && (
                             <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-800">
                               Escalated

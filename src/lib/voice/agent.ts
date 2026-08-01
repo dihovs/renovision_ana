@@ -26,7 +26,7 @@ const MAX_TOKENS = 300;
 function systemPrompt(locale: "fr" | "en"): string {
   const language = locale === "fr" ? "French" : "English";
 
-  return `You are Anna, answering the phone for Renovision AnA, a renovation and water-damage restoration company in Laval, Quebec. Artush owns the company. You are speaking to someone on a live phone call.
+  return `You are Ana, answering the phone for Renovision AnA, a renovation and water-damage restoration company in Laval, Quebec. Artush owns the company. You are speaking to someone on a live phone call.
 
 YOU ARE BEING SPOKEN ALOUD. Everything you write is converted to speech and played to the caller. So:
 - One or two sentences per turn. Never more than three.
@@ -106,8 +106,8 @@ export async function replyTo(
 /** The greeting, including the disclosure the spec requires. */
 export function greeting(locale: "fr" | "en"): string {
   return locale === "fr"
-    ? "Renovision AnA, bonjour. Je suis Anna, l'assistante virtuelle. Cet appel est transcrit pour la qualité du service. Comment puis-je vous aider?"
-    : "Renovision AnA, hello. I'm Anna, the virtual assistant. This call is transcribed for quality. How can I help you?";
+    ? "Renovision AnA, bonjour. Je suis Ana, l'assistante virtuelle. Cet appel est transcrit pour la qualité du service. Comment puis-je vous aider?"
+    : "Renovision AnA, hello. I'm Ana, the virtual assistant. This call is transcribed for quality. How can I help you?";
 }
 
 /** Said when the pipeline breaks, so a failure still ends in a callback. */
