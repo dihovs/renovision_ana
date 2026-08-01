@@ -94,7 +94,11 @@ ElevenLabs into one $0.07/min line — still no separate accounts.
 ## Run the migrations
 
 Migrations are applied by hand in the Supabase SQL editor; there is no runner.
-Outstanding: **0006, 0007, 0008, 0009**.
+Outstanding: **0006, 0007, 0008, 0009, 0010, 0011**.
+
+Also set **`CRON_SECRET`** in Vercel (any long random string). The daily
+retention purge — the 24-month deletion the privacy policy promises — refuses
+to run without it, so the promise stays unkept until this is set.
 
 Nothing errors loudly if these are skipped — the screens show a "run the
 migration" notice and the rest of the app keeps working. Which is exactly why

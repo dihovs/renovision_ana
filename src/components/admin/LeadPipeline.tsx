@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/admin/actions";
+import { convertLeadAction } from "@/app/admin/clients/actions";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 import AskClaude from "./AskClaude";
 import type { ProjectBrief } from "@/lib/projectBrief";
@@ -206,6 +207,21 @@ function LeadCard({
               Email
             </a>
           </div>
+
+          {/* Lead → client → quote is the flow. The action is idempotent — a
+              lead already converted just redirects to its existing client — so
+              a double tap costs nothing. The lead row is kept and linked, never
+              consumed: it is the customer's own words and the estimator's
+              original numbers, and the tidied client record must not overwrite
+              the evidence. */}
+          <form action={convertLeadAction.bind(null, lead.id)} className="mt-2">
+            <button
+              type="submit"
+              className="w-full cursor-pointer rounded-full border-2 border-brand-green px-4 py-2.5 text-center text-sm font-bold uppercase tracking-[0.08em] text-brand-green transition-colors hover:bg-brand-green hover:text-white"
+            >
+              Convert to client
+            </button>
+          </form>
 
           {/* The brief sits directly under the call button because that is the
               order you use it in: read the job, then phone them. */}
