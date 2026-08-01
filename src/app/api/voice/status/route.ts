@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   const callSid = params.CallSid;
-  if (!callSid) return new Response("", { status: 204 });
+  if (!callSid) return new Response(null, { status: 204 });
 
   const duration = Number(params.CallDuration);
   // Twilio's own vocabulary: completed, busy, failed, no-answer, canceled.
@@ -51,5 +51,8 @@ export async function POST(request: Request) {
     durationSeconds: Number.isFinite(duration) ? duration : null,
   }).catch((err) => console.error("[voice] could not close the transcript:", err));
 
-  return new Response("", { status: 204 });
+  // `null`, not `""`: 204 is a null-body status and the Response constructor
+  // throws on any body at all, empty string included. That threw a 500 on every
+  // completed call, which Twilio retries — and the transcript stayed open.
+  return new Response(null, { status: 204 });
 }
