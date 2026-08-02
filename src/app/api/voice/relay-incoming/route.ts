@@ -31,7 +31,11 @@ import { publicUrl, readTwilioParams, verifyTwilioSignature, xmlEscape } from "@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FR_CA_VOICE_ID = "IPgYtHTNLjC7Bq7IPHrm";
+// Amélie — "LA référence pour une voix québécoise professionnelle" in
+// Twilio's ElevenLabs catalog: 100% Quebec accent, built for phone systems.
+// Chosen by the owner over Twilio's fr-CA default (IPgYtHTNLjC7Bq7IPHrm)
+// after auditioning both.
+const FR_CA_VOICE_ID = "UJCi4DDncuo0VJDSIegj";
 
 export async function POST(request: Request) {
   const params = await readTwilioParams(request);
