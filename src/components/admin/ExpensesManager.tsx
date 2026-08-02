@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useRef, useState, useTransition } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { EntryState } from "@/app/admin/expenses/actions";
+import type { EntryState } from "@/app/(internal)/admin/expenses/actions";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABEL,

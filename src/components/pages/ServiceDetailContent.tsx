@@ -3,7 +3,7 @@
 import type { ComponentType } from "react";
 import Image from "next/image";
 import GroundedImage from "@/components/ui/GroundedImage";
-import Link from "next/link";
+import Link from "@/components/ui/LocaleLink";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { getAreasForService } from "@/lib/serviceAreas";

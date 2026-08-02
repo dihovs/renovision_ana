@@ -8,7 +8,7 @@ import AddressFields, {
   labelClass,
   type AddressValue,
 } from "./AddressFields";
-import type { ClientFormState } from "@/app/admin/clients/actions";
+import type { ClientFormState } from "@/app/(internal)/admin/clients/actions";
 import type { CustomFieldDef, TaxRatesSetting } from "@/lib/crm/settings";
 import { CONTACT_TYPES, type EmailContact, type PhoneContact } from "@/lib/crm/types";
 

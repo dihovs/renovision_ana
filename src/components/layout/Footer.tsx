@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui/LocaleLink";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { splitLocale } from "@/i18n/routing";
 import {
   SITE_ADDRESS,
   SITE_EMAIL,
@@ -20,7 +21,8 @@ export default function Footer() {
   const [openSection, setOpenSection] = useState<string | null>(null);
 
   function handleLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (pathname === "/") {
+    // `/` in either language — splitLocale drops the `/en` prefix.
+    if (splitLocale(pathname).path === "/") {
       e.preventDefault();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }

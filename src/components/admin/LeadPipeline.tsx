@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
-import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/admin/actions";
-import { convertLeadAction } from "@/app/admin/clients/actions";
+import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/(internal)/admin/actions";
+import { convertLeadAction } from "@/app/(internal)/admin/clients/actions";
 import AdminNotice from "./AdminNotice";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 import AskClaude from "./AskClaude";

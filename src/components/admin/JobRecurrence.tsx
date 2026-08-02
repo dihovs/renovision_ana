@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useState, useTransition } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { JobState } from "@/app/admin/jobs/actions";
+import type { JobState } from "@/app/(internal)/admin/jobs/actions";
 import { GENERATION_CAP } from "@/lib/crm/recurrence";
 import {
   RECURRENCE_FREQUENCIES,

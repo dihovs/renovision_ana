@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useState, useTransition } from "react";
 import { inputClass } from "./AddressFields";
-import type { JobState } from "@/app/admin/jobs/actions";
+import type { JobState } from "@/app/(internal)/admin/jobs/actions";
 import type { ChecklistItem } from "@/lib/crm/opsTypes";
 
 /**

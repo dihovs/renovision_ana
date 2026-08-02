@@ -17,7 +17,7 @@ import {
   IconWrench,
 } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
-import { estimatorFaqFr } from "@/lib/estimatorFaq";
+import { estimatorFaqEn, estimatorFaqFr } from "@/lib/estimatorFaq";
 
 /**
  * The estimator's own landing page. The chat widget is the site's single
@@ -32,9 +32,9 @@ import { estimatorFaqFr } from "@/lib/estimatorFaq";
  * Copy lives inline (AboutContent pattern) rather than in translations.ts —
  * page-specific prose doesn't belong in the shared nav/footer string table.
  *
- * The French FAQ list is imported from src/lib/estimatorFaq.ts instead of
- * being declared here, so app/estimation/page.tsx (a server component) can
- * build FAQPage JSON-LD from the same array without crossing the client
+ * Both FAQ lists are imported from src/lib/estimatorFaq.ts instead of being
+ * declared here, so app/[lang]/estimation/page.tsx (a server component) can
+ * build FAQPage JSON-LD from the same arrays without crossing the client
  * boundary — see that file's comment for why a named export from this
  * "use client" module doesn't survive that trip intact in this fork.
  */
@@ -150,36 +150,7 @@ const copy = {
       },
     ],
     faqTitle: "Common questions",
-    faq: [
-      {
-        q: "Is this the final price I'll be quoted?",
-        a: "No — and that's deliberate. Think of the estimate as a data-driven preview built on our real price list, not a confirmed bid. It gives you an honest order of magnitude before the first call. Artush confirms the final price once he's seen the project in person — some conditions only show up on site.",
-      },
-      {
-        q: "What does the estimate include and exclude?",
-        a: "It prices labour and materials for every stage of the work you describe — demolition, prep, installation, finishing. Licensed plumbing and electrical work, and finish materials you supply yourself (tile, faucets, appliances), are shown as separate line items instead of being guessed at.",
-      },
-      {
-        q: "Is it really free, and do I have to give my contact information?",
-        a: "The estimate itself is free and needs no credit card. You can explore pricing without leaving anything behind. To get the full breakdown by email or a callback from Artush, we'll ask for a name and a way to reach you — never before.",
-      },
-      {
-        q: "How long does it take?",
-        a: "A few minutes. Describe your project, answer whatever clarifying questions the assistant asks, and the itemized range shows up on screen.",
-      },
-      {
-        q: "What happens after I finish my estimate?",
-        a: "If you choose to leave your contact information, Artush receives your estimate and any photos you added, then calls you back to confirm the price — often the same day. If you'd rather just look at the numbers, nothing is sent to anyone.",
-      },
-      {
-        q: "Can the price change after an in-person visit?",
-        a: "Yes — and it would with any honest contractor. An opened wall can reveal mould, a floor can hide a subfloor that needs replacing. The range is built on what you describe; Artush confirms the final number once those details are verified on site.",
-      },
-      {
-        q: "What happens to my photos?",
-        a: "They're used only to assess the work more accurately, and they're stored on our servers in Quebec.",
-      },
-    ],
+    faq: estimatorFaqEn,
   },
   fr: {
     eyebrow: "Estimation gratuite en ligne",

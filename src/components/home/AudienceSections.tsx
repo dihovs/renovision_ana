@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/LocaleLink";
 import { useEffect, useRef, type ComponentType } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { IconBuilding, IconShield, IconHome } from "@/components/ui/icons";

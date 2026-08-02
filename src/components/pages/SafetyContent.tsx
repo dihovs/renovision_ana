@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/i18n/LanguageProvider";
+import Link from "@/components/ui/LocaleLink";
 import FeatureCard from "@/components/ui/FeatureCard";
 import { IconShield, IconCheckCircle, IconClipboard, IconBuilding } from "@/components/ui/icons";
 
@@ -144,12 +145,12 @@ export default function SafetyContent() {
           </ul>
           <div className="mt-12 rounded-2xl bg-charcoal-dark p-8 text-center">
             <p className="text-white/85">{c.note}</p>
-            <a
+            <Link
               href="/contact"
               className="mt-5 inline-block rounded-full uppercase tracking-[0.08em] bg-brand-green px-7 py-3 font-heading font-bold text-white transition-colors hover:bg-brand-green-dark"
             >
               {c.contactCta}
-            </a>
+            </Link>
           </div>
         </div>
       </section>

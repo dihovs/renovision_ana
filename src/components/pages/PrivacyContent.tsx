@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/LocaleLink";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { SITE_EMAIL, SITE_NAME, SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 

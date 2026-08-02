@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useActionState, useMemo, useState } from "react";
-import type { ApprovalState } from "@/app/q/[token]/actions";
+import type { ApprovalState } from "@/app/(internal)/q/[token]/actions";
 import { calculateQuoteTotals, formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
 import { copyFor, type QuoteLocale } from "@/lib/crm/quoteCopy";
 import type { QuoteLineItem, QuoteWithLines } from "@/lib/crm/quoteTypes";
