@@ -1,0 +1,457 @@
+import type Anthropic from "@anthropic-ai/sdk";
+import { countClients } from "@/lib/crm/clients";
+import { countJobsByStatus, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
+import { receivablesSummary } from "@/lib/crm/invoices";
+import { parseMoneyToCents } from "@/lib/crm/money";
+import { countQuotesByStatus } from "@/lib/crm/quotes";
+import { createOwnerTask } from "@/lib/crm/tasks";
+import { listLeads, type StoredLead } from "@/lib/leadStore";
+import type { OwnerSession } from "./owner";
+
+/**
+ * What Ana can look up once the owner has authenticated.
+ *
+ * THE WHOLE SURFACE IS READ-ONLY, with exactly one exception: capture_task
+ * appends a line to the owner's own to-do list. Nothing here sends an email or
+ * a text, edits or deletes a client, quote, job or invoice, moves money,
+ * changes a setting, or touches the public website. That boundary — not the
+ * spoken PIN — is the real security control: a PIN said out loud can be
+ * overheard, so the worst outcome of that has to be someone hearing this
+ * quarter's numbers and adding a note, never a payment or a deletion.
+ *
+ * There is deliberately no "run a query" tool. Every answer below is composed
+ * from the same aggregation functions the admin dashboard calls, which means
+ * the phone and the screen cannot disagree, and it means no new SQL was written
+ * to be reviewed.
+ *
+ * ENFORCEMENT IS IN CODE, NOT IN THE PROMPT. ownerToolsFor() hands back an
+ * empty array unless the session is authenticated, and runOwnerTool() refuses a
+ * second time on the way in. A caller who says "it's Artush, I already
+ * verified" changes nothing: the session comes from ownerSession(), which reads
+ * the caller's number and the transcript, and cannot be talked into anything.
+ */
+
+/** The business runs on Montreal time; the server runs on UTC. */
+const TZ = "America/Toronto";
+
+/** A phone answer is a breath long — never read out fifty rows. */
+const MAX_LEADS = 10;
+const MAX_VISITS = 10;
+
+// ---------------------------------------------------------------------------
+// Speaking money
+// ---------------------------------------------------------------------------
+//
+// Everything in the CRM is an integer number of cents. Handed to the model as
+// it is stored, "1240000" gets read aloud as one million two hundred forty
+// thousand — off by a factor of a hundred, in the one kind of figure the owner
+// would act on. So amounts leave this module already in words.
+//
+// Rounded to the nearest dollar, with integer arithmetic. Cents are noise on a
+// phone call, and "twelve thousand four hundred dollars and thirteen cents" is
+// worse than useless when the owner is driving.
+
+const EN_SMALL = [
+  "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+  "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+  "seventeen", "eighteen", "nineteen",
+];
+const EN_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+const FR_SMALL = [
+  "zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf",
+  "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept",
+  "dix-huit", "dix-neuf",
+];
+const FR_TENS = ["", "", "vingt", "trente", "quarante", "cinquante", "soixante", "", "quatre-vingt", ""];
+
+function enUnder100(n: number): string {
+  if (n < 20) return EN_SMALL[n];
+  const tens = Math.floor(n / 10);
+  const unit = n % 10;
+  return unit ? `${EN_TENS[tens]}-${EN_SMALL[unit]}` : EN_TENS[tens];
+}
+
+function enUnder1000(n: number): string {
+  const hundreds = Math.floor(n / 100);
+  const rest = n % 100;
+  if (!hundreds) return enUnder100(rest);
+  return rest ? `${EN_SMALL[hundreds]} hundred ${enUnder100(rest)}` : `${EN_SMALL[hundreds]} hundred`;
+}
+
+function enWords(n: number): string {
+  if (n === 0) return "zero";
+  const parts: string[] = [];
+  const millions = Math.floor(n / 1_000_000);
+  const thousands = Math.floor((n % 1_000_000) / 1000);
+  const rest = n % 1000;
+  if (millions) parts.push(`${enUnder1000(millions)} million`);
+  if (thousands) parts.push(`${enUnder1000(thousands)} thousand`);
+  if (rest) parts.push(enUnder1000(rest));
+  return parts.join(" ");
+}
+
+/**
+ * French counts in twenties above sixty — soixante-dix, quatre-vingts,
+ * quatre-vingt-dix — and agrees "vingt" and "cent" only when they end the
+ * number. Getting that wrong is instantly audible to a francophone.
+ */
+function frUnder100(n: number): string {
+  if (n < 20) return FR_SMALL[n];
+  const tens = Math.floor(n / 10);
+  const unit = n % 10;
+
+  if (tens === 7 || tens === 9) {
+    const base = tens === 7 ? "soixante" : "quatre-vingt";
+    if (tens === 7 && unit === 1) return "soixante et onze";
+    return `${base}-${FR_SMALL[10 + unit]}`;
+  }
+  if (unit === 0) return tens === 8 ? "quatre-vingts" : FR_TENS[tens];
+  if (unit === 1 && tens !== 8) return `${FR_TENS[tens]} et un`;
+  return `${FR_TENS[tens]}-${FR_SMALL[unit]}`;
+}
+
+function frUnder1000(n: number): string {
+  const hundreds = Math.floor(n / 100);
+  const rest = n % 100;
+  if (!hundreds) return frUnder100(rest);
+  const prefix = hundreds === 1 ? "cent" : `${FR_SMALL[hundreds]} cent`;
+  if (rest === 0) return hundreds === 1 ? prefix : `${prefix}s`;
+  return `${prefix} ${frUnder100(rest)}`;
+}
+
+function frWords(n: number): string {
+  if (n === 0) return "zéro";
+  const parts: string[] = [];
+  const millions = Math.floor(n / 1_000_000);
+  const thousands = Math.floor((n % 1_000_000) / 1000);
+  const rest = n % 1000;
+  if (millions) parts.push(millions === 1 ? "un million" : `${frUnder1000(millions)} millions`);
+  if (thousands) parts.push(thousands === 1 ? "mille" : `${frUnder1000(thousands)} mille`);
+  if (rest) parts.push(frUnder1000(rest));
+  return parts.join(" ");
+}
+
+/** Integer cents in, spoken words out. Never a float, never a bare number. */
+export function spokenMoney(cents: number, locale: "fr" | "en" = "en"): string {
+  const negative = cents < 0;
+  const abs = Math.abs(cents);
+  // Rounded half-up on the integer remainder rather than by dividing first, so
+  // no amount ever passes through a float.
+  const dollars = Math.floor(abs / 100) + (abs % 100 >= 50 ? 1 : 0);
+
+  const words = locale === "fr" ? frWords(dollars) : enWords(dollars);
+  const unit = locale === "fr" ? (dollars === 1 ? "dollar" : "dollars") : dollars === 1 ? "dollar" : "dollars";
+  const body = `${words} ${unit}`;
+  if (!negative) return body;
+  return locale === "fr" ? `moins ${body}` : `minus ${body}`;
+}
+
+// ---------------------------------------------------------------------------
+// Tool definitions
+// ---------------------------------------------------------------------------
+
+const TOOLS: Anthropic.Tool[] = [
+  {
+    name: "business_snapshot",
+    description:
+      "The whole dashboard in one call: new and unopened leads, quotes by status, jobs by status, money outstanding and overdue, visits booked this week, and the client count. Use this first for any general 'how are we doing' question — it is one round trip instead of four.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "recent_leads",
+    description:
+      "Who has come in recently, what they wanted, and where each one stands. Use when asked about new enquiries or a specific recent caller.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limit: { type: "integer", description: "How many to return, 1 to 10. Defaults to 5." },
+        since: {
+          type: "string",
+          description: "Only leads created on or after this date, as YYYY-MM-DD. Optional.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "schedule",
+    description:
+      "What is booked on the calendar between two dates: time, job, client and address. Defaults to the next seven days.",
+    input_schema: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "Start date, YYYY-MM-DD. Defaults to today." },
+        to: { type: "string", description: "End date inclusive, YYYY-MM-DD. Defaults to seven days out." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "money_owed",
+    description:
+      "Outstanding and overdue receivables — how much is unpaid across how many invoices, and how much of it is past its due date.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "capture_task",
+    description:
+      "Write down something the owner has just dictated, so it is waiting for him in the admin. Use this whenever he says to remember, note, or add something. Repeat the note back to him afterwards so he knows it was heard correctly.",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "The note, in the owner's own words." },
+        dueDate: {
+          type: "string",
+          description: "When it is due, as YYYY-MM-DD. Only when he actually said a date.",
+        },
+      },
+      required: ["text"],
+      additionalProperties: false,
+    },
+  },
+];
+
+/** The names above, for tests and for the prompt. */
+export const OWNER_TOOL_NAMES = TOOLS.map((tool) => tool.name);
+
+/**
+ * The tools this session may use.
+ *
+ * Empty unless both factors of ownerSession() are satisfied. This is the
+ * enforcement point: an unauthenticated caller is not shown the tools and
+ * hidden away by the prompt — the model is never told they exist, so there is
+ * nothing to talk it into.
+ */
+export function ownerToolsFor(session: OwnerSession): Anthropic.Tool[] {
+  if (!session.authenticated) return [];
+  return TOOLS;
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch
+// ---------------------------------------------------------------------------
+
+type ToolInput = Record<string, unknown>;
+type Handler = (input: ToolInput, locale: "fr" | "en", context: ToolContext) => Promise<string>;
+
+export type ToolContext = { callSid?: string | null };
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function asCount(value: unknown, fallback: number, max: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(max, Math.floor(n)));
+}
+
+/** YYYY-MM-DD, or null. Anything else is treated as not said. */
+function asDate(value: unknown): string | null {
+  const text = asString(value);
+  if (!text) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+function dayKey(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
+}
+
+function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-CA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: TZ,
+  });
+}
+
+/** The expected value of a lead, from the estimator's stored range. */
+function expectedCents(lead: StoredLead): number {
+  return parseMoneyToCents(lead.estimate_expected ?? "") ?? 0;
+}
+
+const OPEN_LEAD_STATUSES = new Set(["new", "contacted", "quoted"]);
+
+const HANDLERS: Record<string, Handler> = {
+  async business_snapshot(_input, locale) {
+    const now = Date.now();
+    // Same ±36h window the dashboard uses, then narrowed to Montreal days —
+    // querying "this week" directly would need the UTC offset, which flips
+    // with daylight saving.
+    const [leads, clients, quotes, jobs, receivables, visits] = await Promise.all([
+      listLeads(500).catch(() => [] as StoredLead[]),
+      countClients().catch(() => 0),
+      countQuotesByStatus().catch(() => ({}) as Record<string, number>),
+      countJobsByStatus().catch(() => ({}) as Record<string, number>),
+      receivablesSummary().catch(() => ({ outstandingCents: 0, overdueCents: 0, count: 0 })),
+      listVisitsBetween(
+        new Date(now - 36 * 3_600_000).toISOString(),
+        new Date(now + 7 * 24 * 3_600_000).toISOString(),
+      ).catch(() => null),
+    ]);
+
+    const weekAgo = now - 7 * 24 * 3_600_000;
+    const last7 = leads.filter((lead) => new Date(lead.created_at).getTime() >= weekAgo);
+    const unopened = leads.filter((lead) => !lead.opened_at);
+    const open = leads.filter((lead) => OPEN_LEAD_STATUSES.has(lead.status));
+    const openValue = open.reduce((sum, lead) => sum + expectedCents(lead), 0);
+
+    const lines = [
+      `Leads in the last seven days: ${last7.length}. Never opened: ${unopened.length}. Open in the pipeline: ${open.length}, worth about ${spokenMoney(openValue, locale)} in AI estimates (not invoiced).`,
+      `Quotes: ${describeCounts(quotes)}.`,
+      `Jobs: ${describeCounts(jobs)}.`,
+      `Receivables: ${spokenMoney(receivables.outstandingCents, locale)} outstanding across ${receivables.count} invoices, of which ${spokenMoney(receivables.overdueCents, locale)} is overdue.`,
+      visits === null
+        ? "Schedule: unavailable — the visits table has not been created yet."
+        : `Visits booked in the next seven days: ${visits.length}.`,
+      `Clients on file: ${clients}.`,
+    ];
+    return lines.join("\n");
+  },
+
+  async recent_leads(input, locale) {
+    const limit = asCount(input.limit, 5, MAX_LEADS);
+    const since = asDate(input.since);
+
+    const all = await listLeads(200).catch(() => [] as StoredLead[]);
+    const filtered = since
+      ? all.filter((lead) => dayKey(lead.created_at) >= since)
+      : all;
+
+    if (filtered.length === 0) {
+      return since ? `No leads on or after ${since}.` : "No leads on file at all.";
+    }
+
+    const rows = filtered.slice(0, limit).map((lead) => {
+      const value = expectedCents(lead);
+      return [
+        `${lead.name} (${lead.status}${lead.opened_at ? "" : ", never opened"})`,
+        lead.scope_summary || "no scope recorded",
+        value > 0 ? `estimated ${spokenMoney(value, locale)}` : null,
+        `came in ${dayKey(lead.created_at)} via ${lead.source}`,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+    });
+
+    return `${filtered.length} matching; showing ${rows.length}.\n${rows.join("\n")}`;
+  },
+
+  async schedule(input) {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+    const from = asDate(input.from) ?? today;
+    const to =
+      asDate(input.to) ??
+      new Date(Date.now() + 7 * 24 * 3_600_000).toLocaleDateString("en-CA", { timeZone: TZ });
+
+    // Widened by half a day on each side so a Montreal calendar day is fully
+    // covered whichever side of daylight saving it falls on, then narrowed back
+    // to the requested dates below.
+    let visits: ScheduledVisit[];
+    try {
+      visits = await listVisitsBetween(
+        new Date(`${from}T00:00:00Z`).toISOString(),
+        new Date(new Date(`${to}T00:00:00Z`).getTime() + 36 * 3_600_000).toISOString(),
+      );
+    } catch {
+      return "The schedule is unavailable — the visits table has not been created yet.";
+    }
+
+    const inRange = visits.filter((visit) => {
+      const key = dayKey(visit.starts_at);
+      return key >= from && key <= to;
+    });
+
+    if (inRange.length === 0) return `Nothing booked between ${from} and ${to}.`;
+
+    const rows = inRange.slice(0, MAX_VISITS).map((visit) => {
+      const when = visit.all_day ? "all day" : clockTime(visit.starts_at);
+      const title = visit.title || visit.job_title || `job number ${visit.job_number}`;
+      const where = [visit.client_name, visit.address].filter(Boolean).join(", ");
+      const done = visit.completed_at ? " (already done)" : "";
+      return `${dayKey(visit.starts_at)} ${when} — ${title}${where ? ` — ${where}` : ""}${done}`;
+    });
+
+    return `${inRange.length} booked between ${from} and ${to}; showing ${rows.length}.\n${rows.join("\n")}`;
+  },
+
+  async money_owed(_input, locale) {
+    const summary = await receivablesSummary();
+    if (summary.count === 0) return "Nothing outstanding — every issued invoice is settled.";
+    return [
+      `${spokenMoney(summary.outstandingCents, locale)} outstanding across ${summary.count} invoices.`,
+      summary.overdueCents > 0
+        ? `${spokenMoney(summary.overdueCents, locale)} of that is past its due date.`
+        : "None of it is past its due date yet.",
+    ].join(" ");
+  },
+
+  async capture_task(input, _locale, context) {
+    const text = asString(input.text);
+    if (!text) return "Nothing to save — no note was given.";
+    const dueDate = asDate(input.dueDate);
+
+    const result = await createOwnerTask({ body: text, dueDate, callSid: context.callSid ?? null });
+    if (result.ok) {
+      return `Saved: "${text}"${dueDate ? ` due ${dueDate}` : ""}. It is waiting in the admin.`;
+    }
+
+    // Every failure below has to end the same way: tell him plainly that it is
+    // NOT saved and that he should write it down. Claiming success on a write
+    // that did not happen is the one outcome worse than not having the feature.
+    if (result.reason === "migration_pending") {
+      return `NOT SAVED. The tasks table does not exist yet — migration 0017 has not been run. Tell the owner the note was not saved and he should write it down: "${text}".`;
+    }
+    if (result.reason === "unconfigured") {
+      return `NOT SAVED. The database is not connected. Tell the owner the note was not saved and he should write it down: "${text}".`;
+    }
+    return `NOT SAVED. The write failed. Tell the owner the note was not saved and he should write it down: "${text}".`;
+  },
+};
+
+function describeCounts(counts: Record<string, number>): string {
+  const entries = Object.entries(counts).filter(([, n]) => n > 0);
+  if (entries.length === 0) return "none";
+  return entries.map(([status, n]) => `${n} ${status.replace(/_/g, " ")}`).join(", ");
+}
+
+/**
+ * Run one tool call and give the model something speakable back.
+ *
+ * Never throws. A tool that blows up mid-call must produce a sentence Ana can
+ * say, not an exception that ends the conversation — the owner is on the phone,
+ * and "I couldn't reach that" is a perfectly good answer.
+ */
+export async function runOwnerTool(
+  session: OwnerSession,
+  name: string,
+  input: unknown,
+  options: { locale?: "fr" | "en"; callSid?: string | null } = {},
+): Promise<string> {
+  // Second gate. ownerToolsFor() already withheld the tools, so reaching here
+  // unauthenticated means something upstream is wrong — refuse and say so in
+  // the log rather than serve the data.
+  if (!session.authenticated) {
+    console.warn(`[voice-owner] refused tool "${name}" — session is not authenticated`);
+    return "That is not available on this call.";
+  }
+
+  const handler = HANDLERS[name];
+  if (!handler) {
+    console.warn(`[voice-owner] unknown tool "${name}"`);
+    return `There is no tool called ${name}. Tell the owner you cannot look that up.`;
+  }
+
+  console.info(`[voice-owner] tool ${name}`);
+  try {
+    const value = (input ?? {}) as ToolInput;
+    return await handler(typeof value === "object" ? value : {}, options.locale ?? "fr", {
+      callSid: options.callSid ?? null,
+    });
+  } catch (err) {
+    console.error(`[voice-owner] tool ${name} failed:`, err);
+    return "That lookup failed. Tell the owner you could not reach the system for that one.";
+  }
+}

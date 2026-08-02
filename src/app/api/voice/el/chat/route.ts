@@ -7,9 +7,11 @@ import {
   setCallLocale,
   type CallTurn,
 } from "@/lib/crm/calls";
-import { fallbackLine, replyToStream } from "@/lib/voice/agent";
+import { fallbackLine, ownerFallbackLine, ownerReplyToStream, replyToStream } from "@/lib/voice/agent";
 import { shouldEscalate } from "@/lib/voice/escalation";
 import { detectLocale } from "@/lib/voice/locale";
+import { ownerSession, redactOwnerPin } from "@/lib/voice/owner";
+import { ownerToolsFor, runOwnerTool } from "@/lib/voice/ownerTools";
 
 /**
  * ElevenLabs Agents — custom LLM endpoint.
@@ -74,6 +76,27 @@ function extractCallSid(body: Record<string, unknown>): string | null {
     (body.call_sid as string) ??
     null
   );
+}
+
+/**
+ * The caller's number, arriving the same way call_sid does — /api/voice/el/init
+ * puts it in dynamic_variables and ElevenLabs round-trips it back on every turn.
+ *
+ * Same best-effort shape as extractCallSid, plus a type guard: this value is the
+ * first factor of owner authentication, and a non-string that slipped through
+ * would be compared against the allowlist as whatever it happened to be. When it
+ * is absent the answer is null, isOwnerNumber() says no, and owner mode simply
+ * does not exist for the call — which is the correct failure direction.
+ */
+function extractCallerPhone(body: Record<string, unknown>): string | null {
+  const extra = body.elevenlabs_extra_body as Record<string, unknown> | undefined;
+  const dynamic = body.dynamic_variables as Record<string, unknown> | undefined;
+  const value =
+    (extra?.caller_phone as unknown) ??
+    (dynamic?.caller_phone as unknown) ??
+    (body.caller_phone as unknown) ??
+    null;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 /**
@@ -169,6 +192,20 @@ export async function POST(request: Request) {
   const priorCallerTexts = callerTurns({ turns: priorTurns });
   const { locale: priorLocale, alreadyEscalated } = deriveCallState(priorCallerTexts);
 
+  // Where this call stands with owner mode, recomputed from the caller's number
+  // and everything they have said INCLUDING this turn — so the turn that speaks
+  // the PIN is the turn that unlocks. Pure functions over env vars and the
+  // transcript: no database read, no measurable cost, and for the overwhelming
+  // majority of calls (a number that isn't on the allowlist) it returns
+  // `eligible: false` after one string comparison and nothing below it changes.
+  const callerPhone = extractCallerPhone(body);
+  const session = ownerSession(callerPhone, [...priorCallerTexts, spoken]);
+  if (session.authenticated && !ownerSession(callerPhone, priorCallerTexts).authenticated) {
+    // Once per call, on the turn the second factor lands. The PIN itself is
+    // never logged — only that a session opened.
+    console.info("[voice-owner] owner mode unlocked", { callSid, turns: priorTurns.length });
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
@@ -186,8 +223,14 @@ export async function POST(request: Request) {
       try {
         if (priorTurns.length >= MAX_TURNS) {
           if (callSid) await endCall(callSid, { status: "completed" }).catch(() => {});
-          const closing =
-            locale === "fr"
+          // The owner gets a different goodbye: promising him a callback from
+          // his own estimator is the customer script leaking into a call it
+          // does not belong in.
+          const closing = session.authenticated
+            ? locale === "fr"
+              ? "On a fait le tour, je raccroche. Rappelle quand tu veux."
+              : "That's the lot — I'll hang up here. Call back any time."
+            : locale === "fr"
               ? "Merci, j'ai ce qu'il me faut. Notre estimateur vous rappelle très bientôt. Bonne journée!"
               : "Thank you, I have what I need. Our estimator will call you back very soon. Have a great day!";
           send(sseChunk({ role: "assistant", content: closing }, "stop"));
@@ -254,13 +297,49 @@ export async function POST(request: Request) {
         // single-chunk version this replaced added Claude's entire
         // generation time to every turn's silence before Ana said anything.
         let sentAny = false;
-        const reply = await replyToStream([...priorTurns, callerTurn], { locale, escalated: verdict.escalate }, (delta) => {
+        const onDelta = (delta: string) => {
           if (!delta) return;
           send(sseChunk(sentAny ? { content: delta } : { role: "assistant", content: delta }));
           sentAny = true;
-        });
+        };
+
+        // The fork. An authenticated owner gets Sonnet with the read-only CRM
+        // tools; everyone else takes exactly the path they took before owner
+        // mode existed — same model, same prompt, no tools, no extra round
+        // trips. `session.authenticated` is the only gate, and ownerToolsFor()
+        // hands back an empty array for anything else, so there is no state in
+        // which a customer call can reach a tool.
+        const reply = session.authenticated
+          ? await ownerReplyToStream(
+              [...priorTurns, callerTurn],
+              {
+                locale,
+                tools: ownerToolsFor(session),
+                runTool: (name, input) => runOwnerTool(session, name, input, { locale, callSid }),
+              },
+              onDelta,
+            )
+          : await replyToStream(
+              [...priorTurns, callerTurn],
+              {
+                locale,
+                escalated: verdict.escalate,
+                // The owner's line, before the code has been given. Lets Ana
+                // say she can take a code — and nothing else. Never set for a
+                // caller who has burned through their attempts: once locked
+                // out she is an ordinary receptionist for the rest of the call
+                // and owner mode is not mentioned again.
+                ownerAwaitingPin: session.eligible && !session.lockedOut,
+              },
+              onDelta,
+            );
         if (!sentAny) {
-          send(sseChunk({ role: "assistant", content: fallbackLine(locale) }));
+          send(
+            sseChunk({
+              role: "assistant",
+              content: session.authenticated ? ownerFallbackLine(locale) : fallbackLine(locale),
+            }),
+          );
         }
         send(sseChunk({}, "stop"));
         send("data: [DONE]\n\n");
@@ -278,9 +357,18 @@ export async function POST(request: Request) {
         // call. Settled together rather than awaited in sequence, and each
         // failure is swallowed: a dropped transcript row is a reporting gap,
         // not a reason to break a phone call.
+        // The PIN must not be written down next to the number it authenticates.
+        // Only applied on the owner's own line: redactOwnerPin() blanks ANY run
+        // of digits as long as the PIN, and running it over every call would
+        // strike the callback number out of the transcript of every real lead —
+        // the single most valuable thing in there.
+        const storedCallerTurn: CallTurn = session.eligible
+          ? { ...callerTurn, text: redactOwnerPin(callerTurn.text) }
+          : callerTurn;
+
         if (callSid) {
           await Promise.allSettled([
-            appendTurns(callSid, [callerTurn, agentTurn]),
+            appendTurns(callSid, [storedCallerTurn, agentTurn]),
             localeChanged ? setCallLocale(callSid, locale) : null,
             verdict.escalate && !alreadyEscalated && verdict.reason
               ? markEscalated(callSid, verdict.reason)

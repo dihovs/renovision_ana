@@ -97,6 +97,15 @@ export async function POST(request: Request) {
     // agent's Security tab) and on the post-call webhook (via
     // dynamic_variables) — this is how both later hooks know which Supabase
     // row this conversation is.
-    dynamic_variables: { call_sid: callSid ?? null },
+    // caller_phone rides along for the same reason call_sid does: the chat
+    // route needs it and has no other way to get it. Owner mode checks the
+    // number against an allowlist before it will even consider a PIN, and
+    // looking it up from Supabase instead would put a database read back on
+    // the hot path of every turn — the exact thing that was taken off it.
+    //
+    // Trustworthy to the same degree as call_sid: only ElevenLabs can reach
+    // that route (bearer secret), and ElevenLabs is echoing back what Twilio
+    // told us here. A caller cannot influence it.
+    dynamic_variables: { call_sid: callSid ?? null, caller_phone: from },
   });
 }
