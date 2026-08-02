@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { startCall } from "@/lib/crm/calls";
+import { callerLocale, startCall } from "@/lib/crm/calls";
 import { greeting } from "@/lib/voice/agent";
 
 /**
@@ -56,14 +56,26 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   // Documented fields: caller_id, agent_id, called_number, call_sid.
   const callSid: string | undefined = body?.call_sid;
+  const from: string | null = body?.caller_id ?? null;
 
-  const locale = "fr" as const;
+  // Have we spoken to this number before? If so, open in the language they
+  // used last time and skip the "French or English?" question — asking a
+  // regular the same thing on every call is exactly the kind of small friction
+  // that makes an assistant feel like a phone tree. A caller we don't know
+  // gets French with a bilingual offer, and whatever they answer becomes the
+  // preference for next time, because /api/voice/el/chat writes the settled
+  // locale back onto this call row.
+  //
+  // Best-effort: if the lookup fails or the database is unset we fall through
+  // to the first-time path, which is always safe to serve.
+  const known = await callerLocale(from).catch(() => null);
+  const locale = known ?? ("fr" as const);
 
   if (callSid) {
     try {
       await startCall({
         callSid,
-        from: body?.caller_id ?? null,
+        from,
         to: body?.called_number ?? null,
         locale,
       });
@@ -75,7 +87,10 @@ export async function POST(request: Request) {
   return Response.json({
     type: "conversation_initiation_client_data",
     conversation_config_override: {
-      agent: { first_message: greeting(locale), language: locale },
+      agent: {
+        first_message: greeting(locale, { askLanguage: known === null }),
+        language: locale,
+      },
     },
     // Round-tripped back to us on every /api/voice/el/chat call (via
     // elevenlabs_extra_body, once "Custom LLM extra body" is enabled in the

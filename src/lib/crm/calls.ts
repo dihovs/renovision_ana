@@ -133,6 +133,42 @@ export async function setCallLocale(callSid: string, locale: "fr" | "en"): Promi
   await supabase.from("calls").update({ locale }).eq("call_sid", callSid);
 }
 
+/**
+ * The language this number was last served in, or null if we've never spoken.
+ *
+ * Someone who called in English last month should not be asked to choose again
+ * — the answer is already on file. `locale` on a call row is exactly that
+ * answer: it starts at the default and is rewritten the moment the caller's
+ * actual language is established, so the most recent row is the most recent
+ * truth. That means no new table and no migration for the owner to run by
+ * hand; the data has been accumulating since the first call.
+ *
+ * Deliberately keyed on the raw E.164 `from_number` Twilio hands us. Callers
+ * who withhold their number arrive as null or "anonymous" and simply get
+ * treated as new, which is the right outcome.
+ *
+ * Only rows with at least one turn count. A call that connected and died
+ * (there are several one-second Error rows in the ElevenLabs history) never
+ * established a language, and letting those set a caller's default would pin
+ * them to French on the strength of a call where nobody spoke.
+ */
+export async function callerLocale(phone: string | null | undefined): Promise<"fr" | "en" | null> {
+  const supabase = client();
+  if (!supabase || !phone || phone === "anonymous") return null;
+
+  const { data, error } = await supabase
+    .from("calls")
+    .select("locale, turns")
+    .eq("from_number", phone)
+    .order("started_at", { ascending: false })
+    .limit(5);
+
+  if (error || !data) return null;
+
+  const spoken = data.find((row) => Array.isArray(row.turns) && row.turns.length > 0);
+  return (spoken?.locale as "fr" | "en" | undefined) ?? null;
+}
+
 export async function endCall(
   callSid: string,
   input: {
