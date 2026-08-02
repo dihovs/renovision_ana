@@ -133,6 +133,21 @@ message), takes the spoken text from the last *user* message rather than the
 last message overall, and suppresses re-emitting the tool call so a stubborn
 `detectLocale` cannot bounce the call between languages.
 
+## The dashboard's System prompt does not drive the calls
+
+Worth knowing before anyone edits it expecting a change: with a Custom LLM,
+what Ana actually says is governed by `systemPrompt()` in
+`src/lib/voice/agent.ts`. ElevenLabs passes its own dashboard prompt to our
+endpoint as a system message and `el/chat` discards it, substituting ours. So
+the dashboard copy is inert for live calls — it only feeds conversation titles,
+the Analysis tab, and the **backup LLM** if the primary ever fails.
+
+It is currently a stale port (it still names the owner, which the code no
+longer does). Harmless, but if you want the failover path to match, paste the
+current `systemPrompt()` output over it. Editing it is a manual job: the field
+is a contenteditable, not a textarea, so it can't be filled programmatically,
+and a partial paste would be worse than a stale one.
+
 ### Still open
 
 - **The company name.** TTS reads "Renovision AnA" as "Renova Vision N-A". Ana
