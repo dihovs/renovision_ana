@@ -70,7 +70,7 @@ export default function RootLayout({
             </ChromeGate>
             <main className="flex-1">{children}</main>
             <ChromeGate>
-              <Footer />
+              <Footer year={currentYear()} />
               <ChatWidget />
             </ChromeGate>
           </ChatProvider>
@@ -79,4 +79,17 @@ export default function RootLayout({
       </body>
     </html>
   );
+}
+
+/**
+ * The copyright year, picked on the server so the client never disagrees.
+ *
+ * Outside the component body because reading the clock during render is
+ * impure. These pages prerender with a one-week revalidate, so this is the
+ * year as of the last build or revalidation — briefly stale after a New Year,
+ * but identical on both sides of hydration, which is what actually matters
+ * for a copyright line.
+ */
+function currentYear(): number {
+  return new Date().getFullYear();
 }

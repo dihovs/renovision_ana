@@ -231,7 +231,10 @@ can stream the English reply *and* the language switch in one response and pay
 zero extra round trips. Try it only after the two-round-trip version is proven
 working.
 
-### C. `src/lib/voice/twiml.ts` — `detectLocale` becomes load-bearing
+### C. `src/lib/voice/locale.ts` — `detectLocale` becomes load-bearing
+
+<sup>(It lived in `src/lib/voice/twiml.ts` when this was written; it has since
+moved to its own module, since it has nothing to do with TwiML.)</sup>
 
 It already exists and is already called, but until now a wrong answer only
 affected which language Claude was *prompted* in. After this change a wrong

@@ -13,10 +13,19 @@ import {
   SOCIAL_LINKS,
 } from "@/lib/constants";
 
-export default function Footer() {
+/**
+ * `year` is a prop, not `new Date().getFullYear()` in here.
+ *
+ * This is a client component rendered inside pages that prerender with a
+ * one-week revalidate. Reading the clock during render meant the cached HTML
+ * and the browser could disagree across a New Year — the server said 2026 in
+ * HTML generated in December, the client said 2027, and React reported a
+ * hydration mismatch on every page of the site. The server picks the year now,
+ * so both sides say whatever the cache says.
+ */
+export default function Footer({ year }: { year: number }) {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const year = new Date().getFullYear();
   const [openSection, setOpenSection] = useState<string | null>(null);
 
   function handleLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
