@@ -49,6 +49,20 @@ export function languageFor(locale: "fr" | "en"): string {
  * waiting a fixed number of seconds — the difference between a conversation and
  * an interrogation.
  */
+/**
+ * Domain vocabulary for the recogniser. Twilio's speech-to-text weights these
+ * phrases up, which is the difference between hearing "dégât d'eau" and
+ * hearing "des gars dodo". Both languages in one list because Quebec callers
+ * switch mid-sentence. Twilio caps hints at 500 characters.
+ */
+const SPEECH_HINTS = [
+  "dégât d'eau", "infiltration d'eau", "sous-sol", "salle de bain", "cuisine",
+  "plancher", "gypse", "moisissure", "rénovation", "soumission", "estimation",
+  "chauffe-eau", "refoulement", "plafond", "fuite", "Laval", "Montréal",
+  "water damage", "basement", "bathroom", "kitchen", "flooring", "drywall",
+  "mold", "renovation", "estimate", "leak", "ceiling", "water heater",
+].join(", ");
+
 export function sayAndGather(options: {
   text: string;
   locale: "fr" | "en";
@@ -64,7 +78,12 @@ export function sayAndGather(options: {
     return `<?xml version="1.0" encoding="UTF-8"?><Response>${say}<Hangup/></Response>`;
   }
 
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" language="${language}" speechTimeout="auto" action="${xmlEscape(options.action)}" method="POST"><Say voice="${voice}" language="${language}">${xmlEscape(options.text)}</Say></Gather><Redirect method="POST">${xmlEscape(options.action)}?silent=1</Redirect></Response>`;
+  // speechModel="phone_call" enhanced="true" is Google's premium telephony
+  // recogniser — tuned for exactly this audio, and the only model that also
+  // honours the hints list. The default model was mishearing callers until
+  // they repeated themselves louder, which is the one thing a distressed
+  // caller should never have to do.
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" language="${language}" speechTimeout="auto" speechModel="phone_call" enhanced="true" hints="${xmlEscape(SPEECH_HINTS)}" action="${xmlEscape(options.action)}" method="POST"><Say voice="${voice}" language="${language}">${xmlEscape(options.text)}</Say></Gather><Redirect method="POST">${xmlEscape(options.action)}?silent=1</Redirect></Response>`;
 }
 
 export function twimlResponse(xml: string): Response {

@@ -20,8 +20,14 @@ import { SITE_PHONE, SITE_URL } from "@/lib/constants";
 export const FAST_MODEL = "claude-haiku-4-5";
 export const ESCALATED_MODEL = "claude-sonnet-4-6";
 
-/** Replies are spoken aloud, so they are budgeted in breaths, not tokens. */
-const MAX_TOKENS = 300;
+/**
+ * Replies are spoken aloud, so they are budgeted in breaths, not tokens.
+ * Cut from 300 after real calls: every extra token is paid for twice on a
+ * phone — once while Claude generates it (the caller hears silence) and once
+ * while the voice reads it out (the caller waits to answer). 200 still fits
+ * three full sentences; the prompt asks for two.
+ */
+const MAX_TOKENS = 200;
 
 function systemPrompt(locale: "fr" | "en"): string {
   const language = locale === "fr" ? "French" : "English";
