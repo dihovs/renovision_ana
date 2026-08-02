@@ -21,8 +21,17 @@ export function xmlEscape(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-/** Twilio's own voices, so no third-party TTS is needed to get a call working. */
-const VOICE = "Google.fr-CA-Neural2-A";
+/**
+ * Twilio's own voices, so no third-party TTS is needed to get a call working.
+ *
+ * French is Amazon Polly's Gabrielle — a genuine fr-CA neural voice, and the
+ * warmest of Twilio's built-ins for Québécois French; the Google Neural2
+ * voice it replaces read like a kiosk. English stays on Google because Polly
+ * has no Canadian-English neural voice and a US accent would be a worse trade.
+ * The real fix is the ElevenLabs path (see relay-incoming), which replaces
+ * both; these are the best the <Say>-based fallback path can sound.
+ */
+const VOICE = "Polly.Gabrielle-Neural";
 const VOICE_EN = "Google.en-CA-Neural2-A";
 
 export function voiceFor(locale: "fr" | "en"): string {
