@@ -29,9 +29,19 @@ export type OwnerTask = {
  * deployment problem, "the migration hasn't run" is a one-command fix the owner
  * himself performs, and "it failed" is worth him writing the note down now.
  */
-export type TaskWriteResult =
-  | { ok: true; id: string }
-  | { ok: false; reason: "unconfigured" | "migration_pending" | "failed"; detail?: string };
+export type TaskFailure = {
+  ok: false;
+  reason: "unconfigured" | "migration_pending" | "failed";
+  detail?: string;
+};
+
+export type TaskWriteResult = { ok: true; id: string } | TaskFailure;
+
+/** Same three-way outcome for a read, so the admin screen can say which it is. */
+export type TaskLoadResult = { ok: true; tasks: OwnerTask[] } | TaskFailure;
+
+/** And for a tick, so the button can report why it didn't take. */
+export type TaskUpdateResult = { ok: true } | TaskFailure;
 
 export async function createOwnerTask(input: {
   body: string;
@@ -94,12 +104,71 @@ export async function listOpenOwnerTasks(limit = 25): Promise<OwnerTask[] | null
   return (data ?? []) as OwnerTask[];
 }
 
-export async function setOwnerTaskDone(id: string, done: boolean): Promise<void> {
+/**
+ * The whole list, open and ticked off alike, newest first.
+ *
+ * What /admin/tasks reads. Distinct from `listOpenOwnerTasks` on two counts:
+ * it keeps the finished ones — a to-do list the owner cannot see he has
+ * cleared is a list he stops trusting — and it names the failure instead of
+ * collapsing everything to null, because "no database", "no migration" and
+ * "no tasks" each want a different sentence on screen.
+ */
+export async function loadOwnerTasks(limit = 200): Promise<TaskLoadResult> {
   const supabase = db();
-  if (!supabase) return;
+  if (!supabase) return { ok: false, reason: "unconfigured" };
+
+  const { data, error } = await supabase
+    .from("owner_tasks")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (isMissingTable(error)) return { ok: false, reason: "migration_pending" };
+    console.error("[tasks] could not load tasks:", error.message);
+    return { ok: false, reason: "failed", detail: error.message };
+  }
+  return { ok: true, tasks: (data ?? []) as OwnerTask[] };
+}
+
+/**
+ * How many are still outstanding, for the dashboard card.
+ *
+ * Null — not zero — when the table isn't reachable, so Home can leave the card
+ * out rather than claim an empty list the same way it does for visits. Counted
+ * head-only: the dashboard wants the number, not two hundred rows of text.
+ */
+export async function countOpenOwnerTasks(): Promise<number | null> {
+  const supabase = db();
+  if (!supabase) return null;
+
+  const { count, error } = await supabase
+    .from("owner_tasks")
+    .select("id", { count: "exact", head: true })
+    .is("done_at", null);
+
+  if (error) {
+    if (!isMissingTable(error)) {
+      console.error("[tasks] could not count tasks:", error.message);
+    }
+    return null;
+  }
+  return count ?? 0;
+}
+
+export async function setOwnerTaskDone(id: string, done: boolean): Promise<TaskUpdateResult> {
+  const supabase = db();
+  if (!supabase) return { ok: false, reason: "unconfigured" };
+
   const { error } = await supabase
     .from("owner_tasks")
     .update({ done_at: done ? new Date().toISOString() : null })
     .eq("id", id);
-  if (error) console.error("[tasks] could not update the task:", error.message);
+
+  if (error) {
+    if (isMissingTable(error)) return { ok: false, reason: "migration_pending" };
+    console.error("[tasks] could not update the task:", error.message);
+    return { ok: false, reason: "failed", detail: error.message };
+  }
+  return { ok: true };
 }

@@ -4,6 +4,7 @@ import { countClients } from "@/lib/crm/clients";
 import { countQuotesByStatus } from "@/lib/crm/quotes";
 import { countJobsByStatus, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { receivablesSummary } from "@/lib/crm/invoices";
+import { countOpenOwnerTasks } from "@/lib/crm/tasks";
 import { formatMoney, parseMoneyToCents } from "@/lib/crm/money";
 import { isConfigured as isStoreConfigured, listLeads, type StoredLead } from "@/lib/leadStore";
 
@@ -52,22 +53,27 @@ export default async function AdminHomePage() {
   // Null means the visits table isn't reachable (migration not run yet) —
   // distinct from an empty day, which is a real answer worth showing.
   let visitsWindow: ScheduledVisit[] | null = [];
+  // Same null-means-unreachable rule as visits: migration 0017 is run by hand,
+  // and a "0 tasks" card would read as an empty list rather than no list.
+  let openTasks: number | null = null;
   let error: string | null = null;
   try {
     // Each of these degrades to a zero on its own rather than failing the
     // page: a migration that hasn't run yet should grey out one card, not
     // take down the dashboard.
-    [leads, clients, quoteCounts, jobCounts, receivables, visitsWindow] = await Promise.all([
-      listLeads(500),
-      countClients(),
-      countQuotesByStatus().catch(() => ({})),
-      countJobsByStatus().catch(() => ({})),
-      receivablesSummary().catch(() => ({ outstandingCents: 0, overdueCents: 0, count: 0 })),
-      listVisitsBetween(
-        new Date(now - 36 * 3_600_000).toISOString(),
-        new Date(now + 36 * 3_600_000).toISOString(),
-      ).catch(() => null),
-    ]);
+    [leads, clients, quoteCounts, jobCounts, receivables, visitsWindow, openTasks] =
+      await Promise.all([
+        listLeads(500),
+        countClients(),
+        countQuotesByStatus().catch(() => ({})),
+        countJobsByStatus().catch(() => ({})),
+        receivablesSummary().catch(() => ({ outstandingCents: 0, overdueCents: 0, count: 0 })),
+        listVisitsBetween(
+          new Date(now - 36 * 3_600_000).toISOString(),
+          new Date(now + 36 * 3_600_000).toISOString(),
+        ).catch(() => null),
+        countOpenOwnerTasks().catch(() => null),
+      ]);
   } catch (err) {
     error = err instanceof Error ? err.message : "Could not load the dashboard";
   }
@@ -268,6 +274,14 @@ export default async function AdminHomePage() {
             note={wonValueCents > 0 ? `${formatMoney(wonValueCents)} estimated` : undefined}
           />
           <Stat label="Clients" value={String(clients)} />
+          {openTasks !== null && (
+            <Stat
+              href="/admin/tasks"
+              label="Tasks"
+              value={String(openTasks)}
+              note={openTasks === 0 ? "all ticked off" : "dictated by phone"}
+            />
+          )}
           {receivables.overdueCents > 0 && (
             <Stat
               label="Overdue"
@@ -399,14 +413,42 @@ function FunnelCard({
   );
 }
 
-function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">
+/**
+ * One at-a-glance figure. `href` turns it into a link where there is a screen
+ * to send the reader to; the rest stay plain, because a card that looks
+ * clickable and isn't costs a tap and a moment of doubt.
+ */
+function Stat({
+  label,
+  value,
+  note,
+  href,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  href?: string;
+}) {
+  const body = (
+    <>
       <span className="text-xs font-bold uppercase tracking-wide text-charcoal/45">{label}</span>
       <p className="mt-2 font-heading text-2xl font-bold text-charcoal">{value}</p>
       {note && <p className="mt-0.5 text-[11px] text-charcoal/40">{note}</p>}
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="rounded-xl border border-black/5 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className="rounded-xl border border-black/5 bg-white p-4 shadow-sm">{body}</div>;
 }
 
 const STATUS_STYLE: Record<string, string> = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import AskClaude from "./AskClaude";
 import type { StoredCall } from "@/lib/crm/calls";
 
@@ -26,8 +26,38 @@ const STATUS_LABEL: Record<StoredCall["status"], string> = {
   abandoned: "No answer",
 };
 
+/** How /admin/tasks addresses one transcript: `#call-<call_sid>`. */
+const HASH_PREFIX = "#call-";
+
+function subscribeToHash(onChange: () => void): () => void {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+
+function readHash(): string {
+  return window.location.hash;
+}
+
 export default function CallList({ calls }: { calls: StoredCall[] }) {
-  const [openId, setOpenId] = useState<string | null>(null);
+  /**
+   * `undefined` means nothing has been clicked yet, so the URL decides which
+   * transcript is open; a string or null means the owner has since taken over.
+   * The two are distinct states — "he closed this one" must not fall back to
+   * the hash and spring it open again.
+   */
+  const [picked, setPicked] = useState<string | null | undefined>(undefined);
+
+  // A dictated task on /admin/tasks links here as `#call-<sid>`; landing on a
+  // collapsed row would leave the owner hunting for the conversation he just
+  // clicked through to read. Subscribed rather than read in an effect so the
+  // server snapshot is "" and hydration matches.
+  const hash = useSyncExternalStore(subscribeToHash, readHash, () => "");
+  const linkedId = hash.startsWith(HASH_PREFIX)
+    ? (calls.find((call) => call.call_sid === decodeURIComponent(hash.slice(HASH_PREFIX.length)))
+        ?.id ?? null)
+    : null;
+
+  const openId = picked === undefined ? linkedId : picked;
 
   return (
     <ul className="space-y-3">
@@ -36,10 +66,16 @@ export default function CallList({ calls }: { calls: StoredCall[] }) {
         const callerSaid = call.turns?.find((t) => t.role === "caller")?.text;
 
         return (
-          <li key={call.id} className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+          <li
+            key={call.id}
+            // Link target for /admin/tasks. scroll-mt clears the sticky header,
+            // which would otherwise cover the row the browser just jumped to.
+            id={call.call_sid ? `call-${call.call_sid}` : undefined}
+            className="scroll-mt-20 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm"
+          >
             <button
               type="button"
-              onClick={() => setOpenId(open ? null : call.id)}
+              onClick={() => setPicked(open ? null : call.id)}
               aria-expanded={open}
               className="flex w-full cursor-pointer items-start justify-between gap-3 p-4 text-left"
             >
