@@ -79,21 +79,3 @@ export function sanitizeBrief(input: unknown): ProjectBrief | null {
     ...(openQuestions.length ? { openQuestions } : {}),
   };
 }
-
-/** Plain-text rendering, for the text half of the notification email. */
-export function briefToText(brief: ProjectBrief): string {
-  const lines: string[] = [];
-  if (brief.headline) lines.push(brief.headline);
-  if (brief.facts.length) {
-    lines.push("");
-    for (const fact of brief.facts) lines.push(`  ${fact.label}: ${fact.value}`);
-  }
-  if (brief.customerWords) {
-    lines.push("", "In their words:", `  "${brief.customerWords}"`);
-  }
-  if (brief.openQuestions?.length) {
-    lines.push("", "Still to confirm:");
-    for (const question of brief.openQuestions) lines.push(`  - ${question}`);
-  }
-  return lines.join("\n");
-}

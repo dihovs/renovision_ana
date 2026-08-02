@@ -22,6 +22,16 @@ export default async function InboxPage() {
     );
   }
 
+  // The try covers the loading, and only the loading. Returning JSX from
+  // inside it looked equivalent but wasn't: a Server Component's JSX is
+  // rendered by React after this function returns, so a render error escaped
+  // the catch below while the catch claimed to be handling database trouble.
+  // Load, catch, then render outside.
+  let loaded: {
+    messages: Awaited<ReturnType<typeof listUnfiled>>;
+    jobs: { id: string; label: string }[];
+    urls: Awaited<ReturnType<typeof signMediaUrls>>;
+  };
   try {
     const [messages, jobs] = await Promise.all([listUnfiled(), listJobs({ limit: 100 })]);
 
@@ -30,26 +40,14 @@ export default async function InboxPage() {
       messages.flatMap((m) => (m.media_path ? [m.media_path] : [])),
     );
 
-    if (messages.length === 0) {
-      return (
-        <AdminNotice title="Nothing waiting">
-          Messages from subcontractors land here when we can&apos;t tell which job they belong to.
-          Nothing is waiting — either everything is filed, or WhatsApp isn&apos;t connected yet.
-        </AdminNotice>
-      );
-    }
-
-    return (
-      <WhatsAppInbox
-        messages={messages}
-        mediaUrls={urls}
-        jobs={jobs.map((j) => ({
-          id: j.id,
-          label: `#${j.job_number} — ${j.title || j.client_name}`,
-        }))}
-        fileAction={fileMessageAction}
-      />
-    );
+    loaded = {
+      messages,
+      urls,
+      jobs: jobs.map((j) => ({
+        id: j.id,
+        label: `#${j.job_number} — ${j.title || j.client_name}`,
+      })),
+    };
   } catch (err) {
     if (err instanceof MigrationPendingError) {
       return (
@@ -66,4 +64,22 @@ export default async function InboxPage() {
       </AdminNotice>
     );
   }
+
+  if (loaded.messages.length === 0) {
+    return (
+      <AdminNotice title="Nothing waiting">
+        Messages from subcontractors land here when we can&apos;t tell which job they belong to.
+        Nothing is waiting — either everything is filed, or WhatsApp isn&apos;t connected yet.
+      </AdminNotice>
+    );
+  }
+
+  return (
+    <WhatsAppInbox
+      messages={loaded.messages}
+      mediaUrls={loaded.urls}
+      jobs={loaded.jobs}
+      fileAction={fileMessageAction}
+    />
+  );
 }

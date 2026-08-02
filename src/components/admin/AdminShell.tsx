@@ -102,10 +102,16 @@ export default function AdminShell({
 
   // Any navigation closes both overlays. Without this the create menu survives
   // the route change and hangs over the page it just opened.
-  useEffect(() => {
+  //
+  // Adjusted during render rather than from an effect: React re-runs this
+  // render before touching the DOM, so the overlays are already closed in the
+  // first paint of the new route instead of flashing over it for one frame.
+  const [navigatedFrom, setNavigatedFrom] = useState(pathname);
+  if (navigatedFrom !== pathname) {
+    setNavigatedFrom(pathname);
     setCreateOpen(false);
     setMobileNavOpen(false);
-  }, [pathname]);
+  }
 
   const current = activeNav(pathname);
 

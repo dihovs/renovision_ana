@@ -53,9 +53,14 @@ export default function AddressFields({
   // One session token per address being entered. Google bills a session as a
   // unit — keystrokes plus the one details call — so a fresh token per lookup
   // would be charged as many separate sessions.
-  const sessionRef = useRef<string>("");
-  if (!sessionRef.current && typeof crypto !== "undefined") {
-    sessionRef.current = crypto.randomUUID();
+  //
+  // Minted on first use rather than during render: reading and writing a ref
+  // while rendering is what `react-hooks/refs` forbids, and it is only ever
+  // needed inside a fetch anyway.
+  const sessionRef = useRef<string | null>(null);
+  function sessionToken(): string {
+    sessionRef.current ??= crypto.randomUUID();
+    return sessionRef.current;
   }
 
   // Suppresses the lookup that would otherwise fire when a selection writes
@@ -68,10 +73,10 @@ export default function AddressFields({
       return;
     }
     const query = value.street1.trim();
-    if (query.length < 3) {
-      setSuggestions([]);
-      return;
-    }
+    // Nothing to look up, and nothing to clear: `visible` below derives the
+    // empty list from the query length, so the effect doesn't have to push it
+    // into state and trigger a second render to do it.
+    if (query.length < 3) return;
 
     const controller = new AbortController();
     // 250ms: long enough that a typed street doesn't cost a request per
@@ -80,7 +85,7 @@ export default function AddressFields({
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/admin/places?q=${encodeURIComponent(query)}&session=${sessionRef.current}`,
+          `/api/admin/places?q=${encodeURIComponent(query)}&session=${sessionToken()}`,
           { signal: controller.signal },
         );
         const body = (await res.json()) as { suggestions?: PlaceSuggestion[]; unavailable?: boolean };
@@ -109,7 +114,7 @@ export default function AddressFields({
 
     try {
       const res = await fetch(
-        `/api/admin/places?placeId=${encodeURIComponent(suggestion.placeId)}&session=${sessionRef.current}`,
+        `/api/admin/places?placeId=${encodeURIComponent(suggestion.placeId)}&session=${sessionToken()}`,
       );
       const details = (await res.json()) as PlaceDetails & { unavailable?: boolean };
       if (details.unavailable || !details.googlePlaceId) return;
@@ -131,9 +136,13 @@ export default function AddressFields({
     } finally {
       // The session is spent once details are fetched; the next address needs
       // its own token or Google bills the two together and returns stale hits.
-      sessionRef.current = crypto.randomUUID();
+      sessionRef.current = null;
     }
   }
+
+  // What the list actually shows. Below the lookup threshold there are no
+  // suggestions by definition, whether the last fetch left some behind or not.
+  const visible = value.street1.trim().length < 3 ? [] : suggestions;
 
   function set<K extends keyof AddressValue>(key: K, next: AddressValue[K]) {
     // Any hand-edit invalidates the Google identity of the address — the
@@ -157,7 +166,7 @@ export default function AddressFields({
           name={`${namePrefix}Street1`}
           value={value.street1}
           onChange={(e) => set("street1", e.target.value)}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={() => visible.length > 0 && setOpen(true)}
           // A blur that fires before the click lands would close the list out
           // from under the pointer; the delay lets the selection through.
           onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -171,9 +180,9 @@ export default function AddressFields({
           </span>
         )}
 
-        {open && suggestions.length > 0 && (
+        {open && visible.length > 0 && (
           <ul className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-black/10 bg-white shadow-lg">
-            {suggestions.map((s) => (
+            {visible.map((s) => (
               <li key={s.placeId}>
                 <button
                   type="button"

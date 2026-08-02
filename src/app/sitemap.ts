@@ -27,10 +27,22 @@ const routes = [
   "/privacy",
 ];
 
+// Real, stable dates — not `new Date()`. Building the sitemap at deploy time
+// with "now" told Google that all thirty URLs changed on every deploy, which
+// teaches it to ignore our `lastmod` entirely. The blog array below already
+// used each post's real publish date; these two constants extend the same
+// discipline to the rest of the site.
+//
+// Bump these by hand when the copy actually changes:
+//   MARKETING_LAST_UPDATED — the static marketing routes above.
+//   AREAS_LAST_UPDATED     — the sourced content in `src/lib/serviceAreas.ts`.
+const MARKETING_LAST_UPDATED = new Date("2026-08-02");
+const AREAS_LAST_UPDATED = new Date("2026-07-28");
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticEntries: MetadataRoute.Sitemap = routes.map((route) => ({
     url: `${SITE_URL}${route}`,
-    lastModified: new Date(),
+    lastModified: MARKETING_LAST_UPDATED,
     changeFrequency: route === "" ? "weekly" : "monthly",
     priority: route === "" ? 1 : 0.7,
   }));
@@ -48,7 +60,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const areaEntries: MetadataRoute.Sitemap = serviceAreas.map((area) => ({
     url: `${SITE_URL}/service-areas/${area.slug}`,
-    lastModified: new Date(),
+    lastModified: AREAS_LAST_UPDATED,
     changeFrequency: "monthly",
     priority: 0.8,
   }));

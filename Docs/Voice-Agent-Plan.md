@@ -1,6 +1,16 @@
 # Voice Agent — Build Plan (N1)
 
-**Owner:** Artush · **Status:** not started · **Last updated:** 2026-07-30
+> **HISTORICAL — superseded 2026-08.** This was the plan before anything was
+> built, and its "not started" status has been wrong for a while: Ana is live
+> and answering calls. The transport described here (Twilio `<Gather>`,
+> turn-based) still exists as the rollback path, but the live path is
+> ElevenLabs Agents. For what is actually running, read
+> **`Docs/Voice-ElevenLabs-Setup.md`**; for how the architecture got here,
+> **`Docs/Voice-Architecture-History.md`**; to roll back during an incident,
+> section 6b of **`Docs/Automation-Blockers.md`**. Kept for the owner's spec
+> below, which has not changed.
+
+**Owner:** Artush · **Status:** historical — superseded, see above · **Last updated:** 2026-07-30
 
 The AI receptionist that answers calls to **+1 579-990-3077** when Artush can't.
 This file is the plan of record — update statuses here rather than re-deciding

@@ -12,7 +12,6 @@ import {
   sendInvoice,
   setInvoiceArchived,
   setInvoiceStatus,
-  updateInvoice,
 } from "@/lib/crm/invoices";
 import { INVOICE_STATUSES, PAYMENT_METHODS, type InvoiceStatus, type PaymentMethod } from "@/lib/crm/opsTypes";
 import { emailInvoice } from "@/lib/crm/sendDocument";
@@ -33,28 +32,6 @@ export async function createFromJobAction(jobId: string, depositPercent?: number
   revalidatePath("/admin/invoices");
   revalidatePath(`/admin/jobs/${jobId}`);
   redirect(`/admin/invoices/${id}`);
-}
-
-export async function updateInvoiceAction(
-  id: string,
-  _prev: InvoiceState,
-  formData: FormData,
-): Promise<InvoiceState> {
-  await requireSession();
-  try {
-    await updateInvoice(id, {
-      title: str(formData, "title"),
-      dueDate: str(formData, "dueDate") || null,
-      clientMessage: str(formData, "clientMessage"),
-      paymentTerms: str(formData, "paymentTerms"),
-      internalNotes: str(formData, "internalNotes"),
-      language: str(formData, "language") === "en" ? "en" : "fr",
-    });
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not save." };
-  }
-  revalidatePath(`/admin/invoices/${id}`);
-  return { ok: "Saved" };
 }
 
 export async function sendInvoiceAction(id: string): Promise<void> {

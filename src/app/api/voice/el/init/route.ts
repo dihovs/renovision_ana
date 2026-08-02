@@ -10,8 +10,9 @@ import { greeting } from "@/lib/voice/agent";
  * imports the Twilio number directly and hosts the whole call loop itself
  * (STT, LLM orchestration, TTS, the WebSocket) — nothing of ours holds a
  * connection open, which is why this needed no Fly.io/Railway bridge at all.
- * See Docs/Voice-ElevenLabs-Setup.md for the full picture and why the
- * voice-relay/ ConversationRelay bridge was shelved in favour of this.
+ * See Docs/Voice-ElevenLabs-Setup.md for the full picture, and
+ * Docs/Voice-Architecture-History.md for why the ConversationRelay bridge
+ * this replaced was cancelled and deleted.
  *
  * ElevenLabs POSTs here the moment a call connects, before any audio.
  * Response tells it what to say first and which voice to use — mirrors

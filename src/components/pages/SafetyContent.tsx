@@ -6,7 +6,10 @@ import { IconShield, IconCheckCircle, IconClipboard, IconBuilding } from "@/comp
 
 const copy = {
   en: {
-    eyebrow: "Safety & Certifications",
+    // Not "Certifications": there is no RBQ licence and no IICRC-type
+    // accreditation. What this page actually documents is insurance coverage
+    // and a written one-year workmanship warranty, so it says that instead.
+    eyebrow: "Safety & Warranty",
     title: "Insured, Guaranteed, and Serious About Safety",
     intro:
       "Insurance companies and property managers need more than good work — they need proof. Here are the credentials, coverage, and practices behind every Renovision AnA job site.",
@@ -46,7 +49,7 @@ const copy = {
     contactCta: "Request Documents",
   },
   fr: {
-    eyebrow: "Sécurité et certifications",
+    eyebrow: "Sécurité et garantie",
     title: "Assurés, garantis et sérieux en matière de sécurité",
     intro:
       "Les assureurs et les gestionnaires immobiliers ont besoin de plus que du bon travail — ils ont besoin de preuves. Voici les attestations, les couvertures et les pratiques derrière chaque chantier Renovision AnA.",

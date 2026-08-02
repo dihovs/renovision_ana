@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { createQuoteAction } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
-import QuoteBuilder, { blankLine, type ClientOption } from "@/components/admin/QuoteBuilder";
+import QuoteBuilder, { type ClientOption } from "@/components/admin/QuoteBuilder";
 import { listClients } from "@/lib/crm/clients";
 import { MigrationPendingError } from "@/lib/crm/db";
+import { discountValueToInput } from "@/lib/crm/money";
+import { blankLine } from "@/lib/crm/quoteLines";
 import { getCompany, getQuoteDefaults, getTaxRates } from "@/lib/crm/settings";
 import { clientDisplayName, formatAddress } from "@/lib/crm/types";
 
@@ -72,9 +74,7 @@ export default async function NewQuotePage({
     );
   }
 
-  const validUntil = new Date(Date.now() + defaults.validDays * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const validUntil = validUntilFrom(defaults.validDays);
 
   return (
     <div className="space-y-4">
@@ -104,7 +104,7 @@ export default async function NewQuotePage({
           discountKind: "none",
           discountValue: "",
           depositKind: defaults.depositKind,
-          depositValue: defaults.depositValue ? String(defaults.depositValue / 100) : "",
+          depositValue: discountValueToInput(defaults.depositKind, defaults.depositValue),
           clientMessage: defaults.clientMessageFr,
           contractTerms: defaults.contractTermsFr,
           internalNotes: "",
@@ -121,6 +121,18 @@ export default async function NewQuotePage({
       />
     </div>
   );
+}
+
+/**
+ * The default expiry date, N days out.
+ *
+ * Kept out of the component body deliberately: reading the clock during render
+ * is impure, and `react-hooks/purity` is right to flag it. The route is
+ * force-dynamic, so it really is a fresh "today" on every request — this just
+ * says so somewhere the render isn't.
+ */
+function validUntilFrom(validDays: number): string {
+  return new Date(Date.now() + validDays * 86_400_000).toISOString().slice(0, 10);
 }
 
 async function attachProperties(clients: ClientOption[]): Promise<ClientOption[]> {

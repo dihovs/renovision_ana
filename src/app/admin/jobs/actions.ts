@@ -43,27 +43,6 @@ export async function convertQuoteAction(quoteId: string): Promise<void> {
   redirect(`/admin/jobs/${jobId}`);
 }
 
-export async function updateJobAction(
-  id: string,
-  _prev: JobState,
-  formData: FormData,
-): Promise<JobState> {
-  await requireSession();
-  try {
-    await updateJob(id, {
-      title: str(formData, "title"),
-      instructions: str(formData, "instructions"),
-      internalNotes: str(formData, "internalNotes"),
-      startsOn: str(formData, "startsOn") || null,
-      endsOn: str(formData, "endsOn") || null,
-    });
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "Could not save." };
-  }
-  revalidatePath(`/admin/jobs/${id}`);
-  return { ok: "Saved" };
-}
-
 export async function setJobStatusAction(id: string, status: string): Promise<void> {
   await requireSession();
   if (!JOB_STATUSES.includes(status as JobStatus)) throw new Error(`Unknown status: ${status}`);

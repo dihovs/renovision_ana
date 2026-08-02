@@ -63,6 +63,21 @@ export const QUANTITY_SCALE = 1000;
 export const PERCENT_SCALE = 10_000;
 
 /**
+ * A stored discount/deposit value, rendered for the text input that edits it.
+ *
+ * The inverse of what QuoteBuilder does on the way back in, and the reason it
+ * lives here rather than being written out at each call site: the two scales
+ * are different (percent ×10 000, amount ×100) and the new-quote page was
+ * applying the amount scale to a percent default. A 30% default deposit was
+ * stored as 300000, rendered as "3000", re-parsed as 3000% and then clamped to
+ * the full quote total — every new quote silently asked for payment in full.
+ */
+export function discountValueToInput(kind: DiscountKind, value: number): string {
+  if (kind === "percent") return String(value / PERCENT_SCALE);
+  return value ? (value / 100).toFixed(2) : "";
+}
+
+/**
  * One line's total: quantity x unit price, rounded to the cent HERE, before
  * anything is added together. This is step 1 and it is load-bearing — a
  * customer checking the column with a calculator adds the printed line totals,

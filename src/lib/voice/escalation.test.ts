@@ -73,14 +73,26 @@ describe("shouldEscalate", () => {
     expect(verdict.repeatCount).toBe(0);
   });
 
-  it("false-positives on words containing a marker substring (known trade-off)", () => {
-    // DOCUMENTS CURRENT BEHAVIOR: the marker "again," normalises to "again"
-    // and matching is by substring, so "against" triggers the frustration
-    // path on a first, perfectly calm turn. The stated design accepts cheap
-    // wrong-direction failures (an unnecessary Sonnet turn), but a
-    // word-boundary match would avoid this one.
-    const verdict = shouldEscalate("It is leaning against the wall and we want it fixed", []);
-    expect(verdict.escalate).toBe(true);
-    expect(verdict.reason).toContain("again");
+  // Regression: the marker "again," lost its comma to normalise(), leaving a
+  // bare "again" matched by substring. All three of these escalated a calm
+  // first turn — and escalation is sticky, so it cost Sonnet for the whole
+  // call. The marker is gone and matching is word-boundary now.
+  it("does not escalate on an ordinary 'again', or on words containing it", () => {
+    for (const turn of [
+      "my basement flooded again last night",
+      "It is leaning against the wall and we want it fixed",
+      "call me again tomorrow",
+    ]) {
+      const verdict = shouldEscalate(turn, []);
+      expect(verdict.escalate, turn).toBe(false);
+      expect(verdict.reason, turn).toBeNull();
+    }
+  });
+
+  it("still catches the frustration markers that survive normalisation", () => {
+    expect(shouldEscalate("I just said the basement", []).escalate).toBe(true);
+    expect(shouldEscalate("you're not listening to me", []).escalate).toBe(true);
+    expect(shouldEscalate("Encore une fois, combien?", []).escalate).toBe(true);
+    expect(shouldEscalate("c'est pas ça que j'ai demandé", []).escalate).toBe(true);
   });
 });

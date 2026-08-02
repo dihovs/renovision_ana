@@ -175,17 +175,6 @@ export async function listCalls(limit = 100): Promise<StoredCall[]> {
   return (data ?? []) as StoredCall[];
 }
 
-export async function getCall(id: string): Promise<StoredCall | null> {
-  const supabase = client();
-  if (!supabase) return null;
-  const { data, error } = await supabase.from("calls").select("*").eq("id", id).maybeSingle();
-  if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("calls");
-    throw new Error(`Could not load the call: ${error.message}`);
-  }
-  return (data as StoredCall) ?? null;
-}
-
 /** Just the caller's side, oldest first — what the repeat detector compares. */
 export function callerTurns(call: Pick<StoredCall, "turns">): string[] {
   return (call.turns ?? []).filter((t) => t.role === "caller").map((t) => t.text);

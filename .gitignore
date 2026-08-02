@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Lead exports — contain customer names, phones and addresses. Never commit.
 exports/
+
+# Scratch git worktrees created by background agents
+.claude/worktrees/

@@ -9,8 +9,8 @@ import {
 } from "@/lib/crm/calls";
 import { fallbackLine, replyTo } from "@/lib/voice/agent";
 import { shouldEscalate } from "@/lib/voice/escalation";
+import { detectLocale } from "@/lib/voice/locale";
 import {
-  detectLocale,
   publicUrl,
   readTwilioParams,
   sayAndGather,
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   const spoken = (params.SpeechResult ?? "").trim();
   const silent = url.searchParams.get("silent") === "1" || !spoken;
 
-  let call = await getCallBySid(callSid).catch(() => null);
+  const call = await getCallBySid(callSid).catch(() => null);
   let locale: "fr" | "en" = call?.locale ?? "fr";
 
   // --- Nobody said anything ------------------------------------------------

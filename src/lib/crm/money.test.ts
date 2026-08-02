@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateQuoteTotals,
+  discountValueToInput,
   formatMoney,
   formatPercent,
   formatQuantity,
@@ -336,5 +337,34 @@ describe("formatPercent", () => {
     expect(formatPercent(1_000_000)).toBe("100%");
     expect(formatPercent(50_000)).toBe("5%");
     expect(formatPercent(0)).toBe("0%");
+  });
+});
+
+describe("discountValueToInput", () => {
+  // Regression: the new-quote page used to render every stored deposit with
+  // the *amount* scale (/100). A 30% default deposit is stored as 300000, so
+  // it came out as "3000", was re-read as 3000%, and clamped to the whole
+  // quote — every new quote silently asked for payment in full.
+  it("renders a percent with the percent scale, not the money scale", () => {
+    expect(discountValueToInput("percent", 30 * PERCENT_SCALE)).toBe("30");
+    expect(discountValueToInput("percent", 125_000)).toBe("12.5");
+    expect(discountValueToInput("percent", 0)).toBe("0");
+  });
+
+  it("round-trips a percent back through the parse the builder uses", () => {
+    const stored = 30 * PERCENT_SCALE;
+    const shown = discountValueToInput("percent", stored);
+    // Mirrors QuoteBuilder's `Math.round(Number(value) * PERCENT_SCALE)`.
+    expect(Math.round(Number(shown.replace(",", ".")) * PERCENT_SCALE)).toBe(stored);
+  });
+
+  it("renders an amount as dollars and cents", () => {
+    expect(discountValueToInput("amount", 123_456)).toBe("1234.56");
+    expect(discountValueToInput("amount", 50)).toBe("0.50");
+  });
+
+  it("renders nothing when there is no discount to show", () => {
+    expect(discountValueToInput("amount", 0)).toBe("");
+    expect(discountValueToInput("none", 0)).toBe("");
   });
 });

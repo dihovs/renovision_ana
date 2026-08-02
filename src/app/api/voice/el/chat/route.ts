@@ -9,7 +9,7 @@ import {
 } from "@/lib/crm/calls";
 import { fallbackLine, replyToStream } from "@/lib/voice/agent";
 import { shouldEscalate } from "@/lib/voice/escalation";
-import { detectLocale } from "@/lib/voice/twiml";
+import { detectLocale } from "@/lib/voice/locale";
 
 /**
  * ElevenLabs Agents — custom LLM endpoint.
@@ -20,9 +20,10 @@ import { detectLocale } from "@/lib/voice/twiml";
  * request, and requires the response back as Server-Sent Events — non-
  * streaming replies are rejected outright, per ElevenLabs' custom-LLM docs.
  *
- * This is the direct replacement for BOTH /api/voice/turn (the turn-based
- * TwiML path) and /api/voice/relay/turn (the shelved ConversationRelay
- * bridge) — same brain (Claude, escalation, transcript), third transport.
+ * This is the direct replacement for /api/voice/turn (the turn-based TwiML
+ * path, kept as the rollback route) and for the ConversationRelay bridge that
+ * was cancelled before it shipped (Docs/Voice-Architecture-History.md) — same
+ * brain (Claude, escalation, transcript), different transport.
  *
  * call_sid extraction below is best-effort (confirmed unreliable on the first
  * real test call — see the comment above `priorTurns` for why that no longer

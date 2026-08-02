@@ -28,50 +28,60 @@ export default function GlobalSearch() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  // null while a first answer for the current term is still pending.
-  const [groups, setGroups] = useState<SearchGroup[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
 
+  // One piece of state for the answer, tagged with the term it answers.
+  //
+  // Previously `groups`, `loading` and `error` were three separate states that
+  // the effect had to reset in its own body every time the term changed —
+  // which is a cascading render, and left the three able to disagree about
+  // which term they described. Tagging the result means "still loading" and
+  // "no results yet" are derived below rather than maintained.
+  const [answer, setAnswer] = useState<{
+    term: string;
+    groups: SearchGroup[] | null;
+    error: string | null;
+  }>({ term: "", groups: null, error: null });
+
+  const term = query.trim();
+  const isSearchable = term.length >= MIN_CHARS;
+  const answered = answer.term === term;
+  const loading = isSearchable && !answered;
+  // null while a first answer for the current term is still pending.
+  const groups = answered ? answer.groups : null;
+  const error = answered ? answer.error : null;
+
   // Same pattern as the shell's overlays: any navigation closes and resets the
-  // search, so the panel never hangs over the page it just opened.
-  useEffect(() => {
+  // search, so the panel never hangs over the page it just opened. Adjusted
+  // during render rather than from an effect so the panel is already gone in
+  // the first paint of the new route.
+  const [navigatedFrom, setNavigatedFrom] = useState(pathname);
+  if (navigatedFrom !== pathname) {
+    setNavigatedFrom(pathname);
     setOpen(false);
     setMobileOpen(false);
     setQuery("");
-    setGroups(null);
-    setError(null);
-  }, [pathname]);
+    setAnswer({ term: "", groups: null, error: null });
+  }
 
   useEffect(() => {
-    const term = query.trim();
-    if (term.length < MIN_CHARS) {
-      setGroups(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+    const searchFor = query.trim();
+    if (searchFor.length < MIN_CHARS) return;
 
-    setLoading(true);
-    setError(null);
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/admin/search?q=${encodeURIComponent(term)}`, {
+        const res = await fetch(`/api/admin/search?q=${encodeURIComponent(searchFor)}`, {
           signal: controller.signal,
         });
         if (!res.ok) throw new Error(`Search failed (${res.status})`);
         const body = (await res.json()) as SearchResponse;
         setNotConfigured(body.configured === false);
-        setGroups(body.groups ?? []);
-        setLoading(false);
+        setAnswer({ term: searchFor, groups: body.groups ?? [], error: null });
       } catch {
         // An abort means the term moved on — the newer request owns the state.
         if (controller.signal.aborted) return;
-        setGroups(null);
-        setError("Search isn't responding — try again.");
-        setLoading(false);
+        setAnswer({ term: searchFor, groups: null, error: "Search isn't responding — try again." });
       }
     }, DEBOUNCE_MS);
 
@@ -81,8 +91,7 @@ export default function GlobalSearch() {
     };
   }, [query]);
 
-  const term = query.trim();
-  const showPanel = open && term.length >= MIN_CHARS;
+  const showPanel = open && isSearchable;
   const firstHref = groups?.find((group) => group.results.length > 0)?.results[0]?.href;
 
   function closeAll() {
