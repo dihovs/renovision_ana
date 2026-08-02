@@ -1,0 +1,17 @@
+{
+  "name": "renovision-voice-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Holds the one thing Vercel can't: the WebSocket Twilio ConversationRelay keeps open for the whole call. Everything that thinks (Claude, escalation, the transcript) still lives on renovisionana.ca — this only relays.",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
