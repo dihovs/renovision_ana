@@ -80,13 +80,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // The most common "silence" is not a quiet caller — it is an anglophone
+    // being parsed by the French recogniser (or the reverse). Failed
+    // recognition arrives as an empty SpeechResult, and a caller in the wrong
+    // language can never produce the clean text that would trigger the
+    // language switch. So the retry listens in the OTHER language, with a
+    // bilingual prompt: the wrong-language caller is rescued on attempt two
+    // instead of never.
+    const retryLocale = locale === "fr" ? ("en" as const) : ("fr" as const);
     return twimlResponse(
       sayAndGather({
         text:
           locale === "fr"
-            ? "Pardon, je ne vous ai pas entendu. Pouvez-vous répéter?"
-            : "Sorry, I didn't catch that. Could you say it again?",
-        locale,
+            ? "Pardon, je ne vous ai pas bien entendu. You can also speak English — allez-y, je vous écoute."
+            : "Sorry, I didn't catch that. Vous pouvez aussi parler français — go ahead, I'm listening.",
+        locale: retryLocale,
         action: `/api/voice/turn?silences=${silences}`,
       }),
     );
