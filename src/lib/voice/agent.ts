@@ -67,6 +67,22 @@ function toMessages(turns: CallTurn[]): Anthropic.MessageParam[] {
 
 export type AgentReply = { text: string; model: string };
 
+function systemBlock(locale: "fr" | "en"): Anthropic.TextBlockParam[] {
+  return [
+    {
+      type: "text",
+      text: systemPrompt(locale),
+      // Marked cacheable, but be honest about what this buys today: Haiku
+      // 4.5 only caches prefixes of 4096 tokens or more, and this prompt is
+      // nowhere near that, so the cache silently never engages (no error,
+      // cache_creation_input_tokens comes back 0). Left in place because it
+      // costs nothing and starts working if the prompt grows — not because
+      // it is doing anything right now.
+      cache_control: { type: "ephemeral" },
+    },
+  ];
+}
+
 /**
  * One turn of the conversation.
  *
@@ -84,22 +100,44 @@ export async function replyTo(
   const message = await client.messages.create({
     model,
     max_tokens: MAX_TOKENS,
-    system: [
-      {
-        type: "text",
-        text: systemPrompt(options.locale),
-        // Marked cacheable, but be honest about what this buys today: Haiku
-        // 4.5 only caches prefixes of 4096 tokens or more, and this prompt is
-        // nowhere near that, so the cache silently never engages (no error,
-        // cache_creation_input_tokens comes back 0). Left in place because it
-        // costs nothing and starts working if the prompt grows — not because
-        // it is doing anything right now.
-        cache_control: { type: "ephemeral" },
-      },
-    ],
+    system: systemBlock(options.locale),
     messages: toMessages(turns),
   });
 
+  const text = message.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join(" ")
+    .trim();
+
+  return { text, model };
+}
+
+/**
+ * Same brain as replyTo(), streamed token-by-token via onDelta as the model
+ * generates. Used only by the ElevenLabs custom-LLM path, which forwards each
+ * delta as its own SSE chunk so ElevenLabs can start speaking on the first
+ * few words instead of waiting for the whole reply — unlike Twilio's
+ * <Gather>, there is no "whole document" requirement here to wait for.
+ */
+export async function replyToStream(
+  turns: CallTurn[],
+  options: { locale: "fr" | "en"; escalated: boolean },
+  onDelta: (delta: string) => void,
+): Promise<AgentReply> {
+  const client = new Anthropic();
+  const model = options.escalated ? ESCALATED_MODEL : FAST_MODEL;
+
+  const stream = client.messages
+    .stream({
+      model,
+      max_tokens: MAX_TOKENS,
+      system: systemBlock(options.locale),
+      messages: toMessages(turns),
+    })
+    .on("text", onDelta);
+
+  const message = await stream.finalMessage();
   const text = message.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
     .map((block) => block.text)

@@ -8,7 +8,7 @@ import {
   setCallLocale,
   type CallTurn,
 } from "@/lib/crm/calls";
-import { fallbackLine, replyTo } from "@/lib/voice/agent";
+import { fallbackLine, replyToStream } from "@/lib/voice/agent";
 import { shouldEscalate } from "@/lib/voice/escalation";
 import { detectLocale } from "@/lib/voice/twiml";
 
@@ -25,15 +25,23 @@ import { detectLocale } from "@/lib/voice/twiml";
  * TwiML path) and /api/voice/relay/turn (the shelved ConversationRelay
  * bridge) — same brain (Claude, escalation, transcript), third transport.
  *
- * UNVERIFIED, confirm on the first real test call and adjust if wrong:
- *   - That the configured "API key" arrives as `Authorization: Bearer <key>`.
+ * call_sid extraction below is best-effort (confirmed unreliable on the first
+ * real test call — see the comment above `priorTurns` for why that no longer
+ * matters for what Claude actually sees). It is still attempted because
+ * Supabase persistence (the CRM transcript, escalation stickiness, ending the
+ * call on hangup) is keyed on it — when it's missing, those writes silently
+ * no-op rather than breaking the call, but the transcript won't show up in
+ * /admin/calls for that conversation.
+ *
+ * UNVERIFIED, confirm on a call with call_sid logging enabled:
+ *   - That the configured "API key" arrives as `Authorization: Bearer <key>`
+ *     (this one appears to work — Forbidden responses would show in ElevenLabs'
+ *     call logs as the agent going silent immediately).
  *   - Exactly where call_sid lands in the request body. The dashboard flow
  *     is: our /api/voice/el/init response sets `dynamic_variables.call_sid`,
  *     and enabling "Custom LLM extra body" in the agent's Security tab is
- *     what causes it to round-trip into every request. Documented arrival
- *     point is `elevenlabs_extra_body`, but the exact key path inside it
- *     isn't nailed down by ElevenLabs' docs — so this checks several
- *     plausible shapes and logs when none match, rather than 500ing a call.
+ *     what causes it to round-trip into every request — if that toggle was
+ *     never enabled, extractCallSid() always returns null.
  */
 
 export const runtime = "nodejs";
@@ -94,32 +102,39 @@ export async function POST(request: Request) {
     console.error("[voice-el] no call_sid on this request — see UNVERIFIED note in this file");
   }
 
-  // The caller's most recent turn, and every earlier one, oldest first — the
-  // exact shape shouldEscalate() and callerTurns() already expect. ElevenLabs
-  // sends the full running history each time, so this is reconstructed from
-  // the request itself rather than a Supabase read on the hot path.
-  const userMessages = messages.filter((m) => m.role === "user");
-  const spoken = userMessages.at(-1)?.content?.trim() ?? "";
-  const priorCallerTurns = userMessages.slice(0, -1).map((m) => m.content);
+  // ElevenLabs sends the full running conversation on every turn — that, not
+  // a Supabase read keyed on call_sid, is the authoritative record of what
+  // Ana has already said. The previous version read history back from
+  // Supabase instead: a single failed call_sid round-trip (which is what was
+  // actually happening) made every turn look like the first, so priorTurns
+  // came back empty and Ana re-asked her opening question for the entire
+  // call. Supabase is still written to below for the CRM transcript — it's
+  // just no longer read back to decide what Claude sees.
+  const conversational = messages.filter((m) => m.role === "user" || m.role === "assistant");
+  const last = conversational.at(-1);
+  const spoken = last?.role === "user" ? (last.content?.trim() ?? "") : "";
+  const priorTurns: CallTurn[] = conversational.slice(0, -1).map((m) => ({
+    role: m.role === "user" ? "caller" : "agent",
+    text: m.content ?? "",
+    at: new Date().toISOString(),
+  }));
 
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
       const send = (text: string) => controller.enqueue(encoder.encode(text));
 
+      if (!spoken) {
+        send(sseChunk({ role: "assistant", content: fallbackLine("fr") }, "stop"));
+        send("data: [DONE]\n\n");
+        controller.close();
+        return;
+      }
+
       let call = callSid ? await getCallBySid(callSid).catch(() => null) : null;
       let locale: "fr" | "en" = call?.locale ?? "fr";
 
       try {
-        if (!spoken) {
-          send(sseChunk({ role: "assistant", content: fallbackLine(locale) }, "stop"));
-          send("data: [DONE]\n\n");
-          controller.close();
-          return;
-        }
-
-        const priorTurns = call?.turns ?? [];
-
         if (priorTurns.length >= MAX_TURNS) {
           if (callSid) await endCall(callSid, { status: "completed" }).catch(() => {});
           const closing =
@@ -138,7 +153,7 @@ export async function POST(request: Request) {
           if (callSid) await setCallLocale(callSid, locale).catch(() => {});
         }
 
-        const verdict = shouldEscalate(spoken, [...priorCallerTurns, ...callerTurns({ turns: priorTurns })], {
+        const verdict = shouldEscalate(spoken, callerTurns({ turns: priorTurns }), {
           alreadyEscalated: Boolean(call?.escalated_at),
         });
         if (verdict.escalate && !call?.escalated_at && verdict.reason && callSid) {
@@ -146,7 +161,22 @@ export async function POST(request: Request) {
         }
 
         const callerTurn: CallTurn = { role: "caller", text: spoken, at: new Date().toISOString() };
-        const reply = await replyTo([...priorTurns, callerTurn], { locale, escalated: verdict.escalate });
+
+        // Streamed token-by-token so ElevenLabs can start speaking on the
+        // first few words instead of waiting for the whole reply — the
+        // single-chunk version this replaced added Claude's entire
+        // generation time to every turn's silence before Ana said anything.
+        let sentAny = false;
+        const reply = await replyToStream([...priorTurns, callerTurn], { locale, escalated: verdict.escalate }, (delta) => {
+          if (!delta) return;
+          send(sseChunk(sentAny ? { content: delta } : { role: "assistant", content: delta }));
+          sentAny = true;
+        });
+        if (!sentAny) {
+          send(sseChunk({ role: "assistant", content: fallbackLine(locale) }));
+        }
+        send(sseChunk({}, "stop"));
+        send("data: [DONE]\n\n");
 
         const agentTurn: CallTurn = {
           role: "agent",
@@ -156,15 +186,6 @@ export async function POST(request: Request) {
           escalated: verdict.escalate || undefined,
         };
         if (callSid) await appendTurns(callSid, [callerTurn, agentTurn]).catch(() => {});
-
-        // One chunk carrying the whole reply, not real token streaming.
-        // ElevenLabs requires the SSE *shape*; Claude's own reply here is a
-        // single non-streaming call (see replyTo()), so this satisfies the
-        // contract without pretending to stream what isn't. True
-        // token-by-token would shave more off the latency budget — worth
-        // revisiting if the current cut isn't enough.
-        send(sseChunk({ role: "assistant", content: reply.text || fallbackLine(locale) }, "stop"));
-        send("data: [DONE]\n\n");
       } catch (err) {
         console.error("[voice-el] chat failed:", err);
         if (callSid) await endCall(callSid, { status: "failed" }).catch(() => {});
