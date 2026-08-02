@@ -21,12 +21,15 @@ import { greeting } from "@/lib/voice/agent";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// The voice the owner has chosen to date. This is a hard override sent on
-// every call — changing the agent's voice in the ElevenLabs dashboard alone
-// does nothing, because this response's tts.voice_id wins over it every time.
-// Keep this in sync with the dashboard's Voices selection, or drop the tts
-// override entirely and let the dashboard be the only source of truth.
-const VOICE_ID = "tLK6fPv15M0oKv4V3ACR"; // Melanie - Captivative, Elegant and Calm
+// NOTE: this response deliberately no longer overrides tts.voice_id.
+//
+// It used to pin one voice on every call, which made the dashboard's voice
+// selection cosmetic. That is incompatible with speaking two languages well:
+// the voice now has to be chosen per language by ElevenLabs' language presets
+// (a French voice for French, an unaccented English one for English), and a
+// hard per-call override would sit on top of the preset and defeat it. The
+// dashboard is now the only source of truth for which voice speaks when —
+// see Docs/Voice-Bilingual-Plan.md.
 
 function verifyElevenLabsSecret(request: Request): boolean {
   const secret = process.env.ELEVENLABS_WEBHOOK_SECRET;
@@ -72,7 +75,6 @@ export async function POST(request: Request) {
     type: "conversation_initiation_client_data",
     conversation_config_override: {
       agent: { first_message: greeting(locale), language: locale },
-      tts: { voice_id: VOICE_ID },
     },
     // Round-tripped back to us on every /api/voice/el/chat call (via
     // elevenlabs_extra_body, once "Custom LLM extra body" is enabled in the

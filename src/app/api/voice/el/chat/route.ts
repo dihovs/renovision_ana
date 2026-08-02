@@ -3,7 +3,6 @@ import {
   appendTurns,
   callerTurns,
   endCall,
-  getCallBySid,
   markEscalated,
   setCallLocale,
   type CallTurn,
@@ -76,6 +75,40 @@ function extractCallSid(body: Record<string, unknown>): string | null {
   );
 }
 
+/**
+ * Locale and escalation state, recomputed from the conversation rather than
+ * read back from Supabase.
+ *
+ * Both used to come from a getCallBySid() round-trip taken *before* Claude was
+ * called — a blocking database read sitting in front of every single turn, and
+ * the caller pays for it in silence. Neither value needs the database:
+ * ElevenLabs sends the whole conversation on every request, and both
+ * detectLocale() and shouldEscalate() are pure functions of it. Folding them
+ * over the history is microseconds of string comparison against at most 40
+ * short turns, and it takes a network hop off the hot path entirely.
+ *
+ * Escalation is sticky by design — shouldEscalate() short-circuits to true when
+ * alreadyEscalated is set — so folding reproduces exactly what the stored
+ * escalated_at flag meant: once this call has needed Sonnet, it keeps Sonnet.
+ */
+function deriveCallState(callerTurnTexts: string[]): {
+  locale: "fr" | "en";
+  alreadyEscalated: boolean;
+} {
+  let locale: "fr" | "en" = "fr";
+  let alreadyEscalated = false;
+
+  for (let i = 0; i < callerTurnTexts.length; i++) {
+    const turn = callerTurnTexts[i];
+    locale = detectLocale(turn, locale);
+    if (!alreadyEscalated) {
+      alreadyEscalated = shouldEscalate(turn, callerTurnTexts.slice(0, i)).escalate;
+    }
+  }
+
+  return { locale, alreadyEscalated };
+}
+
 function sseChunk(delta: Record<string, unknown>, finishReason: string | null = null) {
   const payload = {
     id: `chatcmpl-ana`,
@@ -110,14 +143,30 @@ export async function POST(request: Request) {
   // came back empty and Ana re-asked her opening question for the entire
   // call. Supabase is still written to below for the CRM transcript — it's
   // just no longer read back to decide what Claude sees.
+  //
+  // After ElevenLabs runs a system tool (language_detection, below) it calls
+  // straight back with a `tool` role message appended. The caller has not said
+  // anything new on that turn — the last *user* message is still the one that
+  // triggered the switch — so "what was just spoken" has to be found by role
+  // rather than by position. Reading the last message blindly would see the
+  // tool result, treat the turn as silence, and answer with the fallback line
+  // in the language the caller just switched away from.
+  const isToolResultTurn = messages.at(-1)?.role === "tool";
+
   const conversational = messages.filter((m) => m.role === "user" || m.role === "assistant");
-  const last = conversational.at(-1);
-  const spoken = last?.role === "user" ? (last.content?.trim() ?? "") : "";
-  const priorTurns: CallTurn[] = conversational.slice(0, -1).map((m) => ({
-    role: m.role === "user" ? "caller" : "agent",
-    text: m.content ?? "",
-    at: new Date().toISOString(),
-  }));
+  const lastUserIndex = conversational.map((m) => m.role).lastIndexOf("user");
+  const spoken = lastUserIndex >= 0 ? (conversational[lastUserIndex].content?.trim() ?? "") : "";
+  const priorTurns: CallTurn[] = conversational
+    .slice(0, Math.max(lastUserIndex, 0))
+    .filter((m) => (m.content ?? "").trim().length > 0)
+    .map((m) => ({
+      role: m.role === "user" ? "caller" : "agent",
+      text: m.content ?? "",
+      at: new Date().toISOString(),
+    }));
+
+  const priorCallerTexts = callerTurns({ turns: priorTurns });
+  const { locale: priorLocale, alreadyEscalated } = deriveCallState(priorCallerTexts);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -125,14 +174,13 @@ export async function POST(request: Request) {
       const send = (text: string) => controller.enqueue(encoder.encode(text));
 
       if (!spoken) {
-        send(sseChunk({ role: "assistant", content: fallbackLine("fr") }, "stop"));
+        send(sseChunk({ role: "assistant", content: fallbackLine(priorLocale) }, "stop"));
         send("data: [DONE]\n\n");
         controller.close();
         return;
       }
 
-      let call = callSid ? await getCallBySid(callSid).catch(() => null) : null;
-      let locale: "fr" | "en" = call?.locale ?? "fr";
+      let locale: "fr" | "en" = priorLocale;
 
       try {
         if (priorTurns.length >= MAX_TURNS) {
@@ -143,22 +191,60 @@ export async function POST(request: Request) {
               : "Thank you, I have what I need. Artush will call you back very soon.";
           send(sseChunk({ role: "assistant", content: closing }, "stop"));
           send("data: [DONE]\n\n");
-          controller.close();
           return;
         }
 
         const detected = detectLocale(spoken, locale);
-        if (detected !== locale) {
-          locale = detected;
+        const localeChanged = detected !== locale;
+        locale = detected;
+
+        // The caller has switched language. Announce it through the
+        // language_detection system tool rather than simply replying in the
+        // new language, because the conversation's language is what selects
+        // the voice: without this call ElevenLabs keeps speaking through the
+        // French voice, so English comes out with a French accent — exactly
+        // the thing the owner rejected. Emitting a tool call means no text
+        // this turn; ElevenLabs runs the tool and immediately calls back, and
+        // the reply is generated on that second pass.
+        //
+        // Skipped on a tool-result turn so a detectLocale that stays
+        // unconvinced cannot bounce the call between languages forever.
+        if (localeChanged && !isToolResultTurn) {
+          send(
+            sseChunk({
+              role: "assistant",
+              tool_calls: [
+                {
+                  index: 0,
+                  id: `call_lang_${Date.now()}`,
+                  type: "function",
+                  function: { name: "language_detection", arguments: "" },
+                },
+              ],
+            }),
+          );
+          send(
+            sseChunk({
+              tool_calls: [
+                {
+                  index: 0,
+                  function: {
+                    arguments: JSON.stringify({
+                      reason: "the caller switched language",
+                      language: locale,
+                    }),
+                  },
+                },
+              ],
+            }),
+          );
+          send(sseChunk({}, "tool_calls"));
+          send("data: [DONE]\n\n");
           if (callSid) await setCallLocale(callSid, locale).catch(() => {});
+          return;
         }
 
-        const verdict = shouldEscalate(spoken, callerTurns({ turns: priorTurns }), {
-          alreadyEscalated: Boolean(call?.escalated_at),
-        });
-        if (verdict.escalate && !call?.escalated_at && verdict.reason && callSid) {
-          await markEscalated(callSid, verdict.reason).catch(() => {});
-        }
+        const verdict = shouldEscalate(spoken, priorCallerTexts, { alreadyEscalated });
 
         const callerTurn: CallTurn = { role: "caller", text: spoken, at: new Date().toISOString() };
 
@@ -185,7 +271,21 @@ export async function POST(request: Request) {
           model: reply.model,
           escalated: verdict.escalate || undefined,
         };
-        if (callSid) await appendTurns(callSid, [callerTurn, agentTurn]).catch(() => {});
+
+        // Every Supabase write happens here, after the caller has already heard
+        // the reply — nothing the CRM needs is worth adding silence to a live
+        // call. Settled together rather than awaited in sequence, and each
+        // failure is swallowed: a dropped transcript row is a reporting gap,
+        // not a reason to break a phone call.
+        if (callSid) {
+          await Promise.allSettled([
+            appendTurns(callSid, [callerTurn, agentTurn]),
+            localeChanged ? setCallLocale(callSid, locale) : null,
+            verdict.escalate && !alreadyEscalated && verdict.reason
+              ? markEscalated(callSid, verdict.reason)
+              : null,
+          ]);
+        }
       } catch (err) {
         console.error("[voice-el] chat failed:", err);
         if (callSid) await endCall(callSid, { status: "failed" }).catch(() => {});
