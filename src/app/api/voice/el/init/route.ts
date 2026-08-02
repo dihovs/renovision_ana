@@ -21,10 +21,12 @@ import { greeting } from "@/lib/voice/agent";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Same voice the owner auditioned and chose for the (now-shelved)
-// ConversationRelay path — kept as one source of truth rather than
-// duplicated, since both are "the ElevenLabs voice Ana speaks with".
-const VOICE_ID = "UJCi4DDncuo0VJDSIegj"; // Amélie
+// The voice the owner has chosen to date. This is a hard override sent on
+// every call — changing the agent's voice in the ElevenLabs dashboard alone
+// does nothing, because this response's tts.voice_id wins over it every time.
+// Keep this in sync with the dashboard's Voices selection, or drop the tts
+// override entirely and let the dashboard be the only source of truth.
+const VOICE_ID = "tLK6fPv15M0oKv4V3ACR"; // Melanie - Captivative, Elegant and Calm
 
 function verifyElevenLabsSecret(request: Request): boolean {
   const secret = process.env.ELEVENLABS_WEBHOOK_SECRET;
