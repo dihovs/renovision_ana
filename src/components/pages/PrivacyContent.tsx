@@ -131,6 +131,7 @@ const copy: Record<"en" | "fr", PrivacyCopy> = {
         heading: "Cookies",
         body: [
           "This site does not use advertising or tracking cookies, and does not build a profile of you across other websites. The analytics we use report aggregate page views only.",
+          "If you arrive through an advertising or campaign link, the campaign tags already visible in that link's address may be kept with a request you submit — so we know which advertising brought you to us, and nothing more.",
         ],
       },
       {
@@ -248,6 +249,7 @@ const copy: Record<"en" | "fr", PrivacyCopy> = {
         heading: "Témoins (cookies)",
         body: [
           "Ce site n'utilise pas de témoins publicitaires ou de pistage et ne constitue pas de profil vous concernant sur d'autres sites web. Les statistiques que nous utilisons ne rapportent que des pages vues agrégées.",
+          "Si vous arrivez par un lien publicitaire ou de campagne, les étiquettes de campagne déjà visibles dans l'adresse de ce lien peuvent être conservées avec une demande que vous soumettez — pour savoir quelle publicité vous a menés jusqu'à nous, rien de plus.",
         ],
       },
       {
