@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { archiveQuoteAction, sendQuoteAction, setStatusAction } from "../actions";
 import { convertQuoteAction } from "../../jobs/actions";
+import { invoiceQuoteAction } from "../../invoices/actions";
 import AdminNotice from "@/components/admin/AdminNotice";
 import QuoteActions from "@/components/admin/QuoteActions";
+import QuoteConversion from "@/components/admin/QuoteConversion";
 import { MigrationPendingError } from "@/lib/crm/db";
-import { formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
+import { formatMoney, formatQuantity, lineTotalCents, PERCENT_SCALE } from "@/lib/crm/money";
 import { getQuote, resolveQuoteTaxRateForQuote, totalsFor } from "@/lib/crm/quotes";
 import {
   QUOTE_STATUS_LABEL,
@@ -53,6 +55,15 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
   const totals = totalsFor(quote, rate);
   const editable = isEditable(quote.status);
   const publicUrl = quote.public_token ? `${SITE_URL}/q/${quote.public_token}` : null;
+
+  // The deposit button is offered only when the quote asks for a deposit as a
+  // PERCENTAGE. A deposit written as a flat amount has no percentage to bill —
+  // inventing one by dividing it into the total would silently round, and the
+  // whole point of this chain is that the invoice matches the quote exactly.
+  const depositPercent =
+    quote.deposit_kind === "percent" && quote.deposit_value > 0
+      ? quote.deposit_value / PERCENT_SCALE
+      : undefined;
 
   return (
     <div className="space-y-4">
@@ -149,16 +160,16 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
               {quote.approved_signature}
             </p>
           )}
-          {/* Converting copies the agreed lines onto a job. Idempotent, so a
-              double tap on a phone cannot create two jobs. */}
-          <form action={convertQuoteAction.bind(null, quote.id)} className="mt-3">
-            <button
-              type="submit"
-              className="cursor-pointer rounded-lg bg-brand-green px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-green-dark"
-            >
-              Convert to a job
-            </button>
-          </form>
+          {/* Converting copies the agreed lines onto a job; invoicing walks the
+              same hop and then bills that job, because the job is what holds
+              the frozen copy of what was agreed. Both idempotent, so a double
+              tap on a phone cannot create two jobs or two invoices. */}
+          <QuoteConversion
+            hasDeposit={depositPercent !== undefined}
+            convertAction={convertQuoteAction.bind(null, quote.id)}
+            invoiceAction={invoiceQuoteAction.bind(null, quote.id, undefined)}
+            depositInvoiceAction={invoiceQuoteAction.bind(null, quote.id, depositPercent)}
+          />
         </div>
       )}
 

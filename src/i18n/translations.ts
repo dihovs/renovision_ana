@@ -127,9 +127,13 @@ const en: Record<string, unknown> & {
     blog: "Blog",
     contact: "Contact",
     commercial: "Commercial",
-    safety: "Safety & Certifications",
+    // Not "Certifications": the business holds no RBQ licence and no IICRC
+    // credential. What the page actually documents is insurance and a written
+    // one-year workmanship warranty, so the label says that.
+    safety: "Safety & Warranty",
     careers: "Careers",
     caseStudies: "Case Studies",
+    serviceAreas: "Service Areas",
     company: "Company",
     estimate: "Free Estimate",
   },
@@ -140,8 +144,11 @@ const en: Record<string, unknown> & {
   },
   hero: {
     eyebrow: "Renovations & Water Damage Restoration",
+    // The H1 is the strongest on-page signal a local business has, so it names
+    // the trade and the territory rather than spending its second half on
+    // brand voice. The trust line moved to the subheadline below.
     headlineStart: "Renovation and Water Damage Restoration",
-    headlineAccent: "You Can Trust.",
+    headlineAccent: "in Laval and Montreal.",
     subheadline:
       "From emergency water damage repair to full kitchen and bathroom remodels, Renovision AnA delivers reliable craftsmanship for property managers, insurers, and homeowners.",
     ctaEstimate: "Get an Instant Estimate",
@@ -429,9 +436,10 @@ const fr: typeof en = {
     blog: "Blogue",
     contact: "Contact",
     commercial: "Commercial",
-    safety: "Sécurité et certifications",
+    safety: "Sécurité et garantie",
     careers: "Carrières",
     caseStudies: "Études de cas",
+    serviceAreas: "Zones desservies",
     company: "Entreprise",
     estimate: "Estimation",
   },
@@ -442,8 +450,8 @@ const fr: typeof en = {
   },
   hero: {
     eyebrow: "Rénovations et restauration de dégâts d'eau",
-    headlineStart: "Rénovation et restauration de dégâts d'eau",
-    headlineAccent: "en qui vous pouvez avoir confiance.",
+    headlineStart: "Rénovation et restauration après dégât d'eau",
+    headlineAccent: "à Laval et Montréal.",
     subheadline:
       "De la réparation d'urgence des dégâts d'eau aux rénovations complètes de cuisines et salles de bain, Renovision AnA offre un travail fiable pour les gestionnaires immobiliers, les assureurs et les propriétaires.",
     ctaEstimate: "Estimation instantanée",

@@ -9,8 +9,8 @@ import {
 } from "@/lib/crm/calls";
 import { fallbackLine, replyTo } from "@/lib/voice/agent";
 import { shouldEscalate } from "@/lib/voice/escalation";
+import { detectLocale } from "@/lib/voice/locale";
 import {
-  detectLocale,
   publicUrl,
   readTwilioParams,
   sayAndGather,
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   const spoken = (params.SpeechResult ?? "").trim();
   const silent = url.searchParams.get("silent") === "1" || !spoken;
 
-  let call = await getCallBySid(callSid).catch(() => null);
+  const call = await getCallBySid(callSid).catch(() => null);
   let locale: "fr" | "en" = call?.locale ?? "fr";
 
   // --- Nobody said anything ------------------------------------------------
@@ -110,8 +110,8 @@ export async function POST(request: Request) {
         sayAndGather({
           text:
             locale === "fr"
-              ? "Merci, j'ai ce qu'il me faut. Artush vous rappelle très bientôt."
-              : "Thank you, I have what I need. Artush will call you back very soon.",
+              ? "Merci, j'ai ce qu'il me faut. Notre estimateur vous rappelle très bientôt. Bonne journée!"
+              : "Thank you, I have what I need. Our estimator will call you back very soon. Have a great day!",
           locale,
           action: "/api/voice/turn",
           hangUpAfter: true,

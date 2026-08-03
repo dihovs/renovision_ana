@@ -1,10 +1,13 @@
 # Ana's voice: ElevenLabs Agents, not a self-hosted bridge
 
 **Decided 2026-08-02.** The original plan (`voice-relay/`, Twilio
-ConversationRelay, a Fly.io-hosted WebSocket bridge) is shelved, not deleted —
-kept on disk as a fallback if this path ever needs replacing. Research showed
-a materially better answer: **ElevenLabs Agents has a native Twilio
-integration that needs no server of ours at all.**
+ConversationRelay, a Fly.io-hosted WebSocket bridge) was shelved and has since
+been **deleted** — the Fly app is gone and the code with it; the reasoning is
+preserved in `Docs/Voice-Architecture-History.md`. The fallback if this path
+needs replacing is the turn-based `<Gather>` path (`/api/voice/incoming`,
+`/api/voice/turn`, `/api/voice/status`), which is still here and still works.
+Research showed a materially better answer: **ElevenLabs Agents has a native
+Twilio integration that needs no server of ours at all.**
 
 ## Why this replaced the Fly.io plan
 
@@ -67,7 +70,7 @@ never require touching the other two.
    `systemPrompt()` in `src/lib/voice/agent.ts` — keep it pricing-free, that
    guardrail matters). Language: French, add English as an additional
    language. Add the **language_detection** and **end_call** system tools.
-3. **Voice** tab: search "Amélie" or paste `UJCi4DDncuo0VJDSIegj`.
+3. **Voice**: two voices, one per language — see "Bilingual voices" below.
 4. **LLM** dropdown → **Custom LLM** → Server URL
    `https://www.renovisionana.ca/api/voice/el/chat` → Model ID anything
    (e.g. `ana-v1`) → API key → **Create new secret**, paste the value that
@@ -87,6 +90,76 @@ never require touching the other two.
 
 Call the number. That's the cutover — no Twilio console edit needed since
 ElevenLabs rewrites the Voice URL itself on import.
+
+## Bilingual voices — configured 2026-08-02
+
+Ana speaks with a different voice per language, because one voice cannot do
+both without an accent, and in Montreal a bilingual person is expected to have
+neither:
+
+| Language | Voice | Voice ID |
+|---|---|---|
+| French (default) | Melanie – Captivative, Elegant and Calm | `tLK6fPv15M0oKv4V3ACR` |
+| English (preset override) | Sarah – Approachable and Informative | `Nhs7eitvQWFTQBsf0yiT` |
+
+Set in **Agent → Voices → the primary voice → Override voice → English**. The
+French voice is the agent default; only English carries an override, so the two
+can be changed independently. Swapping either is a 30-second dashboard change
+and needs no deploy — the code no longer names a voice at all.
+
+**What makes the switch actually happen.** Three things have to line up, and
+until this pass only the first was true:
+
+1. The **Detect language** and **End conversation** system tools are enabled
+   (Agent → Tools → System tools).
+2. `src/app/api/voice/el/chat/route.ts` **emits** the `language_detection` tool
+   call. This is the part that was missing. Because we run a Custom LLM,
+   ElevenLabs does not run its system tools itself — it passes them to our
+   endpoint and waits for us to return an OpenAI-shaped `tool_calls` response.
+   The route ignored `body.tools` entirely, so the conversation language stayed
+   pinned to French for the whole call. Claude switched to English (our own
+   `detectLocale` drives the prompt) while ElevenLabs kept speaking through the
+   French voice — which is exactly the accent problem, and it was never a voice
+   selection issue at all.
+3. `el/init` no longer sends `conversation_config_override.tts.voice_id`. It
+   used to pin one voice on every call, which would sit on top of the preset
+   and defeat it.
+
+**The extra round trip.** On the single turn where the language flips, Ana
+returns a tool call instead of speech; ElevenLabs runs it and immediately calls
+back, and the reply is generated on that second pass. That costs one round trip
+per call at most. The route detects the callback (`role: "tool"` as the last
+message), takes the spoken text from the last *user* message rather than the
+last message overall, and suppresses re-emitting the tool call so a stubborn
+`detectLocale` cannot bounce the call between languages.
+
+## The dashboard's System prompt does not drive the calls
+
+Worth knowing before anyone edits it expecting a change: with a Custom LLM,
+what Ana actually says is governed by `systemPrompt()` in
+`src/lib/voice/agent.ts`. ElevenLabs passes its own dashboard prompt to our
+endpoint as a system message and `el/chat` discards it, substituting ours. So
+the dashboard copy is inert for live calls — it only feeds conversation titles,
+the Analysis tab, and the **backup LLM** if the primary ever fails.
+
+It is currently a stale port (it still names the owner, which the code no
+longer does). Harmless, but if you want the failover path to match, paste the
+current `systemPrompt()` output over it. Editing it is a manual job: the field
+is a contenteditable, not a textarea, so it can't be filled programmatically,
+and a partial paste would be worse than a stale one.
+
+### Still open
+
+- **The company name.** TTS reads "Renovision AnA" as "Renova Vision N-A". Ana
+  no longer repeats it when closing, but she still says it in the greeting.
+  Fixing it properly needs the owner to say how it should sound — see
+  `Docs/Owner-Decisions-Needed.md`. A pronunciation dictionary exists under
+  Voices → the gear icon → **Pronunciation dictionaries**, but note its caveat:
+  IPA/CMU phonemes only apply to V3 Conversational and Flash V2 (English only),
+  and this agent runs Flash.
+- **Matching timbre across both languages** — so Ana sounds like the same
+  person in French and English — would need two Instant Voice Clones of one
+  bilingual speaker. Worth doing only if the two-voice split reads as jarring.
 
 ## Rollback
 

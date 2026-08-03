@@ -15,8 +15,9 @@ import {
   QUANTITY_SCALE,
   type Discount,
 } from "@/lib/crm/money";
+import { blankLine, type EditableLine } from "@/lib/crm/quoteLines";
 import type { CompanySetting, TaxRate, TaxRatesSetting } from "@/lib/crm/settings";
-import type { DiscountKind, PriceBookItem, QuoteLineKind } from "@/lib/crm/quoteTypes";
+import type { DiscountKind, PriceBookItem } from "@/lib/crm/quoteTypes";
 
 /**
  * The estimate builder.
@@ -30,44 +31,6 @@ import type { DiscountKind, PriceBookItem, QuoteLineKind } from "@/lib/crm/quote
  * French keyboard's "1 234,56" is read correctly rather than becoming NaN or,
  * worse, 123456 dollars.
  */
-
-export type EditableLine = {
-  /** Local only — the server rewrites all lines on save. */
-  key: string;
-  kind: QuoteLineKind;
-  name: string;
-  description: string;
-  quantity: string;
-  unit: string;
-  unitPrice: string;
-  unitCost: string;
-  taxable: boolean;
-  optional: boolean;
-  selected: boolean;
-  laborHours: number | null;
-  priceBookItemId: string | null;
-};
-
-let keyCounter = 0;
-const nextKey = () => `line-${++keyCounter}`;
-
-export function blankLine(kind: QuoteLineKind = "item"): EditableLine {
-  return {
-    key: nextKey(),
-    kind,
-    name: "",
-    description: "",
-    quantity: kind === "text" ? "" : "1",
-    unit: "",
-    unitPrice: "",
-    unitCost: "",
-    taxable: true,
-    optional: false,
-    selected: false,
-    laborHours: null,
-    priceBookItemId: null,
-  };
-}
 
 export type QuoteFormValues = {
   clientId: string;
@@ -138,11 +101,17 @@ export default function QuoteBuilder({
 
   // Selecting a client whose properties don't include the current one must
   // clear it, or the quote would carry an address belonging to someone else.
-  useEffect(() => {
-    if (propertyId && client && !client.properties.some((p) => p.id === propertyId)) {
-      setPropertyId(client.properties[0]?.id ?? "");
-    }
-  }, [clientId, client, propertyId]);
+  //
+  // Corrected during render rather than from an effect, and that matters here
+  // beyond satisfying the linter: from an effect there is one committed render
+  // in which propertyId still names the previous client's address, and the tax
+  // chain (property → client → default) is resolved against it a few lines
+  // below. React re-runs this render before anything is painted or submitted,
+  // so the mismatch never reaches the totals or the form. The condition is
+  // false immediately after the assignment, so it settles in one pass.
+  if (propertyId && client && !client.properties.some((p) => p.id === propertyId)) {
+    setPropertyId(client.properties[0]?.id ?? "");
+  }
 
   // The rate the totals below are computed with: quote → property → client →
   // account default, and nothing at all if the company isn't registered to
@@ -193,6 +162,11 @@ export default function QuoteBuilder({
         discount,
         deposit,
       ),
+    // Depends on discount/deposit's FIELDS, not the objects. Both are object
+    // literals rebuilt on every render just above, so listing them directly
+    // would give a new identity each time and memoise nothing. exhaustive-deps
+    // can't see that {kind, value} is the whole shape and warns anyway — the
+    // warning is wrong here, and "fixing" it would silently undo the memo.
     [lines, effectiveRate, discount.kind, discount.value, deposit.kind, deposit.value],
   );
 
@@ -764,10 +738,9 @@ function PriceBookPicker({
       return;
     }
     const term = value.trim();
-    if (term.length < 2) {
-      setResults([]);
-      return;
-    }
+    // Nothing to search for. `visible` below derives the empty list from the
+    // term length, so there is no state to clear from in here.
+    if (term.length < 2) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
@@ -787,21 +760,25 @@ function PriceBookPicker({
     };
   }, [value]);
 
+  // Below the search threshold there are no matches by definition, whether the
+  // last fetch left some behind or not.
+  const visible = value.trim().length < 2 ? [] : results;
+
   return (
     <div className="relative min-w-0 flex-1">
       <input
         value={value}
         onChange={(e) => onText(e.target.value)}
-        onFocus={() => results.length > 0 && setOpen(true)}
+        onFocus={() => visible.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
         aria-label={placeholder}
         autoComplete="off"
         className={`${inputClass} font-medium`}
       />
-      {open && results.length > 0 && (
+      {open && visible.length > 0 && (
         <ul className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-black/10 bg-white shadow-lg">
-          {results.map((item) => (
+          {visible.map((item) => (
             <li key={item.id}>
               <button
                 type="button"

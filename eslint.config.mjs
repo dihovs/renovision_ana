@@ -12,9 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // A separately deployed Node service (its own package.json, own Fly.io
-    // app) — not part of this Next.js project's lint surface.
-    "voice-relay/**",
+    // Vendored agent tooling: third-party skill scripts and scratch worktrees
+    // that happen to live inside the repo. Not project source, and their lint
+    // errors drown out the ones that are ours to fix.
+    ".claude/**",
   ]),
 ]);
 

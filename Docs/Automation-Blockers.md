@@ -79,15 +79,41 @@ the voice plan is wasted work until this is answered.
   bundle is requested, allow up to 3 business days and note that a P.O. box or
   virtual address will be rejected.
 
-### 6. Set `TWILIO_AUTH_TOKEN` in Vercel, point the number at the webhook
+### 6. Set `TWILIO_AUTH_TOKEN` in Vercel
 
-Voice URL → `https://www.renovisionana.ca/api/voice/incoming`
-Status callback → `https://www.renovisionana.ca/api/voice/status`
+Still required. It is what proves an inbound webhook really came from Twilio;
+without it the turn-based routes reject every request, which is fine while
+they are idle and fatal the moment you need them.
 
-**You do not need Deepgram or ElevenLabs accounts.** The turn-based design uses
-Twilio's own speech recognition and voices. If you later want the caller to be
-able to interrupt mid-sentence, Twilio ConversationRelay bundles Deepgram and
-ElevenLabs into one $0.07/min line — still no separate accounts.
+**Superseded:** this section used to say to point the Twilio number's Voice URL
+at `/api/voice/incoming`, and that no ElevenLabs account was needed. Both were
+true when written and neither is now — see below.
+
+### 6b. Rolling back to the turn-based path during an incident
+
+Read this before you need it. **ElevenLabs now owns the number.** Importing it
+rewrote the Twilio number's Voice URL to point at ElevenLabs, so the rollback
+is no longer a one-line edit in the Twilio console — an import left in place
+can put its own URL back.
+
+Roll back in this order:
+
+1. **ElevenLabs dashboard → Phone Numbers → the Laval number → remove it**
+   (or detach the agent from it). Do this *first*. Editing Twilio while the
+   number is still imported risks the change being overwritten.
+2. **Twilio Console → Phone Numbers → the number → Configure:**
+   - A call comes in → Webhook, POST →
+     `https://www.renovisionana.ca/api/voice/incoming`
+   - Call status changes → POST →
+     `https://www.renovisionana.ca/api/voice/status`
+3. **Confirm `TWILIO_AUTH_TOKEN` is set in Vercel** (section 6). If it isn't,
+   every call gets a 403 and the caller hears Twilio's error, not Ana.
+4. Call the number. You should hear the Polly Gabrielle voice and have to wait
+   your turn — no barge-in. That is the fallback working, not a fault.
+
+The ElevenLabs secrets can stay set throughout; the `el/*` routes simply stop
+being called. Rolling forward again means re-importing the number in the
+ElevenLabs dashboard, which rewrites the Voice URL back.
 
 ---
 

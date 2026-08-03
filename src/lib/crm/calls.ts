@@ -16,6 +16,18 @@ export type CallTurn = {
   at: string;
   model?: string;
   escalated?: boolean;
+  /**
+   * Set when a guardrail tripped on this turn — today only the no-solicitation
+   * deny-list (src/lib/voice/solicitation.ts), in the shape
+   * `solicitation:<scope>:<rule>:<token>`.
+   *
+   * Docs/Voice-Outbound-Compliance.md §10D(15)(c) asks for a review flag on any
+   * transcript containing solicitation, and §10H(41) for a monthly read of a
+   * sample of them. It lives on the turn rather than on the call because the
+   * useful question is "which sentence", and it rides in the existing jsonb
+   * column so there is no migration for the owner to run by hand.
+   */
+  flagged?: string;
 };
 
 export type StoredCall = {
@@ -133,6 +145,42 @@ export async function setCallLocale(callSid: string, locale: "fr" | "en"): Promi
   await supabase.from("calls").update({ locale }).eq("call_sid", callSid);
 }
 
+/**
+ * The language this number was last served in, or null if we've never spoken.
+ *
+ * Someone who called in English last month should not be asked to choose again
+ * — the answer is already on file. `locale` on a call row is exactly that
+ * answer: it starts at the default and is rewritten the moment the caller's
+ * actual language is established, so the most recent row is the most recent
+ * truth. That means no new table and no migration for the owner to run by
+ * hand; the data has been accumulating since the first call.
+ *
+ * Deliberately keyed on the raw E.164 `from_number` Twilio hands us. Callers
+ * who withhold their number arrive as null or "anonymous" and simply get
+ * treated as new, which is the right outcome.
+ *
+ * Only rows with at least one turn count. A call that connected and died
+ * (there are several one-second Error rows in the ElevenLabs history) never
+ * established a language, and letting those set a caller's default would pin
+ * them to French on the strength of a call where nobody spoke.
+ */
+export async function callerLocale(phone: string | null | undefined): Promise<"fr" | "en" | null> {
+  const supabase = client();
+  if (!supabase || !phone || phone === "anonymous") return null;
+
+  const { data, error } = await supabase
+    .from("calls")
+    .select("locale, turns")
+    .eq("from_number", phone)
+    .order("started_at", { ascending: false })
+    .limit(5);
+
+  if (error || !data) return null;
+
+  const spoken = data.find((row) => Array.isArray(row.turns) && row.turns.length > 0);
+  return (spoken?.locale as "fr" | "en" | undefined) ?? null;
+}
+
 export async function endCall(
   callSid: string,
   input: {
@@ -173,17 +221,6 @@ export async function listCalls(limit = 100): Promise<StoredCall[]> {
     throw new Error(`Could not load calls: ${error.message}`);
   }
   return (data ?? []) as StoredCall[];
-}
-
-export async function getCall(id: string): Promise<StoredCall | null> {
-  const supabase = client();
-  if (!supabase) return null;
-  const { data, error } = await supabase.from("calls").select("*").eq("id", id).maybeSingle();
-  if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("calls");
-    throw new Error(`Could not load the call: ${error.message}`);
-  }
-  return (data as StoredCall) ?? null;
 }
 
 /** Just the caller's side, oldest first — what the repeat detector compares. */

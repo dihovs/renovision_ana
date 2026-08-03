@@ -51,6 +51,13 @@ const STOPWORDS = new Set([
  * These matter more than similarity: a caller who rephrases entirely shares no
  * words with their first attempt, so word overlap will never catch them — but
  * "that's not what I asked" catches it on the first try.
+ *
+ * Every entry has to survive normalise(), which strips punctuation. "Again,"
+ * — the standalone one that relied on its comma to mean "I already told you"
+ * — is deliberately absent: without the comma it is the ordinary adverb, and
+ * it fired on "my basement flooded again last night" from a caller who was
+ * perfectly calm. Escalation is sticky, so a false positive on turn one costs
+ * Sonnet for the whole call.
  */
 const FRUSTRATION_MARKERS = [
   // French
@@ -62,7 +69,7 @@ const FRUSTRATION_MARKERS = [
   "no i", "that's not what", "thats not what", "not what i asked",
   "i already said", "i just said", "like i said", "you're not listening",
   "youre not listening", "you don't understand", "you dont understand",
-  "listen to me", "i repeat", "again,", "as i said",
+  "listen to me", "i repeat", "as i said",
 ];
 
 /** Strip accents, punctuation and case so "coûte" and "coute" match. */
@@ -76,6 +83,23 @@ function normalise(text: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Markers matched on word boundaries rather than as bare substrings.
+ *
+ * `includes()` was matching "again" inside "against" — a whole call escalated
+ * because somebody described a leaning wall. Lookarounds rather than \b
+ * because the phrases contain apostrophes, where \b lands in the wrong place.
+ * Built once at module load; these are compiled on every turn of a live call
+ * otherwise.
+ */
+const FRUSTRATION_PATTERNS = FRUSTRATION_MARKERS.map((phrase) => ({
+  phrase,
+  pattern: new RegExp(
+    `(?<![\\p{L}\\p{N}])${normalise(phrase).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`,
+    "u",
+  ),
+}));
 
 /** Content words only — the topic of the sentence with the grammar removed. */
 function contentWords(text: string): Set<string> {
@@ -146,12 +170,12 @@ export function shouldEscalate(
   // Explicit frustration short-circuits everything. "That's not what I asked"
   // is the caller telling us directly, and waiting for a second occurrence
   // before believing them is exactly the wrong instinct.
-  const marker = FRUSTRATION_MARKERS.find((phrase) => normalised.includes(normalise(phrase)));
+  const marker = FRUSTRATION_PATTERNS.find(({ pattern }) => pattern.test(normalised));
   if (marker) {
     return {
       escalate: true,
       repeatCount: 1,
-      reason: `caller signalled the answer missed ("${marker}")`,
+      reason: `caller signalled the answer missed ("${marker.phrase}")`,
     };
   }
 

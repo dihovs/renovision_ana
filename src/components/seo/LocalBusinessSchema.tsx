@@ -16,6 +16,75 @@ import { getGoogleReviewsData } from "@/lib/googleReviews";
 // business instead of one entity with a shared @id.
 const BUSINESS_ID = `${SITE_URL}/#business`;
 
+// `areaServed` used to be a flat list of bare strings, several of them
+// anglicized ("Montreal-North", "Ile-Perrot"). Bare strings give Google no
+// entity to resolve, and "Laval" on its own is genuinely ambiguous with Laval,
+// Mayenne, in France — which is what a brand search for this business surfaces
+// today. Every place below is therefore a typed node nested inside the next
+// one up, so the chain always terminates at Québec, Canada.
+const QUEBEC = {
+  "@type": "AdministrativeArea",
+  name: "Québec",
+  address: {
+    "@type": "PostalAddress",
+    addressRegion: "QC",
+    addressCountry: "CA",
+  },
+};
+
+/** A municipality in Québec. */
+const city = (name: string) => ({
+  "@type": "City",
+  name,
+  containedInPlace: QUEBEC,
+});
+
+/**
+ * A borough or sector inside a municipality — Laval's sectors and Montréal's
+ * arrondissements. Not `City`: they are not municipalities, and typing them as
+ * such would compete with the real city node above.
+ */
+const borough = (name: string, parent: ReturnType<typeof city>) => ({
+  "@type": "AdministrativeArea",
+  name,
+  containedInPlace: parent,
+});
+
+const LAVAL = city("Laval");
+const MONTREAL = city("Montréal");
+
+// French Quebec spellings throughout, matching the display names in
+// `src/lib/serviceAreas.ts` so the schema and the area pages agree.
+const AREAS_SERVED = [
+  LAVAL,
+  MONTREAL,
+  // Laval sectors
+  borough("Chomedey", LAVAL),
+  borough("Sainte-Rose", LAVAL),
+  borough("Duvernay", LAVAL),
+  borough("Laval-des-Rapides", LAVAL),
+  borough("Pont-Viau", LAVAL),
+  borough("Vimont", LAVAL),
+  borough("Fabreville", LAVAL),
+  // Montréal boroughs
+  borough("Ahuntsic-Cartierville", MONTREAL),
+  borough("Saint-Laurent", MONTREAL),
+  borough("LaSalle", MONTREAL),
+  borough("Montréal-Nord", MONTREAL),
+  // Off-island and West Island. The West Island is a region rather than a
+  // municipality — several of its towns are not part of Ville de Montréal —
+  // so it hangs off Québec directly.
+  {
+    "@type": "AdministrativeArea",
+    name: "Ouest-de-l'Île de Montréal",
+    alternateName: "West Island",
+    containedInPlace: QUEBEC,
+  },
+  city("Île-Perrot"),
+  city("Longueuil"),
+  city("Terrebonne"),
+];
+
 export default async function LocalBusinessSchema() {
   const live = await getGoogleReviewsData();
   const staticReviews = translations.en.testimonials.items;
@@ -65,24 +134,7 @@ export default async function LocalBusinessSchema() {
     logo: `${SITE_URL}/renovision-logo.png`,
     image: `${SITE_URL}/renovision-logo.png`,
     sameAs: [SOCIAL_LINKS.facebook, SOCIAL_LINKS.instagram],
-    areaServed: [
-      "Laval",
-      "Chomedey",
-      "Sainte-Rose",
-      "Duvernay",
-      "Laval-des-Rapides",
-      "Pont-Viau",
-      "Vimont",
-      "Fabreville",
-      "Ahuntsic-Cartierville",
-      "Saint-Laurent",
-      "LaSalle",
-      "Montreal-North",
-      "West Island",
-      "Ile-Perrot",
-      "Longueuil",
-      "Terrebonne",
-    ],
+    areaServed: AREAS_SERVED,
     priceRange: "$$",
     aggregateRating: {
       "@type": "AggregateRating",

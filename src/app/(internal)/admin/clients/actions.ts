@@ -3,7 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isSignedIn } from "@/lib/adminAuth";
+import {
+  conversionError,
+  type ConversionResult,
+  type ConversionState,
+} from "@/lib/crm/conversions";
 import { ensureHubToken, revokeHubToken } from "@/lib/crm/hub";
+import { createJobForClient } from "@/lib/crm/jobs";
+import { parseMoneyToCents } from "@/lib/crm/money";
 import {
   archiveProperty,
   convertLeadToClient,
@@ -257,13 +264,73 @@ export async function setArchivedAction(id: string, archived: boolean): Promise<
 /**
  * Promote a lead to a client. The lead row is kept and linked, not consumed —
  * it is the record of what the customer actually asked for.
+ *
+ * Idempotent: a lead already converted opens the client it became. The refusal
+ * comes back as data rather than thrown, because Next replaces a server
+ * action's error message with a generic digest in production and the whole
+ * value of these messages is that they say what to do instead.
  */
-export async function convertLeadAction(leadId: string): Promise<void> {
+export async function convertLeadAction(leadId: string): Promise<ConversionState> {
   await requireSession();
-  const clientId = await convertLeadToClient(leadId);
+
+  let client: ConversionResult;
+  try {
+    client = await convertLeadToClient(leadId);
+  } catch (err) {
+    return conversionError(err, "Could not convert the lead.");
+  }
+
   revalidatePath("/admin");
   revalidatePath("/admin/clients");
-  redirect(`/admin/clients/${clientId}`);
+  redirect(`/admin/clients/${client.id}`);
+}
+
+/**
+ * Start a job for a client with no quote in front of it.
+ *
+ * The phone rings, the work is agreed, the crew goes out. This is that path,
+ * and it exists because forcing it through the quote screens would mean
+ * recording an estimate nobody wrote and an approval nobody gave.
+ *
+ * One optional price. Most of these calls are "the usual, about eight hundred"
+ * — a single figure the owner can break into lines later. Left blank the job is
+ * still created; it simply cannot be invoiced until it is worth something,
+ * which the invoice button says in as many words.
+ */
+export async function startJobAction(
+  clientId: string,
+  _prev: ConversionState,
+  formData: FormData,
+): Promise<ConversionState> {
+  await requireSession();
+
+  const title = str(formData, "title");
+  if (!title) return { error: "Say what the job is." };
+
+  const rawAmount = str(formData, "amount");
+  const amountCents = rawAmount ? parseMoneyToCents(rawAmount) : null;
+  if (rawAmount && amountCents === null) {
+    return { error: "That amount doesn't look like a number." };
+  }
+
+  let job: ConversionResult;
+  try {
+    job = await createJobForClient(clientId, {
+      propertyId: str(formData, "propertyId") || null,
+      title,
+      instructions: str(formData, "instructions").slice(0, 5000) || null,
+      lines:
+        amountCents === null
+          ? []
+          : [{ name: title, unitPriceCents: amountCents, quantityMilli: 1000 }],
+    });
+  } catch (err) {
+    return conversionError(err, "Could not start the job.");
+  }
+
+  revalidatePath(`/admin/clients/${clientId}`);
+  revalidatePath("/admin/jobs");
+  redirect(`/admin/jobs/${job.id}`);
 }
 
 export async function createHubLinkAction(clientId: string): Promise<void> {

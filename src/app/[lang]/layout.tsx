@@ -117,7 +117,7 @@ export default async function LocaleLayout({
           <ChatProvider>
             <Header />
             <main className="flex-1">{children}</main>
-            <Footer />
+            <Footer year={currentYear()} />
             <ChatWidget />
           </ChatProvider>
         </LanguageProvider>
@@ -125,4 +125,16 @@ export default async function LocaleLayout({
       </body>
     </html>
   );
+}
+
+/**
+ * The copyright year, picked on the server so the client never disagrees.
+ *
+ * Outside the component body because reading the clock during render is
+ * impure. These pages prerender, so this is the year as of the last build or
+ * revalidation — briefly stale after a New Year, but identical on both sides
+ * of hydration, which is what actually matters for a copyright line.
+ */
+function currentYear(): number {
+  return new Date().getFullYear();
 }

@@ -2,6 +2,7 @@
 
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
+import ChatWidget from "@/components/chat/ChatWidget";
 import FeatureCard from "@/components/ui/FeatureCard";
 import CtaBand from "@/components/home/CtaBand";
 import Reveal from "@/components/ui/Reveal";
@@ -29,6 +30,11 @@ import { estimatorFaqEn, estimatorFaqFr } from "@/lib/estimatorFaq";
  * try. It's also the landing target for "estimation rénovation", "combien
  * coûte rénovation Laval"-type searches (Docs/SEO-Keyword-Research.md).
  *
+ * The estimator itself is embedded inline, right under the hero — on the one
+ * page whose entire purpose is the tool, making people click a corner bubble
+ * to reach it was the wrong trade. The hero button still opens the floating
+ * panel for anyone who clicks it first.
+ *
  * Copy lives inline (AboutContent pattern) rather than in translations.ts —
  * page-specific prose doesn't belong in the shared nav/footer string table.
  *
@@ -47,6 +53,9 @@ const copy = {
       "Most contractors make you wait for a callback just to hear a rough number. Our estimate assistant prices your project line by line — materials, labour, even travel to your address — using the same price list our crews actually work from, and hands you a detailed range in a few minutes. No forms, no waiting, no obligation.",
     ctaStart: "Start my free estimate",
     ctaCall: "Or call us",
+    toolTitle: "Your estimate starts here",
+    toolIntro:
+      "Nothing to fill in first and nothing to install — tell the assistant what needs doing and it takes it from there. Your contact information is only asked for at the very end, and only if you want the details sent to Artush.",
     stepsTitle: "How it works",
     stepsIntro: "Four steps, whether it's a kitchen you've been planning for years or water damage from last night.",
     steps: [
@@ -159,6 +168,9 @@ const copy = {
       "La plupart des entrepreneurs vous font attendre un rappel juste pour entendre un chiffre approximatif. Notre assistant d'estimation chiffre votre projet poste par poste — matériaux, main-d'œuvre, et même le déplacement jusqu'à chez vous — à partir de la même liste de prix que nos équipes utilisent réellement, et vous remet une fourchette détaillée en quelques minutes. Pas de formulaire, pas d'attente, aucun engagement.",
     ctaStart: "Lancer mon estimation gratuite",
     ctaCall: "Ou appelez-nous",
+    toolTitle: "Votre estimation commence ici",
+    toolIntro:
+      "Rien à remplir d'avance, rien à installer : dites à l'assistant ce qu'il y a à faire et il s'occupe du reste. On vous demande vos coordonnées seulement à la toute fin, et uniquement si vous voulez qu'Artush reçoive le détail.",
     stepsTitle: "Comment ça fonctionne",
     stepsIntro: "Quatre étapes, qu'il s'agisse d'une cuisine planifiée depuis des années ou d'un dégât d'eau de la veille.",
     steps: [
@@ -307,6 +319,26 @@ export default function EstimatorContent() {
               {c.ctaCall} · {SITE_PHONE}
             </a>
           </div>
+        </div>
+      </section>
+
+      {/* The estimator itself, in page flow. `data-estimate-cta` is the marker
+          ChatWidget's IntersectionObserver watches — the same one the homepage
+          hero uses — so the floating launcher stays hidden while the inline
+          tool is on screen rather than hovering over it offering the same
+          thing. It sits on the card, not the section, so the launcher comes
+          back as soon as the reader scrolls past the conversation. */}
+      <section className="mx-auto max-w-3xl px-4 pb-20 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <h2 className="font-heading text-2xl font-bold text-brand-blue sm:text-3xl">
+            {c.toolTitle}
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-charcoal/70">
+            {c.toolIntro}
+          </p>
+        </div>
+        <div data-estimate-cta className="mt-8">
+          <ChatWidget variant="inline" />
         </div>
       </section>
 

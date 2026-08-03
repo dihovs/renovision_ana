@@ -7,10 +7,6 @@ export function getLineItem(code: string): LineItem | undefined {
   return BY_CODE.get(code);
 }
 
-export function hasLineItem(code: string): boolean {
-  return BY_CODE.has(code);
-}
-
 export { LINE_ITEMS };
 
 /**

@@ -32,6 +32,15 @@ export const OG_LOCALE: Record<Locale, string> = { fr: "fr_CA", en: "en_CA" };
  * private, authenticated and token surfaces, plus the root-level generated
  * image route. They keep serving at their current unprefixed paths and never
  * gain an `/en` twin.
+ *
+ * ADD EVERY NEW TOP-LEVEL NON-MARKETING ROUTE HERE. Omission is silent and
+ * total: the proxy rewrites the path onto `/fr/...`, nothing matches under
+ * `[lang]`, and the route 404s with no error anywhere to explain it. `/crew`
+ * was written after this list and hit exactly that — every crew link a
+ * subcontractor tapped would have been dead. The guard test in
+ * `routing.test.ts` walks `src/app/` and fails when a top-level route exists
+ * that is neither `[lang]` nor listed here, so the next one cannot slip
+ * through the same way.
  */
 export const UNLOCALIZED_PREFIXES = [
   "/admin",
@@ -39,6 +48,9 @@ export const UNLOCALIZED_PREFIXES = [
   "/hub",
   "/q",
   "/i",
+  // Per-job crew links. Token surface, mobile-only, never translated as a
+  // route — the page itself is bilingual from the token's own locale.
+  "/crew",
   "/opengraph-image",
 ] as const;
 

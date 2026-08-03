@@ -28,7 +28,7 @@ export function xmlEscape(value: string): string {
  * warmest of Twilio's built-ins for Québécois French; the Google Neural2
  * voice it replaces read like a kiosk. English stays on Google because Polly
  * has no Canadian-English neural voice and a US accent would be a worse trade.
- * The real fix is the ElevenLabs path (see relay-incoming), which replaces
+ * The real fix is the ElevenLabs path (src/app/api/voice/el/*), which replaces
  * both; these are the best the <Say>-based fallback path can sound.
  */
 const VOICE = "Polly.Gabrielle-Neural";
@@ -159,20 +159,4 @@ export function publicUrl(request: Request): string {
     url.protocol = `${proto}:`;
   }
   return url.toString();
-}
-
-/** Detect the caller's language from what they said, to switch mid-call. */
-export function detectLocale(text: string, current: "fr" | "en"): "fr" | "en" {
-  const normalised = text.toLowerCase();
-  // Function words rather than content words: "the" and "le" identify a
-  // language far more reliably than any renovation vocabulary, which is full
-  // of shared borrowings ("drywall", "gyproc", "condo").
-  const french = (normalised.match(/\b(je|j'ai|c'est|le|la|les|une|des|dans|pour|avec|mon|ma|est|sont|qui|pas|oui|bonjour|merci)\b/g) ?? []).length;
-  const english = (normalised.match(/\b(i|the|a|is|are|my|and|with|for|in|it|that|yes|hello|thanks|have|got)\b/g) ?? []).length;
-
-  // A clear margin is required to switch. One borrowed word should not flip a
-  // French conversation into English mid-sentence.
-  if (french >= english + 2) return "fr";
-  if (english >= french + 2) return "en";
-  return current;
 }

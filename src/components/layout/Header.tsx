@@ -125,8 +125,16 @@ export default function Header() {
     { href: "/contact", label: t.nav.contact },
   ];
 
+  // Service areas lives here rather than in the top row on purpose. The nine
+  // area pages were reachable from a single badge on /about and needed a real
+  // sitewide link, but "Zones desservies" is a wide label and an eighth item
+  // pushed the bar into horizontal overflow at 1280px — exactly the width the
+  // xl nav turns on at. Grouping it costs nothing in crawlability: the mobile
+  // panel below renders this list unconditionally, so the link is in the
+  // server HTML on every page whether or not the dropdown is ever opened.
   const companyLinks = [
     { href: "/about", label: t.nav.about },
+    { href: "/service-areas", label: t.nav.serviceAreas },
     { href: "/case-studies", label: t.nav.caseStudies },
     { href: "/safety", label: t.nav.safety },
     { href: "/careers", label: t.nav.careers },

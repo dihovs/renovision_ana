@@ -44,6 +44,8 @@ const NAV: NavItem[] = [
   { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/calls", label: "Calls", icon: IconPhone, ready: true },
+  // Next to Calls, because everything on it was dictated on one.
+  { href: "/admin/tasks", label: "Tasks", icon: IconCheckCircle, ready: true },
   { href: "/admin/inbox", label: "Inbox", icon: IconClipboard, ready: true },
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
@@ -102,10 +104,16 @@ export default function AdminShell({
 
   // Any navigation closes both overlays. Without this the create menu survives
   // the route change and hangs over the page it just opened.
-  useEffect(() => {
+  //
+  // Adjusted during render rather than from an effect: React re-runs this
+  // render before touching the DOM, so the overlays are already closed in the
+  // first paint of the new route instead of flashing over it for one frame.
+  const [navigatedFrom, setNavigatedFrom] = useState(pathname);
+  if (navigatedFrom !== pathname) {
+    setNavigatedFrom(pathname);
     setCreateOpen(false);
     setMobileNavOpen(false);
-  }, [pathname]);
+  }
 
   const current = activeNav(pathname);
 

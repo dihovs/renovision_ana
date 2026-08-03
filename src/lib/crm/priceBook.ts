@@ -90,20 +90,6 @@ export async function listPriceBook(
   return (data ?? []) as PriceBookItem[];
 }
 
-export async function getPriceBookItem(id: string): Promise<PriceBookItem | null> {
-  const client = requireDb();
-  const { data, error } = await client
-    .from("price_book_items")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("price_book_items");
-    throw new Error(`Could not load the item: ${error.message}`);
-  }
-  return (data as PriceBookItem) ?? null;
-}
-
 export async function createPriceBookItem(input: PriceBookInput): Promise<string> {
   const client = requireDb();
   const { data, error } = await client

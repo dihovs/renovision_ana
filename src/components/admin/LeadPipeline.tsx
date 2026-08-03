@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/(internal)/admin/actions";
 import { convertLeadAction } from "@/app/(internal)/admin/clients/actions";
+import type { ConversionState } from "@/lib/crm/conversions";
 import AdminNotice from "./AdminNotice";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 import AskClaude from "./AskClaude";
@@ -264,9 +264,7 @@ function LeadCard({
               consumed: it is the customer's own words and the estimator's
               original numbers, and the tidied client record must not overwrite
               the evidence. */}
-          <form action={convertLeadAction.bind(null, lead.id)} className="mt-2">
-            <ConvertButton />
-          </form>
+          <ConvertLead leadId={lead.id} />
 
           {/* The brief sits directly under the call button because that is the
               order you use it in: read the job, then phone them. */}
@@ -497,16 +495,39 @@ function ViewerArrow({ side, onClick }: { side: "left" | "right"; onClick: () =>
   );
 }
 
-function ConvertButton() {
-  const { pending } = useFormStatus();
+/**
+ * Lead → client, in one press.
+ *
+ * Idempotent: a lead already converted redirects to the client it became, so a
+ * double tap costs nothing. When it refuses — the client record was archived —
+ * it says so here rather than throwing, because a server action's thrown
+ * message is replaced by a generic digest in production and this one has to
+ * reach the person holding the phone.
+ */
+function ConvertLead({ leadId }: { leadId: string }) {
+  const [state, convert, pending] = useActionState(
+    async () => convertLeadAction(leadId),
+    {} as ConversionState,
+  );
+
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="w-full cursor-pointer rounded-full border-2 border-brand-green px-4 py-2.5 text-center text-sm font-bold uppercase tracking-[0.08em] text-brand-green transition-colors hover:bg-brand-green hover:text-white disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-brand-green"
-    >
-      {pending ? "Converting…" : "Convert to client"}
-    </button>
+    <form action={convert} className="mt-2">
+      {state.error && (
+        <p
+          role="alert"
+          className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+        >
+          {state.error}
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full cursor-pointer rounded-full border-2 border-brand-green px-4 py-2.5 text-center text-sm font-bold uppercase tracking-[0.08em] text-brand-green transition-colors hover:bg-brand-green hover:text-white disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-brand-green"
+      >
+        {pending ? "Converting…" : "Convert to client"}
+      </button>
+    </form>
   );
 }
 

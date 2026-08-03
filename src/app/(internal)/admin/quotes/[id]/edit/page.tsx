@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { updateQuoteAction } from "../../actions";
-import QuoteBuilder, { type ClientOption, type EditableLine } from "@/components/admin/QuoteBuilder";
+import QuoteBuilder, { type ClientOption } from "@/components/admin/QuoteBuilder";
 import { listClients } from "@/lib/crm/clients";
 import { db } from "@/lib/crm/db";
+import { discountValueToInput } from "@/lib/crm/money";
 import { getQuote } from "@/lib/crm/quotes";
+import type { EditableLine } from "@/lib/crm/quoteLines";
 import { isEditable } from "@/lib/crm/quoteTypes";
 import { getCompany, getTaxRates } from "@/lib/crm/settings";
 import { clientDisplayName, formatAddress } from "@/lib/crm/types";
@@ -77,19 +79,9 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
           title: quote.title ?? "",
           taxRateId: quote.tax_rate_id ?? "",
           discountKind: quote.discount_kind,
-          discountValue:
-            quote.discount_kind === "percent"
-              ? String(quote.discount_value / 10_000)
-              : quote.discount_value
-                ? (quote.discount_value / 100).toFixed(2)
-                : "",
+          discountValue: discountValueToInput(quote.discount_kind, quote.discount_value),
           depositKind: quote.deposit_kind,
-          depositValue:
-            quote.deposit_kind === "percent"
-              ? String(quote.deposit_value / 10_000)
-              : quote.deposit_value
-                ? (quote.deposit_value / 100).toFixed(2)
-                : "",
+          depositValue: discountValueToInput(quote.deposit_kind, quote.deposit_value),
           clientMessage: quote.client_message ?? "",
           contractTerms: quote.contract_terms ?? "",
           internalNotes: quote.internal_notes ?? "",

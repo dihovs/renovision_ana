@@ -74,7 +74,7 @@ const copy: Record<"en" | "fr", PrivacyCopy> = {
         heading: "Phone calls answered by our virtual assistant",
         body: [
           "Calls to our business line may be answered by an automated assistant. It tells you so at the very start of the call, and the call is transcribed — we keep no audio recording — so that we can call you back already knowing what you told us.",
-          "Your speech is converted to text by Twilio, our telephony provider, and the assistant's replies are generated with the help of Anthropic's AI service. The transcript, your phone number and the details you choose to give are treated like any other enquiry: transcripts of enquiries that never become work are deleted within twenty-four months, and transcripts attached to work we carried out are kept as part of the job record.",
+          "Twilio carries the call. Your speech is converted to text by ElevenLabs, which also speaks the assistant's side of the conversation, and the replies themselves are generated with the help of Anthropic's AI service. The transcript, your phone number and the details you choose to give are treated like any other enquiry: transcripts of enquiries that never become work are deleted within twenty-four months, and transcripts attached to work we carried out are kept as part of the job record.",
           "The assistant never quotes prices, and no decision affecting you is made automatically — a person reviews every call and calls you back. If you would rather not speak with an automated assistant, just say so or use the contact form instead, and you can ask us to delete a transcript at any time.",
         ],
       },
@@ -86,7 +86,8 @@ const copy: Record<"en" | "fr", PrivacyCopy> = {
         bullets: [
           "Vercel — website hosting and aggregate analytics.",
           "Anthropic — powers the estimate chat and the phone assistant's replies. What you type or say is sent to their service to generate a response.",
-          "Twilio — connects calls to our business line and converts your speech to text when the virtual assistant answers.",
+          "Twilio — carries calls to and from our business line.",
+          "ElevenLabs — runs the virtual assistant on the phone: it converts your speech to text and speaks the replies. Audio is processed as you speak and is not stored; only the transcript is kept.",
           "Resend — sends the confirmation email to you and the notification email to us.",
           "Google — calculates travel distance from a postal code for handyman estimates.",
         ],
@@ -190,7 +191,7 @@ const copy: Record<"en" | "fr", PrivacyCopy> = {
         heading: "Appels téléphoniques répondus par notre assistante virtuelle",
         body: [
           "Les appels à notre ligne d'affaires peuvent être répondus par une assistante automatisée. Elle vous en informe dès le début de l'appel, et l'appel est transcrit — nous ne conservons aucun enregistrement audio — afin que nous puissions vous rappeler en sachant déjà ce que vous nous avez dit.",
-          "Votre voix est convertie en texte par Twilio, notre fournisseur de téléphonie, et les réponses de l'assistante sont générées à l'aide du service d'IA d'Anthropic. La transcription, votre numéro de téléphone et les renseignements que vous choisissez de donner sont traités comme toute autre demande : les transcriptions des demandes qui ne deviennent pas des travaux sont supprimées dans un délai de vingt-quatre mois, et celles liées à des travaux réalisés sont conservées comme partie du dossier.",
+          "Twilio achemine l'appel. Votre voix est convertie en texte par ElevenLabs, qui prête aussi la voix à l'assistante, et les réponses elles-mêmes sont générées à l'aide du service d'IA d'Anthropic. La transcription, votre numéro de téléphone et les renseignements que vous choisissez de donner sont traités comme toute autre demande : les transcriptions des demandes qui ne deviennent pas des travaux sont supprimées dans un délai de vingt-quatre mois, et celles liées à des travaux réalisés sont conservées comme partie du dossier.",
           "L'assistante ne donne jamais de prix, et aucune décision vous concernant n'est prise automatiquement — une personne révise chaque appel et vous rappelle. Si vous préférez ne pas parler à une assistante automatisée, dites-le simplement ou utilisez le formulaire de contact, et vous pouvez demander la suppression d'une transcription en tout temps.",
         ],
       },
@@ -202,7 +203,8 @@ const copy: Record<"en" | "fr", PrivacyCopy> = {
         bullets: [
           "Vercel — hébergement du site web et statistiques agrégées.",
           "Anthropic — fait fonctionner le clavardage d'estimation et les réponses de l'assistante téléphonique. Ce que vous écrivez ou dites est transmis à leur service pour générer une réponse.",
-          "Twilio — achemine les appels vers notre ligne d'affaires et convertit votre voix en texte lorsque l'assistante virtuelle répond.",
+          "Twilio — achemine les appels vers et depuis notre ligne d'affaires.",
+          "ElevenLabs — fait fonctionner l'assistante virtuelle au téléphone : conversion de votre voix en texte et voix de l'assistante. L'audio est traité au fil de la conversation et n'est pas conservé; seule la transcription l'est.",
           "Resend — envoie le courriel de confirmation que vous recevez et l'avis que nous recevons.",
           "Google — calcule la distance de déplacement à partir d'un code postal pour les estimations de bricolage.",
         ],

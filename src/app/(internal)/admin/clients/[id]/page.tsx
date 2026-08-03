@@ -6,6 +6,7 @@ import {
   removePropertyAction,
   revokeHubLinkAction,
   setArchivedAction,
+  startJobAction,
   updatePropertyAction,
 } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
@@ -13,6 +14,7 @@ import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
 import AskClaude from "@/components/admin/AskClaude";
 import HubLink from "@/components/admin/HubLink";
 import PropertyEditor from "@/components/admin/PropertyEditor";
+import StartJobCard from "@/components/admin/StartJobCard";
 import { SITE_URL } from "@/lib/constants";
 import { getClient } from "@/lib/crm/clients";
 import { MigrationPendingError } from "@/lib/crm/db";
@@ -173,6 +175,25 @@ export default async function ClientDetailPage({
           </div>
         )}
       </div>
+
+      {/* Sits above the quote list on purpose: work agreed on the phone is the
+          common case, and it does not start with a quote. */}
+      {!client.archived_at && (
+        <StartJobCard
+          properties={client.properties.map((property) => ({
+            id: property.id,
+            label:
+              formatAddress({
+                street1: property.street1,
+                street2: property.street2,
+                city: property.city,
+                province: property.province,
+                postal_code: property.postal_code,
+              }) || "Property",
+          }))}
+          action={startJobAction.bind(null, client.id)}
+        />
+      )}
 
       <AskClaude subject={{ kind: "client", id: client.id }} />
 

@@ -233,7 +233,3 @@ export function streamAnswer(
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
 }
-
-/** The one-tap summary, so the common case costs no typing. */
-export const SUMMARY_PROMPT =
-  "Summarise this record for me in three or four sentences: what they want, what state it's in, and what I should do next.";
