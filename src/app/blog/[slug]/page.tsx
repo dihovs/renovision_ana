@@ -26,6 +26,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: post.fr.title,
     description: post.fr.metaDescription,
     path: `/blog/${post.slug}`,
+    // Same source date as the BlogPosting JSON-LD below — the two must never
+    // disagree or crawlers pick one at random.
+    article: { publishedTime: post.publishedAt },
   });
 }
 

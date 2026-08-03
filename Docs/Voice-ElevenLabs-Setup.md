@@ -97,6 +97,15 @@ never require touching the other two.
    secret into `ELEVENLABS_POSTCALL_WEBHOOK_SECRET`.
 7. **Phone Numbers** → **+ Import number** → **From Twilio** → paste the
    number, Account SID, Auth Token → **Import**.
+
+   > **Warning — every import mints a NEW `phone_number_id`.** If the Twilio
+   > number is ever swapped (or the same number re-imported), re-fetch
+   > `GET https://api.elevenlabs.io/v1/convai/phone-numbers` and update
+   > `ELEVENLABS_PHONE_NUMBER_ID` in Vercel. A stale id fails in the worst
+   > possible way: inbound keeps working (it never reads the env var), while
+   > outbound dialing fails silently — so the break isn't noticed until an
+   > outbound call quietly never happens.
+
 8. On the imported number, the **No agent** dropdown → select the agent.
 
 Call the number. That's the cutover — no Twilio console edit needed since
