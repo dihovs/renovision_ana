@@ -30,19 +30,30 @@ export default function BlogPostContent({ post }: { post: BlogPost }) {
           {c.backToBlog}
         </Link>
 
-        <p className="mt-6 text-xs font-bold uppercase tracking-widest text-brand-green">
+        <p className="mt-6 text-xs font-bold uppercase tracking-widest text-brand-green-dark">
           {post.categoryTag[locale]}
         </p>
         <h1 className="mt-3 font-heading text-3xl font-extrabold text-brand-blue sm:text-4xl">
           {p.title}
         </h1>
-        <p className="mt-4 text-sm text-charcoal/50">
+        <p className="mt-4 text-sm text-charcoal/70">
           {dateFormatter.format(parseBlogDate(post.publishedAt))} · {post.readTimeMinutes} {c.minRead}
         </p>
 
         <div className="relative mt-8 h-64 w-full overflow-hidden rounded-3xl sm:h-80">
           {post.heroImage ? (
-            <Image src={post.heroImage} alt={p.title} fill sizes="768px" className="object-cover" priority />
+            <Image
+              src={post.heroImage}
+              alt={p.title}
+              fill
+              // The slot is the article column: full-bleed on phones, capped at
+              // the 768px column from md up. The old fixed "768px" forced the
+              // 1920w rendition onto a ~380px phone slot — two thirds of the
+              // bytes were thrown away after download.
+              sizes="(min-width: 768px) 768px, 100vw"
+              className="object-cover"
+              priority
+            />
           ) : (
             <BlogHeroGraphic stat={post.heroStat.value} statLabel={post.heroStat.label[locale]} />
           )}

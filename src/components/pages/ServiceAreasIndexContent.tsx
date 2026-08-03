@@ -33,7 +33,7 @@ export default function ServiceAreasIndexContent() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green-light text-brand-green">
             <IconMapPin className="h-7 w-7" />
           </div>
-          <p className="mt-4 text-xs font-bold uppercase tracking-widest text-brand-green">
+          <p className="mt-4 text-xs font-bold uppercase tracking-widest text-brand-green-dark">
             {labels.eyebrow}
           </p>
           <h1 className="mt-3 font-heading text-4xl font-extrabold text-brand-blue sm:text-5xl">

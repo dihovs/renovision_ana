@@ -162,7 +162,7 @@ export default function AudienceSections() {
               <p className="relative mt-3 flex-1 text-sm leading-relaxed text-charcoal/75">{desc}</p>
 
               <div className="relative mt-6 border-t border-black/5 pt-4">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-charcoal/40">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-charcoal/70">
                   {t.audience.commonWork}
                 </p>
                 <ul className="mt-2.5 flex flex-wrap gap-1.5">

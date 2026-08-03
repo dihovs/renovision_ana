@@ -13,12 +13,18 @@ const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["600", "700", "800"],
+  // Same display strategy as the marketing layout: the swap repaint was the
+  // site's LCP; `optional` removes it. See src/app/[lang]/layout.tsx.
+  display: "optional",
 });
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  // Same display strategy as the marketing layout: the swap repaint was the
+  // site's LCP; `optional` removes it. See src/app/[lang]/layout.tsx.
+  display: "optional",
 });
 
 /**

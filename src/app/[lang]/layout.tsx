@@ -13,17 +13,40 @@ import LocalBusinessSchema from "@/components/seo/LocalBusinessSchema";
 import { localeUrl } from "@/lib/seo";
 import { SITE_URL } from "@/lib/constants";
 
+/**
+ * `display: "optional"` on both fonts, and it is the site's single biggest
+ * mobile performance lever — measured, not guessed.
+ *
+ * The default (`swap`) paints headlines in the fallback font and repaints
+ * them when the webfont arrives. Chrome records that second, larger paint as
+ * a new LCP candidate, so every page's LCP was the *font swap*, not the first
+ * paint: ~2s of pure "element render delay" on mobile (h1 on service pages,
+ * even the hero image on home — the swap reflows its container). Blocking
+ * .woff2 in Lighthouse collapsed the gap, which is the proof.
+ *
+ * `optional` means: if the font isn't ready within ~100ms of first paint, this
+ * pageview keeps the fallback and there is no repaint, ever. The fallback is
+ * next/font's metrics-adjusted one, so it is dimensionally identical — no
+ * shift, just system glyphs — and the files are preloaded from our own
+ * origin, so on ordinary connections the brand fonts still make first paint.
+ * A slow first visit reads instantly in the fallback and gets Poppins from
+ * the cache on every navigation after. That trade is the Google-recommended
+ * one for text-LCP pages, and it is the right one for a site whose visitors
+ * are standing in a flooded basement on a phone.
+ */
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
   style: ["normal", "italic"],
+  display: "optional",
 });
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  display: "optional",
 });
 
 /**

@@ -82,7 +82,7 @@ export default function ServiceDetailContent({
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-green-light text-brand-green">
             <Icon className="h-7 w-7" />
           </div>
-          <p className="mt-4 text-xs font-bold uppercase tracking-widest text-brand-green">
+          <p className="mt-4 text-xs font-bold uppercase tracking-widest text-brand-green-dark">
             {copy.eyebrow}
           </p>
           <h1 className="mt-3 font-heading text-4xl font-extrabold text-brand-blue sm:text-5xl">
@@ -156,7 +156,7 @@ export default function ServiceDetailContent({
             <h2 className="font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
               {copy.processTitle}
             </h2>
-            <p className="mt-3 text-sm text-charcoal/60">{copy.processIntro}</p>
+            <p className="mt-3 text-sm text-charcoal/70">{copy.processIntro}</p>
           </div>
           <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {copy.processSteps.map((step, i) => (
@@ -251,7 +251,7 @@ export default function ServiceDetailContent({
                 ? "Ce service, secteur par secteur"
                 : "This service, area by area"}
             </h2>
-            <p className="mt-1.5 text-sm text-charcoal/60">
+            <p className="mt-1.5 text-sm text-charcoal/70">
               {locale === "fr"
                 ? "Ce que le parc immobilier de chaque secteur implique pour ce type de travaux."
                 : "What each sector's housing stock means for this kind of work."}

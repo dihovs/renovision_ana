@@ -451,7 +451,7 @@ export default function ChatConversation({
         </div>
       </div>
 
-      <p className="border-b border-black/5 bg-brand-blue-light/50 px-5 py-2 text-[11px] leading-snug text-charcoal/60">
+      <p className="border-b border-black/5 bg-brand-blue-light/50 px-5 py-2 text-[11px] leading-snug text-charcoal/70">
         {t.chat.disclaimer}
       </p>
 
@@ -523,7 +523,7 @@ export default function ChatConversation({
           {/* Persistent, model-independent nudge to attach a photo — shown
               while gathering scope, before an estimate exists. */}
           {step === "chat" && !estimate && (
-            <p className="px-4 pt-2.5 text-[11px] leading-snug text-charcoal/50">
+            <p className="px-4 pt-2.5 text-[11px] leading-snug text-charcoal/70">
               {t.chat.photoHint}
             </p>
           )}

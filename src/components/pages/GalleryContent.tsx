@@ -91,7 +91,7 @@ export default function GalleryContent() {
     <>
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-brand-green">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-green-dark">
             {c.eyebrow}
           </p>
           <h1 className="mt-3 font-heading text-4xl font-extrabold text-brand-blue sm:text-5xl">
@@ -133,7 +133,7 @@ export default function GalleryContent() {
                 </div>
               </div>
               <div className="p-6">
-                <p className="text-xs font-bold uppercase tracking-widest text-brand-green">
+                <p className="text-xs font-bold uppercase tracking-widest text-brand-green-dark">
                   {tag}
                 </p>
                 <h2 className="mt-2 font-heading text-lg font-bold text-brand-blue">{title}</h2>

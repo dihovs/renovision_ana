@@ -302,8 +302,14 @@ export default function Header() {
         </div>
       </div>
 
+      {/* `inert` as well as aria-hidden: collapsed, the drawer's links are
+          hidden by the grid-rows trick, which leaves them focusable — a
+          keyboard user tabbing past the burger walked through every invisible
+          nav link, and Lighthouse flags the aria-hidden/focusable clash.
+          `inert` removes them from tab order and the tree while collapsed. */}
       <div
         aria-hidden={!mobileOpen}
+        inert={!mobileOpen}
         className={`grid transition-[grid-template-rows] duration-300 ease-out xl:hidden ${
           mobileOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
@@ -381,6 +387,9 @@ export default function Header() {
         viewport. */}
     <div
       aria-hidden={!hidden}
+      // Same clash as the drawer: opacity-0 still leaves the toggle's link
+      // focusable inside an aria-hidden subtree.
+      inert={!hidden}
       className={`fixed right-4 top-4 z-40 transition-[opacity,transform] duration-300 ease-out ${
         hidden ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
       }`}

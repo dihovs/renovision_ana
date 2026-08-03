@@ -176,7 +176,7 @@ export const blogPosts: BlogPost[] = [
     },
     publishedAt: "2026-07-22",
     readTimeMinutes: 7,
-    heroImage: "/images/blog/condo-contingency-fund-header.png",
+    heroImage: "/images/blog/condo-contingency-fund-header.jpg",
     heroStat: {
       value: "2028",
       label: {
@@ -341,7 +341,7 @@ export const blogPosts: BlogPost[] = [
     },
     publishedAt: "2026-07-23",
     readTimeMinutes: 6,
-    heroImage: "/images/blog/water-damage-humidity-header.png",
+    heroImage: "/images/blog/water-damage-humidity-header.jpg",
     heroStat: {
       value: "24–48h",
       label: {
@@ -535,7 +535,7 @@ export const blogPosts: BlogPost[] = [
     categoryTag: { en: "Basements", fr: "Sous-sols" },
     publishedAt: "2026-07-29",
     readTimeMinutes: 7,
-    heroImage: "/images/blog/basement-finishing-header.png",
+    heroImage: "/images/blog/basement-finishing-header.jpg",
     heroStat: {
       value: "200 Bq/m³",
       label: {

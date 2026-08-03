@@ -260,7 +260,7 @@ export default function PartnerLogos() {
 
   return (
     <section className="border-y border-black/5 bg-white py-14">
-      <h2 className="text-center text-sm font-bold uppercase tracking-wide text-charcoal/50">
+      <h2 className="text-center text-sm font-bold uppercase tracking-wide text-charcoal/70">
         {t.partners.title}
       </h2>
       <div
