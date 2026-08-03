@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/admin/actions";
-import { convertLeadAction } from "@/app/admin/clients/actions";
+import { markOpenedAction, setNotesAction, setStatusAction } from "@/app/(internal)/admin/actions";
+import { convertLeadAction } from "@/app/(internal)/admin/clients/actions";
 import type { ConversionState } from "@/lib/crm/conversions";
 import AdminNotice from "./AdminNotice";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";

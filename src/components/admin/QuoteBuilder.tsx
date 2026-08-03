@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useMemo, useRef, useState } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { QuoteFormState } from "@/app/admin/quotes/actions";
+import type { QuoteFormState } from "@/app/(internal)/admin/quotes/actions";
 import {
   calculateQuoteTotals,
   formatMoney,

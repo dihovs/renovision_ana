@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useId, useState } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { PriceBookState } from "@/app/admin/price-book/actions";
+import type { PriceBookState } from "@/app/(internal)/admin/price-book/actions";
 import { formatMoney } from "@/lib/crm/money";
 import { marginHundredths, type PriceBookItem } from "@/lib/crm/quoteTypes";
 

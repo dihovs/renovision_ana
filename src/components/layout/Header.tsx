@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui/LocaleLink";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { splitLocale } from "@/i18n/routing";
 import { useChat } from "@/components/chat/ChatProvider";
 import LanguageToggle from "./LanguageToggle";
 import { IconPhone } from "@/components/ui/icons";
@@ -15,6 +16,9 @@ import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
  * header's INITIAL transparency during render — measuring the hero can only
  * happen after mount, and starting from the wrong state produced a visible
  * white flash on every refresh of the homepage.
+ *
+ * Locale-independent: these are the paths with the `/en` prefix already
+ * stripped, so the English homepage behaves like the French one.
  */
 const FULL_BLEED_HERO_PATHS = ["/"];
 
@@ -22,10 +26,11 @@ export default function Header() {
   const { t } = useLanguage();
   const { openChat } = useChat();
   const pathname = usePathname();
+  const { path } = splitLocale(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const [overHero, setOverHero] = useState(() => FULL_BLEED_HERO_PATHS.includes(pathname));
+  const [overHero, setOverHero] = useState(() => FULL_BLEED_HERO_PATHS.includes(path));
   const headerRef = useRef<HTMLElement>(null);
 
   // Two behaviours, one scroll listener:
@@ -104,8 +109,8 @@ export default function Header() {
     setMobileOpen(false);
     // Already home: smooth-scroll to top instead of a no-op navigation.
     // On any other page: let Link do its normal client-side nav to "/",
-    // which lands at the top of the homepage.
-    if (pathname === "/") {
+    // which lands at the top of the homepage for the current language.
+    if (path === "/") {
       e.preventDefault();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }

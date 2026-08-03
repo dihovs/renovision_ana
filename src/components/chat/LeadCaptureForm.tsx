@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/LocaleLink";
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { isValidEmail, isValidPhone } from "./chatLogic";

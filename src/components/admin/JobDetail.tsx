@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useId, useState, useTransition } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { JobState } from "@/app/admin/jobs/actions";
+import type { JobState } from "@/app/(internal)/admin/jobs/actions";
 import type { ConversionState } from "@/lib/crm/conversions";
 import { formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
 import { JOB_STATUS_LABEL, type DocumentLine, type JobStatus, type Visit } from "@/lib/crm/opsTypes";

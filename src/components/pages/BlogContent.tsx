@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui/LocaleLink";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import BlogHeroGraphic from "@/components/pages/BlogHeroGraphic";
 import { blogPosts, parseBlogDate } from "@/lib/blogPosts";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useId } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { ProjectFormState } from "@/app/admin/projects/actions";
+import type { ProjectFormState } from "@/app/(internal)/admin/projects/actions";
 
 /**
  * The new-project form: a name, optionally whose it is, and what it covers.

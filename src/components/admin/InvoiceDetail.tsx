@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useState, useTransition } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { InvoiceState } from "@/app/admin/invoices/actions";
+import type { InvoiceState } from "@/app/(internal)/admin/invoices/actions";
 import { formatMoney } from "@/lib/crm/money";
 import {
   PAYMENT_METHOD_LABEL,

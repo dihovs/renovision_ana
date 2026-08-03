@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useState } from "react";
 import { inputClass, labelClass } from "./AddressFields";
-import type { SettingsState } from "@/app/admin/settings/actions";
+import type { SettingsState } from "@/app/(internal)/admin/settings/actions";
 import type { CompanySetting, QuoteDefaultsSetting } from "@/lib/crm/settings";
 
 /**

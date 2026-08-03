@@ -1,51 +1,33 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useMemo } from "react";
 import { Locale, TranslationShape, translations } from "./translations";
 
 type LanguageContextValue = {
   locale: Locale;
-  setLocale: (locale: Locale) => void;
   t: TranslationShape;
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-const STORAGE_KEY = "renovision-ana-locale";
-
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("fr");
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "en" || stored === "fr") {
-      // Reading localStorage only after mount avoids a server/client
-      // hydration mismatch, at the cost of one extra render.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLocaleState(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
-
-  const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
-  }, []);
-
-  const value = useMemo(
-    () => ({ locale, setLocale, t: translations[locale] }),
-    [locale, setLocale],
-  );
+/**
+ * Route-driven, not state-driven.
+ *
+ * The locale is decided by the URL — French at the unprefixed root, English
+ * under `/en` — and handed down from the server layout, so the markup a
+ * crawler receives is already in the right language and `<html lang>` matches
+ * it. There is no `setLocale` and no localStorage: the language toggle is a
+ * real link to the counterpart URL, which is also what makes the alternate
+ * discoverable. Anything remembered locally could only ever contradict the URL.
+ */
+export function LanguageProvider({
+  locale,
+  children,
+}: {
+  locale: Locale;
+  children: React.ReactNode;
+}) {
+  const value = useMemo(() => ({ locale, t: translations[locale] }), [locale]);
 
   return (
     <LanguageContext.Provider value={value}>
