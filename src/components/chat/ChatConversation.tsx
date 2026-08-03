@@ -7,6 +7,7 @@ import HandymanCalculator, { type TripFeeOutcome } from "./HandymanCalculator";
 import { ChatMessage } from "./chatLogic";
 import { calculateHandymanEstimate, calculateTax, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
 import { stripImageMetadata } from "@/lib/stripImageMetadata";
+import { leadSourceFor } from "@/lib/attribution";
 import type { ProjectBrief } from "@/lib/projectBrief";
 
 /**
@@ -350,11 +351,17 @@ export default function ChatConversation({
     marketingConsent: boolean;
     consent?: { grantedAt: string; wording: string; locale: string; source: string };
   }) {
+    // Which campaign this session landed from, if any. Omitted entirely when
+    // nothing was captured so the server keeps its "website" default — the
+    // pipeline's baseline value must stay what it has always been.
+    const leadSource = leadSourceFor("chat");
+
     const res = await fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...data,
+        ...(leadSource ? { source: leadSource } : {}),
         locale,
         scopeSummary: estimate?.scopeSummary,
         projectBrief: brief,

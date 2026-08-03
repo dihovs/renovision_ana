@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { Resend } from "resend";
 import { isConfigured as isLeadStoreConfigured, saveLead, uploadLeadPhotos } from "@/lib/leadStore";
 import { sanitizeBrief, type ProjectBrief } from "@/lib/projectBrief";
+import { sanitizeLeadSource } from "@/lib/attribution";
 import {
   LEADS_NOTIFY_EMAIL,
   SITE_ADDRESS,
@@ -61,6 +62,13 @@ type LeadPayload = {
   /** The AI's handover note — what it established, in job-sheet form. Comes
    *  straight from the model, so it is re-validated here rather than trusted. */
   projectBrief?: ProjectBrief | null;
+  /** Where this lead came from, `channel[:token]` — e.g. "chat:facebook_cpc"
+   *  or "contact:organic_google". Grammar and rationale live with
+   *  sanitizeLeadSource in lib/attribution.ts; anything off-grammar is dropped
+   *  (falling back to the "website" default), never stored. Before this field
+   *  was declared, a bot-POSTed `source` rode the body spread below straight
+   *  into the pipeline UI. */
+  source?: string;
 };
 
 /** The only values the contact form's "I am the…" select can send. Anything
@@ -393,6 +401,10 @@ export async function POST(request: Request) {
     heardAbout:
       body.heardAbout && HEARD_ABOUT_LABELS[body.heardAbout] ? body.heardAbout : undefined,
     isEmergency: typeof body.isEmergency === "boolean" ? body.isEmergency : undefined,
+    // Explicit override, not a spread passenger: `...body` above would carry
+    // any string a bot chose into the pipeline UI. The gate returns undefined
+    // for anything off-grammar, which saveLead stores as plain "website".
+    source: sanitizeLeadSource(body.source),
     receivedAt: new Date().toISOString(),
   };
 

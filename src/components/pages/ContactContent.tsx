@@ -5,6 +5,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import { isValidEmail, isValidPhone } from "@/components/chat/chatLogic";
 import { stripImageMetadata } from "@/lib/stripImageMetadata";
+import { leadSourceFor } from "@/lib/attribution";
 import {
   SITE_ADDRESS,
   SITE_EMAIL,
@@ -219,6 +220,9 @@ export default function ContactContent() {
     e.preventDefault();
     if (!canSubmit || status === "submitting") return;
     setStatus("submitting");
+    // Which campaign this session landed from, if any. Omitted when nothing
+    // was captured so the server keeps its "website" default.
+    const leadSource = leadSourceFor("contact");
     try {
       const res = await fetch("/api/leads", {
         method: "POST",
@@ -229,6 +233,7 @@ export default function ContactContent() {
           email: email.trim(),
           message: message.trim(),
           locale,
+          ...(leadSource ? { source: leadSource } : {}),
           // Only send what was actually answered — the qualifiers are
           // optional, and an absent answer must store as null, not "no".
           ...(isEmergency !== null ? { isEmergency } : {}),
