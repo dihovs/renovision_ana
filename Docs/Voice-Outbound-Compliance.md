@@ -1187,3 +1187,82 @@ s. 184 and s. 193, CCQ arts. 35–37, and C-1.1 ss. 44–45. Those are safe to r
   onto P-39.1.
 - **Any CAI decision applying Law 25 to an AI voice agent.** None found. This is untested territory
   in Quebec.
+
+---
+
+## 17. Addendum, 2026-08-03 — introductory calls to businesses
+
+Added when the introductory-call feature was built. The original document scoped itself to calls to
+**existing customers** for operational reasons, and said so in its first paragraph. An introduction
+to a contractor, property manager or insurer is neither of those things, so nothing above answers
+it directly. This section does.
+
+### 17.1 The question
+
+Does business-to-business change the analysis? A partner is not a consumer at home; the number is a
+switchboard, not a kitchen phone. It is a reasonable thing to hope.
+
+### 17.2 The answer: no, and only one of the three rule-sets falls away
+
+The CRTC's own guidance page for businesses is explicit on both halves:
+
+> "Business to Business calls are exempt from Part II: the National DNCL Rules under the UTRs."
+
+and, immediately:
+
+> "calls to business numbers are only regulated under Part III and Part IV of the UTRs, namely the
+> Telemarketing Rules and the ADAD Rules."
+
+Part IV is the ADAD rules. Part IV rule 2 is the one that requires express consent for a
+telemarketing ADAD call, and §4.3 above establishes that an introduction is solicitation — 2014-155
+¶51–53 declined to draw a line between calls that are mostly promotional and calls that are only a
+bit promotional, and invited businesses to go and ask for consent instead.
+
+**So the B2B exemption removes the DNCL scrub and leaves the consent requirement exactly where it
+was.** It is the cheapest of the three obligations to lose.
+
+Two further points from the same page:
+
+- **Registration is still required.** "Even if you only make exempt calls or send exempt faxes, you
+  must still register." Registration with the National DNCL operator is separate from buying a
+  subscription; if every call is exempt the subscription is not needed, the registration is.
+  **This is not done, and it is an owner action — see Owner-Decisions-Needed.md.**
+- **A business can put its own number on the National DNCL.** So "it is a business number" is not
+  even a reliable proxy for "not on the list".
+
+### 17.3 What was built
+
+- `supabase/migrations/0021_outbound_consent.sql` — `outbound_consents`, number-scoped, storing the
+  verbatim wording agreed to, the channel, the evidence, who recorded it, and withdrawal. Also
+  `do_not_call_list`, number-keyed, which is the internal list §5 requires and which the
+  `clients.do_not_call` boolean could never hold, because a partner who asks us to stop is usually
+  not a client row at all. Also widens the `call_tasks.kind` constraint to admit `business_intro`,
+  with a unique index limiting it to one introduction per number ever.
+- `src/lib/crm/adadConsent.ts` — the rule, pure and tested. `requiresExpressConsent(kind)` is the
+  single place that says which kinds are solicitation.
+- `src/lib/crm/consentStore.ts` — the reads and writes. **This module fails closed**: if the consent
+  tables are missing or the database does not answer, the verdict is a refusal, not a pass. Every
+  other module in this codebase degrades the other way, and the asymmetry is deliberate — elsewhere
+  the cost of a missing table is a feature that does not work, here it is an unlawful call.
+- The gate is applied three times, at three different moments, because consent can change between
+  any two of them: when the screen offers the button, inside `queueCallTask`, and again by the
+  dialer immediately before it dials. The dialer **cancels** rather than defers — unlike the hours
+  or the daily cap, a missing consent does not come good by waiting.
+- `outboundSystemPrompt` gains a `business_intro` branch. The "you are not selling anything"
+  paragraph is the one line whose meaning changes with the kind: for a notification the call is
+  lawful *because* it solicits nothing, and for an introduction it is lawful *because consent was
+  given*, so the boundary moves rather than disappearing. Ana may say what we do; she may not
+  price it, close it, press it, qualify them, or ask for a meeting. The ceiling on the call is
+  permission to email plus a callback from a person.
+- `/admin/outreach` records consent and is the only place an introduction can be queued from. There
+  is no field on it for a bare number, and no override.
+
+### 17.4 What is still open
+
+- **National DNCL registration.** Required, not done. Owner action.
+- **Whether an introduction should be automated at all.** The build makes it lawful. It does not
+  make it wise, and a first impression delivered by a synthesised voice is a choice about how the
+  company wants to be seen, which is not a question this document can answer. The one-per-number
+  index is there because the second automated introduction is where this goes wrong.
+- **CRTC 2026-132** is mid-review of these exact rules; replies closed 11 August 2026. If it
+  resolves that an AI voice is not an ADAD, most of this section relaxes. Do not assume it will.

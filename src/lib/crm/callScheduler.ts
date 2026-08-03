@@ -545,6 +545,10 @@ export type VisitChangeResult = {
     | "migration_pending"
     | "duplicate"
     | "no_visit"
+    // Cannot arise from this path — the scheduler only queues notification
+    // kinds, and none of those need consent. Listed because queueCallTask can
+    // return it, and narrowing the union here would only hide that.
+    | "no_consent"
     | "failed";
   detail?: string;
 };
@@ -653,7 +657,19 @@ export type DictatedCallResult =
   | { ok: true; clientName: string; toNumber: string; notBefore: string }
   | {
       ok: false;
-      reason: "no_client" | "do_not_call" | "no_phone" | "unconfigured" | "migration_pending" | "duplicate" | "failed";
+      reason:
+        | "no_client"
+        | "do_not_call"
+        | "no_phone"
+        | "unconfigured"
+        | "migration_pending"
+        | "duplicate"
+        // Owner mode dictates notification calls only, so this cannot occur
+        // today. Kept because queueCallTask can return it, and dropping it
+        // would mean the day someone lets Ana dictate an intro call, the
+        // refusal is silently retyped as something else.
+        | "no_consent"
+        | "failed";
       clientName?: string;
       detail?: string;
     };

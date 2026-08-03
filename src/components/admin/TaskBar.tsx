@@ -47,13 +47,19 @@ import { describeDue, parseTaskInput } from "@/lib/crm/taskDates";
 
 const PANEL_WIDTH = "sm:w-[380px]";
 
-export default function TaskBar() {
+export default function TaskBar({ initial }: { initial: TaskBarResult }) {
   const [open, setOpen] = useState(false);
-  const [state, setState] = useState<TaskBarResult | null>(null);
+  // Seeded from the server rather than fetched on mount. The layout is already
+  // dynamic and already awaits the session, so one more indexed read costs
+  // nothing there — and it means the count is in the first paint instead of
+  // appearing a moment after hydration, which on a badge reads as a glitch.
+  const [state, setState] = useState<TaskBarResult>(initial);
   // Every move between these two lists goes through taskBarState, which is
   // tested. The rollback paths especially — see the module header.
-  const [rows, setRows] = useState<TaskRows>(EMPTY_ROWS);
-  const [today, setToday] = useState("");
+  const [rows, setRows] = useState<TaskRows>(
+    initial.ok ? { open: initial.open, done: initial.done } : EMPTY_ROWS,
+  );
+  const [today, setToday] = useState(initial.ok ? initial.today : "");
   const [draft, setDraft] = useState("");
   // `undefined` = use the parsed date, `null` = the chip was cleared, a string
   // = picked by hand. Collapsing the first two would make clearing a no-op.
@@ -79,15 +85,9 @@ export default function TaskBar() {
     }
   }, []);
 
-  // Once per full page load, for the count. Client-side navigation keeps this
-  // component mounted — the layout owns it — so this does not re-run on every
-  // route change, which is the point.
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   // Opening re-reads, because tasks also arrive by phone: Ana writes one while
-  // he is driving and the badge would otherwise still show the old count.
+  // he is driving and the badge would otherwise still show the count from
+  // whenever the page was last rendered.
   function toggleOpen() {
     setOpen((wasOpen) => {
       if (!wasOpen) {
@@ -305,9 +305,7 @@ export default function TaskBar() {
                 </p>
               )}
 
-              {state === null ? (
-                <p className="px-4 py-6 text-xs text-charcoal/40">Loading…</p>
-              ) : !state.ok ? (
+              {!state.ok ? (
                 <Unavailable reason={state.reason} detail={state.detail} />
               ) : rows.open.length === 0 && rows.done.length === 0 ? (
                 <p className="px-4 py-6 text-xs leading-relaxed text-charcoal/45">

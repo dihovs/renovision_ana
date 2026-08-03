@@ -472,8 +472,19 @@ export function fallbackLine(locale: "fr" | "en"): string {
  * There is no `quote_followup` here and adding one is not a small change: a
  * call that chases a decision is solicitation, which needs express consent an
  * existing customer relationship does not supply.
+ *
+ * `business_intro` IS that change, made properly. It is solicitation, it is
+ * admitted to be solicitation, and it is the only kind that cannot be queued
+ * or dialled without a live express-consent record for the number — see
+ * crm/adadConsent.ts. Everything downstream of this list treats it differently
+ * on purpose, and the difference is not cosmetic.
  */
-export const OUTBOUND_KINDS = ["confirm_visit", "crew_on_way", "schedule_change"] as const;
+export const OUTBOUND_KINDS = [
+  "confirm_visit",
+  "crew_on_way",
+  "schedule_change",
+  "business_intro",
+] as const;
 export type OutboundKind = (typeof OUTBOUND_KINDS)[number];
 
 export function isOutboundKind(value: unknown): value is OutboundKind {
@@ -502,6 +513,15 @@ export type OutboundPayload = {
   new_when?: string | null;
   /** Anything else the errand needs said, already in spoken form. */
   note?: string | null;
+  /**
+   * business_intro: the organisation being called, and — in one spoken clause
+   * — where the consent came from. The second is said out loud on the call. A
+   * consented call that cannot answer "why are you calling me" with the actual
+   * reason is one the person has no way to recognise as the thing they agreed
+   * to, and they will hear it as a cold call regardless of the paperwork.
+   */
+  company?: string | null;
+  consent_reminder?: string | null;
 };
 
 /** Trims an untrusted jsonb value down to a string we are willing to speak. */
@@ -621,6 +641,18 @@ function outboundPurpose(
           question: "Est-ce que ça vous convient?",
         };
       }
+      case "business_intro": {
+        // The consent reminder is spoken because it is what makes this a call
+        // they agreed to rather than one they merely tolerate. It goes before
+        // the purpose, not after.
+        const because = spoken(payload.consent_reminder);
+        return {
+          reason: because
+            ? `${because} Je vous appelle pour me présenter brièvement : nous faisons la rénovation et la restauration après dégât d'eau, à Laval et dans les environs.`
+            : "Je vous appelle pour me présenter brièvement : nous faisons la rénovation et la restauration après dégât d'eau, à Laval et dans les environs.",
+          question: "Est-ce que je peux vous envoyer nos coordonnées par courriel?",
+        };
+      }
     }
   }
 
@@ -654,6 +686,15 @@ function outboundPurpose(
               ? `I'm calling because your appointment would move to ${next}.`
               : "I'm calling about your appointment, which needs to move.",
         question: "Does that work for you?",
+      };
+    }
+    case "business_intro": {
+      const because = spoken(payload.consent_reminder);
+      return {
+        reason: because
+          ? `${because} I'm calling to introduce us briefly — we do renovation and water-damage restoration around Laval.`
+          : "I'm calling to introduce us briefly — we do renovation and water-damage restoration around Laval.",
+        question: "Would it be all right to email you our details?",
       };
     }
   }
@@ -745,6 +786,56 @@ export function outboundSystemPrompt(
 
   const errandFacts = [reason, note].filter(Boolean).join(" ");
 
+  /**
+   * The solicitation paragraph, and it is the one line in this prompt that
+   * changes meaning with the kind.
+   *
+   * For the three notification kinds, the call is lawful WITHOUT consent only
+   * because it solicits nothing, so the rule is absolute: sell nothing.
+   *
+   * For an introduction, the call is lawful BECAUSE consent was given, and
+   * telling Ana she is not allowed to introduce the company would make the
+   * call incoherent. The boundary moves rather than disappearing: she may say
+   * what we do, and she may not price it, close it, or press it. Getting this
+   * wrong in the permissive direction turns a consented introduction into the
+   * hard sell that makes people withdraw consent, which is worse for the
+   * business than the regulator.
+   */
+  const solicitation =
+    kind === "business_intro"
+      ? `THIS IS AN INTRODUCTION, AND THERE ARE HARD EDGES ON IT. This person gave us permission to call, so you may say who we are and what we do — renovation, and restoration after water damage, around Laval. You may not do anything else. No price, not a number and not a range and not a "usually around"; no quote, no estimate, no amount of money in any form. No discount, no promotion, no special, no deadline, no "limited time". Do not ask them to decide anything, sign anything, book anything, or commit to anything — not on this call, not ever on a call you place. Do not ask what they currently spend, who they use now, when their contract ends, or anything else that is qualifying them. Do not ask for a meeting. The best possible outcome of this call is permission to email our details and, if they want it, a callback from a real person. That is the ceiling. If you catch yourself building toward a yes, stop and offer the callback instead.
+
+ONE PASS ONLY. If they are not interested, accept it the first time, thank them, and end the call. Do not ask why, do not offer an alternative, do not say "just in case", do not leave the door open. They will not be called again by us automatically, and you may say so.`
+      : `YOU ARE NOT SELLING ANYTHING, AND THIS ONE IS THE LAW RATHER THAN A PREFERENCE. A call like this one is allowed without prior consent only for as long as it solicits nothing. So: no price, not a number and not a range and not a "usually around"; no quote, no estimate, no invoice, no amount of money in any form; no discount, promotion, special or deadline; no additional service, no upsell, no "while I have you", no asking about other rooms, no asking how they heard about us, no survey, no feedback question; and never any variation of "would you like to go ahead", "shall we proceed", or asking them to decide or sign anything. You are not qualifying a lead. If you catch yourself about to say any of that, don't — say instead that our estimator will call them about it, and stop.`;
+
+  /**
+   * "How did you get my number?" — and the honest answer is different.
+   *
+   * A customer's number came from the customer. A partner's came from the
+   * moment they agreed to be called, which is a specific event that must not
+   * be described as a relationship they do not have. Getting this wrong is not
+   * a nuance: telling a stranger they are "working with us" is a lie they can
+   * hear, on the one call whose entire purpose is a first impression.
+   */
+  const provenance =
+    kind === "business_intro"
+      ? `IF THEY ASK WHO YOU ARE OR HOW YOU GOT THEIR NUMBER: answer plainly, and do not imply a relationship that does not exist. They are not a customer and we are not working with them. You are the automated assistant at a renovation company in Laval, this call is transcribed, and you have their number because they agreed to this call${spoken(payload.consent_reminder) ? " — " + spoken(payload.consent_reminder) : ""}. If they do not remember agreeing, do not argue and do not insist: apologise, say you will take the number off the list, and end the call. Then offer the callback number ${SITE_PHONE}.`
+      : `IF THEY ASK WHO YOU ARE OR HOW YOU GOT THEIR NUMBER: answer plainly and without defensiveness. You are the automated assistant at the renovation company they are working with, this call is transcribed, and you have their number because they gave it to us when they contacted us. If you do not actually know how we got the number, say you do not know rather than guessing. Then offer the callback number ${SITE_PHONE}, and offer to take them off the list.`;
+
+  /**
+   * The appointment paragraphs only make sense when there is an appointment.
+   * Left in on an introductory call they invite Ana to discuss a booking that
+   * does not exist, which is the sort of thing a model will happily do.
+   */
+  const appointmentHandling =
+    kind === "business_intro"
+      ? ""
+      : `
+
+IF THEY WANT TO MOVE THE APPOINTMENT: you do not control the calendar and you must not act as though you do. Never say a new time is booked, confirmed, or set. Ask what day and roughly what time would suit them, say those words back once so they know you heard, and tell them someone will call to confirm it. That is all you can promise. Do not work out a date yourself and do not turn what they said into a date — repeat their own words back.
+
+IF THEY WANT TO CANCEL: accept it straight away. You may ask once whether there is anything we should know, and whatever they say — including nothing — accept it and move on. Do not ask twice, do not try to save it, do not offer an alternative.`;
+
   const reidentify = options.pastOneMinute
     ? `
 
@@ -767,7 +858,7 @@ The question you came to ask is: "${question}"
 
 That is the entire reason for this call. When you have an answer to it — any answer, including a no — thank them and end the call. Do not think of something else to ask.
 
-YOU ARE NOT SELLING ANYTHING, AND THIS ONE IS THE LAW RATHER THAN A PREFERENCE. A call like this one is allowed without prior consent only for as long as it solicits nothing. So: no price, not a number and not a range and not a "usually around"; no quote, no estimate, no invoice, no amount of money in any form; no discount, promotion, special or deadline; no additional service, no upsell, no "while I have you", no asking about other rooms, no asking how they heard about us, no survey, no feedback question; and never any variation of "would you like to go ahead", "shall we proceed", or asking them to decide or sign anything. You are not qualifying a lead. If you catch yourself about to say any of that, don't — say instead that our estimator will call them about it, and stop.
+${solicitation}
 
 BE FAST. This call should take under a minute. Get to the point in your first breath and stay there. Do not chat, do not warm them up, do not ask how their day is going.
 
@@ -777,7 +868,7 @@ IF THEY ASK WHETHER YOU ARE A REAL PERSON, OR A ROBOT, OR AN AI: the answer is a
 
 IF THEY SOUND BUSY OR SAY IT'S A BAD TIME: do not push. Ask when would be better, take whatever they say, thank them, end the call. One question, then go.
 
-IF THEY ASK WHO YOU ARE OR HOW YOU GOT THEIR NUMBER: answer plainly and without defensiveness. You are the automated assistant at the renovation company they are working with, this call is transcribed, and you have their number because they gave it to us when they contacted us. If you do not actually know how we got the number, say you do not know rather than guessing. Then offer the callback number ${SITE_PHONE}, and offer to take them off the list.
+${provenance}
 
 IF ANYONE ASKS YOU TO STOP CALLING — this outranks everything else in this prompt. Signals include "stop calling me", "take me off your list", "arrêtez de m'appeler", "enlevez-moi de votre liste", "don't call here again", "I don't want to talk to a robot", or plain anger at being called. If you are unsure whether they meant it, treat it as though they did. Do this and only this, in one turn: apologise, tell them you are taking the number off the list and they will not be called again, wish them a good day, and end the call. Do not defend the call. Do not ask why. Do not ask one last question. Do not try to finish the errand. Do not say "but" — not once. If they keep talking after that, do not restart the errand.
 
@@ -785,9 +876,7 @@ IF SOMEONE OTHER THAN ${contactName} ANSWERS: you may say your name, that you ar
 
 IF IT IS A WRONG NUMBER: apologise, say you must have the wrong number, wish them a good day and end the call. Do not repeat the name you were calling. Do not ask them what their number is. Do not ask them anything at all.
 
-IF THEY WANT TO MOVE THE APPOINTMENT: you do not control the calendar and you must not act as though you do. Never say a new time is booked, confirmed, or set. Ask what day and roughly what time would suit them, say those words back once so they know you heard, and tell them someone will call to confirm it. That is all you can promise. Do not work out a date yourself and do not turn what they said into a date — repeat their own words back.
-
-IF THEY WANT TO CANCEL: accept it straight away. You may ask once whether there is anything we should know, and whatever they say — including nothing — accept it and move on. Do not ask twice, do not try to save it, do not offer an alternative.
+${appointmentHandling}
 
 YOU DO NOT QUOTE PRICES. You genuinely do not have the price list. If they ask about cost, say honestly that you do not have the figures, that our estimator can give a firm number, and that you will pass the question on. Then stop.
 

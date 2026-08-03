@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { logoutAction } from "./actions";
+import { loadTaskBarAction } from "./taskBarActions";
 import LoginForm from "@/components/admin/LoginForm";
 import AdminShell from "@/components/admin/AdminShell";
 import { isAuthConfigured, isSignedIn } from "@/lib/adminAuth";
@@ -39,8 +40,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     );
   }
 
+  // Read here rather than from an effect in the bar itself, so the open count
+  // is in the first paint. This layout is already dynamic and already awaited
+  // the session, so one indexed read adds nothing a user would notice — and a
+  // failure is returned, not thrown, so a paused database costs the badge and
+  // not the page.
+  const tasks = await loadTaskBarAction();
+
   return (
     <AdminShell
+      tasks={tasks}
       onSignOut={
         <form action={logoutAction}>
           <button

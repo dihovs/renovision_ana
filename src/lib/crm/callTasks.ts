@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+// adadConsent imports CallTaskKind back from here, but only as a type, so the
+// cycle is erased at compile time and there is none at runtime.
+import { CONSENT_REFUSAL_MESSAGE, requiresExpressConsent } from "./adadConsent";
+import { consentVerdictFor } from "./consentStore";
 import { db, isMissingTable } from "./db";
 
 /**
@@ -34,8 +38,21 @@ import { db, isMissingTable } from "./db";
 // Types — one per constrained column in 0018_call_tasks.sql
 // ---------------------------------------------------------------------------
 
-/** `kind text not null check (kind in (...))`. Notification only, forever. */
-export type CallTaskKind = "confirm_visit" | "crew_on_way" | "schedule_change";
+/**
+ * `kind text not null check (kind in (...))`.
+ *
+ * The first three are notifications: they service an appointment the recipient
+ * already has with us and contain no promotion, which is what keeps them
+ * outside the CRTC's telemarketing rules.
+ *
+ * `business_intro` (migration 0021) is the exception and is not like the
+ * others. An introduction is solicitation, so it is an ADAD telemarketing call
+ * and needs express consent for that specific number before it may be queued
+ * OR dialled. `requiresExpressConsent` in adadConsent.ts is the boundary; do
+ * not add a fourth notification-shaped kind that happens to mention what we
+ * sell without walking past it first.
+ */
+export type CallTaskKind = "confirm_visit" | "crew_on_way" | "schedule_change" | "business_intro";
 
 /** `status text not null default 'queued' check (status in (...))`. */
 export type CallTaskStatus = "queued" | "dialing" | "done" | "failed" | "cancelled";
@@ -90,7 +107,7 @@ export type CallTask = {
  */
 export type CallTaskFailure = {
   ok: false;
-  reason: "unconfigured" | "migration_pending" | "duplicate" | "failed";
+  reason: "unconfigured" | "migration_pending" | "duplicate" | "failed" | "no_consent";
   detail?: string;
 };
 
@@ -572,6 +589,12 @@ export type QueueCallTaskInput = {
  * A `duplicate` result is not an anomaly — `call_tasks_one_confirm_per_visit`
  * makes the daily 24-hour sweep idempotent in the database, so re-queueing the
  * same confirmation is the expected steady state, not an error to log.
+ *
+ * For a soliciting kind this ALSO refuses without live express consent for the
+ * number. Checked here rather than only in the UI: hiding a button is not a
+ * control, and this function is the one door every caller goes through. It is
+ * checked a second time at dial time, because consent can be withdrawn in
+ * between and the later word is the one that counts.
  */
 export async function queueCallTask(input: QueueCallTaskInput): Promise<CallTaskWriteResult> {
   const supabase = db();
@@ -580,6 +603,20 @@ export async function queueCallTask(input: QueueCallTaskInput): Promise<CallTask
   const toNumber = input.toNumber.trim();
   if (!E164.test(toNumber)) {
     return { ok: false, reason: "failed", detail: `not an E.164 number: ${toNumber}` };
+  }
+
+  if (requiresExpressConsent(input.kind)) {
+    const verdict = await consentVerdictFor(toNumber);
+    if (!verdict.ok) {
+      return {
+        ok: false,
+        reason: "no_consent",
+        detail:
+          verdict.reason === "consent_unavailable"
+            ? (verdict.detail ?? "Consent could not be verified.")
+            : CONSENT_REFUSAL_MESSAGE[verdict.reason],
+      };
+    }
   }
 
   const notBefore =

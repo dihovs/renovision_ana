@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import GlobalSearch from "./GlobalSearch";
 import TaskBar from "./TaskBar";
+import type { TaskBarResult } from "@/app/(internal)/admin/taskBarActions";
 import {
   IconBuilding,
   IconCalendar,
@@ -47,6 +48,9 @@ const NAV: NavItem[] = [
   { href: "/admin/calls", label: "Calls", icon: IconPhone, ready: true },
   // Next to Calls, because everything on it was dictated on one.
   { href: "/admin/tasks", label: "Tasks", icon: IconCheckCircle, ready: true },
+  // Also next to Calls: it is where the calls Ana is allowed to place to
+  // people who are not customers get their permission from.
+  { href: "/admin/outreach", label: "Introductions", icon: IconFlag, ready: true },
   { href: "/admin/inbox", label: "Inbox", icon: IconClipboard, ready: true },
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
@@ -84,9 +88,12 @@ function activeNav(pathname: string): { href: string; label: string } | undefine
 export default function AdminShell({
   children,
   onSignOut,
+  tasks,
 }: {
   children: React.ReactNode;
   onSignOut?: React.ReactNode;
+  /** The task bar's opening state, read on the server. See TaskBar. */
+  tasks: TaskBarResult;
 }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -296,7 +303,7 @@ export default function AdminShell({
           {/* In the header rather than only on /admin/tasks, because the
               moment a task occurs to him is never the moment he is looking at
               the task page — it is halfway through an invoice. */}
-          <TaskBar />
+          <TaskBar initial={tasks} />
 
           <div className="flex items-center gap-3">{onSignOut}</div>
         </header>

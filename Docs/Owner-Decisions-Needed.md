@@ -109,3 +109,45 @@ After that this is safe to remove and I'll do it in one commit.
 Note: `Docs/Automation-Blockers.md` described a rollback procedure that no
 longer works (ElevenLabs owns the number now and rewrote the Voice URL on
 import). That doc is being corrected in this same pass.
+
+---
+
+## 7. National DNCL registration *(legal, and it is a form)*
+
+**The rule.** The CRTC: "All telemarketers must register with the National DNCL. Even if you only
+make exempt calls or send exempt faxes, you must still register."
+
+**Why it now applies.** It did not before. Everything Ana said on an outbound call was pure
+logistics — the visit is tomorrow, the crew is late — and none of it was telemarketing. The
+introductory call is telemarketing, so the registration obligation switches on the first time one
+goes out.
+
+**What it is not.** Not the paid subscription. A subscription buys the list of numbers to scrub
+against, and business-to-business calls are exempt from the National DNCL Rules, so there is
+nothing to scrub. Registration is a separate, free step and is required regardless.
+
+**What I need from you.** Register at the National DNCL operator's site, then tell me the
+registration number so it goes in the compliance record. Until then, do not use the "Queue the
+intro call" button on `/admin/outreach` — everything else about the feature is finished and the
+consent side is safe to start filling in now.
+
+**What happens if we skip it.** It is the cheapest possible thing to be caught not having done: a
+free form, and an administrative monetary penalty if a complaint is investigated and it is missing.
+
+---
+
+## 8. Migrations waiting to be run *(five minutes, in the Supabase SQL editor)*
+
+Run in order. Each is safe to re-run — every statement is `if not exists` or `drop … if exists`
+first.
+
+| File | What is dark until it runs |
+|---|---|
+| `0017_owner_tasks.sql` | The task bar in the CRM header, and any note dictated to Ana. |
+| `0018_call_tasks.sql` | Every outbound call. No confirmations, no crew-on-the-way. |
+| `0019_conversions.sql` | The one-click lead → client → job conversions. |
+| `0020_crew_tokens.sql` | The per-job crew links. |
+| `0021_outbound_consent.sql` | Consent records, the internal do-not-call list, introductory calls. |
+
+`0021` is the one that fails closed rather than quietly: with it missing, an introductory call is
+refused rather than placed, which is correct. The other four just leave their feature switched off.

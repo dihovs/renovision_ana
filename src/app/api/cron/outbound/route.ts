@@ -14,6 +14,8 @@ import {
   sweepStalledCallTasks,
   type CallTask,
 } from "@/lib/crm/callTasks";
+import { CONSENT_REFUSAL_MESSAGE, requiresExpressConsent } from "@/lib/crm/adadConsent";
+import { consentVerdictFor } from "@/lib/crm/consentStore";
 import { placeOutboundCall } from "@/lib/voice/outboundDialer";
 
 /**
@@ -226,6 +228,23 @@ async function dialOne(
   client: Parameters<typeof canDialNow>[1],
   now: Date,
 ): Promise<TaskReport> {
+  // Consent first, and re-read from the database rather than trusted from
+  // queue time. It may have been granted last month and withdrawn this
+  // morning, and a withdrawal that only takes effect on the next queue is a
+  // withdrawal we ignored. Cancelled outright, never deferred: unlike the
+  // hours or the daily cap, this does not come good by waiting.
+  if (requiresExpressConsent(task.kind)) {
+    const consent = await consentVerdictFor(task.to_number, now);
+    if (!consent.ok) {
+      const why =
+        consent.reason === "consent_unavailable"
+          ? (consent.detail ?? "consent could not be verified")
+          : CONSENT_REFUSAL_MESSAGE[consent.reason];
+      await cancelCallTask(task.id, `no express consent at dial time: ${why}`.slice(0, 2000));
+      return { id: task.id, kind: task.kind, result: `cancelled: ${consent.reason}` };
+    }
+  }
+
   const verdict = canDialNow(task, client, now);
 
   if (!verdict.ok) {
