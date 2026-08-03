@@ -2,7 +2,26 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async headers() {
+    // ORDER MATTERS. Both blocks match a /crew/<token> request, and when two
+    // rules set the same header, the later one wins. The sitewide baseline
+    // therefore comes FIRST and the capability-URL override comes after it —
+    // reversed, the baseline's strict-origin-when-cross-origin silently
+    // overwrites no-referrer on exactly the pages that needed it, which is
+    // how the first deploy of this file shipped the leak it was written to
+    // stop. Verified against production headers, not assumed.
     return [
+      {
+        // Sitewide baseline. Deliberately dull rather than clever: no framing
+        // (clickjacking the quote-approval or invoice pages is the expensive
+        // kind), no MIME sniffing, and origin-only referrers so the marketing
+        // pages still attribute their traffic normally.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
       {
         /**
          * Keep capability URLs out of other people's logs.
@@ -28,18 +47,6 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
-        ],
-      },
-      {
-        // Sitewide baseline. Deliberately dull rather than clever: no framing
-        // (clickjacking the quote-approval or invoice pages is the expensive
-        // kind), no MIME sniffing, and origin-only referrers so the marketing
-        // pages still attribute their traffic normally.
-        source: "/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         ],
       },
     ];
