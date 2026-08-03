@@ -5,8 +5,8 @@ customers for operational reasons: confirming a booked visit, following up on a 
 warning that a crew is running late.
 
 **Status:** Research, 2026-08-02. Not legal advice — neither the author nor the owner is a lawyer.
-This is "what the rules say and what to do about it". Section 12 lists the points where a real
-lawyer is worth the money.
+This is "what the rules say and what to do about it". Section 14 lists the points where a real
+lawyer is worth the money, and section 16 lists everything I could not verify.
 
 ---
 
@@ -34,10 +34,20 @@ Three findings drive everything below.
    solicitation is fine" carve-out. This is the single line that decides whether the feature is
    legal as designed.
 
+Two further points that are settled and often assumed to be open:
+
+- **Saying "I'm an AI" is already contractually mandatory.** ElevenLabs' Agents terms require
+  customers to tell end users they are interacting with AI rather than a human, and that
+  conversations are recorded and may be shared with ElevenLabs and its LLM providers, "immediately
+  prior to any interaction". Canadian law does not require this yet; **our platform contract does**,
+  and it already applies to the inbound agent today.
+- **A link to the privacy policy does not authorise recording an outbound call.** The OPC held
+  exactly that in PIPEDA Case #2007-384. The notice has to be spoken, at the start, every time.
+
 **Recommended posture:** build it as a non-solicitation caller *and* capture express ADAD consent at
-booking anyway. Consent costs one sentence on the booking form and removes the hardest risk
-(the "was that follow-up call solicitation?" argument) entirely. The CRTC itself points businesses
-to this route.
+booking anyway. Consent costs one sentence on the booking form, removes the hardest risk
+(the "was that follow-up call solicitation?" argument) entirely, and lets the spoken opening drop
+from ~15 seconds to ~7. The CRTC itself points businesses to this route.
 
 **One caveat on timing.** The CRTC opened a full review of these rules on 11 June 2026
 (Notice of Consultation CRTC 2026-132), and it asks, in terms, whether the ADAD definition captures
@@ -303,41 +313,92 @@ human, not Ana.
 
 ### 7.1 Is it legally required in Canada today?
 
-**No binding Canadian rule requires it, today.** Specifically:
+**No binding Canadian law requires it today — but ElevenLabs' own terms do, which settles the
+question for this project.** See §7.3.
 
-- **CRTC:** no current requirement. CRTC 2026-132 **Question 10** asks whether there should be one:
-  *"Should the identification requirements be expanded to require telemarketers to tell consumers
-  that the call is using this sort of technology (i.e., it is not a live person making the call and
-  speaking with the consumer at the start of the call)?"* Open question, no answer yet.
-- **Federal AI legislation:** AIDA (in Bill C-27) did not become law. Treat any claim that a federal
-  AI statute imposes disclosure duties today with suspicion until verified.
-- **Law 25:** the automated-decision-making provision requires notice when a decision is made
-  *exclusively* by automated processing. Confirming an appointment is not a decision about the
-  person, so it very likely does not trigger it. (Boundary: if Ana ever decides something that
-  affects the customer — declining a job, setting a price — that provision engages and would require
-  notice plus a route to a human. Today's design has a human review every call, which is the right
-  side of the line.)
-- **Misleading-representation law** (Competition Act; Quebec CPA prohibitions on false
-  representations) is the real backstop: **actively pretending to be a human employee would be the
-  exposure**, not failing to volunteer that you are not.
+On the law:
 
-### 7.2 What best practice says
+- **CRTC:** no current requirement. The strongest proof is that the Commission is *asking* whether
+  there should be one. CRTC 2026-132 **Question 10**: *"Should the identification requirements be
+  expanded to require telemarketers to tell consumers that the call is using this sort of technology
+  (i.e., it is not a live person making the call and speaking with the consumer at the start of the
+  call)?"* Open, no answer yet.
+  Note the shape of the existing rules: Canada already requires **who** and **why** at the start of
+  an ADAD call. It does not yet require **what** — human or machine.
+- **Federal AI legislation:** AIDA (Part 3 of Bill C-27) **died on the Order Paper when Parliament
+  was prorogued in January 2025 and has not been reintroduced.** Even on its own terms it never
+  contained a general "announce you are an AI on a call" duty. Discount any claim that a federal AI
+  statute imposes disclosure duties today.
+- **But two federal proceedings are open right now.** Besides CRTC 2026-132, ISED launched a
+  **public consultation on AI transparency running 23 July – 23 September 2026**, centred among
+  other things on "helping individuals know when they are interacting with an AI system". Canada has
+  two live processes asking exactly this question. A rule is plausible within a year or two.
+- **Law 25, s. 12.1:** requires notice where a decision is made *exclusively* by automated
+  processing. Confirming an appointment is not a decision about the person. And note what s. 12.1
+  would require even if it applied: disclosure that **the decision** was automated, not that **the
+  voice** is synthetic. Sources citing s. 12.1 as an "AI chatbot disclosure rule" are overreading
+  it. (See §8.5 for where the boundary actually flips.)
+- **Misleading-representation law** is the real backstop. *Competition Act* s. 52 (criminal) and
+  s. 74.01(1)(a) (civil reviewable conduct), judged on the **general impression** test. Failing to
+  volunteer that you are a machine on an appointment-confirmation call is very unlikely to be
+  actionable. **Affirmatively claiming to be a human when asked is a materially different and much
+  riskier posture.** Quebec's CPA has general false-representation prohibitions but no AI-specific
+  provision.
+
+### 7.2 What best practice and comparative law say
 
 Canada's federal, provincial and territorial privacy authorities — **the CAI among them** — endorsed
 joint *Principles for responsible, trustworthy and privacy-protective generative AI technologies*
 (7 December 2023), which include transparency about AI use and, as a good practice, labelling
 AI-generated content.
 
-Internationally the direction is unambiguous: the EU AI Act imposes a transparency duty on AI
-systems that interact with natural persons, and the US FCC has ruled AI-generated voices are covered
-by its robocall regime. Neither binds a Laval contractor. Both indicate where Canada is heading, and
-CRTC 2026-132 Q10 is the local version of the same question.
+Comparative, and worth getting right because these are widely miscited:
 
-### 7.3 Recommendation
+- **EU AI Act, Article 50(1)** requires that people be "informed that they are interacting with an AI
+  system, **unless this is obvious** from the point of view of a reasonably well-informed, observant
+  and circumspect person". Art. 50(5) requires the disclosure "at the latest at the time of the
+  first interaction". **Applicable from 2 August 2026** — live now in the EU. Two features worth
+  copying: disclosure at first interaction, and an "unless obvious" proportionality valve.
+- **US FCC, Declaratory Ruling of 8 February 2024** held that AI-generated voices are "artificial or
+  prerecorded voice" under the TCPA, which makes such calls **consent-gated**. **It did not create an
+  "I am an AI" disclosure duty** — that was only *proposed* in a later NPRM which has not been
+  finalized. This is frequently misreported.
+- **California's bot law (SB 1001) does NOT apply to phone calls.** It is expressly limited to
+  communications "online", defined as appearing on a public-facing website or application. It is
+  routinely miscited as covering AI voice calls. It does not.
+- **Utah's AI Policy Act**, as narrowed in 2025, requires proactive outset disclosure only for
+  "high-risk" interactions (health, financial, biometric data, or financial/legal/healthcare
+  advice). A renovation appointment call would not qualify — useful calibration for what a
+  proportionate rule looks like.
 
-**Disclose, unprompted, in the first sentence, in plain language, and say it as a normal human
-would.** Three reasons: it will probably be mandatory within a year or two; it is what the inbound
-agent already does; and it costs nothing.
+### 7.3 The decisive point: ElevenLabs already requires it contractually
+
+This is not a judgment call. ElevenLabs' Agents disclosure requirement states that customers are
+**required** to give clear notice to end users that:
+
+> "They are interacting with AI rather than a human [and] their conversations are being recorded and
+> may be shared with ElevenLabs and its third-party large language model providers."
+
+and that the disclosure "**must be presented immediately prior to any interaction**", with "a verbal
+or pre-recorded disclosure at the start of a voice call" listed as an accepted method. ElevenLabs
+publishes a sample script along these lines:
+
+> "Hi, I'm an AI assistant. This call may be recorded and shared with service providers for quality
+> assurance and service improvement purposes. For more information, please refer to our privacy
+> policy available at: [link]."
+
+**Ana runs on ElevenLabs Agents. The AI disclosure is therefore already a contractual obligation,
+independent of Canadian law, and it already applies to the inbound agent today.**
+
+Note the useful overlap: the "shared with ElevenLabs and its third-party LLM providers" element that
+ElevenLabs requires is close to what Law 25 s. 8 requires anyway (third parties + possibility of
+communication outside Québec). One sentence discharges both.
+
+### 7.4 Recommendation
+
+**Disclose, unprompted, in the first turn, in plain language, and say it the way a person would.**
+It is contractually required, it is what the inbound agent already gestures at, it will probably be
+legally required within a year or two, and it costs about four seconds.
 
 The inbound greeting today (`src/lib/voice/agent.ts`, `greeting()`) is:
 
@@ -491,8 +552,6 @@ build, not general commentary:
 
 ### 8.4 The concrete gaps in the current build
 
-### 8.4 The concrete gaps in the current build
-
 These are facts about this repository, not hypotheticals:
 
 1. **ElevenLabs retains conversation transcripts and audio for 2 years by default.** Retention is
@@ -520,51 +579,157 @@ These are facts about this repository, not hypotheticals:
 Anthropic's commercial API deletes inputs and outputs within 30 days by default and does not train
 on them; zero-data-retention is available by agreement. Worth stating accurately in the PIA.
 
-### 8.5 Biometrics — probably not engaged, worth knowing about
+### 8.5 Automated decisions — s. 12.1, and where the boundary actually is
 
-Quebec has a distinct regime requiring disclosure to the CAI before bringing a **database of
-biometric characteristics** into service. Synthesizing a voice and transcribing speech does **not**
-create a biometric database. **If** the system ever adds voiceprint-based caller identification, that
-regime engages and requires advance notice to the CAI. Do not build voice-ID without advice.
+s. 12.1 applies to "a decision based **exclusively** on an automated processing" of personal
+information. Confirming a time slot the customer already agreed to is executing a decision, not
+rendering one. **Outbound appointment calls almost certainly do not trigger it.**
+
+But the margin is thinner than people assume, because — unlike GDPR art. 22 — **s. 12.1 has no
+adverse-effect threshold in its text.** The only filters are "decision" and "exclusively". It would
+flip if:
+
+- Ana **declines, reschedules or reprioritizes** a customer based on their data (past cancellations,
+  payment history, postal code);
+- Ana **scores or triages** a lead and that score determines whether a human ever calls back;
+- Ana **quotes or refuses a price** algorithmically.
+
+A human "review" that is a rubber stamp does not defeat "exclusively"; meaningful human judgment
+does. Today's design — a person reviews every call — is on the right side of the line, and the
+prompt rule "never quote a price by voice" is doing double duty here.
+
+**Relevant beyond outbound:** if the website estimator ever communicates a range to a customer with
+no human in the loop, treat s. 12.1 as engaged and build the notice plus the "submit observations to
+a person who can review it" path. `PrivacyContent.tsx` currently asserts "no decision that affects
+you is made automatically" — that claim has to stay true, or the s. 12.1 machinery has to be built.
+
+### 8.6 Biometrics — not engaged as designed, but know where the line is
+
+Quebec's biometric regime lives in the *Act to establish a legal framework for information
+technology* (CQLR c. C-1.1):
+
+- **s. 44** — identity may not be verified or confirmed by a process using biometric characteristics
+  except where **previously disclosed to the CAI** and with the **express consent** of the person.
+- **s. 45** — "The creation of a database of biometric characteristics and measurements must be
+  disclosed to the Commission d'accès à l'information promptly and **not later than 60 days before
+  it is brought into service**." The CAI may suspend, prohibit, or order destruction.
+
+The CAI defines biometrics purposively — techniques analysing unique characteristics "**afin de
+déterminer ou de prouver son identité**" — and its guide expressly notes that using such
+characteristics for purposes *other than* verifying identity is not covered by the biometrics
+principles (though P-39.1 still applies in full).
+
+**Conclusion: recording audio, synthesizing a voice and transcribing speech does not engage s. 44 or
+s. 45.** The CAI does list *l'empreinte de la voix* — a voice**print** — under behavioural
+biometrics, but a voiceprint is an extracted, stored template used to match a person. We create
+none. **No CAI declaration is required as designed.**
+
+**Where it flips — the line to hold:**
+
+- Enabling **speaker verification / voice ID / "recognize the returning caller by voice"** → s. 44:
+  prior disclosure to the CAI, express consent, and a non-biometric fallback for anyone who refuses.
+- **Storing voice embeddings or templates across calls** so the same speaker can be re-matched →
+  s. 45: a *banque de caractéristiques biométriques*, with the **60-day pre-service declaration**.
+- **Emotion or sentiment analysis from voice** is outside the biometrics guide, but the CAI names it
+  as something it is watching. P-39.1 applies in full.
+
+Related: P-39.1 **s. 12** treats information as **sensitive** where its nature (medical, biometric,
+otherwise intimate) *or* **the context of its use** entails a high reasonable expectation of privacy.
+An appointment confirmation is not sensitive. A transcript in which a customer discusses their
+finances, their family situation, or flood damage to their home can become sensitive through the
+context limb — and sensitive information requires **express** consent under ss. 12 and 13. Another
+argument for short retention and for keeping Ana off topics she has no business on.
 
 ---
 
 ## 9. French language (Charter of the French Language / Bill 96)
 
-**The honest summary: the Charter's explicit, itemised rules are mostly about written things —
-signage, commercial publications, contracts, websites, product documentation. There is no provision
-that says "phone calls must open in French" in those words.** Commentary that implies otherwise is
-overstating it.
+### 9.1 There is no telephone rule — and the duty still applies
 
-**But the substantive obligation still lands on you**, via the consumer's right to be informed and
-served in French, which Bill 96 elevated into the Charter (commonly cited as s. 50.2 — *verify the
-section number against the Charter before relying on it externally*). An enterprise offering goods
-or services to consumers in Quebec must be able to inform and serve them in French. A phone call the
-business initiates is plainly part of serving the customer.
+**The Charter contains no phone-specific provision.** A full-text scan of the official consolidated
+Charter (C-11) for "oral", "verbal", "telephone" and "spoken" returns hits only in the chapters on
+the civil administration and on associations of workers. **Chapter VII of Title I — "The language of
+commerce and business", ss. 50.1–71 — contains none.** That chapter is about product inscriptions,
+catalogues, websites, contracts, invoices, order forms and signage.
 
-Practical consequences for outbound:
+Commentary that says "Bill 96 requires you to answer the phone in French" reaches the right outcome
+by the wrong route. The duty comes from the **general, medium-neutral rights in Chapter II**:
 
-- **Open in French.** Always. It is the default and it is free.
-- **Switch to English on request, or when you already know the customer's language.** Serving a
-  customer in English at their preference is not a breach — the right belongs to the consumer, and
-  the customer exercising it in the other direction is their choice. Ana's existing behaviour
-  (`agent.ts` LANGUAGE block: follow the caller, switch and stay switched) is the right instinct.
-  The one thing to preserve is that **the French option is always offered first and never has to be
-  asked for.**
-- **A stored language preference is fine and is better service.** `callerLocale()` already does this.
-  Still open in French on the first outbound call to a customer whose preference is unknown.
-- **Size thresholds do not save you.** Francization-certificate obligations begin at 25 employees
-  (lowered from 50 by Bill 96). Renovision AnA is far below that, so the *certification* machinery
-  does not apply — but the duty to serve consumers in French applies regardless of headcount.
-- **If a call ever leads to a contract**, the French-version-first rule for contracts of adhesion
-  applies. Another reason Ana should not be closing anything.
+- **s. 2:** "Every person has a right to have … **all enterprises doing business in Québec
+  communicate with him in French**."
+- **s. 5:** "Consumers of goods and services have a right to be informed and served in French."
+- **s. 50.2** (added by Bill 96, in force 1 June 2022): "An enterprise that offers goods or services
+  to consumers **must respect their right to be informed and served in French.** An enterprise that
+  offers goods or services to a public other than consumers must inform and serve it in French."
 
-**Enforcement:** complaints go to the OQLF, which investigates, can order compliance, and can pursue
-penal proceedings. Fines for legal persons are commonly reported in the **$3,000–$30,000** range per
-offence, doubled for a second offence and tripled for subsequent ones, with each day of continuing
-violation capable of counting separately. Realistically, an OQLF complaint against a small
-contractor over a phone greeting is unlikely — but a customer who is annoyed for some other reason
-has a free and easy lever, and "the robot called me in English" is an easy complaint to make.
+An outbound call is squarely "communicating with" the person under s. 2 and "informing" a consumer
+under s. 5/50.2. Nothing conditions the duty on the consumer having called first. The OQLF's own
+consumer-facing guidance extends the right to customer service by phone and to **accessing a voice
+messaging system in French**.
+
+### 9.2 Practical consequences for outbound
+
+- **Open in French. Always.** French is the default, not one of two equal options. Do not open
+  English-first, and do not treat the language choice as a coin flip.
+- **Switch to English once the customer signals that preference.** There is **no express provision**
+  in the Charter authorising a private enterprise to serve a consumer in another language on
+  request — a real drafting gap, made conspicuous by the fact that s. 49 grants exactly that
+  permission to associations of workers. It is nonetheless lawful in practice, on three structural
+  grounds: ss. 2 and 5 create a **right held by the person**, not a duty of exclusivity (contrast
+  s. 50.2 ¶1's "must respect *their right*" with ¶2's unconditional "must inform and serve it in
+  French" for non-consumers); s. 204.17 gives the remedy to the *victim* of a violation, and a
+  customer who asked for English is not one; and s. 55 itself contemplates the adhering party
+  expressly choosing another language.
+- **A stored language preference is fine and is better service.** `callerLocale()` already does
+  this. Still open in French on the first outbound call to a customer whose preference is unknown.
+- **Size does not save you.** Francization registration begins at **25 employees for six months**
+  (s. 139, lowered from 50 by Bill 96 effective 1 June 2025). Renovision AnA is far below that, so
+  none of the registration/committee/certificate machinery applies. **ss. 2, 5, 50.2 and 55 apply at
+  any size, including one employee.**
+  There is a small-business carve-out — **s. 204.17 ¶2** removes the cessation remedy for a
+  violation of **s. 5** by an enterprise with **fewer than five persons**. Read it carefully: it
+  covers s. 5 only. It does **not** cover **s. 2**, which is the provision most naturally engaged by
+  a call the business initiates. The carve-out is narrower than it looks.
+- **If a call ever leads to a contract, s. 55 engages.** Contracts "pre-determined by one party and
+  the related documents must be drawn up in French"; the parties may be bound by another-language
+  version only "**after its French version has been remitted to the adhering party**". A renovation
+  quote or contract on a standard template is almost certainly a contract of adhesion. Note you
+  cannot cure this afterwards — the French version must come first. **s. 204.21** lets the adhering
+  party seek nullity **without proving injury**. A phone call in English that ends "I'll send you
+  the contract" is not a s. 55 problem; sending an English-only standard contract is.
+
+### 9.3 Enforcement — and a correction most commentary gets wrong
+
+**Contravening s. 50.2 or s. 55 is not, by itself, a penal offence.** s. 205 — the fine provision —
+is a **closed list**: it applies to contraventions of ss. 78.1–78.3 and 176, or of **an order issued
+by the Office under s. 177**. Neither s. 50.2 nor s. 55 is on that list.
+
+The actual path is: **complaint → inspection (s. 166) → the OQLF orders compliance (s. 177) →
+disobeying that order is the offence.** So the first consequence of a French-service complaint
+against a good-faith small business is a corrective order, not a fine. That materially lowers the
+realistic risk here.
+
+Where fines do apply (s. 205): **$700–$7,000 for a natural person, $3,000–$30,000 in all other
+cases.** Doubled for a second offence and tripled for subsequent ones (s. 207); doubled again for a
+**director or officer** (s. 208); each day of continuance is a separate offence (s. 208.0.1); and
+directors are **presumed** to have committed an offence committed by the legal person unless they
+establish due diligence (s. 208.4.2).
+
+**The sleeper risk for a licensed trade — s. 204.28.** The Minister may, on the OQLF's opinion,
+**suspend or revoke a permit or other authorization of the same nature** where an enterprise
+"repeatedly contravenes" the Act despite a s. 177 order. For a renovation contractor that reaches an
+**RBQ licence**. Repeat-offender territory only, but it is the highest-stakes sanction in the Act
+for this business, and it is worth knowing it exists.
+
+**Private remedies created by Bill 96:** cessation (s. 204.17), nullity of an injurious provision
+(s. 204.18), reduction of the obligation instead of nullity (s. 204.20), and a saving clause
+preserving ordinary Civil Code recourse (s. 204.16). **Bill 96 did not create a damages or punitive-
+damages right of action under the Charter** — a claim repeated in several law-firm and vendor
+summaries. Damages would have to be pleaded under CCQ art. 1457.
+
+**Calibration.** An OQLF complaint against a small contractor over a phone greeting is unlikely. But
+it is free to file, and "the robot called me in English" is an easy complaint for a customer who is
+already annoyed about something else. Opening in French costs nothing and removes the lever.
 
 ---
 
@@ -606,111 +771,182 @@ Each line is meant to be implementable as written.
    a. the name **Renovision AnA**;
    b. a brief description of the **purpose** of the call;
    c. a **contact route**: the business phone number **and** an email or postal address;
-   d. the statement that the caller is an **automated assistant, not a person**;
-   e. the statement that the call is **transcribed**, and why.
-10. If the call runs over **60 seconds**, repeat the identification (name + callback number) at the
+   d. the statement that the caller is an **automated assistant, not a person** — contractually
+      required by ElevenLabs' Agents terms, not merely advisable;
+   e. the statement that the call is **transcribed**, and why;
+   f. **where consent was not captured in writing at booking**: that processing involves service
+      providers **some of which are outside Québec** (Law 25 s. 8 ¶2), and that the customer may
+      **stop at any time** (s. 8(4)).
+10. Nothing substantive may be collected before that disclosure completes. A link to the privacy
+    policy is **not** a substitute — PIPEDA Case #2007-384 held a published policy insufficient for
+    outbound recording consent.
+11. If the call runs over **60 seconds**, repeat the identification (name + callback number) at the
     end (UTR 4(d)).
-11. Open in **French** by default; offer English in the same breath on a first call; use the stored
-    preference on subsequent calls but never make the customer ask.
+12. Open in **French** by default. Never open English-first. Offer English in the same breath on a
+    first call; use the stored preference on subsequent calls but never make the customer ask.
+13. Version the script. Log which version played on each call, so a later complaint can be answered
+    with what was actually said.
 
 ### D. In-call behaviour
 
-12. **Hard prohibition on solicitation.** The system prompt must forbid: quoting or discussing price;
+14. **Hard prohibition on solicitation.** The system prompt must forbid: quoting or discussing price;
     proposing additional services; mentioning discounts, promotions, or deadlines; asking for a
     decision or a signature; any variation of "would you like to go ahead". Ana confirms, informs,
     and takes messages. Nothing else.
-13. Implement this as a **guardrail, not a hope**: (a) prompt instruction, (b) a deny-list check on
+15. Implement this as a **guardrail, not a hope**: (a) prompt instruction, (b) a deny-list check on
     generated text before TTS for price/promo tokens, (c) a post-call review flag on any transcript
     containing them. The existing inbound rule "never quote a price by voice" is the same rule and
     should share the implementation.
-14. **Honour a stop request immediately.** If the customer says any variant of *"don't call me with
+16. **Never claim to be human.** If asked "am I talking to a person?", the answer is always no. This
+    is the one place where a wrong answer moves the exposure from telecom regulation to
+    misleading-representation law (*Competition Act* ss. 52 / 74.01(1)(a)).
+17. **Honour a stop request immediately.** If the customer says any variant of *"don't call me with
     this"* / *"ne m'appelez plus"* / *"I don't want to talk to a robot"*, Ana acknowledges, ends the
     call, and the system sets the do-not-call flag. Do not wait 14 days — set it in the same request.
-    Keep the entry for at least **3 years and 14 days**.
-15. **Offer the human alternative** whenever asked, and proactively if the customer sounds confused
-    or distressed. The route is the business line and a callback from Artush.
-16. **Never handle an emergency by AI outbound.** Water-damage escalation is a human call.
-17. Disconnect within **10 seconds** of the customer hanging up (UTR 4(h)).
+    Keep the entry for at least **3 years and 14 days**. Under Law 25 s. 14 (*libre*), stopping must
+    be **as easy as agreeing** — one plain sentence, no menu, no verification step.
+18. **Offer the human alternative** whenever asked, and proactively if the customer sounds confused
+    or distressed. The route is the business line and a callback from Artush. The OPC guidance
+    requires an alternative channel for customers who object to recording; this is it.
+19. **Never handle an emergency by AI outbound.** Water-damage escalation is a human call.
+20. Disconnect within **10 seconds** of the customer hanging up (UTR 4(h)).
 
 ### E. Voicemail
 
-18. Answering-machine detection must be handled explicitly. A voicemail left by Ana is a one-way
+21. Answering-machine detection must be handled explicitly. A voicemail left by Ana is a one-way
     synthesized message — the purest form of ADAD call — and **must itself satisfy rule 4(d)**: name,
     purpose, callback number, email, AI disclosure. Do not leave a truncated message.
-19. Do not leave sensitive detail on voicemail (no addresses, no scope-of-work descriptions, no
+22. The voicemail greeting path must work **in French** (OQLF guidance extends the right to French
+    service to voice messaging systems).
+23. Do not leave sensitive detail on voicemail (no addresses, no scope-of-work descriptions, no
     amounts). "Please call us back about your appointment" is enough.
 
 ### F. Consent (strongly recommended, not strictly required for non-solicitation)
 
-20. Add a **separate, unticked** checkbox to the booking and estimator forms:
+24. Add a **separate, unticked** checkbox to the booking and estimator forms. Law 25 s. 14 requires
+    per-purpose granularity, so this is **not** one blanket line — separate the automated call from
+    the recording/transcription from any secondary use:
     *"J'accepte de recevoir des appels automatisés de Renovision AnA à ce numéro pour la gestion de
     mes rendez-vous. / I agree to receive automated calls from Renovision AnA at this number about
     my appointments."*
-21. Persist a consent record with: the phone number consented to, the exact wording displayed, the
+25. Alongside the checkbox, present the **s. 8** information in writing: purposes, that the means is
+    an automated voice system, access/rectification rights, the right to withdraw, the third parties
+    involved, and that information may be processed outside Québec. Doing it here is what unlocks
+    the short Tier 2 call opening.
+26. Persist a consent record with: the phone number consented to, the exact wording displayed, the
     timestamp, the channel, and the language. This is the record the CRTC would ask for; it must be
-    producible within **30 days** of a request.
-22. Store consent withdrawal as its own dated record; never delete the withdrawal.
+    producible within **30 days** of a request. The CAI guidelines likewise expect organizations to
+    document the consent and the elements supporting its validity.
+27. Store consent withdrawal as its own dated record; never delete the withdrawal.
 
 ### G. Privacy and data
 
-23. Set ElevenLabs **audio retention to 0** and transcript retention to no more than the 24 months
+28. Set ElevenLabs **audio retention to 0** and transcript retention to no more than the 24 months
     the privacy policy promises — per agent, in Advanced → Data Retention or
-    `platform_settings.privacy.retention_days`.
-24. **Set `CRON_SECRET`** so `purge_stale_calls()` actually runs. The retention promise is currently
-    unkept.
-25. Update `PrivacyContent.tsx` to (a) name **ElevenLabs** as the voice/telephony AI provider and
+    `platform_settings.privacy.retention_days`. Default is **2 years for both audio and
+    transcripts**; deleting audio after transcription is the single cheapest compliance win
+    available.
+29. **Set `CRON_SECRET`** so `purge_stale_calls()` actually runs. The retention promise is currently
+    unkept, and s. 23 makes failure to destroy an enumerated AMP ground.
+30. Update `PrivacyContent.tsx` to (a) name **ElevenLabs** as the voice/telephony AI provider and
     describe what it processes, (b) correct or remove the Twilio STT claim, (c) describe **outbound**
     calls as a distinct activity with its own purpose, (d) restate that audio is not retained only
     once that is actually configured.
-26. Write the **PIA (EFVP)** covering the outside-Quebec transfer and the new system. A few pages:
-    what is collected, why, who processes it, where, what protections, what the residual risk is.
-27. Execute and file the **ElevenLabs DPA** and Anthropic's terms as the written agreements Law 25
-    requires for the transfer.
-28. Publish the **privacy officer's** title and contact details (by default: the owner).
-29. Write the **governance policy**: retention periods, destruction, who may access transcripts, how
-    a complaint or deletion request is handled.
-30. Keep the transcript minimisation discipline: no payment details, no health information, no ID
+31. Write the **ÉFVP** covering both triggers — s. 3.3 (new information system) and s. 17
+    (communication/entrustment outside Québec). One document can cover both. A few pages: what is
+    collected, why, who processes it, where, what contractual protections apply, what the residual
+    risk is, and the explicit conclusion that protection is adequate. **There is no mandatory form
+    and no obligation to file it with the CAI** — but you must be able to produce it.
+32. Execute and file the **ElevenLabs DPA** and Anthropic's terms. Check each against the **s. 18.3**
+    clause list: written mandate; confidentiality measures; **use only for carrying out the
+    mandate** (this is where "no training on our data" lives); **no retention after the contract
+    ends**; **breach notification without delay** to the named person in charge; and a
+    **verification right**. Confirm the zero-retention / no-training options are actually switched
+    on rather than assumed.
+33. **Minimise what crosses the border.** Audio must go to the voice vendor; the transcript need not
+    go anywhere else unredacted. Stripping names, addresses and phone numbers before sending text to
+    an LLM materially strengthens the s. 17 adequacy analysis, because s. 17(1)–(2) weigh sensitivity
+    and purpose.
+34. Publish the **person in charge**'s title and contact details (s. 3.1 — by default the owner,
+    automatically, unless delegated in writing).
+35. Publish **two separate things**: the s. 8.2 confidentiality policy and the s. 3.2 governance
+    policies summary (retention and destruction rules, personnel roles across the information life
+    cycle, complaints process). They are commonly conflated; they are distinct obligations.
+36. Start a **confidentiality incident register** (s. 3.8) from day one, covering *all* incidents,
+    not just notifiable ones. Retain it **at least 5 years**. Write a one-page runbook for the
+    "risk of serious injury" notification threshold in ss. 3.5–3.7.
+37. Keep the transcript minimisation discipline: no payment details, no health information, no ID
     numbers ever solicited by voice. The existing `redactOwnerPin()` pattern is the right shape for
     any future redaction.
+38. **Do not enable voice ID or speaker templates** without a CAI declaration filed **60 days**
+    ahead, express consent, and a non-biometric fallback (C-1.1 ss. 44–45).
 
 ### H. Records and review
 
-31. Log for every outbound call: timestamp, number, local time at recipient, purpose code, consent
+39. Log for every outbound call: timestamp, number, local time at recipient, purpose code, consent
     reference, script version, outcome, and whether the identification message played.
-32. Keep those records in the ordinary course of business, readily accessible, and be able to produce
+40. Keep those records in the ordinary course of business, readily accessible, and be able to produce
     them to the CRTC within **30 days**.
-33. Review a sample of transcripts monthly for solicitation drift. Model behaviour changes; a prompt
+41. Review a sample of transcripts monthly for solicitation drift. Model behaviour changes; a prompt
     that was compliant in August can be chatty in November.
-34. Diarise **CRTC 2026-132** — the outcome may add an AI-disclosure requirement and may resolve
-    whether AI voices are ADADs. Keep the disclosure line in config so it can be changed in minutes.
+42. Diarise **CRTC 2026-132** (replies closed 11 August 2026) and the **ISED AI-transparency
+    consultation** (closed 23 September 2026). Either may add an AI-disclosure requirement; CRTC
+    2026-132 may resolve whether AI voices are ADADs. Keep the disclosure line in config so it can
+    be changed in minutes.
 
 ---
 
 ## 11. Suggested bilingual opening script
 
-Written to satisfy UTR 4(d) identification + purpose + contact, AI disclosure, and the
-transcription notice, while still sounding like a person from Laval rather than a legal notice.
+Five separate obligations converge on the first ten seconds of the call:
 
-### French (default — natural spoken Quebec French)
+| Element | Required by |
+|---|---|
+| Business name | UTR 4(d) |
+| Brief purpose of the call | UTR 4(d) |
+| Callback number **and** an email or postal address | UTR 4(d), 4(j) |
+| "I'm an AI, not a person" | ElevenLabs Agents terms (contractual) |
+| Call is recorded/transcribed, and why | PIPEDA (OPC guidance + Case #2007-384), Law 25 s. 8(1)–(2) |
+| Third parties / possibility of processing outside Québec | Law 25 s. 8 ¶2; ElevenLabs terms |
+| Right to withdraw / stop | Law 25 s. 8(4) |
+| French first | Charter ss. 2, 5, 50.2 |
+
+That is a lot for a "your guy comes at nine" call. **Two tiers solve it**, and this is the strongest
+practical argument for capturing consent at booking:
+
+- **Tier 1 — first outbound call, or no consent on file.** Full disclosure, below. About 15 seconds.
+- **Tier 2 — consent captured at booking**, where the s. 8 information was given in writing on the
+  form. Short version: identification, purpose, AI, transcription, callback. About 7 seconds.
+
+### Tier 1 — French (default; natural spoken Quebec French)
 
 > **Bonjour, ici Ana, l'assistante virtuelle de Renovision AnA.** Je vous appelle au sujet de votre
-> rendez-vous de demain. Je vous le dis tout de suite : **je suis une assistante automatisée, pas une
-> personne**, et **l'appel est transcrit** pour qu'on garde une trace de ce qu'on se dit. Vous pouvez
-> toujours nous joindre au **579-990-3077** ou à **info@renovisionana.ca**.
-> Est-ce que je continue en français, **or would you rather switch to English?**
+> rendez-vous de demain matin. Je vous le dis tout de suite : **je suis une assistante automatisée,
+> pas une vraie personne.** **L'appel est transcrit** pour qu'on garde une trace de ce qu'on se dit,
+> et la transcription passe par nos fournisseurs, **dont certains sont à l'extérieur du Québec**.
+> **Vous pouvez me dire d'arrêter n'importe quand**, et tous les détails sont sur
+> renovisionana.ca. Pour nous joindre : **579-990-3077**, ou **info@renovisionana.ca**.
+> Je continue en français, **or would you rather switch to English?**
 
-If the customer's language is already known to be French, drop the last line:
-
-> …Vous pouvez toujours nous joindre au **579-990-3077** ou à **info@renovisionana.ca**.
-> Est-ce que c'est un bon moment pour vous?
-
-### English
+### Tier 1 — English
 
 > **Hello, this is Ana, the virtual assistant at Renovision AnA.** I'm calling about your appointment
-> tomorrow. Just so you know up front — **I'm an automated assistant, not a person**, and **this call
-> is transcribed** so we have a record of what we agree. You can always reach us at
-> **579-990-3077** or **info@renovisionana.ca**.
+> tomorrow morning. Just so you know up front — **I'm an automated assistant, not a real person.**
+> **This call is transcribed** so we have a record of what we agree, and the transcription goes
+> through our service providers, **some of them outside Quebec**. **You can tell me to stop at any
+> time**, and the full details are on renovisionana.ca. To reach us: **579-990-3077**, or
+> **info@renovisionana.ca**.
 > Is now a good time?
+
+### Tier 2 — short version (consent already captured at booking)
+
+> *FR:* **Bonjour, ici Ana, l'assistante automatisée de Renovision AnA.** Je vous appelle pour
+> confirmer votre rendez-vous de demain. **L'appel est transcrit**, comme convenu. Si vous avez
+> besoin de nous : **579-990-3077**. Est-ce que ça tient toujours pour demain?
+>
+> *EN:* **Hello, this is Ana, the automated assistant at Renovision AnA.** I'm calling to confirm
+> your appointment tomorrow. **This call is transcribed**, as agreed. If you need us:
+> **579-990-3077**. Is tomorrow still good for you?
 
 ### Closing identification (use whenever the call runs past 60 seconds)
 
@@ -796,9 +1032,10 @@ outbound.
 
 | Body | Over what | Realistic exposure |
 |---|---|---|
-| **CRTC** | UTRs / ADAD rules | AMPs under *Telecommunications Act* s. 72.01: **max $1,500 per violation for an individual, $15,000 for a corporation**, and a violation continuing more than one day is a separate violation each day. |
-| **CAI** | Law 25 | Administrative monetary penalties up to **$10M or 2% of worldwide turnover**, whichever is greater; penal fines up to **$25M or 4%**. Plus a private right of action with **minimum $1,000 punitive damages** for intentional or grossly negligent infringement. |
-| **OQLF** | Charter of the French Language | Penal fines commonly reported at **$3,000–$30,000** for a legal person, doubled/tripled for repeats. |
+| **CRTC** | UTRs / ADAD rules | AMPs under *Telecommunications Act* s. 72.01: **max $1,500 per violation for an individual, $15,000 for a corporation**, and a violation continuing more than one day is a separate violation each day. (The $10M figure people quote is s. 72.001, which covers other contraventions of the Act — not the UTRs.) |
+| **CAI** | Law 25 (P-39.1) | Administrative monetary penalty, s. 90.12: **$50,000** for a natural person; otherwise **$10,000,000 or 2% of worldwide turnover, whichever is greater**. Penal fine, s. 91: **$5,000–$100,000** / **$15,000–$25,000,000 or 4% of worldwide turnover, whichever is greater**; doubled for a subsequent offence (s. 92.1); 5-year limitation (s. 92.2). AMP grounds in s. 90.1 that map onto this project include failure to inform under ss. 7–8, unlawful collection/keeping/**destruction**, failure to report an incident, failure to take s. 10 security measures, and breach of s. 12.1. An **undertaking** with the CAI bars an AMP for the covered acts. |
+| **Civil courts** | Law 25, s. 93.1 | Where an infringement is **intentional or results from a gross fault**, the court **shall** award punitive damages of **not less than $1,000** — per person, on top of compensatory damages. This minimum is the engine of class actions, and for a small business it is the realistic exposure, not the $10M ceiling. |
+| **OQLF** | Charter of the French Language | **Not a direct fine.** s. 205 is a closed list; breaching s. 50.2 or s. 55 is not itself an offence. Path is complaint → inspection → **s. 177 order** → disobeying the order is the offence, at **$3,000–$30,000** for a legal person, doubled/tripled for repeats, doubled again for a director (s. 208), each day separate (s. 208.0.1). Repeat contraventions can support **suspension or revocation of a permit — including an RBQ licence — under s. 204.28**. |
 | **OPC** | PIPEDA (cross-border flows) | No fining power for most breaches; findings, recommendations, and Federal Court referral. Reputational rather than financial. |
 
 **How complaints actually arise.** Not from proactive regulator sweeps. They arise because one
@@ -867,17 +1104,38 @@ Not for the whole thing. Specifically for these:
 
 **Privacy**
 - OPC, Recording of Customer Telephone Calls — https://www.priv.gc.ca/en/privacy-topics/surveillance/02_05_d_14/
+- OPC, PIPEDA Case Summary #2007-384 (privacy policy insufficient for outbound call recording) — https://www.priv.gc.ca/en/opc-actions-and-decisions/investigations/investigations-into-businesses/2007/pipeda-2007-384/
 - Organizations in the Province of Quebec Exemption Order (SOR/2003-374) — https://laws-lois.justice.gc.ca/eng/regulations/SOR-2003-374/page-1.html
 - OPC, Provincial laws that may apply instead of PIPEDA — https://www.priv.gc.ca/en/privacy-topics/privacy-laws-in-canada/the-personal-information-protection-and-electronic-documents-act-pipeda/r_o_p/prov-pipeda/
+- Act respecting the protection of personal information in the private sector (P-39.1), official consolidation — https://www.legisquebec.gouv.qc.ca/en/document/cs/P-39.1
 - CAI, Principaux changements apportés par la Loi 25 — https://www.cai.gouv.qc.ca/protection-renseignements-personnels/sujets-et-domaines-dinteret/principaux-changements-loi-25
+- CAI, Lignes directrices 2023-1 — Consentement : critères de validité — https://www.cai.gouv.qc.ca/uploads/pdfs/CAI_Criteres_Validite_Consentement.pdf
+- CAI, Guide — Réaliser une évaluation des facteurs relatifs à la vie privée (ÉFVP) — https://www.cai.gouv.qc.ca/uploads/pdfs/CAI_GU_EFVP.pdf
+- CAI, Biométrie : principes à respecter et obligations légales des organisations — https://www.cai.gouv.qc.ca/uploads/pdfs/CAI_GU_Biometrie_Organisations.pdf
+- Règlement sur les incidents de confidentialité (CQLR c A-2.1, r. 3.1) — https://www.legisquebec.gouv.qc.ca/fr/document/rc/A-2.1,%20r.%203.1
+- Act to establish a legal framework for information technology (C-1.1), ss. 44–45 — https://www.legisquebec.gouv.qc.ca/en/document/cs/C-1.1
+- Criminal Code s. 184 — https://laws-lois.justice.gc.ca/eng/acts/c-46/section-184.html
+- Civil Code of Québec, arts. 35–37 — https://www.legisquebec.gouv.qc.ca/en/document/cs/CCQ-1991
 - Joint FPT privacy authorities, Principles for responsible generative AI (Dec 2023) — https://www.priv.gc.ca/fr/nouvelles-du-commissariat/nouvelles-et-annonces/2023/nr-c_231207/
 
 **Quebec consumer / language**
+- Charter of the French Language (C-11), official consolidation — https://www.legisquebec.gouv.qc.ca/en/document/cs/C-11
+- OQLF, Langue du commerce et des affaires — droits des consommateurs — https://www.oqlf.gouv.qc.ca/francisation/droits_linguistiques/droits/langue-du-commerce-et-des-affaires.html
+- OQLF, Traitement des plaintes et dénonciations — https://www.oqlf.gouv.qc.ca/francisation/respect/traitement-des-plaintes-et-denonciations.html
 - OPC (Québec), Itinerant sales — check the permit — https://www.opc.gouv.qc.ca/en/consumer/topic/itinerant-sale/tips/check-permit
 - OPC (Québec), Commerçants itinérants — lois et règlements — https://www.opc.gouv.qc.ca/commercant/permis-certificat/commercant-itinerant/lois-reglements
 - Norton Rose Fulbright, Doing business in Quebec: language legislation — https://www.nortonrosefulbright.com/en/knowledge/publications/38625c3d/doing-business-in-quebec-language-legislation
 
+**AI disclosure**
+- ISED, Public consultation on AI transparency (23 July – 23 Sept 2026) — https://www.canada.ca/en/innovation-science-economic-development/news/2026/07/government-of-canada-launches-public-consultation-on-ai-transparency.html
+- ISED, AI for All — Canada's National AI Strategy (4 June 2026) — https://ised-isde.canada.ca/site/ised/en/canadas-national-artificial-intelligence-strategy-ai-all
+- EU AI Act, Article 50 — https://artificialintelligenceact.eu/article/50/
+- FCC Declaratory Ruling FCC 24-17 (8 Feb 2024), AI voices under the TCPA — https://docs.fcc.gov/public/attachments/FCC-24-17A1.pdf
+- California SB 1001 (B.O.T. Act — "online" only, not phone calls) — https://leginfo.legislature.ca.gov/faces/billTextClient.xhtml?bill_id=201720180SB1001
+- Competition Act s. 52 — https://laws-lois.justice.gc.ca/eng/acts/C-34/section-52.html
+
 **Vendors**
+- **ElevenLabs Agents — Disclosure requirement (contractually binding on us)** — https://elevenlabs.io/docs/eleven-agents/legal/disclosure-requirement
 - ElevenLabs Agents — Retention — https://elevenlabs.io/docs/eleven-agents/customization/privacy/retention
 - ElevenLabs DPA — https://elevenlabs.io/dpa
 - Anthropic, API and data retention — https://platform.claude.com/docs/en/manage-claude/api-and-data-retention
@@ -886,24 +1144,46 @@ Not for the whole thing. Specifically for these:
 
 ## 16. Things I could not verify
 
-Stated plainly so nobody builds on them:
+Stated plainly so nobody builds on them.
 
-- **Exact sub-paragraph lettering of UTR Part IV rule 4.** Consistent across two readings of the
-  CRTC page, but the CRTC's own rendering should be checked before external quotation.
-- **Section numbers in P-39.1 (Law 25).** The CAI's summary page describes the obligations without
-  section numbers, and legisquebec.gouv.qc.ca returned 403 to automated retrieval. The obligations
-  described in §8.3 are accurate; **the section numbers are deliberately omitted rather than
-  guessed.**
-- **Charter of the French Language s. 50.2.** Multiple reputable law-firm summaries attribute the
-  consumer's right to be informed and served in French to s. 50.2 as added by Bill 96. Not verified
-  against the Charter itself.
+**Verified against official consolidated statutory text** (LégisQuébec, "à jour au 1er avril 2026",
+marked *Ce document a valeur officielle*; laws-lois.justice.gc.ca for federal): every P-39.1 section
+number in §8.3–8.6, every Charter of the French Language section number in §9, *Criminal Code*
+s. 184 and s. 193, CCQ arts. 35–37, and C-1.1 ss. 44–45. Those are safe to rely on.
+
+**Not verified:**
+
+- **Exact sub-paragraph lettering of UTR Part IV rule 4.** Consistent across multiple readings of
+  the CRTC page, but check the CRTC's own rendering before quoting it externally.
+- **Whether the CRTC would treat a two-way conversational agent as an ADAD.** No decision exists.
+  This is the open question at the centre of the whole analysis, and it is Question 2 in CRTC
+  2026-132.
 - **Quebec Consumer Protection Act ss. 54.1 / 55 / 59** (distance contract, itinerant merchant,
   10-day cancellation). Described from the Office de la protection du consommateur's own guidance
-  pages; the statutory text was not retrievable (CanLII and Légis Québec both returned 403).
-- **Any Quebec statute imposing calling hours stricter than the CRTC's.** Searched, not found. Absence
-  of evidence, not evidence of absence.
+  pages; the statutory text was not retrievable (CanLII and LégisQuébec both 403 automated fetches
+  of the CPA).
+- **Any Quebec statute imposing calling hours stricter than the CRTC's.** Searched, not found.
+  Absence of evidence, not evidence of absence.
 - **Reports of a 2026 amendment raising Law 25's administrative penalty cap.** Seen only in a
-  low-quality secondary source and not corroborated. The figures in §13 are the well-established
-  ones.
-- **Whether the CRTC would in fact treat a two-way conversational agent as an ADAD.** No decision
-  exists. This is the open question at the centre of the whole analysis.
+  low-quality secondary source and not corroborated. The figures in §13 come from the official
+  text of ss. 90.12 and 91.
+- **The claim that a business "must have at least one employee at all times capable of providing
+  service in French".** Widely repeated in secondary summaries (including CFIB's). **No such wording
+  was found in the Charter.** Treat it as a paraphrase of the s. 50.2 duty, not a distinct rule.
+- **A general OQLF power to seek Superior Court injunctions.** Asserted by at least one major firm's
+  guide; the victim's cessation right (s. 204.17) and the Government's contract-resiliation power
+  (s. 204.19) were located, but no general OQLF injunction power was confirmed.
+- **Any OQLF directive prescribing a specific telephone greeting script** or banning "Bonjour-Hi"
+  for private businesses. Not found. The s. 5 / s. 50.2 duty is verified and is sufficient on its
+  own; do not cite a greeting rule that may not exist.
+- **The current text of ElevenLabs' and Anthropic's DPAs against the s. 18.3 clause list.** The
+  ElevenLabs disclosure requirement and retention documentation were read directly; the DPAs
+  themselves were not clause-checked. Do that before relying on them for the s. 17 adequacy
+  conclusion.
+- **Colorado's SB 26-189** (referenced in comparative material). Secondary-sourced only; not read.
+- **Any CAI guidance specifically on call recording.** Searched; none found. The CAI has issued
+  guidelines on consent, biometrics and ÉFVP but nothing call-recording-specific. The OPC's 2018
+  document is the only regulator guidance directly on point, and while PIPEDA-based it maps cleanly
+  onto P-39.1.
+- **Any CAI decision applying Law 25 to an AI voice agent.** None found. This is untested territory
+  in Quebec.
