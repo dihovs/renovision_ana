@@ -3,9 +3,9 @@
 import { useEffect } from "react";
 
 /**
- * Catches render-time crashes in the task list. Fetch and migration failures
- * never reach here — the page catches those and renders AdminNotice — so this
- * is only for the unexpected.
+ * Catches render-time crashes in either list on this page. Fetch and migration
+ * failures never reach here — the page catches those per section and renders
+ * AdminNotice — so this is only for the unexpected.
  */
 export default function TasksError({
   error,
@@ -21,10 +21,11 @@ export default function TasksError({
   return (
     <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
       <h2 className="font-heading text-base font-bold text-brand-blue">
-        Something went wrong loading tasks
+        Something went wrong loading this page
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-charcoal/70">
-        Nothing was lost — every note you dictated is still saved. Try again, and if it keeps
+        Nothing was lost — every note you dictated is still saved, and the calls in the queue are
+        unaffected: this is the screen failing, not the dialer. Try again, and if it keeps
         happening let the office know.
       </p>
       <button

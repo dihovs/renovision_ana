@@ -111,13 +111,6 @@ export default function TaskList({
           </ul>
         </section>
       )}
-
-      {/* Says out loud what the "Not called" markers mean, so they don't read
-          as a feature that is broken rather than one that isn't built. */}
-      <p className="text-[11px] leading-relaxed text-charcoal/40">
-        Ana does not make outbound calls yet. When she does, each task will show here whether the
-        call was answered, reached voicemail, or went unanswered — with its own transcript.
-      </p>
     </div>
   );
 }
@@ -208,17 +201,10 @@ function TaskRow({
           )}
         </div>
       </div>
-
-      {/* Reserved for the outbound-call outcome. Today there is only one
-          truthful value, and it is the honest one: nobody has been called. */}
-      {!isDone && (
-        <span
-          title="Outbound calling isn't built yet."
-          className="mt-0.5 shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-charcoal/40"
-        >
-          Not called
-        </span>
-      )}
+      {/* No call marker here. Outbound calls are their own queue, in the
+          section above, and a dictated note is not one of them — a "not
+          called" chip on every note would claim a relationship between the
+          two lists that does not exist. */}
     </li>
   );
 }

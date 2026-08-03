@@ -217,11 +217,28 @@ a sentence you do not finish. Do not add a question after the closing.
 - **Model**: Haiku (`FAST_MODEL`) throughout. There is no analytical work on
   this call. Escalation to Sonnet is not worth wiring — an outbound call that
   is going badly should end, not get smarter.
-- **`end_call`**: several branches say "end the call". That requires the
-  ElevenLabs `end_call` system tool to be enabled on the outbound agent and
-  emitted by the chat route, the same way `language_detection` had to be
-  (see `Docs/Voice-ElevenLabs-Setup.md`). Without it, Ana says goodbye and
-  then sits on the line, which is worse than not saying goodbye.
+- **`end_call`**: BUILT — `src/lib/voice/endCall.ts` plus `endCallChunks()` in
+  the chat route, emitted the same way `language_detection` is. Still requires
+  "End conversation" to be enabled on **both** agents in the dashboard; if it
+  is off, ElevenLabs ignores the tool call and Ana goes silent instead of
+  hanging up, which is worse than the problem it fixes.
+
+  One structural finding worth keeping, because it shaped the design: **an
+  ending turn carries no spoken text of its own.** The closing sentence travels
+  as `end_call`'s `message` argument instead. There is no "say goodbye, then
+  hang up next turn" — a response ending in `stop` hands the floor back, and
+  ElevenLabs only calls this endpoint again when the *caller* speaks. Waiting
+  for a second turn is precisely the bug. Sending text and the tool together
+  risks cutting Ana off mid-word, which has already happened once on a real
+  call (one ended on "You're...").
+
+  The consequence: any branch that hangs up must already know its closing line
+  before it decides to. Opt-out, wrong number and the inbound goodbye therefore
+  use fixed lines and never ask Claude. The outbound errand can use Claude's
+  own closing only because `outboundReply` is non-streaming — the deny-list had
+  already forced that, and it means the full text exists before anything is
+  sent. Inbound streams, so inbound never ends on Ana's own sign-off; it ends
+  only on the caller's unmistakable goodbye.
 
 ---
 

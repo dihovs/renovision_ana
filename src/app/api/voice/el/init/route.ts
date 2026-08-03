@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { SITE_PHONE_TEL } from "@/lib/constants";
 import { callerLocale, startCall } from "@/lib/crm/calls";
 import { greeting } from "@/lib/voice/agent";
 
@@ -57,6 +58,62 @@ export async function POST(request: Request) {
   // Documented fields: caller_id, agent_id, called_number, call_sid.
   const callSid: string | undefined = body?.call_sid;
   const from: string | null = body?.caller_id ?? null;
+
+  // OUTBOUND MUST NEVER GET THE RECEPTIONIST'S GREETING.
+  //
+  // ElevenLabs documents this webhook as inbound-only — their Twilio
+  // personalization page scopes it to "when receiving inbound Twilio calls" —
+  // and it makes structural sense that it is, because the outbound endpoint
+  // takes conversation_initiation_client_data directly in its request body.
+  // The outbound agent is also configured with no initiation webhook at all,
+  // which closes the question by construction.
+  //
+  // This is the belt-and-braces guard for the day somebody points both agents
+  // at the same URL. Without it, an outbound call reaching here would: look up
+  // callerLocale() on our own number and get the wrong language; open a SECOND
+  // calls row for a conversation that already has one, keyed on ElevenLabs'
+  // Twilio SID rather than the task_ correlation id everything else uses; and
+  // — the dangerous one — return first_message: greeting(), which is applied
+  // after the dispatch payload and would therefore overwrite the mandatory
+  // outbound opening. Ana would ring a customer and say "Renovision AnA,
+  // comment puis-je vous aider?", which is not merely wrong, it is a UTR 4(d)
+  // identification failure on a call the customer did not place.
+  //
+  // Returning the bare envelope is the documented no-op: "omit any fields you
+  // don't want to override rather than setting them to empty strings".
+  // The agent id is the cleanest discriminator, and outboundDialer.ts now
+  // dials with this same ELEVENLABS_OUTBOUND_AGENT_ID — one variable, checked
+  // in both places, so the guard cannot drift from what was dialled. It is
+  // still only as good as that variable being set, which is why the fallbacks
+  // below stay: an unset id must not silently disable the guard.
+  //
+  // WE ARE THE CALLER is the one that always holds: on an inbound call
+  // `caller_id` is the customer's number, and on a call we placed it is our
+  // own. Unlike comparing `called_number`, this stays correct the day the
+  // business adds a second line — a new inbound number changes what was
+  // dialled, never who dialled.
+  const agentId: string | undefined = body?.agent_id;
+  const outboundAgentId = process.env.ELEVENLABS_OUTBOUND_AGENT_ID;
+  const digits = (value: unknown): string =>
+    typeof value === "string" ? value.replace(/\D/g, "") : "";
+  const ourNumber = digits(SITE_PHONE_TEL);
+
+  const outbound =
+    (!!outboundAgentId && agentId === outboundAgentId) ||
+    (!!ourNumber && digits(from) === ourNumber) ||
+    // Our own correlation ids carry the task_ prefix, and nothing else mints
+    // them; a real Twilio SID starts CA.
+    (typeof callSid === "string" && callSid.startsWith("task_")) ||
+    body?.mode === "outbound" ||
+    body?.direction === "outbound";
+
+  if (outbound) {
+    console.info("[voice-el] initiation webhook fired for an OUTBOUND call — declining to override", {
+      agentId,
+      callSid,
+    });
+    return Response.json({ type: "conversation_initiation_client_data" });
+  }
 
   // Have we spoken to this number before? If so, open in the language they
   // used last time and skip the "French or English?" question — asking a

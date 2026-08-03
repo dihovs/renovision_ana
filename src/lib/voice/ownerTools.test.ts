@@ -24,8 +24,33 @@ vi.mock("@/lib/crm/tasks", () => ({
   createOwnerTask: vi.fn(async () => ({ ok: false, reason: "migration_pending" as const })),
 }));
 
+// Only the two functions that reach the network are replaced. Everything the
+// tool uses to turn a record into a sentence — the E.164 check, the spoken
+// date, the kind guard — is the real implementation, because those are what
+// decides whether the owner hears the right name back.
+vi.mock("@/lib/crm/contactMatch", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/crm/contactMatch")>()),
+  resolveContact: vi.fn(),
+}));
+
+vi.mock("@/lib/crm/callScheduler", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/crm/callScheduler")>()),
+  queueDictatedCall: vi.fn(),
+}));
+
 const { receivablesSummary } = await import("@/lib/crm/invoices");
 const { createOwnerTask } = await import("@/lib/crm/tasks");
+const { resolveContact } = await import("@/lib/crm/contactMatch");
+const { queueDictatedCall } = await import("@/lib/crm/callScheduler");
+
+const TREMBLAY = {
+  clientId: "client-1",
+  displayName: "Marie Tremblay",
+  personName: null,
+  phone: "(450) 555-0123",
+  matchedOn: "person" as const,
+  score: 0.95,
+};
 
 const authenticated: OwnerSession = {
   eligible: true,
@@ -44,6 +69,13 @@ describe("owner tool dispatch", () => {
       count: 0,
     });
     vi.mocked(createOwnerTask).mockResolvedValue({ ok: false, reason: "migration_pending" });
+    vi.mocked(resolveContact).mockResolvedValue({ kind: "one", match: TREMBLAY });
+    vi.mocked(queueDictatedCall).mockResolvedValue({
+      ok: true,
+      clientName: "Marie Tremblay",
+      toNumber: "+14505550123",
+      notBefore: new Date(Date.now() + 60_000).toISOString(),
+    });
   });
 
   afterEach(() => {
@@ -142,6 +174,155 @@ describe("owner tool dispatch", () => {
       vi.mocked(createOwnerTask).mockResolvedValue({ ok: true, id: "task-2" });
       await runOwnerTool(authenticated, "capture_task", { text: "x", dueDate: "next Thursday" });
       expect(createOwnerTask).toHaveBeenCalledWith(expect.objectContaining({ dueDate: null }));
+    });
+  });
+
+  /**
+   * The one tool that can make a telephone ring in a stranger's house.
+   *
+   * Two properties matter more than the wording of any reply: a call is never
+   * placed to a name the model resolved on its own, and a call is never placed
+   * to digits — the only route to a number is a client record.
+   */
+  describe("queue_customer_call", () => {
+    const errand = {
+      name: "madame Tremblay",
+      kind: "crew_on_way",
+      message: "the crew is running about an hour late",
+    };
+
+    it("queues the errand and reads back who, what and when", async () => {
+      const result = await runOwnerTool(authenticated, "queue_customer_call", errand);
+
+      expect(queueDictatedCall).toHaveBeenCalledWith({
+        clientId: "client-1",
+        kind: "crew_on_way",
+        message: "the crew is running about an hour late",
+        locale: "fr",
+      });
+      expect(result).not.toContain("NOT QUEUED");
+      expect(result).toContain("Marie Tremblay");
+      expect(result).toContain("the crew is running about an hour late");
+      // Enough of the number to catch a wrong record, not the whole thing.
+      expect(result).toContain("ending 0123");
+      expect(result).not.toContain("+14505550123");
+    });
+
+    it("hands an ambiguous name back as a question and queues nothing", async () => {
+      vi.mocked(resolveContact).mockResolvedValue({
+        kind: "ambiguous",
+        matches: [
+          TREMBLAY,
+          { ...TREMBLAY, clientId: "client-2", displayName: "Marc Tremblay", phone: null },
+        ],
+      });
+
+      const result = await runOwnerTool(authenticated, "queue_customer_call", errand);
+
+      expect(queueDictatedCall).not.toHaveBeenCalled();
+      expect(result).toContain("NOT QUEUED");
+      expect(result).toMatch(/must not choose/i);
+      expect(result).toContain("Marie Tremblay");
+      expect(result).toContain("Marc Tremblay");
+      expect(result).toContain("no number on file");
+    });
+
+    it("says nobody matched rather than trying the next best name", async () => {
+      vi.mocked(resolveContact).mockResolvedValue({ kind: "none" });
+
+      const result = await runOwnerTool(authenticated, "queue_customer_call", errand);
+
+      expect(queueDictatedCall).not.toHaveBeenCalled();
+      expect(result).toContain("NOT QUEUED");
+      expect(result).toMatch(/spell the surname/i);
+    });
+
+    it("refuses a kind outside the three, without substituting a near one", async () => {
+      const result = await runOwnerTool(authenticated, "queue_customer_call", {
+        ...errand,
+        kind: "quote_followup",
+      });
+
+      expect(resolveContact).not.toHaveBeenCalled();
+      expect(queueDictatedCall).not.toHaveBeenCalled();
+      expect(result).toContain("NOT QUEUED");
+      expect(result).toContain("quote_followup");
+      expect(result).toMatch(/cannot be done automatically/i);
+    });
+
+    it("refuses an errand with nothing to say", async () => {
+      const result = await runOwnerTool(authenticated, "queue_customer_call", {
+        name: "Tremblay",
+        kind: "crew_on_way",
+      });
+
+      expect(queueDictatedCall).not.toHaveBeenCalled();
+      expect(result).toMatch(/nothing to tell them/i);
+    });
+
+    it("reports an opt-out as an opt-out and does not dial", async () => {
+      vi.mocked(queueDictatedCall).mockResolvedValue({
+        ok: false,
+        reason: "do_not_call",
+        clientName: "Marie Tremblay",
+      });
+
+      const result = await runOwnerTool(authenticated, "queue_customer_call", errand);
+
+      expect(result).toContain("NOT QUEUED");
+      expect(result).toMatch(/opted out|asked not to be called/i);
+      expect(result).toContain("Marie Tremblay");
+    });
+
+    it("says plainly that nobody will be called when the migration is pending", async () => {
+      vi.mocked(queueDictatedCall).mockResolvedValue({
+        ok: false,
+        reason: "migration_pending",
+        clientName: "Marie Tremblay",
+      });
+
+      const result = await runOwnerTool(authenticated, "queue_customer_call", errand);
+
+      expect(result).toContain("NOT QUEUED");
+      expect(result).toContain("0018");
+      expect(result).toMatch(/phone Marie Tremblay himself/i);
+    });
+
+    it("says the record needs a number when there is none to dial", async () => {
+      vi.mocked(queueDictatedCall).mockResolvedValue({
+        ok: false,
+        reason: "no_phone",
+        clientName: "Marie Tremblay",
+      });
+
+      const result = await runOwnerTool(authenticated, "queue_customer_call", errand);
+
+      expect(result).toContain("NOT QUEUED");
+      expect(result).toMatch(/needs a working phone number/i);
+    });
+
+    it("takes no number from the caller, however it is offered", async () => {
+      await runOwnerTool(authenticated, "queue_customer_call", {
+        ...errand,
+        name: "Tremblay",
+        toNumber: "+15145550000",
+        phone: "514 555 0000",
+        message: "call me back on 514 555 0000",
+      });
+
+      // The only argument that can select a destination is the name, and the
+      // number on the task comes from the record behind it.
+      expect(queueDictatedCall).toHaveBeenCalledWith(
+        expect.objectContaining({ clientId: "client-1" }),
+      );
+      const [call] = vi.mocked(queueDictatedCall).mock.calls[0];
+      expect(JSON.stringify(call)).not.toContain("+15145550000");
+    });
+
+    it("is unreachable without both authentication factors", () => {
+      const session = ownerSession(OWNER, ["let madame Tremblay know we're running late"]);
+      expect(ownerToolsFor(session)).toEqual([]);
+      expect(OWNER_TOOL_NAMES).toContain("queue_customer_call");
     });
   });
 });

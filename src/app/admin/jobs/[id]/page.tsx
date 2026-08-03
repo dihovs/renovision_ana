@@ -8,6 +8,7 @@ import {
   moveChecklistItemAction,
   removeChecklistItemAction,
   removeVisitAction,
+  scheduleNextVisitAction,
   setJobStatusAction,
   setRecurrenceAction,
   stopRecurrenceAction,
@@ -186,6 +187,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         completeVisitAction={completeVisitAction.bind(null, job.id)}
         removeVisitAction={removeVisitAction.bind(null, job.id)}
         invoiceAction={createFromJobAction.bind(null, job.id)}
+        scheduleNextAction={scheduleNextVisitAction.bind(null, job.id)}
         recurrenceSlot={
           extras.migrationPending ? undefined : (
             <JobRecurrence

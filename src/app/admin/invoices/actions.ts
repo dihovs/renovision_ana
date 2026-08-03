@@ -3,9 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isSignedIn } from "@/lib/adminAuth";
+import {
+  conversionError,
+  type ConversionResult,
+  type ConversionState,
+} from "@/lib/crm/conversions";
 import { parseMoneyToCents } from "@/lib/crm/money";
 import {
   createInvoiceFromJob,
+  createInvoiceFromQuote,
   deletePayment,
   recordPayment,
   getInvoice,
@@ -26,12 +32,55 @@ function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
-export async function createFromJobAction(jobId: string, depositPercent?: number): Promise<void> {
+/**
+ * Bill a job.
+ *
+ * Idempotent — a job already invoiced opens the invoice that exists rather than
+ * raising a second one. Everything it will not do (a cancelled job, work that
+ * no longer totals what the customer approved, a deposit asked for after the
+ * final bill) comes back as a sentence to put on the screen, because a thrown
+ * error loses its message in production.
+ */
+export async function createFromJobAction(
+  jobId: string,
+  depositPercent?: number,
+): Promise<ConversionState> {
   await requireSession();
-  const id = await createInvoiceFromJob(jobId, { depositPercent });
+
+  let invoice: ConversionResult;
+  try {
+    invoice = await createInvoiceFromJob(jobId, { depositPercent });
+  } catch (err) {
+    return conversionError(err, "Could not create the invoice.");
+  }
+
   revalidatePath("/admin/invoices");
   revalidatePath(`/admin/jobs/${jobId}`);
-  redirect(`/admin/invoices/${id}`);
+  redirect(`/admin/invoices/${invoice.id}`);
+}
+
+/**
+ * Bill an approved quote in one press: convert it to a job, then invoice that
+ * job. Both halves are idempotent, so this can be pressed on a quote that was
+ * already converted, already invoiced, or both.
+ */
+export async function invoiceQuoteAction(
+  quoteId: string,
+  depositPercent?: number,
+): Promise<ConversionState> {
+  await requireSession();
+
+  let invoice: ConversionResult;
+  try {
+    invoice = await createInvoiceFromQuote(quoteId, { depositPercent });
+  } catch (err) {
+    return conversionError(err, "Could not invoice the quote.");
+  }
+
+  revalidatePath("/admin/invoices");
+  revalidatePath("/admin/jobs");
+  revalidatePath("/admin/quotes");
+  redirect(`/admin/invoices/${invoice.id}`);
 }
 
 export async function sendInvoiceAction(id: string): Promise<void> {

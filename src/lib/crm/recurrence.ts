@@ -21,8 +21,15 @@ const TZ = "America/Toronto";
  */
 export const GENERATION_CAP = 26;
 
-/** A clock-on-the-wall reading in Toronto, no timezone attached. */
-type WallTime = {
+/**
+ * A clock-on-the-wall reading in Toronto, no timezone attached.
+ *
+ * Exported, along with the two converters below, because scheduling a visit
+ * needs exactly the same arithmetic: "next working day at eight" is a wall
+ * time, and turning it into a UTC instant any other way is the DST bug this
+ * module exists to avoid. One implementation, used by both.
+ */
+export type WallTime = {
   year: number;
   month: number; // 1-12
   day: number;
@@ -31,7 +38,7 @@ type WallTime = {
 };
 
 /** What a UTC instant reads as on a Toronto wall clock. */
-function wallInToronto(instant: Date): WallTime {
+export function wallInToronto(instant: Date): WallTime {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TZ,
     year: "numeric",
@@ -55,7 +62,7 @@ function wallInToronto(instant: Date): WallTime {
  * that doesn't exist — the skipped hour in spring — lands one hour later,
  * which is what a person rebooking around the change would do anyway.
  */
-function torontoWallToUtc(wall: WallTime): Date {
+export function torontoWallToUtc(wall: WallTime): Date {
   const asUtc = Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute);
   let ts = asUtc;
   for (let i = 0; i < 2; i++) {

@@ -1,5 +1,12 @@
 import crypto from "crypto";
+import { completeCallTask, failCallTask } from "@/lib/crm/callTasks";
 import { endCall } from "@/lib/crm/calls";
+import {
+  outcomeFromInitiationFailure,
+  outcomeFromPostCall,
+  type InitiationFailure,
+  type PostCallData,
+} from "@/lib/voice/outboundOutcome";
 
 /**
  * ElevenLabs Agents — post-call webhook.
@@ -76,6 +83,38 @@ function extractCallSid(data: Record<string, unknown>): string | null {
   return (dynamic?.call_sid as string) ?? (nestedDynamic?.call_sid as string) ?? null;
 }
 
+/** The queue row id, same three places, for the retry path. */
+function extractTaskId(data: Record<string, unknown>): string | null {
+  const dynamic = data.dynamic_variables as Record<string, unknown> | undefined;
+  const initData = data.conversation_initiation_client_data as Record<string, unknown> | undefined;
+  const nestedDynamic = initData?.dynamic_variables as Record<string, unknown> | undefined;
+  const extra = initData?.custom_llm_extra_body as Record<string, unknown> | undefined;
+  const value = dynamic?.task_id ?? nestedDynamic?.task_id ?? extra?.task_id;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/**
+ * Was this a call we placed?
+ *
+ * Two independent signals, for the same reason el/chat uses two: the explicit
+ * mode flag, and the `task_` prefix on the correlation id, which only the
+ * outbound dialer mints (a real Twilio SID starts `CA`). Getting this wrong in
+ * the false direction would write an outcome onto a task that was never called;
+ * getting it wrong in the true direction leaves a queue row stuck in `dialing`
+ * until the stall sweep rescues it. Both signals have to be absent for an
+ * outbound call to be missed.
+ */
+function isOutbound(data: Record<string, unknown>, callSid: string | null): boolean {
+  if (typeof callSid === "string" && callSid.startsWith("task_")) return true;
+  const dynamic = data.dynamic_variables as Record<string, unknown> | undefined;
+  const initData = data.conversation_initiation_client_data as Record<string, unknown> | undefined;
+  const nestedDynamic = initData?.dynamic_variables as Record<string, unknown> | undefined;
+  const extra = initData?.custom_llm_extra_body as Record<string, unknown> | undefined;
+  return (
+    dynamic?.mode === "outbound" || nestedDynamic?.mode === "outbound" || extra?.mode === "outbound"
+  );
+}
+
 export async function POST(request: Request) {
   const raw = await request.text();
 
@@ -99,6 +138,26 @@ export async function POST(request: Request) {
     return new Response("", { status: 200 });
   }
 
+  // BOTH WEBHOOK TYPES ARRIVE HERE, and until now everything that wasn't a
+  // transcription was silently dropped — which meant a call that never
+  // connected recorded nothing at all and its queue row sat in `dialing`
+  // forever. Docs/Voice-Outbound-Research.md §6 calls this the single most
+  // important edit in this file.
+  //
+  // EVERY PATH BELOW STILL RETURNS 200. ElevenLabs auto-disables a post-call
+  // webhook after ten consecutive non-200s when the last success was more than
+  // seven days ago, and this endpoint is shared with inbound — so an outbound
+  // bug that 500s would quietly switch off inbound transcripts too, with no
+  // error anywhere on our side. That property is worth more than any error
+  // signalling we would gain by being honest with a status code.
+  if (payload.type === "call_initiation_failure") {
+    // The documented envelope nests everything under `data`, but this event
+    // type is thinly documented and the failure fields have been seen at the
+    // top level. Look in both rather than drop the event.
+    await handleInitiationFailure(payload.data ?? (payload as Record<string, unknown>));
+    return new Response("", { status: 200 });
+  }
+
   if (payload.type !== "post_call_transcription" || !payload.data) {
     return new Response("", { status: 200 });
   }
@@ -118,5 +177,109 @@ export async function POST(request: Request) {
     console.error("[voice-el] could not close the transcript:", err);
   }
 
+  // Inbound stops here, exactly as it always has.
+  if (isOutbound(payload.data, callSid)) {
+    await recordOutboundOutcome(callSid, payload.data as unknown as PostCallData);
+  }
+
   return new Response("", { status: 200 });
+}
+
+/**
+ * Close the queue row for a call that happened.
+ *
+ * Keyed on the correlation id rather than the task id because that is what
+ * every other path already joins on, and because it is the one key that is
+ * guaranteed to have existed before the call was placed.
+ *
+ * Swallows everything. A queue row that does not get its outcome is a row the
+ * owner has to read the transcript for; a throw here is a non-200, and a
+ * non-200 is how the whole webhook gets turned off.
+ */
+async function recordOutboundOutcome(callSid: string, data: PostCallData): Promise<void> {
+  try {
+    const { outcome, detail } = outcomeFromPostCall(data);
+    const conversationId =
+      typeof (data as { conversation_id?: unknown }).conversation_id === "string"
+        ? ((data as { conversation_id?: string }).conversation_id ?? null)
+        : null;
+
+    const result = await completeCallTask(callSid, {
+      outcome,
+      outcomeDetail: detail,
+      conversationId,
+    });
+
+    if (!result.ok) {
+      console.error("[voice-outbound] could not record the outcome", { callSid, outcome, result });
+    } else if (result.changed === 0) {
+      // Either the owner cancelled the task while the call was in flight, or
+      // this correlation id was never a queued call. Both are worth a line and
+      // neither is worth a retry.
+      console.info("[voice-outbound] no open call task matched this call", { callSid, outcome });
+    } else {
+      console.info("[voice-outbound] call task completed", { callSid, outcome });
+    }
+  } catch (err) {
+    console.error("[voice-outbound] outcome mapping failed:", err);
+  }
+}
+
+/**
+ * The call never became a conversation — busy, rang out, or a number that does
+ * not exist.
+ *
+ * A dead number is terminal and gets `wrong_number` written straight onto the
+ * row: a number that does not exist will not start existing, and three attempts
+ * at it are three identical failures. Everything else goes through
+ * failCallTask(), which owns the attempt counter and the backoff table, so a
+ * busy line is tried again and an exhausted one lands in `failed` with the
+ * reason attached.
+ */
+async function handleInitiationFailure(data: Record<string, unknown>): Promise<void> {
+  const callSid = extractCallSid(data);
+  const taskId = extractTaskId(data);
+  const verdict = outcomeFromInitiationFailure(data as unknown as InitiationFailure);
+
+  console.info("[voice-outbound] the call could not be placed", {
+    callSid,
+    taskId,
+    ...verdict,
+  });
+
+  // The transcript row was opened at dispatch, before ElevenLabs was asked to
+  // dial. Nothing was ever said on it, so it closes as failed rather than
+  // hanging in `in_progress` until the retention purge finds it.
+  if (callSid) {
+    await endCall(callSid, { status: "failed", durationSeconds: 0 }).catch((err) => {
+      console.error("[voice-outbound] could not close the transcript:", err);
+    });
+  }
+
+  try {
+    if (verdict.retryable && taskId) {
+      const result = await failCallTask(taskId, `call not placed: ${verdict.reason}`);
+      if (!result.ok) {
+        console.error("[voice-outbound] could not requeue the call task", { taskId, result });
+      }
+      return;
+    }
+
+    if (!callSid) {
+      console.error(
+        "[voice-outbound] initiation failure with neither a correlation id nor a task id — nothing to record",
+      );
+      return;
+    }
+
+    const result = await completeCallTask(callSid, {
+      outcome: verdict.outcome,
+      outcomeDetail: { initiation_failure: verdict.reason },
+    });
+    if (!result.ok) {
+      console.error("[voice-outbound] could not record the failure", { callSid, result });
+    }
+  } catch (err) {
+    console.error("[voice-outbound] initiation-failure handling threw:", err);
+  }
 }

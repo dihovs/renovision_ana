@@ -1,3 +1,4 @@
+import { isMissingColumn, refuse, type ConversionResult } from "./conversions";
 import { db, isMissingTable, MigrationPendingError } from "./db";
 import type {
   Client,
@@ -6,6 +7,7 @@ import type {
   Property,
   PropertyInput,
 } from "./types";
+import { clientDisplayName } from "./types";
 
 /**
  * Clients and their properties.
@@ -181,14 +183,28 @@ export async function countClients(): Promise<number> {
 export async function createClient(
   input: ClientInput,
   property?: PropertyInput,
+  options: { leadId?: string | null } = {},
 ): Promise<string> {
   const client = requireDb();
+  const columns = clientColumns(input);
 
-  const { data, error } = await client
-    .from("clients")
-    .insert(clientColumns(input))
-    .select("id")
-    .single();
+  let insert = options.leadId
+    ? await client
+        .from("clients")
+        .insert({ ...columns, lead_id: options.leadId })
+        .select("id")
+        .single()
+    : await client.from("clients").insert(columns).select("id").single();
+
+  // `clients.lead_id` arrives with migration 0019, and these are applied by
+  // hand. Until it exists, fall back to a plain insert: the lead still gets
+  // linked from its own side, which is how this worked before.
+  if (insert.error && options.leadId && isMissingColumn(insert.error)) {
+    console.warn("[clients] clients.lead_id is missing — run supabase/migrations/0019_conversions.sql");
+    insert = await client.from("clients").insert(columns).select("id").single();
+  }
+
+  const { data, error } = insert;
 
   if (error) {
     if (isMissingTable(error)) throw new MigrationPendingError("clients");
@@ -198,7 +214,7 @@ export async function createClient(
     throw new Error(`Could not create client: ${error.message}`);
   }
 
-  const id = data.id as string;
+  const id = data!.id as string;
 
   if (property && hasAnyAddress(property)) {
     try {
@@ -274,14 +290,75 @@ export async function archiveProperty(id: string): Promise<void> {
   if (error) throw new Error(`Could not remove property: ${error.message}`);
 }
 
+/** Enough of a client row to say who it is and whether it is still on the board. */
+type ClientStub = Pick<Client, "id" | "first_name" | "last_name" | "company_name" | "archived_at">;
+
+const CLIENT_STUB_COLUMNS = "id, first_name, last_name, company_name, archived_at";
+
+async function loadClientStub(id: string): Promise<ClientStub | null> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("clients")
+    .select(CLIENT_STUB_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Could not read the client: ${error.message}`);
+  return (data as ClientStub | null) ?? null;
+}
+
+/**
+ * The client this lead was already turned into, found from the CLIENT's side.
+ *
+ * The link is written twice on purpose. `leads.client_id` is the one the lead
+ * pipeline reads; `clients.lead_id` (migration 0019, with a unique index behind
+ * it) is the one that makes a second conversion impossible even when the first
+ * write failed halfway. Returns null — not an error — before 0019 is applied,
+ * so lead conversion keeps working on a schema one file behind.
+ */
+async function findClientForLead(leadId: string): Promise<ClientStub | null> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("clients")
+    .select(CLIENT_STUB_COLUMNS)
+    .eq("lead_id", leadId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingColumn(error)) return null;
+    throw new Error(`Could not check whether the lead was already converted: ${error.message}`);
+  }
+  return (data as ClientStub | null) ?? null;
+}
+
+/** Point the lead at its client. Best effort, retried once. */
+async function linkLeadToClient(leadId: string, clientId: string): Promise<boolean> {
+  const client = requireDb();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { error } = await client.from("leads").update({ client_id: clientId }).eq("id", leadId);
+    if (!error) return true;
+    if (attempt === 1) {
+      console.error(`[clients] client ${clientId} created but lead ${leadId} link failed:`, error.message);
+    }
+  }
+  return false;
+}
+
 /**
  * Turn an existing lead into a client, keeping the lead row intact.
  *
  * The lead is the customer's own words and the estimator's original numbers;
  * the client is the tidied record. Replacing one with the other loses the
  * evidence of what was actually asked for, so both are kept and linked.
+ *
+ * Idempotent. A lead that already has a client hands that client back; a lead
+ * whose client was created but never linked (the first write succeeded, the
+ * second didn't) is re-linked rather than converted twice — which is what
+ * `clients.lead_id` is for. A client that has since been ARCHIVED refuses
+ * instead: silently reopening a record the owner deliberately filed away is
+ * indistinguishable from the button doing nothing.
  */
-export async function convertLeadToClient(leadId: string): Promise<string> {
+export async function convertLeadToClient(leadId: string): Promise<ConversionResult> {
   const client = requireDb();
 
   const { data: lead, error: readError } = await client
@@ -290,9 +367,31 @@ export async function convertLeadToClient(leadId: string): Promise<string> {
     .eq("id", leadId)
     .maybeSingle();
 
-  if (readError) throw new Error(`Could not read lead: ${readError.message}`);
-  if (!lead) throw new Error("Lead not found");
-  if (lead.client_id) return lead.client_id as string;
+  if (readError) {
+    if (isMissingTable(readError)) throw new MigrationPendingError("leads");
+    throw new Error(`Could not read lead: ${readError.message}`);
+  }
+  if (!lead) refuse("not_found", "That lead no longer exists.");
+
+  // Either side of the link will do. The lead's own pointer is checked first
+  // because it is the one that exists on every schema.
+  const existing =
+    (lead.client_id ? await loadClientStub(lead.client_id as string) : null) ??
+    (await findClientForLead(leadId));
+
+  if (existing) {
+    if (existing.archived_at) {
+      refuse(
+        "already_converted",
+        `This lead is already ${clientDisplayName(existing)}, whose client record is archived. ` +
+          `Restore that client rather than converting the lead again.`,
+      );
+    }
+    // Self-healing: puts the lead's own pointer back if that write was the half
+    // that failed last time.
+    if (!lead.client_id) await linkLeadToClient(leadId, existing.id);
+    return { id: existing.id, created: false };
+  }
 
   const name = String(lead.name ?? "").trim();
   const space = name.lastIndexOf(" ");
@@ -326,15 +425,10 @@ export async function convertLeadToClient(leadId: string): Promise<string> {
     // street1 and can be corrected there; guessing at a city/postcode split
     // would put invented data in the record.
     lead.address ? { street1: String(lead.address) } : undefined,
+    { leadId },
   );
 
-  const { error: linkError } = await client
-    .from("leads")
-    .update({ client_id: clientId })
-    .eq("id", leadId);
-  if (linkError) {
-    console.error("[clients] client created but lead link failed:", linkError.message);
-  }
+  await linkLeadToClient(leadId, clientId);
 
-  return clientId;
+  return { id: clientId, created: true };
 }

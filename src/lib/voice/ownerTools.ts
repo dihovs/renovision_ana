@@ -1,5 +1,13 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import {
+  isCallTaskKind,
+  lastFour,
+  queueDictatedCall,
+  spokenWhen,
+  toE164,
+} from "@/lib/crm/callScheduler";
 import { countClients } from "@/lib/crm/clients";
+import { resolveContact, type ContactMatch } from "@/lib/crm/contactMatch";
 import { countJobsByStatus, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
@@ -11,13 +19,24 @@ import type { OwnerSession } from "./owner";
 /**
  * What Ana can look up once the owner has authenticated.
  *
- * THE WHOLE SURFACE IS READ-ONLY, with exactly one exception: capture_task
- * appends a line to the owner's own to-do list. Nothing here sends an email or
- * a text, edits or deletes a client, quote, job or invoice, moves money,
- * changes a setting, or touches the public website. That boundary — not the
- * spoken PIN — is the real security control: a PIN said out loud can be
- * overheard, so the worst outcome of that has to be someone hearing this
- * quarter's numbers and adding a note, never a payment or a deletion.
+ * THE SURFACE IS READ-ONLY WITH TWO EXCEPTIONS: capture_task appends a line to
+ * the owner's own to-do list, and queue_customer_call puts a notification call
+ * in the outbound queue. Nothing here sends an email or a text, edits or deletes
+ * a client, quote, job or invoice, moves money, changes a setting, or touches
+ * the public website. That boundary — not the spoken PIN — is the real security
+ * control: a PIN said out loud can be overheard, so the worst outcome of that
+ * has to be someone hearing this quarter's numbers, never a payment or a
+ * deletion.
+ *
+ * QUEUE_CUSTOMER_CALL IS THE ONE THAT REACHES OUTSIDE, so its boundary is drawn
+ * tighter than the others. The destination number is read off a resolved CRM
+ * record and nothing else — there is no "call this number" argument, and adding
+ * one would turn an overheard PIN from an information leak into a way to make
+ * this company's phone line dial strangers. A name that does not resolve to
+ * exactly one client is a question Ana asks, never a guess the model makes. And
+ * the three permitted kinds are the three the schema allows, which are the three
+ * that are lawful without express consent (Docs/Voice-Outbound-Compliance.md
+ * §4.3) — an errand outside them is refused rather than reshaped into one.
  *
  * There is deliberately no "run a query" tool. Every answer below is composed
  * from the same aggregation functions the admin dashboard calls, which means
@@ -207,6 +226,41 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["text"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "queue_customer_call",
+    description:
+      "Have Ana phone one of our customers with a short operational notice about work they have already booked. Use it when the owner says to let someone know something — the crew is running late, the appointment has moved, tomorrow is still on.\n" +
+      "THREE KINDS ONLY: crew_on_way (the crew is on the way, or running late), schedule_change (the appointment time has moved), confirm_visit (checking a booked appointment still stands). If what he wants is anything else — chasing a quote, asking for a decision, a sales or marketing message, or a personal message — DO NOT pick the closest kind. Tell him that call cannot be placed automatically and offer to write it down as a task instead.\n" +
+      "You cannot dial a number. You give a customer's name and it is matched against the client list; the number comes off their record. If the owner reads out a phone number, ignore it and use the name.\n" +
+      "If several clients match the name you will be told so and given the list: read it to him, ask which one he means, and call this tool again with the fuller name. Never choose for him.\n" +
+      "Afterwards, repeat back who is being called and what they will be told, so he can catch a misheard name before anyone is phoned.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "The customer, as the owner said it. A surname alone is fine.",
+        },
+        kind: {
+          type: "string",
+          enum: ["crew_on_way", "schedule_change", "confirm_visit"],
+          description: "Why we are calling. Only these three.",
+        },
+        message: {
+          type: "string",
+          description:
+            "What Ana should tell them, in one short sentence and in the owner's own words. Write times and dates the way a person says them out loud — 'around three this afternoon', not '15:00'.",
+        },
+        language: {
+          type: "string",
+          enum: ["fr", "en"],
+          description: "The customer's language, if the owner said. Defaults to French.",
+        },
+      },
+      required: ["name", "kind", "message"],
       additionalProperties: false,
     },
   },
@@ -409,7 +463,110 @@ const HANDLERS: Record<string, Handler> = {
     }
     return `NOT SAVED. The write failed. Tell the owner the note was not saved and he should write it down: "${text}".`;
   },
+
+  async queue_customer_call(input) {
+    const spokenName = asString(input.name);
+    if (!spokenName) return "Nothing queued — no customer was named. Ask the owner who to call.";
+
+    const message = asString(input.message);
+    if (!message) {
+      return "Nothing queued — there is nothing to tell them. Ask the owner what the message is.";
+    }
+
+    // The schema restricts this, but the schema is a suggestion to a model and
+    // the constraint in the database is not. Refusing here means an errand we
+    // are not allowed to place ends as a sentence rather than as a 400 — and
+    // more importantly, it never gets quietly rounded to a kind that IS allowed.
+    const kind = asString(input.kind);
+    if (!isCallTaskKind(kind)) {
+      return [
+        `NOT QUEUED. "${kind ?? "that"}" is not a kind of call Ana can place.`,
+        "She can only tell a customer that the crew is on the way, that the appointment time has moved, or that a booked appointment still stands.",
+        "Tell the owner plainly that this one cannot be done automatically, and offer to write it down as a task for him instead. Do not queue a different kind of call.",
+      ].join(" ");
+    }
+
+    const language = input.language === "en" ? "en" : "fr";
+
+    const resolved = await resolveContact(spokenName);
+    if (resolved.kind === "none") {
+      return `NOT QUEUED. Nobody on the client list matches "${spokenName}". Ask the owner to say the name again or spell the surname. Do not invent a client and do not try another name yourself.`;
+    }
+    if (resolved.kind === "ambiguous") {
+      const options = resolved.matches
+        .map((match, index) => `${index + 1}. ${describeMatch(match)}`)
+        .join("\n");
+      return [
+        `NOT QUEUED — "${spokenName}" matches more than one client and you must not choose between them.`,
+        "Read these out to the owner and ask which one he means, then call queue_customer_call again with the fuller name he gives you:",
+        options,
+      ].join("\n");
+    }
+
+    const result = await queueDictatedCall({
+      clientId: resolved.match.clientId,
+      kind,
+      message,
+      locale: language,
+    });
+
+    const who = result.ok ? result.clientName : (result.clientName ?? resolved.match.displayName);
+
+    if (result.ok) {
+      return [
+        `Queued. Ana will call ${who} on the number ending ${lastFour(result.toNumber)} to say: "${message}".`,
+        `It goes out ${whenItGoes(result.notBefore)}.`,
+        "Say back to the owner who is being called and what they will be told, so he can stop it now if that is the wrong person.",
+      ].join(" ");
+    }
+
+    // Every branch below has to leave the owner certain that no call is coming.
+    // Same rule as capture_task: claiming a write that did not happen is worse
+    // than not having the feature, and here the thing he would stop chasing is
+    // a customer waiting on news.
+    if (result.reason === "do_not_call") {
+      return `NOT QUEUED. ${who} has asked not to be called by the automated assistant, and that is permanent. Tell the owner she opted out, that nobody will be dialled, and that he can phone her himself if it matters.`;
+    }
+    if (result.reason === "no_phone") {
+      return `NOT QUEUED. ${who} is on file but there is no number on the record we can dial. Tell the owner the client record needs a working phone number.`;
+    }
+    if (result.reason === "no_client") {
+      return `NOT QUEUED. The client record for ${who} could not be read back. Tell the owner nobody will be called.`;
+    }
+    if (result.reason === "migration_pending") {
+      return `NOT QUEUED. The call_tasks table does not exist yet — migration 0018 has not been run. Tell the owner that nobody will be called and he should phone ${who} himself.`;
+    }
+    if (result.reason === "unconfigured") {
+      return `NOT QUEUED. The database is not connected. Tell the owner nobody will be called and he should phone ${who} himself.`;
+    }
+    return `NOT QUEUED. The write failed. Tell the owner nobody will be called and he should phone ${who} himself.`;
+  },
 };
+
+/** One line of an ambiguous list, short enough to be read down a phone. */
+function describeMatch(match: ContactMatch): string {
+  const number = toE164(match.phone);
+  const contact = number
+    ? `number ending ${lastFour(number)}`
+    : match.phone
+      ? "number on file cannot be dialled"
+      : "no number on file";
+  const person = match.personName ? ` (${match.personName})` : "";
+  return `${match.displayName}${person} — ${contact}`;
+}
+
+/**
+ * When the call actually goes out, in words.
+ *
+ * `not_before` is a floor, not an appointment — the dialer still has the last
+ * word — so this is deliberately vague about the near case and precise only
+ * when the queue-time courtesy has pushed it to another day.
+ */
+function whenItGoes(notBefore: string): string {
+  const at = new Date(notBefore);
+  if (at.getTime() - Date.now() <= 5 * 60_000) return "shortly, on the dialer's next run";
+  return `no earlier than ${spokenWhen(notBefore, "en")}`;
+}
 
 function describeCounts(counts: Record<string, number>): string {
   const entries = Object.entries(counts).filter(([, n]) => n > 0);

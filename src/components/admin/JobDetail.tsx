@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useId, useState, useTransition } from "react";
 import { inputClass, labelClass } from "./AddressFields";
 import type { JobState } from "@/app/admin/jobs/actions";
+import type { ConversionState } from "@/lib/crm/conversions";
 import { formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
 import { JOB_STATUS_LABEL, type DocumentLine, type JobStatus, type Visit } from "@/lib/crm/opsTypes";
 
@@ -29,6 +30,7 @@ export default function JobDetail({
   completeVisitAction,
   removeVisitAction,
   invoiceAction,
+  scheduleNextAction,
   recurrenceSlot,
   checklistSlot,
 }: {
@@ -42,7 +44,9 @@ export default function JobDetail({
   addVisitAction: (prev: JobState, formData: FormData) => Promise<JobState>;
   completeVisitAction: (visitId: string, completed: boolean) => Promise<void>;
   removeVisitAction: (visitId: string) => Promise<void>;
-  invoiceAction: (depositPercent?: number) => Promise<void>;
+  invoiceAction: (depositPercent?: number) => Promise<ConversionState>;
+  /** One press: next working day, 08:00–12:00, which the owner can then move. */
+  scheduleNextAction: () => Promise<ConversionState>;
   // Server-rendered cards slotted in by the page: the recurrence card sits
   // right under the visits it generates, the checklist under that. Slots
   // rather than props keep this file out of the recurrence business entirely.
@@ -51,15 +55,28 @@ export default function JobDetail({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [visitState, runAddVisit, addingVisit] = useActionState(addVisitAction, {} as JobState);
   const visitFormId = useId();
 
-  function run(fn: () => Promise<void>) {
+  /**
+   * Run a server action and put whatever it says on the screen.
+   *
+   * Conversions RETURN their refusal rather than throwing it — Next replaces a
+   * thrown server-action message with a generic digest in production, and the
+   * whole point of "job #1042 was cancelled" is that it tells the owner what to
+   * do next. The catch is still here for the actions that predate that and for
+   * genuine faults.
+   */
+  function run(fn: () => Promise<void | ConversionState>) {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       try {
-        await fn();
+        const result = await fn();
+        if (result?.error) setError(result.error);
+        else if (result?.ok) setNotice(result.ok);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong.");
       }
@@ -84,6 +101,15 @@ export default function JobDetail({
           className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
         >
           {error}
+        </p>
+      )}
+
+      {notice && (
+        <p
+          role="status"
+          className="rounded-lg border border-brand-green/30 bg-brand-green/[0.06] px-3 py-2 text-sm font-medium text-brand-green-dark"
+        >
+          {notice}
         </p>
       )}
 
@@ -134,13 +160,29 @@ export default function JobDetail({
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-sm font-bold text-charcoal">Visits</h2>
           {!adding && (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="cursor-pointer text-xs font-bold text-brand-blue transition-colors hover:text-brand-blue/70"
-            >
-              + Schedule a visit
-            </button>
+            <div className="flex items-center gap-3">
+              {/* The answer to "when?" is almost always "tomorrow morning".
+                  Making that cost three form fields is why jobs sit
+                  unscheduled for a week, so it gets its own press — and the
+                  form beside it still does everything it did. */}
+              {status !== "cancelled" && (
+                <button
+                  type="button"
+                  onClick={() => run(() => scheduleNextAction())}
+                  disabled={pending}
+                  className="cursor-pointer rounded-lg bg-brand-green px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-green-dark disabled:opacity-50"
+                >
+                  Next working day
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="cursor-pointer text-xs font-bold text-brand-blue transition-colors hover:text-brand-blue/70"
+              >
+                + Pick a date
+              </button>
+            </div>
           )}
         </div>
 

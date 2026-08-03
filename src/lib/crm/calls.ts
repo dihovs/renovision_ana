@@ -16,6 +16,18 @@ export type CallTurn = {
   at: string;
   model?: string;
   escalated?: boolean;
+  /**
+   * Set when a guardrail tripped on this turn — today only the no-solicitation
+   * deny-list (src/lib/voice/solicitation.ts), in the shape
+   * `solicitation:<scope>:<rule>:<token>`.
+   *
+   * Docs/Voice-Outbound-Compliance.md §10D(15)(c) asks for a review flag on any
+   * transcript containing solicitation, and §10H(41) for a monthly read of a
+   * sample of them. It lives on the turn rather than on the call because the
+   * useful question is "which sentence", and it rides in the existing jsonb
+   * column so there is no migration for the owner to run by hand.
+   */
+  flagged?: string;
 };
 
 export type StoredCall = {

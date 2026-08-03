@@ -23,7 +23,8 @@ import {
   type QuoteStatus,
   type QuoteWithLines,
 } from "./quoteTypes";
-import { clientDisplayName, clientPersonName, primaryEmail, primaryPhone } from "./types";
+import { clientSnapshotOf, propertySnapshotOf } from "./snapshots";
+import { clientDisplayName } from "./types";
 
 /**
  * Quotes.
@@ -444,53 +445,14 @@ export async function sendQuote(id: string): Promise<{ token: string }> {
 
   if (clientRow.error || !clientRow.data) throw new Error("Could not load the client to send to.");
 
-  const c = clientRow.data as Parameters<typeof clientDisplayName>[0] & {
-    emails?: never[];
-    phones?: never[];
-    billing_street1: string | null;
-    billing_street2: string | null;
-    billing_city: string | null;
-    billing_province: string | null;
-    billing_postal_code: string | null;
-    billing_country: string | null;
-    tax_rate_id: string | null;
-  };
+  // The field mapping lives in snapshots.ts, shared with the job that gets
+  // started straight from a client with no quote — two copies of it is how one
+  // of them ends up missing a line of the address.
+  const c = clientRow.data as Parameters<typeof clientSnapshotOf>[0];
+  const p = (propertyRow.data ?? null) as Parameters<typeof propertySnapshotOf>[0];
 
-  const clientSnapshot: ClientSnapshot = {
-    displayName: clientDisplayName(c),
-    personName: clientPersonName(c),
-    email: primaryEmail({ emails: (c.emails ?? []) as never }),
-    phone: primaryPhone({ phones: (c.phones ?? []) as never }),
-    street1: c.billing_street1,
-    street2: c.billing_street2,
-    city: c.billing_city,
-    province: c.billing_province,
-    postalCode: c.billing_postal_code,
-    country: c.billing_country,
-  };
-
-  const p = propertyRow.data as {
-    street1: string | null;
-    street2: string | null;
-    city: string | null;
-    province: string | null;
-    postal_code: string | null;
-    country: string | null;
-    access_notes: string | null;
-    tax_rate_id: string | null;
-  } | null;
-
-  const propertySnapshot: PropertySnapshot | null = p
-    ? {
-        street1: p.street1,
-        street2: p.street2,
-        city: p.city,
-        province: p.province,
-        postalCode: p.postal_code,
-        country: p.country,
-        accessNotes: p.access_notes,
-      }
-    : null;
+  const clientSnapshot: ClientSnapshot = clientSnapshotOf(c);
+  const propertySnapshot: PropertySnapshot | null = propertySnapshotOf(p);
 
   // Resolve the rate one last time while it is still live, then freeze it.
   const taxSnapshot = await resolveQuoteTaxRate(quote, c.tax_rate_id, p?.tax_rate_id);
