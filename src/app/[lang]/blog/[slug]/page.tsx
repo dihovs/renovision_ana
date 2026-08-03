@@ -37,6 +37,9 @@ export async function generateMetadata({
     title: post[locale].title,
     description: post[locale].metaDescription,
     path: `/blog/${post.slug}`,
+    // Same source date as the BlogPosting JSON-LD on this page — the two must
+    // never disagree or crawlers pick one at random.
+    article: { publishedTime: post.publishedAt },
   });
 }
 

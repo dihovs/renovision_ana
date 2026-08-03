@@ -28,11 +28,20 @@ export function buildMetadata({
   title,
   description,
   path = "/",
+  article,
 }: {
   locale: Locale;
   title: string;
   description: string;
   path?: string;
+  /**
+   * Blog posts only: flips og:type from "website" to "article" and emits
+   * article:published_time, which crawlers use for freshness/date display.
+   * `publishedTime` is passed through verbatim — a bare YYYY-MM-DD is valid
+   * ISO 8601 and dodges the UTC-midnight rollback that stamping a fake time
+   * on it would invite (see parseBlogDate in blogPosts.ts).
+   */
+  article?: { publishedTime: string };
 }): Metadata {
   const url = localeUrl(locale, path);
   const alternateLocale: Locale = locale === "fr" ? "en" : "fr";
@@ -47,6 +56,15 @@ export function buildMetadata({
   // the homepage got og:image, inner pages did not. So each page must point
   // at the generated route explicitly; metadataBase makes the URL absolute.
   const ogImage = { url: "/opengraph-image", width: 1200, height: 630 };
+  const openGraphShared = {
+    title: socialTitle,
+    description,
+    url,
+    siteName: SITE_NAME,
+    locale: OG_LOCALE[locale],
+    alternateLocale: OG_LOCALE[alternateLocale],
+    images: [ogImage],
+  };
   return {
     title,
     description,
@@ -58,16 +76,11 @@ export function buildMetadata({
         "x-default": localeUrl("fr", path),
       },
     },
-    openGraph: {
-      title: socialTitle,
-      description,
-      url,
-      siteName: SITE_NAME,
-      locale: OG_LOCALE[locale],
-      alternateLocale: OG_LOCALE[alternateLocale],
-      type: "website",
-      images: [ogImage],
-    },
+    // Two literals rather than a computed `type`: Metadata's openGraph is a
+    // discriminated union, and only the "article" arm accepts publishedTime.
+    openGraph: article
+      ? { ...openGraphShared, type: "article", publishedTime: article.publishedTime }
+      : { ...openGraphShared, type: "website" },
     twitter: {
       card: "summary_large_image",
       title: socialTitle,
