@@ -24,6 +24,10 @@ const LEAD_SOURCE_LABELS: Record<string, string> = {
   website: "Website",
   phone: "Phone",
   whatsapp: "Referral",
+  // Ana's post-call extraction (lib/voice/postCallLead). A distinct id so the
+  // pipeline can tell her leads apart, but the same picker label as any other
+  // call — without this row, converting one mis-attributed it to "Website".
+  voice: "Phone",
 };
 
 function requireDb() {

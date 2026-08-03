@@ -207,6 +207,32 @@ export async function endCall(
   if (error) console.error("[calls] could not end:", error.message);
 }
 
+/**
+ * Attach the post-call extraction to a finished call.
+ *
+ * Deliberately not endCall(), although endCall accepts both fields: endCall
+ * stamps status and ended_at on every write, and this runs seconds AFTER the
+ * webhook already closed the row with the real duration — reusing it would
+ * quietly move ended_at to "when the extraction finished" and default a
+ * failed call back to completed. Only the two columns the extraction owns
+ * are touched here.
+ */
+export async function attachLeadToCall(
+  callSid: string,
+  input: { brief?: ProjectBrief | null; leadId?: string | null },
+): Promise<void> {
+  const supabase = client();
+  if (!supabase) return;
+
+  const patch: Record<string, unknown> = {};
+  if (input.brief) patch.project_brief = input.brief;
+  if (input.leadId) patch.lead_id = input.leadId;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await supabase.from("calls").update(patch).eq("call_sid", callSid);
+  if (error) console.error("[calls] could not attach the extraction:", error.message);
+}
+
 export async function listCalls(limit = 100): Promise<StoredCall[]> {
   const supabase = client();
   if (!supabase) return [];
