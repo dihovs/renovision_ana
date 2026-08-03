@@ -7,7 +7,7 @@ import type { ConversionState } from "@/lib/crm/conversions";
 import AdminNotice from "./AdminNotice";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 import AskClaude from "./AskClaude";
-import type { ProjectBrief } from "@/lib/projectBrief";
+import ProjectBriefCard from "./ProjectBriefCard";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
   new: "New",
@@ -179,7 +179,13 @@ function LeadCard({
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+    <li
+      // Link target for /admin/calls, which addresses a call's lead as
+      // `#lead-<id>`. scroll-mt clears the sticky header, same as CallList.
+      // The browser scrolls here; the card does not auto-open on the hash.
+      id={`lead-${lead.id}`}
+      className="scroll-mt-20 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm"
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -268,7 +274,7 @@ function LeadCard({
 
           {/* The brief sits directly under the call button because that is the
               order you use it in: read the job, then phone them. */}
-          {lead.project_brief && <Brief brief={lead.project_brief} />}
+          {lead.project_brief && <ProjectBriefCard brief={lead.project_brief} />}
 
           {/* Rendered only while the card is open, so a list of thirty leads
               doesn't mount thirty assistant panels. */}
@@ -540,51 +546,3 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * What the assistant established during the chat.
- *
- * Facts and open questions are visually separated on purpose: one is what you
- * know, the other is what you still have to ask, and mixing them is how a
- * guess becomes a measurement between the chat and the site visit.
- */
-function Brief({ brief }: { brief: ProjectBrief }) {
-  return (
-    <section className="mt-4 rounded-lg border border-black/10 bg-black/[0.015] p-3">
-      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-charcoal/45">The job</p>
-
-      {brief.headline && (
-        <p className="font-heading text-sm font-bold text-brand-blue">{brief.headline}</p>
-      )}
-
-      {brief.facts.length > 0 && (
-        <dl className="mt-2 space-y-1">
-          {brief.facts.map((fact) => (
-            <div key={`${fact.label}-${fact.value}`} className="flex gap-2 text-sm">
-              <dt className="w-28 shrink-0 text-charcoal/50">{fact.label}</dt>
-              <dd className="min-w-0 flex-1 text-charcoal/85">{fact.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      {brief.customerWords && (
-        <blockquote className="mt-3 border-l-[3px] border-black/10 pl-2.5 text-sm italic leading-relaxed text-charcoal/65">
-          {brief.customerWords}
-        </blockquote>
-      )}
-
-      {brief.openQuestions && brief.openQuestions.length > 0 && (
-        <div className="mt-3 rounded-md bg-amber-50 p-2.5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800/80">
-            Still to confirm
-          </p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-amber-900/85">
-            {brief.openQuestions.map((question) => (
-              <li key={question}>{question}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}

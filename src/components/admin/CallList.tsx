@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import AskClaude from "./AskClaude";
+import ProjectBriefCard from "./ProjectBriefCard";
 import type { StoredCall } from "@/lib/crm/calls";
 
 /**
@@ -183,6 +184,20 @@ export default function CallList({ calls }: { calls: StoredCall[] }) {
                     </p>
                   )}
                 </div>
+
+                {/* Written by the post-call extraction (lib/voice/postCallLead)
+                    — the job sheet, so the owner doesn't re-read forty turns
+                    to learn which room it was. */}
+                {call.project_brief && <ProjectBriefCard brief={call.project_brief} />}
+
+                {call.lead_id && (
+                  <a
+                    href={`/admin/leads#lead-${call.lead_id}`}
+                    className="mt-3 inline-block text-sm font-bold text-brand-blue hover:underline"
+                  >
+                    Open this call&apos;s lead in the pipeline →
+                  </a>
+                )}
 
                 <p className="mt-3 text-[11px] text-charcoal/40">
                   Text only. No audio of this call was recorded or stored.

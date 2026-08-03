@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { completeCallTask, failCallTask } from "@/lib/crm/callTasks";
 import { endCall } from "@/lib/crm/calls";
+import { fileLeadFromCall } from "@/lib/voice/postCallLead";
 import {
   outcomeFromInitiationFailure,
   outcomeFromPostCall,
@@ -177,9 +178,17 @@ export async function POST(request: Request) {
     console.error("[voice-el] could not close the transcript:", err);
   }
 
-  // Inbound stops here, exactly as it always has.
   if (isOutbound(payload.data, callSid)) {
     await recordOutboundOutcome(callSid, payload.data as unknown as PostCallData);
+  } else {
+    // Inbound only: the finished transcript may now become a CRM lead.
+    // Everything in there is a logged no-op on failure — this webhook's 200
+    // is what keeps transcripts flowing at all (the auto-disable note above),
+    // and no extraction is worth risking it. fileLeadFromCall never throws by
+    // construction; the catch is the belt on those braces.
+    await fileLeadFromCall(callSid).catch((err) => {
+      console.error("[voice-lead] post-call extraction crashed:", err);
+    });
   }
 
   return new Response("", { status: 200 });

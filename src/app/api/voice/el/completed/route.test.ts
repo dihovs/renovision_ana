@@ -19,9 +19,13 @@ vi.mock("@/lib/crm/callTasks", () => ({
   completeCallTask: vi.fn(async () => ({ ok: true, changed: 1 })),
   failCallTask: vi.fn(async () => ({ ok: true, changed: 1 })),
 }));
+// Mocked whole: the real thing calls a model and a database, and what the
+// webhook owes it is only the routing — inbound yes, outbound never.
+vi.mock("@/lib/voice/postCallLead", () => ({ fileLeadFromCall: vi.fn(async () => {}) }));
 
 const { endCall } = await import("@/lib/crm/calls");
 const { completeCallTask, failCallTask } = await import("@/lib/crm/callTasks");
+const { fileLeadFromCall } = await import("@/lib/voice/postCallLead");
 const { POST } = await import("./route");
 
 const OUTBOUND_SID = "task_9f2c1ab74e6d4f0e9b3a5c8d10e2f7a4";
@@ -65,7 +69,7 @@ describe("the post-call webhook", () => {
     expect(response.status).toBe(403);
   });
 
-  it("leaves the inbound path exactly as it was", async () => {
+  it("closes the inbound transcript and hands it to lead extraction", async () => {
     const response = await POST(
       signed({
         type: "post_call_transcription",
@@ -82,9 +86,25 @@ describe("the post-call webhook", () => {
       status: "completed",
       durationSeconds: 42,
     });
+    // Extraction runs AFTER the close, so a broken extraction can never cost
+    // the transcript its ending.
+    expect(fileLeadFromCall).toHaveBeenCalledWith("CA1234567890");
     // No queue row exists for a call the customer placed.
     expect(completeCallTask).not.toHaveBeenCalled();
     expect(failCallTask).not.toHaveBeenCalled();
+  });
+
+  it("still returns 200 when lead extraction rejects", async () => {
+    vi.mocked(fileLeadFromCall).mockRejectedValueOnce(new Error("anthropic is down"));
+
+    const response = await POST(
+      signed({
+        type: "post_call_transcription",
+        data: { status: "done", dynamic_variables: { call_sid: "CA1234567890" } },
+      }),
+    );
+
+    expect(response.status).toBe(200);
   });
 
   it("records the outcome of a call we placed", async () => {
@@ -127,6 +147,9 @@ describe("the post-call webhook", () => {
       contact_verified: true,
       transcript_summary: "She confirmed tomorrow at nine.",
     });
+    // Guardrail 2(a): a call WE placed must never become a lead — the person
+    // on the other end is already a client with a queue row about them.
+    expect(fileLeadFromCall).not.toHaveBeenCalled();
   });
 
   it("still returns 200 when the outcome write fails", async () => {
