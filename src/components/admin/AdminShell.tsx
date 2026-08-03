@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import GlobalSearch from "./GlobalSearch";
+import TaskBar from "./TaskBar";
 import {
   IconBuilding,
   IconCalendar,
@@ -291,6 +292,11 @@ export default function AdminShell({
           {/* Carries ml-auto itself, so it and the sign-out control sit
               together on the right. */}
           <GlobalSearch />
+
+          {/* In the header rather than only on /admin/tasks, because the
+              moment a task occurs to him is never the moment he is looking at
+              the task page — it is halfway through an invoice. */}
+          <TaskBar />
 
           <div className="flex items-center gap-3">{onSignOut}</div>
         </header>

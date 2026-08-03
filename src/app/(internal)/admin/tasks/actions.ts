@@ -8,10 +8,12 @@ import { setOwnerTaskDone } from "@/lib/crm/tasks";
 /**
  * Two mutations, both subtractive.
  *
- * Notes are dictated, never typed here — there is no create form on purpose,
- * because the whole point of the table is that the owner's hands are busy when
- * he thinks of these. Calls are queued by the scheduler, never by hand, so the
- * only thing this screen can do to one is stop it.
+ * There is no create form on THIS screen, and that is not an oversight: a note
+ * is typed into the header task bar (see components/admin/TaskBar.tsx) or
+ * dictated to Ana on the phone, both of which work from wherever he already
+ * is. A second create form on the page he has to navigate to would be the
+ * least useful of the three. Calls are queued by the scheduler, never by hand,
+ * so the only thing this screen can do to one is stop it.
  *
  * There is deliberately no "place this call now". Whether a number may be
  * dialled at this minute depends on permitted calling hours, the do-not-call

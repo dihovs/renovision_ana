@@ -3,9 +3,11 @@ import { db, isMissingTable } from "./db";
 /**
  * The owner's dictated to-do list (migration 0017).
  *
- * One spoken sentence, optionally with a date. This is the only write the voice
- * agent can perform in owner mode, and it is deliberately the least destructive
+ * One sentence, optionally with a date — spoken to Ana in owner mode, or typed
+ * into the header task bar. Writing a task is still the only thing the VOICE
+ * agent can do to this database, and it is deliberately the least destructive
  * thing a compromised PIN could reach: appending a line to a private list.
+ * `source` records which way a row came in, so the two never blur together.
  *
  * MIGRATIONS HERE ARE RUN BY HAND. Until the owner runs 0017 the table does not
  * exist, and this module has to say so rather than throw — a missing table must
@@ -154,6 +156,43 @@ export async function countOpenOwnerTasks(): Promise<number | null> {
     return null;
   }
   return count ?? 0;
+}
+
+/**
+ * What the task bar in the admin header shows: everything open, plus the
+ * handful ticked off in the last day.
+ *
+ * The recently-done tail is not decoration. A checkbox that makes a row vanish
+ * is a checkbox people are afraid to press — the row has to stay visible long
+ * enough to be un-ticked, and a day covers "I cleared the wrong one" without
+ * the panel filling up with history. The full record lives on /admin/tasks.
+ *
+ * One query, not two: the bar mounts on every admin page and the difference
+ * between one round trip and two is the difference between it appearing with
+ * the page and appearing after it.
+ */
+export async function loadTaskBar(
+  doneWindowHours = 24,
+  limit = 60,
+): Promise<TaskLoadResult> {
+  const supabase = db();
+  if (!supabase) return { ok: false, reason: "unconfigured" };
+
+  const cutoff = new Date(Date.now() - doneWindowHours * 3600_000).toISOString();
+
+  const { data, error } = await supabase
+    .from("owner_tasks")
+    .select("*")
+    .or(`done_at.is.null,done_at.gte.${cutoff}`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (isMissingTable(error)) return { ok: false, reason: "migration_pending" };
+    console.error("[tasks] could not load the task bar:", error.message);
+    return { ok: false, reason: "failed", detail: error.message };
+  }
+  return { ok: true, tasks: (data ?? []) as OwnerTask[] };
 }
 
 export async function setOwnerTaskDone(id: string, done: boolean): Promise<TaskUpdateResult> {

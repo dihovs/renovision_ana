@@ -56,8 +56,8 @@ export default async function TasksPage() {
 
       <section>
         <SectionHeading
-          title="Dictated notes"
-          blurb="Everything here arrived over the phone: he calls Ana, gives his PIN, and says the thing he would otherwise forget by the time he is off the roof."
+          title="Notes"
+          blurb="Two ways in, one list. Typed into the task bar at the top of any screen, or said out loud to Ana on the phone — he calls, gives his PIN, and tells her the thing he would otherwise forget by the time he is off the roof. Rows that came in by phone are marked."
         />
         <NoteSection result={noteResult} today={today} />
       </section>
@@ -195,9 +195,9 @@ function NoteSection({ result, today }: { result: TaskLoadResult; today: string 
   if (result.tasks.length === 0) {
     return (
       <AdminNotice title="Nothing on the list">
-        This list is dictated, not typed. Call Ana, give her your PIN, and tell her what you need
-        to remember — &ldquo;order the membrane for Thursday&rdquo; — and it will be waiting here,
-        with a link back to the call it came from.
+        Add one from the task bar at the top of any screen, or call Ana, give her your PIN and tell
+        her what you need to remember — &ldquo;order the membrane for Thursday&rdquo;. A dictated
+        one arrives here with a link back to the call it came from.
       </AdminNotice>
     );
   }
