@@ -1,6 +1,6 @@
 export const SITE_NAME = "Renovision AnA";
-export const SITE_PHONE = "+1 579-990-3077";
-export const SITE_PHONE_TEL = "+15799903077";
+export const SITE_PHONE = "+1 579-999-5979";
+export const SITE_PHONE_TEL = "+15799995979";
 export const SITE_EMAIL = "info@renovisionana.ca";
 // Where lead notifications (contact form + chat estimate tool) actually get delivered.
 export const LEADS_NOTIFY_EMAIL = "artush@renovisionana.ca";

@@ -12,6 +12,7 @@ import {
 import AdminNotice from "@/components/admin/AdminNotice";
 import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
 import AskClaude from "@/components/admin/AskClaude";
+import CallButton from "@/components/admin/CallButton";
 import HubLink from "@/components/admin/HubLink";
 import PropertyEditor from "@/components/admin/PropertyEditor";
 import StartJobCard from "@/components/admin/StartJobCard";
@@ -137,19 +138,17 @@ export default async function ClientDetailPage({
             {client.phones.length === 0 ? (
               <span className="text-charcoal/35">—</span>
             ) : (
-              <ul className="space-y-0.5">
+              <ul className="space-y-2">
                 {client.phones.map((phone) => (
-                  <li key={phone.number}>
-                    <a
-                      href={`tel:${phone.number.replace(/[^\d+]/g, "")}`}
-                      className="font-medium text-brand-blue hover:underline"
-                    >
-                      {phone.number}
-                    </a>
-                    <span className="ml-1.5 text-[11px] uppercase tracking-wide text-charcoal/35">
+                  <li key={phone.number} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-charcoal/85">{phone.number}</span>
+                    <span className="text-[11px] uppercase tracking-wide text-charcoal/35">
                       {phone.type}
                       {phone.smsAllowed ? " · sms ok" : ""}
                     </span>
+                    {/* This is the owner calling from his own line, not Ana —
+                        see CallButton's header for why that boundary matters. */}
+                    <CallButton phone={phone.number} label="Call" className="px-3 py-1 text-xs" />
                   </li>
                 ))}
               </ul>

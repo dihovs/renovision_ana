@@ -275,7 +275,7 @@ describe("an outbound call is a different Ana entirely", () => {
     // UTR 4(d): name, purpose, contact route, automated-not-a-person,
     // transcribed. Asserted on the bytes that go down the wire.
     expect(body).toContain("assistante automatis");
-    expect(body).toContain("579-990-3077");
+    expect(body).toContain("579-999-5979");
     expect(body).toContain("info@renovisionana.ca");
   });
 
