@@ -75,12 +75,23 @@ never require touching the other two.
    `https://www.renovisionana.ca/api/voice/el/chat` → Model ID anything
    (e.g. `ana-v1`) → API key → **Create new secret**, paste the value that
    also goes into `ELEVENLABS_CUSTOM_LLM_SECRET` in Vercel.
-5. **Security** tab: enable overrides — tick **Custom LLM extra body**
-   (this is what makes `call_sid` round-trip into every chat request) and
+5. **Security** tab: enable overrides — tick **Custom LLM extra body** and
    declare `first_message` / `language` / `voice_id` overridable. Add the
    conversation-initiation webhook URL
    (`https://www.renovisionana.ca/api/voice/el/init`) with the custom header
    matching `ELEVENLABS_WEBHOOK_SECRET`.
+
+   The toggle is HALF of what makes `call_sid` round-trip into every chat
+   request — it is only the permission. The other half, learned the hard way
+   on a real call (2026-08-02): the init webhook must return the ids in
+   **`custom_llm_extra_body`**, not only in `dynamic_variables`. Those are
+   sibling fields with different destinations — `custom_llm_extra_body` is
+   forwarded to the Custom LLM on every turn (arriving as
+   `elevenlabs_extra_body`); `dynamic_variables` only comes back on the
+   post-call webhook. With only `dynamic_variables` set, transcripts closed
+   fine (masking the bug) while every live turn logged "no call_sid on this
+   request" and owner mode could never see the caller's number. `el/init`
+   now sends both fields with the same values.
 6. Workspace **Settings**: post-call webhook URL
    (`https://www.renovisionana.ca/api/voice/el/completed`); copy the signing
    secret into `ELEVENLABS_POSTCALL_WEBHOOK_SECRET`.
