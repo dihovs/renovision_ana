@@ -94,6 +94,15 @@ export async function generateMetadata({
       title: copy.title,
       description: copy.ogDescription,
     },
+    // Search Console ownership. The token is not a secret — it is printed
+    // into every page's <head> by design — but it is env-shaped anyway so
+    // connecting GSC is a Vercel env var and a redeploy, not a code change.
+    // Absent, nothing renders and nothing breaks: the owner has not created
+    // the Search Console property yet, and an empty content="" tag would be
+    // worse than none.
+    ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+      ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
+      : {}),
   };
 }
 
