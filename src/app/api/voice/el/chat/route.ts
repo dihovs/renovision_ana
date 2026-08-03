@@ -64,23 +64,22 @@ import { looksLikeVoicemail } from "@/lib/voice/voicemail";
  * prompt ElevenLabs sends, so overriding the prompt at dispatch time changes a
  * string this route throws away. See Docs/Voice-Outbound-Research.md §0(3).
  *
- * call_sid extraction below is best-effort (confirmed unreliable on the first
- * real test call — see the comment above `priorTurns` for why that no longer
- * matters for what Claude actually sees). It is still attempted because
- * Supabase persistence (the CRM transcript, escalation stickiness, ending the
- * call on hangup) is keyed on it — when it's missing, those writes silently
- * no-op rather than breaking the call, but the transcript won't show up in
- * /admin/calls for that conversation.
+ * THE call_sid MYSTERY, SOLVED (2026-08-02, on a real call): every inbound
+ * turn logged "no call_sid on this request" because /api/voice/el/init was
+ * returning the correlation ids in `dynamic_variables` only. Dynamic variables
+ * go to the post-call webhook; what ElevenLabs forwards to a Custom LLM every
+ * turn is the SIBLING field `custom_llm_extra_body` (arriving here as
+ * `elevenlabs_extra_body`). The Security-tab toggle was on the whole time —
+ * the sender was the missing half, not the permission. init now sends both
+ * fields, so this route learns the call id and the caller's number on every
+ * turn; the same gap was why owner mode refused the owner's real number and
+ * correct PIN (`caller_phone` never arrived, so eligibility was false).
+ * The extraction stays best-effort and the derived-from-messages design stays:
+ * when the ids are missing, Supabase writes silently no-op and the call keeps
+ * working, which remains the right failure direction.
  *
- * UNVERIFIED, confirm on a call with call_sid logging enabled:
- *   - That the configured "API key" arrives as `Authorization: Bearer <key>`
- *     (this one appears to work — Forbidden responses would show in ElevenLabs'
- *     call logs as the agent going silent immediately).
- *   - Exactly where call_sid lands in the request body. The dashboard flow
- *     is: our /api/voice/el/init response sets `dynamic_variables.call_sid`,
- *     and enabling "Custom LLM extra body" in the agent's Security tab is
- *     what causes it to round-trip into every request — if that toggle was
- *     never enabled, extractCallSid() always returns null.
+ * Still UNVERIFIED on a live call: the bearer-auth arrival shape (appears to
+ * work — a Forbidden would show in ElevenLabs' logs as instant silence).
  */
 
 export const runtime = "nodejs";

@@ -149,20 +149,30 @@ export async function POST(request: Request) {
         language: locale,
       },
     },
-    // Round-tripped back to us on every /api/voice/el/chat call (via
-    // elevenlabs_extra_body, once "Custom LLM extra body" is enabled in the
-    // agent's Security tab) and on the post-call webhook (via
-    // dynamic_variables) — this is how both later hooks know which Supabase
-    // row this conversation is.
-    // caller_phone rides along for the same reason call_sid does: the chat
-    // route needs it and has no other way to get it. Owner mode checks the
-    // number against an allowlist before it will even consider a PIN, and
-    // looking it up from Supabase instead would put a database read back on
-    // the hot path of every turn — the exact thing that was taken off it.
+    // TWO channels carrying the same two facts, because they reach different
+    // destinations and neither covers the other:
     //
-    // Trustworthy to the same degree as call_sid: only ElevenLabs can reach
-    // that route (bearer secret), and ElevenLabs is echoing back what Twilio
-    // told us here. A caller cannot influence it.
+    //   - custom_llm_extra_body is what ElevenLabs forwards to the Custom LLM
+    //     on EVERY turn, arriving as `elevenlabs_extra_body` in the chat
+    //     request. This is the only way /api/voice/el/chat learns which call
+    //     it is speaking for and which number is on the line. Proven on a real
+    //     call (2026-08-02): with only dynamic_variables set, every turn
+    //     logged "no call_sid on this request", and owner mode refused the
+    //     owner's own number and correct PIN — the number simply never
+    //     arrived. The "Custom LLM extra body" toggle in the agent's Security
+    //     tab was already on; the missing half was us not sending this field.
+    //
+    //   - dynamic_variables is what comes back on the POST-CALL webhook, which
+    //     is how /api/voice/el/completed finds the calls row to close.
+    //
+    // caller_phone rides along for the same reason call_sid does: owner mode
+    // checks the number against an allowlist before it will even consider a
+    // PIN, and looking it up from Supabase instead would put a database read
+    // back on the hot path of every turn — the exact thing that was taken off
+    // it. Trustworthy to the same degree as call_sid: only ElevenLabs can
+    // reach these routes (bearer secret / signed header), and it is echoing
+    // what Twilio told it. A caller cannot influence either value.
+    custom_llm_extra_body: { call_sid: callSid ?? null, caller_phone: from },
     dynamic_variables: { call_sid: callSid ?? null, caller_phone: from },
   });
 }
