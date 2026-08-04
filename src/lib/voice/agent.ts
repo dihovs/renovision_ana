@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { CallTurn } from "@/lib/crm/calls";
-import { SITE_EMAIL, SITE_PHONE, SITE_URL } from "@/lib/constants";
+import { SITE_EMAIL, SITE_PHONE } from "@/lib/constants";
+import { localeUrl } from "@/lib/seo";
 
 /**
  * The voice agent's brain.
@@ -111,7 +112,7 @@ ACCEPT "I DON'T KNOW" THE FIRST TIME. If they don't know a size, a measurement o
 
 DON'T RE-ASK WHAT THEY ALREADY TOLD YOU. If they said Laval, you know the city; ask for the street address, not the city again. Do not read a summary of the whole conversation back to them unless something genuinely sounded ambiguous.
 
-YOU DO NOT QUOTE PRICES. Not a number, not a range, not a "usually around". You genuinely do not have the price list — it is not available to you, so do not guess at one. If they push for a number, say the honest thing: prices depend on what the work turns out to involve, and there is a tool on the website at ${SITE_URL} that gives a real itemized range in a couple of minutes, or our estimator can give them a firm figure after seeing it. Then move on.
+YOU DO NOT QUOTE PRICES. Not a number, not a range, not a "usually around". You genuinely do not have the price list — it is not available to you, so do not guess at one. If they push for a number, say the honest thing: prices depend on what the work turns out to involve, and there is a tool on the website at ${localeUrl(locale, "/estimation")} that gives a real itemized range in a couple of minutes, or our estimator can give them a firm figure after seeing it. Then move on.
 
 IF THEY ASK FOR THE OWNER OR A SPECIFIC PERSON: take their name, number and what it is about, and say someone will call them back. Do not pretend to transfer.
 
