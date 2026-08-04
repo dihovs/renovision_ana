@@ -1,7 +1,8 @@
 import crypto from "crypto";
 import { SITE_PHONE_TEL } from "@/lib/constants";
 import { callerLocale, startCall } from "@/lib/crm/calls";
-import { greeting } from "@/lib/voice/agent";
+import { greeting, ownerGreeting } from "@/lib/voice/agent";
+import { isOwnerNumber, ownerModeConfigured } from "@/lib/voice/owner";
 
 /**
  * ElevenLabs Agents — conversation initiation webhook.
@@ -92,14 +93,32 @@ export async function POST(request: Request) {
   // own. Unlike comparing `called_number`, this stays correct the day the
   // business adds a second line — a new inbound number changes what was
   // dialled, never who dialled.
+  // Kept for the log line only — see the comment on `outbound` below for why
+  // it must never be part of the decision.
   const agentId: string | undefined = body?.agent_id;
-  const outboundAgentId = process.env.ELEVENLABS_OUTBOUND_AGENT_ID;
   const digits = (value: unknown): string =>
     typeof value === "string" ? value.replace(/\D/g, "") : "";
   const ourNumber = digits(SITE_PHONE_TEL);
 
+  // DELIBERATELY NOT KEYED ON agent_id, and this is the whole bug that was
+  // here from 2026-08-03 until it was found in the logs.
+  //
+  // The original guard led with `agentId === ELEVENLABS_OUTBOUND_AGENT_ID`,
+  // which reads as the cleanest discriminator right up until you notice that
+  // ONE agent serves both directions: the same id answers the business line
+  // and places the dialer's calls. So that test matched every INBOUND call,
+  // this route returned the bare envelope on all of them, and
+  // custom_llm_extra_body — the only channel carrying caller_phone — was
+  // never sent. Owner mode could not exist on any phone call no matter how
+  // correct the number and PIN were, and every turn logged "no call_sid on
+  // this request". The test below ("recognises that we are the caller, which
+  // holds on a shared agent") already said agent_id does not discriminate;
+  // the condition it was warning about just never got removed.
+  //
+  // What remains are the three signals that stay true on a shared agent:
   const outbound =
-    (!!outboundAgentId && agentId === outboundAgentId) ||
+    // WE ARE THE CALLER. On an inbound call caller_id is the customer's
+    // number; on a call we placed it is our own.
     (!!ourNumber && digits(from) === ourNumber) ||
     // Our own correlation ids carry the task_ prefix, and nothing else mints
     // them; a real Twilio SID starts CA.
@@ -126,7 +145,14 @@ export async function POST(request: Request) {
   // Best-effort: if the lookup fails or the database is unset we fall through
   // to the first-time path, which is always safe to serve.
   const known = await callerLocale(from).catch(() => null);
-  const locale = known ?? ("fr" as const);
+
+  // The owner calling his own line. Recognised by caller ID alone, which is a
+  // filter and not proof — the PIN is still required downstream before any
+  // business data is spoken. All this decides is which sentence opens the
+  // call, and it opens in English because that is his working language (the
+  // admin dashboard already defaults to it for the same reason).
+  const owner = ownerModeConfigured() && isOwnerNumber(from);
+  const locale = owner ? ("en" as const) : (known ?? ("fr" as const));
 
   if (callSid) {
     try {
@@ -145,7 +171,9 @@ export async function POST(request: Request) {
     type: "conversation_initiation_client_data",
     conversation_config_override: {
       agent: {
-        first_message: greeting(locale, { askLanguage: known === null }),
+        first_message: owner
+          ? ownerGreeting(locale)
+          : greeting(locale, { askLanguage: known === null }),
         language: locale,
       },
     },

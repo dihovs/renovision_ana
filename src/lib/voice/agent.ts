@@ -413,6 +413,27 @@ export function greeting(locale: "fr" | "en", options: { askLanguage?: boolean }
 }
 
 /**
+ * What the owner hears when he rings his own line.
+ *
+ * Recognising him by caller ID and saying so is not authentication and must
+ * not be mistaken for it — the number is on the allowlist, nothing more, and
+ * the PIN is still required before a single figure is read out (see
+ * ownerSession in owner.ts). What this buys is the fifteen seconds of
+ * receptionist script he otherwise has to sit through on every call: no
+ * company name he already knows, no transcription notice aimed at strangers,
+ * no "how can I help you" when the answer is always "give me the code".
+ *
+ * Deliberately says nothing about the business. An unauthenticated caller who
+ * spoofed the number learns only that they reached the right company and that
+ * a code exists, which the prompt's ownerAwaitingPin note already tells them.
+ */
+export function ownerGreeting(locale: "fr" | "en"): string {
+  return locale === "fr"
+    ? "Salut Artush! C'est Ana. Donne-moi ton code quand tu veux."
+    : "Hey Artush, it's Ana. Give me your code whenever you're ready.";
+}
+
+/**
  * The same idea for an owner call, minus the receptionist.
  *
  * The customer fallback promises a callback and asks for a name and number,

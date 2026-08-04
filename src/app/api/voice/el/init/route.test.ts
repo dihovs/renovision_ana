@@ -71,8 +71,30 @@ describe("the initiation webhook", () => {
     expect(startCall).toHaveBeenCalledTimes(1);
   });
 
-  it("returns a bare no-op for the outbound agent", async () => {
-    const { json } = await init({ call_sid: "CA123", agent_id: OUTBOUND_AGENT });
+  it("does NOT call it outbound just because it is the outbound agent's id", async () => {
+    // The regression this pins. One agent serves both directions, so the id
+    // on an inbound call IS ELEVENLABS_OUTBOUND_AGENT_ID. Treating that as
+    // proof of outbound made every real call skip custom_llm_extra_body,
+    // which is the only channel carrying caller_phone — so owner mode could
+    // not exist on the phone at all, and every turn logged "no call_sid on
+    // this request". Found in production logs on 2026-08-03.
+    const { json } = await init({
+      call_sid: "CA123",
+      caller_id: "+15145550188",
+      called_number: "+15799995979",
+      agent_id: OUTBOUND_AGENT,
+    });
+
+    expect(json.conversation_config_override).toBeDefined();
+    expect(json.custom_llm_extra_body).toEqual({
+      call_sid: "CA123",
+      caller_phone: "+15145550188",
+    });
+    expect(startCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("still returns a bare no-op when we are the one who placed the call", async () => {
+    const { json } = await init({ call_sid: "CA123", caller_id: "+15799995979" });
 
     expect(json).toEqual({ type: "conversation_initiation_client_data" });
     // No greeting to overwrite the outbound opening with…
@@ -80,6 +102,54 @@ describe("the initiation webhook", () => {
     // …and no second calls row for a conversation that already has one.
     expect(startCall).not.toHaveBeenCalled();
     expect(callerLocale).not.toHaveBeenCalled();
+  });
+
+  it("greets the owner by name, in English, when he rings his own line", async () => {
+    process.env.OWNER_PHONE_NUMBERS = "+15799903077";
+    process.env.OWNER_VOICE_PIN = "4271";
+    try {
+      const { json } = await init({
+        call_sid: "CA777",
+        caller_id: "+15799903077",
+        called_number: "+15799995979",
+        agent_id: OUTBOUND_AGENT,
+      });
+
+      const override = json.conversation_config_override as {
+        agent: { first_message: string; language: string };
+      };
+      expect(override.agent.first_message).toContain("Artush");
+      expect(override.agent.language).toBe("en");
+      // Recognition is not authentication — the number still has to carry
+      // through so owner.ts can demand the PIN on the first turn.
+      expect(json.custom_llm_extra_body).toEqual({
+        call_sid: "CA777",
+        caller_phone: "+15799903077",
+      });
+    } finally {
+      delete process.env.OWNER_PHONE_NUMBERS;
+      delete process.env.OWNER_VOICE_PIN;
+    }
+  });
+
+  it("keeps the receptionist greeting for everyone else", async () => {
+    process.env.OWNER_PHONE_NUMBERS = "+15799903077";
+    process.env.OWNER_VOICE_PIN = "4271";
+    try {
+      const { json } = await init({
+        call_sid: "CA778",
+        caller_id: "+15145550188",
+        called_number: "+15799995979",
+      });
+
+      const override = json.conversation_config_override as {
+        agent: { first_message: string };
+      };
+      expect(override.agent.first_message).not.toContain("Artush");
+    } finally {
+      delete process.env.OWNER_PHONE_NUMBERS;
+      delete process.env.OWNER_VOICE_PIN;
+    }
   });
 
   it("also recognises our own correlation id, with no agent id at all", async () => {
