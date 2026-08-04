@@ -42,6 +42,7 @@ vi.mock("@/lib/voice/agent", async (importOriginal) => {
 });
 
 const { replyToStream, ownerReplyToStream, outboundReply } = await import("@/lib/voice/agent");
+const { POST: adminPost } = await import("../admin/chat/completions/route");
 const { POST } = await import("./route");
 
 type Msg = {
@@ -205,11 +206,15 @@ describe("the ElevenLabs chat endpoint chooses a path", () => {
  * The dashboard's "Talk to Ana" widget — a third door into owner mode,
  * alongside the phone's two-factor PIN. No caller number and no spoken code
  * involved at all: the trust comes from `/admin` already having verified a
- * real session before this widget is ever rendered (see the module comment
- * on extractDashboardSession in route.ts for the full argument). What these
- * tests actually have to prove is narrower and sharper than "does the flag
- * work": that nothing a PHONE caller can say ever produces it, so the two
- * doors can never be confused for one another.
+ * real session before this widget is ever rendered.
+ *
+ * READ THE NEXT DESCRIBE BLOCK TOO. These tests drive the flag in through
+ * `dynamic_variables`, which the route accepts — but ElevenLabs never
+ * actually delivers that field to a Custom LLM, so in production the widget
+ * could not use this channel at all. That is why the real door is a separate
+ * URL now (../admin/chat/completions). This block is kept because the
+ * extraction logic it pins is still live and still worth guarding: what it
+ * proves is that nothing a PHONE caller can SAY ever produces the flag.
  */
 describe("the admin dashboard's widget is a third door into owner mode", () => {
   beforeEach(() => {
@@ -296,6 +301,102 @@ describe("the admin dashboard's widget is a third door into owner mode", () => {
 
     expect(body).toContain("outbound reply");
     expect(ownerReplyToStream).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The door that actually works: a separate Custom LLM URL.
+ *
+ * The widget could never put a flag on the request — ElevenLabs does not
+ * forward `dynamic_variables` to a Custom LLM, and the embeddable widget has
+ * no attribute for the one field it does forward. So the admin agent points
+ * at its own Server URL instead, and THAT is what means "owner". These tests
+ * exist because the previous mechanism passed its unit tests while being
+ * completely non-functional in production: the tests supplied a field over a
+ * channel the platform never uses. The fix for that is to drive the real
+ * entry point with a body shaped the way ElevenLabs actually sends one —
+ * which is to say, with no flag in it anywhere.
+ */
+describe("the admin Custom LLM URL is what opens owner mode", () => {
+  beforeEach(() => {
+    process.env.ELEVENLABS_CUSTOM_LLM_SECRET = SECRET;
+    process.env.OWNER_PHONE_NUMBERS = OWNER;
+    process.env.OWNER_VOICE_PIN = PIN;
+  });
+
+  afterEach(() => {
+    delete process.env.ELEVENLABS_CUSTOM_LLM_SECRET;
+    delete process.env.OWNER_PHONE_NUMBERS;
+    delete process.env.OWNER_VOICE_PIN;
+    vi.clearAllMocks();
+  });
+
+  /** Exactly what ElevenLabs sends the admin agent: no flag, no ids. */
+  async function adminCall(messages: Msg[], body: Record<string, unknown> = {}) {
+    return adminPost(
+      new Request("https://example.test/api/voice/el/admin/chat/completions", {
+        method: "POST",
+        headers: { authorization: `Bearer ${SECRET}`, "content-type": "application/json" },
+        body: JSON.stringify({ messages, ...body }),
+      }),
+    );
+  }
+
+  it("unlocks owner mode with nothing in the body marking it as the owner", async () => {
+    const body = await (await adminCall([{ role: "user", content: "what's on today?" }])).text();
+
+    expect(body).toContain("owner reply");
+    expect(replyToStream).not.toHaveBeenCalled();
+    expect(ownerReplyToStream).toHaveBeenCalledTimes(1);
+    const options = vi.mocked(ownerReplyToStream).mock.calls[0][1] as { tools: unknown[] };
+    expect(options.tools.length).toBeGreaterThan(0);
+  });
+
+  it("unlocks with OWNER_PHONE_NUMBERS and the PIN unset — it is a separate door", async () => {
+    delete process.env.OWNER_PHONE_NUMBERS;
+    delete process.env.OWNER_VOICE_PIN;
+    await adminCall([{ role: "user", content: "hi" }]);
+    expect(ownerReplyToStream).toHaveBeenCalledTimes(1);
+  });
+
+  it("still refuses a request without the bearer secret", async () => {
+    const response = await adminPost(
+      new Request("https://example.test/api/voice/el/admin/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "user", content: "hi" }] }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(ownerReplyToStream).not.toHaveBeenCalled();
+  });
+
+  it("preserves the rest of the body it was given", async () => {
+    // The wrapper re-serialises the payload to inject the flag. Everything
+    // else has to survive that trip — most of all the conversation itself,
+    // which is the whole request.
+    await adminCall([
+      { role: "user", content: "remind me to order the tile" },
+      { role: "assistant", content: "Noted." },
+      { role: "user", content: "and the underlay" },
+    ]);
+
+    expect(ownerReplyToStream).toHaveBeenCalledTimes(1);
+    const turns = vi.mocked(ownerReplyToStream).mock.calls[0][0] as Array<{ text: string }>;
+    expect(turns.map((t) => t.text)).toEqual([
+      "remind me to order the tile",
+      "Noted.",
+      "and the underlay",
+    ]);
+  });
+
+  it("does not change the ordinary phone endpoint", async () => {
+    // The same handler backs both URLs. A stranger on the phone must not
+    // inherit owner mode because the admin wrapper exists.
+    await call(STRANGER, [{ role: "user", content: "bonjour, j'ai un dégât d'eau" }]);
+    expect(ownerReplyToStream).not.toHaveBeenCalled();
+    expect(replyToStream).toHaveBeenCalledTimes(1);
   });
 });
 

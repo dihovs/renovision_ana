@@ -16,11 +16,17 @@ import Script from "next/script";
  * every other /admin route already goes through
  * (src/app/(internal)/admin/layout.tsx calls isSignedIn() before anything on
  * this route tree renders), so by the time a browser ever sees the widget
- * tag below, it has already cleared a real login. The `dashboard_owner_session`
- * dynamic variable is what tells the Custom LLM endpoint that — see
- * extractDashboardSession in src/app/api/voice/el/chat/route.ts for the other
- * half, and for why a phone caller cannot produce that value by speaking
- * anything.
+ * tag below, it has already cleared a real login.
+ *
+ * WHAT ACTUALLY CARRIES THAT SIGNAL IS THE AGENT'S URL, NOT THIS PAGE. The
+ * admin agent's ElevenLabs Server URL points at /api/voice/el/admin, and that
+ * route is the one that turns owner mode on — see the comment in
+ * src/app/api/voice/el/admin/chat/completions/route.ts for why the obvious
+ * approach (a `dashboard_owner_session` dynamic variable on the tag below)
+ * cannot work: ElevenLabs never forwards dynamic variables to a Custom LLM.
+ * The attribute is still set because it shows up in ElevenLabs' own
+ * conversation log, which is genuinely useful when reading transcripts back —
+ * but nothing depends on it arriving.
  *
  * The tools available once that unlocks are the same read-only surface plus
  * capture_task the phone gets — see src/lib/voice/ownerTools.ts. A task
@@ -73,8 +79,8 @@ export default function TalkToAnaPage() {
       </div>
 
       {/* agent-id is not a secret — ElevenLabs' widget is designed to be
-          embedded publicly. dynamic-variables is what carries the owner-mode
-          signal; see the module comment above for the trust argument. */}
+          embedded publicly. dynamic-variables is annotation only: it reaches
+          ElevenLabs' conversation log but never our endpoint. See above. */}
       <elevenlabs-convai
         agent-id={agentId}
         dynamic-variables={JSON.stringify({ dashboard_owner_session: "authenticated" })}
