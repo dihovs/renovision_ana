@@ -19,10 +19,6 @@ declare module "react" {
         React.HTMLAttributes<HTMLElement> & {
           "agent-id": string;
           "dynamic-variables"?: string;
-          /** Widget UI chrome language (button labels, etc) — read at connect, not reactive to later mutation. */
-          language?: string;
-          /** Pins the conversation panel open — the real lever behind ChatProvider's openChat(); this widget has no imperative open() method. */
-          "always-expanded"?: string;
         },
         HTMLElement
       >;

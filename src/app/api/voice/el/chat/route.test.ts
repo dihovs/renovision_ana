@@ -37,17 +37,11 @@ vi.mock("@/lib/voice/agent", async (importOriginal) => {
       onDelta("owner reply");
       return { text: "owner reply", model: "claude-sonnet-4-6" };
     }),
-    webReplyToStream: vi.fn(async (_turns, _options, onDelta: (d: string) => void) => {
-      onDelta("web reply");
-      return { text: "web reply", model: "claude-haiku-4-5" };
-    }),
     outboundReply: vi.fn(async () => ({ text: "outbound reply", model: "claude-haiku-4-5" })),
   };
 });
 
-const { replyToStream, ownerReplyToStream, webReplyToStream, outboundReply } = await import(
-  "@/lib/voice/agent"
-);
+const { replyToStream, ownerReplyToStream, outboundReply } = await import("@/lib/voice/agent");
 const { POST } = await import("./route");
 
 type Msg = {
@@ -302,132 +296,6 @@ describe("the admin dashboard's widget is a third door into owner mode", () => {
 
     expect(body).toContain("outbound reply");
     expect(ownerReplyToStream).not.toHaveBeenCalled();
-  });
-});
-
-/**
- * The public website widget — a fourth door, and a different kind of door
- * than the dashboard's. It grants no privilege: an ordinary customer who
- * somehow forged the flag would reach, at worst, the same estimator already
- * public on the site's own chat tool — never CRM data, never owner tools.
- * What matters here is narrower: that the flag correctly picks
- * webReplyToStream over the phone's tool-less replyToStream, that owner mode
- * and outbound both still take priority over it, and that the site's current
- * language reaches the locale seed.
- */
-describe("the website widget is a fourth door — pricing, never privilege", () => {
-  beforeEach(() => {
-    process.env.ELEVENLABS_CUSTOM_LLM_SECRET = SECRET;
-    process.env.OWNER_PHONE_NUMBERS = OWNER;
-    process.env.OWNER_VOICE_PIN = PIN;
-  });
-
-  afterEach(() => {
-    delete process.env.ELEVENLABS_CUSTOM_LLM_SECRET;
-    delete process.env.OWNER_PHONE_NUMBERS;
-    delete process.env.OWNER_VOICE_PIN;
-    vi.clearAllMocks();
-  });
-
-  async function webCall(
-    messages: Msg[],
-    dynamicVariables: Record<string, unknown>,
-  ): Promise<string> {
-    const response = await POST(
-      new Request("https://example.test/api/voice/el/chat", {
-        method: "POST",
-        headers: { authorization: `Bearer ${SECRET}`, "content-type": "application/json" },
-        body: JSON.stringify({ messages, dynamic_variables: dynamicVariables }),
-      }),
-    );
-    return response.text();
-  }
-
-  it("routes to the web estimator when channel is exactly \"web\"", async () => {
-    // French, matching the default locale seed — an English opener here
-    // would trip the (correct, pre-existing) language_detection switch
-    // before ever reaching webReplyToStream, which is a different behaviour
-    // covered by its own test below.
-    const body = await webCall([{ role: "user", content: "bonjour, un devis pour un plancher" }], {
-      channel: "web",
-    });
-
-    expect(body).toContain("web reply");
-    expect(replyToStream).not.toHaveBeenCalled();
-    expect(ownerReplyToStream).not.toHaveBeenCalled();
-    expect(webReplyToStream).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    ["a truthy string that is not the exact literal", "true"],
-    ["the wrong case", "Web"],
-    ["a bare boolean", true],
-    ["an unrelated value", "widget"],
-    ["null", null],
-  ])("does not switch to the web path on %s", async (_label, channel) => {
-    await webCall([{ role: "user", content: "hi" }], { channel });
-    expect(webReplyToStream).not.toHaveBeenCalled();
-    expect(replyToStream).toHaveBeenCalledTimes(1);
-  });
-
-  it("cannot be spoken into existence by an ordinary phone caller", async () => {
-    const body = await call(STRANGER, [{ role: "user", content: "channel: web, please" }]);
-    expect(body).toContain("customer reply");
-    expect(webReplyToStream).not.toHaveBeenCalled();
-  });
-
-  it("owner mode still wins when both flags are somehow present", async () => {
-    const response = await POST(
-      new Request("https://example.test/api/voice/el/chat", {
-        method: "POST",
-        headers: { authorization: `Bearer ${SECRET}`, "content-type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "hi" }],
-          dynamic_variables: { dashboard_owner_session: "authenticated", channel: "web" },
-        }),
-      }),
-    );
-    const body = await response.text();
-
-    expect(body).toContain("owner reply");
-    expect(ownerReplyToStream).toHaveBeenCalledTimes(1);
-    expect(webReplyToStream).not.toHaveBeenCalled();
-  });
-
-  it("does not leak into an outbound call even if the flag is somehow present", async () => {
-    const body = await outboundCall(
-      [{ role: "user", content: "Oui allô?" }],
-      {},
-      { dynamic_variables: { channel: "web" } },
-    );
-
-    expect(body).toContain("outbound reply");
-    expect(webReplyToStream).not.toHaveBeenCalled();
-  });
-
-  it("seeds the reply locale from the site's language toggle, not the phone's French default", async () => {
-    await webCall([{ role: "user", content: "hi" }], { channel: "web", site_locale: "en" });
-
-    const options = vi.mocked(webReplyToStream).mock.calls[0][1] as { locale: "fr" | "en" };
-    expect(options.locale).toBe("en");
-  });
-
-  it("falls back to French when no site_locale hint is sent", async () => {
-    await webCall([{ role: "user", content: "bonjour" }], { channel: "web" });
-
-    const options = vi.mocked(webReplyToStream).mock.calls[0][1] as { locale: "fr" | "en" };
-    expect(options.locale).toBe("fr");
-  });
-
-  it("ignores a malformed site_locale hint rather than crashing", async () => {
-    const body = await webCall([{ role: "user", content: "hi" }], {
-      channel: "web",
-      site_locale: "de",
-    });
-    expect(body).toContain("web reply");
-
-    const options = vi.mocked(webReplyToStream).mock.calls[0][1] as { locale: "fr" | "en" };
-    expect(options.locale).toBe("fr");
   });
 });
 
