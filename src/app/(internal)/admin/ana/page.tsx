@@ -1,0 +1,83 @@
+import Script from "next/script";
+
+/**
+ * Talk to Ana, live, from inside the admin — voice or typed, no phone needed.
+ *
+ * This is the SAME agent that answers the business line, reached through
+ * ElevenLabs' own embeddable widget rather than a phone call. Voice and text
+ * are both native to that widget (see the Widget channel settings in the
+ * ElevenLabs dashboard — "Chat (text-only) mode" and "Send text while on
+ * call" are both on), so there is nothing custom to build for either input.
+ *
+ * WHY THIS GETS OWNER MODE WITHOUT THE SPOKEN PIN. The phone path exists
+ * because a caller is, by default, a stranger — caller ID is spoofable and a
+ * PIN can be overheard, so both are required together. Nothing about that
+ * applies here: this page is server-rendered behind the same session check
+ * every other /admin route already goes through
+ * (src/app/(internal)/admin/layout.tsx calls isSignedIn() before anything on
+ * this route tree renders), so by the time a browser ever sees the widget
+ * tag below, it has already cleared a real login. The `dashboard_owner_session`
+ * dynamic variable is what tells the Custom LLM endpoint that — see
+ * extractDashboardSession in src/app/api/voice/el/chat/route.ts for the other
+ * half, and for why a phone caller cannot produce that value by speaking
+ * anything.
+ *
+ * The tools available once that unlocks are the same read-only surface plus
+ * capture_task the phone gets — see src/lib/voice/ownerTools.ts. A task
+ * dictated or typed here lands in the exact same list as one dictated over
+ * the phone.
+ */
+
+export const metadata = { robots: { index: false, follow: false } };
+
+export default function TalkToAnaPage() {
+  // Same id ELEVENLABS_OUTBOUND_AGENT_ID already names — one agent, three
+  // doors in (phone, outbound, this). Read at request time rather than
+  // hardcoded, so an agent swap is one env var, not a code change.
+  const agentId = process.env.ELEVENLABS_OUTBOUND_AGENT_ID;
+
+  if (!agentId) {
+    return (
+      <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+        <h2 className="font-heading text-base font-bold text-brand-blue">
+          Talk to Ana isn&apos;t configured yet
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-charcoal/70">
+          Set <code className="font-mono text-brand-blue">ELEVENLABS_OUTBOUND_AGENT_ID</code> to
+          turn this on.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-lg font-bold text-charcoal">Talk to Ana</h1>
+        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-charcoal/50">
+          Voice or typed, right here — no call needed. She already has read access to the CRM and
+          can write down anything you tell her to remember; it lands on the same task list as a
+          note dictated over the phone. Click the bubble in the corner to start.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-dashed border-black/10 bg-white px-4 py-10 text-center text-xs text-charcoal/45">
+        The conversation opens in the floating widget at the bottom right of this page.
+      </div>
+
+      {/* agent-id is not a secret — it is the same id every inbound phone call
+          already reaches, and ElevenLabs' widget is designed to be embedded
+          publicly. dynamic-variables is what carries the owner-mode signal;
+          see the module comment above for the trust argument. */}
+      <elevenlabs-convai
+        agent-id={agentId}
+        dynamic-variables={JSON.stringify({ dashboard_owner_session: "authenticated" })}
+      />
+      <Script
+        src="https://unpkg.com/@elevenlabs/convai-widget-embed"
+        strategy="afterInteractive"
+        async
+      />
+    </div>
+  );
+}

@@ -13,6 +13,7 @@ import {
   IconCheckCircle,
   IconClipboard,
   IconDashboard,
+  IconChat,
   IconFlag,
   IconHammer,
   IconHome,
@@ -44,6 +45,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
+  { href: "/admin/ana", label: "Talk to Ana", icon: IconChat, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/calls", label: "Calls", icon: IconPhone, ready: true },
   // Next to Calls, because everything on it was dictated on one.

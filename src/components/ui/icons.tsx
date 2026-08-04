@@ -29,6 +29,7 @@ import {
   House,
   LayoutDashboard,
   MapPin,
+  MessageCircle,
   PaintRoller,
   Phone,
   ShieldCheck,
@@ -52,6 +53,7 @@ function make(Glyph: typeof Phone) {
 }
 
 export const IconPhone = make(Phone);
+export const IconChat = make(MessageCircle);
 export const IconDashboard = make(LayoutDashboard);
 export const IconTag = make(Tag);
 export const IconDroplet = make(Droplets);

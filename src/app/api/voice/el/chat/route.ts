@@ -158,6 +158,36 @@ function extractCallerPhone(body: Record<string, unknown>): string | null {
 }
 
 /**
+ * The admin dashboard's "Talk to Ana" widget — a THIRD way into owner mode,
+ * alongside the phone's two-factor PIN.
+ *
+ * It skips the PIN entirely, and the reason is not that the boundary is
+ * weaker here — it is that it has already been cleared by something stronger.
+ * `/admin` re-verifies a real session cookie server-side on every request
+ * (src/app/(internal)/admin/layout.tsx), and the ONLY place this exact widget
+ * tag is ever rendered is a page behind that check
+ * (src/app/(internal)/admin/ana/page.tsx). A caller cannot forge this value
+ * by saying anything: dynamic_variables come from the widget's own
+ * connection-initiation payload, never from transcript text, so there is no
+ * utterance that produces it — the phone path and this path cannot be
+ * confused for one another from either side.
+ *
+ * Deliberately a distinct literal ("authenticated") rather than a bare
+ * boolean, so a stray truthy value from an unrelated field can never satisfy
+ * it by accident.
+ */
+function extractDashboardSession(body: Record<string, unknown>): boolean {
+  const extra = body.elevenlabs_extra_body as Record<string, unknown> | undefined;
+  const dynamic = body.dynamic_variables as Record<string, unknown> | undefined;
+  const value =
+    (extra?.dashboard_owner_session as unknown) ??
+    (dynamic?.dashboard_owner_session as unknown) ??
+    (body.dashboard_owner_session as unknown) ??
+    null;
+  return value === "authenticated";
+}
+
+/**
  * The errand, on a call Ana placed.
  *
  * WHY THIS IS THE FORK. With a Custom LLM, ElevenLabs sends its own system
@@ -472,10 +502,23 @@ export async function POST(request: Request) {
     );
   }
   const callerPhone = outbound ? null : rawCallerPhone;
-  const session = outbound
+  // The dashboard widget is checked before the phone path and short-circuits
+  // it entirely — a dashboard-originated request is never also treated as a
+  // phone caller who happens to know the PIN. See extractDashboardSession for
+  // why that value can only ever come from an already-authenticated session.
+  const fromDashboard = !outbound && extractDashboardSession(body);
+  const session: OwnerSession = outbound
     ? NO_OWNER_SESSION
-    : ownerSession(callerPhone, [...priorCallerTexts, spoken]);
-  if (session.authenticated && !ownerSession(callerPhone, priorCallerTexts).authenticated) {
+    : fromDashboard
+      ? { eligible: true, authenticated: true, failedAttempts: 0, lockedOut: false }
+      : ownerSession(callerPhone, [...priorCallerTexts, spoken]);
+  if (fromDashboard && priorTurns.length === 0) {
+    console.info("[voice-owner] owner mode opened from the admin dashboard", { callSid });
+  } else if (
+    session.authenticated &&
+    !fromDashboard &&
+    !ownerSession(callerPhone, priorCallerTexts).authenticated
+  ) {
     // Once per call, on the turn the second factor lands. The PIN itself is
     // never logged — only that a session opened.
     console.info("[voice-owner] owner mode unlocked", { callSid, turns: priorTurns.length });
