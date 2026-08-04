@@ -22,6 +22,16 @@ import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
  */
 const FULL_BLEED_HERO_PATHS = ["/"];
 
+/**
+ * The emergency strip claims a standing 7-day emergency response service.
+ * Turned off 2026-08-03 on the owner's word: that service doesn't exist yet,
+ * even in the deliberately softened "7 jours sur 7" (not "24/7") form below —
+ * this site only publishes claims that are true. Flip back to `true` once
+ * there is a real emergency-response capability behind it; the markup is left
+ * in place rather than deleted for exactly that day.
+ */
+const EMERGENCY_STRIP_ENABLED = false;
+
 export default function Header() {
   const { t } = useLanguage();
   const { openChat } = useChat();
@@ -150,17 +160,19 @@ export default function Header() {
         says "7 jours sur 7", not "24/7" — after-hours currently goes to
         voicemail, and we only publish claims that are true. Not sticky: it
         scrolls away with the page top, leaving the header's phone icon as
-        the persistent call affordance. */}
-    <div className="bg-charcoal-dark px-3 py-1.5 text-center text-xs font-semibold text-white/85">
-      <span>{t.header.emergencyPrompt}</span>{" "}
-      <a
-        href={`tel:${SITE_PHONE_TEL}`}
-        className="font-bold text-brand-green-soft underline-offset-2 hover:underline"
-      >
-        {SITE_PHONE}
-      </a>
-      <span className="text-white/50"> · {t.header.emergencyAvailability}</span>
-    </div>
+        the persistent call affordance. Gated off — see EMERGENCY_STRIP_ENABLED. */}
+    {EMERGENCY_STRIP_ENABLED && (
+      <div className="bg-charcoal-dark px-3 py-1.5 text-center text-xs font-semibold text-white/85">
+        <span>{t.header.emergencyPrompt}</span>{" "}
+        <a
+          href={`tel:${SITE_PHONE_TEL}`}
+          className="font-bold text-brand-green-soft underline-offset-2 hover:underline"
+        >
+          {SITE_PHONE}
+        </a>
+        <span className="text-white/50"> · {t.header.emergencyAvailability}</span>
+      </div>
+    )}
     <header
       ref={headerRef}
       className={`sticky top-0 z-40 w-full transition-[transform,background-color,border-color,box-shadow] duration-300 ease-out ${

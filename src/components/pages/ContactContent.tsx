@@ -566,7 +566,12 @@ export default function ContactContent() {
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-xs leading-relaxed text-charcoal/60">{c.emergencyNote}</p>
+            {/* Same claim as the header's emergency strip, same reason it's
+                off: there is no standing 7-day emergency-response service to
+                point at yet. See EMERGENCY_STRIP_ENABLED in Header.tsx. */}
+            {false && (
+              <p className="mt-4 text-xs leading-relaxed text-charcoal/60">{c.emergencyNote}</p>
+            )}
           </div>
         </div>
       </div>

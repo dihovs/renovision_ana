@@ -65,7 +65,7 @@ const copy = {
     processDesc:
       "From single-unit refreshes to multi-floor water damage response, we scale crews to the job and report progress as we go.",
     stats: [
-      { value: "7 days", label: "Emergency response" },
+      { value: "Insured", label: "1-year workmanship warranty" },
       { value: "48h", label: "Typical estimate turnaround" },
       { value: "1", label: "Point of contact per portfolio" },
     ],
@@ -119,7 +119,7 @@ const copy = {
     processDesc:
       "Du rafraîchissement d'une seule unité à l'intervention après dégât d'eau sur plusieurs étages, nous adaptons nos équipes au travail et rapportons l'avancement en continu.",
     stats: [
-      { value: "7 jours", label: "Réponse d'urgence" },
+      { value: "Assurés", label: "Garantie d'un an sur la main-d'œuvre" },
       { value: "48h", label: "Délai d'estimation typique" },
       { value: "1", label: "Point de contact par portefeuille" },
     ],
