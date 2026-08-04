@@ -338,7 +338,7 @@ export default function EstimatorContent() {
           </p>
         </div>
         <div data-estimate-cta className="mt-8">
-          <ChatWidget variant="inline" />
+          <ChatWidget />
         </div>
       </section>
 

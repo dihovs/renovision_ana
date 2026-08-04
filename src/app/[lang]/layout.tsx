@@ -8,7 +8,7 @@ import { HREFLANG, OG_LOCALE, toLocale } from "@/i18n/routing";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import ChatWidget from "@/components/chat/ChatWidget";
+import AnaWidget from "@/components/chat/AnaWidget";
 import LocalBusinessSchema from "@/components/seo/LocalBusinessSchema";
 import { localeUrl } from "@/lib/seo";
 import { SITE_URL } from "@/lib/constants";
@@ -150,7 +150,7 @@ export default async function LocaleLayout({
             <Header />
             <main className="flex-1">{children}</main>
             <Footer year={currentYear()} />
-            <ChatWidget />
+            <AnaWidget locale={locale} />
           </ChatProvider>
         </LanguageProvider>
         <Analytics />

@@ -19,7 +19,10 @@ import {
   inboundFarewellLine,
   ownerFallbackLine,
   ownerReplyToStream,
+  webFarewellLine,
   replyToStream,
+  webFallbackLine,
+  webReplyToStream,
   wrongNumberLine,
   type AgentReply,
   type OutboundKind,
@@ -185,6 +188,46 @@ function extractDashboardSession(body: Record<string, unknown>): boolean {
     (body.dashboard_owner_session as unknown) ??
     null;
   return value === "authenticated";
+}
+
+/**
+ * The public website's widget — a fourth door, and unlike the dashboard one
+ * it grants no privilege at all. It only selects which CUSTOMER prompt runs:
+ * the phone's (no pricing tool, no catalog) or the web widget's (a real
+ * build_estimate tool — see webSystemPrompt() in lib/voice/agent.ts for why
+ * that is safe specifically on the website and nowhere else). A stray or
+ * forged value here can, at worst, get an ordinary customer the SAME
+ * estimator already public on the website's own chat tool — never CRM data,
+ * never owner tools, and ownerSession() below still runs unchanged for
+ * anyone who is actually eligible for owner mode. That is why this checks
+ * for one literal rather than truthiness, matching the dashboard's pattern,
+ * but does not need the dashboard's security argument to justify it.
+ *
+ * Checked only when the call is neither outbound nor a dashboard session —
+ * see the ordering where fromWeb is computed in POST().
+ */
+function extractWebChannel(body: Record<string, unknown>): boolean {
+  const extra = body.elevenlabs_extra_body as Record<string, unknown> | undefined;
+  const dynamic = body.dynamic_variables as Record<string, unknown> | undefined;
+  const value =
+    (extra?.channel as unknown) ?? (dynamic?.channel as unknown) ?? (body.channel as unknown) ?? null;
+  return value === "web";
+}
+
+/**
+ * The site's current language toggle (EN/FR), passed through the same
+ * dynamic-variables channel so a visitor on the French pages opens in French
+ * even before they have said anything — matching what the text chat
+ * estimator already does by reading the page's own locale. Absent or
+ * malformed input falls through to the caller; deriveCallState()'s own "fr"
+ * default is the correct fallback either way.
+ */
+function extractSiteLocaleHint(body: Record<string, unknown>): "fr" | "en" | null {
+  const extra = body.elevenlabs_extra_body as Record<string, unknown> | undefined;
+  const dynamic = body.dynamic_variables as Record<string, unknown> | undefined;
+  const value =
+    (extra?.site_locale as unknown) ?? (dynamic?.site_locale as unknown) ?? (body.site_locale as unknown) ?? null;
+  return value === "fr" || value === "en" ? value : null;
 }
 
 /**
@@ -444,6 +487,13 @@ export async function POST(request: Request) {
   // the inbound path changes when it is null.
   const outbound = extractOutboundBrief(body, callSid);
 
+  // Computed here, ahead of everything else that reads it, because the locale
+  // seed below needs it too. A dashboard-originated request is never also
+  // treated as a phone caller who happens to know the PIN — see
+  // extractDashboardSession for why that value can only ever come from an
+  // already-authenticated session.
+  const fromDashboard = !outbound && extractDashboardSession(body);
+
   // Emitted at most once per call. voicemail_detection ends the conversation on
   // ElevenLabs' side, but if it ever comes back for another turn instead, this
   // stops the route re-emitting the tool against its own tool result forever.
@@ -477,11 +527,15 @@ export async function POST(request: Request) {
       at: new Date().toISOString(),
     }));
 
+  // A dashboard-originated call defaults to English (Artush's own working
+  // language in the admin); a web-widget call defaults to whatever the site's
+  // language toggle was on when the widget loaded, via extractSiteLocaleHint;
+  // everything else keeps the phone's long-standing French-for-Laval default.
+  const localeSeed: "fr" | "en" =
+    outbound?.locale ?? (fromDashboard ? "en" : (extractSiteLocaleHint(body) ?? "fr"));
+
   const priorCallerTexts = callerTurns({ turns: priorTurns });
-  const { locale: priorLocale, alreadyEscalated } = deriveCallState(
-    priorCallerTexts,
-    outbound?.locale ?? "fr",
-  );
+  const { locale: priorLocale, alreadyEscalated } = deriveCallState(priorCallerTexts, localeSeed);
 
   // Where this call stands with owner mode, recomputed from the caller's number
   // and everything they have said INCLUDING this turn — so the turn that speaks
@@ -502,11 +556,11 @@ export async function POST(request: Request) {
     );
   }
   const callerPhone = outbound ? null : rawCallerPhone;
-  // The dashboard widget is checked before the phone path and short-circuits
-  // it entirely — a dashboard-originated request is never also treated as a
-  // phone caller who happens to know the PIN. See extractDashboardSession for
-  // why that value can only ever come from an already-authenticated session.
-  const fromDashboard = !outbound && extractDashboardSession(body);
+  // Checked in this order — never on an outbound call, and the web channel
+  // only once dashboard has already been ruled out — so a request cannot be
+  // read as more than one of these at once. See extractWebChannel for why
+  // this one is deliberately not a security boundary the way fromDashboard is.
+  const fromWeb = !outbound && !fromDashboard && extractWebChannel(body);
   const session: OwnerSession = outbound
     ? NO_OWNER_SESSION
     : fromDashboard
@@ -556,7 +610,11 @@ export async function POST(request: Request) {
           sseChunk(
             {
               role: "assistant",
-              content: outbound ? outboundSilenceLine(priorLocale) : fallbackLine(priorLocale),
+              content: outbound
+                ? outboundSilenceLine(priorLocale)
+                : fromWeb
+                  ? webFallbackLine(priorLocale)
+                  : fallbackLine(priorLocale),
             },
             "stop",
           ),
@@ -738,7 +796,7 @@ export async function POST(request: Request) {
           detectCallerGoodbye(spoken) &&
           hasCallbackNumber(priorCallerTexts)
         ) {
-          const line = inboundFarewellLine(locale);
+          const line = fromWeb ? webFarewellLine(locale) : inboundFarewellLine(locale);
           closeWith(line, "the caller said goodbye and the intake is complete");
           if (callSid) {
             await Promise.allSettled([
@@ -981,20 +1039,22 @@ export async function POST(request: Request) {
                 },
                 onDelta,
               )
-            : await replyToStream(
-                [...priorTurns, callerTurn],
-                {
-                  locale,
-                  escalated: verdict.escalate,
-                  // The owner's line, before the code has been given. Lets Ana
-                  // say she can take a code — and nothing else. Never set for a
-                  // caller who has burned through their attempts: once locked
-                  // out she is an ordinary receptionist for the rest of the call
-                  // and owner mode is not mentioned again.
-                  ownerAwaitingPin: session.eligible && !session.lockedOut,
-                },
-                onDelta,
-              );
+            : fromWeb
+              ? await webReplyToStream([...priorTurns, callerTurn], { locale }, onDelta)
+              : await replyToStream(
+                  [...priorTurns, callerTurn],
+                  {
+                    locale,
+                    escalated: verdict.escalate,
+                    // The owner's line, before the code has been given. Lets Ana
+                    // say she can take a code — and nothing else. Never set for a
+                    // caller who has burned through their attempts: once locked
+                    // out she is an ordinary receptionist for the rest of the call
+                    // and owner mode is not mentioned again.
+                    ownerAwaitingPin: session.eligible && !session.lockedOut,
+                  },
+                  onDelta,
+                );
 
           // Same deny-list, narrower scope, and no interception: inbound is
           // streamed, so by the time the reply is complete the caller has
@@ -1020,7 +1080,11 @@ export async function POST(request: Request) {
             send(
               sseChunk({
                 role: "assistant",
-                content: session.authenticated ? ownerFallbackLine(locale) : fallbackLine(locale),
+                content: session.authenticated
+                  ? ownerFallbackLine(locale)
+                  : fromWeb
+                    ? webFallbackLine(locale)
+                    : fallbackLine(locale),
               }),
             );
           }
@@ -1070,7 +1134,11 @@ export async function POST(request: Request) {
           sseChunk(
             {
               role: "assistant",
-              content: outbound ? outboundFallbackLine(locale) : fallbackLine(locale),
+              content: outbound
+                ? outboundFallbackLine(locale)
+                : fromWeb
+                  ? webFallbackLine(locale)
+                  : fallbackLine(locale),
             },
             "stop",
           ),

@@ -26,15 +26,22 @@ import Script from "next/script";
  * capture_task the phone gets — see src/lib/voice/ownerTools.ts. A task
  * dictated or typed here lands in the exact same list as one dictated over
  * the phone.
+ *
+ * ITS OWN ELEVENLABS AGENT, not the phone's. The first version of this page
+ * reused ELEVENLABS_OUTBOUND_AGENT_ID — the same agent the dialer uses to
+ * call customers — and it showed: the widget opened with a French customer
+ * greeting and talked to Artush like a lead being qualified, because that
+ * agent's default first_message and language ARE the customer script. This
+ * one is a duplicate of that agent (same Custom LLM connection, so it hits
+ * this exact endpoint) with its own English, owner-appropriate greeting and
+ * default language — cosmetic only, since which persona actually speaks is
+ * still decided by extractDashboardSession() below, not by which agent asks.
  */
 
 export const metadata = { robots: { index: false, follow: false } };
 
 export default function TalkToAnaPage() {
-  // Same id ELEVENLABS_OUTBOUND_AGENT_ID already names — one agent, three
-  // doors in (phone, outbound, this). Read at request time rather than
-  // hardcoded, so an agent swap is one env var, not a code change.
-  const agentId = process.env.ELEVENLABS_OUTBOUND_AGENT_ID;
+  const agentId = process.env.ELEVENLABS_ADMIN_AGENT_ID;
 
   if (!agentId) {
     return (
@@ -43,8 +50,8 @@ export default function TalkToAnaPage() {
           Talk to Ana isn&apos;t configured yet
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-charcoal/70">
-          Set <code className="font-mono text-brand-blue">ELEVENLABS_OUTBOUND_AGENT_ID</code> to
-          turn this on.
+          Set <code className="font-mono text-brand-blue">ELEVENLABS_ADMIN_AGENT_ID</code> to turn
+          this on.
         </p>
       </div>
     );
@@ -65,10 +72,9 @@ export default function TalkToAnaPage() {
         The conversation opens in the floating widget at the bottom right of this page.
       </div>
 
-      {/* agent-id is not a secret — it is the same id every inbound phone call
-          already reaches, and ElevenLabs' widget is designed to be embedded
-          publicly. dynamic-variables is what carries the owner-mode signal;
-          see the module comment above for the trust argument. */}
+      {/* agent-id is not a secret — ElevenLabs' widget is designed to be
+          embedded publicly. dynamic-variables is what carries the owner-mode
+          signal; see the module comment above for the trust argument. */}
       <elevenlabs-convai
         agent-id={agentId}
         dynamic-variables={JSON.stringify({ dashboard_owner_session: "authenticated" })}
