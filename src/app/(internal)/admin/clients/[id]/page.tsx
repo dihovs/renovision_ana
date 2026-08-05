@@ -10,8 +10,10 @@ import {
   startJobAction,
   updatePropertyAction,
 } from "../actions";
+import { bridgeCallAction } from "../../callActions";
 import AdminNotice from "@/components/admin/AdminNotice";
 import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
+import BusinessCallButton from "@/components/admin/BusinessCallButton";
 import AskClaude from "@/components/admin/AskClaude";
 import CallButton from "@/components/admin/CallButton";
 import HubLink from "@/components/admin/HubLink";
@@ -160,9 +162,15 @@ export default async function ClientDetailPage({
                       {phone.type}
                       {phone.smsAllowed ? " · sms ok" : ""}
                     </span>
-                    {/* This is the owner calling from his own line, not Ana —
-                        see CallButton's header for why that boundary matters. */}
-                    <CallButton phone={phone.number} label="Call" className="px-3 py-1 text-xs" />
+                    {/* Two ways to place the same call, and the difference is
+                        whose number the customer keeps. See both components'
+                        headers — neither is a replacement for the other. */}
+                    <CallButton phone={phone.number} label="From my phone" className="px-3 py-1 text-xs" />
+                    <BusinessCallButton
+                      phone={phone.number}
+                      action={bridgeCallAction}
+                      className="px-3 py-1 text-xs"
+                    />
                   </li>
                 ))}
               </ul>
