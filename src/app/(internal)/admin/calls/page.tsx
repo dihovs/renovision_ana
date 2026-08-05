@@ -2,6 +2,7 @@ import { bridgeCallAction } from "../callActions";
 import AdminNotice from "@/components/admin/AdminNotice";
 import CallList from "@/components/admin/CallList";
 import Dialer from "@/components/admin/Dialer";
+import Softphone from "@/components/admin/Softphone";
 import { listCalls, type StoredCall } from "@/lib/crm/calls";
 import { MigrationPendingError, isConfigured } from "@/lib/crm/db";
 import { ownerMobile } from "@/lib/voice/bridge";
@@ -19,7 +20,17 @@ export const dynamic = "force-dynamic";
  * early and replaced the entire page.
  */
 export default async function CallsPage() {
-  const dialer = <Dialer action={bridgeCallAction} ringsAt={ownerMobile()} />;
+  // Two ways to place the same call, in the order he will want them. The
+  // softphone is the one he asked for and the one that needs nothing but this
+  // page; the bridge stays underneath because a browser on job-site wifi is
+  // not always the right place to hold a conversation, and it works from a
+  // phone with no headset and a bad connection.
+  const dialer = (
+    <>
+      <Softphone />
+      <Dialer action={bridgeCallAction} ringsAt={ownerMobile()} />
+    </>
+  );
 
   if (!isConfigured) {
     return (
