@@ -200,7 +200,16 @@ export async function POST(request: Request) {
     // it. Trustworthy to the same degree as call_sid: only ElevenLabs can
     // reach these routes (bearer secret / signed header), and it is echoing
     // what Twilio told it. A caller cannot influence either value.
-    custom_llm_extra_body: { call_sid: callSid ?? null, caller_phone: from },
-    dynamic_variables: { call_sid: callSid ?? null, caller_phone: from },
+    //
+    // `locale` rides along because THIS route decides which language the call
+    // opens in, and /api/voice/el/chat was guessing it again from scratch —
+    // seeding "fr" on every inbound turn regardless of what was decided here.
+    // On an owner call the two answers disagreed: this route set the
+    // conversation to English (so ElevenLabs loaded the English voice) while
+    // chat believed it was French and wrote French sentences, which the
+    // English voice then read aloud in an English accent. Sending the decision
+    // instead of having both ends infer it means there is one answer.
+    custom_llm_extra_body: { call_sid: callSid ?? null, caller_phone: from, locale },
+    dynamic_variables: { call_sid: callSid ?? null, caller_phone: from, locale },
   });
 }

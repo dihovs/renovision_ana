@@ -89,6 +89,7 @@ describe("the initiation webhook", () => {
     expect(json.custom_llm_extra_body).toEqual({
       call_sid: "CA123",
       caller_phone: "+15145550188",
+      locale: "fr",
     });
     expect(startCall).toHaveBeenCalledTimes(1);
   });
@@ -122,9 +123,13 @@ describe("the initiation webhook", () => {
       expect(override.agent.language).toBe("en");
       // Recognition is not authentication — the number still has to carry
       // through so owner.ts can demand the PIN on the first turn.
+      // …and the language it opened in travels too, so the Custom LLM writes
+      // English instead of re-deriving French and having the English voice
+      // read it aloud.
       expect(json.custom_llm_extra_body).toEqual({
         call_sid: "CA777",
         caller_phone: "+15799903077",
+        locale: "en",
       });
     } finally {
       delete process.env.OWNER_PHONE_NUMBERS;

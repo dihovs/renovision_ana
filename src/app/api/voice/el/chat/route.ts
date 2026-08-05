@@ -34,7 +34,13 @@ import {
 import { shouldEscalate, type EscalationVerdict } from "@/lib/voice/escalation";
 import { detectLocale } from "@/lib/voice/locale";
 import { detectOptOut, optOutLine, recordOptOut } from "@/lib/voice/optOut";
-import { ownerSession, redactOwnerPin, type OwnerSession } from "@/lib/voice/owner";
+import {
+  isOwnerNumber,
+  ownerModeConfigured,
+  ownerSession,
+  redactOwnerPin,
+  type OwnerSession,
+} from "@/lib/voice/owner";
 import { ownerToolsFor, runOwnerTool } from "@/lib/voice/ownerTools";
 import { findSolicitation, safeRedirectLine, solicitationFlag } from "@/lib/voice/solicitation";
 import { looksLikeVoicemail } from "@/lib/voice/voicemail";
@@ -155,6 +161,31 @@ function extractCallerPhone(body: Record<string, unknown>): string | null {
     (body.caller_phone as unknown) ??
     null;
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/**
+ * Which language /api/voice/el/init opened the call in.
+ *
+ * THE BUG THIS EXISTS FOR. The seed below used to be the literal "fr" on every
+ * inbound call, and that quietly disagreed with the other half of the system:
+ * init picks the opening language, sends it as `conversation_config_override`,
+ * and ElevenLabs loads the matching VOICE from it. On an owner call init said
+ * English — so the English voice was speaking — while this route started from
+ * French and detectLocale() never found the two-word margin it needs to switch
+ * (short replies like "any news?" score zero either way and return `current`).
+ * Claude was therefore told "You are speaking French", wrote French, and the
+ * English voice read it aloud with an English accent. Reported from a real
+ * call, 2026-08-04.
+ *
+ * The decision is made in exactly one place now and travels here, rather than
+ * being inferred twice from different evidence.
+ */
+function extractOpeningLocale(body: Record<string, unknown>): "fr" | "en" | null {
+  const extra = body.elevenlabs_extra_body as Record<string, unknown> | undefined;
+  const dynamic = body.dynamic_variables as Record<string, unknown> | undefined;
+  const value =
+    (extra?.locale as unknown) ?? (dynamic?.locale as unknown) ?? (body.locale as unknown) ?? null;
+  return value === "fr" || value === "en" ? value : null;
 }
 
 /**
@@ -315,6 +346,12 @@ function deriveCallState(
   // last known language on the task row, and starting an English household in
   // French would waste the first turn of a call that should last one minute.
   seed: "fr" | "en" = "fr",
+  // Set on the owner's own line, where the language is not a thing to be
+  // sniffed out — he asked for English and English is what he gets. Without
+  // it, a Montrealer's perfectly ordinary "oui" and "merci" inside an English
+  // sentence are two French function words, which is exactly the margin
+  // detectLocale() needs to flip the whole call into French.
+  options: { locked?: boolean } = {},
 ): {
   locale: "fr" | "en";
   alreadyEscalated: boolean;
@@ -324,7 +361,7 @@ function deriveCallState(
 
   for (let i = 0; i < callerTurnTexts.length; i++) {
     const turn = callerTurnTexts[i];
-    locale = detectLocale(turn, locale);
+    if (!options.locked) locale = detectLocale(turn, locale);
     if (!alreadyEscalated) {
       alreadyEscalated = shouldEscalate(turn, callerTurnTexts.slice(0, i)).escalate;
     }
@@ -484,13 +521,32 @@ export async function POST(request: Request) {
       at: new Date().toISOString(),
     }));
 
+  // THE OWNER'S OWN LINE RUNS IN ENGLISH, AND STAYS THERE.
+  //
+  // Recognised by caller ID, which is a filter and not proof — this decides a
+  // language and nothing else, and the PIN still gates every figure Ana reads
+  // out. Read before the seed because it IS the seed on his calls.
+  //
+  // Locked rather than merely seeded, because he asked for "full English" and
+  // seeding alone would not deliver it: he is a Montrealer, "oui" and "merci"
+  // land in his English sentences without him noticing, and two French
+  // function words are precisely the margin detectLocale() switches on.
+  const rawCallerPhone = extractCallerPhone(body);
+  const ownerLine = !outbound && ownerModeConfigured() && isOwnerNumber(rawCallerPhone);
+
   // A dashboard-originated call defaults to English (Artush's own working
-  // language in the admin); everything else keeps the phone's long-standing
-  // French-for-Laval default.
-  const localeSeed: "fr" | "en" = outbound?.locale ?? (fromDashboard ? "en" : "fr");
+  // language in the admin); a phone call takes whatever /api/voice/el/init
+  // opened it in — see extractOpeningLocale for why guessing that again here
+  // rather than being told it was a bug — and falls back to the phone's
+  // long-standing French-for-Laval default.
+  const localeSeed: "fr" | "en" =
+    outbound?.locale ??
+    (ownerLine || fromDashboard ? "en" : (extractOpeningLocale(body) ?? "fr"));
 
   const priorCallerTexts = callerTurns({ turns: priorTurns });
-  const { locale: priorLocale, alreadyEscalated } = deriveCallState(priorCallerTexts, localeSeed);
+  const { locale: priorLocale, alreadyEscalated } = deriveCallState(priorCallerTexts, localeSeed, {
+    locked: ownerLine,
+  });
 
   // Where this call stands with owner mode, recomputed from the caller's number
   // and everything they have said INCLUDING this turn — so the turn that speaks
@@ -503,7 +559,6 @@ export async function POST(request: Request) {
   // rather than trusted to be absent — the dialer does not set `caller_phone`,
   // but "it isn't sent" is an assumption and this is the one place where being
   // wrong about it hands the CRM to whoever we happened to dial.
-  const rawCallerPhone = extractCallerPhone(body);
   if (outbound && rawCallerPhone) {
     console.error(
       "[voice-outbound] an outbound request carried caller_phone — ignoring it; the dialer must not send it",
@@ -662,7 +717,11 @@ export async function POST(request: Request) {
           return;
         }
 
-        const detected = detectLocale(spoken, locale);
+        // Not consulted on the owner's line — see `ownerLine` above. Leaving
+        // detection running here would undo the lock one turn later: the seed
+        // would open in English and the first "oui, merci" would switch the
+        // conversation, which is the exact complaint this is fixing.
+        const detected = ownerLine ? locale : detectLocale(spoken, locale);
         const localeChanged = detected !== locale;
         locale = detected;
 

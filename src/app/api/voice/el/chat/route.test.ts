@@ -110,6 +110,75 @@ describe("the ElevenLabs chat endpoint chooses a path", () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Reported from a real call, 2026-08-04: "she switches to the English accent
+   * with the English language model trying to speak French."
+   *
+   * Two halves of the system had been inferring the language separately from
+   * different evidence. /init decided English for the owner and ElevenLabs
+   * loaded the English voice from it; this route re-derived from a hardcoded
+   * French seed and wrote French — so the English voice read French aloud.
+   */
+  describe("the owner's own line is English, and stays English", () => {
+    it("answers him in English even when he says French words", async () => {
+      await call(OWNER, [{ role: "user", content: "oui merci, c'est bon pour le rendez-vous" }]);
+
+      const [, options] = vi.mocked(replyToStream).mock.calls[0];
+      expect(options.locale).toBe("en");
+    });
+
+    it("never announces a language switch on his line", async () => {
+      const body = await call(OWNER, [
+        { role: "user", content: "je suis dans la voiture, donne-moi les chiffres" },
+      ]);
+
+      expect(body).not.toContain("language_detection");
+    });
+
+    it("stays English across a whole conversation, not just the first turn", async () => {
+      await call(OWNER, [
+        { role: "user", content: "hey it's me" },
+        { role: "assistant", content: "owner reply" },
+        { role: "user", content: "ok parfait, et les factures? merci" },
+      ]);
+
+      const [, options] = vi.mocked(replyToStream).mock.calls[0];
+      expect(options.locale).toBe("en");
+    });
+
+    it("leaves a customer's French call completely alone", async () => {
+      await call(STRANGER, [
+        { role: "user", content: "bonjour, j'ai un dégât d'eau dans le sous-sol" },
+      ]);
+
+      const [, options] = vi.mocked(replyToStream).mock.calls[0];
+      expect(options.locale).toBe("fr");
+    });
+  });
+
+  it("opens in the language /init chose, rather than guessing again", async () => {
+    // The channel that carries it. Before this, a caller ElevenLabs had been
+    // told to greet in English got a French reply on the very next turn.
+    const response = await POST(
+      new Request("https://example.test/api/voice/el/chat", {
+        method: "POST",
+        headers: { authorization: `Bearer ${SECRET}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "ok" }],
+          elevenlabs_extra_body: {
+            call_sid: "CA-test",
+            caller_phone: STRANGER,
+            locale: "en",
+          },
+        }),
+      }),
+    );
+    await response.text();
+
+    const [, options] = vi.mocked(replyToStream).mock.calls[0];
+    expect(options.locale).toBe("en");
+  });
+
   it("refuses a request without the bearer secret", async () => {
     const response = await POST(
       new Request("https://example.test/api/voice/el/chat", {
