@@ -11,6 +11,7 @@ import {
 import { ensureHubToken, revokeHubToken } from "@/lib/crm/hub";
 import { createJobForClient } from "@/lib/crm/jobs";
 import { parseMoneyToCents } from "@/lib/crm/money";
+import { sendSms } from "@/lib/sms/send";
 import {
   archiveProperty,
   convertLeadToClient,
@@ -343,4 +344,44 @@ export async function revokeHubLinkAction(clientId: string): Promise<void> {
   await requireSession();
   await revokeHubToken(clientId);
   revalidatePath(`/admin/clients/${clientId}`);
+}
+
+/**
+ * Text a client, from the owner's own hands.
+ *
+ * Returns a sentence instead of throwing, because every way this fails is
+ * something he can act on — an unsubscribed number, a number Twilio will not
+ * accept, an environment missing its credentials — and a thrown error would
+ * replace the page with an error boundary and lose what he had typed.
+ *
+ * Deliberately has no "send to everyone" sibling and no automated caller. See
+ * the header of lib/sms/send.ts: this path relies on CASL's implied consent
+ * from an existing business relationship, which is a claim about a person the
+ * owner is already dealing with, not about a list.
+ */
+export async function sendSmsAction(
+  clientId: string,
+  phone: string,
+  _prev: string | null,
+  formData: FormData,
+): Promise<string | null> {
+  await requireSession();
+
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) return "Write something first.";
+
+  const result = await sendSms({ to: phone, body, clientId });
+  revalidatePath(`/admin/clients/${clientId}`);
+
+  if (result.sent) return null;
+  switch (result.reason) {
+    case "opted_out":
+      return "That number asked us to stop texting. It has to come from them to start again.";
+    case "invalid_number":
+      return result.detail ?? "That does not look like a mobile number we can text.";
+    case "not_configured":
+      return "Texting is not switched on yet — TWILIO_ACCOUNT_SID is missing.";
+    default:
+      return result.detail ?? "It did not go through. Try again in a moment.";
+  }
 }

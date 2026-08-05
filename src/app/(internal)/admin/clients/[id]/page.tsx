@@ -5,6 +5,7 @@ import {
   createHubLinkAction,
   removePropertyAction,
   revokeHubLinkAction,
+  sendSmsAction,
   setArchivedAction,
   startJobAction,
   updatePropertyAction,
@@ -15,15 +16,18 @@ import AskClaude from "@/components/admin/AskClaude";
 import CallButton from "@/components/admin/CallButton";
 import HubLink from "@/components/admin/HubLink";
 import PropertyEditor from "@/components/admin/PropertyEditor";
+import SmsThread from "@/components/admin/SmsThread";
 import StartJobCard from "@/components/admin/StartJobCard";
 import { SITE_URL } from "@/lib/constants";
 import { getClient } from "@/lib/crm/clients";
 import { MigrationPendingError } from "@/lib/crm/db";
 import { formatRate, getTaxRates, resolveTaxRate } from "@/lib/crm/settings";
+import { listThread } from "@/lib/sms/thread";
 import {
   clientDisplayName,
   clientPersonName,
   formatAddress,
+  primaryPhone,
   type ClientWithProperties,
 } from "@/lib/crm/types";
 
@@ -55,6 +59,16 @@ export default async function ClientDetailPage({
   }
 
   if (!client) notFound();
+
+  // Texts hang off the number, not the client row — see lib/sms/thread.ts. The
+  // thread is read even when it is empty so the composer is there before the
+  // first message rather than appearing only once one exists. A client with no
+  // phone at all gets no panel, which is the honest thing to show.
+  const textablePhone = primaryPhone(client);
+  const thread = await listThread(textablePhone).catch(() => ({
+    messages: [],
+    optedOut: false,
+  }));
 
   const taxRates = await getTaxRates();
   const effectiveRate = resolveTaxRate(taxRates, client.tax_rate_id);
@@ -213,6 +227,15 @@ export default async function ClientDetailPage({
         createAction={createHubLinkAction.bind(null, client.id)}
         revokeAction={revokeHubLinkAction.bind(null, client.id)}
       />
+
+      {textablePhone && (
+        <SmsThread
+          phone={textablePhone}
+          messages={thread.messages}
+          optedOut={thread.optedOut}
+          action={sendSmsAction.bind(null, client.id, textablePhone)}
+        />
+      )}
 
       <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
         <h2 className="font-heading text-sm font-bold text-charcoal">Quotes</h2>
