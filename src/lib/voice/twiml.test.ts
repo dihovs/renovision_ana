@@ -171,6 +171,25 @@ describe("verifyTwilioSignature", () => {
     ).toBe(false);
   });
 
+  it("survives a pasted token that picked up whitespace — THE OTHER PASTE FAILURE", () => {
+    // The env var is a human paste into a dashboard field. A trailing newline
+    // or space is invisible in every UI that displays it, and it changes every
+    // HMAC computed from it. Trimming is safe because a real token can never
+    // contain whitespace: this can only stop a right key from failing, never
+    // make a wrong key pass — which the wrong-token test above still proves.
+    const request = requestArrivingAt("www.renovisionana.ca");
+    for (const damaged of [`${AUTH_TOKEN}\n`, ` ${AUTH_TOKEN} `, `${AUTH_TOKEN}\r\n`]) {
+      expect(
+        verifyTwilioSignature({
+          signature: sign("https://www.renovisionana.ca/api/voice/softphone", PARAMS),
+          url: publicUrlVariants(request),
+          params: PARAMS,
+          authToken: damaged,
+        }),
+      ).toBe(true);
+    }
+  });
+
   it("still takes a single URL string, for callers that pass one", () => {
     expect(
       verifyTwilioSignature({

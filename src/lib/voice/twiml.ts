@@ -122,14 +122,21 @@ export function verifyTwilioSignature(options: {
   }
   if (!options.signature) return false;
 
+  // Trimmed, because the token arrives here from an env var that was pasted
+  // into a dashboard by a human, and a single invisible trailing newline
+  // changes every HMAC this function will ever compute. The token itself can
+  // never legitimately contain whitespace, so trimming cannot turn a wrong
+  // key into a right one — it can only stop a right key from failing.
+  const authToken = options.authToken.trim();
+
   const candidates = Array.isArray(options.url) ? options.url : [options.url];
-  const provided = Buffer.from(options.signature);
+  const provided = Buffer.from(options.signature.trim());
   const sortedKeys = Object.keys(options.params).sort();
 
   for (const candidate of candidates) {
     const payload = sortedKeys.reduce((acc, key) => acc + key + options.params[key], candidate);
     const expected = Buffer.from(
-      crypto.createHmac("sha1", options.authToken).update(Buffer.from(payload, "utf-8")).digest("base64"),
+      crypto.createHmac("sha1", authToken).update(Buffer.from(payload, "utf-8")).digest("base64"),
     );
     // Length check first: timingSafeEqual throws on a mismatch rather than
     // returning false.
@@ -138,11 +145,23 @@ export function verifyTwilioSignature(options: {
     }
   }
 
-  // Which URLs were tried is the entire content of the answer when this fails,
-  // and none of it is secret. Without this line the only symptom is a bare 403
-  // and a caller hearing "an application error has occurred" — which is exactly
-  // how long this took to diagnose the first time.
-  console.error("[voice] Twilio signature did not match any candidate URL", { candidates });
+  // Everything a failure needs to be diagnosed from the log alone, and not one
+  // character of the secret. The three token fields answer the question this
+  // line exists for — "is the configured token malformed, or simply the wrong
+  // token?": a live Twilio auth token is exactly 32 hex characters, so
+  // length 32 + hex true + whitespace false means the token is WELL-FORMED and
+  // wrong (copied from another account, or from Test credentials — the Twilio
+  // console shows both and the test one signs nothing real), while anything
+  // else means the paste itself is damaged. Without this line the only symptom
+  // is a bare 403 and a caller hearing "an application error has occurred" —
+  // which is exactly how long this took to diagnose the first time.
+  console.error("[voice] Twilio signature did not match any candidate URL", {
+    candidates,
+    paramCount: sortedKeys.length,
+    tokenLength: authToken.length,
+    tokenIsHex32: /^[0-9a-f]{32}$/i.test(authToken),
+    tokenHadWhitespace: authToken !== options.authToken,
+  });
   return false;
 }
 
