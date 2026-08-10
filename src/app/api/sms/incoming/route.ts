@@ -1,4 +1,4 @@
-import { db } from "@/lib/crm/db";
+import { findClientIdForPhone } from "@/lib/sms/attribution";
 import {
   clearOptOut,
   isStartRequest,
@@ -41,34 +41,6 @@ function twiml(): Response {
     status: 200,
     headers: { "content-type": "text/xml; charset=utf-8" },
   });
-}
-
-/** Which client this number belongs to, if any. Best-effort. */
-async function findClientId(phone: string): Promise<string | null> {
-  const client = db();
-  if (!client) return null;
-
-  // The last four digits are the discriminating part and the part that
-  // survives every way a number gets typed — matching on the full string would
-  // miss "(514) 555-0188" against "+15145550188". Same approach as
-  // postCallLead.ts's phoneTail.
-  const tail = phone.replace(/\D/g, "").slice(-10);
-  if (tail.length < 10) return null;
-
-  const { data, error } = await client
-    .from("clients")
-    .select("id, phones")
-    .is("archived_at", null)
-    .limit(500);
-  if (error || !data) return null;
-
-  for (const row of data) {
-    const phones = (row.phones ?? []) as Array<{ number?: string }>;
-    for (const entry of phones) {
-      if ((entry.number ?? "").replace(/\D/g, "").slice(-10) === tail) return row.id as string;
-    }
-  }
-  return null;
 }
 
 export async function POST(request: Request) {
@@ -114,7 +86,9 @@ export async function POST(request: Request) {
     await recordInbound({
       phone: from,
       body,
-      clientId: await findClientId(from),
+      // Moved to lib/sms/attribution.ts, unchanged — the Messages inbox asks
+      // the same question now.
+      clientId: await findClientIdForPhone(from),
       providerSid: params.MessageSid ?? null,
     });
   } catch (err) {

@@ -50,6 +50,10 @@ const NAV: NavItem[] = [
   // reaches for mid-task rather than while reviewing: a customer is on the
   // other line and the pad has to be one click from wherever he already is.
   { href: "/admin/phone", label: "Phone", icon: IconPhone, ready: true },
+  // Beside Phone, because they are the same gesture in two media: reach a
+  // customer on the business number. The rail's "Inbox" further down is
+  // WhatsApp job photos; this is SMS.
+  { href: "/admin/messages", label: "Messages", icon: IconChat, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/calls", label: "Call log", icon: IconPhone, ready: true },
   // Next to Calls, because everything on it was dictated on one.
