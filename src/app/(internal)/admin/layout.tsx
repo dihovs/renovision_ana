@@ -14,7 +14,19 @@ import { isAuthConfigured, isSignedIn } from "@/lib/adminAuth";
  * because a layout guards rendering and an action is a public endpoint.
  */
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+/**
+ * The manifest and Apple tags make /admin installable — "Add to Home Screen"
+ * on the iPhone yields a full-screen app with the company icon, and the same
+ * tags serve the Capacitor shell (capacitor.config.ts). Scoped HERE rather
+ * than on the shared internal layout so the customer-facing token pages
+ * (/hub, /q, /i) never advertise themselves as an app.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  manifest: "/admin-manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Renovision", statusBarStyle: "default" },
+  icons: { apple: "/apple-touch-icon.png" },
+};
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
