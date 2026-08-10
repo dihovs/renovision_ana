@@ -35,10 +35,10 @@ import { shouldEscalate, type EscalationVerdict } from "@/lib/voice/escalation";
 import { detectLocale } from "@/lib/voice/locale";
 import { detectOptOut, optOutLine, recordOptOut } from "@/lib/voice/optOut";
 import {
+  NO_OWNER_SESSION,
   isOwnerNumber,
   ownerModeConfigured,
   ownerSession,
-  redactOwnerPin,
   type OwnerSession,
 } from "@/lib/voice/owner";
 import { ownerToolsFor, runOwnerTool } from "@/lib/voice/ownerTools";
@@ -307,13 +307,14 @@ function extractOutboundBrief(
  * OWNER_PHONE_NUMBERS (his own mobile, a test call), and the CRM tools must not
  * become reachable because of it. This is the same reasoning as ownerToolsFor()
  * returning [] for an unauthenticated session, one layer earlier.
+ *
+ * It matters more now than it used to. Owner mode used to need a spoken PIN on
+ * top of the number, so an errand dialled to his own mobile still would not
+ * have opened the CRM; with the number alone sufficient, this branch is the
+ * only thing standing between "we called Artush's phone" and "we handed the
+ * CRM to whoever answered it". NO_OWNER_SESSION is imported from owner.ts so
+ * there is exactly one definition of what "not the owner" means.
  */
-const NO_OWNER_SESSION: OwnerSession = {
-  eligible: false,
-  authenticated: false,
-  failedAttempts: 0,
-  lockedOut: true,
-};
 
 /** How far into the call we are, for the sixty-second re-identification. */
 function callDurationSeconds(body: Record<string, unknown>): number | null {
@@ -548,14 +549,13 @@ export async function POST(request: Request) {
     locked: ownerLine,
   });
 
-  // Where this call stands with owner mode, recomputed from the caller's number
-  // and everything they have said INCLUDING this turn — so the turn that speaks
-  // the PIN is the turn that unlocks. Pure functions over env vars and the
-  // transcript: no database read, no measurable cost, and for the overwhelming
-  // majority of calls (a number that isn't on the allowlist) it returns
-  // `eligible: false` after one string comparison and nothing below it changes.
+  // Where this call stands with owner mode. A pure function of the caller's
+  // number now — no database read, and nothing the caller SAYS can move it,
+  // which is a real improvement on the PIN this replaced: that version had to
+  // read every utterance looking for a code, and "reads what the caller said
+  // in order to decide what the caller may see" is a shape worth being rid of.
   //
-  // On an outbound call none of that applies and the number is forced to null
+  // On an outbound call none of it applies and the number is forced to null
   // rather than trusted to be absent — the dialer does not set `caller_phone`,
   // but "it isn't sent" is an assumption and this is the one place where being
   // wrong about it hands the CRM to whoever we happened to dial.
@@ -569,18 +569,16 @@ export async function POST(request: Request) {
   const session: OwnerSession = outbound
     ? NO_OWNER_SESSION
     : fromDashboard
-      ? { eligible: true, authenticated: true, failedAttempts: 0, lockedOut: false }
-      : ownerSession(callerPhone, [...priorCallerTexts, spoken]);
-  if (fromDashboard && priorTurns.length === 0) {
-    console.info("[voice-owner] owner mode opened from the admin dashboard", { callSid });
-  } else if (
-    session.authenticated &&
-    !fromDashboard &&
-    !ownerSession(callerPhone, priorCallerTexts).authenticated
-  ) {
-    // Once per call, on the turn the second factor lands. The PIN itself is
-    // never logged — only that a session opened.
-    console.info("[voice-owner] owner mode unlocked", { callSid, turns: priorTurns.length });
+      ? { authenticated: true }
+      : ownerSession(callerPhone);
+  // Once per call, on the opening turn. Logged because owner mode now rests on
+  // caller ID alone: if a session ever opens that shouldn't have, this line and
+  // the number beside it are the whole audit trail.
+  if (session.authenticated && priorTurns.length === 0) {
+    console.info("[voice-owner] owner mode open", {
+      callSid,
+      via: fromDashboard ? "dashboard" : "caller-id",
+    });
   }
 
   const stream = new ReadableStream({
@@ -1046,16 +1044,11 @@ export async function POST(request: Request) {
               )
             : await replyToStream(
                 [...priorTurns, callerTurn],
-                {
-                  locale,
-                  escalated: verdict.escalate,
-                  // The owner's line, before the code has been given. Lets Ana
-                  // say she can take a code — and nothing else. Never set for a
-                  // caller who has burned through their attempts: once locked
-                  // out she is an ordinary receptionist for the rest of the call
-                  // and owner mode is not mentioned again.
-                  ownerAwaitingPin: session.eligible && !session.lockedOut,
-                },
+                // Nothing owner-shaped is passed any more. There is no longer a
+                // half-authenticated state to describe: the number either opens
+                // owner mode outright, in which case this branch is not the one
+                // running, or it does not and this is an ordinary call.
+                { locale, escalated: verdict.escalate },
                 onDelta,
               );
 
@@ -1105,18 +1098,17 @@ export async function POST(request: Request) {
         // call. Settled together rather than awaited in sequence, and each
         // failure is swallowed: a dropped transcript row is a reporting gap,
         // not a reason to break a phone call.
-        // The PIN must not be written down next to the number it authenticates.
-        // Only applied on the owner's own line: redactOwnerPin() blanks ANY run
-        // of digits as long as the PIN, and running it over every call would
-        // strike the callback number out of the transcript of every real lead —
-        // the single most valuable thing in there.
-        const storedCallerTurn: CallTurn = session.eligible
-          ? { ...callerTurn, text: redactOwnerPin(callerTurn.text) }
-          : callerTurn;
-
+        //
+        // The caller's turn is now stored verbatim. It used to be run through
+        // redactOwnerPin() on owner-eligible calls, because a spoken PIN would
+        // otherwise be filed in plaintext next to the number it authenticated.
+        // With no PIN there is no secret in the transcript to strike out, and
+        // the redactor is gone rather than left running over nothing — it
+        // blanked any digit run of that length, so keeping it would quietly
+        // eat callback numbers for no remaining benefit.
         if (callSid) {
           await Promise.allSettled([
-            appendTurns(callSid, [storedCallerTurn, agentTurn]),
+            appendTurns(callSid, [callerTurn, agentTurn]),
             localeChanged ? setCallLocale(callSid, locale) : null,
             verdict.escalate && !alreadyEscalated && verdict.reason
               ? markEscalated(callSid, verdict.reason)
