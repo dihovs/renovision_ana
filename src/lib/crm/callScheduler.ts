@@ -6,6 +6,7 @@ import {
   type CallTaskKind,
   type TorontoWall,
 } from "./callTasks";
+import { toE164 } from "@/lib/phone";
 import { db } from "./db";
 import { listVisitsBetween } from "./jobs";
 import { clientDisplayName, type PhoneContact } from "./types";
@@ -176,41 +177,15 @@ export function spokenWhenBoth(iso: string): { fr: string; en: string } {
 // ---------------------------------------------------------------------------
 
 /**
- * A CRM phone string turned into E.164, or null.
+ * Moved to lib/phone.ts, unchanged, and re-exported here so every existing
+ * caller and its tests keep working.
  *
- * Null is a real answer and the caller must treat it as one: the migration's
- * check constraint would reject anything else anyway, and a task that fails to
- * insert at 3am is a customer who never got their call and nobody who knows.
- *
- * Deliberately strict for +1. The generic E.164 shape accepts `+1055...`, which
- * is a typo in the CRM rather than a number; the NANP rule that neither the
- * area code nor the exchange may start with 0 or 1 catches it before it becomes
- * a failed call. Anything with an extension is treated as unreachable — an
- * automated call cannot navigate a switchboard, and dialling the main line and
- * announcing somebody's renovation to whoever answers is exactly the disclosure
- * failure branch B2 exists to prevent.
+ * It had to leave this module because the admin's dial pad validates with it
+ * and this module imports the Supabase client — importing it from the browser
+ * would pull a database driver into the page bundle. Same strictness, same
+ * tests, one home.
  */
-export function toE164(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const text = raw.trim();
-  if (!text) return null;
-  if (/(?:\bext\b|\bx\b|poste|#)\s*\d/i.test(text)) return null;
-
-  const plus = text.startsWith("+");
-  const digits = text.replace(/\D/g, "");
-  if (!digits) return null;
-
-  let candidate: string;
-  if (plus) candidate = `+${digits}`;
-  else if (digits.length === 10) candidate = `+1${digits}`;
-  else if (digits.length === 11 && digits.startsWith("1")) candidate = `+${digits}`;
-  else return null;
-
-  // Same shape the migration's check constraint enforces.
-  if (!/^\+[1-9][0-9]{7,14}$/.test(candidate)) return null;
-  if (candidate.startsWith("+1") && !/^\+1[2-9][0-9]{2}[2-9][0-9]{6}$/.test(candidate)) return null;
-  return candidate;
-}
+export { toE164 };
 
 /**
  * The first number on a client record we could actually dial.

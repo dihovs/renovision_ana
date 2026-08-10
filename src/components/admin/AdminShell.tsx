@@ -46,8 +46,12 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
   { href: "/admin/ana", label: "Talk to Ana", icon: IconChat, ready: true },
+  // Above Leads, and above the call LOG, because it is the one item here he
+  // reaches for mid-task rather than while reviewing: a customer is on the
+  // other line and the pad has to be one click from wherever he already is.
+  { href: "/admin/phone", label: "Phone", icon: IconPhone, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
-  { href: "/admin/calls", label: "Calls", icon: IconPhone, ready: true },
+  { href: "/admin/calls", label: "Call log", icon: IconPhone, ready: true },
   // Next to Calls, because everything on it was dictated on one.
   { href: "/admin/tasks", label: "Tasks", icon: IconCheckCircle, ready: true },
   // Also next to Calls: it is where the calls Ana is allowed to place to
