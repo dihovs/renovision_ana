@@ -1,7 +1,7 @@
 import { startCall } from "@/lib/crm/calls";
 import { greeting } from "@/lib/voice/agent";
 import {
-  publicUrl,
+  publicUrlVariants,
   readTwilioParams,
   sayAndGather,
   twimlResponse,
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (
     !verifyTwilioSignature({
       signature: request.headers.get("x-twilio-signature"),
-      url: publicUrl(request),
+      url: publicUrlVariants(request),
       params,
       authToken: process.env.TWILIO_AUTH_TOKEN,
     })

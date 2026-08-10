@@ -105,7 +105,12 @@ export function twimlResponse(xml: string): Response {
  */
 export function verifyTwilioSignature(options: {
   signature: string | null;
-  url: string;
+  /**
+   * The URL to verify against, or every URL it could legitimately have been
+   * signed as — see publicUrlVariants() for why more than one is both
+   * necessary and safe.
+   */
+  url: string | string[];
   params: Record<string, string>;
   authToken: string | undefined;
 }): boolean {
@@ -117,20 +122,28 @@ export function verifyTwilioSignature(options: {
   }
   if (!options.signature) return false;
 
-  const payload = Object.keys(options.params)
-    .sort()
-    .reduce((acc, key) => acc + key + options.params[key], options.url);
+  const candidates = Array.isArray(options.url) ? options.url : [options.url];
+  const provided = Buffer.from(options.signature);
+  const sortedKeys = Object.keys(options.params).sort();
 
-  const expected = crypto
-    .createHmac("sha1", options.authToken)
-    .update(Buffer.from(payload, "utf-8"))
-    .digest("base64");
+  for (const candidate of candidates) {
+    const payload = sortedKeys.reduce((acc, key) => acc + key + options.params[key], candidate);
+    const expected = Buffer.from(
+      crypto.createHmac("sha1", options.authToken).update(Buffer.from(payload, "utf-8")).digest("base64"),
+    );
+    // Length check first: timingSafeEqual throws on a mismatch rather than
+    // returning false.
+    if (expected.length === provided.length && crypto.timingSafeEqual(expected, provided)) {
+      return true;
+    }
+  }
 
-  const a = Buffer.from(expected);
-  const b = Buffer.from(options.signature);
-  // Length check first: timingSafeEqual throws on a mismatch rather than
-  // returning false.
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  // Which URLs were tried is the entire content of the answer when this fails,
+  // and none of it is secret. Without this line the only symptom is a bare 403
+  // and a caller hearing "an application error has occurred" — which is exactly
+  // how long this took to diagnose the first time.
+  console.error("[voice] Twilio signature did not match any candidate URL", { candidates });
+  return false;
 }
 
 /** Form-encoded body to a plain object, as Twilio posts it. */
@@ -159,4 +172,55 @@ export function publicUrl(request: Request): string {
     url.protocol = `${proto}:`;
   }
   return url.toString();
+}
+
+/**
+ * Every URL this request could legitimately have been signed as.
+ *
+ * WHY THIS EXISTS. Twilio computes its signature over the URL *configured in
+ * the console*, character for character — not over the URL the request finally
+ * arrives at. When the two spellings of our own domain disagree, the HMAC does
+ * too, and the endpoint returns 403 to a genuinely authentic Twilio request.
+ * That is not hypothetical: it is what made the softphone answer every call
+ * with "we are sorry, an application error has occurred" on 2026-08-09. The
+ * console had one spelling, `publicUrl()` reconstructed the other, and the
+ * only visible symptom was a bare 403 with no message.
+ *
+ * THIS DOES NOT WEAKEN THE CHECK, and that is worth being precise about. The
+ * signature is an HMAC keyed on the auth token; the URL is only part of the
+ * signed payload, never a credential. Offering two candidate spellings of a
+ * host WE ALREADY SERVE lets in nobody who could not already forge the HMAC —
+ * an attacker's problem is the key, and the key has not moved. What it removes
+ * is a purely cosmetic reason to reject a real Twilio request.
+ *
+ * Deliberately limited to the www/apex pair and the two schemes, rather than
+ * anything clever. `http://` is in the list for the same reason the apex is:
+ * a URL typed into the console without the "s" is signed exactly as typed,
+ * redirected to https by the CDN, and fails identically. Every candidate is a
+ * spelling of THIS deployment; a wildcard, or anything derived from a
+ * caller-supplied header other than the proxy's own host, would be a
+ * different thing entirely and must not be added here.
+ *
+ * The real request's own spelling is always first, so the common case costs
+ * one HMAC and the rest are never computed.
+ */
+export function publicUrlVariants(request: Request): string[] {
+  const primary = publicUrl(request);
+  const url = new URL(primary);
+  const hosts = [
+    url.hostname,
+    url.hostname.startsWith("www.") ? url.hostname.slice(4) : `www.${url.hostname}`,
+  ];
+
+  const candidates: string[] = [];
+  for (const protocol of [url.protocol, url.protocol === "https:" ? "http:" : "https:"]) {
+    for (const hostname of hosts) {
+      const variant = new URL(primary);
+      variant.protocol = protocol;
+      variant.hostname = hostname;
+      const href = variant.toString();
+      if (!candidates.includes(href)) candidates.push(href);
+    }
+  }
+  return candidates;
 }

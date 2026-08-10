@@ -11,7 +11,7 @@ import { fallbackLine, replyTo } from "@/lib/voice/agent";
 import { shouldEscalate } from "@/lib/voice/escalation";
 import { detectLocale } from "@/lib/voice/locale";
 import {
-  publicUrl,
+  publicUrlVariants,
   readTwilioParams,
   sayAndGather,
   twimlResponse,
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   if (
     !verifyTwilioSignature({
       signature: request.headers.get("x-twilio-signature"),
-      url: publicUrl(request),
+      url: publicUrlVariants(request),
       params,
       authToken: process.env.TWILIO_AUTH_TOKEN,
     })

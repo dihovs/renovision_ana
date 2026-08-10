@@ -1,6 +1,6 @@
 import { SITE_PHONE_TEL } from "@/lib/constants";
 import { toE164 } from "@/lib/sms/send";
-import { publicUrl, readTwilioParams, verifyTwilioSignature } from "@/lib/voice/twiml";
+import { publicUrlVariants, readTwilioParams, verifyTwilioSignature } from "@/lib/voice/twiml";
 
 /**
  * What Twilio should do when the admin's browser places a call.
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   if (
     !verifyTwilioSignature({
       signature: request.headers.get("x-twilio-signature"),
-      url: publicUrl(request),
+      url: publicUrlVariants(request),
       params,
       authToken: process.env.TWILIO_AUTH_TOKEN,
     })

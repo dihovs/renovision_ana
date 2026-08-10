@@ -7,7 +7,7 @@ import {
   recordOptOut,
   toE164,
 } from "@/lib/sms/send";
-import { publicUrl, readTwilioParams, verifyTwilioSignature } from "@/lib/voice/twiml";
+import { publicUrlVariants, readTwilioParams, verifyTwilioSignature } from "@/lib/voice/twiml";
 
 /**
  * Somebody texted the business number.
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
   if (
     !verifyTwilioSignature({
       signature: request.headers.get("x-twilio-signature"),
-      url: publicUrl(request),
+      url: publicUrlVariants(request),
       params,
       authToken: process.env.TWILIO_AUTH_TOKEN,
     })
