@@ -24,10 +24,23 @@ const config: CapacitorConfig = {
   appName: "Renovision",
   webDir: "capacitor-shell",
   server: {
-    url: "https://www.renovisionana.ca/admin",
-    // Navigation stays inside the app for our own domain; anything else
-    // (Google Maps links, the public site) opens in the system browser.
-    allowNavigation: ["www.renovisionana.ca", "renovisionana.ca"],
+    // WHILE THE MOBILE PROJECT IS IN FLIGHT: points at the stable Vercel
+    // Preview alias for the mobile-app branch rather than production, so the
+    // phases already tested (camera, dialer, viewport fix, and whatever
+    // follows) are what's actually on the phone. This alias auto-updates on
+    // every push to mobile-app — no rebuild needed for web-only changes.
+    //
+    // Swap to the production line below only once mobile-app is merged to
+    // master and this file's own change is part of that merge — not before,
+    // per "keep main clean until the whole thing works."
+    url: "https://renovision-ana-git-mobile-app-renovision-an-a.vercel.app/admin",
+    allowNavigation: [
+      "renovision-ana-git-mobile-app-renovision-an-a.vercel.app",
+      "www.renovisionana.ca",
+      "renovisionana.ca",
+    ],
+    // url: "https://www.renovisionana.ca/admin",
+    // allowNavigation: ["www.renovisionana.ca", "renovisionana.ca"],
   },
   ios: {
     // The admin's own chrome starts below the notch; the WebView handles its
