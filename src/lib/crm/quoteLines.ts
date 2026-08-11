@@ -1,4 +1,4 @@
-import type { QuoteLineKind } from "./quoteTypes";
+import type { QuoteLineKind, QuoteTier } from "./quoteTypes";
 
 // The editable-line shape and its constructor, shared between:
 //   - src/components/admin/QuoteBuilder.tsx (edits them, client component)
@@ -28,6 +28,8 @@ export type EditableLine = {
   selected: boolean;
   laborHours: number | null;
   priceBookItemId: string | null;
+  /** Good/Better/Best. Meaningless — and dropped on save — unless `optional`. */
+  tier: QuoteTier | null;
 };
 
 let keyCounter = 0;
@@ -48,5 +50,6 @@ export function blankLine(kind: QuoteLineKind = "item"): EditableLine {
     selected: false,
     laborHours: null,
     priceBookItemId: null,
+    tier: null,
   };
 }

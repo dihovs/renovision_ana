@@ -5,7 +5,7 @@ import { useActionState, useMemo, useState } from "react";
 import type { ApprovalState } from "@/app/(internal)/q/[token]/actions";
 import { calculateQuoteTotals, formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
 import { copyFor, type QuoteLocale } from "@/lib/crm/quoteCopy";
-import type { QuoteLineItem, QuoteWithLines } from "@/lib/crm/quoteTypes";
+import type { QuoteLineItem, QuoteTier, QuoteWithLines } from "@/lib/crm/quoteTypes";
 import type { CompanySetting, TaxRate } from "@/lib/crm/settings";
 
 /**
@@ -16,6 +16,8 @@ import type { CompanySetting, TaxRate } from "@/lib/crm/settings";
  * gets stored. A separate front-end total would eventually disagree with the
  * back-end one, and the customer's screen is the version they'd rely on.
  */
+
+const TIER_ORDER: QuoteTier[] = ["good", "better", "best"];
 
 export default function PublicQuote({
   quote,
@@ -37,6 +39,37 @@ export default function PublicQuote({
     () => new Set(quote.lines.filter((l) => l.optional && l.selected).map((l) => l.id)),
   );
   const [showChanges, setShowChanges] = useState(false);
+
+  // Good/Better/Best: lines carrying a tier are pulled out of the flat list
+  // and shown as one package each, mutually exclusive — picking one ticks
+  // every line in it and unticks every other tier's, through the SAME
+  // `selected` set the flat checkboxes use, so totals and the approval
+  // payload need no separate code path for a tiered quote versus a plain one.
+  const tierGroups = TIER_ORDER.map((tier) => ({
+    tier,
+    lines: quote.lines.filter((l) => l.tier === tier),
+  })).filter((g) => g.lines.length > 0);
+  const hasTiers = tierGroups.length > 0;
+  const hasUntieredOptional = quote.lines.some((l) => l.optional && !l.tier);
+
+  const [chosenTier, setChosenTier] = useState<QuoteTier | null>(() => {
+    const picked = tierGroups.find((g) => g.lines.every((l) => l.selected));
+    return picked?.tier ?? null;
+  });
+
+  function pickTier(tier: QuoteTier) {
+    setChosenTier(tier);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const group of tierGroups) {
+        for (const line of group.lines) {
+          if (group.tier === tier) next.add(line.id);
+          else next.delete(line.id);
+        }
+      }
+      return next;
+    });
+  }
 
   const [approveState, runApprove, approving] = useActionState(
     approveAction,
@@ -69,7 +102,9 @@ export default function PublicQuote({
   const isOpen = quote.status === "sent" || quote.status === "viewed";
   const expired =
     Boolean(quote.valid_until) && quote.valid_until! < new Date().toISOString().slice(0, 10);
-  const hasOptional = quote.lines.some((l) => l.optional);
+  // The flat list only ever shows always-included and untiered-optional
+  // lines now — a tiered line lives entirely inside its package card below.
+  const mainLines = quote.lines.filter((l) => !l.tier);
 
   const dateFmt = (iso: string | null) =>
     iso
@@ -201,14 +236,37 @@ export default function PublicQuote({
 
         {/* Line items --------------------------------------------------- */}
         <div className="p-6 sm:p-8">
-          {hasOptional && isOpen && !expired && (
+          {hasTiers && (
+            <div className="mb-6">
+              <h2 className="mb-3 font-heading text-base font-bold text-charcoal">
+                {t.chooseOption}
+              </h2>
+              <div
+                className={`grid gap-3 ${tierGroups.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+              >
+                {tierGroups.map((group) => (
+                  <TierCard
+                    key={group.tier}
+                    tier={group.tier}
+                    lines={group.lines}
+                    locale={locale}
+                    active={chosenTier === group.tier}
+                    interactive={isOpen && !expired}
+                    onPick={() => pickTier(group.tier)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasUntieredOptional && isOpen && !expired && (
             <p className="mb-4 rounded-lg bg-brand-blue/[0.05] px-3 py-2 text-xs font-medium text-brand-blue">
               {t.optionalHelp}
             </p>
           )}
 
           <ul className="divide-y divide-black/5">
-            {quote.lines.map((line) => (
+            {mainLines.map((line) => (
               <LineRow
                 key={line.id}
                 line={line}
@@ -415,6 +473,64 @@ export default function PublicQuote({
         )}
       </article>
     </div>
+  );
+}
+
+const TIER_KEY = { good: "tierGood", better: "tierBetter", best: "tierBest" } as const;
+
+/**
+ * One Good/Better/Best package. The price shown is just this tier's own
+ * lines, summed plain — the real, tax-aware total the customer actually
+ * owes is the figure in the footer below, which already reacts to which
+ * tier is picked through the same `selected` set the checkboxes use.
+ */
+function TierCard({
+  tier,
+  lines,
+  locale,
+  active,
+  interactive,
+  onPick,
+}: {
+  tier: QuoteTier;
+  lines: QuoteLineItem[];
+  locale: QuoteLocale;
+  active: boolean;
+  interactive: boolean;
+  onPick: () => void;
+}) {
+  const t = copyFor(locale);
+  const subtotal = lines.reduce(
+    (sum, l) =>
+      sum +
+      lineTotalCents({ quantityMilli: l.quantity_milli ?? 0, unitPriceCents: l.unit_price_cents ?? 0 }),
+    0,
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      disabled={!interactive}
+      aria-pressed={active}
+      className={`rounded-xl border-2 p-4 text-left transition-colors disabled:cursor-default ${
+        active
+          ? "border-brand-green bg-brand-green/[0.05]"
+          : "border-black/10 hover:border-black/25"
+      }`}
+    >
+      <span className="block text-xs font-bold uppercase tracking-wide text-charcoal/45">
+        {t[TIER_KEY[tier]]}
+      </span>
+      <span className="mt-1 block font-heading text-xl font-bold text-charcoal">
+        {formatMoney(subtotal, locale)}
+      </span>
+      <ul className="mt-2 space-y-0.5 text-xs leading-snug text-charcoal/65">
+        {lines.map((l) => (
+          <li key={l.id}>{l.name}</li>
+        ))}
+      </ul>
+    </button>
   );
 }
 

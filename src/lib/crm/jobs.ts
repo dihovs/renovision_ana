@@ -7,6 +7,7 @@ import {
 } from "./conversions";
 import { db, isMissingTable, MigrationPendingError } from "./db";
 import { calculateQuoteTotals } from "./money";
+import { attachJob } from "./projects";
 import type {
   ChecklistItem,
   DocumentLine,
@@ -315,6 +316,22 @@ export async function createJobFromQuote(quoteId: string): Promise<ConversionRes
   }
 
   await markQuoteConverted(quoteId);
+
+  // An estimate built under a project should hand its job straight to that
+  // same project — attaching it by hand every time is exactly the kind of
+  // step that gets forgotten. Best-effort: a project link failing here is
+  // not a reason to fail the job that was just successfully created.
+  if (quote.project_id) {
+    try {
+      await attachJob(quote.project_id, jobId);
+    } catch (err) {
+      console.warn(
+        `[jobs] could not attach job ${jobId} to project ${quote.project_id}: ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   return { id: jobId, created: true };
 }
 

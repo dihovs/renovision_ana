@@ -21,6 +21,7 @@ import {
   type QuoteLineItem,
   type QuoteLineKind,
   type QuoteStatus,
+  type QuoteTier,
   type QuoteWithLines,
 } from "./quoteTypes";
 import { clientSnapshotOf, propertySnapshotOf } from "./snapshots";
@@ -268,12 +269,15 @@ export type QuoteLineInput = {
   selected?: boolean;
   laborHours?: number | null;
   priceBookItemId?: string | null;
+  tier?: QuoteTier | null;
 };
 
 export type QuoteInput = {
   clientId: string;
   propertyId?: string | null;
   leadId?: string | null;
+  /** The project this estimate is being built under, if any. */
+  projectId?: string | null;
   title?: string | null;
   taxRateId?: string | null;
   discountKind?: DiscountKind;
@@ -300,6 +304,7 @@ function quoteColumns(input: QuoteInput) {
     client_id: input.clientId,
     property_id: input.propertyId || null,
     lead_id: input.leadId || null,
+    project_id: input.projectId || null,
     title: orNull(input.title),
     tax_rate_id: orNull(input.taxRateId),
     discount_kind: input.discountKind ?? "none",
@@ -342,6 +347,10 @@ function lineColumns(quoteId: string, line: QuoteLineInput, position: number) {
     selected: line.optional ? (line.selected ?? false) : false,
     labor_hours: line.laborHours ?? null,
     price_book_item_id: line.priceBookItemId || null,
+    // Same guard as `selected`: a tier on a line that isn't optional would
+    // violate quote_line_tier_requires_optional, so it's dropped here rather
+    // than surfacing as a database error on save.
+    tier: line.optional ? (line.tier ?? null) : null,
   };
 }
 

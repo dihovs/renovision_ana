@@ -60,10 +60,21 @@ export type AttachedJob = {
   status: string;
 };
 
+export type ProjectQuote = {
+  id: string;
+  quote_number: number;
+  title: string | null;
+  status: string;
+  total_cents: number;
+};
+
 export type ProjectDetail = Project & {
   client: { id: string; name: string } | null;
   files: ProjectFile[];
   jobs: AttachedJob[];
+  /** Newest first. Estimates built under this project — the other half of
+      "project → estimate → job → invoice", alongside the jobs above. */
+  quotes: ProjectQuote[];
 };
 
 /** Bucket is private; files are only ever reachable via a signed URL. */
@@ -176,7 +187,8 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
     .from("projects")
     .select(
       "*, clients(id, first_name, last_name, company_name), project_files(*), " +
-        "project_jobs(job_id, jobs(id, job_number, title, status))",
+        "project_jobs(job_id, jobs(id, job_number, title, status)), " +
+        "quotes(id, quote_number, title, status, total_cents, archived_at)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -191,6 +203,7 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
     clients: ({ id: string } & Parameters<typeof clientDisplayName>[0]) | null;
     project_files: ProjectFile[];
     project_jobs: { job_id: string; jobs: AttachedJob | null }[];
+    quotes: (ProjectQuote & { archived_at: string | null })[];
   };
 
   return {
@@ -203,6 +216,9 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
     jobs: (row.project_jobs ?? [])
       .flatMap((link) => (link.jobs ? [link.jobs] : []))
       .sort((a, b) => b.job_number - a.job_number),
+    quotes: (row.quotes ?? [])
+      .filter((q) => !q.archived_at)
+      .sort((a, b) => b.quote_number - a.quote_number),
   };
 }
 
