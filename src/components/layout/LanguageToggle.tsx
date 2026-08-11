@@ -51,6 +51,13 @@ export default function LanguageToggle({
         <Link
           key={code}
           href={localePath(code, path)}
+          // Keep the reader's place. A Link scrolls to the top by default,
+          // which made switching language mid-page feel like being thrown
+          // back to the start of it — the same page in the other language is
+          // a translation, not a new destination. The offset lands close
+          // enough even though FR and EN paragraphs differ slightly in
+          // height; close beats the top of the page every time.
+          scroll={false}
           hrefLang={HREFLANG[code]}
           aria-current={locale === code ? "true" : undefined}
           className={`cursor-pointer rounded-full px-2.5 py-1 uppercase transition-colors ${
