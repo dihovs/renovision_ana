@@ -162,6 +162,18 @@ export default function AdminShell({
   const nav = buildNav();
   const current = activeNav(pathname, nav);
 
+  // A hamburger opening a side drawer is a web pattern, not an iOS one — real
+  // iOS apps navigate from a fixed bottom tab bar. Native gets one; desktop
+  // keeps the rail exactly as it was. The drawer itself isn't rewritten: it
+  // becomes the "More" tab's content, so nothing already built here is lost.
+  const isNative = Capacitor.isNativePlatform();
+  const tabBarItems = [
+    { href: homeHref(), label: "Home", icon: IconDashboard },
+    { href: "/admin/phone", label: "Call", icon: IconPhone },
+    { href: "/admin/ana", label: "Ana", icon: IconChat },
+    { href: isNative ? "/admin/jobs/cards" : "/admin/jobs", label: "Jobs", icon: IconHammer },
+  ];
+
   return (
     <div className="min-h-dvh bg-[#f1f3f5] lg:flex">
       {mobileNavOpen && (
@@ -318,16 +330,21 @@ export default function AdminShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-black/10 bg-white px-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            aria-label="Open navigation"
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-charcoal/70 hover:bg-black/[0.04] lg:hidden"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
-            </svg>
-          </button>
+          {/* The bottom tab bar's "More" button opens this same drawer
+              natively, so the top hamburger — a web pattern the tab bar
+              already replaces — has nothing left to do there. */}
+          {!isNative && (
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open navigation"
+              className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-charcoal/70 hover:bg-black/[0.04] lg:hidden"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
 
           <h1 className="font-heading text-base font-bold text-charcoal">
             {current?.label ?? "Admin"}
@@ -345,10 +362,53 @@ export default function AdminShell({
           <div className="flex items-center gap-3">{onSignOut}</div>
         </header>
 
-        <main className="min-w-0 flex-1 p-4 sm:p-6">
+        <main className={`min-w-0 flex-1 p-4 sm:p-6 ${isNative ? "pb-28" : ""}`}>
           <div className="mx-auto max-w-5xl">{children}</div>
         </main>
       </div>
+
+      {/* The actual primary navigation, natively — fixed, safe-area-aware,
+          five items max per the same convention every iOS app follows. */}
+      {isNative && (
+        <nav
+          aria-label="Primary"
+          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-black/10 bg-white pb-[env(safe-area-inset-bottom)]"
+        >
+          {tabBarItems.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href || pathname.startsWith(`${href}/`);
+            return (
+              <Link
+                key={label}
+                href={href}
+                className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition-colors ${
+                  active ? "text-brand-blue" : "text-charcoal/45"
+                }`}
+              >
+                <Icon className="h-6 w-6" />
+                {label}
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-charcoal/45"
+          >
+            <MoreIcon />
+            More
+          </button>
+        </nav>
+      )}
     </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
   );
 }
