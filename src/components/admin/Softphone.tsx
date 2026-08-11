@@ -510,15 +510,25 @@ function RoundButton({
       className={`flex flex-col items-center gap-1 ${disabled ? "opacity-40" : ""}`}
     >
       <span
-        className={`flex h-14 w-14 items-center justify-center rounded-full border transition-colors ${
+        // A color swap alone was too subtle to read at a glance mid-call —
+        // this pairs a much higher-contrast fill with the same "on" pop the
+        // system Phone app uses: the button visibly grows when it's active,
+        // not just recolors.
+        className={`flex h-14 w-14 items-center justify-center rounded-full transition-all duration-200 ${
           active
-            ? "border-charcoal bg-charcoal text-white"
-            : "border-black/10 bg-black/[0.04] text-charcoal hover:bg-black/[0.08]"
-        } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+            ? "scale-110 bg-brand-blue text-white shadow-lg shadow-brand-blue/40"
+            : "bg-black/[0.06] text-charcoal hover:bg-black/[0.1]"
+        } ${disabled ? "cursor-not-allowed" : "cursor-pointer active:scale-95"}`}
       >
         {icon}
       </span>
-      <span className="text-[11px] font-semibold text-charcoal/60">{label}</span>
+      <span
+        className={`text-[11px] font-semibold transition-colors ${
+          active ? "text-brand-blue" : "text-charcoal/60"
+        }`}
+      >
+        {label}
+      </span>
     </button>
   );
 }
