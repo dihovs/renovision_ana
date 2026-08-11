@@ -2,6 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 
 /**
  * The project's file library: upload, list, download, delete.
@@ -59,6 +61,32 @@ export default function ProjectFiles({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Native only: a plain file input can pick an existing photo but, without
+  // an image `accept`, iOS never offers the camera itself. The plugin call
+  // also compresses on the way out of the camera, which matters here — a
+  // phone's raw photo routinely exceeds the platform's ~4.5 MB request cap
+  // this page already guards against.
+  async function takePhoto() {
+    if (uploading) return;
+    try {
+      const photo = await Camera.getPhoto({
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera,
+        quality: 80,
+      });
+      if (!photo.webPath) return;
+      const blob = await (await fetch(photo.webPath)).blob();
+      const file = new File([blob], `photo-${Date.now()}.jpg`, {
+        type: blob.type || "image/jpeg",
+      });
+      setSelected((current) => [...current, file]);
+    } catch {
+      // Cancelled from the native picker, or camera permission denied —
+      // either way there is nothing to upload, so this stays silent rather
+      // than reporting an "upload" error for a photo that was never taken.
+    }
+  }
 
   async function upload() {
     if (selected.length === 0 || uploading) return;
@@ -123,6 +151,16 @@ export default function ProjectFiles({
             onChange={(event) => setSelected(Array.from(event.target.files ?? []))}
             className="min-w-0 flex-1 cursor-pointer text-sm text-charcoal/70 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-blue/[0.08] file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-brand-blue hover:file:bg-brand-blue/[0.14]"
           />
+          {Capacitor.isNativePlatform() && (
+            <button
+              type="button"
+              onClick={takePhoto}
+              disabled={uploading}
+              className="shrink-0 cursor-pointer rounded-lg border border-brand-blue/30 bg-white px-3 py-1.5 text-sm font-bold text-brand-blue transition-colors hover:bg-brand-blue/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Take Photo
+            </button>
+          )}
           <button
             type="button"
             onClick={upload}

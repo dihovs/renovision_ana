@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "../globals.css";
@@ -66,6 +66,20 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Locked to 1x on purpose. These pages run inside the native shell as well as
+ * a browser tab, and a tool meant to feel like an app doesn't pinch-zoom its
+ * own chrome — this also removes the auto-zoom trigger at the source, on top
+ * of the 16px form-control floor in globals.css.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -74,9 +88,9 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${poppins.variable} ${jakarta.variable} h-full antialiased`}
+      className={`${poppins.variable} ${jakarta.variable} h-full antialiased [overscroll-behavior:none]`}
     >
-      <body className="min-h-full flex flex-col bg-white text-charcoal font-body">
+      <body className="min-h-full flex flex-col bg-white text-charcoal font-body [overscroll-behavior:none]">
         <LocalBusinessSchema />
         <LanguageProvider locale={DEFAULT_LOCALE}>
           <ChatProvider>

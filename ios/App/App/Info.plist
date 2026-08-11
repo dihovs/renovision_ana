@@ -66,6 +66,8 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>The in-app phone places calls from the business number and needs the microphone to carry your voice.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Site photos for a project's file library are taken with the camera and attached directly to the job.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>
