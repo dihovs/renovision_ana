@@ -6,6 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import { SITE_PHONE } from "@/lib/constants";
 import { KEYPAD, appendKey, backspace, formatDialed, isDialable, sanitisePasted, toE164 } from "@/lib/phone";
 import { setSpeakerEnabled } from "@/lib/speakerOutput";
+import { tapFeedback } from "@/lib/haptics";
 import type { Contact } from "@/app/api/admin/contacts/route";
 
 /**
@@ -223,6 +224,7 @@ export default function Softphone() {
 
   /** The keypad's own Call button — an unknown number, so no caller label. */
   function callTyped() {
+    tapFeedback();
     setCallerLabel(null);
     dial();
   }
@@ -230,24 +232,28 @@ export default function Softphone() {
   /** A tap on a contact's number — dials immediately, like the system Phone app. */
   function callContact(contact: Contact, number: string) {
     if (status !== "ready") return;
+    tapFeedback();
     setCallerLabel(contact.name);
     setPhone(sanitisePasted(number));
     dial(number);
   }
 
   function hangUp() {
+    tapFeedback("medium");
     callRef.current?.disconnect();
   }
 
   function toggleMute() {
     const call = callRef.current;
     if (!call) return;
+    tapFeedback();
     const next = !muted;
     call.mute(next);
     setMuted(next);
   }
 
   async function toggleSpeaker() {
+    tapFeedback();
     const next = !speakerOn;
     setSpeakerOn(await setSpeakerEnabled(next));
   }

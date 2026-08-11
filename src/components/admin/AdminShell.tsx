@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import GlobalSearch from "./GlobalSearch";
+import { tapFeedback } from "@/lib/haptics";
 import TaskBar from "./TaskBar";
 import type { TaskBarResult } from "@/app/(internal)/admin/taskBarActions";
 import {
@@ -380,6 +381,7 @@ export default function AdminShell({
               <Link
                 key={label}
                 href={href}
+                onClick={() => tapFeedback()}
                 className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition-colors ${
                   active ? "text-brand-blue" : "text-charcoal/45"
                 }`}
@@ -391,7 +393,10 @@ export default function AdminShell({
           })}
           <button
             type="button"
-            onClick={() => setMobileNavOpen(true)}
+            onClick={() => {
+              tapFeedback();
+              setMobileNavOpen(true);
+            }}
             className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-charcoal/45"
           >
             <MoreIcon />

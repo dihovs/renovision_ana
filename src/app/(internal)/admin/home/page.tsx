@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
+import HapticLink from "@/components/ui/HapticLink";
 import { SITE_PHONE } from "@/lib/constants";
 import { listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { countOpenOwnerTasks } from "@/lib/crm/tasks";
@@ -79,7 +80,7 @@ export default async function MobileHomePage() {
           exists to make instant — both above the fold, both full-size, so
           neither is a smaller second choice under the other. */}
       <div className="space-y-3">
-        <Link
+        <HapticLink
           href="/admin/ana"
           className="group flex items-center gap-4 rounded-3xl bg-brand-blue p-6 shadow-lg shadow-brand-blue/20 transition-transform active:scale-[0.98]"
         >
@@ -93,9 +94,9 @@ export default async function MobileHomePage() {
           <span className="shrink-0 text-white/60">
             <ChevronIcon />
           </span>
-        </Link>
+        </HapticLink>
 
-        <Link
+        <HapticLink
           href="/admin/phone"
           className="group flex items-center gap-4 rounded-3xl bg-brand-green p-6 shadow-lg shadow-brand-green/20 transition-transform active:scale-[0.98]"
         >
@@ -109,7 +110,7 @@ export default async function MobileHomePage() {
           <span className="shrink-0 text-white/60">
             <ChevronIcon />
           </span>
-        </Link>
+        </HapticLink>
       </div>
 
       {/* Today. The one list this screen keeps, because "what's happening
