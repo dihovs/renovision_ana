@@ -46,7 +46,13 @@ const config: CapacitorConfig = {
     // The admin's own chrome starts below the notch; the WebView handles its
     // own safe areas rather than being letterboxed by the shell.
     contentInset: "automatic",
+    // Unset, this defaults to black — so an edge scroll-bounce past the top
+    // or bottom of the page showed a black sliver where the page's own white
+    // background should have kept going. White matches every page's actual
+    // background, so a bounce now shows nothing rather than a visible seam.
+    backgroundColor: "#ffffff",
   },
+  backgroundColor: "#ffffff",
 };
 
 export default config;
