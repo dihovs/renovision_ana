@@ -402,10 +402,10 @@ export default function Softphone() {
                 type="button"
                 onClick={callTyped}
                 disabled={status !== "ready" || !isDialable(phone)}
-                className="mt-4 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-green text-sm font-bold text-white transition-colors hover:bg-brand-green-dark disabled:cursor-not-allowed disabled:opacity-30"
+                aria-label="Call"
+                className="mx-auto mt-6 flex h-16 w-16 cursor-pointer items-center justify-center rounded-full bg-brand-green text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <PhoneIcon />
-                Call
+                <PhoneIcon size={28} />
               </button>
             </>
           ) : (
@@ -459,20 +459,25 @@ export default function Softphone() {
   );
 }
 
+/** True circles, like the system Phone app's own keypad — not rounded
+    squares. Sized to be comfortably tappable with a thumb, not just a
+    finger. */
 function KeypadGrid({ onPress, disabled }: { onPress: (key: string) => void; disabled: boolean }) {
   return (
-    <div className="mt-4 grid grid-cols-3 gap-2">
+    <div className="mt-4 grid grid-cols-3 justify-items-center gap-y-3">
       {KEYPAD.map(({ key, letters }) => (
         <button
           key={key}
           type="button"
           onClick={() => onPress(key)}
           disabled={disabled}
-          className="flex h-14 cursor-pointer flex-col items-center justify-center rounded-xl border border-black/5 bg-black/[0.02] transition-colors hover:bg-black/[0.06] active:bg-black/[0.1] disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-[72px] w-[72px] cursor-pointer flex-col items-center justify-center rounded-full bg-black/[0.04] transition-colors hover:bg-black/[0.08] active:bg-black/[0.14] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <span className="font-mono text-xl font-semibold leading-none text-charcoal">{key}</span>
+          <span className="font-heading text-[28px] font-semibold leading-none text-charcoal">
+            {key}
+          </span>
           {letters && (
-            <span className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-charcoal/35">
+            <span className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-charcoal/40">
               {letters}
             </span>
           )}
@@ -553,9 +558,9 @@ function SpeakerIcon() {
   );
 }
 
-function PhoneIcon() {
+function PhoneIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path
         d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"
         strokeLinecap="round"
