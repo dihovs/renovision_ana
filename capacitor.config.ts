@@ -33,7 +33,7 @@ const config: CapacitorConfig = {
     // Swap to the production line below only once mobile-app is merged to
     // master and this file's own change is part of that merge — not before,
     // per "keep main clean until the whole thing works."
-    url: "https://renovision-ana-git-mobile-app-renovision-an-a.vercel.app/admin",
+    url: "https://renovision-ana-git-mobile-app-renovision-an-a.vercel.app/admin/home",
     allowNavigation: [
       "renovision-ana-git-mobile-app-renovision-an-a.vercel.app",
       "www.renovisionana.ca",

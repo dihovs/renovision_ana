@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import GlobalSearch from "./GlobalSearch";
 import TaskBar from "./TaskBar";
 import type { TaskBarResult } from "@/app/(internal)/admin/taskBarActions";
@@ -43,8 +44,19 @@ type NavItem = {
   ready: boolean;
 };
 
-const NAV: NavItem[] = [
-  { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
+/**
+ * "Home" means two different screens depending on where it's tapped from —
+ * the dense dashboard on desktop, the calm Ana-first screen natively. Same
+ * label, same position in the rail, because it is the same idea ("start
+ * here") even though the two audiences need different things from it.
+ */
+function homeHref(): string {
+  return Capacitor.isNativePlatform() ? "/admin/home" : "/admin";
+}
+
+function buildNav(): NavItem[] {
+  return [
+  { href: homeHref(), label: "Home", icon: IconDashboard, ready: true },
   { href: "/admin/ana", label: "Talk to Ana", icon: IconChat, ready: true },
   // Above Leads, and above the call LOG, because it is the one item here he
   // reaches for mid-task rather than while reviewing: a customer is on the
@@ -71,7 +83,8 @@ const NAV: NavItem[] = [
   { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
   { href: "/admin/expenses", label: "Expenses", icon: IconTag, ready: true },
   { href: "/admin/reports", label: "Reports", icon: IconShield, ready: true },
-];
+  ];
+}
 
 /** What the ＋ button offers. Grows as each section becomes real. */
 const CREATE_ACTIONS = [
@@ -89,8 +102,8 @@ const FOOTER_NAV = [{ href: "/admin/settings", label: "Settings" }];
  * FOOTER_NAV is included so /admin/settings titles itself "Settings" instead
  * of falling through to the /admin root and titling itself "Home".
  */
-function activeNav(pathname: string): { href: string; label: string } | undefined {
-  return [...NAV, ...FOOTER_NAV]
+function activeNav(pathname: string, nav: NavItem[]): { href: string; label: string } | undefined {
+  return [...nav, ...FOOTER_NAV]
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0];
 }
@@ -133,7 +146,8 @@ export default function AdminShell({
     setMobileNavOpen(false);
   }
 
-  const current = activeNav(pathname);
+  const nav = buildNav();
+  const current = activeNav(pathname, nav);
 
   return (
     <div className="min-h-dvh bg-[#f1f3f5] lg:flex">
@@ -230,7 +244,7 @@ export default function AdminShell({
         </div>
 
         <nav className="flex-1 space-y-0.5 px-3" aria-label="Admin">
-          {NAV.map(({ href, label, icon: Icon, ready }) => {
+          {nav.map(({ href, label, icon: Icon, ready }) => {
             const active = pathname === href;
             if (!ready) {
               return (
