@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
+import { SITE_PHONE } from "@/lib/constants";
 import { listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { countOpenOwnerTasks } from "@/lib/crm/tasks";
 import { isConfigured as isStoreConfigured, listLeads } from "@/lib/leadStore";
@@ -74,23 +75,42 @@ export default async function MobileHomePage() {
     <div className="space-y-6 pb-4">
       <h2 className="font-heading text-2xl font-bold text-charcoal">{greeting}, Artush</h2>
 
-      {/* The hero. Nothing else on this screen competes with it for size or
-          position — nav, calendar, everything else, one tap away. */}
-      <Link
-        href="/admin/ana"
-        className="group flex items-center gap-4 rounded-3xl bg-brand-blue p-6 shadow-lg shadow-brand-blue/20 transition-transform active:scale-[0.98]"
-      >
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/15">
-          <MicIcon />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-heading text-xl font-bold text-white">Talk to Ana</span>
-          <span className="block text-sm text-white/70">Voice or typed — she knows the CRM</span>
-        </span>
-        <span className="shrink-0 text-white/60">
-          <ChevronIcon />
-        </span>
-      </Link>
+      {/* The two heroes. Talk to Ana and Call are the two things this app
+          exists to make instant — both above the fold, both full-size, so
+          neither is a smaller second choice under the other. */}
+      <div className="space-y-3">
+        <Link
+          href="/admin/ana"
+          className="group flex items-center gap-4 rounded-3xl bg-brand-blue p-6 shadow-lg shadow-brand-blue/20 transition-transform active:scale-[0.98]"
+        >
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/15">
+            <MicIcon />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-xl font-bold text-white">Talk to Ana</span>
+            <span className="block text-sm text-white/70">Voice or typed — she knows the CRM</span>
+          </span>
+          <span className="shrink-0 text-white/60">
+            <ChevronIcon />
+          </span>
+        </Link>
+
+        <Link
+          href="/admin/phone"
+          className="group flex items-center gap-4 rounded-3xl bg-brand-green p-6 shadow-lg shadow-brand-green/20 transition-transform active:scale-[0.98]"
+        >
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/15">
+            <PhoneHeroIcon />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-xl font-bold text-white">Call</span>
+            <span className="block text-sm text-white/70">Keypad or contacts — from {SITE_PHONE}</span>
+          </span>
+          <span className="shrink-0 text-white/60">
+            <ChevronIcon />
+          </span>
+        </Link>
+      </div>
 
       {/* Today. The one list this screen keeps, because "what's happening
           today" is a different question from "how is the pipeline doing" —
@@ -214,6 +234,18 @@ function MicIcon() {
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" aria-hidden>
       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
       <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PhoneHeroIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" aria-hidden>
+      <path
+        d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
