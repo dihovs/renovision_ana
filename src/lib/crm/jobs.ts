@@ -46,7 +46,12 @@ function orNull(value: string | undefined | null): string | null {
   return trimmed ? trimmed : null;
 }
 
-export type JobListItem = Job & { client_name: string; visit_count: number };
+export type JobListItem = Job & {
+  client_name: string;
+  visit_count: number;
+  message_count: number;
+  photo_count: number;
+};
 
 export async function listJobs(
   options: { status?: JobStatus; clientId?: string; limit?: number } = {},
@@ -56,7 +61,9 @@ export async function listJobs(
 
   let query = client
     .from("jobs")
-    .select("*, clients(first_name, last_name, company_name), visits(id)")
+    .select(
+      "*, clients(first_name, last_name, company_name), visits(id), whatsapp_messages(id, media_mime)",
+    )
     .is("archived_at", null)
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -73,10 +80,13 @@ export async function listJobs(
   return ((data ?? []) as (Job & {
     clients: Parameters<typeof clientDisplayName>[0] | null;
     visits: { id: string }[];
-  })[]).map(({ clients, visits, ...job }) => ({
+    whatsapp_messages: { id: string; media_mime: string | null }[] | null;
+  })[]).map(({ clients, visits, whatsapp_messages, ...job }) => ({
     ...job,
     client_name: clients ? clientDisplayName(clients) : "Unknown client",
     visit_count: visits?.length ?? 0,
+    message_count: whatsapp_messages?.length ?? 0,
+    photo_count: whatsapp_messages?.filter((m) => m.media_mime?.startsWith("image/")).length ?? 0,
   }));
 }
 

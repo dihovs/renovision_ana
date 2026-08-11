@@ -18,6 +18,7 @@ import { createFromJobAction } from "../../invoices/actions";
 import AdminNotice from "@/components/admin/AdminNotice";
 import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
 import AskClaude from "@/components/admin/AskClaude";
+import CallButton from "@/components/admin/CallButton";
 import JobChecklist from "@/components/admin/JobChecklist";
 import JobDetail from "@/components/admin/JobDetail";
 import JobRecurrence, { type RecurrenceAnchor } from "@/components/admin/JobRecurrence";
@@ -140,6 +141,17 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            {job.client_snapshot?.phone && (
+              <>
+                <CallButton phone={job.client_snapshot.phone} label="Call" />
+                <Link
+                  href={`/admin/messages/${job.client_snapshot.phone.replace(/^\+/, "")}`}
+                  className="rounded-lg border border-black/10 px-3 py-1.5 text-sm font-bold text-charcoal transition-colors hover:bg-black/[0.03]"
+                >
+                  Text
+                </Link>
+              </>
+            )}
             {job.quote_id && (
               <Link
                 href={`/admin/quotes/${job.quote_id}`}

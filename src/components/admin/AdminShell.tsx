@@ -42,6 +42,10 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   ready: boolean;
+  /** Prefix that counts as "this item" for the header title, when it differs
+      from `href` — Jobs resolves to /admin/jobs/cards natively, but a job's
+      own detail page (/admin/jobs/[id]) should still title itself "Jobs". */
+  activePrefix?: string;
 };
 
 /**
@@ -77,7 +81,13 @@ function buildNav(): NavItem[] {
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
   { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },
-  { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: true },
+  {
+    href: Capacitor.isNativePlatform() ? "/admin/jobs/cards" : "/admin/jobs",
+    activePrefix: "/admin/jobs",
+    label: "Jobs",
+    icon: IconHammer,
+    ready: true,
+  },
   { href: "/admin/projects", label: "Projects", icon: IconBuilding, ready: true },
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: true },
   { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
@@ -104,7 +114,10 @@ const FOOTER_NAV = [{ href: "/admin/settings", label: "Settings" }];
  */
 function activeNav(pathname: string, nav: NavItem[]): { href: string; label: string } | undefined {
   return [...nav, ...FOOTER_NAV]
-    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .filter((item) => {
+      const prefix = "activePrefix" in item ? item.activePrefix ?? item.href : item.href;
+      return pathname === prefix || pathname.startsWith(`${prefix}/`);
+    })
     .sort((a, b) => b.href.length - a.href.length)[0];
 }
 
