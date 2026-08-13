@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import FloorPlan from "./FloorPlan";
 import { tapFeedback } from "@/lib/haptics";
 import {
+  ceilingHeightMeters,
   metersToFeet,
   roomScanSupport,
   scanRoom,
@@ -12,6 +13,7 @@ import {
 
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
+  wallAreaSquareMeters,
   type RoomScanResult,
   type ScanSupport,
 } from "@/lib/roomScan";
@@ -289,7 +291,7 @@ function RoomCard({
 
   const floorSqFt = squareMetersToSquareFeet(totalFloorAreaSquareMeters(result));
   const perimeterFt = metersToFeet(totalWallLengthMeters(result));
-  const heightFt = metersToFeet(tallestWallMeters(result));
+  const heightFt = metersToFeet(ceilingHeightMeters(result));
 
   return (
     <section className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
@@ -383,9 +385,9 @@ function RoomCard({
           )}
 
           <p className="text-[11px] leading-snug text-charcoal/45">
-            Wall area is the perimeter × the tallest wall and does not deduct
-            the doors and windows above — trim it down before pricing paint on
-            a room with a lot of glass.
+            Wall area has the doors and windows taken out of it — it is what
+            gets painted, not the whole perimeter. Gross wall area, for
+            framing and insulation, is {round(squareMetersToSquareFeet(wallAreaSquareMeters(result).gross))} sq ft.
           </p>
 
           <button
@@ -424,14 +426,10 @@ function RoomCard({
  * it read as a sketch: no witness lines, no arrows, no overall span, and
  * labels that fought the walls they sat on.
  */
-/** Perimeter × the tallest wall. The tallest rather than an average: a room
-    with a raked ceiling is priced off the height material has to reach. */
+/** Net wall area in square feet — doors and windows already taken out,
+    because that is the figure paint and drywall are priced on. */
 function wallAreaOf(result: RoomScanResult): number {
-  return metersToFeet(totalWallLengthMeters(result)) * metersToFeet(tallestWallMeters(result));
-}
-
-function tallestWallMeters(result: RoomScanResult): number {
-  return result.walls.reduce((tallest, wall) => Math.max(tallest, wall.heightMeters), 0);
+  return squareMetersToSquareFeet(wallAreaSquareMeters(result).net);
 }
 
 function Figure({

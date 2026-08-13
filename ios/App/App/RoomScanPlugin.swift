@@ -22,7 +22,22 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startScan", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showModel", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "mergeScans", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "resetScans", returnType: CAPPluginReturnPromise),
     ]
+
+    /**
+     * Every room captured on this floor, kept so they can be merged.
+     *
+     * This is what makes a connected floor plan possible at all. Each
+     * `CapturedRoom` is measured in its OWN coordinate space, so laying two
+     * of them side by side without merging would place both rooms on top of
+     * each other at the origin. `StructureBuilder` is the only thing that
+     * knows how they actually fit together — it re-registers the scans
+     * against each other and returns one structure in a shared space.
+     */
+    @available(iOS 17.0, *)
+    private static var capturedRooms: [CapturedRoom] = []
 
     /// Kept alive between `startScan` and `showModel`: the viewer needs a file
     /// on disk, and re-exporting on every tap would mean re-walking the room.
@@ -55,6 +70,12 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             scanVC.onFinish = { [weak self] result in
                 switch result {
                 case .success(let room):
+                    // Kept for the merge. Every room on a floor has to be
+                    // held until StructureBuilder can register them against
+                    // each other — a room discarded here is a room that can
+                    // never be placed on the plan.
+                    Self.capturedRooms.append(room)
+
                     var payload = Self.serialize(room)
                     // Export the dollhouse now, while the CapturedRoom is in
                     // hand — it is the only moment it exists. The id goes back
@@ -63,6 +84,7 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
                     if let id = self?.exportModel(room) {
                         payload["modelId"] = id
                     }
+                    payload["roomsCaptured"] = Self.capturedRooms.count
                     call.resolve(payload)
                 case .failure(let error):
                     call.reject(error.localizedDescription)
@@ -71,6 +93,56 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             scanVC.modalPresentationStyle = .fullScreen
             presenter.present(scanVC, animated: true)
         }
+    }
+
+    /**
+     * Merge every room scanned so far into one connected floor plan.
+     *
+     * This is the difference between a pile of room drawings and a plan of a
+     * property. Each `CapturedRoom` is measured in its own coordinate space —
+     * laid out naively, every room would sit on top of the others at the
+     * origin. `StructureBuilder` re-registers the scans against each other
+     * and returns them in one shared space, which is what makes a hallway
+     * actually connect the two rooms either side of it.
+     *
+     * Needs at least two rooms. With one, the merged answer is the room
+     * itself and the round trip through the builder buys nothing.
+     */
+    @objc func mergeScans(_ call: CAPPluginCall) {
+        guard #available(iOS 17.0, *) else {
+            call.reject("Merging needs iOS 17 or later.")
+            return
+        }
+        let rooms = Self.capturedRooms
+        guard rooms.count >= 2 else {
+            call.reject("Scan at least two rooms before merging them.")
+            return
+        }
+
+        Task {
+            do {
+                // `.beautifyObjects` squares up walls that a scan left a
+                // degree or two off — the same tidying a drafted plan gets,
+                // and without it the merged outline reads as hand-drawn.
+                let builder = StructureBuilder(options: [.beautifyObjects])
+                let structure = try await builder.capturedStructure(from: rooms)
+
+                var payload = Self.serializeStructure(structure)
+                if let id = self.exportStructure(structure) {
+                    payload["modelId"] = id
+                }
+                call.resolve(payload)
+            } catch {
+                call.reject("Could not merge the scans: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Start a new property. Without this the next job's first scan would be
+    /// merged into the last job's floor.
+    @objc func resetScans(_ call: CAPPluginCall) {
+        if #available(iOS 17.0, *) { Self.capturedRooms = [] }
+        call.resolve(["ok": true])
     }
 
     /**
@@ -121,51 +193,90 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// The merged structure, in the same shape a single room reports, so the
+    /// drawing code does not care which it was handed. `sections` is the one
+    /// addition: the merge knows which room is which, and a plan that can
+    /// label "Kitchen" is worth more than an unlabelled outline.
+    @available(iOS 17.0, *)
+    private static func serializeStructure(_ structure: CapturedStructure) -> [String: Any] {
+        var payload = geometryPayload(
+            walls: structure.walls,
+            floors: structure.floors,
+            doors: structure.doors,
+            windows: structure.windows,
+            openings: structure.openings,
+            objects: structure.objects,
+        )
+        payload["sections"] = structure.sections.map { section -> [String: Any] in
+            let centre = section.center
+            return [
+                "label": section.label.rawValue,
+                "centerX": Double(centre.x),
+                "centerZ": Double(centre.z),
+            ]
+        }
+        return payload
+    }
+
+    @available(iOS 17.0, *)
+    private func exportStructure(_ structure: CapturedStructure) -> String? {
+        let id = UUID().uuidString
+        let url = FileManager.default
+            .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("structure-\(id).usdz")
+        do {
+            try structure.export(to: url, exportOptions: .parametric)
+            modelURLs[id] = url
+            return id
+        } catch {
+            CAPLog.print("⚡️ RoomScan: could not export the structure — \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     /// Plain numbers only — cm-accuracy geometry a customer never asked to
     /// see, reduced to what an estimate actually needs: how much flooring,
     /// how much baseboard, how much wall to paint or drywall.
     @available(iOS 17.0, *)
     private static func serialize(_ room: CapturedRoom) -> [String: Any] {
-        // `dimensions` is the surface's own width × height in metres — the
-        // wall's length is x, its height is y. (The polygon-corner route
-        // measures the same thing the long way round and is iOS 17-only
-        // anyway.)
-        //
-        // The transform's 4th column is the wall's centre in world space and
-        // its 1st column is the wall's own x-axis in world space — together
-        // those are enough to lay the room out from above, which is the
-        // difference between a list of numbers and an actual floor plan.
-        // y is up in RoomPlan's world, so the plan lives in x/z.
-        let walls = room.walls.map { surface -> [String: Any] in
-            let centre = surface.transform.columns.3
-            let axis = surface.transform.columns.0
-            return [
-                "lengthMeters": Double(surface.dimensions.x),
-                "heightMeters": Double(surface.dimensions.y),
-                "centerX": Double(centre.x),
-                "centerZ": Double(centre.z),
-                "axisX": Double(axis.x),
-                "axisZ": Double(axis.z),
-            ]
-        }
+        geometryPayload(
+            walls: room.walls,
+            floors: room.floors,
+            doors: room.doors,
+            windows: room.windows,
+            openings: room.openings,
+            objects: room.objects,
+        )
+    }
 
-        let floors = room.floors.map { surface -> [String: Any] in
-            // width × depth is the honest approximation RoomPlan's own
-            // dimensions give per surface; an irregular room is the sum of
-            // more than one floor surface, which this still adds correctly.
-            ["areaSquareMeters": Double(surface.dimensions.x * surface.dimensions.z)]
-        }
-
-        // Doors and windows carry the same centre/axis/width as walls, so the
-        // plan can cut real openings into the walls instead of drawing an
-        // unbroken box — which is the difference between a floor plan and an
-        // outline. Counts alone (what this returned before) can't do that.
-        func openings(_ surfaces: [CapturedRoom.Surface]) -> [[String: Any]] {
-            surfaces.map { surface in
+    /**
+     * The shared shape of a plan, whether it came from one room or a merged
+     * structure — the drawing code should not have to know which.
+     *
+     * `dimensions` is the surface's own width x height in metres: a wall's
+     * length is x, its height is y. The transform's 4th column is its centre
+     * in world space and the 1st column is its own x-axis in world space;
+     * together those are enough to lay the plan out from above, which is the
+     * difference between a list of numbers and an actual drawing. y is up in
+     * RoomPlan's world, so the plan lives in x/z.
+     */
+    @available(iOS 17.0, *)
+    private static func geometryPayload(
+        walls: [CapturedRoom.Surface],
+        floors: [CapturedRoom.Surface],
+        doors: [CapturedRoom.Surface],
+        windows: [CapturedRoom.Surface],
+        openings: [CapturedRoom.Surface],
+        objects: [CapturedRoom.Object],
+    ) -> [String: Any] {
+        func surfaces(_ list: [CapturedRoom.Surface]) -> [[String: Any]] {
+            list.map { surface in
                 let centre = surface.transform.columns.3
                 let axis = surface.transform.columns.0
                 return [
+                    "lengthMeters": Double(surface.dimensions.x),
                     "widthMeters": Double(surface.dimensions.x),
+                    "heightMeters": Double(surface.dimensions.y),
                     "centerX": Double(centre.x),
                     "centerZ": Double(centre.z),
                     "axisX": Double(axis.x),
@@ -174,21 +285,21 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
-        // Stairs are the one object category that matters for pricing rather
-        // than for a picture: a staircase in the scanned area changes the
-        // scope (and RoomPlan's floor area does not account for its run), so
-        // it is surfaced as a count rather than buried in the object list.
-        let stairs = room.objects.filter { $0.category == .stairs }
-
         return [
-            "walls": walls,
-            "floors": floors,
-            "doors": openings(room.doors),
-            "windows": openings(room.windows),
-            "doorCount": room.doors.count,
-            "windowCount": room.windows.count,
-            "openingCount": room.openings.count,
-            "stairCount": stairs.count,
+            "walls": surfaces(walls),
+            // width x depth is the honest approximation RoomPlan's own
+            // dimensions give per surface; an irregular room is the sum of
+            // more than one floor surface, which this still adds correctly.
+            "floors": floors.map { ["areaSquareMeters": Double($0.dimensions.x * $0.dimensions.z)] },
+            "doors": surfaces(doors),
+            "windows": surfaces(windows),
+            "doorCount": doors.count,
+            "windowCount": windows.count,
+            "openingCount": openings.count,
+            // Stairs are the one object category that matters for pricing
+            // rather than for a picture: a staircase changes the scope, and
+            // RoomPlan's floor area does not account for its run.
+            "stairCount": objects.filter { $0.category == .stairs }.count,
         ]
     }
 }

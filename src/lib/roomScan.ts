@@ -26,6 +26,10 @@ export type RoomScanFloor = { areaSquareMeters: number };
     it into the wall it sits in rather than drawing an unbroken box. */
 export type RoomScanOpening = {
   widthMeters: number;
+  /** Present from the merged/structure path onward; older saved scans have
+      no height, and the deduction below treats those as zero rather than
+      guessing a standard door. */
+  heightMeters?: number;
   centerX: number;
   centerZ: number;
   axisX: number;
@@ -97,6 +101,40 @@ export function totalWallLengthMeters(result: RoomScanResult): number {
 
 export function totalFloorAreaSquareMeters(result: RoomScanResult): number {
   return result.floors.reduce((sum, floor) => sum + floor.areaSquareMeters, 0);
+}
+
+/** The tallest wall. A room with a raked ceiling is priced off the height
+    material actually has to reach, not an average. */
+export function ceilingHeightMeters(result: RoomScanResult): number {
+  return result.walls.reduce((tallest, wall) => Math.max(tallest, wall.heightMeters), 0);
+}
+
+/** Every door and window, as area. What a painter does not have to cover. */
+export function openingAreaSquareMeters(result: RoomScanResult): number {
+  const area = (list: RoomScanOpening[] | undefined) =>
+    (list ?? []).reduce((sum, o) => sum + o.widthMeters * (o.heightMeters ?? 0), 0);
+  return area(result.doors) + area(result.windows);
+}
+
+/**
+ * Wall area, gross and net.
+ *
+ * `gross` is perimeter × ceiling height — every square foot of wall that
+ * exists. `net` takes the doors and windows out of it, and is the figure
+ * paint and drywall are actually priced on: nobody paints a doorway.
+ *
+ * Both are reported because they answer different questions — framing and
+ * insulation care about the gross wall, finishes care about the net one —
+ * and because a single "wall area" that silently picked one would be wrong
+ * half the time.
+ */
+export function wallAreaSquareMeters(result: RoomScanResult): {
+  gross: number;
+  net: number;
+} {
+  const gross = totalWallLengthMeters(result) * ceilingHeightMeters(result);
+  const net = Math.max(0, gross - openingAreaSquareMeters(result));
+  return { gross, net };
 }
 
 export type PlanSegment = { x1: number; y1: number; x2: number; y2: number };

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  ceilingHeightMeters,
   metersToFeet,
+  openingAreaSquareMeters,
   squareMetersToSquareFeet,
   toFloorPlan,
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
+  wallAreaSquareMeters,
   type RoomScanResult,
 } from "./roomScan";
 
@@ -34,8 +37,12 @@ function bedroom(): RoomScanResult {
       wall(W, H / 2, 0, 1, H),
     ],
     floors: [{ areaSquareMeters: W * H }],
-    doors: [{ centerX: W, centerZ: 0.99, axisX: 0, axisZ: 1, widthMeters: 0.9 }],
-    windows: [{ centerX: 2.2, centerZ: 0, axisX: 1, axisZ: 0, widthMeters: 1.4 }],
+    doors: [
+      { centerX: W, centerZ: 0.99, axisX: 0, axisZ: 1, widthMeters: 0.9, heightMeters: 2.03 },
+    ],
+    windows: [
+      { centerX: 2.2, centerZ: 0, axisX: 1, axisZ: 0, widthMeters: 1.4, heightMeters: 1.2 },
+    ],
     doorCount: 1,
     windowCount: 1,
     openingCount: 0,
@@ -115,5 +122,44 @@ describe("the figures an estimate is built from", () => {
 
   it("converts metres to feet at the real ratio", () => {
     expect(metersToFeet(1)).toBeCloseTo(3.28084, 5);
+  });
+});
+
+describe("wall area", () => {
+  it("reports gross and net, with the openings taken out of net", () => {
+    const room = bedroom();
+    const { gross, net } = wallAreaSquareMeters(room);
+
+    // Perimeter 17.01 m x 2.449 m ceiling.
+    expect(gross).toBeCloseTo(41.66, 1);
+    // One door (0.9 x 2.03) and one window (1.4 x 1.2) = 3.51 m2.
+    expect(openingAreaSquareMeters(room)).toBeCloseTo(3.51, 2);
+    expect(net).toBeCloseTo(gross - 3.51, 2);
+  });
+
+  it("never returns a negative net, however the openings measure", () => {
+    // A scan that mis-sizes an opening should not produce a wall of less
+    // than nothing — a negative would flow straight into a paint quantity.
+    const absurd: RoomScanResult = {
+      ...bedroom(),
+      doors: [{ centerX: 0, centerZ: 0, axisX: 1, axisZ: 0, widthMeters: 99, heightMeters: 99 }],
+    };
+    expect(wallAreaSquareMeters(absurd).net).toBe(0);
+  });
+
+  it("treats an opening with no recorded height as no deduction", () => {
+    // Scans saved before openings carried a height. Guessing a standard
+    // door there would silently shrink a wall the operator can measure.
+    const legacy: RoomScanResult = {
+      ...bedroom(),
+      doors: [{ centerX: W, centerZ: 0.99, axisX: 0, axisZ: 1, widthMeters: 0.9 }],
+      windows: [],
+    };
+    expect(openingAreaSquareMeters(legacy)).toBe(0);
+    expect(wallAreaSquareMeters(legacy).net).toBeCloseTo(wallAreaSquareMeters(legacy).gross, 6);
+  });
+
+  it("takes the ceiling from the tallest wall", () => {
+    expect(ceilingHeightMeters(bedroom())).toBeCloseTo(2.449, 3);
   });
 });
