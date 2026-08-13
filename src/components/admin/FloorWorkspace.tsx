@@ -1,20 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import FloorPlan from "./FloorPlan";
 import RoomSheet from "./RoomSheet";
+import ScanReview from "./ScanReview";
 import { tapFeedback } from "@/lib/haptics";
 import { rememberFloor } from "@/lib/floorMemory";
+import {
+  discardPending,
+  flushScans,
+  pendingSnapshot,
+  saveScanResilient,
+  serverPendingSnapshot,
+  subscribePending,
+} from "@/lib/scanQueue";
 import {
   listSavedScans,
   metersToFeet,
   roomScanSupport,
-  saveScan,
   scanRoom,
   squareMetersToSquareFeet,
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
   wallAreaSquareMeters,
+  type RoomScanResult,
   type SavedScan,
   type ScanSupport,
 } from "@/lib/roomScan";
@@ -55,6 +64,20 @@ export default function FloorWorkspace({
   const [support, setSupport] = useState<ScanSupport | null>(null);
   const [picking, setPicking] = useState<"what" | "how" | null>(null);
   const [openRoom, setOpenRoom] = useState<SavedScan | null>(null);
+  // A finished capture waiting to be named and accepted.
+  const [review, setReview] = useState<RoomScanResult | null>(null);
+
+  // Scans the phone is holding because there was no signal when they were
+  // taken. Subscribed rather than polled, so accepting a room updates the
+  // banner immediately.
+  const allPending = useSyncExternalStore(
+    subscribePending,
+    pendingSnapshot,
+    serverPendingSnapshot,
+  );
+  const pending = allPending.filter(
+    (scan) => scan.projectId === projectId && scan.level === level,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +121,24 @@ export default function FloorWorkspace({
     rememberFloor(projectId, level);
   }, [projectId, level]);
 
+  // Held scans go up as soon as there is a network again — on arriving at
+  // the floor, and on the browser telling us it reconnected. Neither path
+  // needs the operator to remember anything.
+  useEffect(() => {
+    let cancelled = false;
+    const send = () => {
+      void flushScans().then(({ sent }) => {
+        if (sent > 0 && !cancelled) void reload();
+      });
+    };
+    send();
+    window.addEventListener("online", send);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", send);
+    };
+  }, [reload]);
+
   useEffect(() => {
     let cancelled = false;
     roomScanSupport().then((s) => {
@@ -136,26 +177,44 @@ export default function FloorWorkspace({
 
   async function startScan() {
     setPicking(null);
+    setReview(null);
     setBusy(true);
     setError(null);
     tapFeedback("medium");
     try {
-      const result = await scanRoom();
-      const position = rooms?.length ?? 0;
-      await saveScan({
-        projectId,
-        name: `Room ${position + 1}`,
-        level,
-        position,
-        result,
-      });
-      await reload();
+      setReview(await scanRoom());
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Backing out of a scan is not a failure and must not look like one.
       if (!/cancel/i.test(message)) setError(message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Accept the reviewed capture. Offline-safe: a basement with no signal
+      keeps the measurement on the phone rather than losing it. */
+  async function keepRoom(name: string) {
+    if (!review) return;
+    try {
+      const outcome = await saveScanResilient({
+        projectId,
+        name,
+        level,
+        position: (rooms?.length ?? 0) + pending.length,
+        result: review,
+      });
+      setReview(null);
+      if (outcome.stored === "lost") {
+        setError(
+          "There is no room left on this phone to hold the scan, and no network to send it. Free some space and scan again.",
+        );
+        return;
+      }
+      setError(null);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the room.");
     }
   }
 
@@ -193,6 +252,36 @@ export default function FloorWorkspace({
         >
           {error}
         </p>
+      )}
+
+      {pending.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-bold text-amber-900">
+            {pending.length} room{pending.length === 1 ? "" : "s"} waiting to upload
+          </p>
+          <p className="mt-0.5 text-xs leading-snug text-amber-800">
+            Measured with no signal and held on this phone. They send
+            themselves as soon as you have a connection — you do not need to
+            do anything.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {pending.map((scan) => (
+              <li key={scan.localId} className="flex items-center gap-2 text-xs text-amber-900">
+                <span className="min-w-0 flex-1 truncate font-semibold">{scan.name}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    tapFeedback("medium");
+                    discardPending(scan.localId);
+                  }}
+                  className="cursor-pointer font-bold text-amber-700/60 hover:text-red-600"
+                >
+                  Discard
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {rooms === null ? (
@@ -289,6 +378,20 @@ export default function FloorWorkspace({
             />
           ))}
         </Sheet>
+      )}
+
+      {review && (
+        <ScanReview
+          result={review}
+          level={level}
+          suggestedName={`Room ${(rooms?.length ?? 0) + pending.length + 1}`}
+          onSave={keepRoom}
+          onRescan={() => {
+            setReview(null);
+            void startScan();
+          }}
+          onDiscard={() => setReview(null)}
+        />
       )}
 
       {openRoom && (
