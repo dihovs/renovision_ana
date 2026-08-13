@@ -36,9 +36,14 @@ export function db(): SupabaseClient | null {
 export function isMissingTable(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const code = (error as { code?: string }).code;
-  if (code === "42P01" || code === "PGRST205") return true;
+  // PGRST200 is PostgREST failing an EMBED because the related table's
+  // migration hasn't run (or its schema cache is stale) — same operator
+  // remedy as a missing table, and without it a query like
+  // projects.select("*, room_scans(...)") turns into a generic 500 that
+  // hides the "run the migration" notice.
+  if (code === "42P01" || code === "PGRST205" || code === "PGRST200") return true;
   const message = (error as { message?: string }).message ?? "";
-  return /relation .* does not exist|could not find the table/i.test(message);
+  return /relation .* does not exist|could not find the table|could not find a relationship/i.test(message);
 }
 
 /** Thrown when the CRM tables are absent, so pages can render a notice. */

@@ -65,18 +65,28 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     }
 
     @objc private func cancelTapped() {
+        // Consume the callback NOW. stop() still drives the normal
+        // completion path, so without this the cancelled room arrives
+        // seconds later as a success — and a half-walked scan the operator
+        // deliberately discarded would enter the merge set anyway.
+        let finish = onFinish
+        onFinish = nil
         captureView.captureSession.stop()
         dismiss(animated: true) {
-            self.onFinish?(.failure(RoomScanError.cancelled))
+            finish?(.failure(RoomScanError.cancelled))
         }
     }
 
     func captureView(didPresent processedResult: CapturedRoom, error: (any Error)?) {
+        // One delivery only — nil after a cancel, and nil-ed here so a
+        // double-fire cannot resolve the same plugin call twice.
+        guard let finish = onFinish else { return }
+        onFinish = nil
         dismiss(animated: true) {
             if let error {
-                self.onFinish?(.failure(error))
+                finish(.failure(error))
             } else {
-                self.onFinish?(.success(processedResult))
+                finish(.success(processedResult))
             }
         }
     }

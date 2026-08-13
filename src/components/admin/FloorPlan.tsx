@@ -17,15 +17,21 @@ export default function FloorPlan({
   result,
   name,
   variant = "full",
+  sections,
 }: {
   result: RoomScanResult;
   name: string;
   variant?: "full" | "thumb";
+  /** Room labels from a merged structure, drawn at their centres. */
+  sections?: { label: string; centerX: number; centerZ: number }[];
 }) {
   const plan = toFloorPlan(result);
   if (plan.segments.length === 0) return null;
 
   const thumb = variant === "thumb";
+  // A merged floor has dozens of walls; per-wall dimension tiers stack into
+  // an unreadable smear. Keep the overall spans, drop the breakdowns.
+  const dense = result.walls.length > 12;
   const WALL = thumb ? 0.22 : 0.16;
   // Asymmetric on purpose: the vertical dimensions live off the right edge
   // and their rotated text needs more room than the bare left margin does.
@@ -92,11 +98,10 @@ export default function FloorPlan({
               strokeWidth={WALL * 1.25}
               strokeLinecap="butt"
             />
-            {o.kind === "window" ? (
+            {o.kind === "window" && (
               <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke="#111111" strokeWidth={0.035} />
-            ) : (
-              <DoorSwing opening={o} />
             )}
+            {o.kind === "door" && <DoorSwing opening={o} />}
           </g>
         ))}
 
@@ -109,7 +114,7 @@ export default function FloorPlan({
             wall on that side, but only when there is more than one — a
             single wall would just repeat the overall figure. */}
         <Dimension from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.05} axis="x" />
-        {horizontal.length > 1 &&
+        {!dense && horizontal.length > 1 &&
           horizontal.map((s, i) => (
             <Dimension
               key={`hx${i}`}
@@ -121,7 +126,7 @@ export default function FloorPlan({
           ))}
 
         <Dimension from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.05} axis="y" />
-        {vertical.length > 1 &&
+        {!dense && vertical.length > 1 &&
           vertical.map((s, i) => (
             <Dimension
               key={`vy${i}`}
@@ -135,6 +140,25 @@ export default function FloorPlan({
         <ScaleBar y={height + 1.35} width={width} />
           </>
         )}
+
+        {/* Room names the merge recognised, at their own centres. */}
+        {!thumb &&
+          (sections ?? [])
+            .filter((s) => s.label && s.label !== "unidentified")
+            .map((s, i) => (
+              <text
+                key={`sec${i}`}
+                x={s.centerX - plan.offsetX}
+                y={s.centerZ - plan.offsetY}
+                textAnchor="middle"
+                fontSize={0.3}
+                fontWeight={700}
+                fill="#3c3c43"
+                style={{ textTransform: "capitalize" }}
+              >
+                {s.label.replace(/([A-Z])/g, " $1").toLowerCase()}
+              </text>
+            ))}
       </svg>
     </div>
   );

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import FloorPlan from "./FloorPlan";
 import { tapFeedback } from "@/lib/haptics";
 import {
   ceilingHeightMeters,
   listScanProjects,
   mergeScans,
+  removeScanAt,
+  resetScans,
   metersToFeet,
   roomScanSupport,
   saveScan,
@@ -82,6 +84,35 @@ export default function RoomScanner() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
 
+  // Rooms scanned before a project was picked would otherwise stay
+  // memory-only forever — picking one later backfills them, because "I'll
+  // choose the project after I scan" is the natural order on site.
+  const savedIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      for (const [index, room] of rooms.entries()) {
+        if (savedIdsRef.current.has(room.id)) continue;
+        try {
+          await saveScan({
+            projectId,
+            name: room.name,
+            level: room.level,
+            position: index,
+            result: room.result,
+          });
+          savedIdsRef.current.add(room.id);
+          setSavedCount((n) => n + 1);
+          setSaveError(null);
+        } catch (err) {
+          setSaveError(err instanceof Error ? err.message : "Could not save the scan.");
+          break;
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, rooms.length]);
+
   async function combine() {
     tapFeedback("medium");
     setMerging(true);
@@ -95,6 +126,13 @@ export default function RoomScanner() {
     }
   }
 
+  // A fresh screen is a fresh survey. The native merge set outlives the
+  // WebView page, so without this the first room scanned at property B
+  // gets combined with whatever was walked at property A yesterday.
+  useEffect(() => {
+    void resetScans();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     listScanProjects()
@@ -102,9 +140,13 @@ export default function RoomScanner() {
         if (!cancelled) setProjects(list);
       })
       // A picker that can't load is not a reason to block scanning: the
-      // measurements still matter, they just stay on the screen.
-      .catch(() => {
-        if (!cancelled) setProjects([]);
+      // measurements still matter, they just stay on the screen. But it IS
+      // a reason to say so — silently hiding the picker looks like the
+      // feature doesn't exist, when the truth is a migration or a login.
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setProjects([]);
+        setSaveError(err instanceof Error ? err.message : "Could not load projects.");
       });
     return () => {
       cancelled = true;
@@ -143,24 +185,7 @@ export default function RoomScanner() {
       setMerged(null);
       setStatus({ kind: "ready" });
 
-      // Filed immediately, not on a Save button. A measurement taken
-      // standing in a wet basement should survive the walk back to the van,
-      // and the failure mode of "I'll save it later" is losing the scan.
-      if (projectId) {
-        try {
-          await saveScan({
-            projectId,
-            name: `Room ${rooms.filter((r) => r.level === level).length + 1}`,
-            level,
-            position: rooms.filter((r) => r.level === level).length,
-            result,
-          });
-          setSavedCount((n) => n + 1);
-          setSaveError(null);
-        } catch (err) {
-          setSaveError(err instanceof Error ? err.message : "Could not save the scan.");
-        }
-      }
+
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Cancelling is not failing — it's the ordinary way to back out of a
@@ -263,7 +288,7 @@ export default function RoomScanner() {
 
           {merged ? (
             <div className="p-4">
-              <FloorPlan result={merged} name="Floor plan" />
+              <FloorPlan result={merged} name="Floor plan" sections={merged.sections} />
               {merged.modelId && (
                 <button
                   type="button"
@@ -382,7 +407,15 @@ export default function RoomScanner() {
                 }
                 onRemove={() => {
                   tapFeedback();
-                  setRooms((current) => current.filter((r) => r.id !== room.id));
+                  setRooms((current) => {
+                    // Native holds rooms in capture order == insertion order
+                    // here; tell it which one left or the next Combine
+                    // includes a room the operator deleted.
+                    const index = current.findIndex((r) => r.id === room.id);
+                    if (index >= 0) void removeScanAt(index);
+                    return current.filter((r) => r.id !== room.id);
+                  });
+                  setMerged(null);
                 }}
                 defaultOpen={room.id === rooms[rooms.length - 1]?.id}
               />

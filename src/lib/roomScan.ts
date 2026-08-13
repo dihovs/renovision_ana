@@ -41,6 +41,10 @@ export type RoomScanResult = {
   floors: RoomScanFloor[];
   doors: RoomScanOpening[];
   windows: RoomScanOpening[];
+  /** Cased openings — doorless passages. The gaps that CONNECT rooms; a
+      merged plan without them draws sealed boxes. Absent on scans saved
+      before the plugin emitted them. */
+  openings?: RoomScanOpening[];
   doorCount: number;
   windowCount: number;
   openingCount: number;
@@ -62,6 +66,7 @@ type RoomScanBridge = {
   showModel(options: { modelId: string }): Promise<{ ok: boolean }>;
   mergeScans(): Promise<MergedStructure>;
   resetScans(): Promise<{ ok: boolean }>;
+  removeScan(options: { index: number }): Promise<{ roomsCaptured: number }>;
 };
 
 const RoomScan = registerPlugin<RoomScanBridge>("RoomScan");
@@ -91,8 +96,28 @@ export async function roomScanSupport(): Promise<ScanSupport> {
 
 /** Throws on cancel or an unsupported device — the caller's catch block IS
     the "no scan happened" path, not a separate flag to check first. */
-export async function scanRoom(): Promise<RoomScanResult> {
-  return RoomScan.startScan();
+export async function scanRoom(): Promise<RoomScanResult & { roomsCaptured?: number }> {
+  const result = await RoomScan.startScan();
+  // Capacitor resolves with {} instead of rejecting when a payload fails
+  // JSON serialization (a NaN in any Double does it). Left unchecked that
+  // {} walks into `.walls.map(...)` and crashes the whole scan screen,
+  // taking every unsaved room with it.
+  if (!Array.isArray(result?.walls)) {
+    throw new Error("The scan returned no usable geometry — try scanning the room again.");
+  }
+  return result;
+}
+
+/** Drop one held room from the native merge set, by capture order. Must be
+    called when a room is removed on screen, or the next Combine quietly
+    includes a room the operator deleted. */
+export async function removeScanAt(index: number): Promise<void> {
+  try {
+    await RoomScan.removeScan({ index });
+  } catch {
+    // Out of range means native and screen already disagree; the merge
+    // button's roomsCaptured check is the backstop.
+  }
 }
 
 /** Open the scanned room as a 3D model — the dollhouse — in the system's
@@ -196,7 +221,7 @@ export function ceilingHeightMeters(result: RoomScanResult): number {
 export function openingAreaSquareMeters(result: RoomScanResult): number {
   const area = (list: RoomScanOpening[] | undefined) =>
     (list ?? []).reduce((sum, o) => sum + o.widthMeters * (o.heightMeters ?? 0), 0);
-  return area(result.doors) + area(result.windows);
+  return area(result.doors) + area(result.windows) + area(result.openings);
 }
 
 /**
@@ -221,7 +246,7 @@ export function wallAreaSquareMeters(result: RoomScanResult): {
 }
 
 export type PlanSegment = { x1: number; y1: number; x2: number; y2: number };
-export type PlanOpening = PlanSegment & { kind: "door" | "window" };
+export type PlanOpening = PlanSegment & { kind: "door" | "window" | "opening" };
 export type PlanPoint = { x: number; y: number };
 export type FloorPlan = {
   segments: PlanSegment[];
@@ -232,6 +257,10 @@ export type FloorPlan = {
   /** Bounding box in metres, for fitting the plan to whatever it's drawn in. */
   width: number;
   height: number;
+  /** What was subtracted to move the plan to (0,0) — anything positioned in
+      the scan's world space (section labels) needs the same shift. */
+  offsetX: number;
+  offsetY: number;
 };
 
 /**
@@ -317,12 +346,13 @@ export function toFloorPlan(result: RoomScanResult): FloorPlan {
 
   const raw = result.walls.map((wall) => span(wall, wall.lengthMeters));
   if (raw.length === 0) {
-    return { segments: [], openings: [], polygon: [], width: 0, height: 0 };
+    return { segments: [], openings: [], polygon: [], width: 0, height: 0, offsetX: 0, offsetY: 0 };
   }
 
   const rawOpenings: PlanOpening[] = [
     ...(result.doors ?? []).map((d) => ({ ...span(d, d.widthMeters), kind: "door" as const })),
     ...(result.windows ?? []).map((w) => ({ ...span(w, w.widthMeters), kind: "window" as const })),
+    ...(result.openings ?? []).map((o) => ({ ...span(o, o.widthMeters), kind: "opening" as const })),
   ];
 
   // Normalise everything against the same origin, so the openings still sit
@@ -347,6 +377,8 @@ export function toFloorPlan(result: RoomScanResult): FloorPlan {
     polygon: chainIntoPolygon(segments),
     width: Math.max(...xs) - minX,
     height: Math.max(...ys) - minY,
+    offsetX: minX,
+    offsetY: minY,
   };
 }
 

@@ -24,6 +24,7 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "showModel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "mergeScans", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "resetScans", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "removeScan", returnType: CAPPluginReturnPromise),
     ]
 
     /**
@@ -128,9 +129,10 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
                 let structure = try await builder.capturedStructure(from: rooms)
 
                 var payload = Self.serializeStructure(structure)
-                if let id = self.exportStructure(structure) {
-                    payload["modelId"] = id
-                }
+                // modelURLs is read and written on the main thread everywhere
+                // else; keep this write there too rather than racing it.
+                let id = await MainActor.run { self.exportStructure(structure) }
+                if let id { payload["modelId"] = id }
                 call.resolve(payload)
             } catch {
                 call.reject("Could not merge the scans: \(error.localizedDescription)")
@@ -145,6 +147,20 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(["ok": true])
     }
 
+    /// Drop one held room, by capture order. Without this, "Remove this
+    /// room" on the screen leaves the room in the native merge set — the
+    /// next Combine quietly includes a room the operator deleted.
+    @objc func removeScan(_ call: CAPPluginCall) {
+        guard #available(iOS 17.0, *) else { call.resolve(["ok": true]); return }
+        guard let index = call.getInt("index"),
+              index >= 0, index < Self.capturedRooms.count else {
+            call.reject("No held scan at that position.")
+            return
+        }
+        Self.capturedRooms.remove(at: index)
+        call.resolve(["roomsCaptured": Self.capturedRooms.count])
+    }
+
     /**
      * The dollhouse: the scanned room as a 3D model on a plain background,
      * pinch and orbit to look around it.
@@ -154,7 +170,11 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
      * point is to look at the model on a neutral ground.
      */
     @objc func showModel(_ call: CAPPluginCall) {
-        guard let id = call.getString("modelId"), let url = modelURLs[id] else {
+        guard let id = call.getString("modelId"), let url = modelURLs[id],
+              FileManager.default.fileExists(atPath: url.path) else {
+            // Caches is purgeable: iOS may delete the file while the id is
+            // still held, and a missing file renders as an empty grey viewer
+            // with no explanation. Refuse honestly instead.
             call.reject("That model is no longer available — scan the room again.")
             return
         }
@@ -293,6 +313,10 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             "floors": floors.map { ["areaSquareMeters": Double($0.dimensions.x * $0.dimensions.z)] },
             "doors": surfaces(doors),
             "windows": surfaces(windows),
+            // Cased openings — doorless passages — with full geometry, so a
+            // plan can cut the gap that CONNECTS two rooms. A count alone
+            // draws sealed boxes.
+            "openings": surfaces(openings),
             "doorCount": doors.count,
             "windowCount": windows.count,
             "openingCount": openings.count,

@@ -103,7 +103,15 @@ describe("toFloorPlan", () => {
 
   it("survives a room with no walls rather than dividing by nothing", () => {
     const empty = toFloorPlan({ ...bedroom(), walls: [] });
-    expect(empty).toEqual({ segments: [], openings: [], polygon: [], width: 0, height: 0 });
+    expect(empty).toEqual({
+      segments: [],
+      openings: [],
+      polygon: [],
+      width: 0,
+      height: 0,
+      offsetX: 0,
+      offsetY: 0,
+    });
   });
 });
 
