@@ -125,3 +125,101 @@ What is genuinely missing, in the order it is worth building:
 4. **Manual corner scan** — ARKit, no LiDAR, works on any iPhone.
 5. **The PDF report** — theirs is HTML printed by Chrome (Skia/PDF in the
    file metadata), which is exactly reproducible here.
+
+---
+
+# Estimation and reports, in detail
+
+Second pass, from their help centre and the Estimator screens. The estimating
+tier is not on this account, so the mechanics below come from their own
+documentation rather than from clicking it.
+
+## Affected areas — the bridge from scan to money
+
+This is the feature that connects a measurement to an invoice, and it is
+worth copying closely.
+
+- Added from a room's or a **wall's** detail sheet: "Affected Areas" →
+  **Add New Area**. A room area and a wall area are different things and
+  cannot be moved between the two.
+- It opens with **the entire surface pre-selected**, then you shrink it —
+  reshaping is the interaction, not drawing from nothing. Drag a corner;
+  tap an edge to insert a corner; type an exact figure via the measurement
+  picker; or take the number straight off a Bluetooth laser measure.
+- Fields: **Name**, **Fill Colour**, and toggles for showing dimensions and
+  labels. Colour is the coding — water vs fire vs mould reads at a glance.
+- The area is **computed automatically** and shown in the chosen units.
+- **Photos, 360s, videos, notes and forms attach to the area itself**, not
+  just to the room — so the evidence sits on the damage.
+- Overlapping areas are explicitly allowed (their own hint text says so),
+  which matters: a wet floor and a mouldy wall can overlap in plan.
+- They surface in the **report PDF** (marked with a numbered icon), at the
+  **bottom of the statistics report**, over the **API**, and — the important
+  one — **they can be selected in the Estimator as the quantity for a line
+  item**.
+
+## The estimator
+
+Structure:
+
+- An **estimate** belongs to a project and carries client details.
+- **Line items** for materials, labour or services, from predefined
+  categories or written fresh. Quantity × unit cost totals automatically.
+- **Cost rules** — tax, markup, discount — applied globally or per line.
+- **Templates** bundle line items + cost rules + settings for reuse.
+- **Price lists** hold the frequently used items and fixed costs. US users
+  get Craftsman Book price lists built in.
+- **Status** is a real workflow: Sent → Accepted → Approved → Rejected.
+- Export as branded **PDF or XLS**, with logo, terms and notes.
+
+The linkage that makes it worth having: quantities bind to the sketch.
+Working in **room view** you select a room, a wall, or an object and apply an
+item to it, and the quantity comes from that surface's own measurement.
+
+Two limits worth knowing, both in their own docs:
+
+- **Estimating is desktop/tablet only** — it explicitly does not run on a
+  phone.
+- **Floor plan sketches cannot be included in an exported estimate.** Their
+  words. The plan lives in the report; the estimate is a document of numbers.
+  We can do better here trivially, since our quote already renders in the
+  same app that draws the plan.
+
+## The report
+
+Their report is HTML printed through Chrome (`Skia/PDF` in the file
+metadata), which is exactly how we would build it. Options they expose:
+
+**Layout** — all floors on one page / one floor per page / one floor per page
+plus two rooms per page / plus one room per page. Paper: US Letter, Legal,
+Tabloid, A4, A3, A2. Portrait or landscape.
+
+**Plan rendering** — room labels all / main rooms only / hidden; floor scale
+and room scale each auto-optimised or fixed; rotate the plan to maximise
+scale on the page; force one scale across all floors.
+
+**Dimensions, floor plans** — detailed (walls, windows, doors) / main only
+(length × width) / area only / manually-set only.
+**Dimensions, room plans** — all / two main / manually-set only / none.
+
+**Content toggles** — dimensions, custom fields, photos and 360s and videos,
+notes, forms.
+
+**Photos** — small, medium or large, on dedicated pages.
+
+**Header and footer** — disclaimer text, and a title block carrying company
+logo, contact details, location, property details, plus optional room-count
+and property-area statistics.
+
+## Where this leaves our build order
+
+Unchanged in shape, sharper in detail:
+
+1. **Affected areas.** Room-or-wall, reshape-from-full, name + colour, auto
+   area, attachments on the area itself, overlapping allowed. Then bind the
+   measured area to a quote line — which is the one place we can beat them
+   immediately, because our estimate and our plan live in the same app.
+2. **Claim Details fields** on a project, with conditional logic.
+3. **Interactive floor plan** — tap to select, grey the rest, detail sheet.
+4. **Manual corner scan** (ARKit, any iPhone).
+5. **The report** — HTML → PDF, with their toggle set as the specification.
