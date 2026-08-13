@@ -21,6 +21,7 @@ import {
   IconHome,
   IconPhone,
   IconShield,
+  IconStairs,
   IconTag,
 } from "@/components/ui/icons";
 
@@ -71,6 +72,9 @@ function buildNav(): NavItem[] {
   // customer on the business number. The rail's "Inbox" further down is
   // WhatsApp job photos; this is SMS.
   { href: "/admin/messages", label: "Messages", icon: IconChat, ready: true },
+  // Next to the field tools rather than down with the office ones: it is
+  // used standing in the room being measured.
+  { href: "/admin/scan", label: "Scan", icon: IconStairs, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/calls", label: "Call log", icon: IconPhone, ready: true },
   // Next to Calls, because everything on it was dictated on one.
@@ -172,6 +176,7 @@ export default function AdminShell({
     { href: homeHref(), label: "Home", icon: IconDashboard },
     { href: "/admin/phone", label: "Call", icon: IconPhone },
     { href: "/admin/ana", label: "Ana", icon: IconChat },
+    { href: "/admin/scan", label: "Scan", icon: IconStairs },
     { href: isNative ? "/admin/jobs/cards" : "/admin/jobs", label: "Jobs", icon: IconHammer },
   ];
 
