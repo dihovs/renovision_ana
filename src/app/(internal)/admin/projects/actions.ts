@@ -9,6 +9,7 @@ import {
   deleteProjectFile,
   detachJob,
   PROJECT_STATUSES,
+  updateProjectCustom,
   updateProjectStatus,
   type ProjectStatus,
 } from "@/lib/crm/projects";
@@ -84,5 +85,27 @@ export async function deleteProjectFileAction(
 ): Promise<void> {
   await requireSession();
   await deleteProjectFile(fileId);
+  revalidatePath(`/admin/projects/${projectId}`);
+}
+
+/**
+ * Save the project's claim details.
+ *
+ * Every `custom__`-prefixed field on the form, including the ones the
+ * conditional logic is currently hiding — those post their stored value, so
+ * switching Type of Loss away and back does not destroy an answer.
+ */
+export async function saveProjectCustomAction(
+  projectId: string,
+  formData: FormData,
+): Promise<void> {
+  await requireSession();
+  const custom: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("custom__") && typeof value === "string") {
+      custom[key.slice("custom__".length)] = value;
+    }
+  }
+  await updateProjectCustom(projectId, custom);
   revalidatePath(`/admin/projects/${projectId}`);
 }

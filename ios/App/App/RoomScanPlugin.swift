@@ -326,10 +326,11 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
 
         return [
             "walls": surfaces(walls),
-            // width x depth is the honest approximation RoomPlan's own
-            // dimensions give per surface; an irregular room is the sum of
-            // more than one floor surface, which this still adds correctly.
-            "floors": floors.map { ["areaSquareMeters": Double($0.dimensions.x * $0.dimensions.z)] },
+            // x TIMES Y, not x times z. Every RoomPlan surface is a PLANE in
+            // its own local X-Y, laid flat by the node transform — so a
+            // floor's depth is y, and its z is ~0. Multiplying by z gave
+            // every room a floor area of zero.
+            "floors": floors.map { ["areaSquareMeters": Double($0.dimensions.x * $0.dimensions.y)] },
             "doors": surfaces(doors),
             "windows": surfaces(windows),
             // Cased openings — doorless passages — with full geometry, so a

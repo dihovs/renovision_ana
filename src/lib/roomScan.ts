@@ -264,6 +264,53 @@ export type FloorPlan = {
 };
 
 /**
+ * Turn the plan so the room sits square to the page.
+ *
+ * A scan is measured in the coordinate frame of wherever the phone happened
+ * to be standing when it started, so a perfectly rectangular room comes out
+ * tilted at whatever angle that was — which reads as a bad scan even when
+ * the geometry is exact. Every printed floor plan is drawn square; this is
+ * how that happens.
+ *
+ * It is a pure rotation about the origin: no length, angle between walls, or
+ * area changes, and nothing is snapped or invented. The only thing lost is
+ * the arbitrary compass bearing of the person who took the scan.
+ *
+ * The angle comes from the LONGEST wall, because the longest wall is the one
+ * a reader's eye squares the room against.
+ */
+function squareToPage(segments: PlanSegment[]): PlanSegment[] {
+  if (segments.length === 0) return segments;
+
+  let longest = segments[0];
+  let longestLength = 0;
+  for (const s of segments) {
+    const length = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+    if (length > longestLength) {
+      longestLength = length;
+      longest = s;
+    }
+  }
+
+  // Fold onto [-45, 45]: turning a room by a quarter is the same room, and
+  // the nearest quarter-turn is the least surprising one.
+  let angle = Math.atan2(longest.y2 - longest.y1, longest.x2 - longest.x1);
+  while (angle > Math.PI / 4) angle -= Math.PI / 2;
+  while (angle < -Math.PI / 4) angle += Math.PI / 2;
+  if (Math.abs(angle) < 0.005) return segments;
+
+  const cos = Math.cos(-angle);
+  const sin = Math.sin(-angle);
+  return segments.map((s) => ({
+    ...s,
+    x1: s.x1 * cos - s.y1 * sin,
+    y1: s.x1 * sin + s.y1 * cos,
+    x2: s.x2 * cos - s.y2 * sin,
+    y2: s.x2 * sin + s.y2 * cos,
+  }));
+}
+
+/**
  * Chain wall segments into a closed outline.
  *
  * RoomPlan hands back walls in no particular order, so a fill needs them
@@ -344,16 +391,22 @@ export function toFloorPlan(result: RoomScanResult): FloorPlan {
     };
   };
 
-  const raw = result.walls.map((wall) => span(wall, wall.lengthMeters));
-  if (raw.length === 0) {
+  const rawWalls = result.walls.map((wall) => span(wall, wall.lengthMeters));
+  if (rawWalls.length === 0) {
     return { segments: [], openings: [], polygon: [], width: 0, height: 0, offsetX: 0, offsetY: 0 };
   }
 
-  const rawOpenings: PlanOpening[] = [
+  const rawOpeningSpans: PlanOpening[] = [
     ...(result.doors ?? []).map((d) => ({ ...span(d, d.widthMeters), kind: "door" as const })),
     ...(result.windows ?? []).map((w) => ({ ...span(w, w.widthMeters), kind: "window" as const })),
     ...(result.openings ?? []).map((o) => ({ ...span(o, o.widthMeters), kind: "opening" as const })),
   ];
+
+  // Walls and openings are rotated TOGETHER, by the angle the walls imply,
+  // so a door stays in the wall it was cut from.
+  const rotated = squareToPage([...rawWalls, ...rawOpeningSpans]);
+  const raw = rotated.slice(0, rawWalls.length);
+  const rawOpenings = rotated.slice(rawWalls.length) as PlanOpening[];
 
   // Normalise everything against the same origin, so the openings still sit
   // in their walls after the plan is moved to (0, 0).

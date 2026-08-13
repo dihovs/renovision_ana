@@ -32,6 +32,9 @@ export type Project = {
   description: string | null;
   started_on: string | null;
   archived_at: string | null;
+  /** Answers to the project-level custom fields — the claim details, when
+      the claim template has been applied. { fieldId: value }. */
+  custom: Record<string, string>;
 };
 
 export type ProjectFile = {
@@ -385,6 +388,28 @@ export async function createProject(input: {
     throw new Error(`Could not create the project: ${error.message}`);
   }
   return data.id as string;
+}
+
+/**
+ * Save the project's custom-field answers — the claim details.
+ *
+ * Replaces the whole bag rather than merging keys: the form posts every
+ * field it knows about, including the conditionally hidden ones, so a
+ * partial write here would be the form's bug rather than a feature.
+ */
+export async function updateProjectCustom(
+  id: string,
+  custom: Record<string, string>,
+): Promise<void> {
+  const client = requireDb();
+  const { error } = await client
+    .from("projects")
+    .update({ custom, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("projects.custom");
+    throw new Error(`Could not save the claim details: ${error.message}`);
+  }
 }
 
 export async function updateProjectStatus(id: string, status: ProjectStatus): Promise<void> {
