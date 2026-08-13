@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import FloorPlan from "./FloorPlan";
 import RoomSheet from "./RoomSheet";
 import { tapFeedback } from "@/lib/haptics";
+import { rememberFloor } from "@/lib/floorMemory";
 import {
   listSavedScans,
   metersToFeet,
@@ -88,6 +89,13 @@ export default function FloorWorkspace({
     return () => {
       cancelled = true;
     };
+  }, [projectId, level]);
+
+  // Reaching a floor by any route — a link, a back button, a typed URL —
+  // is enough for it to exist. Otherwise a floor opened from history
+  // vanishes from the project behind it.
+  useEffect(() => {
+    rememberFloor(projectId, level);
   }, [projectId, level]);
 
   useEffect(() => {

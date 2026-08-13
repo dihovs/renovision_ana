@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { tapFeedback } from "@/lib/haptics";
+import { rememberFloor } from "@/lib/floorMemory";
 
 /**
  * Start a floor plan for a storey that has none yet.
@@ -30,6 +31,10 @@ export default function AddFloorPlan({
 
   function go(level: string) {
     tapFeedback("medium");
+    // Remembered before navigating, so backing out of an empty floor leaves
+    // the floor behind rather than losing it. A room landing on it later
+    // makes it real and this is reconciled away.
+    rememberFloor(projectId, level);
     router.push(`/admin/projects/${projectId}/floors/${encodeURIComponent(level)}`);
   }
 
