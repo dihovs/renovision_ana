@@ -1,0 +1,206 @@
+/*
+ * The report's own stylesheet.
+ *
+ * Two documents in one: something readable on a phone, and something that
+ * prints to US Letter with a running header and honest page breaks. The
+ * measurements here — 2cm margins, the header band, the rule under it — are
+ * taken from the client's real magicplan export rather than invented, so a
+ * printed page sits where a reader expects it to.
+ */
+
+.report {
+  --ink: #141414;
+  --muted: #6b6b70;
+  --rule: #d8d8dc;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.report .page {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 22px;
+  margin-bottom: 16px;
+}
+
+/* ---------------------------------------------------------------- header */
+.report .running {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed var(--rule);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.report .running h2 { font-size: 15px; font-weight: 700; margin: 0; }
+.report .running p {
+  margin: 2px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.report .running .mark { font-size: 9px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+
+/* ----------------------------------------------------------------- cover */
+.report .cover-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.report .cover h1 { font-size: 22px; font-weight: 700; margin: 0; }
+.report .cover .addr { margin: 3px 0 0; color: var(--muted); }
+.report .brand { text-align: right; font-size: 10px; color: var(--muted); }
+.report .brand strong { display: block; font-size: 12px; color: var(--ink); }
+
+.report .cover-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+@media (max-width: 640px) {
+  .report .cover-grid { grid-template-columns: 1fr; }
+}
+.report .cover-grid dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+.report .cover-grid dt { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); align-self: center; }
+.report .cover-grid dd { margin: 0; font-size: 12px; }
+.report .muted { color: var(--muted); }
+
+.report .desc { margin-top: 16px; white-space: pre-wrap; color: #33333a; }
+
+.report .cover-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--rule);
+  margin-top: 22px;
+  padding-top: 8px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------- tables */
+.report table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+.report .stats { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.report .stats th {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--muted); text-align: left; padding: 6px 8px 2px;
+}
+.report .stats td { padding: 0 8px 7px; font-size: 13px; font-weight: 700; }
+.report .stats.damage td { font-size: 12px; font-weight: 500; padding: 5px 8px; }
+
+.report .listing th {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); text-align: left; padding: 5px 6px;
+  border-bottom: 1px solid var(--rule);
+}
+.report .listing td { padding: 5px 6px; border-bottom: 1px solid #eee; }
+.report .listing .total td { font-weight: 700; border-bottom: none; }
+.report .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.report .measure th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 6px; }
+.report .measure td { padding: 4px 6px; font-weight: 700; }
+
+.report .swatch {
+  display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+  margin-right: 6px; vertical-align: middle;
+}
+.report .totals { margin: 0; font-size: 10px; color: var(--muted); }
+.report .fineprint { margin-top: 10px; font-size: 9px; color: var(--muted); }
+.report .notes { margin-top: 12px; white-space: pre-wrap; }
+
+/* ----------------------------------------------------------------- plans */
+.report .plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.report .plan-grid figure { margin: 0; }
+.report .plan { background: #f6f6f7; border-radius: 8px; padding: 8px; height: 150px; }
+.report .plan.large {
+  /* Capped, and this is load-bearing. An unconstrained SVG grows to fill its
+     container, so a room with a few short walls rendered as a full page of
+     white with a thin drawing lost in the middle, pushing the measurements
+     into a corner. A plan is an illustration of the figures beside it, not
+     the page. */
+  height: 320px;
+  background: #fff;
+  padding: 0;
+}
+.report .plan.large > * { height: 100%; }
+.report .plan.large svg { max-height: 320px; }
+.report .plan-grid figcaption {
+  display: flex; justify-content: space-between; gap: 8px;
+  margin-top: 4px; font-size: 10px; color: var(--muted);
+}
+.report .plan-grid figcaption strong { color: var(--ink); }
+
+.report .room-body { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 640px) {
+  .report .room-body { grid-template-columns: 1fr; }
+}
+
+.report .photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.report .photos img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* ----------------------------------------------------------------- print */
+@media print {
+  /* The app chrome is not part of the document. */
+  .no-print,
+  nav,
+  header.app-header,
+  footer.app-footer { display: none !important; }
+
+  @page { size: letter portrait; margin: 2cm; }
+
+  html, body { background: #fff !important; }
+  .report-shell { padding: 0 !important; }
+
+  .report .page {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    /* Each section is a page. break-after rather than page-break-after: the
+       older property is honoured inconsistently inside grid containers. */
+    break-after: page;
+  }
+  .report .page:last-child { break-after: auto; }
+
+  /* A room's plan and its measurements must not be split from each other —
+     a table of figures on a page without the drawing they describe is worse
+     than a slightly shorter page. */
+  .report .room-body,
+  .report figure,
+  .report .listing { break-inside: avoid; }
+
+  .report .running { position: running(header); }
+
+  /* Photographs are the evidence; printers default to dropping backgrounds
+     and flattening colour, which would grey out the damage swatches too. */
+  .report, .report * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

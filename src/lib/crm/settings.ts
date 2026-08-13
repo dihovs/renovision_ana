@@ -114,6 +114,9 @@ export const DEFAULT_CUSTOM_FIELDS: CustomFieldsSetting = {
  */
 export const CLAIM_FIELD_TEMPLATE: CustomFieldDef[] = [
   { id: "job_number", label: "Job number", type: "text" },
+  // The address the loss happened at, which is not always the address on the
+  // client record — a landlord's claim is for a property they do not live in.
+  { id: "loss_address", label: "Address of loss", type: "text" },
   { id: "carrier_name", label: "Carrier name", type: "text" },
   { id: "claim_number", label: "Insurance claim number", type: "text" },
   { id: "policy_number", label: "Policy number", type: "text" },

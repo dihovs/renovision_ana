@@ -236,6 +236,24 @@ export default async function ProjectDetailPage({
         migrationPending={survey === null}
       />
 
+      <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-heading text-sm font-bold text-charcoal">Report</h2>
+            <p className="mt-0.5 text-sm leading-snug text-charcoal/50">
+              Claim identity, floor plans, affected areas, moisture and
+              equipment — printable, or saved as a PDF for the adjuster.
+            </p>
+          </div>
+          <Link
+            href={`/admin/projects/${project.id}/report`}
+            className="shrink-0 cursor-pointer rounded-lg bg-charcoal px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-charcoal/90"
+          >
+            Open report
+          </Link>
+        </div>
+      </section>
+
       <EquipmentLog projectId={project.id} />
 
       <ProjectStatusButtons
