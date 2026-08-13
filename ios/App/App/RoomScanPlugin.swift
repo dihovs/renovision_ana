@@ -84,6 +84,13 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
                     // again without the JS side ever handling a path.
                     if let id = self?.exportModel(room) {
                         payload["modelId"] = id
+                        // The exact payload the web side receives, written
+                        // beside the model. Reconstructing this from the
+                        // USDZ export gives DIFFERENT numbers (the node
+                        // transforms are not the surface transforms), so
+                        // tuning the floor plan against a reconstruction is
+                        // tuning against noise. This is the ground truth.
+                        Self.writePayloadDump(payload, id: id)
                     }
                     payload["roomsCaptured"] = Self.capturedRooms.count
                     call.resolve(payload)
@@ -189,6 +196,18 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             presenter.present(viewer, animated: true)
             call.resolve(["ok": true])
         }
+    }
+
+    /// Dumps a plugin payload to Caches for offline inspection. Diagnostic
+    /// only — nothing reads it back, and a failure is not worth surfacing.
+    private static func writePayloadDump(_ payload: [String: Any], id: String) {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted])
+        else { return }
+        let url = FileManager.default
+            .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("payload-\(id).json")
+        try? data.write(to: url)
     }
 
     /// Writes the room to a USDZ in the app's cache and returns its id.
