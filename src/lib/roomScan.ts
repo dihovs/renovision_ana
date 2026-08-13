@@ -203,6 +203,7 @@ export type SavedScan = {
   window_count: number;
   stair_count: number;
   geometry: RoomScanResult;
+  notes?: string | null;
   /** Where this room was dragged to on the floor, or null if never placed. */
   plan_x?: number | null;
   plan_y?: number | null;
@@ -225,6 +226,7 @@ export async function updateSavedScan(
     name?: string;
     level?: string;
     position?: number;
+    notes?: string | null;
     planX?: number | null;
     planY?: number | null;
   },

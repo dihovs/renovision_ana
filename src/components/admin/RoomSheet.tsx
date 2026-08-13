@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import FloorPlan from "./FloorPlan";
 import AffectedAreaEditor, { type DraftArea } from "./AffectedAreaEditor";
+import RoomEvidence from "./RoomEvidence";
 import { tapFeedback } from "@/lib/haptics";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
 import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
@@ -238,6 +239,8 @@ export default function RoomSheet({
                 </button>
               </div>
             </section>
+
+            <RoomEvidence roomId={room.id} initialNotes={room.notes ?? null} />
 
             <p className="px-1 text-[11px] leading-snug text-charcoal/45">
               {result.walls.length} wall{result.walls.length === 1 ? "" : "s"} ·{" "}

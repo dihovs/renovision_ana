@@ -1,9 +1,9 @@
 -- ============================================================================
--- Renovision AnA — floor plans, damage areas and claim fields, in one paste.
+-- Renovision AnA — floor plans, damage areas, claim fields and evidence.
 --
 -- WHAT THIS IS
---   Migrations 0023 to 0027 concatenated, in order, so the whole thing can go
---   into the Supabase SQL editor once instead of five times. The individual
+--   Migrations 0023 to 0028 concatenated, in order, so the whole thing can go
+--   into the Supabase SQL editor once instead of six times. The individual
 --   files in supabase/migrations/ are unchanged and remain the source of
 --   truth; this is a convenience copy.
 --
@@ -13,14 +13,14 @@
 --   3. Expect "Success. No rows returned" — these create tables, not results.
 --
 -- IS IT SAFE TO RUN TWICE?
---   Yes. Every statement is `create table if not exists`, `add column if not
---   exists`, or `create index if not exists`. Running it again on a database
---   that already has these does nothing and destroys nothing.
+--   Yes, and safe to run again after an earlier version of this file. Every
+--   statement is `create table if not exists`, `add column if not exists`, or
+--   `create index if not exists`.
 --
---   The one `drop` in this file is `drop constraint if exists` on line ~57,
---   immediately followed by re-adding that same constraint — the standard way
---   to make a CHECK idempotent. It drops a rule, never a row. There is no
---   DELETE, no TRUNCATE, and no ALTER of an existing column's type anywhere.
+--   The one `drop` is `drop constraint if exists`, immediately followed by
+--   re-adding that same constraint — the standard way to make a CHECK
+--   idempotent. It drops a rule, never a row. There is no DELETE, no
+--   TRUNCATE, no DROP TABLE, and no ALTER of an existing column's type.
 --
 -- WHAT IT TURNS ON
 --   0023  estimates tied to a project, and Good/Better/Best tiers
@@ -29,6 +29,7 @@
 --   0026  custom fields on a project — claim number, carrier, adjuster,
 --         category and class of water
 --   0027  where each room sits on its floor, once dragged into place
+--   0028  photos and notes filed against a room, or against one damaged area
 -- ============================================================================
 
 
@@ -240,3 +241,48 @@ alter table public.projects
 alter table public.room_scans
   add column if not exists plan_x numeric,
   add column if not exists plan_y numeric;
+
+-- ==========================================================================
+-- 0028_room_evidence.sql
+-- ==========================================================================
+
+-- Renovision AnA — photos and notes on a room, and on the damage itself.
+--
+-- Photos already attach to a project. That is the right place for a permit
+-- or a receipt and the wrong place for the twelve shots taken in the
+-- basement: by the time a report is written, "which room was this?" is a
+-- question nobody can answer from a filename, and an adjuster looking at an
+-- undifferentiated pile of images has no reason to believe any particular
+-- one shows the damage being claimed.
+--
+-- So the same file row can now point at a room, or at a specific affected
+-- area within it. Both are NULLABLE and both default to NULL, which means
+-- every file that exists today stays exactly what it is — a project file.
+-- This is additive; nothing is moved and nothing is reinterpreted.
+--
+-- One table rather than three: a photo is a photo, and the uploader, the
+-- storage bucket, the signed-URL helper and the delete path are already
+-- written and tested once. Splitting by what a photo is OF would mean
+-- maintaining that machinery three times.
+
+alter table public.project_files
+  -- CASCADE: a photo of a room has no meaning once the room is deleted, the
+  -- same reasoning the project_id column already uses.
+  add column if not exists room_scan_id uuid
+    references public.room_scans (id) on delete cascade,
+
+  -- Evidence pinned to one damaged area — the strongest thing a claim file
+  -- can carry, because it ties an image to a measured square footage rather
+  -- than to a room in general.
+  add column if not exists affected_area_id uuid
+    references public.affected_areas (id) on delete cascade;
+
+-- Fetching a room's photos is the hot path while writing a report: one query
+-- per room, for every room on every floor.
+create index if not exists project_files_room_idx
+  on public.project_files (room_scan_id, uploaded_at desc)
+  where room_scan_id is not null;
+
+create index if not exists project_files_area_idx
+  on public.project_files (affected_area_id, uploaded_at desc)
+  where affected_area_id is not null;

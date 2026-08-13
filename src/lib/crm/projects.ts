@@ -464,7 +464,17 @@ export async function detachJob(projectId: string, jobId: string): Promise<void>
  */
 export async function addProjectFile(
   projectId: string,
-  input: { bytes: Buffer; filename: string; contentType?: string | null; note?: string | null },
+  input: {
+    bytes: Buffer;
+    filename: string;
+    contentType?: string | null;
+    note?: string | null;
+    /** Pin this photo to one room, and optionally to one damaged area
+        inside it. Both null means an ordinary project file — a permit, a
+        receipt — which is what every existing row is. */
+    roomScanId?: string | null;
+    affectedAreaId?: string | null;
+  },
 ): Promise<string> {
   const client = requireDb();
 
@@ -488,6 +498,8 @@ export async function addProjectFile(
       size_bytes: input.bytes.byteLength,
       content_type: contentType,
       note: orNull(input.note),
+      room_scan_id: input.roomScanId ?? null,
+      affected_area_id: input.affectedAreaId ?? null,
     })
     .select("id")
     .single();
@@ -508,6 +520,21 @@ export async function addProjectFile(
     .eq("id", projectId);
 
   return data.id as string;
+}
+
+/** One room's photos, newest first — what a report page is built from. */
+export async function listRoomFiles(roomScanId: string): Promise<ProjectFile[]> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("project_files")
+    .select("*")
+    .eq("room_scan_id", roomScanId)
+    .order("uploaded_at", { ascending: false });
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("project_files");
+    throw new Error(`Could not load the photos: ${error.message}`);
+  }
+  return (data ?? []) as ProjectFile[];
 }
 
 /**

@@ -126,6 +126,22 @@ export async function updateRoomScan(
   if (error) throw new Error(`Could not save the change: ${error.message}`);
 }
 
+/** Which project a room belongs to. Used to file a photo against the right
+    project without trusting a client-supplied id. */
+export async function getRoomScanProject(id: string): Promise<string | null> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("room_scans")
+    .select("project_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("room_scans");
+    throw new Error(`Could not find the room: ${error.message}`);
+  }
+  return (data?.project_id as string | undefined) ?? null;
+}
+
 export async function deleteRoomScan(id: string): Promise<void> {
   const client = requireDb();
   const { error } = await client.from("room_scans").delete().eq("id", id);
