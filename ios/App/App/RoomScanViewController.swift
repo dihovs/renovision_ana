@@ -45,7 +45,17 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         super.viewDidAppear(animated)
         guard !isScanning else { return }
         isScanning = true
+        // Walking a room is minutes of holding the phone up without touching
+        // the screen, which is exactly what the idle timer counts as idle —
+        // and a scan that sleeps halfway through is a scan started again.
+        UIApplication.shared.isIdleTimerDisabled = true
         captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        // Never leave it off: the whole phone stops sleeping otherwise.
+        UIApplication.shared.isIdleTimerDisabled = false
     }
 
     @objc private func doneTapped() {
