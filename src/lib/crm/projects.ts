@@ -50,6 +50,12 @@ export type ProjectListItem = Project & {
   file_count: number;
   /** The later of the project's own updated_at and its newest upload. */
   last_activity: string;
+  /** How many rooms have been measured, and the geometry of the largest —
+      enough for the card to show a floor plan rather than a grey box. A
+      scan-less project simply has null here. */
+  room_count: number;
+  largest_room: { name: string; geometry: Record<string, unknown> } | null;
+  floor_area_sqm: number;
 };
 
 /** A job linked to the project — display fields only; jobs stay read-only here. */
@@ -153,7 +159,10 @@ export async function listProjects(
 
   let query = client
     .from("projects")
-    .select("*, clients(first_name, last_name, company_name), project_files(uploaded_at)")
+    .select(
+      "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
+        "room_scans(name, floor_area_sqm, geometry)",
+    )
     .order("updated_at", { ascending: false })
     .limit(limit);
 
@@ -165,18 +174,31 @@ export async function listProjects(
     throw new Error(`Could not load projects: ${error.message}`);
   }
 
-  return ((data ?? []) as (Project & {
+  return ((data ?? []) as unknown as (Project & {
     clients: Parameters<typeof clientDisplayName>[0] | null;
     project_files: { uploaded_at: string }[];
-  })[]).map(({ clients, project_files, ...project }) => {
+    room_scans: { name: string; floor_area_sqm: number; geometry: Record<string, unknown> }[] | null;
+  })[]).map(({ clients, project_files, room_scans, ...project }) => {
     const uploads = (project_files ?? []).map((f) => f.uploaded_at);
     // ISO timestamps sort lexicographically, so a plain sort finds the newest.
     const last = [project.updated_at, ...uploads].sort().pop() ?? project.updated_at;
+    // The biggest room is the one that identifies a property at a glance —
+    // a card showing the broom cupboard would be technically a floor plan
+    // and useless as a thumbnail.
+    const scans = room_scans ?? [];
+    const largest = scans.reduce<(typeof scans)[number] | null>(
+      (best, scan) => (!best || Number(scan.floor_area_sqm) > Number(best.floor_area_sqm) ? scan : best),
+      null,
+    );
+
     return {
       ...project,
       client_name: clients ? clientDisplayName(clients) : null,
       file_count: uploads.length,
       last_activity: last,
+      room_count: scans.length,
+      largest_room: largest ? { name: largest.name, geometry: largest.geometry } : null,
+      floor_area_sqm: scans.reduce((sum, scan) => sum + Number(scan.floor_area_sqm), 0),
     };
   });
 }
