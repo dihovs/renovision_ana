@@ -6,6 +6,7 @@ import {
   metersToFeet,
   roomScanSupport,
   scanRoom,
+  showRoomModel,
   squareMetersToSquareFeet,
   toFloorPlan,
   totalFloorAreaSquareMeters,
@@ -328,7 +329,24 @@ function RoomCard({
 
       {open && (
         <div className="space-y-4 p-4">
-          <FloorPlanSketch result={result} />
+          <FloorPlanSketch result={result} name={room.name} />
+
+          {result.modelId && (
+            <button
+              type="button"
+              onClick={() => {
+                tapFeedback();
+                void showRoomModel(result.modelId as string);
+              }}
+              className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-brand-blue/30 bg-brand-blue/[0.04] text-sm font-bold text-brand-blue transition-colors active:bg-brand-blue/[0.1]"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M12 2 3 7v10l9 5 9-5V7z" strokeLinejoin="round" />
+                <path d="M3 7l9 5 9-5M12 12v10" strokeLinejoin="round" />
+              </svg>
+              View 3D model
+            </button>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Figure label="Floor" value={round(floorSqFt)} unit="sq ft" hint="Flooring, underlay" />
@@ -389,34 +407,176 @@ function RoomCard({
  * width without arithmetic here. Padded by half a metre so the strokes at the
  * extremes aren't clipped by the edge of the box.
  */
-function FloorPlanSketch({ result }: { result: RoomScanResult }) {
+function FloorPlanSketch({ result, name }: { result: RoomScanResult; name: string }) {
   const plan = toFloorPlan(result);
   if (plan.segments.length === 0) return null;
 
-  const pad = 0.5;
+  // Metres. A drawn wall is thick because a real one is — it's what makes a
+  // plan read as a plan rather than a wireframe.
+  const WALL = 0.14;
+  const pad = 1.1;
+  const areaSqFt = squareMetersToSquareFeet(totalFloorAreaSquareMeters(result));
+  const centroid = plan.polygon.length
+    ? {
+        x: plan.polygon.reduce((s, p) => s + p.x, 0) / plan.polygon.length,
+        y: plan.polygon.reduce((s, p) => s + p.y, 0) / plan.polygon.length,
+      }
+    : { x: plan.width / 2, y: plan.height / 2 };
+
   return (
-    <div className="rounded-xl border border-black/5 bg-black/[0.02] p-3">
+    <div className="overflow-hidden rounded-xl border border-black/5 bg-white">
       <svg
         viewBox={`${-pad} ${-pad} ${plan.width + pad * 2} ${plan.height + pad * 2}`}
         className="h-auto w-full"
-        style={{ maxHeight: "40vh" }}
+        style={{ maxHeight: "52vh" }}
         role="img"
-        aria-label="Floor plan of the scanned room"
+        aria-label={`Floor plan of ${name}`}
       >
-        {plan.segments.map((segment, index) => (
+        {/* The floor itself, behind the walls. */}
+        {plan.polygon.length > 0 && (
+          <polygon
+            points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill="#e8eaed"
+          />
+        )}
+
+        {/* Walls. Butt caps, not round — a round cap on a 14cm wall bulges
+            past the corner and reads as a smudge at this scale. */}
+        {plan.segments.map((s, i) => (
           <line
-            key={index}
-            x1={segment.x1}
-            y1={segment.y1}
-            x2={segment.x2}
-            y2={segment.y2}
-            stroke="#2b5c9e"
-            strokeWidth={0.09}
-            strokeLinecap="round"
+            key={`w${i}`}
+            x1={s.x1}
+            y1={s.y1}
+            x2={s.x2}
+            y2={s.y2}
+            stroke="#1c1c1e"
+            strokeWidth={WALL}
+            strokeLinecap="square"
           />
         ))}
+
+        {/* Openings are drawn ON TOP of the wall in the floor's own colour,
+            which cuts a real gap rather than faking one with a second
+            stroke — the same trick a printed plan uses. A window then gets
+            its glazing line back through the middle. */}
+        {plan.openings.map((o, i) => (
+          <g key={`o${i}`}>
+            <line
+              x1={o.x1}
+              y1={o.y1}
+              x2={o.x2}
+              y2={o.y2}
+              stroke="#ffffff"
+              strokeWidth={WALL * 1.15}
+              strokeLinecap="butt"
+            />
+            {o.kind === "window" ? (
+              <line
+                x1={o.x1}
+                y1={o.y1}
+                x2={o.x2}
+                y2={o.y2}
+                stroke="#1c1c1e"
+                strokeWidth={0.03}
+              />
+            ) : (
+              <DoorSwing opening={o} />
+            )}
+          </g>
+        ))}
+
+        {/* Wall dimensions, offset outward from the room's middle so they sit
+            outside the plan rather than across it. */}
+        {plan.segments.map((s, i) => (
+          <WallDimension key={`d${i}`} segment={s} away={centroid} />
+        ))}
+
+        <text
+          x={centroid.x}
+          y={centroid.y - 0.12}
+          textAnchor="middle"
+          fontSize={0.34}
+          fontWeight="700"
+          fill="#1c1c1e"
+        >
+          {name}
+        </text>
+        <text
+          x={centroid.x}
+          y={centroid.y + 0.32}
+          textAnchor="middle"
+          fontSize={0.26}
+          fill="#5f6368"
+        >
+          {round(areaSqFt)} sq ft
+        </text>
       </svg>
     </div>
+  );
+}
+
+/** The quarter-circle a door sweeps — hinged at one end, opening into the
+    room. Which side it actually opens to isn't in RoomPlan's data, so this
+    is a convention, not a measurement. */
+function DoorSwing({ opening }: { opening: { x1: number; y1: number; x2: number; y2: number } }) {
+  const dx = opening.x2 - opening.x1;
+  const dy = opening.y2 - opening.y1;
+  const width = Math.hypot(dx, dy);
+  if (width < 0.05) return null;
+  // Perpendicular, to put the arc's far end square to the wall.
+  const px = -dy / width;
+  const py = dx / width;
+  return (
+    <path
+      d={`M ${opening.x1} ${opening.y1} L ${opening.x2} ${opening.y2} M ${opening.x2} ${opening.y2} A ${width} ${width} 0 0 1 ${opening.x1 + px * width} ${opening.y1 + py * width}`}
+      fill="none"
+      stroke="#9aa0a6"
+      strokeWidth={0.025}
+    />
+  );
+}
+
+/** One wall's length, in feet, sitting just outside that wall. */
+function WallDimension({
+  segment,
+  away,
+}: {
+  segment: { x1: number; y1: number; x2: number; y2: number };
+  away: { x: number; y: number };
+}) {
+  const dx = segment.x2 - segment.x1;
+  const dy = segment.y2 - segment.y1;
+  const length = Math.hypot(dx, dy);
+  // Below about a foot the label is longer than the wall it describes.
+  if (length < 0.35) return null;
+
+  const midX = (segment.x1 + segment.x2) / 2;
+  const midY = (segment.y1 + segment.y2) / 2;
+  // Push away from the room's centre, so labels land outside the outline.
+  const outX = midX - away.x;
+  const outY = midY - away.y;
+  const outLength = Math.hypot(outX, outY) || 1;
+  const offset = 0.34;
+  const x = midX + (outX / outLength) * offset;
+  const y = midY + (outY / outLength) * offset;
+
+  // Keep text upright: a label rotated past vertical reads upside down.
+  let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+  if (angle > 90) angle -= 180;
+  if (angle < -90) angle += 180;
+
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize={0.22}
+      fill="#5f6368"
+      transform={`rotate(${angle} ${x} ${y})`}
+    >
+      {metersToFeet(length).toFixed(1)}′
+    </text>
   );
 }
 

@@ -22,18 +22,34 @@ export type RoomScanWall = {
 };
 export type RoomScanFloor = { areaSquareMeters: number };
 
+/** A door or window, positioned the same way a wall is so the plan can cut
+    it into the wall it sits in rather than drawing an unbroken box. */
+export type RoomScanOpening = {
+  widthMeters: number;
+  centerX: number;
+  centerZ: number;
+  axisX: number;
+  axisZ: number;
+};
+
 export type RoomScanResult = {
   walls: RoomScanWall[];
   floors: RoomScanFloor[];
+  doors: RoomScanOpening[];
+  windows: RoomScanOpening[];
   doorCount: number;
   windowCount: number;
   openingCount: number;
   stairCount: number;
+  /** Handle to the exported 3D model held natively, or absent if the export
+      failed. Never a file path — the JS side never touches the filesystem. */
+  modelId?: string;
 };
 
 type RoomScanBridge = {
   isSupported(): Promise<{ supported: boolean }>;
   startScan(): Promise<RoomScanResult>;
+  showModel(options: { modelId: string }): Promise<{ ok: boolean }>;
 };
 
 const RoomScan = registerPlugin<RoomScanBridge>("RoomScan");
@@ -67,6 +83,12 @@ export async function scanRoom(): Promise<RoomScanResult> {
   return RoomScan.startScan();
 }
 
+/** Open the scanned room as a 3D model — the dollhouse — in the system's
+    own USDZ viewer, which brings pinch, rotate and AR placement with it. */
+export async function showRoomModel(modelId: string): Promise<void> {
+  await RoomScan.showModel({ modelId });
+}
+
 /** Perimeter, not floor area — what a baseboard or a chair rail is priced
     against, and RoomPlan hands back individual wall segments, not a sum. */
 export function totalWallLengthMeters(result: RoomScanResult): number {
@@ -78,12 +100,76 @@ export function totalFloorAreaSquareMeters(result: RoomScanResult): number {
 }
 
 export type PlanSegment = { x1: number; y1: number; x2: number; y2: number };
+export type PlanOpening = PlanSegment & { kind: "door" | "window" };
+export type PlanPoint = { x: number; y: number };
 export type FloorPlan = {
   segments: PlanSegment[];
+  openings: PlanOpening[];
+  /** The room's outline as an ordered loop, when the walls actually form
+      one — the fill behind the walls. Empty when they don't close. */
+  polygon: PlanPoint[];
   /** Bounding box in metres, for fitting the plan to whatever it's drawn in. */
   width: number;
   height: number;
 };
+
+/**
+ * Chain wall segments into a closed outline.
+ *
+ * RoomPlan hands back walls in no particular order, so a fill needs them
+ * sorted end-to-end first: start at one wall, repeatedly take whichever
+ * remaining endpoint is nearest the current one, and stop when nothing is
+ * near enough to be the same corner. `tolerance` is generous (25cm) because
+ * scanned walls rarely meet exactly.
+ *
+ * Returns an empty array rather than a wrong shape when the walls don't
+ * close — an L-shaped room scanned from one side genuinely has no outline,
+ * and inventing one would draw a fill that isn't the room.
+ */
+function chainIntoPolygon(segments: PlanSegment[], tolerance = 0.25): PlanPoint[] {
+  if (segments.length < 3) return [];
+
+  const remaining = segments.slice(1);
+  const first = segments[0];
+  const points: PlanPoint[] = [
+    { x: first.x1, y: first.y1 },
+    { x: first.x2, y: first.y2 },
+  ];
+
+  while (remaining.length > 0) {
+    const tail = points[points.length - 1];
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+    let bestEnd: PlanPoint | null = null;
+
+    remaining.forEach((segment, index) => {
+      const start = { x: segment.x1, y: segment.y1 };
+      const end = { x: segment.x2, y: segment.y2 };
+      const toStart = Math.hypot(start.x - tail.x, start.y - tail.y);
+      const toEnd = Math.hypot(end.x - tail.x, end.y - tail.y);
+      if (toStart < bestDistance) {
+        bestDistance = toStart;
+        bestIndex = index;
+        bestEnd = end;
+      }
+      if (toEnd < bestDistance) {
+        bestDistance = toEnd;
+        bestIndex = index;
+        bestEnd = start;
+      }
+    });
+
+    if (bestIndex < 0 || bestDistance > tolerance || !bestEnd) return [];
+    remaining.splice(bestIndex, 1);
+    points.push(bestEnd);
+  }
+
+  // The loop has to come back to where it started to be an outline at all.
+  const start = points[0];
+  const end = points[points.length - 1];
+  if (Math.hypot(end.x - start.x, end.y - start.y) > tolerance) return [];
+  return points;
+}
 
 /**
  * The walls as drawable line segments, normalised so the plan's top-left
@@ -95,30 +181,49 @@ export type FloorPlan = {
  * up.
  */
 export function toFloorPlan(result: RoomScanResult): FloorPlan {
-  const raw = result.walls.map((wall) => {
-    const half = wall.lengthMeters / 2;
+  const span = (
+    item: { centerX: number; centerZ: number; axisX: number; axisZ: number },
+    length: number,
+  ) => {
+    const half = length / 2;
     return {
-      x1: wall.centerX - wall.axisX * half,
-      y1: wall.centerZ - wall.axisZ * half,
-      x2: wall.centerX + wall.axisX * half,
-      y2: wall.centerZ + wall.axisZ * half,
+      x1: item.centerX - item.axisX * half,
+      y1: item.centerZ - item.axisZ * half,
+      x2: item.centerX + item.axisX * half,
+      y2: item.centerZ + item.axisZ * half,
     };
-  });
+  };
 
-  if (raw.length === 0) return { segments: [], width: 0, height: 0 };
+  const raw = result.walls.map((wall) => span(wall, wall.lengthMeters));
+  if (raw.length === 0) {
+    return { segments: [], openings: [], polygon: [], width: 0, height: 0 };
+  }
 
+  const rawOpenings: PlanOpening[] = [
+    ...(result.doors ?? []).map((d) => ({ ...span(d, d.widthMeters), kind: "door" as const })),
+    ...(result.windows ?? []).map((w) => ({ ...span(w, w.widthMeters), kind: "window" as const })),
+  ];
+
+  // Normalise everything against the same origin, so the openings still sit
+  // in their walls after the plan is moved to (0, 0).
   const xs = raw.flatMap((s) => [s.x1, s.x2]);
   const ys = raw.flatMap((s) => [s.y1, s.y2]);
   const minX = Math.min(...xs);
   const minY = Math.min(...ys);
+  const shift = <T extends PlanSegment>(s: T): T => ({
+    ...s,
+    x1: s.x1 - minX,
+    y1: s.y1 - minY,
+    x2: s.x2 - minX,
+    y2: s.y2 - minY,
+  });
+
+  const segments = raw.map(shift);
 
   return {
-    segments: raw.map((s) => ({
-      x1: s.x1 - minX,
-      y1: s.y1 - minY,
-      x2: s.x2 - minX,
-      y2: s.y2 - minY,
-    })),
+    segments,
+    openings: rawOpenings.map(shift),
+    polygon: chainIntoPolygon(segments),
     width: Math.max(...xs) - minX,
     height: Math.max(...ys) - minY,
   };

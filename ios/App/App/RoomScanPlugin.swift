@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import RoomPlan
+import QuickLook
 
 /**
  * Bridges a RoomPlan scan to JS. Presents Apple's own capture UI (the
@@ -21,7 +22,13 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startScan", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showModel", returnType: CAPPluginReturnPromise),
     ]
+
+    /// Kept alive between `startScan` and `showModel`: QuickLook needs a file
+    /// on disk, and re-exporting on every tap would mean re-walking the room.
+    private var modelURLs: [String: URL] = [:]
+    private var previewController: RoomModelPreview?
 
     @objc func isSupported(_ call: CAPPluginCall) {
         if #available(iOS 17.0, *) {
@@ -47,16 +54,75 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
             let scanVC = RoomScanViewController()
-            scanVC.onFinish = { result in
+            scanVC.onFinish = { [weak self] result in
                 switch result {
                 case .success(let room):
-                    call.resolve(Self.serialize(room))
+                    var payload = Self.serialize(room)
+                    // Export the dollhouse now, while the CapturedRoom is in
+                    // hand — it is the only moment it exists. The id goes back
+                    // with the measurements so `showModel` can find the file
+                    // again without the JS side ever handling a path.
+                    if let id = self?.exportModel(room) {
+                        payload["modelId"] = id
+                    }
+                    call.resolve(payload)
                 case .failure(let error):
                     call.reject(error.localizedDescription)
                 }
             }
             scanVC.modalPresentationStyle = .fullScreen
             presenter.present(scanVC, animated: true)
+        }
+    }
+
+    /**
+     * The dollhouse: the scanned room as a 3D model, in QuickLook's own
+     * viewer — pinch, rotate, and "AR" to stand it on a real surface.
+     *
+     * QuickLook rather than a hand-rolled SceneKit view because it is what
+     * every other iOS app uses for USDZ, so the gestures are the ones a
+     * phone user already knows, and it comes with AR placement free.
+     */
+    @objc func showModel(_ call: CAPPluginCall) {
+        guard let id = call.getString("modelId"), let url = modelURLs[id] else {
+            call.reject("That model is no longer available — scan the room again.")
+            return
+        }
+
+        DispatchQueue.main.async {
+            guard let presenter = self.bridge?.viewController else {
+                call.reject("No screen to present the model from.")
+                return
+            }
+            let preview = RoomModelPreview(url: url)
+            // Held on the plugin: QLPreviewController keeps only a weak
+            // reference to its data source, and a deallocated one shows an
+            // empty viewer rather than the room.
+            self.previewController = preview
+            presenter.present(preview.controller, animated: true)
+            call.resolve(["ok": true])
+        }
+    }
+
+    /// Writes the room to a USDZ in the app's cache and returns its id.
+    /// Cache rather than Documents: it is regenerable from a rescan and has
+    /// no business surviving as user data or being backed up.
+    @available(iOS 17.0, *)
+    private func exportModel(_ room: CapturedRoom) -> String? {
+        let id = UUID().uuidString
+        let url = FileManager.default
+            .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("room-\(id).usdz")
+        do {
+            // `.parametric` is the clean built geometry — flat walls, real
+            // door and window cutouts — rather than the raw scan mesh, which
+            // is noisy and looks like a point cloud rather than a room.
+            try room.export(to: url, exportOptions: .parametric)
+            modelURLs[id] = url
+            return id
+        } catch {
+            CAPLog.print("⚡️ RoomScan: could not export the model — \(error.localizedDescription)")
+            return nil
         }
     }
 
@@ -95,6 +161,24 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             ["areaSquareMeters": Double(surface.dimensions.x * surface.dimensions.z)]
         }
 
+        // Doors and windows carry the same centre/axis/width as walls, so the
+        // plan can cut real openings into the walls instead of drawing an
+        // unbroken box — which is the difference between a floor plan and an
+        // outline. Counts alone (what this returned before) can't do that.
+        func openings(_ surfaces: [CapturedRoom.Surface]) -> [[String: Any]] {
+            surfaces.map { surface in
+                let centre = surface.transform.columns.3
+                let axis = surface.transform.columns.0
+                return [
+                    "widthMeters": Double(surface.dimensions.x),
+                    "centerX": Double(centre.x),
+                    "centerZ": Double(centre.z),
+                    "axisX": Double(axis.x),
+                    "axisZ": Double(axis.z),
+                ]
+            }
+        }
+
         // Stairs are the one object category that matters for pricing rather
         // than for a picture: a staircase in the scanned area changes the
         // scope (and RoomPlan's floor area does not account for its run), so
@@ -104,6 +188,8 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
         return [
             "walls": walls,
             "floors": floors,
+            "doors": openings(room.doors),
+            "windows": openings(room.windows),
             "doorCount": room.doors.count,
             "windowCount": room.windows.count,
             "openingCount": room.openings.count,
