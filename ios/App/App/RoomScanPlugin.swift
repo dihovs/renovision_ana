@@ -1,7 +1,6 @@
 import Foundation
 import Capacitor
 import RoomPlan
-import QuickLook
 
 /**
  * Bridges a RoomPlan scan to JS. Presents Apple's own capture UI (the
@@ -25,10 +24,9 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "showModel", returnType: CAPPluginReturnPromise),
     ]
 
-    /// Kept alive between `startScan` and `showModel`: QuickLook needs a file
+    /// Kept alive between `startScan` and `showModel`: the viewer needs a file
     /// on disk, and re-exporting on every tap would mean re-walking the room.
     private var modelURLs: [String: URL] = [:]
-    private var previewController: RoomModelPreview?
 
     @objc func isSupported(_ call: CAPPluginCall) {
         if #available(iOS 17.0, *) {
@@ -76,12 +74,12 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /**
-     * The dollhouse: the scanned room as a 3D model, in QuickLook's own
-     * viewer — pinch, rotate, and "AR" to stand it on a real surface.
+     * The dollhouse: the scanned room as a 3D model on a plain background,
+     * pinch and orbit to look around it.
      *
-     * QuickLook rather than a hand-rolled SceneKit view because it is what
-     * every other iOS app uses for USDZ, so the gestures are the ones a
-     * phone user already knows, and it comes with AR placement free.
+     * Not QuickLook, which was the first attempt — it opens onto the camera
+     * in AR, so the room floats in whatever room you are standing in. The
+     * point is to look at the model on a neutral ground.
      */
     @objc func showModel(_ call: CAPPluginCall) {
         guard let id = call.getString("modelId"), let url = modelURLs[id] else {
@@ -94,12 +92,9 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("No screen to present the model from.")
                 return
             }
-            let preview = RoomModelPreview(url: url)
-            // Held on the plugin: QLPreviewController keeps only a weak
-            // reference to its data source, and a deallocated one shows an
-            // empty viewer rather than the room.
-            self.previewController = preview
-            presenter.present(preview.controller, animated: true)
+            let viewer = RoomModelViewController(url: url)
+            viewer.modalPresentationStyle = .fullScreen
+            presenter.present(viewer, animated: true)
             call.resolve(["ok": true])
         }
     }

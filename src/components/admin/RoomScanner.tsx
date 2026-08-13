@@ -407,41 +407,59 @@ function RoomCard({
  * width without arithmetic here. Padded by half a metre so the strokes at the
  * extremes aren't clipped by the edge of the box.
  */
+/**
+ * The room as a drawn plan, in the drafting conventions a printed floor plan
+ * actually uses — measured against Magicplan's own output rather than
+ * invented:
+ *
+ *   - solid black walls with real thickness, light grey floor behind them
+ *   - openings cut clean out of the wall, doors with a swing arc
+ *   - dimensions on witness lines OUTSIDE the plan, with arrowheads, the
+ *     overall span on the outer tier and per-wall breakdowns on the inner
+ *     one; horizontal text across the top, rotated up the side
+ *   - a scale bar, because a plan without one is a picture
+ *
+ * The earlier version rotated a bare number along each wall, which is why
+ * it read as a sketch: no witness lines, no arrows, no overall span, and
+ * labels that fought the walls they sat on.
+ */
 function FloorPlanSketch({ result, name }: { result: RoomScanResult; name: string }) {
   const plan = toFloorPlan(result);
   if (plan.segments.length === 0) return null;
 
-  // Metres. A drawn wall is thick because a real one is — it's what makes a
-  // plan read as a plan rather than a wireframe.
-  const WALL = 0.14;
-  const pad = 1.1;
-  const areaSqFt = squareMetersToSquareFeet(totalFloorAreaSquareMeters(result));
-  const centroid = plan.polygon.length
-    ? {
-        x: plan.polygon.reduce((s, p) => s + p.x, 0) / plan.polygon.length,
-        y: plan.polygon.reduce((s, p) => s + p.y, 0) / plan.polygon.length,
-      }
-    : { x: plan.width / 2, y: plan.height / 2 };
+  const WALL = 0.16;
+  // Asymmetric on purpose: the vertical dimensions live off the right edge
+  // and their rotated text needs more room than the bare left margin does.
+  const padLeft = 1.1;
+  const padRight = 2.0;
+  const padTop = 1.5;
+  const padBottom = 2.2;
+  const { width, height } = plan;
+
+  // Which walls run across and which run up — a wall within ~15° of an axis
+  // is treated as that axis, since a scanned wall is never exactly square.
+  const horizontal = plan.segments.filter(
+    (s) => Math.abs(s.y2 - s.y1) < Math.abs(s.x2 - s.x1) * 0.27,
+  );
+  const vertical = plan.segments.filter(
+    (s) => Math.abs(s.x2 - s.x1) < Math.abs(s.y2 - s.y1) * 0.27,
+  );
 
   return (
     <div className="overflow-hidden rounded-xl border border-black/5 bg-white">
       <svg
-        viewBox={`${-pad} ${-pad} ${plan.width + pad * 2} ${plan.height + pad * 2}`}
+        viewBox={`${-padLeft} ${-padTop} ${width + padLeft + padRight} ${height + padTop + padBottom}`}
         className="h-auto w-full"
-        style={{ maxHeight: "52vh" }}
+        style={{ maxHeight: "56vh" }}
         role="img"
         aria-label={`Floor plan of ${name}`}
       >
-        {/* The floor itself, behind the walls. */}
         {plan.polygon.length > 0 && (
-          <polygon
-            points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
-            fill="#e8eaed"
-          />
+          <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill="#ebebeb" />
         )}
 
-        {/* Walls. Butt caps, not round — a round cap on a 14cm wall bulges
-            past the corner and reads as a smudge at this scale. */}
+        {/* Butt caps, not round: a round cap on a 16cm wall bulges past the
+            corner and reads as a smudge at this scale. */}
         {plan.segments.map((s, i) => (
           <line
             key={`w${i}`}
@@ -449,16 +467,14 @@ function FloorPlanSketch({ result, name }: { result: RoomScanResult; name: strin
             y1={s.y1}
             x2={s.x2}
             y2={s.y2}
-            stroke="#1c1c1e"
+            stroke="#111111"
             strokeWidth={WALL}
             strokeLinecap="square"
           />
         ))}
 
-        {/* Openings are drawn ON TOP of the wall in the floor's own colour,
-            which cuts a real gap rather than faking one with a second
-            stroke — the same trick a printed plan uses. A window then gets
-            its glazing line back through the middle. */}
+        {/* Drawn over the wall in white, which cuts a real gap rather than
+            faking one — the same trick a printed plan uses. */}
         {plan.openings.map((o, i) => (
           <g key={`o${i}`}>
             <line
@@ -467,117 +483,194 @@ function FloorPlanSketch({ result, name }: { result: RoomScanResult; name: strin
               x2={o.x2}
               y2={o.y2}
               stroke="#ffffff"
-              strokeWidth={WALL * 1.15}
+              strokeWidth={WALL * 1.25}
               strokeLinecap="butt"
             />
             {o.kind === "window" ? (
-              <line
-                x1={o.x1}
-                y1={o.y1}
-                x2={o.x2}
-                y2={o.y2}
-                stroke="#1c1c1e"
-                strokeWidth={0.03}
-              />
+              <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke="#111111" strokeWidth={0.035} />
             ) : (
               <DoorSwing opening={o} />
             )}
           </g>
         ))}
 
-        {/* Wall dimensions, offset outward from the room's middle so they sit
-            outside the plan rather than across it. */}
-        {plan.segments.map((s, i) => (
-          <WallDimension key={`d${i}`} segment={s} away={centroid} />
-        ))}
+        {/* Outer tier: the overall span, top and right. Inner tier: each
+            wall on that side, but only when there is more than one — a
+            single wall would just repeat the overall figure. */}
+        <Dimension from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.05} axis="x" />
+        {horizontal.length > 1 &&
+          horizontal.map((s, i) => (
+            <Dimension
+              key={`hx${i}`}
+              from={{ x: Math.min(s.x1, s.x2), y: 0 }}
+              to={{ x: Math.max(s.x1, s.x2), y: 0 }}
+              offset={-0.5}
+              axis="x"
+            />
+          ))}
 
-        <text
-          x={centroid.x}
-          y={centroid.y - 0.12}
-          textAnchor="middle"
-          fontSize={0.34}
-          fontWeight="700"
-          fill="#1c1c1e"
-        >
-          {name}
-        </text>
-        <text
-          x={centroid.x}
-          y={centroid.y + 0.32}
-          textAnchor="middle"
-          fontSize={0.26}
-          fill="#5f6368"
-        >
-          {round(areaSqFt)} sq ft
-        </text>
+        <Dimension from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.05} axis="y" />
+        {vertical.length > 1 &&
+          vertical.map((s, i) => (
+            <Dimension
+              key={`vy${i}`}
+              from={{ x: width, y: Math.min(s.y1, s.y2) }}
+              to={{ x: width, y: Math.max(s.y1, s.y2) }}
+              offset={0.5}
+              axis="y"
+            />
+          ))}
+
+        <ScaleBar y={height + 1.35} width={width} />
       </svg>
     </div>
   );
 }
 
+/**
+ * One dimension: witness lines out to an offset, a line with arrowheads
+ * between them, and the measurement centred on it — horizontal text on an
+ * x dimension, rotated a quarter turn on a y one, as a drawing does.
+ *
+ * `offset` is signed and perpendicular: negative is above (x) or left (y).
+ */
+function Dimension({
+  from,
+  to,
+  offset,
+  axis,
+}: {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  offset: number;
+  axis: "x" | "y";
+}) {
+  const span = axis === "x" ? to.x - from.x : to.y - from.y;
+  // Anything under ~30cm has a label wider than the run it describes.
+  if (Math.abs(span) < 0.3) return null;
+
+  const line = axis === "x" ? from.y + offset : from.x + offset;
+  const a = axis === "x" ? { x: from.x, y: line } : { x: line, y: from.y };
+  const b = axis === "x" ? { x: to.x, y: line } : { x: line, y: to.y };
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const head = 0.12;
+  const grey = "#8a8a8e";
+
+  return (
+    <g>
+      {/* Witness lines, from the wall out past the dimension line. */}
+      <line
+        x1={from.x}
+        y1={from.y}
+        x2={axis === "x" ? from.x : line + Math.sign(offset) * 0.12}
+        y2={axis === "x" ? line + Math.sign(offset) * 0.12 : from.y}
+        stroke={grey}
+        strokeWidth={0.018}
+      />
+      <line
+        x1={to.x}
+        y1={to.y}
+        x2={axis === "x" ? to.x : line + Math.sign(offset) * 0.12}
+        y2={axis === "x" ? line + Math.sign(offset) * 0.12 : to.y}
+        stroke={grey}
+        strokeWidth={0.018}
+      />
+
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={grey} strokeWidth={0.022} />
+
+      {/* Arrowheads, drawn as triangles rather than SVG markers — markers
+          scale by stroke width and go wrong in a metre-unit viewBox. */}
+      {axis === "x" ? (
+        <>
+          <polygon points={`${a.x},${a.y} ${a.x + head},${a.y - head * 0.42} ${a.x + head},${a.y + head * 0.42}`} fill={grey} />
+          <polygon points={`${b.x},${b.y} ${b.x - head},${b.y - head * 0.42} ${b.x - head},${b.y + head * 0.42}`} fill={grey} />
+        </>
+      ) : (
+        <>
+          <polygon points={`${a.x},${a.y} ${a.x - head * 0.42},${a.y + head} ${a.x + head * 0.42},${a.y + head}`} fill={grey} />
+          <polygon points={`${b.x},${b.y} ${b.x - head * 0.42},${b.y - head} ${b.x + head * 0.42},${b.y - head}`} fill={grey} />
+        </>
+      )}
+
+      <text
+        x={mid.x}
+        y={axis === "x" ? mid.y - 0.11 : mid.y}
+        textAnchor="middle"
+        dominantBaseline={axis === "x" ? "auto" : "middle"}
+        fontSize={0.26}
+        fill="#3c3c43"
+        transform={axis === "y" ? `rotate(-90 ${mid.x} ${mid.y})` : undefined}
+        dy={axis === "y" ? -0.1 : undefined}
+      >
+        {formatFeetInches(Math.abs(span))}
+      </text>
+    </g>
+  );
+}
+
+/** Alternating black and white metre-ish blocks, as on a drawing. Feet
+    here, to match every other measurement on this screen. */
+function ScaleBar({ y, width }: { y: number; width: number }) {
+  const totalFt = metersToFeet(width);
+  // A round number of feet that fits comfortably under the plan.
+  const step = totalFt > 40 ? 10 : totalFt > 16 ? 5 : 2;
+  const blockM = step / 3.28084;
+  // Never draw a scale wider than the plan it measures — a bar running past
+  // the room reads as part of the drawing.
+  const blocks = Math.max(2, Math.min(4, Math.floor(width / blockM)));
+
+  return (
+    <g>
+      {Array.from({ length: blocks }).map((_, i) => (
+        <rect
+          key={i}
+          x={i * blockM}
+          y={y}
+          width={blockM}
+          height={0.13}
+          fill={i % 2 === 0 ? "#111111" : "#ffffff"}
+          stroke="#111111"
+          strokeWidth={0.014}
+        />
+      ))}
+      {Array.from({ length: blocks + 1 }).map((_, i) => (
+        <text key={i} x={i * blockM} y={y - 0.12} textAnchor="middle" fontSize={0.22} fill="#8a8a8e">
+          {i * step}
+        </text>
+      ))}
+      <text x={blocks * blockM + 0.14} y={y + 0.12} fontSize={0.22} fill="#8a8a8e">
+        ft
+      </text>
+    </g>
+  );
+}
+
 /** The quarter-circle a door sweeps — hinged at one end, opening into the
     room. Which side it actually opens to isn't in RoomPlan's data, so this
-    is a convention, not a measurement. */
+    is a drawing convention, not a measurement. */
 function DoorSwing({ opening }: { opening: { x1: number; y1: number; x2: number; y2: number } }) {
   const dx = opening.x2 - opening.x1;
   const dy = opening.y2 - opening.y1;
   const width = Math.hypot(dx, dy);
   if (width < 0.05) return null;
-  // Perpendicular, to put the arc's far end square to the wall.
   const px = -dy / width;
   const py = dx / width;
   return (
     <path
       d={`M ${opening.x1} ${opening.y1} L ${opening.x2} ${opening.y2} M ${opening.x2} ${opening.y2} A ${width} ${width} 0 0 1 ${opening.x1 + px * width} ${opening.y1 + py * width}`}
       fill="none"
-      stroke="#9aa0a6"
-      strokeWidth={0.025}
+      stroke="#b0b0b5"
+      strokeWidth={0.028}
     />
   );
 }
 
-/** One wall's length, in feet, sitting just outside that wall. */
-function WallDimension({
-  segment,
-  away,
-}: {
-  segment: { x1: number; y1: number; x2: number; y2: number };
-  away: { x: number; y: number };
-}) {
-  const dx = segment.x2 - segment.x1;
-  const dy = segment.y2 - segment.y1;
-  const length = Math.hypot(dx, dy);
-  // Below about a foot the label is longer than the wall it describes.
-  if (length < 0.35) return null;
-
-  const midX = (segment.x1 + segment.x2) / 2;
-  const midY = (segment.y1 + segment.y2) / 2;
-  // Push away from the room's centre, so labels land outside the outline.
-  const outX = midX - away.x;
-  const outY = midY - away.y;
-  const outLength = Math.hypot(outX, outY) || 1;
-  const offset = 0.34;
-  const x = midX + (outX / outLength) * offset;
-  const y = midY + (outY / outLength) * offset;
-
-  // Keep text upright: a label rotated past vertical reads upside down.
-  let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-  if (angle > 90) angle -= 180;
-  if (angle < -90) angle += 180;
-
-  return (
-    <text
-      x={x}
-      y={y}
-      textAnchor="middle"
-      dominantBaseline="middle"
-      fontSize={0.22}
-      fill="#5f6368"
-      transform={`rotate(${angle} ${x} ${y})`}
-    >
-      {metersToFeet(length).toFixed(1)}′
-    </text>
-  );
+/** 12′ 4″ — how a tape measure reads, not 12.3 feet. */
+function formatFeetInches(meters: number): string {
+  const totalInches = Math.round(metersToFeet(meters) * 12);
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
+  return inches === 0 ? `${feet}′` : `${feet}′ ${inches}″`;
 }
 
 /** Perimeter × the tallest wall. The tallest rather than an average: a room
