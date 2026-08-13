@@ -190,6 +190,55 @@ export async function saveScan(input: {
   return ((await response.json()) as { id: string }).id;
 }
 
+/** A scan as it comes back from the server — the saved form of a room. */
+export type SavedScan = {
+  id: string;
+  name: string;
+  level: string;
+  position: number;
+  floor_area_sqm: number;
+  wall_length_m: number;
+  ceiling_height_m: number;
+  door_count: number;
+  window_count: number;
+  stair_count: number;
+  geometry: RoomScanResult;
+};
+
+/** Every room saved on a project, in walking order within each floor. */
+export async function listSavedScans(projectId: string): Promise<SavedScan[]> {
+  const response = await fetch(`/api/v1/scans?projectId=${encodeURIComponent(projectId)}`);
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Could not load the rooms.");
+  }
+  return ((await response.json()) as { scans: SavedScan[] }).scans;
+}
+
+/** Rename a saved room, or move it to another floor. */
+export async function updateSavedScan(
+  id: string,
+  patch: { name?: string; level?: string; position?: number },
+): Promise<void> {
+  const response = await fetch(`/api/v1/scans/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Could not save the change.");
+  }
+}
+
+export async function deleteSavedScan(id: string): Promise<void> {
+  const response = await fetch(`/api/v1/scans/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Could not remove the room.");
+  }
+}
+
 /** Forget the rooms held for merging. Called when starting a new property,
     so the next job's first room isn't merged into the last job's floor. */
 export async function resetScans(): Promise<void> {

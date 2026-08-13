@@ -12,6 +12,7 @@ import ProjectJobs from "@/components/admin/ProjectJobs";
 import ProjectStatusButtons from "@/components/admin/ProjectStatusButtons";
 import ProjectStatusPill from "@/components/admin/ProjectStatusPill";
 import FloorPlan from "@/components/admin/FloorPlan";
+import AddFloorPlan from "@/components/admin/AddFloorPlan";
 import { squareMetersToSquareFeet, type RoomScanResult } from "@/lib/roomScan";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
 import { formatMoney } from "@/lib/crm/money";
@@ -181,11 +182,8 @@ export default async function ProjectDetailPage({
             <h2 className="font-heading text-sm font-bold text-charcoal">Statistics</h2>
             {survey.rooms.length === 0 ? (
               <p className="mt-2 text-sm text-charcoal/45">
-                Nothing measured yet. Open{" "}
-                <Link href="/admin/scan" className="font-semibold text-brand-blue">
-                  Scan
-                </Link>{" "}
-                on the phone and walk the rooms — the figures land here.
+                Nothing measured yet. Add a floor plan below, then measure the
+                rooms on it — the figures land here.
               </p>
             ) : (
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
@@ -204,53 +202,87 @@ export default async function ProjectDetailPage({
               </dl>
             )}
           </section>
-
-          {survey.levels.map((level) => {
-            const rooms = survey.rooms.filter((room) => room.level === level);
-            const levelArea = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
-            return (
-              <section
-                key={level}
-                className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5"
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <h2 className="font-heading text-sm font-bold text-charcoal">{level}</h2>
-                  <span className="text-xs font-semibold tabular-nums text-charcoal/45">
-                    {fmt(squareMetersToSquareFeet(levelArea))} sq ft · {rooms.length} room
-                    {rooms.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-
-                <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {rooms.map((room) => (
-                    <li
-                      key={room.id}
-                      className="overflow-hidden rounded-xl border border-black/5"
-                    >
-                      <div className="flex h-28 items-center justify-center bg-[#f7f7f8] p-2">
-                        <FloorPlan
-                          result={room.geometry as unknown as RoomScanResult}
-                          name={room.name}
-                          variant="thumb"
-                        />
-                      </div>
-                      <div className="border-t border-black/5 px-2.5 py-2">
-                        <span className="block truncate text-xs font-bold text-charcoal">
-                          {room.name}
-                        </span>
-                        <span className="block text-[11px] tabular-nums text-charcoal/45">
-                          {fmt(squareMetersToSquareFeet(room.floorAreaSqm))} sq ft
-                          {room.stairCount > 0 && " · stairs"}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
         </>
       )}
+
+      {/* Floor plans. Each storey opens its own workspace — that is where
+              rooms get added and measured, so this section is a way IN
+              rather than a read-only summary. */}
+          <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-sm font-bold text-charcoal">Floor plans</h2>
+          <AddFloorPlan projectId={project.id} existing={survey?.levels ?? []} />
+        </div>
+
+        {survey === null ? (
+          <p className="mt-3 text-sm leading-snug text-charcoal/45">
+            Run{" "}
+            <code className="font-mono text-brand-blue">0024_room_scans.sql</code>{" "}
+            in Supabase to turn floor plans on.
+          </p>
+        ) : survey.levels.length === 0 ? (
+              <p className="mt-3 text-sm leading-snug text-charcoal/45">
+                No floor measured yet. Add a floor plan, then measure the rooms
+                on it — the figures roll up into the statistics above.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-4">
+                {survey.levels.map((level) => {
+                  const rooms = survey.rooms.filter((room) => room.level === level);
+                  const levelArea = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
+                  return (
+                    <div key={level}>
+                      <Link
+                        href={`/admin/projects/${project.id}/floors/${encodeURIComponent(level)}`}
+                        className="flex items-baseline justify-between gap-2 py-1 transition-colors hover:text-brand-blue"
+                      >
+                        <span className="font-heading text-sm font-bold text-charcoal">
+                          {level}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs font-semibold tabular-nums text-charcoal/45">
+                          {fmt(squareMetersToSquareFeet(levelArea))} sq ft · {rooms.length} room
+                          {rooms.length === 1 ? "" : "s"}
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                            <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                      </Link>
+
+                      <ul className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {rooms.map((room) => (
+                          <li
+                            key={room.id}
+                            className="overflow-hidden rounded-xl border border-black/5"
+                          >
+                            <Link
+                              href={`/admin/projects/${project.id}/floors/${encodeURIComponent(level)}`}
+                            >
+                              <div className="flex h-28 items-center justify-center bg-[#f7f7f8] p-2">
+                                <FloorPlan
+                                  result={room.geometry as unknown as RoomScanResult}
+                                  name={room.name}
+                                  variant="thumb"
+                                />
+                              </div>
+                              <div className="border-t border-black/5 px-2.5 py-2">
+                                <span className="block truncate text-xs font-bold text-charcoal">
+                                  {room.name}
+                                </span>
+                                <span className="block text-[11px] tabular-nums text-charcoal/45">
+                                  {fmt(squareMetersToSquareFeet(room.floorAreaSqm))} sq ft
+                                  {room.stairCount > 0 && " · stairs"}
+                                </span>
+                              </div>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+        )}
+      </section>
 
       <ProjectStatusButtons
         current={project.status}

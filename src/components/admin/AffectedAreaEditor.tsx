@@ -11,7 +11,7 @@ import {
   type AffectedArea,
   type AreaPoint,
   type DamageType,
-} from "@/lib/crm/affectedAreas";
+} from "@/lib/crm/areaShapes";
 
 /**
  * Mark the damaged part of a room, on the plan.
