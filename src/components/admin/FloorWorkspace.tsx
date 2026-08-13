@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import FloorPlan from "./FloorPlan";
+import FloorCanvas from "./FloorCanvas";
 import RoomSheet from "./RoomSheet";
 import ScanReview from "./ScanReview";
 import { tapFeedback } from "@/lib/haptics";
@@ -298,35 +298,11 @@ export default function FloorWorkspace({
           </p>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-3">
-          {rooms.map((room) => (
-            <li key={room.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  tapFeedback();
-                  setOpenRoom(room);
-                }}
-                className="w-full cursor-pointer overflow-hidden rounded-2xl border border-black/5 bg-white text-left shadow-sm active:scale-[0.98]"
-              >
-                <div className="flex h-32 items-center justify-center bg-[#f4f4f5] p-2">
-                  <FloorPlan result={room.geometry} name={room.name} variant="thumb" />
-                </div>
-                <div className="border-t border-black/5 px-3 py-2.5">
-                  <span className="block truncate font-heading text-sm font-bold text-charcoal">
-                    {room.name}
-                  </span>
-                  <span className="block text-xs tabular-nums text-charcoal/45">
-                    {Math.round(
-                      squareMetersToSquareFeet(totalFloorAreaSquareMeters(room.geometry)),
-                    ).toLocaleString("en-CA")}{" "}
-                    sq ft
-                  </span>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <FloorCanvas
+          rooms={rooms}
+          selectedId={openRoom?.id ?? null}
+          onSelect={(room) => setOpenRoom(room)}
+        />
       )}
 
       {/* The Add button, pinned. On a phone this is reached with a thumb

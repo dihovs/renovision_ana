@@ -1,11 +1,12 @@
-import RoomScanner from "@/components/admin/RoomScanner";
+import ScanStart from "@/components/admin/ScanStart";
 
 /**
- * Measure a property with the phone's LiDAR scanner.
+ * Start measuring a property.
  *
- * Native-only in practice — the component checks for hardware support and
- * says so plainly in a browser, rather than the nav hiding a page that then
- * 404s.
+ * This used to BE the scanner — it captured rooms that belonged to no
+ * project, held them in memory, and lost them on reload. Now it asks which
+ * property and which storey and hands off to the floor workspace, so there
+ * is one capture path in the app and no way to measure a room into nowhere.
  */
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -18,7 +19,7 @@ export default function ScanPage() {
           Measure rooms with the phone instead of a tape.
         </p>
       </div>
-      <RoomScanner />
+      <ScanStart />
     </div>
   );
 }
