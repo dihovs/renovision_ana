@@ -27,6 +27,7 @@ export default function ScanReview({
   result,
   suggestedName,
   level,
+  measuredBy = "scan",
   onSave,
   onRescan,
   onDiscard,
@@ -34,6 +35,9 @@ export default function ScanReview({
   result: RoomScanResult;
   suggestedName: string;
   level: string;
+  /** How this was measured — decides the wording, and whether "Scan again"
+      means the camera or the keypad. */
+  measuredBy?: "scan" | "manual";
   onSave: (name: string) => void | Promise<void>;
   onRescan: () => void;
   onDiscard: () => void;
@@ -48,8 +52,9 @@ export default function ScanReview({
   // A capture with no walls, or with no floor, is one RoomPlan could not make
   // sense of. Saying so here — where "Scan again" is one tap and the operator
   // has not left the room — is worth more than a clean-looking empty room in
-  // the list.
-  const looksWrong = result.walls.length < 3 || floorSqFt < 5;
+  // the list. Typed rooms are exempt: a rectangle is four walls by
+  // construction, so warning that it looks incomplete would be nonsense.
+  const looksWrong = measuredBy === "scan" && (result.walls.length < 3 || floorSqFt < 5);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -144,7 +149,7 @@ export default function ScanReview({
             }}
             className="h-12 flex-1 cursor-pointer rounded-2xl bg-white text-sm font-bold text-charcoal/70 active:bg-black/[0.03] disabled:opacity-40"
           >
-            Scan again
+            {measuredBy === "manual" ? "Change the numbers" : "Scan again"}
           </button>
           <button
             type="button"

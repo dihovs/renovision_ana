@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import FloorCanvas from "./FloorCanvas";
 import RoomSheet from "./RoomSheet";
 import ScanReview from "./ScanReview";
+import ManualRoomEntry from "./ManualRoomEntry";
 import { tapFeedback } from "@/lib/haptics";
 import { rememberFloor } from "@/lib/floorMemory";
 import {
@@ -65,7 +66,12 @@ export default function FloorWorkspace({
   const [picking, setPicking] = useState<"what" | "how" | null>(null);
   const [openRoom, setOpenRoom] = useState<SavedScan | null>(null);
   // A finished capture waiting to be named and accepted.
-  const [review, setReview] = useState<RoomScanResult | null>(null);
+  // The capture under review, and how it was made — "Scan again" has to
+  // return the operator to the way they measured it, not always to LiDAR.
+  const [review, setReview] = useState<
+    { result: RoomScanResult; source: "scan" | "manual" } | null
+  >(null);
+  const [typing, setTyping] = useState(false);
 
   // Scans the phone is holding because there was no signal when they were
   // taken. Subscribed rather than polled, so accepting a room updates the
@@ -170,8 +176,9 @@ export default function FloorWorkspace({
     {
       id: "manual",
       title: "Enter the dimensions",
-      detail: "Type width and length for a square room. Coming next.",
-      available: false,
+      detail:
+        "Type width and length from a tape measure. Works anywhere — no camera, no light, no LiDAR.",
+      available: true,
     },
   ];
 
@@ -182,7 +189,7 @@ export default function FloorWorkspace({
     setError(null);
     tapFeedback("medium");
     try {
-      setReview(await scanRoom());
+      setReview({ result: await scanRoom(), source: "scan" });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Backing out of a scan is not a failure and must not look like one.
@@ -202,7 +209,7 @@ export default function FloorWorkspace({
         name,
         level,
         position: (rooms?.length ?? 0) + pending.length,
-        result: review,
+        result: review.result,
       });
       setReview(null);
       if (outcome.stored === "lost") {
@@ -350,21 +357,43 @@ export default function FloorWorkspace({
               title={mode.title}
               detail={mode.detail}
               disabled={!mode.available}
-              onClick={mode.id === "lidar" ? startScan : undefined}
+              onClick={
+                mode.id === "lidar"
+                  ? startScan
+                  : mode.id === "manual"
+                    ? () => {
+                        setPicking(null);
+                        setTyping(true);
+                      }
+                    : undefined
+              }
             />
           ))}
         </Sheet>
       )}
 
+      {typing && (
+        <ManualRoomEntry
+          onCancel={() => setTyping(false)}
+          onDone={(result) => {
+            setTyping(false);
+            setReview({ result, source: "manual" });
+          }}
+        />
+      )}
+
       {review && (
         <ScanReview
-          result={review}
+          result={review.result}
           level={level}
           suggestedName={`Room ${(rooms?.length ?? 0) + pending.length + 1}`}
+          measuredBy={review.source}
           onSave={keepRoom}
           onRescan={() => {
+            const { source } = review;
             setReview(null);
-            void startScan();
+            if (source === "manual") setTyping(true);
+            else void startScan();
           }}
           onDiscard={() => setReview(null)}
         />
