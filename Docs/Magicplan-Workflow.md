@@ -223,3 +223,72 @@ Unchanged in shape, sharper in detail:
 3. **Interactive floor plan** — tap to select, grey the rest, detail sheet.
 4. **Manual corner scan** (ARKit, any iPhone).
 5. **The report** — HTML → PDF, with their toggle set as the specification.
+
+---
+
+# Restoration: the parts specific to damage work
+
+Third pass. This is the material closest to what Renovision actually does,
+and it is where the product stops being a floor-plan app and becomes a
+restoration tool.
+
+## Four ways damage gets recorded
+
+1. **Photos** — attached to a floor, a room, an object, an affected area, or
+   a 360 tour. Evidence, for the adjuster.
+2. **Annotation objects** — markers placed on the plan that say what has to
+   HAPPEN, from a fixed vocabulary: **repair, installation, removal,
+   inspection, draining, drying, cleaning**. This is scope, drawn in place.
+3. **Restoration objects** — the equipment actually deployed, placed on the
+   plan where it stands.
+4. **Room colour** — a room-level status colour for severity or progress
+   (their example: yellow assessing, orange in progress, green done).
+
+Note what this gives you: opening a plan shows what is damaged, what has to
+be done about it, what machinery is on site, and how far along each room is —
+all at once, without reading a word.
+
+## The equipment library, by loss type
+
+- **Water** — dehumidifiers, air movers, wall humid zones, wall cavity
+  dryers, E-TES units
+- **Fire** — air scrubbers, ozone generators
+- **Mould** — moisture meters, humid zones, hydroxyl machines
+
+Custom objects cover anything missing. Their documentation stops short of
+saying whether placement records dates, duration or run-hours per unit — and
+that matters, because equipment is billed **per unit per day**. If they do
+not track it, that is a gap worth filling rather than copying.
+
+## Instruments they read from
+
+- **Bluetooth laser measurer** — dimensions straight into the plan, and into
+  an affected area's shape
+- **FLIR thermal camera** — hidden moisture behind surfaces, plus electrical
+  and insulation faults
+- **360 camera** — whole-room panoramas for the tour
+- **Humidity / temperature meter** — environmental readings, which is how
+  drying gets verified
+
+## What this tells us to build
+
+The restoration loop is: **assess → scope → deploy equipment → monitor drying
+→ document → bill.** Their tooling covers the middle of that well and the two
+ends loosely.
+
+The openings, concretely:
+
+- **Equipment is billed per unit per day.** If placement does not carry
+  in-service and out-of-service dates, the drying period cannot become an
+  invoice line by itself. Ours should: place a dehumidifier, set the dates,
+  and the quote line writes itself.
+- **Moisture readings are the proof a carrier pays against.** A reading
+  logged per room per visit, trending down, is the drying log. That is a
+  small table and a chart, and it is worth more to an adjuster than another
+  photo.
+- **Annotation objects are scope in place.** Their seven verbs map almost
+  one-to-one onto price-book categories — a "removal" marker on a wall with
+  an affected area of 40 sq ft is a demolition line waiting to be written.
+
+None of this needs new measurement technology. It needs the scan, the
+affected area, and a date — all of which we either have or are about to.
