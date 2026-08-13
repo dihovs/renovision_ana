@@ -26,6 +26,18 @@ import Metal
 final class RoomModelViewController: UIViewController {
     private let url: URL
 
+    // Spherical camera state. Elevation is CLAMPED: level with the floor at
+    // the bottom, straight down at the top, never below — you can look at
+    // the room from the side or from above, but not from underneath it.
+    private var cameraNode: SCNNode?
+    private var orbitAzimuth: Float = 0.6
+    private var orbitElevation: Float = 0.9
+    private var orbitRadius: Float = 4
+    private static let minElevation: Float = 0.05          // just above level
+    private static let maxElevation: Float = .pi / 2 - 0.02 // just shy of straight down
+    private var panStart: (azimuth: Float, elevation: Float) = (0, 0)
+    private var pinchStartRadius: Float = 4
+
     init(url: URL) {
         self.url = url
         super.init(nibName: nil, bundle: nil)
@@ -73,12 +85,8 @@ final class RoomModelViewController: UIViewController {
         // Managed z-range: a fixed zNear of 1.0 slices the walls open the
         // moment a pinch zooms inside a metre of them.
         camNode.camera!.automaticallyAdjustsZRange = true
-        let elevation: Float = 0.9, dist = max(radius, 0.5) * 1.9
-        camNode.position = SCNVector3(dist * cos(elevation) * 0.56,
-                                      dist * sin(elevation),
-                                      dist * cos(elevation) * 0.83)
-        camNode.look(at: SCNVector3Zero)
         scene.rootNode.addChildNode(camNode)
+        self.cameraNode = camNode
 
         sceneView.scene = scene
         sceneView.pointOfView = camNode
@@ -86,14 +94,19 @@ final class RoomModelViewController: UIViewController {
         // is part of what washed the first version out.
         sceneView.autoenablesDefaultLighting = false
 
-        // One finger orbits the room about its centre, two fingers pan,
-        // pinch zooms — the grammar every 3D viewer on iOS shares. The
-        // turntable mode keeps the floor level so the model can never end
-        // up upside down.
-        sceneView.allowsCameraControl = true
-        sceneView.defaultCameraController.interactionMode = .orbitTurntable
-        sceneView.defaultCameraController.target = SCNVector3Zero
-        sceneView.defaultCameraController.inertiaEnabled = true
+        // Custom gestures rather than allowsCameraControl: the built-in
+        // controller has no way to limit elevation, so it happily swings
+        // under the floor and shows the room from below — a view of a
+        // building nobody has, and it reads as broken.
+        sceneView.allowsCameraControl = false
+        orbitRadius = max(radius, 0.5) * 1.9
+        updateCamera()
+        for recogniser in [
+            UIPanGestureRecognizer(target: self, action: #selector(handlePan)),
+            UIPinchGestureRecognizer(target: self, action: #selector(handlePinch)),
+        ] as [UIGestureRecognizer] {
+            sceneView.addGestureRecognizer(recogniser)
+        }
 
         view.addSubview(sceneView)
         NSLayoutConstraint.activate([
@@ -116,6 +129,35 @@ final class RoomModelViewController: UIViewController {
             done.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             done.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
         ])
+    }
+
+    // MARK: - Camera
+
+    private func updateCamera() {
+        guard let camNode = cameraNode else { return }
+        let e = min(max(orbitElevation, Self.minElevation), Self.maxElevation)
+        camNode.position = SCNVector3(orbitRadius * cos(e) * sin(orbitAzimuth),
+                                      orbitRadius * sin(e),
+                                      orbitRadius * cos(e) * cos(orbitAzimuth))
+        camNode.look(at: SCNVector3Zero)
+    }
+
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        if gesture.state == .began { panStart = (orbitAzimuth, orbitElevation) }
+        let t = gesture.translation(in: gesture.view)
+        // Drag right spins the room right; drag up tips the view overhead.
+        orbitAzimuth = panStart.azimuth - Float(t.x) * 0.008
+        orbitElevation = min(max(panStart.elevation + Float(t.y) * 0.008,
+                                 Self.minElevation), Self.maxElevation)
+        updateCamera()
+    }
+
+    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        if gesture.state == .began { pinchStartRadius = orbitRadius }
+        // Bounded so a hard pinch can neither bury the camera in a wall nor
+        // fling the room to a speck.
+        orbitRadius = min(max(pinchStartRadius / Float(gesture.scale), 0.4), 60)
+        updateCamera()
     }
 
     // MARK: - Geometry repair
@@ -172,6 +214,12 @@ final class RoomModelViewController: UIViewController {
         )
     }
 
+    /// 4.5 inches. A 2x4 partition with drywall both sides — the standard
+    /// interior wall in Quebec residential construction. Exterior walls run
+    /// nearer 8 inches, but RoomPlan does not distinguish the two, and
+    /// overstating every wall would inflate the room's apparent footprint.
+    private static let interiorWallThickness: CGFloat = 0.114
+
     // MARK: - Materials
 
     private static func paint(_ scene: SCNScene) {
@@ -187,7 +235,21 @@ final class RoomModelViewController: UIViewController {
                     node.geometry = withPlanarUVs(geometry)
                     node.geometry!.materials = [floorMat]
                 } else if name.contains("wall") {
-                    geometry.materials = [wallMat]
+                    // RoomPlan exports a wall as a zero-thickness PLANE, so
+                    // in 3D it reads as paper. Give it the real assembly
+                    // depth: Quebec interior partitions are 2x4 — 3.5" stud
+                    // plus 1/2" drywall each side = 4.5" (11.4 cm).
+                    let (wmin, wmax) = node.boundingBox
+                    let width = CGFloat(wmax.x - wmin.x)
+                    let height = CGFloat(wmax.y - wmin.y)
+                    if width > 0.01, height > 0.01 {
+                        let box = SCNBox(width: width, height: height,
+                                         length: Self.interiorWallThickness, chamferRadius: 0)
+                        box.materials = [wallMat]
+                        node.geometry = box
+                    } else {
+                        geometry.materials = [wallMat]
+                    }
                 } else if name.contains("door") || name.contains("window") || name.contains("opening") {
                     geometry.materials = [openingMat]
                 } else if !name.isEmpty {
