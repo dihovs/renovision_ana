@@ -83,6 +83,27 @@ export type ProjectDetail = Project & {
   quotes: ProjectQuote[];
 };
 
+/** The survey figures for the whole property, and per storey — what the
+    statistics band and the floor-plan sections are built from. */
+export type ProjectSurvey = {
+  rooms: {
+    id: string;
+    name: string;
+    level: string;
+    floorAreaSqm: number;
+    wallLengthM: number;
+    ceilingHeightM: number;
+    stairCount: number;
+    geometry: Record<string, unknown>;
+  }[];
+  levels: string[];
+  floorAreaSqm: number;
+  /** Perimeter × ceiling height, summed per room — paint and drywall are
+      priced off this, and it is the one headline figure that cannot be
+      derived from floor area. */
+  wallAreaSqm: number;
+};
+
 /** Bucket is private; files are only ever reachable via a signed URL. */
 const FILE_BUCKET = "project-files";
 /** Same lifetime as lead photos: long enough to read on site, short enough
@@ -201,6 +222,58 @@ export async function listProjects(
       floor_area_sqm: scans.reduce((sum, scan) => sum + Number(scan.floor_area_sqm), 0),
     };
   });
+}
+
+/**
+ * Everything measured on a property, totalled.
+ *
+ * Separate from `getProject` because it degrades on its own: a database
+ * without migration 0024 should grey out the survey band, not take down the
+ * whole project page — the same rule the dashboard's cards follow.
+ */
+export async function getProjectSurvey(projectId: string): Promise<ProjectSurvey> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("room_scans")
+    .select("id, name, level, floor_area_sqm, wall_length_m, ceiling_height_m, stair_count, geometry")
+    .eq("project_id", projectId)
+    .order("level", { ascending: true })
+    .order("position", { ascending: true });
+
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("room_scans");
+    throw new Error(`Could not load the survey: ${error.message}`);
+  }
+
+  const rooms = ((data ?? []) as unknown as {
+    id: string;
+    name: string;
+    level: string;
+    floor_area_sqm: number;
+    wall_length_m: number;
+    ceiling_height_m: number;
+    stair_count: number;
+    geometry: Record<string, unknown>;
+  }[]).map((row) => ({
+    id: row.id,
+    name: row.name,
+    level: row.level,
+    floorAreaSqm: Number(row.floor_area_sqm),
+    wallLengthM: Number(row.wall_length_m),
+    ceilingHeightM: Number(row.ceiling_height_m),
+    stairCount: row.stair_count,
+    geometry: row.geometry,
+  }));
+
+  const levels: string[] = [];
+  for (const room of rooms) if (!levels.includes(room.level)) levels.push(room.level);
+
+  return {
+    rooms,
+    levels,
+    floorAreaSqm: rooms.reduce((sum, r) => sum + r.floorAreaSqm, 0),
+    wallAreaSqm: rooms.reduce((sum, r) => sum + r.wallLengthM * r.ceilingHeightM, 0),
+  };
 }
 
 export async function getProject(id: string): Promise<ProjectDetail | null> {

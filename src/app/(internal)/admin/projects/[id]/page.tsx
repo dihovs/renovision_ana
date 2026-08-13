@@ -11,18 +11,22 @@ import ProjectFiles from "@/components/admin/ProjectFiles";
 import ProjectJobs from "@/components/admin/ProjectJobs";
 import ProjectStatusButtons from "@/components/admin/ProjectStatusButtons";
 import ProjectStatusPill from "@/components/admin/ProjectStatusPill";
+import FloorPlan from "@/components/admin/FloorPlan";
+import { squareMetersToSquareFeet, type RoomScanResult } from "@/lib/roomScan";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
 import { formatMoney } from "@/lib/crm/money";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/lib/crm/opsTypes";
 import { QUOTE_STATUS_LABEL, type QuoteStatus } from "@/lib/crm/quoteTypes";
 import {
   getProject,
+  getProjectSurvey,
   listAttachableJobs,
   MAX_PROJECT_FILE_BYTES,
   PROJECT_STATUS_LABEL,
   PROJECT_STATUSES,
   signProjectFileUrls,
   type ProjectDetail,
+  type ProjectSurvey,
 } from "@/lib/crm/projects";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +85,16 @@ export default async function ProjectDetailPage({
     attachable = await listAttachableJobs(project.jobs.map((job) => job.id));
   } catch {
     attachable = [];
+  }
+
+  // Null means the scans table isn't reachable yet (migration 0024), which
+  // is different from a property nobody has measured — the first hides the
+  // survey entirely, the second shows it empty with a prompt to scan.
+  let survey: ProjectSurvey | null = null;
+  try {
+    survey = await getProjectSurvey(project.id);
+  } catch {
+    survey = null;
   }
 
   // Signed per request, same as lead photos — never persisted.
@@ -157,6 +171,86 @@ export default async function ProjectDetailPage({
           </div>
         )}
       </div>
+
+      {/* Statistics, then floor plans — the survey comes before the
+          paperwork, because on a restoration job the measurements are what
+          every other number on the page is derived from. */}
+      {survey && (
+        <>
+          <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="font-heading text-sm font-bold text-charcoal">Statistics</h2>
+            {survey.rooms.length === 0 ? (
+              <p className="mt-2 text-sm text-charcoal/45">
+                Nothing measured yet. Open{" "}
+                <Link href="/admin/scan" className="font-semibold text-brand-blue">
+                  Scan
+                </Link>{" "}
+                on the phone and walk the rooms — the figures land here.
+              </p>
+            ) : (
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+                <Stat
+                  label="Floor area"
+                  value={fmt(squareMetersToSquareFeet(survey.floorAreaSqm))}
+                  unit="sq ft"
+                />
+                <Stat
+                  label="Wall area"
+                  value={fmt(squareMetersToSquareFeet(survey.wallAreaSqm))}
+                  unit="sq ft"
+                />
+                <Stat label="Floors" value={String(survey.levels.length)} />
+                <Stat label="Rooms" value={String(survey.rooms.length)} />
+              </dl>
+            )}
+          </section>
+
+          {survey.levels.map((level) => {
+            const rooms = survey.rooms.filter((room) => room.level === level);
+            const levelArea = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
+            return (
+              <section
+                key={level}
+                className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <h2 className="font-heading text-sm font-bold text-charcoal">{level}</h2>
+                  <span className="text-xs font-semibold tabular-nums text-charcoal/45">
+                    {fmt(squareMetersToSquareFeet(levelArea))} sq ft · {rooms.length} room
+                    {rooms.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {rooms.map((room) => (
+                    <li
+                      key={room.id}
+                      className="overflow-hidden rounded-xl border border-black/5"
+                    >
+                      <div className="flex h-28 items-center justify-center bg-[#f7f7f8] p-2">
+                        <FloorPlan
+                          result={room.geometry as unknown as RoomScanResult}
+                          name={room.name}
+                          variant="thumb"
+                        />
+                      </div>
+                      <div className="border-t border-black/5 px-2.5 py-2">
+                        <span className="block truncate text-xs font-bold text-charcoal">
+                          {room.name}
+                        </span>
+                        <span className="block text-[11px] tabular-nums text-charcoal/45">
+                          {fmt(squareMetersToSquareFeet(room.floorAreaSqm))} sq ft
+                          {room.stairCount > 0 && " · stairs"}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </>
+      )}
 
       <ProjectStatusButtons
         current={project.status}
@@ -240,4 +334,23 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dd className="mt-0.5 break-words text-sm text-charcoal/80">{children}</dd>
     </div>
   );
+}
+
+/** One figure in the statistics band. */
+function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-bold uppercase tracking-wide text-charcoal/45">{label}</dt>
+      <dd className="mt-0.5 font-heading text-xl font-bold tabular-nums text-charcoal">
+        {value}
+        {unit && <span className="ml-1 text-xs font-semibold text-charcoal/50">{unit}</span>}
+      </dd>
+    </div>
+  );
+}
+
+/** Whole numbers: a square-foot figure with decimals reads as false precision
+    on a measurement that is already accurate to a few centimetres. */
+function fmt(value: number): string {
+  return Math.round(value).toLocaleString("en-CA");
 }
