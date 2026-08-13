@@ -5,6 +5,7 @@ import FloorPlan from "./FloorPlan";
 import { tapFeedback } from "@/lib/haptics";
 import {
   ceilingHeightMeters,
+  mergeScans,
   metersToFeet,
   roomScanSupport,
   scanRoom,
@@ -14,6 +15,7 @@ import {
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
   wallAreaSquareMeters,
+  type MergedStructure,
   type RoomScanResult,
   type ScanSupport,
 } from "@/lib/roomScan";
@@ -63,6 +65,25 @@ export default function RoomScanner() {
   // The storey the next scan lands on, so a whole floor can be walked
   // without setting it per room.
   const [level, setLevel] = useState<Level>("Ground");
+  // The combined floor, once asked for. Kept separate from the room list
+  // because it is derived from it — recombining after another scan should
+  // replace it, not append.
+  const [merged, setMerged] = useState<MergedStructure | null>(null);
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+
+  async function combine() {
+    tapFeedback("medium");
+    setMerging(true);
+    setMergeError(null);
+    try {
+      setMerged(await mergeScans());
+    } catch (err) {
+      setMergeError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMerging(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +112,9 @@ export default function RoomScanner() {
           result,
         },
       ]);
+      // The combined plan no longer includes every room, so it stops being
+      // the floor plan until it is rebuilt.
+      setMerged(null);
       setStatus({ kind: "ready" });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -168,6 +192,56 @@ export default function RoomScanner() {
       )}
 
       {rooms.length > 1 && <Totals rooms={rooms} />}
+
+      {/* The combined plan, once there is more than one room to combine.
+          This is the drawing that actually represents the property — the
+          per-room plans below are its parts. It leads for that reason. */}
+      {rooms.length > 1 && (
+        <section className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-2 border-b border-black/5 px-4 py-3">
+            <h2 className="font-heading text-sm font-bold text-charcoal">Floor plan</h2>
+            <button
+              type="button"
+              onClick={combine}
+              disabled={merging}
+              className="cursor-pointer rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-blue/90 disabled:opacity-50"
+            >
+              {merging ? "Combining…" : merged ? "Recombine" : "Combine rooms"}
+            </button>
+          </div>
+
+          {mergeError && (
+            <p role="alert" className="px-4 py-3 text-sm font-medium text-red-700">
+              {mergeError}
+            </p>
+          )}
+
+          {merged ? (
+            <div className="p-4">
+              <FloorPlan result={merged} name="Floor plan" />
+              {merged.modelId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    tapFeedback();
+                    void showRoomModel(merged.modelId as string);
+                  }}
+                  className="mt-3 flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-brand-blue/30 bg-brand-blue/[0.04] text-sm font-bold text-brand-blue transition-colors active:bg-brand-blue/[0.1]"
+                >
+                  View the whole floor in 3D
+                </button>
+              )}
+            </div>
+          ) : (
+            !mergeError && (
+              <p className="px-4 py-4 text-sm text-charcoal/50">
+                Each room below was measured on its own. Combining works out
+                how they fit together and draws them as one plan.
+              </p>
+            )
+          )}
+        </section>
+      )}
 
       {/* Which storey the next scan belongs to. A row of chips rather than a
           select: it gets set once per floor and then left alone, so it

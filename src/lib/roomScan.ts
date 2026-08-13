@@ -50,10 +50,18 @@ export type RoomScanResult = {
   modelId?: string;
 };
 
+/** A merged floor: the same shape as a room, plus the labels the merge
+    recovered for each space it recognised. */
+export type MergedStructure = RoomScanResult & {
+  sections?: { label: string; centerX: number; centerZ: number }[];
+};
+
 type RoomScanBridge = {
   isSupported(): Promise<{ supported: boolean }>;
-  startScan(): Promise<RoomScanResult>;
+  startScan(): Promise<RoomScanResult & { roomsCaptured?: number }>;
   showModel(options: { modelId: string }): Promise<{ ok: boolean }>;
+  mergeScans(): Promise<MergedStructure>;
+  resetScans(): Promise<{ ok: boolean }>;
 };
 
 const RoomScan = registerPlugin<RoomScanBridge>("RoomScan");
@@ -91,6 +99,28 @@ export async function scanRoom(): Promise<RoomScanResult> {
     own USDZ viewer, which brings pinch, rotate and AR placement with it. */
 export async function showRoomModel(modelId: string): Promise<void> {
   await RoomScan.showModel({ modelId });
+}
+
+/**
+ * Combine every room scanned on this floor into one connected plan.
+ *
+ * This is the step that turns a pile of separate room drawings into a plan
+ * of a property — each room is captured in its own coordinate space, and
+ * only the merge knows how they fit together. Needs at least two rooms.
+ */
+export async function mergeScans(): Promise<MergedStructure> {
+  return RoomScan.mergeScans();
+}
+
+/** Forget the rooms held for merging. Called when starting a new property,
+    so the next job's first room isn't merged into the last job's floor. */
+export async function resetScans(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await RoomScan.resetScans();
+  } catch {
+    // Nothing held, or no plugin — either way there is nothing to clear.
+  }
 }
 
 /** Perimeter, not floor area — what a baseboard or a chair rail is priced
