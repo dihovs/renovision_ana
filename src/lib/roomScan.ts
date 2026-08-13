@@ -38,12 +38,26 @@ type RoomScanBridge = {
 
 const RoomScan = registerPlugin<RoomScanBridge>("RoomScan");
 
-export async function isRoomScanSupported(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false;
+export type ScanSupport =
+  | { state: "supported" }
+  | { state: "no-lidar" }
+  | { state: "not-native" }
+  /** The plugin didn't answer — a wiring fault in the app, not a limit of
+      the phone. Kept distinct because reporting it as "no LiDAR" is how a
+      missing plugin registration spent a build masquerading as a hardware
+      limitation on a device that has the sensor. */
+  | { state: "plugin-missing"; detail: string };
+
+export async function roomScanSupport(): Promise<ScanSupport> {
+  if (!Capacitor.isNativePlatform()) return { state: "not-native" };
   try {
-    return (await RoomScan.isSupported()).supported;
-  } catch {
-    return false;
+    const { supported } = await RoomScan.isSupported();
+    return supported ? { state: "supported" } : { state: "no-lidar" };
+  } catch (err) {
+    return {
+      state: "plugin-missing",
+      detail: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 

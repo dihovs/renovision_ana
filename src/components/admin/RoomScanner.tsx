@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { tapFeedback } from "@/lib/haptics";
 import {
-  isRoomScanSupported,
   metersToFeet,
+  roomScanSupport,
   scanRoom,
   squareMetersToSquareFeet,
   toFloorPlan,
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
   type RoomScanResult,
+  type ScanSupport,
 } from "@/lib/roomScan";
 
 /**
@@ -47,7 +48,7 @@ type ScannedRoom = { id: string; name: string; level: Level; result: RoomScanRes
 
 type Status =
   | { kind: "checking" }
-  | { kind: "unsupported" }
+  | { kind: "unsupported"; support: ScanSupport }
   | { kind: "ready" }
   | { kind: "scanning" }
   | { kind: "failed"; message: string };
@@ -61,8 +62,11 @@ export default function RoomScanner() {
 
   useEffect(() => {
     let cancelled = false;
-    isRoomScanSupported().then((supported) => {
-      if (!cancelled) setStatus({ kind: supported ? "ready" : "unsupported" });
+    roomScanSupport().then((support) => {
+      if (cancelled) return;
+      setStatus(
+        support.state === "supported" ? { kind: "ready" } : { kind: "unsupported", support },
+      );
     });
     return () => {
       cancelled = true;
@@ -98,16 +102,40 @@ export default function RoomScanner() {
   }
 
   if (status.kind === "unsupported") {
+    const { support } = status;
     return (
       <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
         <h2 className="font-heading text-sm font-bold text-charcoal">
-          This device can&apos;t scan rooms
+          {support.state === "plugin-missing"
+            ? "Scanning isn't wired up in this build"
+            : support.state === "not-native"
+              ? "Open this in the app to scan"
+              : "This device can't scan rooms"}
         </h2>
         <p className="mt-1.5 text-sm leading-relaxed text-charcoal/60">
-          Room scanning needs the LiDAR sensor, which is on iPhone Pro models
-          (12 Pro and later) and iPad Pro from 2020. Everything else in the app
-          works normally here.
+          {support.state === "plugin-missing" ? (
+            <>
+              The scanner is missing from the installed app, so this says
+              nothing about the phone. Rebuild and reinstall from Xcode.
+            </>
+          ) : support.state === "not-native" ? (
+            <>
+              Room scanning uses the phone&apos;s LiDAR sensor, which a browser
+              tab can&apos;t reach. Open Renovision on the iPhone.
+            </>
+          ) : (
+            <>
+              Room scanning needs the LiDAR sensor, which is on iPhone Pro
+              models (12 Pro and later) and iPad Pro from 2020. Everything else
+              in the app works normally here.
+            </>
+          )}
         </p>
+        {support.state === "plugin-missing" && (
+          <p className="mt-2 font-mono text-[11px] leading-snug text-charcoal/40">
+            {support.detail}
+          </p>
+        )}
       </div>
     );
   }
