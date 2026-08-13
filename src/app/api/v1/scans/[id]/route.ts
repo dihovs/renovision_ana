@@ -22,6 +22,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         ? { position: Number(body.position) }
         : {}),
       ...(typeof body.notes === "string" || body.notes === null ? { notes: body.notes } : {}),
+      // Placing a room is a drag, so these arrive together and often. null
+      // is meaningful — it puts the room back into the packed layout.
+      ...(body.planX === null || Number.isFinite(Number(body.planX))
+        ? { planX: body.planX === null ? null : Number(body.planX) }
+        : {}),
+      ...(body.planY === null || Number.isFinite(Number(body.planY))
+        ? { planY: body.planY === null ? null : Number(body.planY) }
+        : {}),
     });
     return { ok: true };
   });

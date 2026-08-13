@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { packRooms, zoomTo } from "./floorLayout";
+import { packRooms, resolvePlacements, zoomTo } from "./floorLayout";
 
 /**
  * Laying a floor's rooms out on one sheet.
@@ -114,5 +114,45 @@ describe("zoomTo", () => {
     const transform = zoomTo({ x: 0, y: 0, width: 3, height: 3 }, { width: 0, height: 0 });
     expect(transform).toBe("translate(0,0) scale(1)");
     expect(transform).not.toContain("NaN");
+  });
+});
+
+describe("resolvePlacements", () => {
+  const sizes = [
+    { width: 4, height: 3 },
+    { width: 3, height: 3 },
+  ];
+
+  it("falls back to the packed slot for an unplaced room", () => {
+    const { placed } = resolvePlacements(sizes, [null, null]);
+    expect(placed).toEqual(packRooms(sizes).placed);
+  });
+
+  it("honours a room the operator dragged", () => {
+    const { placed } = resolvePlacements(sizes, [{ x: 10, y: 5 }, null]);
+    expect(placed[0].x).toBe(10);
+    expect(placed[0].y).toBe(5);
+    // The unplaced one keeps its own slot rather than being shoved along.
+    expect(placed[1].width).toBe(3);
+  });
+
+  it("keeps a room dragged past the origin inside the sheet", () => {
+    // Negative coordinates would otherwise fall outside the viewBox and the
+    // room would simply not be drawn.
+    const { placed, width, height } = resolvePlacements(sizes, [{ x: -6, y: -2 }, null]);
+    for (const room of placed) {
+      expect(room.x).toBeGreaterThanOrEqual(-1e-9);
+      expect(room.y).toBeGreaterThanOrEqual(-1e-9);
+      expect(room.x + room.width).toBeLessThanOrEqual(width + 1e-9);
+      expect(room.y + room.height).toBeLessThanOrEqual(height + 1e-9);
+    }
+  });
+
+  it("never resizes a room, wherever it is put", () => {
+    const { placed } = resolvePlacements(sizes, [{ x: 99, y: -40 }, { x: 0, y: 0 }]);
+    expect(placed.map((r) => [r.width, r.height])).toEqual([
+      [4, 3],
+      [3, 3],
+    ]);
   });
 });

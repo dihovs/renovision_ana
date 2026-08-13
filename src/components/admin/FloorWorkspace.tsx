@@ -23,6 +23,7 @@ import {
   squareMetersToSquareFeet,
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
+  updateSavedScan,
   wallAreaSquareMeters,
   type RoomScanResult,
   type SavedScan,
@@ -72,6 +73,7 @@ export default function FloorWorkspace({
     { result: RoomScanResult; source: "scan" | "manual" } | null
   >(null);
   const [typing, setTyping] = useState(false);
+  const [arranging, setArranging] = useState(false);
 
   // Scans the phone is holding because there was no signal when they were
   // taken. Subscribed rather than polled, so accepting a room updates the
@@ -225,6 +227,28 @@ export default function FloorWorkspace({
     }
   }
 
+  /** Remember where a room was dragged. Written straight through rather
+      than debounced: a drag ends once, and a placement that only lives on
+      the phone is the bug this replaced. */
+  async function placeRoom(roomId: string, at: { x: number; y: number }) {
+    setRooms((current) =>
+      (current ?? []).map((room) =>
+        room.id === roomId ? { ...room, plan_x: at.x, plan_y: at.y } : room,
+      ),
+    );
+    try {
+      await updateSavedScan(roomId, { planX: at.x, planY: at.y });
+    } catch (err) {
+      // The room snaps back on the next load rather than lying about where
+      // it is — but say so, because the operator just did the work.
+      setError(
+        err instanceof Error
+          ? `Could not save where that room was placed: ${err.message}`
+          : "Could not save where that room was placed.",
+      );
+    }
+  }
+
   const floorSqFt = (rooms ?? []).reduce(
     (sum, room) => sum + squareMetersToSquareFeet(totalFloorAreaSquareMeters(room.geometry)),
     0,
@@ -305,11 +329,36 @@ export default function FloorWorkspace({
           </p>
         </div>
       ) : (
-        <FloorCanvas
-          rooms={rooms}
-          selectedId={openRoom?.id ?? null}
-          onSelect={(room) => setOpenRoom(room)}
-        />
+        <>
+          {rooms.length > 1 && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  tapFeedback("medium");
+                  setOpenRoom(null);
+                  setArranging((on) => !on);
+                }}
+                aria-pressed={arranging}
+                className={`cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition-colors ${
+                  arranging
+                    ? "bg-brand-blue text-white"
+                    : "bg-black/[0.05] text-charcoal/60 active:bg-black/[0.09]"
+                }`}
+              >
+                {arranging ? "Done arranging" : "Arrange rooms"}
+              </button>
+            </div>
+          )}
+
+          <FloorCanvas
+            rooms={rooms}
+            selectedId={openRoom?.id ?? null}
+            onSelect={(room) => setOpenRoom(room)}
+            arranging={arranging}
+            onPlace={placeRoom}
+          />
+        </>
       )}
 
       {/* The Add button, pinned. On a phone this is reached with a thumb

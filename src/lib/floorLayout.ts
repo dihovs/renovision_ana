@@ -92,3 +92,46 @@ export function zoomTo(
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
+
+/**
+ * Where each room actually goes: what the operator placed, falling back to
+ * the packed slot for anything they have not dragged yet.
+ *
+ * Kept separate from `packRooms` so the fallback stays a pure function of
+ * the room sizes — a newly scanned room drops into a free slot rather than
+ * on top of whatever is at the origin, and placing one room never moves
+ * another.
+ */
+export function resolvePlacements(
+  sizes: Size[],
+  placed: (Point | null)[],
+  gap = 1.2,
+): { placed: Placed[]; width: number; height: number } {
+  const packed = packRooms(sizes, gap);
+  const resolved = packed.placed.map((slot, i) => {
+    const at = placed[i];
+    return at ? { x: at.x, y: at.y, width: slot.width, height: slot.height } : slot;
+  });
+
+  // The sheet has to contain everything, including rooms dragged left of or
+  // above the origin — otherwise half a room falls outside the viewBox and
+  // simply is not drawn.
+  let minX = 0;
+  let minY = 0;
+  let maxX = 0;
+  let maxY = 0;
+  for (const room of resolved) {
+    minX = Math.min(minX, room.x);
+    minY = Math.min(minY, room.y);
+    maxX = Math.max(maxX, room.x + room.width);
+    maxY = Math.max(maxY, room.y + room.height);
+  }
+
+  return {
+    placed: resolved.map((room) => ({ ...room, x: room.x - minX, y: room.y - minY })),
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+export type Point = { x: number; y: number };

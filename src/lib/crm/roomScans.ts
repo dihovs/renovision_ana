@@ -24,6 +24,11 @@ export type RoomScan = {
   /** The full RoomScanResult, for redrawing the plan. Opaque here. */
   geometry: Record<string, unknown>;
   notes: string | null;
+  /** Where the operator dragged this room on the floor, in metres of plan
+      space. NULL means never placed — the drawing falls back to the packed
+      layout rather than stacking every room at the origin. */
+  plan_x: number | null;
+  plan_y: number | null;
 };
 
 export type RoomScanInput = {
@@ -96,7 +101,14 @@ export async function createRoomScan(input: RoomScanInput): Promise<string> {
     record of what was scanned and are deliberately not editable here. */
 export async function updateRoomScan(
   id: string,
-  patch: { name?: string; level?: string; position?: number; notes?: string | null },
+  patch: {
+    name?: string;
+    level?: string;
+    position?: number;
+    notes?: string | null;
+    planX?: number | null;
+    planY?: number | null;
+  },
 ): Promise<void> {
   const client = requireDb();
   const { error } = await client
@@ -106,6 +118,8 @@ export async function updateRoomScan(
       ...(patch.level !== undefined ? { level: patch.level.trim().slice(0, 60) || "Ground" } : {}),
       ...(patch.position !== undefined ? { position: patch.position } : {}),
       ...(patch.notes !== undefined ? { notes: patch.notes?.trim() || null } : {}),
+      ...(patch.planX !== undefined ? { plan_x: patch.planX } : {}),
+      ...(patch.planY !== undefined ? { plan_y: patch.planY } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

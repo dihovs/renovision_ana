@@ -203,6 +203,9 @@ export type SavedScan = {
   window_count: number;
   stair_count: number;
   geometry: RoomScanResult;
+  /** Where this room was dragged to on the floor, or null if never placed. */
+  plan_x?: number | null;
+  plan_y?: number | null;
 };
 
 /** Every room saved on a project, in walking order within each floor. */
@@ -218,7 +221,13 @@ export async function listSavedScans(projectId: string): Promise<SavedScan[]> {
 /** Rename a saved room, or move it to another floor. */
 export async function updateSavedScan(
   id: string,
-  patch: { name?: string; level?: string; position?: number },
+  patch: {
+    name?: string;
+    level?: string;
+    position?: number;
+    planX?: number | null;
+    planY?: number | null;
+  },
 ): Promise<void> {
   const response = await fetch(`/api/v1/scans/${encodeURIComponent(id)}`, {
     method: "PATCH",
