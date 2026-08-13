@@ -4,6 +4,7 @@ import {
   attachJobAction,
   deleteProjectFileAction,
   detachJobAction,
+  saveProjectCustomAction,
   setProjectStatusAction,
 } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
@@ -12,9 +13,12 @@ import ProjectJobs from "@/components/admin/ProjectJobs";
 import ProjectStatusButtons from "@/components/admin/ProjectStatusButtons";
 import ProjectStatusPill from "@/components/admin/ProjectStatusPill";
 import FloorPlanSection from "@/components/admin/FloorPlanSection";
+import ClaimDetails from "@/components/admin/ClaimDetails";
+import EquipmentLog from "@/components/admin/EquipmentLog";
 import { squareMetersToSquareFeet } from "@/lib/roomScan";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
 import { formatMoney } from "@/lib/crm/money";
+import { CLAIM_FIELD_TEMPLATE, getCustomFields } from "@/lib/crm/settings";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/lib/crm/opsTypes";
 import { QUOTE_STATUS_LABEL, type QuoteStatus } from "@/lib/crm/quoteTypes";
 import {
@@ -97,6 +101,17 @@ export default async function ProjectDetailPage({
     survey = null;
   }
 
+  // The claim schema. Falls back to the IICRC template when nobody has
+  // customised it, so an insurance job has the right questions on day one
+  // rather than an empty section.
+  let claimFields = CLAIM_FIELD_TEMPLATE;
+  try {
+    const configured = (await getCustomFields()).project;
+    if (configured.length > 0) claimFields = configured;
+  } catch {
+    // Settings unreachable is not a reason to hide the claim section.
+  }
+
   // Signed per request, same as lead photos — never persisted.
   const urls = await signProjectFileUrls(project.files.map((file) => file.storage_path));
   const files = project.files.map((file) => ({
@@ -172,6 +187,12 @@ export default async function ProjectDetailPage({
         )}
       </div>
 
+      <ClaimDetails
+        fields={claimFields}
+        initial={(project.custom ?? {}) as Record<string, string>}
+        action={saveProjectCustomAction.bind(null, project.id)}
+      />
+
       {/* Statistics, then floor plans — the survey comes before the
           paperwork, because on a restoration job the measurements are what
           every other number on the page is derived from. */}
@@ -214,6 +235,8 @@ export default async function ProjectDetailPage({
         rooms={survey?.rooms ?? []}
         migrationPending={survey === null}
       />
+
+      <EquipmentLog projectId={project.id} />
 
       <ProjectStatusButtons
         current={project.status}
