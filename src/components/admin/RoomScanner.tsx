@@ -5,9 +5,11 @@ import FloorPlan from "./FloorPlan";
 import { tapFeedback } from "@/lib/haptics";
 import {
   ceilingHeightMeters,
+  listScanProjects,
   mergeScans,
   metersToFeet,
   roomScanSupport,
+  saveScan,
   scanRoom,
   showRoomModel,
   squareMetersToSquareFeet,
@@ -17,6 +19,7 @@ import {
   wallAreaSquareMeters,
   type MergedStructure,
   type RoomScanResult,
+  type ScanProject,
   type ScanSupport,
 } from "@/lib/roomScan";
 
@@ -71,6 +74,13 @@ export default function RoomScanner() {
   const [merged, setMerged] = useState<MergedStructure | null>(null);
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
+  // Which project the scans are filed against. Until one is chosen the
+  // measurements exist only on this screen — which is the state that used
+  // to be permanent, and is now deliberately visible.
+  const [projects, setProjects] = useState<ScanProject[] | null>(null);
+  const [projectId, setProjectId] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedCount, setSavedCount] = useState(0);
 
   async function combine() {
     tapFeedback("medium");
@@ -84,6 +94,22 @@ export default function RoomScanner() {
       setMerging(false);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    listScanProjects()
+      .then((list) => {
+        if (!cancelled) setProjects(list);
+      })
+      // A picker that can't load is not a reason to block scanning: the
+      // measurements still matter, they just stay on the screen.
+      .catch(() => {
+        if (!cancelled) setProjects([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,6 +142,25 @@ export default function RoomScanner() {
       // the floor plan until it is rebuilt.
       setMerged(null);
       setStatus({ kind: "ready" });
+
+      // Filed immediately, not on a Save button. A measurement taken
+      // standing in a wet basement should survive the walk back to the van,
+      // and the failure mode of "I'll save it later" is losing the scan.
+      if (projectId) {
+        try {
+          await saveScan({
+            projectId,
+            name: `Room ${rooms.filter((r) => r.level === level).length + 1}`,
+            level,
+            position: rooms.filter((r) => r.level === level).length,
+            result,
+          });
+          setSavedCount((n) => n + 1);
+          setSaveError(null);
+        } catch (err) {
+          setSaveError(err instanceof Error ? err.message : "Could not save the scan.");
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Cancelling is not failing — it's the ordinary way to back out of a
@@ -241,6 +286,46 @@ export default function RoomScanner() {
             )
           )}
         </section>
+      )}
+
+      {/* Which project these measurements belong to. Above the storey
+          chips because it is the outer container: a floor is a floor OF
+          something. */}
+      {projects !== null && projects.length > 0 && (
+        <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+          <label
+            htmlFor="scan-project"
+            className="text-xs font-bold uppercase tracking-wide text-charcoal/45"
+          >
+            Project
+          </label>
+          <select
+            id="scan-project"
+            value={projectId}
+            onChange={(event) => setProjectId(event.target.value)}
+            className="mt-1.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-charcoal outline-none transition-colors focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/15"
+          >
+            <option value="">Don&apos;t save — measure only</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+                {project.clientName ? ` — ${project.clientName}` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[11px] leading-snug text-charcoal/45">
+            {projectId
+              ? savedCount > 0
+                ? `${savedCount} room${savedCount === 1 ? "" : "s"} saved to this project.`
+                : "Each room is saved as you finish scanning it."
+              : "Measurements will stay on this screen and are lost when it closes."}
+          </p>
+          {saveError && (
+            <p role="alert" className="mt-1.5 text-[11px] font-medium text-red-700">
+              {saveError}
+            </p>
+          )}
+        </div>
       )}
 
       {/* Which storey the next scan belongs to. A row of chips rather than a

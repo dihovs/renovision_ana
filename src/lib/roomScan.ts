@@ -112,6 +112,59 @@ export async function mergeScans(): Promise<MergedStructure> {
   return RoomScan.mergeScans();
 }
 
+export type ScanProject = {
+  id: string;
+  name: string;
+  clientName: string | null;
+  roomCount: number;
+};
+
+/** The projects a scan can be filed against. */
+export async function listScanProjects(): Promise<ScanProject[]> {
+  const response = await fetch("/api/v1/projects");
+  if (!response.ok) throw new Error("Could not load projects.");
+  return ((await response.json()) as { projects: ScanProject[] }).projects;
+}
+
+/**
+ * File a finished room against a project.
+ *
+ * The measurements are sent as taken — the server does not recompute them,
+ * because it was not there. Metres go up the wire, matching what the
+ * database stores; the imperial figures on screen are a presentation of
+ * these, not a second source of truth.
+ */
+export async function saveScan(input: {
+  projectId: string;
+  name: string;
+  level: string;
+  position: number;
+  result: RoomScanResult;
+}): Promise<string> {
+  const response = await fetch("/api/v1/scans", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      projectId: input.projectId,
+      name: input.name,
+      level: input.level,
+      position: input.position,
+      floorAreaSqm: totalFloorAreaSquareMeters(input.result),
+      wallLengthM: totalWallLengthMeters(input.result),
+      ceilingHeightM: ceilingHeightMeters(input.result),
+      doorCount: input.result.doorCount,
+      windowCount: input.result.windowCount,
+      stairCount: input.result.stairCount,
+      geometry: input.result,
+    }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Could not save the scan.");
+  }
+  return ((await response.json()) as { id: string }).id;
+}
+
 /** Forget the rooms held for merging. Called when starting a new property,
     so the next job's first room isn't merged into the last job's floor. */
 export async function resetScans(): Promise<void> {
