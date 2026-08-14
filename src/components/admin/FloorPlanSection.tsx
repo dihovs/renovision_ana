@@ -12,6 +12,7 @@ import {
   subscribeFloors,
 } from "@/lib/floorMemory";
 import { squareMetersToSquareFeet, type RoomScanResult } from "@/lib/roomScan";
+import { FLOOR_ORDER } from "@/lib/crm/floors";
 
 /**
  * The Floor plans section of a project — the way IN to measuring it.
@@ -21,8 +22,6 @@ import { squareMetersToSquareFeet, type RoomScanResult } from "@/lib/roomScan";
  * page cannot see that. So the server sends what it has measured, and this
  * merges in what the operator has started.
  */
-
-export const FLOOR_ORDER = ["Basement", "Ground", "2nd", "3rd", "Attic"] as const;
 
 export type FloorRoom = {
   id: string;
