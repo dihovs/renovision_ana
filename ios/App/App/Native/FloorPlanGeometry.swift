@@ -275,13 +275,33 @@ enum FloorPlanGeometry {
 
     // MARK: - Outline
 
-    /// Walk the walls end to end into a closed loop.
+    /// A room outline with, possibly, one edge the scan never walked.
+    ///
+    /// magicplan closes an open room and DASHES the guessed edge (INT-S09) —
+    /// showing exactly what to distrust. This carries the data for that: the
+    /// loop, and which edge of it is a guess rather than a measurement.
+    struct InferredOutline {
+        /// The loop, in chain order. When the walls closed on their own the
+        /// last point lands back at the first; when an edge was inferred the
+        /// loop closes from the last point to the first along `inferredEdge`.
+        let points: [CGPoint]
+        /// The edge nobody walked, guessed to close the shape. Nil when the
+        /// walls met on their own.
+        let inferredEdge: Segment?
+    }
+
+    /// Walk the walls end to end, and close the loop with ONE guessed edge
+    /// if the walk stopped short.
     ///
     /// Nearest-endpoint rather than exact, because scanned walls rarely meet
-    /// exactly. Returns nothing rather than a wrong shape when they do not
-    /// close.
-    static func chainIntoPolygon(_ segments: [Segment], tolerance: Double = 0.25) -> [CGPoint] {
-        guard segments.count >= 3 else { return [] }
+    /// exactly. Returns nil when the pieces cannot be chained into a single
+    /// run at all — walls that do not even connect are not a room with a
+    /// missing edge, they are fragments, and closing fragments would be
+    /// pure invention.
+    static func outlineWithClosure(_ segments: [Segment], tolerance: Double = 0.25)
+        -> InferredOutline?
+    {
+        guard segments.count >= 3 else { return nil }
 
         var remaining = Array(segments.dropFirst())
         let first = segments[0]
@@ -313,16 +333,35 @@ enum FloorPlanGeometry {
                 }
             }
 
-            guard bestIndex >= 0, bestDistance <= tolerance, let end = bestEnd else { return [] }
+            guard bestIndex >= 0, bestDistance <= tolerance, let end = bestEnd else { return nil }
             remaining.remove(at: bestIndex)
             points.append(end)
         }
 
-        // It has to come back to where it started to be an outline at all.
-        guard let start = points.first, let end = points.last,
-            hypot(end.x - start.x, end.y - start.y) <= tolerance
+        guard let start = points.first, let end = points.last else { return nil }
+        if hypot(end.x - start.x, end.y - start.y) <= tolerance {
+            return InferredOutline(points: points, inferredEdge: nil)
+        }
+        // Every wall chained but the loop never came home: the one edge
+        // nobody walked. Close it and SAY it is closed — the caller decides
+        // whether to draw the guess (review does, dashed) or refuse it
+        // (the plan fill does).
+        return InferredOutline(
+            points: points,
+            inferredEdge: Segment(x1: end.x, y1: end.y, x2: start.x, y2: start.y))
+    }
+
+    /// Walk the walls end to end into a closed loop.
+    ///
+    /// Returns nothing rather than a wrong shape when they do not close on
+    /// their own — the fill this feeds must never quietly include a guessed
+    /// edge. The review sheet, which labels its guess, uses
+    /// `outlineWithClosure` directly.
+    static func chainIntoPolygon(_ segments: [Segment], tolerance: Double = 0.25) -> [CGPoint] {
+        guard let outline = outlineWithClosure(segments, tolerance: tolerance),
+            outline.inferredEdge == nil
         else { return [] }
-        return points
+        return outline.points
     }
 
     // MARK: - Area

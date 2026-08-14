@@ -8,7 +8,7 @@ import RoomEvidence from "./RoomEvidence";
 import MoistureLog from "./MoistureLog";
 import { tapFeedback } from "@/lib/haptics";
 import { MEASURE_DEFINITIONS, type MeasureDefinition } from "@/lib/crm/measureDefinitions";
-import { ROOM_TYPES } from "@/lib/crm/livingArea";
+import { ROOM_TYPES, roomTypeRule } from "@/lib/crm/livingArea";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
 import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
 import {
@@ -53,10 +53,10 @@ export default function RoomSheet({
   const [error, setError] = useState<string | null>(null);
   // Which figure's definition is open, if any — the (i) beside each stat.
   const [defining, setDefining] = useState<MeasureDefinition | null>(null);
-  // "" is "nobody has said" — kept distinct from any real type because the
+  // null is "nobody has said" — kept distinct from any real type because the
   // living-area engine treats an unset room as "other" and somebody should
   // be able to see that nothing was chosen.
-  const [roomType, setRoomType] = useState(room.room_type ?? "");
+  const [roomType, setRoomType] = useState<string | null>(room.room_type ?? null);
 
   const result = room.geometry;
 
@@ -83,21 +83,6 @@ export default function RoomSheet({
   const wallSqFt = squareMetersToSquareFeet(savedWallAreaSquareMeters(room).net);
   const perimeterFt = metersToFeet(savedPerimeterMeters(room));
   const ceilingFt = metersToFeet(savedCeilingHeightMeters(room));
-
-  const typeRule = ROOM_TYPES.find((type) => type.id === roomType) ?? null;
-
-  /** Reclassify the room. Not cosmetic: the type decides how much of this
-      room counts as living area, and whether above or below grade. */
-  async function chooseType(next: string) {
-    setRoomType(next);
-    try {
-      await updateSavedScan(room.id, { roomType: next || null });
-      setError(null);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save the room type.");
-    }
-  }
 
   async function saveArea(draft: DraftArea) {
     try {
@@ -200,15 +185,36 @@ export default function RoomSheet({
               />
             </div>
 
-            {/* What kind of room this is — the input the living-area figure
-                is computed from, so it belongs beside the measurements. */}
+            {/* Room type — the living-area engine's input, so it belongs
+                beside the measurements. The label states the current
+                classification, the select is the change control, and the
+                consequence is stated WITH the choice: percent, band, and the
+                rule's own note, so nobody guesses why a basement counts zero. */}
             <section className="rounded-2xl border border-black/5 bg-white px-4 py-3">
-              <label className="flex items-center justify-between gap-3">
-                <span className="font-heading text-sm font-bold text-charcoal">Room type</span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-heading text-sm font-bold text-charcoal">Room type</h3>
+                  <p className="text-[11px] text-charcoal/45">
+                    {roomType === null
+                      ? "Not set — counted as \u201cOther\u201d for living area."
+                      : `Counted as ${roomTypeRule(roomType).label.toLowerCase()} for living area.`}
+                  </p>
+                </div>
                 <select
-                  value={roomType}
-                  onChange={(event) => void chooseType(event.target.value)}
-                  className="max-w-[55%] cursor-pointer rounded-lg border border-black/10 bg-white px-2 py-1.5 text-sm font-semibold text-charcoal"
+                  aria-label="Room type"
+                  value={roomType ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value || null;
+                    setRoomType(value);
+                    void updateSavedScan(room.id, { roomType: value })
+                      .then(onChanged)
+                      .catch((err: unknown) => {
+                        setError(
+                          err instanceof Error ? err.message : "Could not save the room type.",
+                        );
+                      });
+                  }}
+                  className="shrink-0 cursor-pointer rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-semibold text-charcoal"
                 >
                   <option value="">Not set</option>
                   {ROOM_TYPES.map((type) => (
@@ -217,23 +223,25 @@ export default function RoomSheet({
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
 
-              {typeRule ? (
+              {roomType !== null ? (
                 <>
                   {/* What the choice does to the number, stated with it. */}
                   <p
                     className={`mt-1.5 text-xs font-medium ${
-                      typeRule.band === "above" ? "text-emerald-700" : "text-amber-700"
+                      roomTypeRule(roomType).band === "above"
+                        ? "text-emerald-700"
+                        : "text-amber-700"
                     }`}
                   >
-                    {Math.round(typeRule.percent)}% living area
-                    {typeRule.band === "below" && " · below grade"}
-                    {typeRule.band === "excluded" && " · never counts"}
+                    {Math.round(roomTypeRule(roomType).percent)}% living area
+                    {roomTypeRule(roomType).band === "below" && " · below grade"}
+                    {roomTypeRule(roomType).band === "excluded" && " · never counts"}
                   </p>
-                  {typeRule.note && (
+                  {roomTypeRule(roomType).note && (
                     <p className="mt-1 text-[11px] leading-snug text-charcoal/50">
-                      {typeRule.note}
+                      {roomTypeRule(roomType).note}
                     </p>
                   )}
                 </>

@@ -18,7 +18,9 @@ import {
  * operator asked for after using Magicplan, and it is what turns a list of
  * cards into something that reads as a floor.
  *
- * The arrangement is packed, not surveyed: see `floorLayout.ts` for why
+ * The arrangement honours `plan_x`/`plan_y` where set — rooms scanned in one
+ * native capture visit arrive with true registered positions, and dragged
+ * rooms keep theirs — and packs the rest: see `floorLayout.ts` for why
  * independently scanned rooms carry no true relative position, and why
  * pretending otherwise would be inventing the building.
  */

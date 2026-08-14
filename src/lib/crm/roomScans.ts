@@ -49,6 +49,9 @@ export type RoomScanInput = {
   stairCount: number;
   geometry: Record<string, unknown>;
   notes?: string | null;
+  /** The living-area vocabulary id, asked at capture. Null means
+      unclassified — the engine's `other` fallback — never a guess. */
+  roomType?: string | null;
 };
 
 function requireDb() {
@@ -91,6 +94,7 @@ export async function createRoomScan(input: RoomScanInput): Promise<string> {
       stair_count: input.stairCount,
       geometry: input.geometry,
       notes: input.notes?.trim() || null,
+      room_type: input.roomType ?? null,
     })
     .select("id")
     .single();

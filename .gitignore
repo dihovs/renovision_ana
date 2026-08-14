@@ -49,3 +49,7 @@ exports/
 
 # Scratch git worktrees created by background agents
 .claude/worktrees/
+
+# Reference material quarantined from the repo:
+# real business contact details, and raw unnamed capture dumps.
+Docs/reference/_excluded/

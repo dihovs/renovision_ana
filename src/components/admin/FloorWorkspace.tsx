@@ -207,7 +207,7 @@ export default function FloorWorkspace({
 
   /** Accept the reviewed capture. Offline-safe: a basement with no signal
       keeps the measurement on the phone rather than losing it. */
-  async function keepRoom(name: string) {
+  async function keepRoom(name: string, roomType: string) {
     if (!review) return;
     try {
       const outcome = await saveScanResilient({
@@ -216,6 +216,7 @@ export default function FloorWorkspace({
         level,
         position: (rooms?.length ?? 0) + pending.length,
         result: review.result,
+        roomType,
       });
       setReview(null);
       if (outcome.stored === "lost") {

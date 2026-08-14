@@ -2,12 +2,15 @@ import SwiftUI
 
 /// A whole storey on one sheet — every room drawn to scale, tappable.
 ///
-/// The arrangement is packed, not surveyed, and that honesty is inherited
-/// from the web canvas: RoomPlan measures each room from wherever the
-/// operator stood, so separately-scanned rooms carry no true relative
-/// position. Rooms the operator has dragged into place on the web keep those
-/// positions here (plan_x/plan_y); the rest fall into tidy rows. Nothing is
-/// ever resized — the layout is arbitrary, the shapes are measurements.
+/// Placement comes from `plan_x`/`plan_y` where it exists: rooms scanned in
+/// one capture visit are registered against each other by StructureBuilder
+/// (`ScanSession.swift`) and arrive with true positions, and rooms the
+/// operator dragged into place on the web keep those positions too. The
+/// rest — manual entry, separately-scanned rooms — fall into tidy packed
+/// rows, because RoomPlan measures each room from wherever the operator
+/// stood and rooms from separate visits carry no true relative position.
+/// Nothing is ever resized — a packed layout is arbitrary, the shapes are
+/// measurements.
 struct LevelCanvas: View {
     let rooms: [RoomScan]
     let onTap: (RoomScan) -> Void
