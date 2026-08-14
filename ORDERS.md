@@ -211,3 +211,77 @@ Hard-coded in four places across two languages — `FloorWorkspace.tsx:55`, `Sca
 
 Elevation view, view-mode axis, room rotation, object catalogue beyond openings, unit picker,
 volume and wall thickness, multi-workspace, sharing links. Revisit after ORD-10.
+
+---
+
+## ORD-13 — The universal inspector
+
+The reference's single strongest structural idea (§6.1): ONE swipe-up, multi-detent sheet,
+always the same tabs, for every entity — canvas stays visible above it. Our room detail is a
+pushed List screen; floor and photos are elsewhere; nothing is inspectable in place.
+
+**Do** — rebuild the native room detail as a multi-detent inspector sheet
+(`presentationDetents`, medium/large, canvas visible at medium) presented over the storey
+canvas. Three tabs, fixed order, same for every room: **Details** (plan, figures with their
+definitions, room type, adjust-the-plan entry), **Damage & Drying** (affected areas, moisture
+log — this trade's "Forms"), **Photos & Notes**. Keep every existing capability; nothing gets
+lost in the move. Presentation from LevelCanvas tap and room rows.
+
+**Done when** tapping a room opens the inspector over the visible canvas, all three tabs carry
+their existing features, and the old pushed screen is gone.
+
+**Reference:** §6.1; INT-E30–E33 (`interactions-editor.md`); `screens/48-room-selected-dimensions-detail.jpg`.
+**Territory:** `RoomDetailView.swift` (becomes the inspector), its call sites in
+`ProjectsView.swift`/`LevelCanvas.swift`. Do not touch the editors or CaptureFlow.
+
+---
+
+## ORD-14 — The editor feels like a drafting table
+
+Two gaps against §7's canvas vocabulary, redrawn in OUR palette (never system blue):
+the editors sit on a flat surface with a floating controls strip, and dimensions are pill
+labels rather than drafted strings.
+
+**Do** — (1) dotted-grid background with periodic brand-blue crosshairs in both editors, at
+0.5 m model pitch, fading out below the zoom where dots would smear. (2) Selected room fill
+becomes a fine hatch (Canvas-drawn lines, not an image). (3) A bottom **contextual action
+bar** that rewrites itself per selection — nothing selected: hint; wall: Type length · Add
+corner · Add opening; corner: Delete corner; opening: kind + Delete — replacing the current
+controls strip in both editors. Destructive item tinted red, trailing position (§6.6).
+(4) Editor dimension labels move onto thin extension lines with tick ends, brand-ink text,
+padlock glyph preserved on locked values.
+
+**Done when** both editors share the bar and the canvas vocabulary, and nothing regresses in
+drag/snap/lock/walk behaviour (the standalone PlanEditing harness still passes).
+
+**Reference:** §7 canvas table; `screens/19-floorplan-editor-2d.jpg`,
+`20-floorplan-editor-2d-detail.jpg`, `48-room-selected-dimensions-detail.jpg`.
+**Territory:** `PlanEditorView.swift`, `RoomSketchView.swift`, shared helpers in a new file.
+Do not touch RoomDetailView, CaptureFlow, or the presentation renderers
+(`FloorPlanView.swift` / `FloorPlan.tsx` stay as the drafted-output look).
+
+---
+
+## ORD-15 — Collection shells and most-common-first lists
+
+Browse screens are ad-hoc sections; the reference reuses one shell everywhere (§6.3) and
+never shows a long list where a short one serves (§6.11).
+
+**Do** — (1) A shared collection-shell component per platform: section title + chevron,
+count caption, `See all (n)`, horizontal rail with a leading dashed `+` tile. Apply to the
+web project page sections (Floor plans, Photos/Files, Estimates) and the native project
+detail's photos/files/rooms sections. (2) Most-common-first: the CaptureFlow floor chooser
+shows Ground/Basement/2nd with `See more` for the rest (this trade lives in basements — it
+is in the common three); the room-type chip row keeps its eight and gains `More…` opening
+the full 18 with notes. (3) The web floor picker (`AddFloorPlan.tsx`) gets the same split,
+driven by `floors.ts`.
+
+**Done when** the shells render on both platforms, every existing destination stays
+reachable, and the pickers show the short list first with the rest one tap away.
+
+**Reference:** §6.3, §6.11; `screens/11-project-detail-populated.jpg`,
+`12-project-detail-floorplans-photos.jpg`, `25-add-floor-sheet.jpg`,
+`30-select-room-type.jpg`.
+**Territory:** web components + pages; native `CaptureFlow.swift` (floor chooser + type
+chips only), `ProjectsView.swift` sections (rails only — coordinate nothing else there),
+`AddFloorPlan.tsx`. Do not touch RoomDetailView or the editors.
