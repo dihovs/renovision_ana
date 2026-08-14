@@ -160,6 +160,7 @@ struct ProjectDetailView: View {
     @State private var scans: [RoomScan]?
     @State private var equipment: [EquipmentPlacement] = []
     @State private var error: String?
+    @State private var capturing = false
 
     /// Storeys in building order, not the order they happened to be scanned —
     /// a basement measured last still belongs at the bottom of the list.
@@ -299,13 +300,22 @@ struct ProjectDetailView: View {
 
             // A camera rather than a plus, the way Jobber's turns into one on
             // a visit: on a property, the thing you add is a measured room.
-            FloatingAction(icon: "camera.viewfinder", label: "Scan") {}
-                .padding(.trailing, Brand.Space.large)
-                .padding(.bottom, Brand.Space.large)
+            FloatingAction(icon: "camera.viewfinder", label: "Scan") {
+                capturing = true
+            }
+            .padding(.trailing, Brand.Space.large)
+            .padding(.bottom, Brand.Space.large)
         }
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: RoomScan.self) { RoomDetailView(room: $0) }
+        .sheet(isPresented: $capturing) {
+            CaptureFlow(
+                projectId: project.id,
+                projectName: project.name,
+                existingCount: (scans ?? []).count,
+                onSaved: { Task { await load() } })
+        }
         .task { await load() }
     }
 

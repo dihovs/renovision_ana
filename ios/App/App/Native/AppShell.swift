@@ -48,6 +48,9 @@ struct MainTabs: View {
         // menu on Projects — a tab is for what gets used daily, and the
         // connection diagnostic is not that.
         TabView {
+            HomeView(onSignedOut: onSignedOut)
+                .tabItem { Label("Home", systemImage: "house.fill") }
+
             ProjectsView(onSignedOut: onSignedOut)
                 .tabItem { Label("Projects", systemImage: "folder.fill") }
 
@@ -57,13 +60,10 @@ struct MainTabs: View {
             EstimatesView()
                 .tabItem { Label("Estimates", systemImage: "doc.text.fill") }
 
-            PhoneView()
-                .tabItem { Label("Phone", systemImage: "phone.fill") }
-
-            // Temporary. Scanning belongs inside a project — a measurement
-            // with no property attached is the problem that was just fixed on
-            // the web side. It has its own tab only while the scanner is being
-            // tested daily, and comes out once it is trusted.
+            // Kept while the scanner is being tested daily. It asks which
+            // property first — a measurement with no job attached is a record
+            // of work nobody can bill. Once scanning is trusted this comes out
+            // and the Scan button on each project is the only way in.
             ScanEntryView()
                 .tabItem { Label("Scan", systemImage: "camera.viewfinder") }
         }

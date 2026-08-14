@@ -173,6 +173,12 @@ actor API {
         try await get("/api/v1/quotes", as: QuoteListResponse.self).quotes
     }
 
+    // MARK: - Dashboard
+
+    func dashboard() async throws -> DashboardSummary {
+        try await get("/api/v1/dashboard", as: DashboardSummary.self)
+    }
+
     // MARK: - Calls
 
     func calls() async throws -> [CallRecord] {
@@ -196,6 +202,16 @@ actor API {
     func scans(projectId: String) async throws -> [RoomScan] {
         let encoded = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
         return try await get("/api/v1/scans?projectId=\(encoded)", as: ScanListResponse.self).scans
+    }
+
+    /// File a finished capture against a project.
+    ///
+    /// The measurements go up as taken. The server deliberately does not
+    /// recompute them — it was not there — so what is sent here IS the record.
+    func saveScan(_ upload: ScanUpload) async throws -> String {
+        struct Created: Decodable { let id: String }
+        let data = try await request("/api/v1/scans", method: "POST", body: upload)
+        return try decode(Created.self, from: data).id
     }
 
     // MARK: - Affected areas

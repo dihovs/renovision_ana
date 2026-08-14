@@ -144,6 +144,118 @@ struct QuoteSummary: Decodable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Dashboard
+
+/// The home screen's whole payload, aggregated server-side.
+struct DashboardSummary: Decodable {
+    struct Projects: Decodable {
+        let active: Int
+        let total: Int
+        let roomsMeasured: Int
+    }
+
+    struct Estimates: Decodable {
+        let awaiting: Int
+        let awaitingCents: Int
+    }
+
+    struct Invoices: Decodable {
+        let outstanding: Int
+        let outstandingCents: Int
+    }
+
+    struct Equipment: Decodable {
+        let running: Int
+        let unitDays: Int
+    }
+
+    struct Visit: Decodable, Identifiable {
+        let id: String
+        let title: String?
+        let startsAt: Date
+        let done: Bool
+
+        enum CodingKeys: String, CodingKey { case id, title, startsAt, done }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(String.self, forKey: .id)
+            title = try? c.decodeIfPresent(String.self, forKey: .title)
+            startsAt = ISO8601.date(try? c.decode(String.self, forKey: .startsAt))
+            done = (try? c.decode(Bool.self, forKey: .done)) ?? false
+        }
+    }
+
+    let projects: Projects
+    let estimates: Estimates
+    let invoices: Invoices
+    let equipment: Equipment
+    let visits: [Visit]
+    let missedCalls: Int
+
+    /// Only the things that are a task. A figure needing no action belongs in
+    /// the numbers, not in a list headed "needs you".
+    var attentionItems: [Attention] {
+        var items: [Attention] = []
+        if missedCalls > 0 {
+            items.append(
+                Attention(
+                    icon: "phone.badge.waveform",
+                    title: "^[\(missedCalls) missed call](inflect: true) today",
+                    detail: "Somebody rang the business line and did not get through.",
+                    tone: .urgent))
+        }
+        if estimates.awaiting > 0 {
+            items.append(
+                Attention(
+                    icon: "doc.text",
+                    title: "^[\(estimates.awaiting) estimate](inflect: true) waiting",
+                    detail: "\(Money.short(estimates.awaitingCents)) out for an answer.",
+                    tone: .waiting))
+        }
+        if invoices.outstanding > 0 {
+            items.append(
+                Attention(
+                    icon: "dollarsign.circle",
+                    title: "^[\(invoices.outstanding) invoice](inflect: true) unpaid",
+                    detail: "\(Money.short(invoices.outstandingCents)) outstanding.",
+                    tone: .money))
+        }
+        if equipment.running > 0 {
+            items.append(
+                Attention(
+                    icon: "wind",
+                    title: "^[\(equipment.running) unit](inflect: true) still on site",
+                    detail: "\(equipment.unitDays) unit-days billed so far. Collect what has finished.",
+                    tone: .running))
+        }
+        return items
+    }
+
+    struct Attention: Identifiable {
+        let id = UUID()
+        let icon: String
+        let title: String
+        let detail: String
+        /// What KIND of attention, not what colour. Models describe the
+        /// business; the view decides how to draw it.
+        let tone: Tone
+
+        enum Tone { case urgent, waiting, money, running }
+    }
+}
+
+/// Cents to a short dollar string, in one place.
+enum Money {
+    static func short(_ cents: Int) -> String {
+        let value = Double(cents) / 100
+        if value >= 10_000 {
+            return "$\(Int(value / 1000))k"
+        }
+        return "$\(Int(value.rounded()))"
+    }
+}
+
 // MARK: - Calls
 
 struct CallListResponse: Decodable { let calls: [CallRecord] }
