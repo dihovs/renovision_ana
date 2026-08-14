@@ -433,16 +433,20 @@ extension FloorPlanGeometry {
         return out
     }
 
-    /// 17'-1" to the half inch — the drafted convention. Whole feet keep
+    /// What a dimension line says: 17'-1" to the half inch. Whole feet keep
     /// their -0"; under a foot drops the zero-feet prefix.
+    ///
+    /// The formatting itself lives in `LengthFormat` now, which is checked
+    /// against its TypeScript twin. This spelling is kept because every call
+    /// site says it, and because the plan's convention is a decision — half
+    /// inches, drafting style — rather than whatever the operator last picked
+    /// in settings. Output is byte-identical to the implementation that was
+    /// here before; that was checked across every half-millimetre from 0 to
+    /// 30 m before the substitution was made.
+    static let planDimensions = LengthFormat(system: .feet, denominator: 2, style: .drafting)
+
     static func feetInches(_ metres: Double) -> String {
-        let half = (metres / 0.0254 * 2).rounded() / 2
-        let feet = Int(half / 12)
-        let rem = half - Double(feet) * 12
-        let whole = Int(rem)
-        let frac = rem.truncatingRemainder(dividingBy: 1) == 0.5 ? " 1/2" : ""
-        if feet == 0 { return "\(whole)\(frac)\"" }
-        return "\(feet)'-\(whole)\(frac)\""
+        planDimensions.format(metres)
     }
 
     /// Read a length the way a contractor writes one: 12, 12.5, 12' 6,
