@@ -50,6 +50,28 @@ final class ScanSession: ObservableObject {
     /// whether "place them together" is even a sentence worth saying.
     var roomCount: Int { entries.count }
 
+    /// The rooms captured so far, for the next capture's mini-map: they
+    /// share this visit's AR world frame, so the in-progress room draws in
+    /// true position against them.
+    var capturedRoomsSoFar: [CapturedRoom] { entries.map(\.captured) }
+
+    /// A room's walls as flat plan segments in its own world frame — the
+    /// same span maths as FloorPlanGeometry (endpoints are the centre ±
+    /// half the length along the wall's axis; y is up in RoomPlan's world,
+    /// so the plan lives in x/z).
+    static func wallSegments(of room: CapturedRoom) -> [FloorPlanGeometry.Segment] {
+        room.walls.map { wall in
+            let centre = wall.transform.columns.3
+            let axis = wall.transform.columns.0
+            let half = Double(wall.dimensions.x) / 2
+            return FloorPlanGeometry.Segment(
+                x1: Double(centre.x) - Double(axis.x) * half,
+                y1: Double(centre.z) - Double(axis.z) * half,
+                x2: Double(centre.x) + Double(axis.x) * half,
+                y2: Double(centre.z) + Double(axis.z) * half)
+        }
+    }
+
     /// A room the capture screen just returned, not yet saved.
     func add(_ room: CapturedRoom) {
         entries.append(Entry(captured: room, scanId: nil))
@@ -180,23 +202,9 @@ final class ScanSession: ObservableObject {
     /// whenever the rooms share one orthogonal grid, which `.beautifyObjects`
     /// enforces for anything but a genuinely diagonal room.
     private func pageCorners(of structure: CapturedStructure) -> [UUID: CGPoint] {
-        // A wall's endpoints are its centre ± half its length along its own
-        // axis — the same span maths as FloorPlanGeometry, in the same
-        // x/z plane (y is up in RoomPlan's world).
-        func segments(of room: CapturedRoom) -> [FloorPlanGeometry.Segment] {
-            room.walls.map { wall in
-                let centre = wall.transform.columns.3
-                let axis = wall.transform.columns.0
-                let half = Double(wall.dimensions.x) / 2
-                return FloorPlanGeometry.Segment(
-                    x1: Double(centre.x) - Double(axis.x) * half,
-                    y1: Double(centre.z) - Double(axis.z) * half,
-                    x2: Double(centre.x) + Double(axis.x) * half,
-                    y2: Double(centre.z) + Double(axis.z) * half)
-            }
+        let perRoom = structure.rooms.map {
+            (id: $0.identifier, segments: Self.wallSegments(of: $0))
         }
-
-        let perRoom = structure.rooms.map { (id: $0.identifier, segments: segments(of: $0)) }
         let allSegments = perRoom.flatMap(\.segments)
         guard let longest = allSegments.max(by: { $0.length < $1.length }) else { return [:] }
 

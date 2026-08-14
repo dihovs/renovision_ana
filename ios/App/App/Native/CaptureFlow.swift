@@ -117,7 +117,10 @@ struct CaptureFlow: View {
                 })
         }
         .fullScreenCover(isPresented: .init(get: { stage == .capturing }, set: { _ in })) {
-            RoomCaptureScreen(arSession: session.arSession) { outcome in
+            RoomCaptureScreen(
+                arSession: session.arSession,
+                previousRooms: session.capturedRoomsSoFar
+            ) { outcome in
                 switch outcome {
                 case .success(let room):
                     if #available(iOS 17.0, *) {
@@ -552,12 +555,17 @@ struct CaptureFlow: View {
 /// `ScanSession` for why that is the whole multi-room feature.
 struct RoomCaptureScreen: UIViewControllerRepresentable {
     var arSession: ARSession?
+    /// Rooms already captured this visit, for the mini-map: sharing the AR
+    /// frame means the room being walked draws in true position against
+    /// them.
+    var previousRooms: [CapturedRoom] = []
     let onFinish: (Result<CapturedRoom, Error>) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
         guard #available(iOS 17.0, *) else { return UIViewController() }
         let controller = RoomScanViewController()
         controller.sharedARSession = arSession
+        controller.previousRooms = previousRooms
         controller.onFinish = onFinish
         return controller
     }
