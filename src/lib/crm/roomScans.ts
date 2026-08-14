@@ -193,10 +193,35 @@ export function polygonMetrics(polygon: { x: number; y: number }[]): {
  * corrected outline and written to their columns, where every total, every
  * report line and every estimate reads them.
  */
+/** An opening surface as the phone synthesizes it — the same centre-plus-
+    axis shape a RoomPlan detection stores, so everything that reads the blob
+    reads placed and detected openings the one way it already knows. */
+export type OpeningSurface = {
+  lengthMeters: number;
+  widthMeters: number;
+  heightMeters: number;
+  centerX: number;
+  centerZ: number;
+  axisX: number;
+  axisZ: number;
+};
+
+/** What the editor declared, in its editable edge-keyed form, plus the
+    synthesized copies. Sent only for rooms whose openings are authored
+    rather than detected — its absence means "this save says nothing about
+    openings", which is not the same statement as an empty list. */
+export type AuthoredOpenings = {
+  authored: { edge: number; offset: number; width: number; kind: string }[];
+  doors: OpeningSurface[];
+  windows: OpeningSurface[];
+  passages: OpeningSurface[];
+};
+
 export async function saveEditedPolygon(
   id: string,
   polygon: { x: number; y: number }[],
   lockedEdges: number[] = [],
+  openings?: AuthoredOpenings,
 ): Promise<void> {
   const client = requireDb();
 
@@ -216,6 +241,20 @@ export async function saveEditedPolygon(
     // able to tell those apart — "which of these did you measure?" is a fair
     // question with a real answer.
     lockedEdges,
+    // Openings the operator PLACED, replacing the (empty or previously
+    // placed) arrays a drawn room carries. Only when the save declares them
+    // — a polygon correction on a scanned room leaves its detections alone.
+    ...(openings
+      ? {
+          authoredOpenings: openings.authored,
+          doors: openings.doors,
+          windows: openings.windows,
+          openings: openings.passages,
+          doorCount: openings.doors.length,
+          windowCount: openings.windows.length,
+          openingCount: openings.passages.length,
+        }
+      : {}),
     editedAt: new Date().toISOString(),
   };
 
@@ -225,6 +264,11 @@ export async function saveEditedPolygon(
       geometry,
       floor_area_sqm: areaSqm,
       wall_length_m: perimeterM,
+      // The count columns are what lists and reports cite; they must say
+      // what the blob says.
+      ...(openings
+        ? { door_count: openings.doors.length, window_count: openings.windows.length }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

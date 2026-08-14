@@ -75,7 +75,9 @@ struct CaptureFlow: View {
         case saved
     }
 
-    private static let levels = ["Basement", "Ground", "2nd", "3rd", "Attic"]
+    // ORD-12: one floor vocabulary. The list lives in FloorVocabulary (the
+    // Swift twin of src/lib/crm/floors.ts), not here.
+    private static let levels = FloorVocabulary.ids
 
     var body: some View {
         NavigationStack {
@@ -107,8 +109,13 @@ struct CaptureFlow: View {
         .fullScreenCover(isPresented: .init(get: { stage == .drawing }, set: { _ in })) {
             RoomSketchView(
                 onCancel: { stage = .chooseFloor },
-                onDone: { polygon, ceiling in
-                    geometry = ScanGeometry(polygon: polygon, ceilingHeight: ceiling)
+                onDone: { polygon, ceiling, openings in
+                    // Both streams meet here: the drawn room carries its
+                    // authored openings (so net wall area is honest), and the
+                    // visit counter, per-room typing and pre-review analysis
+                    // from the shared-session loop all still apply.
+                    geometry = ScanGeometry(
+                        polygon: polygon, ceilingHeight: ceiling, authored: openings)
                     name = "Room \(existingCount + savedThisVisit + 1)"
                     roomType = nil
                     analysis = nil

@@ -101,6 +101,89 @@ export function makeRectangularRoom(options: {
   };
 }
 
+const INCHES_TO_METRES = 0.0254;
+
+/**
+ * The seven openings a water-damage estimate actually meets, with builders'
+ * stock sizes. The TypeScript twin of `PlanEditing.OpeningKind` in
+ * ios/App/App/Native/PlanEditing.swift — same names, same inches — because
+ * the geometry maths in this repo is deliberately duplicated in two
+ * languages, and a width that drifted between them would price the same door
+ * two ways.
+ *
+ * Widths and heights are CONVENTIONS, not measurements, stated in inches and
+ * derived. The width times the height is what the net wall area deducts, so
+ * a wrong number here is money.
+ */
+export const OPENING_PRESETS = {
+  doorSingle: { widthMeters: 32 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "doors" },
+  doorDouble: { widthMeters: 60 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "doors" },
+  doorSliding: { widthMeters: 72 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "doors" },
+  /** A cased opening — a doorless passage. Filed with the connective
+      openings, because that is what it is. */
+  doorCased: { widthMeters: 48 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "openings" },
+  windowStandard: { widthMeters: 36 * INCHES_TO_METRES, heightMeters: 48 * INCHES_TO_METRES, list: "windows" },
+  windowWide: { widthMeters: 60 * INCHES_TO_METRES, heightMeters: 48 * INCHES_TO_METRES, list: "windows" },
+  windowSmall: { widthMeters: 24 * INCHES_TO_METRES, heightMeters: 24 * INCHES_TO_METRES, list: "windows" },
+} as const;
+
+export type OpeningPreset = keyof typeof OPENING_PRESETS;
+
+/**
+ * A typed room, with an opening cut into one of its walls.
+ *
+ * The twin of `ScanGeometry.surfaces(for:polygon:ceilingHeight:)`: the
+ * opening is synthesized into the same centre-plus-axis surface a RoomPlan
+ * detection stores, positioned along the host wall from its start, so the
+ * renderer cuts it into the wall and `wallAreaSquareMeters` deducts it with
+ * no new code path anywhere.
+ *
+ * Returns a new room; the one passed in is untouched.
+ */
+export function withOpening(
+  room: RoomScanResult,
+  options: {
+    wall: number;
+    preset: OpeningPreset;
+    /** Metres from the wall's start to the near jamb. Centred when omitted. */
+    offsetMeters?: number;
+  },
+): RoomScanResult {
+  const host = room.walls[options.wall];
+  if (!host) return room;
+
+  const spec = OPENING_PRESETS[options.preset];
+  const width = spec.widthMeters;
+  const offset = options.offsetMeters ?? (host.lengthMeters - width) / 2;
+
+  // The wall's start is its centre walked back half its length; the opening's
+  // centre is then `offset + width / 2` along the same axis.
+  const along = offset + width / 2 - host.lengthMeters / 2;
+  const surface = {
+    widthMeters: width,
+    // A 6'8" door in a lower room must not deduct wall that does not exist.
+    heightMeters: Math.min(spec.heightMeters, host.heightMeters),
+    centerX: host.centerX + host.axisX * along,
+    centerZ: host.centerZ + host.axisZ * along,
+    axisX: host.axisX,
+    axisZ: host.axisZ,
+  };
+
+  const next: RoomScanResult = {
+    ...room,
+    doors: [...room.doors],
+    windows: [...room.windows],
+    openings: [...(room.openings ?? [])],
+  };
+  if (spec.list === "doors") next.doors.push(surface);
+  else if (spec.list === "windows") next.windows.push(surface);
+  else next.openings!.push(surface);
+  next.doorCount = next.doors.length;
+  next.windowCount = next.windows.length;
+  next.openingCount = next.openings!.length;
+  return next;
+}
+
 /** The bounds of what can be typed. Wide enough for a mechanical room and a
     warehouse bay, tight enough that a slipped decimal is caught here rather
     than in an estimate. */

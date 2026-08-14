@@ -22,14 +22,23 @@ struct PlanEditorView: View {
     /// its edges, re-derived every frame, so there is no state in which a
     /// drag leaves a dangling wall.
     @State private var corners: [CGPoint] = []
-    @State private var history: [[CGPoint]] = []
-    @State private var future: [[CGPoint]] = []
+    /// Doors and windows placed by hand, keyed to the polygon's edges. They
+    /// travel with the corners through every undo as one snapshot, because an
+    /// opening whose edge index outlives a corner edit is a door in the
+    /// wrong wall.
+    @State private var openings: [PlanEditing.WallOpening] = []
+    @State private var history: [Snapshot] = []
+    @State private var future: [Snapshot] = []
 
     @State private var selection: Selection = .none
-    @State private var dragStart: [CGPoint]?
+    @State private var dragStart: Snapshot?
     @State private var snapEngaged = false
     @State private var liveLabel: String?
-    @State private var typing: TypedLength?
+    /// The wall-by-wall measurement walk, when one is running. The queue is
+    /// every wall in order starting from the one the operator asked about;
+    /// the panel below the canvas drives it, the canvas highlights it.
+    @State private var measuring: MeasureRun?
+    @State private var addingOpening = false
     @State private var saving = false
     @State private var error: String?
     @State private var showDiscard = false
@@ -38,6 +47,12 @@ struct PlanEditorView: View {
     /// them apart.
     @State private var locked: Set<Int> = []
     @State private var lockedWarning: Int?
+
+    struct Snapshot {
+        var corners: [CGPoint]
+        var openings: [PlanEditing.WallOpening]
+        var locked: Set<Int>
+    }
 
     /// Viewport, in the plan's own metres.
     @State private var zoom: CGFloat = 1
@@ -49,13 +64,10 @@ struct PlanEditorView: View {
         case none
         case wall(Int)
         case corner(Int)
+        /// Index into `openings`.
+        case opening(Int)
     }
 
-    struct TypedLength: Identifiable {
-        let edge: Int
-        let current: Double
-        var id: Int { edge }
-    }
 
     // MARK: - Constants (from the spec's table)
 
@@ -72,6 +84,30 @@ struct PlanEditorView: View {
 
     private var invalid: Bool { PlanEditing.selfIntersects(corners) }
 
+    /// Openings can be placed only where the scanner placed none: a typed or
+    /// drawn room, or a scan that detected nothing. Detected openings live in
+    /// the scan's own coordinate frame — mixing hand-placed ones into the
+    /// same room risks deducting the same door twice, once as detected and
+    /// once as declared.
+    private var canAuthorOpenings: Bool {
+        guard let geometry = room.geometry else { return true }
+        if geometry.authoredOpenings != nil { return true }
+        return geometry.doors.isEmpty && geometry.windows.isEmpty && geometry.openings.isEmpty
+    }
+
+    /// The wall whose dimension chain is split right now: the selected wall,
+    /// or the host wall of the selected opening.
+    private var chainEdge: Int? {
+        switch selection {
+        case .wall(let index):
+            return openings.contains { $0.edge == index } ? index : nil
+        case .opening(let index):
+            return openings.indices.contains(index) ? openings[index].edge : nil
+        case .none, .corner:
+            return nil
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -79,7 +115,21 @@ struct PlanEditorView: View {
 
                 VStack(spacing: 0) {
                     canvas
-                    controls
+                    // While a measurement walk runs, the panel takes the
+                    // controls' place — the canvas stays above, live, with
+                    // the active wall highlighted.
+                    if let run = measuring {
+                        MeasurementPanel(
+                            step: run.position,
+                            total: run.queue.count,
+                            current: PlanEditing.edgeLength(corners, run.active),
+                            locked: locked.contains(run.active),
+                            onCommit: { commitMeasurement($0) },
+                            onUnlock: { locked.remove(run.active) },
+                            onClose: { endMeasuring() })
+                    } else {
+                        controls
+                    }
                 }
             }
             .navigationTitle(room.name)
@@ -111,18 +161,24 @@ struct PlanEditorView: View {
                 }
             }
             .task { load() }
-            .sheet(item: $typing) { target in
-                LengthSheet(current: target.current, locked: locked.contains(target.edge)) { metres in
-                    push()
-                    corners = PlanEditing.setEdgeLength(corners, index: target.edge, to: metres)
-                    // Typed IS locked. That is the whole point: the number
-                    // came from a person, and later drags must ask before
-                    // overwriting it.
-                    locked.insert(target.edge)
-                    typing = nil
-                } onUnlock: {
-                    locked.remove(target.edge)
-                    typing = nil
+            .sheet(isPresented: $addingOpening) {
+                if case .wall(let edge) = selection {
+                    OpeningPicker(
+                        edgeLength: PlanEditing.edgeLength(corners, edge),
+                        fits: { kind in
+                            PlanEditing.placeOpening(
+                                kind, onEdge: edge, of: corners, avoiding: openings) != nil
+                        }
+                    ) { kind in
+                        if let placed = PlanEditing.placeOpening(
+                            kind, onEdge: edge, of: corners, avoiding: openings)
+                        {
+                            push()
+                            openings.append(placed)
+                            selection = .opening(openings.count - 1)
+                        }
+                        addingOpening = false
+                    }
                 }
             }
             .confirmationDialog(
@@ -196,6 +252,33 @@ struct PlanEditorView: View {
                                 lineWidth: isSelected ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale),
                                 lineCap: .butt,
                                 dash: invalid ? [8, 5] : []))
+                    }
+
+                    // Openings, cut into their walls: band break, jamb caps,
+                    // our own glyphs. Drawn after the walls so the knock-out
+                    // actually knocks out.
+                    for (index, opening) in openings.enumerated() {
+                        OpeningGlyphs.draw(
+                            opening,
+                            polygon: corners,
+                            selected: selection == .opening(index),
+                            context: context,
+                            toScreen: pt,
+                            scale: scale,
+                            background: Brand.surface)
+                    }
+
+                    // The split dimension chain of the wall that owns the
+                    // selection: offset · width · offset, the row that makes
+                    // an opening's position a measurable fact.
+                    if let edge = chainEdge {
+                        OpeningGlyphs.drawChain(
+                            edge: edge,
+                            polygon: corners,
+                            openings: openings,
+                            context: context,
+                            toScreen: pt,
+                            proxySize: proxy.size)
                     }
 
                     // Corner handles, whenever anything is selected — they
@@ -274,6 +357,13 @@ struct PlanEditorView: View {
                         handleDrag(value, scale: scale)
                     }
                     .onEnded { _ in
+                        // A hand edit mid-walk becomes the walk's new ground
+                        // truth — the next commit chains from what is on
+                        // screen, not from before the drag.
+                        if dragStart != nil, measuring != nil {
+                            measuring?.baseline = corners
+                            measuring?.typed = Array(repeating: nil, count: corners.count)
+                        }
                         dragStart = nil
                         liveLabel = nil
                         snapEngaged = false
@@ -295,6 +385,24 @@ struct PlanEditorView: View {
             return
         }
 
+        // Openings before walls: an opening lies ON its wall, so the wall
+        // would otherwise always win the hit and the door could never be
+        // picked up.
+        let openingTolerance = wallBand / scale
+        var bestOpening = -1
+        var bestOpeningDistance = openingTolerance
+        for i in openings.indices {
+            let d = OpeningGlyphs.distance(to: openings[i], polygon: corners, from: point)
+            if d < bestOpeningDistance {
+                bestOpeningDistance = d
+                bestOpening = i
+            }
+        }
+        if bestOpening >= 0 {
+            select(.opening(bestOpening))
+            return
+        }
+
         let wallTolerance = wallBand / scale
         var best = -1
         var bestDistance = wallTolerance
@@ -306,10 +414,17 @@ struct PlanEditorView: View {
             }
         }
         if best >= 0 {
-            // Tapping the already-selected wall's label opens the keypad —
-            // the dimension IS the control.
-            if selection == .wall(best) {
-                typing = TypedLength(edge: best, current: PlanEditing.edgeLength(corners, best))
+            if measuring != nil {
+                // Mid-walk, tapping a wall JUMPS the walk there — the queue
+                // holds every wall, so the step counter stays honest.
+                if let position = measuring?.queue.firstIndex(of: best) {
+                    measuring?.position = position
+                    select(.wall(best))
+                }
+            } else if selection == .wall(best) {
+                // Tapping the already-selected wall's label opens the panel —
+                // the dimension IS the control.
+                startMeasuring(at: best)
             } else {
                 select(.wall(best))
             }
@@ -337,10 +452,10 @@ struct PlanEditorView: View {
         guard selection != .none else { return }
 
         if dragStart == nil {
-            dragStart = corners
+            dragStart = Snapshot(corners: corners, openings: openings, locked: locked)
             push()
         }
-        guard let start = dragStart else { return }
+        guard let start = dragStart?.corners else { return }
 
         switch selection {
         case .wall(let index):
@@ -386,6 +501,22 @@ struct PlanEditorView: View {
             let before = (index - 1 + corners.count) % corners.count
             liveLabel = "\(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, before)))  ·  \(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index)))"
 
+        case .opening(let index):
+            guard let base = dragStart?.openings, base.indices.contains(index) else { return }
+            let (a, b) = PlanEditing.edgeCorners(base[index].edge, count: start.count)
+            let direction = PlanEditing.normalised(PlanEditing.sub(start[b], start[a]))
+            // Only the component ALONG the wall counts — an opening slides in
+            // its wall; it does not leave it.
+            let along = PlanEditing.dot(
+                CGPoint(x: value.translation.width / scale, y: value.translation.height / scale),
+                direction)
+            openings[index] = PlanEditing.slideOpening(
+                base[index], along: corners, by: along,
+                avoiding: openings.enumerated().filter { $0.offset != index }.map(\.element))
+            liveLabel = PlanEditing.chain(corners, edge: base[index].edge, openings: openings)
+                .map(FloorPlanGeometry.feetInches)
+                .joined(separator: "  ·  ")
+
         case .none:
             break
         }
@@ -395,6 +526,60 @@ struct PlanEditorView: View {
         guard selection != next else { return }
         UISelectionFeedbackGenerator().selectionChanged()
         withAnimation(.easeOut(duration: 0.15)) { selection = next }
+    }
+
+    // MARK: - Measurement walk
+
+    /// Open the panel at a wall and queue every wall from there, in order —
+    /// the walk the operator would make with a tape, starting where they
+    /// are standing.
+    private func startMeasuring(at edge: Int) {
+        let n = corners.count
+        guard n >= 3, edge >= 0, edge < n else { return }
+        measuring = MeasureRun(
+            queue: (0..<n).map { (edge + $0) % n },
+            position: 0,
+            baseline: corners,
+            typed: Array(repeating: nil, count: n))
+        select(.wall(edge))
+    }
+
+    /// One `Next`/`Apply`: apply the typed length if there is one, then
+    /// advance. nil means "this wall is fine as it is" — skipping is how
+    /// half the walls of a real room get treated.
+    private func commitMeasurement(_ metres: Double?) {
+        guard var run = measuring else { return }
+        if let metres {
+            push()
+            if run.isLast {
+                // The walk's closing wall is implied by all the others; a
+                // value typed here anyway is applied the single-wall way,
+                // and any inconsistency it carries lands on the neighbours
+                // where the canvas shows it.
+                corners = PlanEditing.setEdgeLength(corners, index: run.active, to: metres)
+            } else {
+                run.typed[run.active] = metres
+                corners = PlanEditing.applyWalkLengths(
+                    run.baseline, startEdge: run.queue[0], typed: run.typed)
+            }
+            // Typed IS locked. That is the whole point: the number came from
+            // a person, and later drags must ask before overwriting it.
+            locked.insert(run.active)
+        }
+        if run.isLast {
+            endMeasuring()
+        } else {
+            run.position += 1
+            measuring = run
+            select(.wall(run.active))
+        }
+    }
+
+    /// Close the panel. Values already committed stay committed — each
+    /// `Next` was its own undoable step, so backing out of the walk is not
+    /// the same as undoing it.
+    private func endMeasuring() {
+        measuring = nil
     }
 
     private func distanceToEdge(_ p: CGPoint, index: Int) -> Double {
@@ -427,8 +612,7 @@ struct PlanEditorView: View {
                 switch selection {
                 case .wall(let index):
                     Button {
-                        typing = TypedLength(
-                            edge: index, current: PlanEditing.edgeLength(corners, index))
+                        startMeasuring(at: index)
                     } label: {
                         Label("Type length", systemImage: "keyboard")
                     }
@@ -436,6 +620,12 @@ struct PlanEditorView: View {
 
                     Button {
                         push()
+                        // The split renumbers every edge after it; openings
+                        // and locks are keyed by edge and must move too, or
+                        // a door quietly changes wall.
+                        openings = PlanEditing.openingsAfterCornerAdded(
+                            openings, polygon: corners, splitEdge: index)
+                        locked = PlanEditing.lockedAfterCornerAdded(locked, splitEdge: index)
                         let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
                         corners = next
                         selection = .corner(made)
@@ -444,9 +634,22 @@ struct PlanEditorView: View {
                     }
                     .buttonStyle(EditorButton())
 
+                    if canAuthorOpenings {
+                        Button {
+                            addingOpening = true
+                        } label: {
+                            Label("Add opening", systemImage: "door.left.hand.open")
+                        }
+                        .buttonStyle(EditorButton())
+                    }
+
                 case .corner(let index):
                     Button(role: .destructive) {
                         push()
+                        openings = PlanEditing.openingsAfterCornerRemoved(
+                            openings, polygon: corners, corner: index)
+                        locked = PlanEditing.lockedAfterCornerRemoved(
+                            locked, corner: index, count: corners.count)
                         corners = PlanEditing.removeCorner(corners, index: index)
                         selection = .none
                     } label: {
@@ -454,6 +657,22 @@ struct PlanEditorView: View {
                     }
                     .buttonStyle(EditorButton())
                     .disabled(corners.count <= 3)
+
+                case .opening(let index):
+                    if openings.indices.contains(index) {
+                        Text(openings[index].kind.label)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+
+                        Button(role: .destructive) {
+                            push()
+                            openings.remove(at: index)
+                            selection = .none
+                        } label: {
+                            Label("Remove", systemImage: "minus.circle")
+                        }
+                        .buttonStyle(EditorButton())
+                    }
 
                 case .none:
                     Text("Tap a wall to select it. Two fingers to zoom and pan.")
@@ -515,27 +734,43 @@ struct PlanEditorView: View {
                 CGPoint(x: scan.width, y: scan.height), CGPoint(x: 0, y: scan.height),
             ]
         }
+        // Placed openings come back in their editable form. An unknown kind
+        // (from a newer build) is left out of the editor rather than guessed
+        // at — deleting it here would delete it from the record on Save.
+        openings = (room.geometry?.authoredOpenings ?? []).compactMap { record in
+            guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
+            return PlanEditing.WallOpening(
+                edge: record.edge, offset: record.offset, width: record.width, kind: kind)
+        }
     }
 
     private func push() {
-        history.append(corners)
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked))
         if history.count > 100 { history.removeFirst() }
         future.removeAll()
     }
 
     private func undo() {
         guard let previous = history.popLast() else { return }
-        future.append(corners)
-        corners = previous
+        future.append(Snapshot(corners: corners, openings: openings, locked: locked))
+        corners = previous.corners
+        openings = previous.openings
+        locked = previous.locked
         selection = .none
+        // A measurement walk indexes the polygon it started on; geometry
+        // restored from history may not be that polygon. End it.
+        measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     private func redo() {
         guard let next = future.popLast() else { return }
-        history.append(corners)
-        corners = next
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked))
+        corners = next.corners
+        openings = next.openings
+        locked = next.locked
         selection = .none
+        measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -544,7 +779,11 @@ struct PlanEditorView: View {
         error = nil
         do {
             try await API.shared.saveEditedPlan(
-                roomId: room.id, corners: corners, locked: Array(locked).sorted())
+                roomId: room.id, corners: corners, locked: Array(locked).sorted(),
+                // A room with detected openings says nothing about openings
+                // here, so the detections survive the polygon correction.
+                openings: canAuthorOpenings ? openings : nil,
+                ceilingHeight: room.ceilingHeightM)
             onSaved()
             dismiss()
         } catch {
@@ -566,78 +805,89 @@ private struct EditorButton: ButtonStyle {
     }
 }
 
-/// Type an exact length.
+/// Pick what goes into the selected wall.
 ///
-/// The keypad is the whole point: a drag gets a wall roughly right, and a
-/// typed number gets it exactly right. Feet and inches, because that is what
-/// the tape in the operator's hand reads.
-private struct LengthSheet: View {
-    let current: Double
-    var locked: Bool = false
-    let onApply: (Double) -> Void
-    var onUnlock: (() -> Void)?
+/// Seven choices, not a catalogue: the doors and windows a water-damage
+/// estimate actually meets, each with its builder's-stock width shown in the
+/// units the operator thinks in. A kind that will not fit the wall is left
+/// visible but disabled with the reason — same rule as the reference's
+/// object library, without its object library.
+struct OpeningPicker: View {
+    let edgeLength: Double
+    let fits: (PlanEditing.OpeningKind) -> Bool
+    let onPick: (PlanEditing.OpeningKind) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @FocusState private var focused: Bool
 
-    private var parsed: Double? {
-        guard let metres = FloorPlanGeometry.parseFeetInches(text) else { return nil }
-        return (metres >= 0.10 && metres <= 50) ? metres : nil
-    }
+    private static let doors: [PlanEditing.OpeningKind] = [
+        .doorSingle, .doorDouble, .doorSliding, .doorCased,
+    ]
+    private static let windows: [PlanEditing.OpeningKind] = [
+        .windowStandard, .windowWide, .windowSmall,
+    ]
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Brand.canvas.ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: Brand.Space.base) {
-                    Text(
-                        locked
-                            ? "Entered by hand: \(FloorPlanGeometry.feetInches(current))"
-                            : "Currently \(FloorPlanGeometry.feetInches(current))"
-                    )
-                    .font(.system(size: 13))
-                    .foregroundStyle(locked ? .orange : Brand.inkSoft)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Brand.Space.base) {
+                        SectionHeading(title: "DOORS")
+                        rows(Self.doors)
 
-                    TextField("12' 6", text: $text)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .keyboardType(.numbersAndPunctuation)
-                        .focused($focused)
-                        .padding(Brand.Space.base)
-                        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                        SectionHeading(title: "WINDOWS")
+                            .padding(.top, Brand.Space.small)
+                        rows(Self.windows)
 
-                    if !text.isEmpty && parsed == nil {
-                        Text("Between 4 inches and 164 feet.")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                        Text("Widths are builders' stock sizes. The wall area a room is priced on drops by every opening placed here.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                            .padding(.top, Brand.Space.small)
                     }
-
-                    Button("Apply") {
-                        if let parsed { onApply(parsed) }
-                    }
-                    .buttonStyle(PrimaryButtonStyle(enabled: parsed != nil))
-                    .disabled(parsed == nil)
-
-                    if locked {
-                        Button("Unlock — go back to the measured length") {
-                            onUnlock?()
-                        }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.orange)
-                    }
-
-                    Spacer()
+                    .padding(Brand.Space.base)
                 }
-                .padding(Brand.Space.base)
             }
-            .navigationTitle("Wall length")
+            .navigationTitle("Add to this wall")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
-            .task { focused = true }
         }
-        .presentationDetents([.height(300)])
+        .presentationDetents([.medium, .large])
+    }
+
+    private func rows(_ kinds: [PlanEditing.OpeningKind]) -> some View {
+        VStack(spacing: Brand.Space.tight) {
+            ForEach(kinds, id: \.self) { kind in
+                let allowed = fits(kind)
+                Button {
+                    onPick(kind)
+                } label: {
+                    Card(padding: Brand.Space.small) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(kind.label)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(allowed ? Brand.ink : Brand.inkFaint)
+                                Text(
+                                    allowed
+                                        ? FloorPlanGeometry.feetInches(kind.width) + " wide"
+                                        : "Too wide for this wall"
+                                )
+                                .font(.system(size: 12))
+                                .foregroundStyle(allowed ? Brand.inkSoft : .orange)
+                            }
+                            Spacer()
+                            Image(systemName: "plus.circle")
+                                .foregroundStyle(allowed ? Brand.blue : Brand.inkFaint)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(!allowed)
+            }
+        }
     }
 }
+

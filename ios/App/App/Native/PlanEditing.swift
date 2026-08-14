@@ -175,6 +175,47 @@ enum PlanEditing {
         return result
     }
 
+    /// Rebuild a room from one trusted corner, the wall directions it was
+    /// drawn with, and the lengths typed so far — the maths behind the
+    /// wall-by-wall measurement walk.
+    ///
+    /// The symmetric resize above is right for a single wall and wrong for a
+    /// sequence: it moves the shared corner BEHIND the walk and quietly
+    /// changes the wall just typed. Here the walk is honest instead: anchor
+    /// at the start edge's first corner, freeze every wall's direction as it
+    /// was when the walk began, and chain each wall's length — typed where
+    /// typed, as-drawn where not — corner by corner, the way a tape is run
+    /// from the corner you already trust. Every typed wall lands exactly and
+    /// stays exactly.
+    ///
+    /// The LAST edge of the walk is derived, never chained: a closed room's
+    /// final wall is already implied by all the others and their angles, so
+    /// it absorbs whatever inconsistency the typed numbers carry — visibly,
+    /// on the canvas, rather than by silently corrupting a number somebody
+    /// entered. `typed` is indexed by edge; a nil keeps that wall as drawn.
+    static func applyWalkLengths(
+        _ baseline: [CGPoint], startEdge: Int, typed: [Double?]
+    ) -> [CGPoint] {
+        let n = baseline.count
+        guard n >= 3, startEdge >= 0, startEdge < n, typed.count == n else { return baseline }
+
+        var result = baseline
+        // Walk n-1 edges from the anchor; the edge that returns to the
+        // anchor is the derived one.
+        for i in 0..<(n - 1) {
+            let edge = (startEdge + i) % n
+            let (a, b) = edgeCorners(edge, count: n)
+            let direction = normalised(sub(baseline[b], baseline[a]))
+            let length = typed[edge] ?? edgeLength(baseline, edge)
+            guard length > 0 else { continue }
+            result[b] = quantise(
+                CGPoint(
+                    x: result[a].x + direction.x * length,
+                    y: result[a].y + direction.y * length))
+        }
+        return result
+    }
+
     // MARK: - Corners
 
     static func moveCorner(_ polygon: [CGPoint], index: Int, to point: CGPoint) -> [CGPoint] {
@@ -259,6 +300,300 @@ enum PlanEditing {
             sum += a.x * b.y - b.x * a.y
         }
         return abs(sum) / 2
+    }
+
+    // MARK: - Openings
+
+    /// A door or window authored onto a wall by hand.
+    ///
+    /// Lives on an EDGE, not at a world coordinate: `offset` is metres from
+    /// the edge's start corner to the near jamb. That way the opening rides
+    /// its wall through every drag and resize — a door in a wall stays in
+    /// that wall, which is the one invariant an opening has in real life.
+    struct WallOpening: Equatable {
+        var edge: Int
+        /// Metres from the edge's start corner to the near jamb.
+        var offset: Double
+        var width: Double
+        var kind: OpeningKind
+    }
+
+    /// The seven openings a water-damage estimate actually meets.
+    ///
+    /// Widths and heights are STARTING conventions, not measurements — the
+    /// builders' stock sizes this market is framed to, stated in inches and
+    /// derived, never typed as bare metres. The width is what the net wall
+    /// area deducts, so a wrong default here is money; these are the sizes an
+    /// adjuster will not argue with.
+    enum OpeningKind: String, CaseIterable {
+        case doorSingle
+        case doorDouble
+        case doorSliding
+        /// A cased opening — a doorless passage between rooms. Authored with
+        /// the doors but filed with the connective openings, because that is
+        /// what it is: a gap that connects, not a door that closes.
+        case doorCased
+        case windowStandard
+        case windowWide
+        case windowSmall
+
+        /// Which of the geometry's three arrays this lands in downstream.
+        enum Category { case door, window, passage }
+
+        var category: Category {
+            switch self {
+            case .doorSingle, .doorDouble, .doorSliding: return .door
+            case .doorCased: return .passage
+            case .windowStandard, .windowWide, .windowSmall: return .window
+            }
+        }
+
+        private static let inch = 0.0254
+
+        var width: Double {
+            switch self {
+            case .doorSingle: return 32 * Self.inch
+            case .doorDouble: return 60 * Self.inch
+            case .doorSliding: return 72 * Self.inch
+            case .doorCased: return 48 * Self.inch
+            case .windowStandard: return 36 * Self.inch
+            case .windowWide: return 60 * Self.inch
+            case .windowSmall: return 24 * Self.inch
+            }
+        }
+
+        /// What the net wall area deducts, with the width. Doors are the 6'8"
+        /// builder's standard; windows a nominal 4', the small one a basement
+        /// hopper's 2'.
+        var height: Double {
+            switch self {
+            case .doorSingle, .doorDouble, .doorSliding, .doorCased:
+                return 80 * Self.inch
+            case .windowStandard, .windowWide:
+                return 48 * Self.inch
+            case .windowSmall:
+                return 24 * Self.inch
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .doorSingle: return "Door"
+            case .doorDouble: return "Double door"
+            case .doorSliding: return "Sliding door"
+            case .doorCased: return "Opening (no door)"
+            case .windowStandard: return "Window"
+            case .windowWide: return "Wide window"
+            case .windowSmall: return "Small window"
+            }
+        }
+    }
+
+    /// How close to a corner a jamb may sit. Real framing needs a king stud;
+    /// drawings that let a door touch a corner exactly draw ambiguously.
+    static let jambMargin = 0.05
+
+    /// Pin an opening inside its wall. When the wall is too short for the
+    /// margins the opening is centred instead — a visible overhang the
+    /// operator will fix, rather than a silently deleted door.
+    static func clampedOffset(offset: Double, width: Double, edgeLength: Double) -> Double {
+        guard edgeLength - width >= 2 * jambMargin else { return (edgeLength - width) / 2 }
+        return min(max(offset, jambMargin), edgeLength - width - jambMargin)
+    }
+
+    /// Place a kind on an edge, in the middle of the widest gap left between
+    /// the openings already there. nil when no gap fits it — the caller
+    /// disables that choice rather than overlapping two deductions.
+    static func placeOpening(
+        _ kind: OpeningKind, onEdge edge: Int, of polygon: [CGPoint],
+        avoiding existing: [WallOpening]
+    ) -> WallOpening? {
+        let length = edgeLength(polygon, edge)
+        // Jambs of what is already on this wall, in order, bracketed by the
+        // corners' margins so every gap is computed one way.
+        var stops: [(from: Double, to: Double)] = [(0, jambMargin)]
+        for other in existing where other.edge == edge {
+            let start = clampedOffset(offset: other.offset, width: other.width, edgeLength: length)
+            stops.append((start, start + other.width))
+        }
+        stops.append((length - jambMargin, length))
+        stops.sort { $0.from < $1.from }
+
+        var bestStart = 0.0
+        var bestRun = -1.0
+        for i in 0..<(stops.count - 1) {
+            let run = stops[i + 1].from - stops[i].to
+            if run > bestRun {
+                bestRun = run
+                bestStart = stops[i].to
+            }
+        }
+        guard bestRun >= kind.width else { return nil }
+        return WallOpening(
+            edge: edge,
+            offset: quantise(bestStart + (bestRun - kind.width) / 2),
+            width: kind.width,
+            kind: kind)
+    }
+
+    /// The jamb endpoints in the polygon's own space, clamped into the wall.
+    static func openingEndpoints(_ polygon: [CGPoint], _ opening: WallOpening)
+        -> (a: CGPoint, b: CGPoint)?
+    {
+        let n = polygon.count
+        guard n >= 3, opening.edge >= 0, opening.edge < n else { return nil }
+        let (ai, bi) = edgeCorners(opening.edge, count: n)
+        let length = edgeLength(polygon, opening.edge)
+        guard length > 1e-9 else { return nil }
+        let direction = normalised(sub(polygon[bi], polygon[ai]))
+        let start = clampedOffset(offset: opening.offset, width: opening.width, edgeLength: length)
+        return (
+            CGPoint(
+                x: polygon[ai].x + direction.x * start,
+                y: polygon[ai].y + direction.y * start),
+            CGPoint(
+                x: polygon[ai].x + direction.x * (start + opening.width),
+                y: polygon[ai].y + direction.y * (start + opening.width)))
+    }
+
+    /// Slide an opening along its wall, stopped by the corners' margins and
+    /// by the other openings on the same wall — two doors cannot share studs,
+    /// and two deductions must not share wall.
+    static func slideOpening(
+        _ opening: WallOpening, along polygon: [CGPoint], by delta: Double,
+        avoiding others: [WallOpening]
+    ) -> WallOpening {
+        let length = edgeLength(polygon, opening.edge)
+        var lower = jambMargin
+        var upper = length - opening.width - jambMargin
+        for other in others where other.edge == opening.edge && other != opening {
+            let otherStart = clampedOffset(
+                offset: other.offset, width: other.width, edgeLength: length)
+            if otherStart >= opening.offset {
+                upper = min(upper, otherStart - opening.width)
+            } else {
+                lower = max(lower, otherStart + other.width)
+            }
+        }
+        guard upper >= lower else { return opening }
+        var moved = opening
+        moved.offset = quantise(min(max(opening.offset + delta, lower), upper))
+        return moved
+    }
+
+    /// The dimension chain of one wall: the pieces from corner to corner,
+    /// alternating gap · opening · gap …, summing to the wall exactly. This
+    /// is a PROJECTION of the wall, derived fresh each time — never stored,
+    /// so it cannot disagree with the wall it describes.
+    static func chain(_ polygon: [CGPoint], edge: Int, openings: [WallOpening]) -> [Double] {
+        let length = edgeLength(polygon, edge)
+        guard length > 0 else { return [] }
+        let sorted = openings
+            .filter { $0.edge == edge }
+            .map { opening -> (start: Double, width: Double) in
+                (clampedOffset(offset: opening.offset, width: opening.width, edgeLength: length),
+                 opening.width)
+            }
+            .sorted { $0.start < $1.start }
+        guard !sorted.isEmpty else { return [length] }
+
+        var pieces: [Double] = []
+        var cursor = 0.0
+        for piece in sorted {
+            pieces.append(piece.start - cursor)
+            pieces.append(piece.width)
+            cursor = piece.start + piece.width
+        }
+        pieces.append(length - cursor)
+        return pieces
+    }
+
+    // MARK: - Openings through topology changes
+    //
+    // Corner edits renumber the edges, and everything keyed by edge index —
+    // openings, locked lengths — has to be renumbered with them or it
+    // silently attaches to the wrong wall. The polygon passed in is always
+    // the one from BEFORE the change.
+
+    /// After `addCorner` split `splitEdge` at its midpoint: later edges shift
+    /// up one, and an opening on the split edge goes to whichever half holds
+    /// its centre.
+    static func openingsAfterCornerAdded(
+        _ openings: [WallOpening], polygon: [CGPoint], splitEdge: Int
+    ) -> [WallOpening] {
+        let half = edgeLength(polygon, splitEdge) / 2
+        return openings.map { opening in
+            var moved = opening
+            if opening.edge > splitEdge {
+                moved.edge += 1
+            } else if opening.edge == splitEdge {
+                let centre = opening.offset + opening.width / 2
+                if centre > half {
+                    moved.edge += 1
+                    moved.offset = opening.offset - half
+                }
+            }
+            return moved
+        }
+    }
+
+    /// After `removeCorner` merged the two edges either side of `corner`:
+    /// later edges shift down one, and openings on the merged pair land on
+    /// the merged edge — the second edge's offsets pushed past the first.
+    ///
+    /// The merged edge is the straight chord, not the sum of the two old
+    /// walls, so the offsets are approximate for a deep corner. The corner
+    /// being deleted is almost always a near-collinear kink, where the chord
+    /// and the sum agree; the clamp catches the rest.
+    static func openingsAfterCornerRemoved(
+        _ openings: [WallOpening], polygon: [CGPoint], corner: Int
+    ) -> [WallOpening] {
+        let n = polygon.count
+        let firstEdge = (corner - 1 + n) % n
+        let secondEdge = corner
+        let firstLength = edgeLength(polygon, firstEdge)
+        // Where the merged pair lives after the renumbering: corner 0 merges
+        // the wrap-around pair into the LAST new edge, every other corner
+        // merges into the edge before it.
+        let mergedEdge = corner == 0 ? n - 2 : corner - 1
+        return openings.map { opening in
+            var moved = opening
+            if opening.edge == firstEdge {
+                moved.edge = mergedEdge
+            } else if opening.edge == secondEdge {
+                moved.edge = mergedEdge
+                moved.offset = opening.offset + firstLength
+            } else if corner > 0 && opening.edge > secondEdge {
+                moved.edge -= 1
+            } else if corner == 0 {
+                moved.edge -= 1
+            }
+            return moved
+        }
+    }
+
+    /// Locked-length indices through the same renumbering. The split edge's
+    /// own lock is dropped: the typed number was for the whole wall, and
+    /// neither half is that wall any more.
+    static func lockedAfterCornerAdded(_ locked: Set<Int>, splitEdge: Int) -> Set<Int> {
+        Set(locked.compactMap { edge in
+            if edge == splitEdge { return nil }
+            return edge > splitEdge ? edge + 1 : edge
+        })
+    }
+
+    /// Both merged edges lose their locks — the merged wall is a new length
+    /// nobody typed.
+    static func lockedAfterCornerRemoved(_ locked: Set<Int>, corner: Int, count n: Int)
+        -> Set<Int>
+    {
+        let firstEdge = (corner - 1 + n) % n
+        let secondEdge = corner
+        return Set(locked.compactMap { edge in
+            if edge == firstEdge || edge == secondEdge { return nil }
+            if corner > 0 { return edge > secondEdge ? edge - 1 : edge }
+            return edge - 1
+        })
     }
 
     // MARK: - Snapping

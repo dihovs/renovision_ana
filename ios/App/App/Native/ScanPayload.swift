@@ -58,6 +58,30 @@ struct ScanGeometry: Codable {
     /// stray drag without asking first.
     var lockedEdges: [Int]?
 
+    /// Doors and windows the operator PLACED on a drawn or typed room, kept
+    /// in their editable form: which edge of the (edited) polygon, how far
+    /// along it, how wide, and what kind.
+    ///
+    /// The `doors`/`windows`/`openings` arrays above are synthesized from
+    /// these so that everything downstream — renderer, net wall area, report
+    /// — reads openings the one way it already knows. This list is the
+    /// editor's source of truth for re-opening the room, and the record of
+    /// what the operator actually declared: a placed door and a detected one
+    /// are different kinds of fact, exactly like a typed length and a
+    /// measured one.
+    var authoredOpenings: [AuthoredOpening]?
+
+    struct AuthoredOpening: Codable, Hashable {
+        let edge: Int
+        /// Metres from the edge's start corner to the near jamb.
+        let offset: Double
+        let width: Double
+        /// `PlanEditing.OpeningKind` rawValue, stored as text so the blob
+        /// stays readable and an unknown future kind degrades to nothing
+        /// rather than to a decoding failure.
+        let kind: String
+    }
+
     struct EditedPoint: Codable, Hashable {
         let x: Double
         let y: Double
@@ -72,9 +96,12 @@ struct ScanGeometry: Codable {
     /// everywhere downstream — plan, totals, damage areas, report — with no
     /// second kind of room for every future feature to learn about.
     ///
-    /// Openings are empty, deliberately. Wall area is priced net of doors and
-    /// windows, so inventing an opening nobody drew would be inventing money.
-    init(polygon: [CGPoint], ceilingHeight: Double) {
+    /// Openings appear only when the operator placed them. Wall area is
+    /// priced net of doors and windows, so an opening nobody declared would
+    /// be inventing money — but so is ignoring the door every room has: a
+    /// drawn room with no way to carry one reports its gross wall area as
+    /// net, systematically high.
+    init(polygon: [CGPoint], ceilingHeight: Double, authored: [PlanEditing.WallOpening] = []) {
         var madeWalls: [Surface] = []
         for i in polygon.indices {
             let a = polygon[i]
@@ -104,19 +131,80 @@ struct ScanGeometry: Codable {
             twice += a.x * b.y - b.x * a.y
         }
 
+        let placed = Self.surfaces(
+            for: authored, polygon: polygon, ceilingHeight: ceilingHeight)
+
         self.walls = madeWalls
         self.floors = [Floor(areaSquareMeters: abs(twice) / 2)]
-        self.doors = []
-        self.windows = []
-        self.openings = []
-        self.doorCount = 0
-        self.windowCount = 0
-        self.openingCount = 0
+        self.doors = placed.doors
+        self.windows = placed.windows
+        self.openings = placed.passages
+        self.doorCount = placed.doors.count
+        self.windowCount = placed.windows.count
+        self.openingCount = placed.passages.count
         self.stairCount = 0
         self.editedPolygon = polygon.map { EditedPoint(x: $0.x, y: $0.y) }
         // A drawn room is typed by definition — every wall of it is a number
         // somebody entered, so every wall is locked.
         self.lockedEdges = Array(0..<madeWalls.count)
+        self.authoredOpenings = authored.map {
+            AuthoredOpening(
+                edge: $0.edge, offset: $0.offset, width: $0.width, kind: $0.kind.rawValue)
+        }
+    }
+
+    /// Synthesize the downstream form of the authored openings: the same
+    /// centre-plus-axis surfaces a RoomPlan detection produces, in the
+    /// polygon's own space, so the renderer cuts them into their walls and
+    /// the net wall area deducts them with no new code path anywhere.
+    ///
+    /// Heights are the kind's convention clamped to the ceiling — a 6'8"
+    /// door in a 6' crawl space must not deduct wall that does not exist.
+    static func surfaces(
+        for authored: [ScanGeometry.AuthoredOpening], polygon: [CGPoint], ceilingHeight: Double
+    ) -> (doors: [Surface], windows: [Surface], passages: [Surface]) {
+        var doors: [Surface] = []
+        var windows: [Surface] = []
+        var passages: [Surface] = []
+
+        for record in authored {
+            // An unknown kind came from a newer build; skipping it here only
+            // affects the synthesized copies — the authored record itself
+            // survives untouched.
+            guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { continue }
+            let opening = PlanEditing.WallOpening(
+                edge: record.edge, offset: record.offset, width: record.width, kind: kind)
+            guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { continue }
+            let dx = b.x - a.x
+            let dy = b.y - a.y
+            let width = hypot(dx, dy)
+            guard width > 0.01 else { continue }
+            let surface = Surface(
+                lengthMeters: width,
+                widthMeters: width,
+                heightMeters: min(kind.height, ceilingHeight),
+                centerX: (a.x + b.x) / 2,
+                centerZ: (a.y + b.y) / 2,
+                axisX: dx / width,
+                axisZ: dy / width)
+            switch kind.category {
+            case .door: doors.append(surface)
+            case .window: windows.append(surface)
+            case .passage: passages.append(surface)
+            }
+        }
+        return (doors, windows, passages)
+    }
+
+    static func surfaces(
+        for authored: [PlanEditing.WallOpening], polygon: [CGPoint], ceilingHeight: Double
+    ) -> (doors: [Surface], windows: [Surface], passages: [Surface]) {
+        surfaces(
+            for: authored.map {
+                AuthoredOpening(
+                    edge: $0.edge, offset: $0.offset, width: $0.width, kind: $0.kind.rawValue)
+            },
+            polygon: polygon, ceilingHeight: ceilingHeight)
     }
 
     init(room: CapturedRoom) {

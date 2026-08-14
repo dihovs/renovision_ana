@@ -1,6 +1,56 @@
 import { NextResponse } from "next/server";
 import { guarded } from "../../guard";
 import { deleteRoomScan, saveEditedPolygon, updateRoomScan } from "@/lib/crm/roomScans";
+import type { AuthoredOpenings, OpeningSurface } from "@/lib/crm/roomScans";
+
+/** One synthesized opening surface, or nothing — a single bad number drops
+    the record rather than storing a NaN that will later render as a door. */
+function readSurface(value: unknown): OpeningSurface | null {
+  const record = value as Record<string, unknown>;
+  const fields = [
+    "lengthMeters",
+    "widthMeters",
+    "heightMeters",
+    "centerX",
+    "centerZ",
+    "axisX",
+    "axisZ",
+  ] as const;
+  const out = {} as Record<(typeof fields)[number], number>;
+  for (const field of fields) {
+    const n = Number(record?.[field]);
+    if (!Number.isFinite(n)) return null;
+    out[field] = n;
+  }
+  return out;
+}
+
+/** The openings half of an edited-plan save, when the save declares one.
+    `authoredOpenings` present as an array is the signal; absent means the
+    save says nothing about openings and the stored ones stay. */
+function readOpenings(body: Record<string, unknown>): AuthoredOpenings | undefined {
+  if (!Array.isArray(body.authoredOpenings)) return undefined;
+
+  const authored = (body.authoredOpenings as unknown[]).flatMap((value) => {
+    const record = value as { edge?: unknown; offset?: unknown; width?: unknown; kind?: unknown };
+    const edge = Number(record?.edge);
+    const offset = Number(record?.offset);
+    const width = Number(record?.width);
+    return Number.isInteger(edge) && edge >= 0 && Number.isFinite(offset) && Number.isFinite(width) && typeof record?.kind === "string"
+      ? [{ edge, offset, width, kind: record.kind }]
+      : [];
+  });
+
+  const surfaces = (value: unknown): OpeningSurface[] =>
+    Array.isArray(value) ? value.flatMap((v) => readSurface(v) ?? []) : [];
+
+  return {
+    authored,
+    doors: surfaces(body.doors),
+    windows: surfaces(body.windows),
+    passages: surfaces(body.openings),
+  };
+}
 
 /** Rename a room or move it to another floor. The measurements themselves
     are a record of what was scanned and are deliberately not editable. */
@@ -33,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             .map((n) => Number(n))
             .filter((n) => Number.isInteger(n) && n >= 0 && n < polygon.length)
         : [];
-      await saveEditedPolygon(id, polygon, locked);
+      await saveEditedPolygon(id, polygon, locked, readOpenings(body));
     }
 
     await updateRoomScan(id, {
