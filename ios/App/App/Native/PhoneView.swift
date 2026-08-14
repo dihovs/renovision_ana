@@ -11,10 +11,12 @@ struct PhoneView: View {
     @StateObject private var calls = CallManager.shared
     @State private var typed = ""
     @State private var contacts: [ClientSummary]?
-    @State private var mode: Mode = .keypad
+    @State private var mode: Mode = .recents
+    @State private var recents: [CallRecord]?
     @State private var query = ""
 
     enum Mode: String, CaseIterable {
+        case recents = "Recents"
         case keypad = "Keypad"
         case contacts = "Contacts"
     }
@@ -42,16 +44,19 @@ struct PhoneView: View {
                     .padding(.horizontal, Brand.Space.base)
                     .padding(.bottom, Brand.Space.small)
 
-                    if mode == .keypad {
-                        keypad
-                    } else {
-                        contactList
+                    switch mode {
+                    case .recents: recentList
+                    case .keypad: keypad
+                    case .contacts: contactList
                     }
                 }
             }
             .navigationTitle("Phone")
             .navigationBarTitleDisplayMode(.inline)
-            .task { await loadContacts() }
+            .task {
+                await loadContacts()
+                await loadRecents()
+            }
         }
         // The in-call screen covers everything, the way a call does on a phone.
         .fullScreenCover(isPresented: .constant(calls.state.isBusy)) {
@@ -167,6 +172,40 @@ struct PhoneView: View {
 
     private func loadContacts() async {
         contacts = (try? await API.shared.clients()) ?? []
+    }
+
+    private func loadRecents() async {
+        recents = (try? await API.shared.calls()) ?? []
+    }
+
+    // MARK: - Recents
+
+    /// Who called, who was called, and whether anybody actually spoke. The
+    /// last of those matters most: a row for a call that rang out should not
+    /// look like one that was answered, or the log stops being scannable.
+    private var recentList: some View {
+        ScrollView {
+            LazyVStack(spacing: Brand.Space.small) {
+                if recents == nil {
+                    ProgressView().padding(.top, 40)
+                } else if recents!.isEmpty {
+                    Card {
+                        Text("No calls yet. Calls placed here and calls to the business number both land in this list.")
+                            .font(.callout)
+                            .foregroundStyle(Brand.inkSoft)
+                    }
+                } else {
+                    ForEach(recents!) { record in
+                        RecentRow(record: record) { number in
+                            Task { await calls.place(to: number) }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.bottom, Brand.Space.large)
+        }
+        .refreshable { await loadRecents() }
     }
 
     private struct Key {
@@ -421,5 +460,56 @@ private struct CallToggle: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+
+/// One line in Recents.
+private struct RecentRow: View {
+    let record: CallRecord
+    let onCall: (String) -> Void
+
+    var body: some View {
+        Card(padding: Brand.Space.small) {
+            HStack(spacing: Brand.Space.small) {
+                Image(systemName: record.icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(record.answered ? Brand.inkSoft : .red)
+                    .frame(width: 26)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(CallManager.pretty(CallManager.normalise(record.otherNumber)))
+                        .font(.system(size: 15, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(record.answered ? Brand.ink : .red)
+                    HStack(spacing: 5) {
+                        Text(record.startedAt, format: .dateTime.month(.abbreviated).day().hour().minute())
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                        if let length = record.lengthLabel {
+                            Text("·").font(.system(size: 11)).foregroundStyle(Brand.inkFaint)
+                            Text(length).font(.system(size: 11).monospacedDigit())
+                                .foregroundStyle(Brand.inkFaint)
+                        }
+                        if record.escalated {
+                            StatusBadge(text: "escalated", tone: .warning)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Button {
+                    onCall(record.otherNumber)
+                } label: {
+                    Image(systemName: "phone.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Brand.green, in: .circle)
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }

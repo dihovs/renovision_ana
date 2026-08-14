@@ -173,6 +173,12 @@ actor API {
         try await get("/api/v1/quotes", as: QuoteListResponse.self).quotes
     }
 
+    // MARK: - Calls
+
+    func calls() async throws -> [CallRecord] {
+        try await get("/api/v1/calls", as: CallListResponse.self).calls
+    }
+
     // MARK: - Health
 
     func health() async throws -> Health {

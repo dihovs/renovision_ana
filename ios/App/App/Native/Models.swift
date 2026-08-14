@@ -144,6 +144,55 @@ struct QuoteSummary: Decodable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Calls
+
+struct CallListResponse: Decodable { let calls: [CallRecord] }
+
+struct CallRecord: Decodable, Identifiable, Hashable {
+    let id: String
+    let fromNumber: String?
+    let toNumber: String?
+    let status: String
+    let startedAt: Date
+    let durationSeconds: Int?
+    let answered: Bool
+    let escalated: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, status, answered, escalated
+        case fromNumber, toNumber, startedAt, durationSeconds
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        fromNumber = try? c.decodeIfPresent(String.self, forKey: .fromNumber)
+        toNumber = try? c.decodeIfPresent(String.self, forKey: .toNumber)
+        status = (try? c.decode(String.self, forKey: .status)) ?? "completed"
+        startedAt = ISO8601.date(try? c.decode(String.self, forKey: .startedAt))
+        durationSeconds = try? c.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        answered = (try? c.decode(Bool.self, forKey: .answered)) ?? false
+        escalated = (try? c.decode(Bool.self, forKey: .escalated)) ?? false
+    }
+
+    /// The number that is not ours. Every row in this log is a call involving
+    /// the business line, so the useful half is the other party — showing our
+    /// own number back to us would make every row look identical.
+    var otherNumber: String {
+        fromNumber ?? toNumber ?? "Unknown"
+    }
+
+    var icon: String {
+        if !answered { return "phone.arrow.down.left" }
+        return "phone.arrow.down.left"
+    }
+
+    var lengthLabel: String? {
+        guard let seconds = durationSeconds, seconds > 0 else { return nil }
+        return seconds < 60 ? "\(seconds)s" : "\(seconds / 60)m \(seconds % 60)s"
+    }
+}
+
 // MARK: - Room scans
 
 struct ScanListResponse: Decodable { let scans: [RoomScan] }
