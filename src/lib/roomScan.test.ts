@@ -3,13 +3,18 @@ import {
   ceilingHeightMeters,
   metersToFeet,
   openingAreaSquareMeters,
+  savedFloorAreaSquareMeters,
+  savedPerimeterMeters,
   squareMetersToSquareFeet,
   toFloorPlan,
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
   wallAreaSquareMeters,
   type RoomScanResult,
+  type SavedScan,
+  type ScanGeometry,
 } from "./roomScan";
+import { polygonMetrics } from "./crm/roomScans";
 
 /**
  * The scan's geometry, which is the part that can be wrong quietly.
@@ -169,5 +174,94 @@ describe("wall area", () => {
 
   it("takes the ceiling from the tallest wall", () => {
     expect(ceilingHeightMeters(bedroom())).toBeCloseTo(2.449, 3);
+  });
+});
+
+describe("a hand-corrected outline (editedPolygon)", () => {
+  // An L-shaped correction, deliberately NOT at the origin: the editor works
+  // in the squared plan's own frame, so honouring the edit includes moving
+  // it back to (0, 0) the way the native renderer does.
+  const edited = [
+    { x: 3, y: 2 },
+    { x: 8, y: 2 },
+    { x: 8, y: 5 },
+    { x: 6, y: 5 },
+    { x: 6, y: 7 },
+    { x: 3, y: 7 },
+  ];
+
+  function editedRoom(): ScanGeometry {
+    return { ...bedroom(), editedPolygon: edited, lockedEdges: [0], editedAt: "2026-08-14" };
+  }
+
+  /** The saved row as the server writes it after an edit: the columns
+      recomputed from the corrected outline by the same code the API uses. */
+  function savedRow(): SavedScan {
+    const { areaSqm, perimeterM } = polygonMetrics(edited);
+    return {
+      id: "room-1",
+      name: "Bedroom",
+      level: "Ground",
+      position: 0,
+      floor_area_sqm: areaSqm,
+      wall_length_m: perimeterM,
+      ceiling_height_m: 2.449,
+      door_count: 1,
+      window_count: 1,
+      stair_count: 0,
+      geometry: editedRoom(),
+    };
+  }
+
+  it("replaces the scan's walls for drawing, normalised to the origin", () => {
+    const plan = toFloorPlan(editedRoom());
+    expect(plan.segments).toHaveLength(edited.length);
+    expect(plan.openings).toHaveLength(0);
+    const xs = plan.polygon.map((p) => p.x);
+    const ys = plan.polygon.map((p) => p.y);
+    expect(Math.min(...xs)).toBeCloseTo(0, 9);
+    expect(Math.min(...ys)).toBeCloseTo(0, 9);
+    expect(plan.width).toBeCloseTo(5, 9);
+    expect(plan.height).toBeCloseTo(5, 9);
+    // The shift is recorded, so anything positioned in the original frame
+    // can follow the plan to the origin.
+    expect(plan.offsetX).toBeCloseTo(3, 9);
+    expect(plan.offsetY).toBeCloseTo(2, 9);
+  });
+
+  it("reports identical floor area and perimeter through the drawing and the columns", () => {
+    // Path one: what the web plan DRAWS — area and perimeter implied by the
+    // polygon toFloorPlan returns.
+    const plan = toFloorPlan(editedRoom());
+    const drawnPerimeter = plan.segments.reduce(
+      (sum, s) => sum + Math.hypot(s.x2 - s.x1, s.y2 - s.y1),
+      0,
+    );
+    let twice = 0;
+    for (let i = 0; i < plan.polygon.length; i += 1) {
+      const a = plan.polygon[i];
+      const b = plan.polygon[(i + 1) % plan.polygon.length];
+      twice += a.x * b.y - b.x * a.y;
+    }
+    const drawnArea = Math.abs(twice) / 2;
+
+    // Path two: what the stored columns SAY — written by the server from the
+    // same outline, read back through the saved-room helpers.
+    const row = savedRow();
+    expect(savedFloorAreaSquareMeters(row)).toBeCloseTo(drawnArea, 9);
+    expect(savedPerimeterMeters(row)).toBeCloseTo(drawnPerimeter, 9);
+
+    // And both are the corrected figures, not the scan's raw ones.
+    expect(drawnArea).toBeCloseTo(21, 9); // 5×5 minus the 2×2 notch
+    expect(drawnPerimeter).toBeCloseTo(20, 9);
+    expect(drawnArea).not.toBeCloseTo(totalFloorAreaSquareMeters(bedroom()), 1);
+  });
+
+  it("derives from the geometry when the columns were never filled", () => {
+    // Rows from before the columns existed carry the default 0 — zero means
+    // absent, and the raw scan is the only figure there is.
+    const row: SavedScan = { ...savedRow(), floor_area_sqm: 0, wall_length_m: 0, geometry: bedroom() };
+    expect(savedFloorAreaSquareMeters(row)).toBeCloseTo(totalFloorAreaSquareMeters(bedroom()), 9);
+    expect(savedPerimeterMeters(row)).toBeCloseTo(totalWallLengthMeters(bedroom()), 9);
   });
 });

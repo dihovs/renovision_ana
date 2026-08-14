@@ -9,15 +9,15 @@ import { tapFeedback } from "@/lib/haptics";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
 import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
 import {
-  ceilingHeightMeters,
   deleteSavedScan,
   metersToFeet,
+  savedCeilingHeightMeters,
+  savedFloorAreaSquareMeters,
+  savedPerimeterMeters,
+  savedWallAreaSquareMeters,
   showRoomModel,
   squareMetersToSquareFeet,
-  totalFloorAreaSquareMeters,
-  totalWallLengthMeters,
   updateSavedScan,
-  wallAreaSquareMeters,
   type SavedScan,
 } from "@/lib/roomScan";
 
@@ -67,10 +67,13 @@ export default function RoomSheet({
     };
   }, [room.id]);
 
-  const floorSqFt = squareMetersToSquareFeet(totalFloorAreaSquareMeters(result));
-  const wallSqFt = squareMetersToSquareFeet(wallAreaSquareMeters(result).net);
-  const perimeterFt = metersToFeet(totalWallLengthMeters(result));
-  const ceilingFt = metersToFeet(ceilingHeightMeters(result));
+  // From the stored columns, not recomputed from the raw geometry — the
+  // columns carry the hand-corrected figures after a plan edit, and they are
+  // what the phone, the report and the estimates already read.
+  const floorSqFt = squareMetersToSquareFeet(savedFloorAreaSquareMeters(room));
+  const wallSqFt = squareMetersToSquareFeet(savedWallAreaSquareMeters(room).net);
+  const perimeterFt = metersToFeet(savedPerimeterMeters(room));
+  const ceilingFt = metersToFeet(savedCeilingHeightMeters(room));
 
   async function saveArea(draft: DraftArea) {
     try {

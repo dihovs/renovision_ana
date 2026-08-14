@@ -19,12 +19,12 @@ import {
   listSavedScans,
   metersToFeet,
   roomScanSupport,
+  savedFloorAreaSquareMeters,
+  savedPerimeterMeters,
+  savedWallAreaSquareMeters,
   scanRoom,
   squareMetersToSquareFeet,
-  totalFloorAreaSquareMeters,
-  totalWallLengthMeters,
   updateSavedScan,
-  wallAreaSquareMeters,
   type RoomScanResult,
   type SavedScan,
   type ScanSupport,
@@ -249,16 +249,19 @@ export default function FloorWorkspace({
     }
   }
 
+  // Totals from the stored columns, not recomputed from the raw geometry —
+  // the columns carry the hand-corrected figures after a plan edit, and they
+  // are what the native app, the report and the estimates already read.
   const floorSqFt = (rooms ?? []).reduce(
-    (sum, room) => sum + squareMetersToSquareFeet(totalFloorAreaSquareMeters(room.geometry)),
+    (sum, room) => sum + squareMetersToSquareFeet(savedFloorAreaSquareMeters(room)),
     0,
   );
   const wallSqFt = (rooms ?? []).reduce(
-    (sum, room) => sum + squareMetersToSquareFeet(wallAreaSquareMeters(room.geometry).net),
+    (sum, room) => sum + squareMetersToSquareFeet(savedWallAreaSquareMeters(room).net),
     0,
   );
   const perimeterFt = (rooms ?? []).reduce(
-    (sum, room) => sum + metersToFeet(totalWallLengthMeters(room.geometry)),
+    (sum, room) => sum + metersToFeet(savedPerimeterMeters(room)),
     0,
   );
 
