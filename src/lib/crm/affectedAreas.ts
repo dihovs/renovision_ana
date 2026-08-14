@@ -28,6 +28,9 @@ export {
   DAMAGE_COLOR,
   polygonAreaSqm,
   areaColor,
+  bySurface,
+  floorAreas,
+  wallAreas,
   totalsByDamageType,
 } from "./areaShapes";
 export type { AffectedArea, AffectedAreaInput, AreaPoint, DamageType } from "./areaShapes";

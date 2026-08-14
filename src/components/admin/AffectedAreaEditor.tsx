@@ -5,6 +5,7 @@ import { tapFeedback } from "@/lib/haptics";
 import { squareMetersToSquareFeet, toFloorPlan, type RoomScanResult } from "@/lib/roomScan";
 import {
   areaColor,
+  floorAreas,
   polygonAreaSqm,
   DAMAGE_LABEL,
   DAMAGE_TYPES,
@@ -152,8 +153,13 @@ export default function AffectedAreaEditor({
           ))}
 
           {/* Already-recorded areas, so a new one can be placed beside them
-              rather than blindly on top. */}
-          {(existing ?? []).map((area) => (
+              rather than blindly on top.
+
+              Floor areas only. A wall area's polygon is metres along the wall
+              by metres above the floor; read as plan coordinates it draws a
+              shape somewhere arbitrary, which looks like a broken scan. Wall
+              damage is drawn on the wall, in elevation. */}
+          {floorAreas(existing ?? []).map((area) => (
             <polygon
               key={area.id}
               points={area.polygon.map((p) => `${p.x},${p.y}`).join(" ")}

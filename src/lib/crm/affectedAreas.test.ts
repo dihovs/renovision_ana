@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   areaColor,
   polygonAreaSqm,
+  bySurface,
+  floorAreas,
+  wallAreas,
   totalsByDamageType,
   DAMAGE_COLOR,
   type AffectedArea,
@@ -123,6 +126,59 @@ describe("totalsByDamageType", () => {
   it("omits causes with nothing recorded rather than showing zeroes", () => {
     expect(totalsByDamageType([area({ damage_type: "impact", area_sqm: 3 })])).toEqual([
       { type: "impact", sqm: 3 },
+    ]);
+  });
+});
+
+describe("splitting by surface", () => {
+  /**
+   * The rule that keeps a wall area off the floor plan and out of the floor
+   * total. Two independent reasons, and either one alone would be enough:
+   * the polygons are in different coordinate spaces, and the two surfaces
+   * are different trades at different rates.
+   */
+  const wetFloor = area({ id: "f1", surface: "floor", area_sqm: 10 });
+  const wetWall = area({ id: "w1", surface: "wall", wall_index: 2, area_sqm: 6 });
+  const mouldyWall = area({ id: "w2", surface: "wall", wall_index: 0, damage_type: "mould", area_sqm: 4 });
+  const mixed = [wetFloor, wetWall, mouldyWall];
+
+  it("keeps wall areas off the floor", () => {
+    expect(floorAreas(mixed).map((a) => a.id)).toEqual(["f1"]);
+  });
+
+  it("keeps floor areas off the walls", () => {
+    expect(wallAreas(mixed).map((a) => a.id)).toEqual(["w2", "w1"]);
+  });
+
+  it("orders wall areas by the wall they sit on", () => {
+    // So a room's wall damage reads in the same order the walls are indexed
+    // rather than in whatever order they happened to be drawn.
+    expect(wallAreas(mixed).map((a) => a.wall_index)).toEqual([0, 2]);
+  });
+
+  it("treats an area with no surface as floor", () => {
+    // Every row written before wall areas existed carries no surface, and
+    // every one of them is a floor area. Dropping them would quietly delete
+    // damage from finished claims.
+    const legacy = { ...area({ id: "old" }), surface: undefined as unknown as "floor" };
+    expect(floorAreas([legacy]).map((a) => a.id)).toEqual(["old"]);
+    expect(wallAreas([legacy])).toHaveLength(0);
+  });
+
+  it("splits both ways at once without losing or duplicating anything", () => {
+    const { floor, wall } = bySurface(mixed);
+    expect(floor.length + wall.length).toBe(mixed.length);
+    expect([...floor, ...wall].map((a) => a.id).sort()).toEqual(["f1", "w1", "w2"]);
+  });
+
+  it("never adds floor and wall square footage together", () => {
+    // 10 sq m of wet floor and 6 of wet wall is not 16 sq m of anything.
+    const floorWater = totalsByDamageType(floorAreas(mixed));
+    const wallWater = totalsByDamageType(wallAreas(mixed));
+    expect(floorWater).toEqual([{ type: "water", sqm: 10 }]);
+    expect(wallWater).toEqual([
+      { type: "water", sqm: 6 },
+      { type: "mould", sqm: 4 },
     ]);
   });
 });

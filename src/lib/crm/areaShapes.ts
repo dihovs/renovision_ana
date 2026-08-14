@@ -94,6 +94,53 @@ export function areaColor(area: Pick<AffectedArea, "color" | "damage_type">): st
  * of them would double-count the square footage where a wall is both wet
  * and smoke-stained.
  */
+/**
+ * Split areas by the surface they sit on.
+ *
+ * These two are not interchangeable and must never be added together, for
+ * two independent reasons.
+ *
+ * Their polygons are in different coordinate spaces. A floor area is metres
+ * in the plan. A wall area is metres *along the wall* by metres *above the
+ * floor* — a different origin, a different second axis, and a y that grows
+ * upward rather than down the page. Drawing a wall area on the floor plan
+ * puts a shape somewhere meaningless, which looks like a bug in the scan.
+ *
+ * And a wet floor and a wet wall are different trades at different rates.
+ * One summed square-footage prices neither of them.
+ *
+ * Anything reading `AffectedArea[]` off the API has both kinds in it, so
+ * this is the first thing to call.
+ */
+export function bySurface(areas: AffectedArea[]): {
+  floor: AffectedArea[];
+  wall: AffectedArea[];
+} {
+  return {
+    floor: areas.filter((area) => area.surface !== "wall"),
+    wall: areas.filter((area) => area.surface === "wall"),
+  };
+}
+
+/** Only what is on the floor. Anything drawn in plan coordinates wants this. */
+export function floorAreas(areas: AffectedArea[]): AffectedArea[] {
+  // Defaults to floor when absent: rows written before wall areas existed
+  // carry no surface, and every one of them is a floor area.
+  return areas.filter((area) => area.surface !== "wall");
+}
+
+/** Only what is on a wall, in the order the walls are indexed. */
+export function wallAreas(areas: AffectedArea[]): AffectedArea[] {
+  return areas
+    .filter((area) => area.surface === "wall")
+    .sort((a, b) => (a.wall_index ?? 0) - (b.wall_index ?? 0));
+}
+
+/**
+ * Totals per cause for the areas GIVEN. It sums exactly what it is handed and
+ * does not filter — pass `floorAreas(...)` or `wallAreas(...)`, never a raw
+ * mixed list, or the result is square metres of two different things.
+ */
 export function totalsByDamageType(areas: AffectedArea[]): { type: DamageType; sqm: number }[] {
   const totals = new Map<DamageType, number>();
   for (const area of areas) {

@@ -10,7 +10,13 @@ import { tapFeedback } from "@/lib/haptics";
 import { MEASURE_DEFINITIONS, type MeasureDefinition } from "@/lib/crm/measureDefinitions";
 import { ROOM_TYPES, roomTypeRule } from "@/lib/crm/livingArea";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
-import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
+import {
+  areaColor,
+  floorAreas,
+  wallAreas,
+  DAMAGE_LABEL,
+  type AffectedArea,
+} from "@/lib/crm/areaShapes";
 import {
   deleteSavedScan,
   metersToFeet,
@@ -276,13 +282,24 @@ export default function RoomSheet({
               <div className="flex items-center justify-between px-4 py-3">
                 <h3 className="font-heading text-sm font-bold text-charcoal">Affected areas</h3>
                 {areas !== null && areas.length > 0 && (
+                  /* Floor and wall stated separately, never added. They are
+                     different trades at different rates, so one merged
+                     square-footage prices neither. */
                   <span className="text-xs font-bold tabular-nums text-charcoal/45">
-                    {Math.round(
-                      squareMetersToSquareFeet(
-                        areas.reduce((sum, area) => sum + Number(area.area_sqm), 0),
-                      ),
-                    ).toLocaleString("en-CA")}{" "}
-                    sq ft
+                    {[
+                      { label: "floor", list: floorAreas(areas) },
+                      { label: "wall", list: wallAreas(areas) },
+                    ]
+                      .filter(({ list }) => list.length > 0)
+                      .map(
+                        ({ label, list }) =>
+                          `${Math.round(
+                            squareMetersToSquareFeet(
+                              list.reduce((sum, area) => sum + Number(area.area_sqm), 0),
+                            ),
+                          ).toLocaleString("en-CA")} sq ft ${label}`,
+                      )
+                      .join(" · ")}
                   </span>
                 )}
               </div>

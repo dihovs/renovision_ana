@@ -94,10 +94,17 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   // By cause, never one grand total: causes do not share a trade or a rate,
   // and areas may overlap, so a single sum would double-count the square
   // footage that is both wet and smoke-stained.
+  //
+  // And by surface, for the same reason one step out. Floor square footage
+  // and wall square footage are different trades at different rates; added
+  // together they price neither. An adjuster reading one merged figure
+  // cannot check it against anything.
   const damage = new Map<DamageType, number>();
+  const wallDamage = new Map<DamageType, number>();
   for (const room of rooms) {
     for (const area of room.areas) {
-      damage.set(area.damage_type, (damage.get(area.damage_type) ?? 0) + Number(area.area_sqm));
+      const into = area.surface === "wall" ? wallDamage : damage;
+      into.set(area.damage_type, (into.get(area.damage_type) ?? 0) + Number(area.area_sqm));
     }
   }
 
@@ -189,11 +196,35 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <table className="stats damage">
             <thead>
               <tr>
-                <th colSpan={2}>Affected area by cause</th>
+                {/* Named as floor area, not just "affected area". The wall
+                    table below is also affected area, and an adjuster must be
+                    able to tell which surface a figure priced. */}
+                <th colSpan={2}>Affected floor area by cause</th>
               </tr>
             </thead>
             <tbody>
               {[...damage.entries()].map(([type, sqm]) => (
+                <tr key={type}>
+                  <td>
+                    <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
+                    {DAMAGE_LABEL[type]}
+                  </td>
+                  <td className="num">{sqft(sqm)} sq ft</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {wallDamage.size > 0 && (
+          <table className="stats damage">
+            <thead>
+              <tr>
+                <th colSpan={2}>Affected wall area by cause</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...wallDamage.entries()].map(([type, sqm]) => (
                 <tr key={type}>
                   <td>
                     <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
