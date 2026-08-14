@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { tapFeedback } from "@/lib/haptics";
 import { rememberFloor } from "@/lib/floorMemory";
+import { FLOOR_LEVELS } from "@/lib/crm/floors";
 
 /**
  * Start a floor plan for a storey that has none yet.
@@ -13,7 +14,6 @@ import { rememberFloor } from "@/lib/floorMemory";
  * and "Basement" on the next silently splits one floor into two in every
  * total that groups by level.
  */
-const LEVELS = ["Basement", "Ground", "2nd", "3rd", "Attic"] as const;
 
 export default function AddFloorPlan({
   projectId,
@@ -27,7 +27,7 @@ export default function AddFloorPlan({
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const fresh = LEVELS.filter((level) => !existing.includes(level));
+  const fresh = FLOOR_LEVELS.filter((level) => !existing.includes(level.id));
 
   function go(level: string) {
     tapFeedback("medium");
@@ -66,17 +66,20 @@ export default function AddFloorPlan({
             </h2>
 
             <div className="mt-3 space-y-2">
-              {[...fresh, ...LEVELS.filter((level) => existing.includes(level))].map((level) => (
+              {[
+                ...fresh,
+                ...FLOOR_LEVELS.filter((level) => existing.includes(level.id)),
+              ].map((level) => (
                 <button
-                  key={level}
+                  key={level.id}
                   type="button"
-                  onClick={() => go(level)}
+                  onClick={() => go(level.id)}
                   className="flex w-full cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-left active:bg-black/[0.03]"
                 >
                   <span className="flex-1 font-heading text-[15px] font-bold text-charcoal">
-                    {level}
+                    {level.label}
                   </span>
-                  {existing.includes(level) && (
+                  {existing.includes(level.id) && (
                     <span className="text-[11px] font-semibold text-charcoal/40">measured</span>
                   )}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-charcoal/25" aria-hidden>

@@ -15,6 +15,7 @@ import ProjectStatusPill from "@/components/admin/ProjectStatusPill";
 import FloorPlanSection from "@/components/admin/FloorPlanSection";
 import ClaimDetails from "@/components/admin/ClaimDetails";
 import EquipmentLog from "@/components/admin/EquipmentLog";
+import LivingAreaCard from "@/components/admin/LivingAreaCard";
 import { squareMetersToSquareFeet } from "@/lib/roomScan";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
 import { formatMoney } from "@/lib/crm/money";
@@ -222,6 +223,12 @@ export default async function ProjectDetailPage({
               </dl>
             )}
           </section>
+
+          {/* Living area — the figure coverage is actually quoted against.
+              Client-side like the native card: computed by the same
+              /api/v1/living-area endpoint, so both front ends show one
+              number and one working. */}
+          <LivingAreaCard projectId={project.id} />
         </>
       )}
 

@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import FloorCanvas from "./FloorCanvas";
+import MeasureInfo from "./MeasureInfo";
 import RoomSheet from "./RoomSheet";
 import ScanReview from "./ScanReview";
 import ManualRoomEntry from "./ManualRoomEntry";
 import { tapFeedback } from "@/lib/haptics";
+import { MEASURE_DEFINITIONS, type MeasureDefinition } from "@/lib/crm/measureDefinitions";
 import { rememberFloor } from "@/lib/floorMemory";
 import {
   discardPending,
@@ -19,12 +21,12 @@ import {
   listSavedScans,
   metersToFeet,
   roomScanSupport,
+  savedFloorAreaSquareMeters,
+  savedPerimeterMeters,
+  savedWallAreaSquareMeters,
   scanRoom,
   squareMetersToSquareFeet,
-  totalFloorAreaSquareMeters,
-  totalWallLengthMeters,
   updateSavedScan,
-  wallAreaSquareMeters,
   type RoomScanResult,
   type SavedScan,
   type ScanSupport,
@@ -74,6 +76,8 @@ export default function FloorWorkspace({
   >(null);
   const [typing, setTyping] = useState(false);
   const [arranging, setArranging] = useState(false);
+  // Which figure's definition is open, if any — the (i) beside each total.
+  const [defining, setDefining] = useState<MeasureDefinition | null>(null);
 
   // Scans the phone is holding because there was no signal when they were
   // taken. Subscribed rather than polled, so accepting a room updates the
@@ -249,16 +253,19 @@ export default function FloorWorkspace({
     }
   }
 
+  // Totals from the stored columns, not recomputed from the raw geometry —
+  // the columns carry the hand-corrected figures after a plan edit, and they
+  // are what the native app, the report and the estimates already read.
   const floorSqFt = (rooms ?? []).reduce(
-    (sum, room) => sum + squareMetersToSquareFeet(totalFloorAreaSquareMeters(room.geometry)),
+    (sum, room) => sum + squareMetersToSquareFeet(savedFloorAreaSquareMeters(room)),
     0,
   );
   const wallSqFt = (rooms ?? []).reduce(
-    (sum, room) => sum + squareMetersToSquareFeet(wallAreaSquareMeters(room.geometry).net),
+    (sum, room) => sum + squareMetersToSquareFeet(savedWallAreaSquareMeters(room).net),
     0,
   );
   const perimeterFt = (rooms ?? []).reduce(
-    (sum, room) => sum + metersToFeet(totalWallLengthMeters(room.geometry)),
+    (sum, room) => sum + metersToFeet(savedPerimeterMeters(room)),
     0,
   );
 
@@ -270,9 +277,25 @@ export default function FloorWorkspace({
         </span>
         <h1 className="font-heading text-2xl font-bold text-white">{level}</h1>
         <div className="mt-3 grid grid-cols-3 gap-3">
-          <DarkFigure label="Floor" value={floorSqFt} unit="sq ft" />
-          <DarkFigure label="Walls" value={wallSqFt} unit="sq ft" />
-          <DarkFigure label="Perimeter" value={perimeterFt} unit="ft" />
+          {/* Walls is the NET area, so that is the definition it carries. */}
+          <DarkFigure
+            label="Floor"
+            value={floorSqFt}
+            unit="sq ft"
+            onInfo={() => setDefining(MEASURE_DEFINITIONS.floorArea)}
+          />
+          <DarkFigure
+            label="Walls"
+            value={wallSqFt}
+            unit="sq ft"
+            onInfo={() => setDefining(MEASURE_DEFINITIONS.wallAreaNet)}
+          />
+          <DarkFigure
+            label="Perimeter"
+            value={perimeterFt}
+            unit="ft"
+            onInfo={() => setDefining(MEASURE_DEFINITIONS.perimeter)}
+          />
         </div>
       </div>
 
@@ -455,6 +478,8 @@ export default function FloorWorkspace({
           onChanged={() => void reload()}
         />
       )}
+
+      {defining && <MeasureInfo meaning={defining} onClose={() => setDefining(null)} />}
     </div>
   );
 }
@@ -527,14 +552,45 @@ function Choice({
   );
 }
 
-function DarkFigure({ label, value, unit }: { label: string; value: number; unit: string }) {
-  return (
-    <div>
-      <span className="text-[10px] font-bold uppercase tracking-wide text-white/45">{label}</span>
+function DarkFigure({
+  label,
+  value,
+  unit,
+  onInfo,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  /** Opens the figure's definition. The whole tile is the target. */
+  onInfo?: () => void;
+}) {
+  const body = (
+    <>
+      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-white/45">
+        {label}
+        {onInfo && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8v.5" strokeLinecap="round" />
+          </svg>
+        )}
+      </span>
       <p className="mt-0.5 font-heading text-xl font-bold tabular-nums text-white">
         {Math.round(value).toLocaleString("en-CA")}
         <span className="ml-1 text-[11px] font-semibold text-white/50">{unit}</span>
       </p>
-    </div>
+    </>
+  );
+
+  if (!onInfo) return <div>{body}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onInfo}
+      aria-label={`${label} — what this figure means`}
+      className="cursor-pointer text-left"
+    >
+      {body}
+    </button>
   );
 }

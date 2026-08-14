@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
 import { guarded } from "../guard";
 import { createRoomScan, listRoomScans } from "@/lib/crm/roomScans";
+import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
 
 /** Every scan on a project. `?projectId=` is required — a scan only means
-    something in the context of the property it measured. */
+    something in the context of the property it measured.
+
+    The definitions travel with the figures, the way the living-area response
+    already ships its own: a number an API hands out without saying what it
+    measures is a number the client will caption wrong. */
 export async function GET(request: Request) {
   const projectId = new URL(request.url).searchParams.get("projectId");
   if (!projectId) {
     return NextResponse.json({ error: "projectId is required." }, { status: 400 });
   }
-  return guarded(async () => ({ scans: await listRoomScans(projectId) }));
+  return guarded(async () => ({
+    scans: await listRoomScans(projectId),
+    definitions: MEASURE_DEFINITIONS,
+  }));
 }
 
 /** Save a finished scan. The phone posts the measurements it took; the

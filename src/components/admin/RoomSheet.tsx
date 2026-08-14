@@ -3,21 +3,24 @@
 import { useEffect, useState } from "react";
 import FloorPlan from "./FloorPlan";
 import AffectedAreaEditor, { type DraftArea } from "./AffectedAreaEditor";
+import MeasureInfo from "./MeasureInfo";
 import RoomEvidence from "./RoomEvidence";
 import MoistureLog from "./MoistureLog";
 import { tapFeedback } from "@/lib/haptics";
+import { MEASURE_DEFINITIONS, type MeasureDefinition } from "@/lib/crm/measureDefinitions";
+import { ROOM_TYPES } from "@/lib/crm/livingArea";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
 import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
 import {
-  ceilingHeightMeters,
   deleteSavedScan,
   metersToFeet,
+  savedCeilingHeightMeters,
+  savedFloorAreaSquareMeters,
+  savedPerimeterMeters,
+  savedWallAreaSquareMeters,
   showRoomModel,
   squareMetersToSquareFeet,
-  totalFloorAreaSquareMeters,
-  totalWallLengthMeters,
   updateSavedScan,
-  wallAreaSquareMeters,
   type SavedScan,
 } from "@/lib/roomScan";
 
@@ -48,6 +51,12 @@ export default function RoomSheet({
   const [areas, setAreas] = useState<AffectedArea[] | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which figure's definition is open, if any — the (i) beside each stat.
+  const [defining, setDefining] = useState<MeasureDefinition | null>(null);
+  // "" is "nobody has said" — kept distinct from any real type because the
+  // living-area engine treats an unset room as "other" and somebody should
+  // be able to see that nothing was chosen.
+  const [roomType, setRoomType] = useState(room.room_type ?? "");
 
   const result = room.geometry;
 
@@ -67,10 +76,28 @@ export default function RoomSheet({
     };
   }, [room.id]);
 
-  const floorSqFt = squareMetersToSquareFeet(totalFloorAreaSquareMeters(result));
-  const wallSqFt = squareMetersToSquareFeet(wallAreaSquareMeters(result).net);
-  const perimeterFt = metersToFeet(totalWallLengthMeters(result));
-  const ceilingFt = metersToFeet(ceilingHeightMeters(result));
+  // From the stored columns, not recomputed from the raw geometry — the
+  // columns carry the hand-corrected figures after a plan edit, and they are
+  // what the phone, the report and the estimates already read.
+  const floorSqFt = squareMetersToSquareFeet(savedFloorAreaSquareMeters(room));
+  const wallSqFt = squareMetersToSquareFeet(savedWallAreaSquareMeters(room).net);
+  const perimeterFt = metersToFeet(savedPerimeterMeters(room));
+  const ceilingFt = metersToFeet(savedCeilingHeightMeters(room));
+
+  const typeRule = ROOM_TYPES.find((type) => type.id === roomType) ?? null;
+
+  /** Reclassify the room. Not cosmetic: the type decides how much of this
+      room counts as living area, and whether above or below grade. */
+  async function chooseType(next: string) {
+    setRoomType(next);
+    try {
+      await updateSavedScan(room.id, { roomType: next || null });
+      setError(null);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the room type.");
+    }
+  }
 
   async function saveArea(draft: DraftArea) {
     try {
@@ -143,11 +170,81 @@ export default function RoomSheet({
             </div>
 
             <div className="grid grid-cols-4 gap-2">
-              <Stat label="Floor" value={floorSqFt} unit="sq ft" />
-              <Stat label="Walls" value={wallSqFt} unit="sq ft" />
-              <Stat label="Perim." value={perimeterFt} unit="ft" />
-              <Stat label="Ceiling" value={ceilingFt} unit="ft" decimals={1} />
+              {/* The Walls tile shows the NET area, so that is the definition
+                  it carries — a tile defined as something it does not show
+                  would be worse than no definition. */}
+              <Stat
+                label="Floor"
+                value={floorSqFt}
+                unit="sq ft"
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.floorArea)}
+              />
+              <Stat
+                label="Walls"
+                value={wallSqFt}
+                unit="sq ft"
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.wallAreaNet)}
+              />
+              <Stat
+                label="Perim."
+                value={perimeterFt}
+                unit="ft"
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.perimeter)}
+              />
+              <Stat
+                label="Ceiling"
+                value={ceilingFt}
+                unit="ft"
+                decimals={1}
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.ceilingHeight)}
+              />
             </div>
+
+            {/* What kind of room this is — the input the living-area figure
+                is computed from, so it belongs beside the measurements. */}
+            <section className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-heading text-sm font-bold text-charcoal">Room type</span>
+                <select
+                  value={roomType}
+                  onChange={(event) => void chooseType(event.target.value)}
+                  className="max-w-[55%] cursor-pointer rounded-lg border border-black/10 bg-white px-2 py-1.5 text-sm font-semibold text-charcoal"
+                >
+                  <option value="">Not set</option>
+                  {ROOM_TYPES.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {typeRule ? (
+                <>
+                  {/* What the choice does to the number, stated with it. */}
+                  <p
+                    className={`mt-1.5 text-xs font-medium ${
+                      typeRule.band === "above" ? "text-emerald-700" : "text-amber-700"
+                    }`}
+                  >
+                    {Math.round(typeRule.percent)}% living area
+                    {typeRule.band === "below" && " · below grade"}
+                    {typeRule.band === "excluded" && " · never counts"}
+                  </p>
+                  {typeRule.note && (
+                    <p className="mt-1 text-[11px] leading-snug text-charcoal/50">
+                      {typeRule.note}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-1.5 text-[11px] leading-snug text-charcoal/50">
+                  Until a type is set, this room counts in full toward
+                  above-grade living area — a basement left unset inflates the
+                  figure.
+                </p>
+              )}
+            </section>
 
             {result.modelId && (
               <button
@@ -273,6 +370,8 @@ export default function RoomSheet({
           </div>
         )}
       </div>
+
+      {defining && <MeasureInfo meaning={defining} onClose={() => setDefining(null)} />}
     </div>
   );
 }
@@ -282,16 +381,26 @@ function Stat({
   value,
   unit,
   decimals = 0,
+  onInfo,
 }: {
   label: string;
   value: number;
   unit: string;
   decimals?: number;
+  /** Opens the figure's definition. The whole tile is the target — a 9px
+      glyph alone is not something a thumb can hit on site. */
+  onInfo?: () => void;
 }) {
-  return (
-    <div className="rounded-xl border border-black/5 bg-white px-2 py-2 text-center">
-      <span className="block text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
+  const body = (
+    <>
+      <span className="flex items-center justify-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
         {label}
+        {onInfo && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8v.5" strokeLinecap="round" />
+          </svg>
+        )}
       </span>
       <span className="mt-0.5 block font-heading text-base font-bold tabular-nums text-charcoal">
         {value.toLocaleString("en-CA", {
@@ -300,6 +409,20 @@ function Stat({
         })}
       </span>
       <span className="block text-[9px] font-semibold text-charcoal/40">{unit}</span>
-    </div>
+    </>
+  );
+
+  if (!onInfo) {
+    return <div className="rounded-xl border border-black/5 bg-white px-2 py-2 text-center">{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onInfo}
+      aria-label={`${label} — what this figure means`}
+      className="cursor-pointer rounded-xl border border-black/5 bg-white px-2 py-2 text-center active:bg-black/[0.03]"
+    >
+      {body}
+    </button>
   );
 }

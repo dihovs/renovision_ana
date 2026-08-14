@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import AdminNotice from "@/components/admin/AdminNotice";
 import ReportDocument, { type ReportRoom } from "@/components/admin/ReportDocument";
@@ -8,7 +9,7 @@ import { listRoomScans } from "@/lib/crm/roomScans";
 import { listAffectedAreas } from "@/lib/crm/affectedAreas";
 import { listEquipment, listMoistureReadings } from "@/lib/crm/dryingLog";
 import { CLAIM_FIELD_TEMPLATE, getCompany, getCustomFields } from "@/lib/crm/settings";
-import type { RoomScanResult } from "@/lib/roomScan";
+import type { ScanGeometry } from "@/lib/roomScan";
 import "./report.css";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +27,18 @@ export const dynamic = "force-dynamic";
  * is missing, because a half-documented job is exactly when a report is
  * needed most.
  */
-export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ReportPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { id } = await params;
+  // A search param rather than client state: the whole page is server
+  // rendered for print, and a URL that says what the document shows is a
+  // URL that can be shared showing the same thing.
+  const onlyLockedDimensions = (await searchParams).dimensions === "locked";
 
   if (!isConfigured) {
     return (
@@ -76,7 +87,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         ceilingHeightM: Number(scan.ceiling_height_m),
         stairCount: scan.stair_count,
         notes: scan.notes,
-        geometry: scan.geometry as unknown as RoomScanResult,
+        geometry: scan.geometry as unknown as ScanGeometry,
         areas,
         // Oldest first here, unlike the phone: a drying log reads as a
         // sequence, and a curve printed backwards has to be read backwards.
@@ -112,6 +123,41 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         <PrintButton />
       </div>
 
+      {/* Report options. A link rather than client state: toggling reloads
+          with the option in the URL, so what prints is what the URL says. */}
+      <div className="no-print mb-4">
+        <Link
+          href={
+            onlyLockedDimensions
+              ? `/admin/projects/${project.id}/report`
+              : `/admin/projects/${project.id}/report?dimensions=locked`
+          }
+          className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-charcoal transition-colors hover:border-brand-blue/40"
+        >
+          <span
+            aria-hidden
+            className={`flex h-4 w-4 items-center justify-center rounded border ${
+              onlyLockedDimensions
+                ? "border-brand-blue bg-brand-blue text-white"
+                : "border-black/20 bg-white"
+            }`}
+          >
+            {onlyLockedDimensions && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+          Only dimensions that have been manually set
+        </Link>
+        {onlyLockedDimensions && (
+          <p className="mt-1.5 text-xs leading-snug text-charcoal/50">
+            Each plan shows just the padlocked, hand-set dimensions. Rooms
+            where nothing was set by hand print without dimensions.
+          </p>
+        )}
+      </div>
+
       <ReportDocument
         data={{
           company,
@@ -128,6 +174,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           rooms,
           equipment,
           generatedAt: new Date().toISOString(),
+          onlyLockedDimensions,
         }}
       />
     </div>

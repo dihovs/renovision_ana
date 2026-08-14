@@ -152,6 +152,30 @@ export async function getRoomScanProject(id: string): Promise<string | null> {
 }
 
 /**
+ * Area and perimeter of a corrected outline — the arithmetic behind the
+ * stored columns, kept as one exported function so the test that pins the
+ * web drawing against the columns exercises the very code that writes them.
+ *
+ * Shoelace, absolute — a room traced clockwise measures the same as one
+ * traced the other way, and an operator dragging corners has no idea which
+ * way round they are going.
+ */
+export function polygonMetrics(polygon: { x: number; y: number }[]): {
+  areaSqm: number;
+  perimeterM: number;
+} {
+  let twiceArea = 0;
+  let perimeterM = 0;
+  for (let i = 0; i < polygon.length; i += 1) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % polygon.length];
+    twiceArea += a.x * b.y - b.x * a.y;
+    perimeterM += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  return { areaSqm: Math.abs(twiceArea) / 2, perimeterM };
+}
+
+/**
  * Record a plan the operator corrected by hand.
  *
  * The scan's own geometry is NEVER overwritten. The corrected outline is
@@ -179,18 +203,7 @@ export async function saveEditedPolygon(
     .single();
   if (readError) throw new Error(`Could not find that room: ${readError.message}`);
 
-  // Shoelace, absolute — a room traced clockwise measures the same as one
-  // traced the other way, and an operator dragging corners has no idea which
-  // way round they are going.
-  let twiceArea = 0;
-  let perimeter = 0;
-  for (let i = 0; i < polygon.length; i += 1) {
-    const a = polygon[i];
-    const b = polygon[(i + 1) % polygon.length];
-    twiceArea += a.x * b.y - b.x * a.y;
-    perimeter += Math.hypot(b.x - a.x, b.y - a.y);
-  }
-  const areaSqm = Math.abs(twiceArea) / 2;
+  const { areaSqm, perimeterM } = polygonMetrics(polygon);
 
   const geometry = {
     ...((data?.geometry ?? {}) as Record<string, unknown>),
@@ -207,7 +220,7 @@ export async function saveEditedPolygon(
     .update({
       geometry,
       floor_area_sqm: areaSqm,
-      wall_length_m: perimeter,
+      wall_length_m: perimeterM,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

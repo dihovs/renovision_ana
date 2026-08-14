@@ -1,5 +1,6 @@
 import FloorPlan from "./FloorPlan";
-import { squareMetersToSquareFeet, metersToFeet, type RoomScanResult } from "@/lib/roomScan";
+import { squareMetersToSquareFeet, metersToFeet, type ScanGeometry } from "@/lib/roomScan";
+import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
 import { areaColor, DAMAGE_LABEL, type AffectedArea, type DamageType } from "@/lib/crm/areaShapes";
 import { unitDays, type EquipmentPlacement, type MoistureReading } from "@/lib/crm/dryingLog";
 import type { CompanySetting, CustomFieldDef } from "@/lib/crm/settings";
@@ -32,7 +33,7 @@ export type ReportRoom = {
   ceilingHeightM: number;
   stairCount: number;
   notes: string | null;
-  geometry: RoomScanResult;
+  geometry: ScanGeometry;
   areas: AffectedArea[];
   readings: MoistureReading[];
   photos: { id: string; url: string | null; note: string | null }[];
@@ -49,6 +50,10 @@ export type ReportData = {
   rooms: ReportRoom[];
   equipment: EquipmentPlacement[];
   generatedAt: string;
+  /** Draw only the dimensions somebody set by hand (geometry.lockedEdges),
+      each padlocked — for the adjuster who wants measured-by-hand figures
+      and nothing inferred. Off by default: the full drawing is the report. */
+  onlyLockedDimensions?: boolean;
 };
 
 const sqft = (sqm: number) => Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA");
@@ -77,6 +82,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     rooms,
     equipment,
     generatedAt,
+    onlyLockedDimensions = false,
   } = data;
 
   const floorAreaSqm = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
@@ -161,7 +167,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <thead>
             <tr>
               <th>Floor area</th>
-              <th>Wall area</th>
+              {/* Named gross so the definitions appendix maps onto it. */}
+              <th>Wall area (gross)</th>
               <th>Floors</th>
               <th>Rooms</th>
             </tr>
@@ -250,8 +257,23 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <Running identity={identity} title={`${room.name} — ${room.level}`} company={company} />
 
           <div className="room-body">
-            <div className="plan large">
-              <FloorPlan result={room.geometry} name={room.name} />
+            {/* Wrapped so the plan and its note share one grid cell. */}
+            <div>
+              <div className="plan large">
+                <FloorPlan
+                  result={room.geometry}
+                  name={room.name}
+                  dimensions={onlyLockedDimensions ? "locked" : "all"}
+                />
+              </div>
+              {/* The printed page must say what it is showing — a plan with
+                  dimensions missing and no explanation reads as an error. */}
+              {onlyLockedDimensions && (
+                <p className="fineprint">
+                  Only dimensions that were set by hand are shown on this plan.
+                  A room with none shows no dimensions.
+                </p>
+              )}
             </div>
 
             <table className="measure">
@@ -392,6 +414,36 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             Equipment is billed per unit per day on site. The day of delivery
             and the day of collection are both counted. Units shown as still on
             site are counted to {date(generatedAt)}.
+          </p>
+        </section>
+      )}
+
+      {/* --------------------------------------- measurement definitions */}
+      {/* An adjuster-facing document must state its definitions: when their
+          figure differs from ours, the definition is the whole argument.
+          These are the same definitions the app shows beside each figure —
+          MEASURE_DEFINITIONS is one list, so the report cannot drift from
+          the screens. */}
+      {rooms.length > 0 && (
+        <section className="page">
+          <Running
+            identity={identity}
+            title="How these figures are measured"
+            company={company}
+          />
+          <table className="measure definitions">
+            <tbody>
+              {Object.values(MEASURE_DEFINITIONS).map((meaning) => (
+                <tr key={meaning.id}>
+                  <th>{meaning.title}</th>
+                  <td>{meaning.definition}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="fineprint">
+            All measurements are taken in metres and converted for display.
+            Figures in this report are rounded to the foot and the square foot.
           </p>
         </section>
       )}

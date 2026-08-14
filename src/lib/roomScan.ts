@@ -60,6 +60,24 @@ export type MergedStructure = RoomScanResult & {
   sections?: { label: string; centerX: number; centerZ: number }[];
 };
 
+/**
+ * The saved form of a room's geometry: what the sensor captured, plus what
+ * the plan editor added afterwards. `saveEditedPolygon` on the server writes
+ * the corrected outline BESIDE the sensor's walls — never over them — and
+ * the Swift renderer honours it (`FloorPlanGeometry.swift`). This is the
+ * same blob read back on the web, so the same fields have to exist here.
+ */
+export type ScanGeometry = RoomScanResult & {
+  /** The outline after the operator corrected it by hand, in plan metres.
+      Replaces the walls for drawing purposes — but only for drawing; the
+      sensor's own record stays underneath, untouched. */
+  editedPolygon?: { x: number; y: number }[];
+  /** Which edge lengths were TYPED rather than measured, by editedPolygon
+      edge index — edge i runs from point i to point i+1, wrapping. */
+  lockedEdges?: number[];
+  editedAt?: string;
+};
+
 type RoomScanBridge = {
   isSupported(): Promise<{ supported: boolean }>;
   startScan(): Promise<RoomScanResult & { roomsCaptured?: number }>;
@@ -202,11 +220,16 @@ export type SavedScan = {
   door_count: number;
   window_count: number;
   stair_count: number;
-  geometry: RoomScanResult;
+  geometry: ScanGeometry;
   notes?: string | null;
   /** Where this room was dragged to on the floor, or null if never placed. */
   plan_x?: number | null;
   plan_y?: number | null;
+  /** Bedroom, basement, garage… drives the living-area default. Null means
+      nobody has said, which the rules engine treats as "other". */
+  room_type?: string | null;
+  /** Hand-set 0-100 living-area override, or null for the type's default. */
+  living_percent?: number | null;
 };
 
 /** Every room saved on a project, in walking order within each floor. */
@@ -219,7 +242,7 @@ export async function listSavedScans(projectId: string): Promise<SavedScan[]> {
   return ((await response.json()) as { scans: SavedScan[] }).scans;
 }
 
-/** Rename a saved room, or move it to another floor. */
+/** Rename a saved room, move it to another floor, or reclassify it. */
 export async function updateSavedScan(
   id: string,
   patch: {
@@ -229,6 +252,8 @@ export async function updateSavedScan(
     notes?: string | null;
     planX?: number | null;
     planY?: number | null;
+    /** Null puts the room back to "nobody has said". */
+    roomType?: string | null;
   },
 ): Promise<void> {
   const response = await fetch(`/api/v1/scans/${encodeURIComponent(id)}`, {
@@ -302,6 +327,48 @@ export function wallAreaSquareMeters(result: RoomScanResult): {
 } {
   const gross = totalWallLengthMeters(result) * ceilingHeightMeters(result);
   const net = Math.max(0, gross - openingAreaSquareMeters(result));
+  return { gross, net };
+}
+
+/**
+ * The figures for a SAVED room prefer the stored columns and derive from the
+ * raw geometry only when a column is absent.
+ *
+ * The columns are not a cache of the geometry. When the operator corrects a
+ * plan by hand, the server recomputes `floor_area_sqm` and `wall_length_m`
+ * from the corrected outline (`saveEditedPolygon` in crm/roomScans.ts) and
+ * the raw walls underneath become deliberately stale. The native app reads
+ * the columns back (`RoomDetailView.swift`), and so does the printed report —
+ * so a web screen that recomputed from `geometry` was showing a corrected
+ * room its UNcorrected figures. One room, one set of numbers.
+ *
+ * Zero counts as absent: the columns default to 0 in the database, and a
+ * genuinely zero-area room derives to zero through the fallback anyway.
+ */
+function columnOr(value: number | null | undefined, fallback: () => number): number {
+  const v = Number(value);
+  return Number.isFinite(v) && v > 0 ? v : fallback();
+}
+
+export function savedFloorAreaSquareMeters(scan: SavedScan): number {
+  return columnOr(scan.floor_area_sqm, () => totalFloorAreaSquareMeters(scan.geometry));
+}
+
+/** Perimeter of a saved room — the corrected one, when the plan was edited. */
+export function savedPerimeterMeters(scan: SavedScan): number {
+  return columnOr(scan.wall_length_m, () => totalWallLengthMeters(scan.geometry));
+}
+
+export function savedCeilingHeightMeters(scan: SavedScan): number {
+  return columnOr(scan.ceiling_height_m, () => ceilingHeightMeters(scan.geometry));
+}
+
+/** Wall area of a saved room: corrected perimeter × ceiling height, with the
+    detected openings still deducted from net — correcting an outline does
+    not take the doors out of the walls. */
+export function savedWallAreaSquareMeters(scan: SavedScan): { gross: number; net: number } {
+  const gross = savedPerimeterMeters(scan) * savedCeilingHeightMeters(scan);
+  const net = Math.max(0, gross - openingAreaSquareMeters(scan.geometry));
   return { gross, net };
 }
 
@@ -554,7 +621,38 @@ function chainIntoPolygon(segments: PlanSegment[], tolerance = 0.25): PlanPoint[
  * maps to y directly and the result reads as a top-down plan the right way
  * up.
  */
-export function toFloorPlan(result: RoomScanResult): FloorPlan {
+export function toFloorPlan(result: ScanGeometry): FloorPlan {
+  // A plan the operator corrected by hand replaces the scan's walls for
+  // drawing purposes — but only for drawing; the sensor's own geometry is
+  // still in the record underneath, untouched. This mirrors
+  // `FloorPlanGeometry.plan(from:)` on the phone, and has to keep mirroring
+  // it: the same blob is drawn by both halves of the app, and a plan that
+  // differs between the phone and the web is a plan nobody can trust.
+  const edited = result.editedPolygon;
+  if (edited && edited.length >= 3) {
+    const xs = edited.map((p) => p.x);
+    const ys = edited.map((p) => p.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const points = edited.map((p) => ({ x: p.x - minX, y: p.y - minY }));
+    return {
+      segments: points.map((a, i) => {
+        const b = points[(i + 1) % points.length];
+        return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+      }),
+      // The editor corrects the outline only. The detected doors and windows
+      // are positioned in the scan's own frame and would land in the wrong
+      // walls on a corrected outline, so — like the native renderer — they
+      // are not drawn. They still deduct from net wall area.
+      openings: [],
+      polygon: points,
+      width: Math.max(...xs) - minX,
+      height: Math.max(...ys) - minY,
+      offsetX: minX,
+      offsetY: minY,
+    };
+  }
+
   const span = (
     item: { centerX: number; centerZ: number; axisX: number; axisZ: number },
     length: number,

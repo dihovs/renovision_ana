@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { tapFeedback } from "@/lib/haptics";
 import { rememberFloor } from "@/lib/floorMemory";
 import { listScanProjects, roomScanSupport, type ScanProject, type ScanSupport } from "@/lib/roomScan";
+import { FLOOR_LEVELS } from "@/lib/crm/floors";
 
 /**
  * Start measuring, from the tab.
@@ -19,7 +20,6 @@ import { listScanProjects, roomScanSupport, type ScanProject, type ScanSupport }
  * project, kept them in memory, and lost them on reload. Rooms measured
  * that way were a record of work nobody could bill.
  */
-const LEVELS = ["Basement", "Ground", "2nd", "3rd", "Attic"] as const;
 
 export default function ScanStart() {
   const router = useRouter();
@@ -139,15 +139,15 @@ export default function ScanStart() {
             </h2>
           </div>
           <ul className="divide-y divide-black/5 border-t border-black/5">
-            {LEVELS.map((level) => (
-              <li key={level}>
+            {FLOOR_LEVELS.map((level) => (
+              <li key={level.id}>
                 <button
                   type="button"
-                  onClick={() => open(chosen, level)}
+                  onClick={() => open(chosen, level.id)}
                   className="flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left active:bg-black/[0.03]"
                 >
                   <span className="flex-1 font-heading text-[15px] font-bold text-charcoal">
-                    {level}
+                    {level.label}
                   </span>
                   <Chevron />
                 </button>
