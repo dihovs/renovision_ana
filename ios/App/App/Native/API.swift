@@ -314,6 +314,29 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    // MARK: - Leads
+
+    func leads() async throws -> [LeadSummary] {
+        try await get("/api/v1/leads", as: LeadListResponse.self).leads
+    }
+
+    private struct LeadPatch: Encodable {
+        var opened: Bool?
+        var status: String?
+    }
+
+    /// Record that a lead was looked at. Never advances status — reading is
+    /// not working, and the store keeps the two separate on purpose.
+    func touchLead(id: String) async throws {
+        _ = try await request(
+            "/api/v1/leads/\(id)", method: "PATCH", body: LeadPatch(opened: true, status: nil))
+    }
+
+    func setLeadStatus(id: String, status: String) async throws {
+        _ = try await request(
+            "/api/v1/leads/\(id)", method: "PATCH", body: LeadPatch(opened: nil, status: status))
+    }
+
     // MARK: - Messages
 
     /// The path segment carries the number without its plus — the server

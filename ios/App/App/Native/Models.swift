@@ -256,6 +256,50 @@ enum Money {
     }
 }
 
+// MARK: - Leads
+
+struct LeadListResponse: Decodable { let leads: [LeadSummary] }
+
+struct LeadSummary: Decodable, Identifiable, Hashable {
+    let id: String
+    let createdAt: Date
+    let name: String
+    let phone: String
+    let email: String
+    let address: String?
+    let status: String
+    let source: String
+    let isEmergency: Bool
+    let scopeSummary: String?
+    let estimateExpected: String?
+    /// Real stored read state — opened_at in the lead store — unlike SMS,
+    /// where no such state exists and none is invented.
+    let unopened: Bool
+    let notes: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, createdAt, name, phone, email, address, status, source,
+            isEmergency, scopeSummary, estimateExpected, unopened, notes
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        createdAt = ISO8601.date(try? c.decode(String.self, forKey: .createdAt))
+        name = (try? c.decode(String.self, forKey: .name)) ?? ""
+        phone = (try? c.decode(String.self, forKey: .phone)) ?? ""
+        email = (try? c.decode(String.self, forKey: .email)) ?? ""
+        address = try? c.decodeIfPresent(String.self, forKey: .address)
+        status = (try? c.decode(String.self, forKey: .status)) ?? "new"
+        source = (try? c.decode(String.self, forKey: .source)) ?? "website"
+        isEmergency = (try? c.decode(Bool.self, forKey: .isEmergency)) ?? false
+        scopeSummary = try? c.decodeIfPresent(String.self, forKey: .scopeSummary)
+        estimateExpected = try? c.decodeIfPresent(String.self, forKey: .estimateExpected)
+        unopened = (try? c.decode(Bool.self, forKey: .unopened)) ?? false
+        notes = try? c.decodeIfPresent(String.self, forKey: .notes)
+    }
+}
+
 // MARK: - Messages
 
 struct ConversationListResponse: Decodable { let conversations: [SmsConversation] }

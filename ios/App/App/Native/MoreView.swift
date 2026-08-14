@@ -33,6 +33,18 @@ struct MoreView: View {
                         VStack(alignment: .leading, spacing: Brand.Space.small) {
                             SectionHeading(title: "NATIVE")
                             NavigationLink {
+                                LeadsView()
+                            } label: {
+                                Card(padding: Brand.Space.small) {
+                                    CardRow {
+                                        Label("Leads", systemImage: "sparkles")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(Brand.ink)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            NavigationLink {
                                 MessagesView()
                             } label: {
                                 Card(padding: Brand.Space.small) {
@@ -136,7 +148,6 @@ struct MoreGroup: Identifiable {
         MoreGroup(
             title: "Bringing work in",
             items: [
-                MoreItem(title: "Leads", icon: "sparkles", path: "/admin/leads", tint: Brand.green),
                 MoreItem(title: "Inbox", icon: "tray.full", path: "/admin/inbox", tint: Brand.green),
                 MoreItem(title: "Outreach", icon: "megaphone", path: "/admin/outreach", tint: Brand.green),
                 MoreItem(title: "Call log", icon: "phone.arrow.down.left", path: "/admin/calls", tint: Brand.green),
