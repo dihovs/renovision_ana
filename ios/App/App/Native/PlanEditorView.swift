@@ -48,6 +48,26 @@ struct PlanEditorView: View {
     @State private var locked: Set<Int> = []
     @State private var lockedWarning: Int?
 
+    /// Which projection the canvas is drawing (§3/§5). The plan editor opens
+    /// in 2D and, in this build, stays there — see `threeDBlocked` below.
+    @State private var mode: EditorViewMode = .plan
+    @State private var showingViewModes = false
+    @State private var showingLayers = false
+    @State private var showingHelp = false
+    /// Drawing layers the layers stepper toggles (§3). Visibility only — no
+    /// geometry is touched, so nothing here can be mistaken for an edit.
+    @State private var showGrid = true
+    @State private var showDimensions = true
+    @State private var showOpenings = true
+
+    /// The wall the elevation view is looking at, when one is open.
+    ///
+    /// ORD-19's `ElevationView` is being built in parallel and does not exist
+    /// in this worktree. The state, the double-tap that sets it and the
+    /// view-mode row that sets it are all wired; only the presentation itself
+    /// is stubbed — see `elevationPresentation` at the bottom of this file.
+    @State private var elevationWall: Int?
+
     struct Snapshot {
         var corners: [CGPoint]
         var openings: [PlanEditing.WallOpening]
@@ -95,19 +115,6 @@ struct PlanEditorView: View {
         return geometry.doors.isEmpty && geometry.windows.isEmpty && geometry.openings.isEmpty
     }
 
-    /// The wall whose dimension chain is split right now: the selected wall,
-    /// or the host wall of the selected opening.
-    private var chainEdge: Int? {
-        switch selection {
-        case .wall(let index):
-            return openings.contains { $0.edge == index } ? index : nil
-        case .opening(let index):
-            return openings.indices.contains(index) ? openings[index].edge : nil
-        case .none, .corner:
-            return nil
-        }
-    }
-
     var body: some View {
         NavigationStack {
             ZStack {
@@ -132,34 +139,43 @@ struct PlanEditorView: View {
                     }
                 }
             }
-            .navigationTitle(room.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // §1. Leading is the pill — a back chevron beside a context
+                // glyph saying what you would go back TO. From here that is
+                // the room's own inspector, so the glyph is the room one.
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
+                    EditorBackPill(context: .room) {
                         if isDirty { showDiscard = true } else { dismiss() }
                     }
                 }
+                // Centre: bold title, grey subtitle, both changing with
+                // depth — `Wall` / `Ground Floor`, `Window` / `Ground Floor`.
+                ToolbarItem(placement: .principal) {
+                    EditorNavTitle(title: navTitle, subtitle: navSubtitle)
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
-                        undo()
+                        showingHelp = true
                     } label: {
-                        Image(systemName: "arrow.uturn.backward")
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 17))
                     }
-                    .disabled(history.isEmpty)
+                    .tint(Brand.blue)
 
-                    Button {
-                        redo()
-                    } label: {
-                        Image(systemName: "arrow.uturn.forward")
-                    }
-                    .disabled(future.isEmpty)
-
+                    // Save is ours, not the reference's: magicplan saves
+                    // continuously and has no such button, but this editor
+                    // posts a corrected polygon to the API and the operator
+                    // has to be able to say when. It takes the slot §1 gives
+                    // the share glyph, which would have nothing to share
+                    // from a room whose edits are not committed yet.
                     Button("Save") { Task { await save() } }
                         .fontWeight(.bold)
+                        .tint(Brand.blue)
                         .disabled(saving || invalid || !isDirty)
                 }
             }
+            .popover(isPresented: $showingHelp) { helpCard }
             .task { load() }
             .sheet(isPresented: $addingOpening) {
                 if case .wall(let edge) = selection {
@@ -180,6 +196,16 @@ struct PlanEditorView: View {
                         addingOpening = false
                     }
                 }
+            }
+            // ORD-19's elevation view, full screen over the plan. The state,
+            // the double-tap and the view-mode row are all live; only what
+            // gets presented is stubbed — see `elevationPresentation`.
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: { elevationWall != nil },
+                    set: { if !$0 { closeElevation() } })
+            ) {
+                elevationPresentation
             }
             .confirmationDialog(
                 "Discard your changes?", isPresented: $showDiscard, titleVisibility: .visible
@@ -228,12 +254,15 @@ struct PlanEditorView: View {
                     let pt = toScreen
 
                     // The paper first: the half-metre dotted grid with its
-                    // 2 m brand-blue crosshairs, behind everything, moving
-                    // with the plan because it is drawn in the plan's own
-                    // metres through the same mapping as the walls.
-                    EditorChrome.drawGrid(
-                        context: context, size: proxy.size,
-                        toScreen: pt, toModel: toModel, scale: scale)
+                    // brand-blue crosshairs every fifth dot, behind
+                    // everything, moving with the plan because it is drawn in
+                    // the plan's own metres through the same mapping as the
+                    // walls.
+                    if showGrid {
+                        EditorChrome.drawGrid(
+                            context: context, size: proxy.size,
+                            toScreen: pt, toModel: toModel, scale: scale)
+                    }
 
                     guard corners.count >= 3 else { return }
 
@@ -241,14 +270,14 @@ struct PlanEditorView: View {
                     floor.move(to: pt(corners[0]))
                     for c in corners.dropFirst() { floor.addLine(to: pt(c)) }
                     floor.closeSubpath()
-                    context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
 
-                    // Any selection means the room is in hand, and the fill
-                    // says so with a fine hatch — the flat grey alone can't,
-                    // because the selected WALL already carries the blue.
-                    if selection != .none {
-                        EditorChrome.hatch(floor, context: context)
-                    }
+                    // §2: the room you are INSIDE is white with a fine tan
+                    // tile grid; the grey fill is for the rooms you are not
+                    // in. An editor only ever holds the one room, and you
+                    // are in it — so this is unconditional, and it no longer
+                    // waits on a selection the way the old hatch did.
+                    context.fill(floor, with: .color(Brand.surface))
+                    EditorChrome.tileGrid(floor, context: context)
 
                     // Walls. The selected one is blue and thicker; an invalid
                     // shape goes dashed red — signalled, never blocked, since
@@ -272,29 +301,35 @@ struct PlanEditorView: View {
 
                     // Openings, cut into their walls: band break, jamb caps,
                     // our own glyphs. Drawn after the walls so the knock-out
-                    // actually knocks out.
-                    for (index, opening) in openings.enumerated() {
-                        OpeningGlyphs.draw(
-                            opening,
-                            polygon: corners,
-                            selected: selection == .opening(index),
-                            context: context,
-                            toScreen: pt,
-                            scale: scale,
-                            background: Brand.surface)
+                    // actually knocks out. A selected one gains the thin
+                    // brand-blue rectangle §7 draws around it.
+                    if showOpenings {
+                        for (index, opening) in openings.enumerated() {
+                            OpeningGlyphs.draw(
+                                opening,
+                                polygon: corners,
+                                selected: selection == .opening(index),
+                                context: context,
+                                toScreen: pt,
+                                scale: scale,
+                                inside: Brand.surface,
+                                outside: Brand.canvas)
+                            if selection == .opening(index) {
+                                EditorChrome.drawOpeningSelection(
+                                    context: context, polygon: corners, opening: opening,
+                                    toScreen: pt, scale: scale)
+                            }
+                        }
                     }
 
-                    // The split dimension chain of the wall that owns the
-                    // selection: offset · width · offset, the row that makes
-                    // an opening's position a measurable fact.
-                    if let edge = chainEdge {
-                        OpeningGlyphs.drawChain(
-                            edge: edge,
-                            polygon: corners,
-                            openings: openings,
-                            context: context,
-                            toScreen: pt,
-                            proxySize: proxy.size)
+                    // The selected wall's manipulators (§7): the indigo
+                    // diamond handle at its midpoint and the `▶◀` marker
+                    // further along. Affordances for the drag that already
+                    // works, not a new gesture.
+                    if case .wall(let index) = selection {
+                        EditorChrome.drawWallHandles(
+                            context: context, polygon: corners, edge: index,
+                            toScreen: pt, winding: EditorChrome.winding(corners))
                     }
 
                     // Corner handles, whenever anything is selected — they
@@ -313,22 +348,26 @@ struct PlanEditorView: View {
                         }
                     }
 
-                    // Every wall's length as a drafted string — witness
-                    // lines, ticks, the figure along the run — offset
+                    // Every wall's dimensions as a drafted string — witness
+                    // lines, arrowheads, the figure along the run — offset
                     // OUTSIDE the walls where a dimension belongs, not a
-                    // pill floating on the wall line. Locked values keep
-                    // their padlock; the selected wall's string goes blue
-                    // and bold with it.
-                    EditorChrome.drawWallDimensions(
-                        context: context,
-                        polygon: corners,
-                        toScreen: pt,
-                        proxySize: proxy.size,
-                        selectedEdge: {
-                            if case .wall(let i) = selection { return i }
-                            return nil
-                        }(),
-                        lockedEdges: locked)
+                    // pill floating on the wall line. Any wall carrying an
+                    // opening also gets its split chain on the row beneath,
+                    // whatever is selected (ORD-18). Locked values keep
+                    // their padlock; the selected wall's string goes bold.
+                    if showDimensions {
+                        EditorChrome.drawWallDimensions(
+                            context: context,
+                            polygon: corners,
+                            openings: showOpenings ? openings : [],
+                            toScreen: pt,
+                            proxySize: proxy.size,
+                            selectedEdge: {
+                                if case .wall(let i) = selection { return i }
+                                return nil
+                            }(),
+                            lockedEdges: locked)
+                    }
                 }
 
                 // The live figure during a drag, well above the finger.
@@ -376,11 +415,105 @@ struct PlanEditorView: View {
                         snapEngaged = false
                     }
             )
+            // Double-tap a wall to open it in elevation (G1). Declared
+            // BEFORE the single tap so SwiftUI gives the two-tap gesture
+            // first refusal; the other order makes the single tap win every
+            // time and the double never fires.
+            .onTapGesture(count: 2) { location in
+                openElevation(at: toModel(location), scale: scale)
+            }
             .onTapGesture { location in
                 handleTap(toModel(location), scale: scale)
             }
         }
-        .background(Brand.surface)
+        .background(Brand.canvas)
+        // §3's floating controls, over the canvas rather than in the bar:
+        // undo/redo top-left, the layers and view-mode steppers top-right.
+        .overlay(alignment: .top) { floatingControls }
+    }
+
+    /// §3. One undo/redo pill on the left, two stepper pills on the right.
+    private var floatingControls: some View {
+        HStack(alignment: .top) {
+            EditorUndoRedoPill(
+                canUndo: !history.isEmpty,
+                canRedo: !future.isEmpty,
+                onUndo: undo,
+                onRedo: redo)
+
+            Spacer()
+
+            HStack(spacing: Brand.Space.tight) {
+                // The layers stepper. §3 draws it but never says what it
+                // controls, and guessing a feature would be inventing one —
+                // so it does the plainest thing its own glyph promises:
+                // which layers of the drawing are visible. Visibility only;
+                // nothing here changes a number or the geometry.
+                EditorStepperPill {
+                    showingLayers = true
+                } content: {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.system(size: 15))
+                }
+                .popover(isPresented: $showingLayers) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        layerToggle("Grid", isOn: $showGrid)
+                        Divider()
+                        layerToggle("Dimensions", isOn: $showDimensions)
+                        Divider()
+                        layerToggle("Doors & windows", isOn: $showOpenings)
+                    }
+                    .frame(width: 240)
+                    .presentationCompactAdaptation(.popover)
+                }
+
+                EditorStepperPill {
+                    showingViewModes = true
+                } content: {
+                    if let shortcut = mode.shortcut {
+                        Text(shortcut).font(.system(size: 14, weight: .bold))
+                    } else {
+                        Image(systemName: EditorViewMode.elevationGlyph)
+                            .font(.system(size: 15))
+                    }
+                }
+                .popover(isPresented: $showingViewModes) {
+                    EditorViewModeMenu(
+                        current: mode,
+                        // Inside a room, so §5's blocking reason does not
+                        // apply and the slot carries the shortcut hint.
+                        elevationBlocked: nil,
+                        threeDBlocked: "Not built yet — the plan editor is 2D",
+                        onPick: { picked in
+                            showingViewModes = false
+                            if picked == .elevation { openElevation(atSelectedWall: true) }
+                        })
+                    .presentationCompactAdaptation(.popover)
+                }
+            }
+        }
+        .padding(Brand.Space.small)
+    }
+
+    private func layerToggle(_ label: String, isOn: Binding<Bool>) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+        } label: {
+            HStack {
+                Text(label)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.ink)
+                Spacer()
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Brand.blue)
+                    .opacity(isOn.wrappedValue ? 1 : 0)
+            }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, Brand.Space.small)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Gestures
@@ -535,6 +668,100 @@ struct PlanEditorView: View {
         withAnimation(.easeOut(duration: 0.15)) { selection = next }
     }
 
+    // MARK: - Elevation (ORD-19's view, reached from here)
+
+    /// Double-tap a wall to see it head-on (G1). The tap has to land on a
+    /// wall — double-tapping empty canvas does nothing rather than opening
+    /// an arbitrary elevation.
+    private func openElevation(at point: CGPoint, scale: CGFloat) {
+        let tolerance = wallBand / scale
+        var best = -1
+        var bestDistance = tolerance
+        for i in corners.indices {
+            let d = distanceToEdge(point, index: i)
+            if d < bestDistance {
+                bestDistance = d
+                best = i
+            }
+        }
+        guard best >= 0 else { return }
+        select(.wall(best))
+        elevationWall = best
+        mode = .elevation
+    }
+
+    /// The other way in: §5's Elevation row. It opens the wall already
+    /// selected, or the first wall when the selection is the room — C4 makes
+    /// the row available at room depth, so it must resolve to some wall.
+    private func openElevation(atSelectedWall: Bool) {
+        guard corners.count >= 3 else { return }
+        if case .wall(let index) = selection {
+            elevationWall = index
+        } else {
+            elevationWall = 0
+            select(.wall(0))
+        }
+        mode = .elevation
+    }
+
+    /// Leaving elevation is the `2D` escape where the back chevron sits (G2).
+    private func closeElevation() {
+        elevationWall = nil
+        mode = .plan
+    }
+
+    /// The wall index as the binding `ElevationView` takes, so its own ← / →
+    /// stepper can walk to the adjoining walls and this editor's selection
+    /// follows it back.
+    private var elevationWallBinding: Binding<Int> {
+        Binding(
+            get: { elevationWall ?? 0 },
+            set: { index in
+                elevationWall = index
+                if corners.indices.contains(index) { selection = .wall(index) }
+            })
+    }
+
+    // ========================================================================
+    // MERGE STUB — ORD-19's `ElevationView.swift` is being written by another
+    // agent and does not exist in this worktree, so this placeholder stands
+    // in to keep the build green. At merge, replace the ENTIRE body of this
+    // property with the call already written out in the comment below; every
+    // value it needs is in scope and the signature matches exactly. Nothing
+    // else in this file has to change — the state, the double-tap, the
+    // view-mode row, the binding and the full-screen presentation are all
+    // real and wired.
+    //
+    //     ElevationView(
+    //         corners: corners,
+    //         openings: openings,
+    //         ceilingHeight: room.ceilingHeightM,
+    //         roomScanId: room.id,
+    //         wallIndex: elevationWallBinding,
+    //         onClose: closeElevation)
+    //
+    // ========================================================================
+    private var elevationPresentation: some View {
+        VStack(spacing: Brand.Space.base) {
+            Text("Elevation")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(Brand.ink)
+            Text("Wall \((elevationWall ?? 0) + 1) of \(max(corners.count, 1))")
+                .font(.system(size: 15))
+                .foregroundStyle(Brand.inkSoft)
+            Text("This view is being built under ORD-19 and lands at merge.")
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.inkFaint)
+                .multilineTextAlignment(.center)
+            Button("2D") { closeElevation() }
+                .buttonStyle(PrimaryButtonStyle())
+                .padding(.horizontal, Brand.Space.section)
+        }
+        .padding(Brand.Space.large)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Brand.canvas)
+    }
+
     // MARK: - Measurement walk
 
     /// Open the panel at a wall and queue every wall from there, in order —
@@ -610,30 +837,14 @@ struct PlanEditorView: View {
                 Text("These walls cross each other. Straighten them out to save.")
                     .font(.footnote)
                     .foregroundStyle(.red)
+                    .padding(.horizontal, Brand.Space.base)
             }
             if let error {
-                Text(error).font(.footnote).foregroundStyle(.red)
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, Brand.Space.base)
             }
-
-            // The shared contextual bar, in place of the old capsule strip —
-            // it rewrites itself per selection, and both editors speak the
-            // same verbs through it. Undo/redo stay in the toolbar and the
-            // area readout stays below; only the verbs moved.
-            EditorActionBar(
-                selection: barSelection,
-                onTypeLength: {
-                    if case .wall(let index) = selection { startMeasuring(at: index) }
-                },
-                onAddCorner: {
-                    if case .wall(let index) = selection { addCorner(on: index) }
-                },
-                onAddOpening: { addingOpening = true },
-                onDeleteCorner: {
-                    if case .corner(let index) = selection { deleteCorner(index) }
-                },
-                onDeleteOpening: {
-                    if case .opening(let index) = selection { deleteOpening(index) }
-                })
 
             HStack {
                 Text(Measure.sqftLabel(PlanEditing.area(corners)))
@@ -649,30 +860,146 @@ struct PlanEditorView: View {
                         .foregroundStyle(.orange)
                 }
             }
+            .padding(.horizontal, Brand.Space.base)
+
+            // §4's bar: grabber, equal-width icon-above-label tiles, the
+            // destructive one red and ellipsised, and the swipe-up caption
+            // under it. It rewrites itself per (depth, view mode), and both
+            // editors speak the same verbs through it.
+            EditorActionBar(
+                depth: barDepth,
+                mode: mode,
+                supported: supportedActions,
+                onAction: perform,
+                // The swipe-up leads back to this room's inspector — which
+                // is the very sheet that presented this editor, so the
+                // gesture is a dismissal rather than a second presentation.
+                onInfo: { if isDirty { showDiscard = true } else { dismiss() } })
         }
-        .padding(Brand.Space.base)
+        .padding(.top, Brand.Space.small)
         .background(Brand.canvas)
     }
 
-    /// This editor's selection, in the bar's shared shape. The capability
-    /// answers travel with it: opening authoring is offered only where this
-    /// editor allows it (`canAuthorOpenings` — a scanned room with detected
-    /// openings refuses), and the last three corners are undeletable.
-    private var barSelection: EditorBarSelection {
+    /// This editor's selection as a depth the shared bar understands.
+    ///
+    /// Nothing selected IS room depth here: you are inside the room by
+    /// virtue of the editor being open, so the bar shows the room's verbs
+    /// rather than the hint line it used to.
+    private var barDepth: EditorDepth {
         switch selection {
         case .none:
-            return .none(hint: "Tap a wall to select it. Two fingers to zoom and pan.")
+            return .room(name: room.name)
         case .wall:
-            return .wall(canAddOpening: canAuthorOpenings)
+            // A held drag handle collapses the bar to two (§4, D5).
+            return .wall(dragging: dragStart != nil)
         case .corner:
-            return .corner(deletable: corners.count > 3)
+            return .corner
         case .opening(let index):
-            guard openings.indices.contains(index) else {
-                return .none(hint: "Tap a wall to select it. Two fingers to zoom and pan.")
-            }
-            let kind = openings[index].kind
-            return .opening(label: kind.label, isWindow: kind.isWindowForBar)
+            guard openings.indices.contains(index) else { return .room(name: room.name) }
+            return .opening(label: openings[index].kind.label)
         }
+    }
+
+    /// Which of §4's verbs this editor can actually perform right now.
+    ///
+    /// Everything the bar draws but this set omits renders greyed in place.
+    /// Three reasons a verb is absent, and they are worth telling apart:
+    ///
+    /// - **Never observed.** Add Wall and Split Room appear in the
+    ///   reference's bar but were never performed and have no after-frames;
+    ///   ORDERS lists them as deliberately not ordered. A guess at what they
+    ///   do would be improvising a substitute for evidence.
+    /// - **Not this screen's business.** Duplicating or deleting the room,
+    ///   or rotating it, act on the storey that owns it, not on the polygon
+    ///   this editor has open. Edit Layout is what this whole screen already
+    ///   is, so it has nowhere to go.
+    /// - **Not applicable to the selection.** Insert needs a wall to put an
+    ///   opening in, and refuses on a scanned room that already carries
+    ///   detected openings — `canAuthorOpenings` — because deducting the
+    ///   same door twice is money. A triangle's last three corners cannot be
+    ///   deleted, and Delete on a wall would leave a room that is not closed.
+    private var supportedActions: Set<EditorAction> {
+        switch selection {
+        case .none:
+            // Set Size walks every wall through the keypad — exactly what
+            // C5 describes, and already built.
+            return [.setSize]
+        case .wall:
+            return canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
+        case .corner:
+            return corners.count > 3 ? [.delete] : []
+        case .opening:
+            return [.delete]
+        }
+    }
+
+    /// One bar tap. Only the verbs in `supportedActions` can arrive here —
+    /// the rest are disabled in the bar — so this maps each to the editor's
+    /// existing operation and ignores nothing silently.
+    private func perform(_ action: EditorAction) {
+        switch (action, selection) {
+        case (.setSize, _):
+            startMeasuring(at: 0)
+        case (.insert, .wall):
+            addingOpening = true
+        case (.addCorner, .wall(let index)):
+            addCorner(on: index)
+        case (.delete, .corner(let index)):
+            deleteCorner(index)
+        case (.delete, .opening(let index)):
+            deleteOpening(index)
+        default:
+            break
+        }
+    }
+
+    /// §1's help. The gestures this canvas answers to, in one card — the
+    /// place the old "tap a wall to select it" hint went when §4 gave the
+    /// bar's empty state the room's verbs instead.
+    private var helpCard: some View {
+        VStack(alignment: .leading, spacing: Brand.Space.small) {
+            Text("Editing this plan")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Brand.ink)
+            ForEach(
+                [
+                    "Two fingers pan and zoom — always, whatever is selected.",
+                    "One finger selects. It only moves what is already selected.",
+                    "Tap a wall, then tap its dimension to type an exact length.",
+                    "Double-tap a wall to see it head-on in elevation.",
+                    "A padlock marks a length somebody typed. Drags ask before changing one.",
+                ], id: \.self
+            ) { line in
+                Text("•  " + line)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(Brand.Space.base)
+        .frame(width: 320)
+        .presentationCompactAdaptation(.popover)
+    }
+
+    // MARK: - Nav bar titles (§1)
+
+    /// The title changes with depth: the room's name at room depth, the kind
+    /// of thing selected below it.
+    private var navTitle: String {
+        switch selection {
+        case .none: return room.name
+        case .wall: return "Wall"
+        case .corner: return "Corner"
+        case .opening(let index):
+            guard openings.indices.contains(index) else { return room.name }
+            return openings[index].kind.label
+        }
+    }
+
+    /// The subtitle carries the parent — the storey, once you are deeper
+    /// than the room itself.
+    private var navSubtitle: String? {
+        EditorChrome.floorSubtitle(room.level)
     }
 
     private func addCorner(on index: Int) {

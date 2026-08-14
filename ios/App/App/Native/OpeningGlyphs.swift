@@ -20,6 +20,12 @@ enum OpeningGlyphs {
 
     /// Draw one opening into an editor canvas. `toScreen` is the editor's
     /// own model-to-screen mapping; `scale` its points-per-metre.
+    ///
+    /// The gap is knocked out in TWO colours, not one. A wall band straddles
+    /// the room's boundary — half of it lies over the floor, half over the
+    /// canvas outside — and since §2 made those two different colours (white
+    /// floor, grey canvas), one flat knock-out would show the wrong colour
+    /// through on one side of every door in the room.
     static func draw(
         _ opening: PlanEditing.WallOpening,
         polygon: [CGPoint],
@@ -27,7 +33,8 @@ enum OpeningGlyphs {
         context: GraphicsContext,
         toScreen: (CGPoint) -> CGPoint,
         scale: CGFloat,
-        background: Color
+        inside: Color,
+        outside: Color
     ) {
         guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { return }
         let A = toScreen(a)
@@ -42,23 +49,6 @@ enum OpeningGlyphs {
         let tPts = bandT * scale
         let ink = selected ? Brand.blue : Color(hex: 0x111111)
 
-        // 1. Knock the band out. Slightly wider than the wall stroke so no
-        // sliver of wall survives antialiasing at the jambs.
-        var cut = Path()
-        cut.move(to: A)
-        cut.addLine(to: B)
-        context.stroke(
-            cut, with: .color(background),
-            style: StrokeStyle(lineWidth: max(3, tPts) + 3, lineCap: .butt))
-
-        // 2. Jamb caps — the cut faces either side of the gap.
-        for p in [A, B] {
-            var jamb = Path()
-            jamb.move(to: CGPoint(x: p.x - nx * tPts / 2, y: p.y - ny * tPts / 2))
-            jamb.addLine(to: CGPoint(x: p.x + nx * tPts / 2, y: p.y + ny * tPts / 2))
-            context.stroke(jamb, with: .color(ink), lineWidth: 1.4)
-        }
-
         // Which way is "into the room": toward the outline's own middle.
         var cx = 0.0
         var cy = 0.0
@@ -71,6 +61,35 @@ enum OpeningGlyphs {
         let centre = toScreen(CGPoint(x: cx, y: cy))
         let mid = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
         let side: CGFloat = ((centre.x - mid.x) * nx + (centre.y - mid.y) * ny) >= 0 ? 1 : -1
+
+        // 1. Knock the band out. The whole width goes first in the outside
+        // colour — slightly wider than the wall stroke so no sliver of wall
+        // survives antialiasing — then the inner half is repainted in the
+        // floor's colour, overlapping the centreline by a hair so the black
+        // wall leaves no seam between the two.
+        let reach = max(3, tPts) / 2 + 1.5
+        var cut = Path()
+        cut.move(to: A)
+        cut.addLine(to: B)
+        context.stroke(
+            cut, with: .color(outside),
+            style: StrokeStyle(lineWidth: reach * 2, lineCap: .butt))
+
+        var inner = Path()
+        inner.move(to: CGPoint(x: A.x - side * nx * 0.75, y: A.y - side * ny * 0.75))
+        inner.addLine(to: CGPoint(x: B.x - side * nx * 0.75, y: B.y - side * ny * 0.75))
+        inner.addLine(to: CGPoint(x: B.x + side * nx * reach, y: B.y + side * ny * reach))
+        inner.addLine(to: CGPoint(x: A.x + side * nx * reach, y: A.y + side * ny * reach))
+        inner.closeSubpath()
+        context.fill(inner, with: .color(inside))
+
+        // 2. Jamb caps — the cut faces either side of the gap.
+        for p in [A, B] {
+            var jamb = Path()
+            jamb.move(to: CGPoint(x: p.x - nx * tPts / 2, y: p.y - ny * tPts / 2))
+            jamb.addLine(to: CGPoint(x: p.x + nx * tPts / 2, y: p.y + ny * tPts / 2))
+            context.stroke(jamb, with: .color(ink), lineWidth: 1.4)
+        }
 
         func leafAndArc(hinge H: CGPoint, latch L: CGPoint) {
             let r = hypot(L.x - H.x, L.y - H.y)
@@ -153,20 +172,146 @@ enum OpeningGlyphs {
         }
     }
 
-    /// The split dimension chain of one wall: offset · width · offset (and
-    /// longer, with more openings), drawn a step inside the room so it reads
-    /// as the wall's second row under the overall length.
-    static func drawChain(
+    // MARK: - The split dimension chain
+
+    /// Which figures of a wall's chain there is room to print, worked out
+    /// before anything is drawn.
+    ///
+    /// Two questions have to be answered in that order — "is this chain worth
+    /// a row at all?" and "which of its figures fit?" — because the answer to
+    /// the first decides how far out the OVERALL dimension line has to sit,
+    /// and that is settled by `EditorChrome.drawWallDimensions` before a
+    /// single line is stroked. Hence a layout pass separate from the draw.
+    struct ChainLayout {
+        /// The pieces, alternating wall · opening · wall …, metres.
+        let pieces: [Double]
+        /// Indices of the pieces whose figure survived collision pruning.
+        let labelled: Set<Int>
+        /// Nothing to draw: no opening, or nothing legible left after pruning.
+        var isEmpty: Bool { pieces.count < 2 || labelled.isEmpty }
+    }
+
+    /// Decide the chain's figures for one wall.
+    ///
+    /// **The collision rule, and why it is this one.** A chain is printed
+    /// along the wall it measures, so each figure has only its own segment's
+    /// run to sit in — and on a 0.9 m door at low zoom that run is a few
+    /// points wide. Something has to give, and the choice of what is not
+    /// arbitrary: ORD-18 exists because *a door's width is the first number
+    /// an operator checks*. So the priority is fixed —
+    ///
+    /// 1. **An opening's figure is never suppressed.** It is the reason the
+    ///    chain is drawn. If it will not fit inside its own segment it is
+    ///    printed anyway and allowed to overhang its arrowheads; a door width
+    ///    spilling a few points past its jambs is still readable, and still
+    ///    unambiguous, because it is the only figure between that pair of
+    ///    opposed arrowheads.
+    /// 2. **A wall piece's figure is dropped** when it does not fit inside
+    ///    its own run, or when it would collide with a figure already kept.
+    ///    Its information is not lost — the overall dimension one row further
+    ///    out still states the wall, and the arrowheads still show where the
+    ///    piece begins and ends. A missing offset is a smaller lie than two
+    ///    numbers printed on top of each other.
+    /// 3. **If nothing survives, the whole row is dropped** (`isEmpty`) and
+    ///    the wall keeps the single overall figure alone — ink with no
+    ///    information is worse than no ink.
+    ///
+    /// Openings are pruned first precisely so the wall pieces are the ones
+    /// that yield to them, never the other way round.
+    static func chainLayout(
         edge: Int,
         polygon: [CGPoint],
         openings: [PlanEditing.WallOpening],
+        screenLength: CGFloat,
+        context: GraphicsContext,
+        proxySize: CGSize
+    ) -> ChainLayout {
+        let pieces = PlanEditing.chain(polygon, edge: edge, openings: openings)
+        let total = pieces.reduce(0, +)
+        guard pieces.count > 1, total > 0, screenLength > 1 else {
+            return ChainLayout(pieces: pieces, labelled: [])
+        }
+
+        // Each piece's centre and half-width along the run, in screen points.
+        var cursor = 0.0
+        var spans: [(centre: CGFloat, half: CGFloat, run: CGFloat)] = []
+        for (index, piece) in pieces.enumerated() {
+            let centre = CGFloat((cursor + piece / 2) / total) * screenLength
+            let run = CGFloat(piece / total) * screenLength
+            cursor += piece
+            // Measured at the weight it will be DRAWN at — an opening's
+            // figure is bold and therefore wider, and measuring it regular
+            // would let a wall piece be kept that then collides with it.
+            let width = chainText(piece, isOpening: index % 2 == 1, context: context)
+                .measure(in: proxySize).width
+            spans.append((centre, width / 2, run))
+        }
+
+        var kept = Set<Int>()
+        // Screen intervals along the run that a kept figure already occupies,
+        // each padded by 3pt so two figures never touch shoulders.
+        var taken: [ClosedRange<CGFloat>] = []
+
+        func footprint(_ index: Int) -> ClosedRange<CGFloat> {
+            let half = spans[index].half + 3
+            return (spans[index].centre - half)...(spans[index].centre + half)
+        }
+        func keep(_ index: Int) {
+            kept.insert(index)
+            taken.append(footprint(index))
+        }
+
+        // Pass 1 — openings, unconditionally. They sit at the odd indices by
+        // construction of `PlanEditing.chain`.
+        for index in pieces.indices where index % 2 == 1 && pieces[index] > 0.02 {
+            keep(index)
+        }
+        // Pass 2 — wall pieces, only where they fit their own run and clear
+        // everything already kept.
+        for index in pieces.indices where index % 2 == 0 && pieces[index] > 0.02 {
+            guard spans[index].half * 2 <= spans[index].run - 4 else { continue }
+            guard !taken.contains(where: { $0.overlaps(footprint(index)) }) else { continue }
+            keep(index)
+        }
+
+        return ChainLayout(pieces: pieces, labelled: kept)
+    }
+
+    /// One chain figure, resolved. Openings carry the weight because they are
+    /// the number being looked for; both are brand blue per the design's §6.
+    private static func chainText(
+        _ metres: Double, isOpening: Bool, context: GraphicsContext
+    ) -> GraphicsContext.ResolvedText {
+        context.resolve(
+            Text(FloorPlanGeometry.feetInches(metres))
+                .font(.system(size: 12, weight: isOpening ? .bold : .regular))
+                .foregroundStyle(Brand.blue))
+    }
+
+    /// Draw the split chain of one wall: wall-piece · opening · wall-piece,
+    /// on its own dimension row OUTSIDE the wall and INBOARD of the overall
+    /// line — the arrangement in the reference's own drawing, where `4.000`
+    /// sits on the outer row and `1.550 · 0.900 · 1.550` on the inner one.
+    ///
+    /// Segment boundaries are small opposed arrowheads, not the plain ticks
+    /// this used to draw, and the figures sit on the canvas with no plate
+    /// behind them (§6). `offset` is points outboard of the wall; `winding`
+    /// is the polygon's orientation, so "outboard" means the same thing here
+    /// as it does for the overall dimension drawn beside it.
+    static func drawChain(
+        edge: Int,
+        polygon: [CGPoint],
+        layout: ChainLayout,
         context: GraphicsContext,
         toScreen: (CGPoint) -> CGPoint,
-        proxySize: CGSize
+        proxySize: CGSize,
+        offset: CGFloat,
+        winding: CGFloat
     ) {
-        let pieces = PlanEditing.chain(polygon, edge: edge, openings: openings)
-        // One piece means no opening — the overall label already says it.
-        guard pieces.count > 1 else { return }
+        guard !layout.isEmpty else { return }
+        let pieces = layout.pieces
+        let total = pieces.reduce(0, +)
+        guard total > 0 else { return }
 
         let (ai, bi) = PlanEditing.edgeCorners(edge, count: polygon.count)
         let A = toScreen(polygon[ai])
@@ -175,58 +320,68 @@ enum OpeningGlyphs {
         guard len > 1 else { return }
         let ux = (B.x - A.x) / len
         let uy = (B.y - A.y) / len
-        let nx = -uy
-        let ny = ux
+        let nx = winding * uy
+        let ny = -winding * ux
 
-        var cx = 0.0
-        var cy = 0.0
-        for p in polygon {
-            cx += p.x
-            cy += p.y
+        // A point at `along` points from the start corner, on the chain row.
+        func at(_ along: CGFloat) -> CGPoint {
+            CGPoint(x: A.x + ux * along + nx * offset, y: A.y + uy * along + ny * offset)
         }
-        let centre = toScreen(
-            CGPoint(x: cx / Double(max(polygon.count, 1)), y: cy / Double(max(polygon.count, 1))))
-        let mid = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
-        let inward: CGFloat = ((centre.x - mid.x) * nx + (centre.y - mid.y) * ny) >= 0 ? 1 : -1
 
-        let total = pieces.reduce(0, +)
-        guard total > 0 else { return }
+        let line = EditorChrome.dimensionGrey
+        var rule = Path()
+        rule.move(to: at(0))
+        rule.addLine(to: at(len))
+        context.stroke(rule, with: .color(line), lineWidth: 0.6)
 
+        // The boundaries: every place one piece ends and the next begins, and
+        // the two ends of the wall. Opposed arrowheads point INTO the segment
+        // either side, which is what makes a chain read as a chain.
         var cursor = 0.0
-        for (index, piece) in pieces.enumerated() {
-            let fraction = (cursor + piece / 2) / total
+        var boundaries: [CGFloat] = [0]
+        for piece in pieces {
             cursor += piece
-            guard piece > 0.02 else { continue }
+            boundaries.append(CGFloat(cursor / total) * len)
+        }
+        for boundary in boundaries {
+            let p = at(boundary)
+            // A short witness stub down to the wall, so the boundary is
+            // visibly the jamb it came from rather than a mark in space.
+            var stub = Path()
+            stub.move(to: CGPoint(x: p.x - nx * (offset - 3), y: p.y - ny * (offset - 3)))
+            stub.addLine(to: CGPoint(x: p.x + nx * 3, y: p.y + ny * 3))
+            context.stroke(
+                stub, with: .color(line),
+                style: StrokeStyle(lineWidth: 0.5, dash: [1.5, 2.5]))
+            EditorChrome.arrowheads(at: p, along: (ux, uy), context: context, color: line)
+        }
 
-            let at = CGPoint(
-                x: A.x + ux * len * fraction + inward * nx * 22,
-                y: A.y + uy * len * fraction + inward * ny * 22)
-            // Openings sit at the odd indices by construction of the chain.
-            let isOpening = index % 2 == 1
-            let text = context.resolve(
-                Text(FloorPlanGeometry.feetInches(piece))
-                    .font(.system(size: 9, weight: isOpening ? .bold : .regular))
-                    .foregroundStyle(isOpening ? Brand.blue : Color(hex: 0x4A4A50)))
+        cursor = 0.0
+        for (index, piece) in pieces.enumerated() {
+            let centre = CGFloat((cursor + piece / 2) / total) * len
+            cursor += piece
+            guard layout.labelled.contains(index) else { continue }
+
+            let text = chainText(piece, isOpening: index % 2 == 1, context: context)
             let size = text.measure(in: proxySize)
-            let box = CGRect(
-                x: at.x - size.width / 2 - 4, y: at.y - 8,
-                width: size.width + 8, height: 16)
-            context.fill(
-                Path(roundedRect: box, cornerRadius: 8),
-                with: .color(Color.white.opacity(0.9)))
-            context.draw(text, at: at, anchor: .center)
+            let p = at(centre)
+            // Along the run and the right way up, same rule as the overall
+            // figure: a wall read from either end is the same wall.
+            var angle = atan2(uy, ux)
+            if angle > .pi / 2 { angle -= .pi } else if angle < -.pi / 2 { angle += .pi }
 
-            // A tick where each piece meets the next, so the chain reads as
-            // one measured run rather than three floating numbers.
-            if index < pieces.count - 1 {
-                let boundary = cursor / total
-                let bp = CGPoint(
-                    x: A.x + ux * len * boundary + inward * nx * 22,
-                    y: A.y + uy * len * boundary + inward * ny * 22)
-                var tick = Path()
-                tick.move(to: CGPoint(x: bp.x - nx * 4, y: bp.y - ny * 4))
-                tick.addLine(to: CGPoint(x: bp.x + nx * 4, y: bp.y + ny * 4))
-                context.stroke(tick, with: .color(Color(hex: 0x6B6B70)), lineWidth: 1)
+            context.drawLayer { layer in
+                layer.translateBy(x: p.x, y: p.y)
+                layer.rotate(by: Angle(radians: Double(angle)))
+                // The figures sit ON the rule, so the rule is knocked out
+                // from under them — no plate, per §6, just cleared paper.
+                layer.fill(
+                    Path(
+                        CGRect(
+                            x: -size.width / 2 - 3, y: -size.height / 2,
+                            width: size.width + 6, height: size.height)),
+                    with: .color(Brand.surface))
+                layer.draw(text, at: .zero, anchor: .center)
             }
         }
     }
