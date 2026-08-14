@@ -255,18 +255,22 @@ struct ProjectDetailView: View {
                         }
                     }
 
+                    // Each storey through the collection shell (ORD-15): the
+                    // rooms as a rail led by the dashed + tile, the storey
+                    // drawing above it, the full-width rows behind `See all`.
                     ForEach(levels, id: \.self) { level in
                         let rooms = (scans ?? []).filter { $0.level == level }
                         let area = rooms.reduce(0) { $0 + $1.floorAreaSqm }
 
-                        VStack(alignment: .leading, spacing: Brand.Space.small) {
-                            SectionHeading(
-                                title: level.uppercased(),
-                                trailing: "\(Measure.sqftLabel(area)) · \(rooms.count) room\(rooms.count == 1 ? "" : "s")"
-                            )
-
+                        CollectionShell(
+                            title: level.uppercased(),
+                            count: rooms.count,
+                            caption:
+                                "\(Measure.sqftLabel(area)) · \(rooms.count) room\(rooms.count == 1 ? "" : "s")",
+                            onAdd: { capturing = true }
+                        ) {
                             // The storey as one drawing, tappable — the plan
-                            // view of the same rooms listed below it.
+                            // view of the same rooms railed below it.
                             if rooms.contains(where: { $0.geometry != nil }) {
                                 Card(padding: Brand.Space.small) {
                                     LevelCanvas(rooms: rooms) { room in
@@ -274,7 +278,14 @@ struct ProjectDetailView: View {
                                     }
                                 }
                             }
-
+                        } rail: {
+                            ForEach(rooms) { room in
+                                NavigationLink(value: room) {
+                                    RoomRailCard(room: room)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } expanded: {
                             ForEach(rooms) { room in
                                 NavigationLink(value: room) {
                                     Card(padding: Brand.Space.small) {
@@ -437,6 +448,33 @@ struct ProjectDetailView: View {
             self.error = error.localizedDescription
             if scans == nil { scans = [] }
         }
+    }
+}
+
+/// One room as a rail card — the same facts as the full row, sized for the
+/// collection shell's horizontal rail. The row itself is one `See all` away.
+private struct RoomRailCard: View {
+    let room: RoomScan
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+            RoomGlyph(stairs: room.stairCount > 0)
+            Spacer(minLength: 0)
+            Text(room.name)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1)
+            Text(Measure.sqftLabel(room.floorAreaSqm))
+                .font(.system(size: 11, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(Brand.inkSoft)
+        }
+        .padding(Brand.Space.small)
+        .frame(width: 124, height: 108, alignment: .topLeading)
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .overlay(
+            RoundedRectangle(cornerRadius: Brand.Radius.card)
+                .strokeBorder(Brand.hairline, lineWidth: 0.5))
     }
 }
 

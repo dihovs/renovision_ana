@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import CollectionShell, { AddTile } from "./CollectionShell";
 
 /**
  * The project's file library: upload, list, download, delete.
@@ -61,6 +62,10 @@ export default function ProjectFiles({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  // The upload panel sits behind the rail's `+` tile. Kept open while an
+  // upload runs or files are staged, so the tile cannot hide work in flight.
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const panelOpen = uploadOpen || uploading || selected.length > 0;
 
   // Native only: a plain file input can pick an existing photo but, without
   // an image `accept`, iOS never offers the camera itself. The plugin call
@@ -131,16 +136,9 @@ export default function ProjectFiles({
     }
   }
 
-  return (
-    <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="font-heading text-sm font-bold text-charcoal">Files</h2>
-      <p className="mt-0.5 text-xs text-charcoal/50">
-        Site photos, permits, contracts, receipts, plans — everything for this project in one
-        place. Up to {formatBytes(maxBytes)} per file.
-      </p>
-
-      {/* Upload ------------------------------------------------------- */}
-      <div className="mt-3 rounded-lg border border-dashed border-black/15 bg-black/[0.015] p-3">
+  // The upload panel — revealed by the rail's `+` tile.
+  const uploadPanel = (
+    <div className="mt-3 rounded-lg border border-dashed border-black/15 bg-black/[0.015] p-3">
         <div className="flex flex-wrap items-center gap-3">
           <input
             ref={inputRef}
@@ -196,22 +194,94 @@ export default function ProjectFiles({
           </ul>
         )}
       </div>
+  );
 
-      {/* List --------------------------------------------------------- */}
-      {files.length === 0 ? (
-        <p className="mt-3 text-sm text-charcoal/40">
-          Nothing here yet. Photos taken on site, the permit, the signed contract — drop them in
-          as they appear and they stay findable.
-        </p>
-      ) : (
-        <ul className="mt-3 divide-y divide-black/5">
+  return (
+    <CollectionShell
+      title="Files"
+      count={files.length}
+      caption={`Newest first · up to ${formatBytes(maxBytes)} per file`}
+      addTile={<AddTile label="Add files" onClick={() => setUploadOpen((value) => !value)} />}
+      note={
+        <>
+          {panelOpen && uploadPanel}
+          {files.length === 0 && (
+            <p className="mt-3 text-sm text-charcoal/40">
+              Nothing here yet. Photos taken on site, the permit, the signed contract — drop
+              them in as they appear and they stay findable.
+            </p>
+          )}
+        </>
+      }
+      expanded={
+        <ul className="mt-3 divide-y divide-black/5 border-t border-black/5">
           {files.map((file) => (
             <FileRow key={file.id} file={file} deleteAction={deleteAction} />
           ))}
         </ul>
-      )}
-    </section>
+      }
+    >
+      {files.map((file) => (
+        <FileCard key={file.id} file={file} />
+      ))}
+    </CollectionShell>
   );
+}
+
+/** One file as a rail card: preview for images, a label for the rest. The
+    card is the download; managing (notes, delete) lives in `See all`. */
+function FileCard({ file }: { file: ProjectFileRow }) {
+  const image = file.content_type.startsWith("image/") && file.url;
+  const face = image ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={file.url!} alt={file.filename} className="h-full w-full object-cover" />
+  ) : (
+    <span className="rounded bg-charcoal/[0.06] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-charcoal/45">
+      {extension(file.filename)}
+    </span>
+  );
+
+  const body = (
+    <>
+      <div className="flex h-24 items-center justify-center overflow-hidden bg-[#f7f7f8]">
+        {face}
+      </div>
+      <div className="border-t border-black/5 px-2.5 py-2">
+        <span className="block truncate text-xs font-bold text-charcoal">{file.filename}</span>
+        <span className="block truncate text-[11px] text-charcoal/45">
+          {formatBytes(file.size_bytes)} · {formatDate(file.uploaded_at)}
+        </span>
+      </div>
+    </>
+  );
+
+  if (!file.url) {
+    return (
+      <div
+        title={`${file.filename} — download link unavailable, reload the page`}
+        className="w-36 shrink-0 overflow-hidden rounded-xl border border-black/5 opacity-60"
+      >
+        {body}
+      </div>
+    );
+  }
+  return (
+    <a
+      href={file.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={file.filename}
+      className="w-36 shrink-0 overflow-hidden rounded-xl border border-black/5 transition-colors hover:border-brand-blue/30"
+    >
+      {body}
+    </a>
+  );
+}
+
+function extension(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  if (dot <= 0 || dot === filename.length - 1) return "FILE";
+  return filename.slice(dot + 1).toUpperCase().slice(0, 4);
 }
 
 function FileRow({

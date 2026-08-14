@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  COMMON_FLOOR_IDS,
   compareFloorLevels,
   FLOOR_LEVELS,
   FLOOR_ORDER,
@@ -37,6 +38,18 @@ describe("the floor vocabulary", () => {
     expect(parseFloorLevel("Bsmt")).toBeNull();
     expect(parseFloorLevel("")).toBeNull();
     expect(parseFloorLevel(null)).toBeNull();
+  });
+
+  it("leads pickers with the common three, spelled exactly as stored", () => {
+    // Presentation order — Ground, then Basement (this trade lives in
+    // basements), then 2nd. The pickers show these first with the rest
+    // behind "See more".
+    expect(COMMON_FLOOR_IDS).toEqual(["Ground", "Basement", "2nd"]);
+    // A common id must be a stored id: a spelling here that FLOOR_ORDER
+    // does not know would be the one-floor-becomes-two bug reborn.
+    for (const id of COMMON_FLOOR_IDS) {
+      expect(FLOOR_ORDER).toContain(id);
+    }
   });
 
   it("sorts known levels by building order and unknown text after them", () => {

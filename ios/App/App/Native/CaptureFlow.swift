@@ -64,6 +64,11 @@ struct CaptureFlow: View {
     /// would leave the operator expecting a plan the canvas cannot draw.
     @State private var placementNote: String?
     @State private var placementFailed = false
+    /// The full 18-type living-area vocabulary, behind the More… chip.
+    /// Loaded once from the living-area endpoint when the sheet first opens;
+    /// the eight chips need no network and keep working without it.
+    @State private var pickingMoreTypes = false
+    @State private var allRoomTypes: [LivingRoomType] = []
 
     private enum Stage {
         case chooseFloor
@@ -77,7 +82,18 @@ struct CaptureFlow: View {
 
     // ORD-12: one floor vocabulary. The list lives in FloorVocabulary (the
     // Swift twin of src/lib/crm/floors.ts), not here.
-    private static let levels = FloorVocabulary.ids
+    //
+    // ORD-15: most-common-first. The three storeys nearly every job is on —
+    // mirror of COMMON_FLOOR_IDS in src/lib/crm/floors.ts, in the same
+    // presentation order (Ground, then Basement — this trade lives in
+    // basements — then 2nd). Filtered against the vocabulary so a drifted
+    // spelling here could never offer a floor that does not exist; the rest
+    // of the list comes from FloorVocabulary itself, behind "See more".
+    private static let commonLevels = ["Ground", "Basement", "2nd"]
+        .filter { FloorVocabulary.ids.contains($0) }
+    private static let otherLevels = FloorVocabulary.ids
+        .filter { !commonLevels.contains($0) }
+    @State private var showAllFloors = false
 
     var body: some View {
         NavigationStack {
@@ -159,6 +175,29 @@ struct CaptureFlow: View {
             }
             .ignoresSafeArea()
         }
+        .sheet(isPresented: $pickingMoreTypes) {
+            FullRoomTypeSheet(
+                projectId: projectId,
+                selected: roomType,
+                types: $allRoomTypes
+            ) { picked, label in
+                roomType = picked
+                if name.trimmed.isEmpty || name == autoName { name = label }
+                pickingMoreTypes = false
+            }
+        }
+    }
+
+    /// The eight common chips — plus the chosen type when it came from the
+    /// full list, so a selection made behind More… stays visible as a
+    /// selected chip instead of silently deselecting the row.
+    private var chipOptions: [TypeChip] {
+        var options = Self.typeChips
+        if let roomType, !options.contains(where: { $0.id == roomType }) {
+            let label = allRoomTypes.first { $0.id == roomType }?.label ?? roomType
+            options.append(TypeChip(label: label, id: roomType))
+        }
+        return options
     }
 
     private var title: String {
@@ -178,33 +217,41 @@ struct CaptureFlow: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Brand.inkSoft)
 
-                SectionHeading(title: "WHICH FLOOR?")
+                SectionHeading(title: "WHICH FLOOR?", trailing: "Most common")
 
+                // Most-common-first (ORD-15): the three storeys nearly every
+                // job is on, the rest one tap behind See more — a picker
+                // should not make the operator read Attic to find Basement.
                 VStack(spacing: Brand.Space.tight) {
-                    ForEach(Self.levels, id: \.self) { option in
-                        Button {
-                            // A merge set is one storey. Rooms on different
-                            // floors still share the AR frame, but placing a
-                            // basement against a kitchen would write plan
-                            // positions that mean nothing on either sheet.
-                            if level != option { session.resetRooms() }
-                            level = option
-                        } label: {
-                            Card(padding: Brand.Space.small) {
-                                HStack {
-                                    Text(option)
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundStyle(Brand.ink)
-                                    Spacer()
-                                    if level == option {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(Brand.blue)
-                                    }
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
+                    ForEach(Self.commonLevels, id: \.self) { option in
+                        floorRow(option)
                     }
+                }
+
+                if showAllFloors {
+                    SectionHeading(title: "OTHER FLOORS")
+                        .padding(.top, Brand.Space.tight)
+
+                    VStack(spacing: Brand.Space.tight) {
+                        ForEach(Self.otherLevels, id: \.self) { option in
+                            floorRow(option)
+                        }
+                    }
+                } else {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.15)) { showAllFloors = true }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("See more")
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Brand.blue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Brand.Space.small)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 if let error {
@@ -259,6 +306,32 @@ struct CaptureFlow: View {
             }
             .padding(Brand.Space.base)
         }
+    }
+
+    /// One floor as a selectable row — the same row whichever group it
+    /// appears in, so "common" is an ordering, not a different control.
+    private func floorRow(_ option: String) -> some View {
+        Button {
+            // A merge set is one storey. Rooms on different floors still
+            // share the AR frame, but placing a basement against a kitchen
+            // would write plan positions that mean nothing on either sheet.
+            if level != option { session.resetRooms() }
+            level = option
+        } label: {
+            Card(padding: Brand.Space.small) {
+                HStack {
+                    Text(option)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Brand.ink)
+                    Spacer()
+                    if level == option {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Brand.blue)
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Review
@@ -357,7 +430,13 @@ struct CaptureFlow: View {
                 // 100% and a basement quietly becomes living area. Picking
                 // a type also names a room still wearing its auto number,
                 // which is what the old quick-name chips existed for.
-                TypeChips(options: Self.typeChips, selected: roomType) { chip in
+                // The eight stay; the full eighteen — crawl space, cold
+                // room — sit behind More… with their living-area notes.
+                TypeChips(
+                    options: chipOptions,
+                    selected: roomType,
+                    onMore: { pickingMoreTypes = true }
+                ) { chip in
                     roomType = chip.id
                     if name.trimmed.isEmpty || name == autoName { name = chip.label }
                 }
@@ -587,12 +666,67 @@ struct TypeChip: Hashable {
     let id: String
 }
 
+/// The full 18-type vocabulary behind the More… chip — `RoomTypePicker`
+/// reused, fed by the living-area endpoint so the labels, percentages and
+/// notes are the engine's own. With an honest failure state: the eight
+/// chips keep working in a basement with no signal, so this sheet reports
+/// the missing connection rather than spinning forever.
+private struct FullRoomTypeSheet: View {
+    let projectId: String
+    let selected: String?
+    /// Held by the flow, not this sheet — loaded once per capture visit.
+    @Binding var types: [LivingRoomType]
+    let onPick: (_ id: String, _ label: String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var failed = false
+
+    var body: some View {
+        if failed && types.isEmpty {
+            VStack(spacing: Brand.Space.base) {
+                Text("The full list needs a connection")
+                    .font(.headline)
+                    .foregroundStyle(Brand.ink)
+                Text("It could not be fetched just now. The eight common types behind this sheet still work without one.")
+                    .font(.callout)
+                    .foregroundStyle(Brand.inkSoft)
+                    .multilineTextAlignment(.center)
+                Button("Try again") {
+                    failed = false
+                    Task { await load() }
+                }
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Brand.blue)
+                Button("Close") { dismiss() }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.inkSoft)
+            }
+            .padding(Brand.Space.large)
+        } else {
+            RoomTypePicker(types: types, selected: selected) { picked in
+                onPick(picked, types.first { $0.id == picked }?.label ?? picked)
+            }
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        guard types.isEmpty else { return }
+        do {
+            types = try await API.shared.livingArea(projectId: projectId).roomTypes
+        } catch {
+            failed = true
+        }
+    }
+}
+
 /// A wrapping grid of room-type chips with a visible selected state — the
 /// selection is a fact the save button depends on, so it has to be
 /// legible at arm's length, not just a highlight that flashed once.
 private struct TypeChips: View {
     let options: [TypeChip]
     let selected: String?
+    var onMore: (() -> Void)?
     let onPick: (TypeChip) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 84), spacing: Brand.Space.tight)]
@@ -614,6 +748,29 @@ private struct TypeChips: View {
                         .background(
                             isOn ? Brand.blue : Brand.surfaceRaised,
                             in: .rect(cornerRadius: Brand.Radius.pill))
+                }
+                .buttonStyle(.plain)
+            }
+
+            // The rest of the vocabulary, one tap away (ORD-15) — a chip in
+            // the row, not a separate control, because the operator's thumb
+            // is already here.
+            if let onMore {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onMore()
+                } label: {
+                    HStack(spacing: 3) {
+                        Text("More")
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.blue)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity)
+                    .background(Brand.blue.opacity(0.08), in: .rect(cornerRadius: Brand.Radius.pill))
                 }
                 .buttonStyle(.plain)
             }

@@ -8,6 +8,7 @@ import {
   setProjectStatusAction,
 } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
+import CollectionShell, { AddTile } from "@/components/admin/CollectionShell";
 import ProjectFiles from "@/components/admin/ProjectFiles";
 import ProjectJobs from "@/components/admin/ProjectJobs";
 import ProjectStatusButtons from "@/components/admin/ProjectStatusButtons";
@@ -275,27 +276,29 @@ export default async function ProjectDetailPage({
       {/* The other half of "project → estimate → job → invoice" — jobs
           below already show which of these converted; this shows the
           estimates themselves, including ones still awaiting a decision. */}
-      <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-sm font-bold text-charcoal">Estimates</h2>
-          {project.client && (
-            <Link
+      <CollectionShell
+        title="Estimates"
+        count={project.quotes.length}
+        caption="Newest first"
+        addTile={
+          project.client ? (
+            <AddTile
+              label="New estimate"
               href={`/admin/quotes/new?project=${project.id}&client=${project.client.id}`}
-              className="cursor-pointer rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-blue/90"
-            >
-              New estimate
-            </Link>
-          )}
-        </div>
-
-        {project.quotes.length === 0 ? (
-          <p className="mt-3 text-sm text-charcoal/40">
-            {project.client
-              ? "Nothing yet — build the first estimate for this project."
-              : "This project has no client, so an estimate can't be addressed to anybody yet."}
-          </p>
-        ) : (
-          <ul className="mt-3 divide-y divide-black/5">
+            />
+          ) : undefined
+        }
+        note={
+          project.quotes.length === 0 ? (
+            <p className="mt-3 text-sm text-charcoal/40">
+              {project.client
+                ? "Nothing yet — build the first estimate for this project."
+                : "This project has no client, so an estimate can't be addressed to anybody yet."}
+            </p>
+          ) : null
+        }
+        expanded={
+          <ul className="mt-3 divide-y divide-black/5 border-t border-black/5">
             {project.quotes.map((quote) => (
               <li key={quote.id}>
                 <Link
@@ -318,8 +321,31 @@ export default async function ProjectDetailPage({
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        }
+      >
+        {project.quotes.map((quote) => (
+          <Link
+            key={quote.id}
+            href={`/admin/quotes/${quote.id}`}
+            className="flex w-40 shrink-0 flex-col gap-1.5 rounded-xl border border-black/5 px-3 py-2.5 transition-colors hover:border-brand-blue/30"
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs font-bold text-charcoal/45">
+                #{quote.quote_number}
+              </span>
+              <span className="truncate rounded-full bg-brand-blue/[0.08] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-blue">
+                {QUOTE_STATUS_LABEL[quote.status as QuoteStatus] ?? quote.status}
+              </span>
+            </span>
+            <span className="truncate text-sm font-semibold text-charcoal">
+              {quote.title || "Untitled estimate"}
+            </span>
+            <span className="text-sm font-bold tabular-nums text-charcoal">
+              {formatMoney(quote.total_cents)}
+            </span>
+          </Link>
+        ))}
+      </CollectionShell>
 
       <ProjectFiles
         projectId={project.id}
