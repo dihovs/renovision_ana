@@ -37,7 +37,16 @@ struct CaptureFlow: View {
     /// two identical rows in a claim file nobody can tell apart. Knowing what
     /// is taken is what lets the flow offer `Bedroom 2` instead.
     var existingNames: [String] = []
+    /// Where the flow opens when the storey is already known — entered from a
+    /// floor plan rather than from the project. The floor chooser still shows,
+    /// because the MODE choice lives there and is one-way once made (A1).
+    var initialLevel: String? = nil
     let onSaved: () -> Void
+    /// The visit is over: the storey it was on, and everything it filed.
+    /// ORD-16 — the operator lands on that storey's drawn plan, not on a list.
+    /// Nil leaves the old behaviour (close, and go back to whatever presented
+    /// this) for any caller that has nowhere to land.
+    var onFinished: ((String, [FiledRoom]) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
 
@@ -85,10 +94,10 @@ struct CaptureFlow: View {
     /// the eight chips need no network and keep working without it.
     @State private var pickingMoreTypes = false
     @State private var allRoomTypes: [LivingRoomType] = []
-    /// The names filed since the sheet opened. Names come from the type now,
-    /// so the second bedroom of a visit has to know the first one took the
-    /// plain `Bedroom`.
-    @State private var namesThisVisit: [String] = []
+    /// Everything filed since the sheet opened, carried to the plan the
+    /// operator lands on. A scan held offline has no row to come back from the
+    /// API, and "where is my scan" must still have an answer on that sheet.
+    @State private var filedThisVisit: [FiledRoom] = []
 
     enum CaptureMode {
         case scan
@@ -148,8 +157,16 @@ struct CaptureFlow: View {
                     // stage's own buttons are the only honest exits.
                     if stage != .saved {
                         Button("Cancel") {
-                            session.end()
-                            dismiss()
+                            // Backing out after filing something still ends on
+                            // that storey's plan: the rooms exist, and the
+                            // project list is the destination this order was
+                            // written to stop landing on.
+                            if filedThisVisit.isEmpty {
+                                session.end()
+                                dismiss()
+                            } else {
+                                finish()
+                            }
                         }
                     }
                 }
@@ -214,6 +231,13 @@ struct CaptureFlow: View {
             }
             .ignoresSafeArea()
         }
+        .onAppear {
+            // Entered from a storey's own plan: that storey is already the
+            // answer, so the chooser opens on it rather than on Ground.
+            if let initialLevel, FloorVocabulary.ids.contains(initialLevel) {
+                level = initialLevel
+            }
+        }
         .sheet(isPresented: $pickingMoreTypes) {
             FullRoomTypeSheet(
                 projectId: projectId,
@@ -242,7 +266,9 @@ struct CaptureFlow: View {
     /// worse: a report has to be able to say WHICH bedroom. The second one
     /// becomes `Bedroom 2`.
     private func availableName(from label: String) -> String {
-        let taken = Set((existingNames + namesThisVisit).map { $0.trimmed.lowercased() })
+        let taken = Set(
+            (existingNames + filedThisVisit.map(\.name))
+                .map { $0.trimmed.lowercased() })
         guard taken.contains(label.lowercased()) else { return label }
         var n = 2
         while taken.contains("\(label) \(n)".lowercased()) { n += 1 }
@@ -573,124 +599,82 @@ struct CaptureFlow: View {
             ]
     }
 
-    // MARK: - Review
+    // MARK: - Review — the shape, and two ways out (ORD-16)
 
-    /// The name field and the type chips are gone from here: both are asked
-    /// before the camera now (ORD-17), which is the point of that order.
-    /// What is left is what the capture itself produced.
+    /// What the owner asked for and nothing else: *"their review is good
+    /// enough for me"* (A9) — the shape, Confirm, Discard.
+    ///
+    /// What used to be here and is now elsewhere, deliberately:
+    ///
+    /// - the **name** and the **type** are asked before the camera (ORD-17),
+    ///   because they are decisions about a room, not about a capture;
+    /// - the **stat band** and the wall/door/window count belong to a room
+    ///   that exists — they are on the storey's info sheet and in the room's
+    ///   own screen. Nobody standing in a wet basement audits a perimeter;
+    /// - the **warnings** move onto the storey plan, attached to the room they
+    ///   concern. They are not dropped: recomputed there from stored geometry,
+    ///   they outlive this screen instead of being tapped past once.
+    ///
+    /// The one thing that stays with the shape is the dashed guessed edge.
+    /// That is not commentary on the capture, it IS the shape — it says which
+    /// part of the outline was never walked, which is precisely what "is this
+    /// the shape?" is asking.
     private var review: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Brand.Space.base) {
-                if let geometry {
-                    // A capture that failed the sanity pass opens on the
-                    // problem. The numbers still follow — they are real
-                    // sums of what was caught — but they do not get to
-                    // stand first pretending the capture went well.
-                    // magicplan leads with a green tick it cannot justify
-                    // (INT-S09); that is the one part not worth copying.
-                    if let analysis, !analysis.problems.isEmpty {
-                        Card {
-                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                                ForEach(analysis.problems, id: \.self) { problem in
-                                    Text(problem)
-                                        .font(.callout)
-                                        .foregroundStyle(.orange)
-                                }
-                                Text(
-                                    "Walk it again with the phone up, pointing at every wall in turn — or save it and correct the plan by hand later."
-                                )
-                                .font(.system(size: 12))
-                                .foregroundStyle(Brand.inkSoft)
-                            }
-                        }
-                    }
+        VStack(spacing: Brand.Space.base) {
+            if let analysis, !analysis.plan.isEmpty {
+                ReviewPlanPreview(plan: analysis.plan, outline: analysis.outline)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(Brand.Space.base)
+            } else if let geometry, !FloorPlanGeometry.plan(from: geometry).isEmpty {
+                // A drawn room has no analysis — it is closed by construction
+                // — but it still has a shape to confirm.
+                ReviewPlanPreview(plan: FloorPlanGeometry.plan(from: geometry), outline: nil)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(Brand.Space.base)
+            } else {
+                Spacer()
+                Text("Nothing came back from that capture.")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                Spacer()
+            }
 
-                    // The shape that was caught, with the guessed closing
-                    // edge dashed — showing WHICH edge is a guess tells the
-                    // operator exactly what to distrust.
-                    if let analysis, !analysis.plan.isEmpty {
-                        Card(padding: Brand.Space.small) {
-                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                                ReviewPlanPreview(
-                                    plan: analysis.plan, outline: analysis.outline)
-                                    .frame(maxHeight: 220)
-                                if let note = analysis.inferredNote {
-                                    Text(note)
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(Brand.inkSoft)
-                                }
-                            }
-                        }
-                    }
+            if let error {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, Brand.Space.base)
+            }
 
-                    StatBand(items: [
-                        .init(
-                            label: "Floor",
-                            value: "\(Int(Measure.squareFeet(geometry.floorAreaSquareMeters).rounded()))",
-                            unit: "sq ft"),
-                        .init(
-                            label: "Perimeter",
-                            value: "\(Int(Measure.feet(geometry.wallLengthMeters).rounded()))",
-                            unit: "ft"),
-                        .init(
-                            label: "Ceiling",
-                            value: String(format: "%.1f", Measure.feet(geometry.ceilingHeightMeters)),
-                            unit: "ft"),
-                    ])
-
-                    Card {
-                        VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                            Text("\(geometry.walls.count) walls · \(geometry.doorCount) doors · \(geometry.windowCount) windows")
-                                .font(.system(size: 14))
-                                .foregroundStyle(Brand.inkSoft)
-                            if geometry.stairCount > 0 {
-                                Text("\(geometry.stairCount) staircase — priced separately, not in the floor area")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Brand.blue)
-                            }
-                        }
-                    }
-                }
-
-                if let error {
-                    Text(error).font(.footnote).foregroundStyle(.red)
-                }
-
-                Button(saving ? "Saving…" : "Save room") {
+            VStack(spacing: Brand.Space.small) {
+                Button(saving ? "Saving…" : "Confirm") {
                     Task { await save() }
                 }
                 .buttonStyle(PrimaryButtonStyle(enabled: !saving))
                 .disabled(saving)
 
-                Button(lastWasScan ? "Scan again" : "Draw it again") {
-                    // A retake, not another room: the rejected capture must
-                    // leave the merge set, or the builder would register a
-                    // room the operator threw away.
-                    if lastWasScan { session.discardLastUnsaved() }
-                    stage = lastWasScan ? .capturing : .drawing
-                }
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.inkSoft)
-                .frame(maxWidth: .infinity)
-                .padding(.top, Brand.Space.hair)
-
                 // The reject path (INT-S11): destructive, present, and
-                // visually subordinate to the primary — a bad capture must
-                // be as easy to throw away as a good one is to keep.
-                Button("Discard this capture") {
+                // visually subordinate — a bad capture must be as easy to
+                // throw away as a good one is to keep.
+                Button("Discard") {
+                    // A rejected capture must leave the merge set, or the
+                    // builder would register a room the operator threw away.
                     if lastWasScan { session.discardLastUnsaved() }
                     geometry = nil
                     analysis = nil
-                    // Back to the briefing for this same room — its name and
-                    // its type are still good, and the usual reason to
-                    // discard is to walk it again.
+                    // Back to the briefing for this same room: its name and
+                    // its type are still good, and the usual reason to discard
+                    // is to walk it again. Never out of the flow entirely —
+                    // discarding one room says nothing about being done.
                     stage = .briefing
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.red.opacity(0.75))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.red.opacity(0.8))
                 .frame(maxWidth: .infinity)
+                .disabled(saving)
             }
-            .padding(Brand.Space.base)
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.bottom, Brand.Space.base)
         }
     }
 
@@ -734,17 +718,24 @@ struct CaptureFlow: View {
                 }
                 .buttonStyle(PrimaryButtonStyle(enabled: true))
 
-                Button("Done") {
-                    session.end()
-                    dismiss()
-                }
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Brand.inkSoft)
-                .frame(maxWidth: .infinity)
-                .padding(.top, Brand.Space.hair)
+                Button("Done") { finish() }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.inkSoft)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, Brand.Space.hair)
             }
             .padding(Brand.Space.base)
         }
+    }
+
+    /// Leaving the flow for good — and landing on the drawn plan for the
+    /// storey just measured (ORD-16), which is the answer to *"where is my
+    /// scan after the scanning"*. The rooms filed this visit go with it, so
+    /// the sheet can draw one that is still queued for upload.
+    private func finish() {
+        session.end()
+        onFinished?(level, filedThisVisit)
+        dismiss()
     }
 
     /// The eight kinds of room this trade actually walks into, mapped onto
@@ -783,11 +774,13 @@ struct CaptureFlow: View {
             // A held scan has no row yet, so it keeps its measurement and
             // loses only its placement — the packed layout catches it.
             if lastWasScan { session.markLastSaved(id) }
-            await finishSave()
+            await finishSave(id: id, geometry: geometry, held: false)
         case .held:
             // Kept, not lost. The measurement is safe and the project
-            // screen says how many are waiting.
-            await finishSave()
+            // screen says how many are waiting — and the plan the operator
+            // lands on draws it from this copy, so a basement with no signal
+            // still ends on a room he can see.
+            await finishSave(id: "held-\(UUID().uuidString)", geometry: geometry, held: true)
         case .lost(let reason):
             error = reason
         }
@@ -802,17 +795,26 @@ struct CaptureFlow: View {
     /// Done, Cancel, the home indicator — and positions already written must
     /// stay written. Re-running is harmless: the builder is deterministic
     /// for a fixed set of rooms, and the last write wins.
-    private func finishSave() async {
+    private func finishSave(id: String, geometry: ScanGeometry, held: Bool) async {
         savedThisVisit += 1
         lastSavedName = name.trimmed
-        namesThisVisit.append(name.trimmed)
+        filedThisVisit.append(
+            FiledRoom(
+                id: id,
+                name: name.trimmed,
+                level: level,
+                floorAreaSqm: geometry.floorAreaSquareMeters,
+                geometry: geometry,
+                held: held))
         onSaved()
 
         guard lastWasScan else {
-            // A drawn room cannot join a merge set or continue an AR
-            // session; the one-room-and-out flow is still the right shape.
-            session.end()
-            dismiss()
+            // A drawn room cannot join a merge set, so there is no placement
+            // to push — but it still ends on the loop, and Done from there
+            // still lands on the plan (ORD-16).
+            placementFailed = false
+            placementNote = nil
+            stage = .saved
             return
         }
 

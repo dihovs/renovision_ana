@@ -167,6 +167,12 @@ struct ProjectDetailView: View {
     @State private var capturing = false
     @State private var addingEquipment = false
     @State private var openRoom: RoomScan?
+    /// ORD-16 — where a finished capture lands: the drawn plan for the storey
+    /// just measured, not this list. Held in two steps because a push made
+    /// while a sheet is still dismissing gets dropped: the flow records its
+    /// intent here, and the sheet's own dismissal performs it.
+    @State private var landingIntent: PlanLanding?
+    @State private var landing: PlanLanding?
     @StateObject private var queue = ScanQueue.shared
 
     /// Storeys in building order, not the order they happened to be scanned —
@@ -445,12 +451,31 @@ struct ProjectDetailView: View {
         .sheet(isPresented: $addingEquipment) {
             AddEquipmentSheet(projectId: project.id) { Task { await load() } }
         }
-        .sheet(isPresented: $capturing) {
+        .sheet(
+            isPresented: $capturing,
+            onDismiss: {
+                landing = landingIntent
+                landingIntent = nil
+            }
+        ) {
             CaptureFlow(
                 projectId: project.id,
                 projectName: project.name,
                 existingCount: (scans ?? []).count,
-                onSaved: { Task { await load() } })
+                existingNames: (scans ?? []).map(\.name),
+                onSaved: { Task { await load() } },
+                onFinished: { level, filed in
+                    landingIntent = PlanLanding(level: level, filed: filed)
+                })
+        }
+        // The one navigation hook ORD-16 asks of this screen: a finished
+        // capture pushes the storey it was on, drawn.
+        .navigationDestination(item: $landing) { destination in
+            StoreyPlanView(
+                projectId: project.id,
+                projectName: project.name,
+                level: destination.level,
+                arrivals: destination.filed)
         }
         .task {
             // Anything held from a previous visit goes up on arrival, before
@@ -474,6 +499,18 @@ struct ProjectDetailView: View {
             if scans == nil { scans = [] }
         }
     }
+}
+
+/// Where a finished capture lands: a storey, and what the visit filed onto it.
+/// Identity is the storey — landing twice on the same floor is one destination.
+private struct PlanLanding: Hashable, Identifiable {
+    let level: String
+    let filed: [FiledRoom]
+
+    var id: String { level }
+
+    static func == (a: PlanLanding, b: PlanLanding) -> Bool { a.level == b.level }
+    func hash(into hasher: inout Hasher) { hasher.combine(level) }
 }
 
 /// One room as a rail card — the same facts as the full row, sized for the
