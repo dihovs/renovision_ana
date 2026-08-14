@@ -133,9 +133,34 @@ final class CallManager: NSObject, ObservableObject {
         do {
             try await callController.request(CXTransaction(action: action))
         } catch {
-            state = .ended(error.localizedDescription)
-            lastError = error.localizedDescription
+            let explained = Self.explain(error)
+            state = .ended(explained)
+            lastError = explained
             cleanUp()
+        }
+    }
+
+    /// CallKit reports refusals as a code. "requesttransaction error 1" is
+    /// meaningless on screen, and the real meaning is one sentence that names
+    /// the fix — this app spent a build failing on exactly that code.
+    static func explain(_ error: Error) -> String {
+        let nsError = error as NSError
+        guard nsError.domain == CXErrorDomainRequestTransaction else {
+            return error.localizedDescription
+        }
+        switch CXErrorCodeRequestTransactionError.Code(rawValue: nsError.code) {
+        case .unentitled:
+            return "iOS refused the call: this build is missing the VoIP background mode."
+        case .unknownCallProvider:
+            return "iOS did not recognise the call provider. Restart the app."
+        case .callUUIDAlreadyExists:
+            return "A call with that identifier is already in progress."
+        case .maximumCallGroupsReached:
+            return "Another call is already active. End it first."
+        case .invalidAction:
+            return "iOS rejected that call action."
+        default:
+            return "iOS refused the call (\(nsError.code))."
         }
     }
 
