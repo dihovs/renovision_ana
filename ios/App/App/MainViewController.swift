@@ -19,8 +19,36 @@ import Capacitor
  * Any future app-local plugin has to be added here too.
  */
 class MainViewController: CAPBridgeViewController {
+    /// Which admin page to open. Set by `WebScreen` before the view loads, so
+    /// the not-yet-ported screens can each host the page they represent
+    /// instead of every one of them landing on Home.
+    var startPath: String?
+
+    /// Guards against reloading the same page every time SwiftUI re-renders
+    /// the parent — `updateUIViewController` fires far more often than the
+    /// page needs to change, and each reload would throw away scroll position
+    /// and any half-typed form.
+    private var currentPath: String?
+
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(SpeakerPlugin())
         bridge?.registerPluginInstance(RoomScanPlugin())
+
+        // Done here rather than in viewDidLoad: the bridge, and therefore its
+        // web view, does not exist until this point.
+        if let startPath { navigate(to: startPath) }
+    }
+
+    func navigate(to path: String) {
+        guard path != currentPath else { return }
+        guard let url = URL(string: path, relativeTo: API.baseURL) else { return }
+        guard let webView = bridge?.webView else {
+            // Asked before the bridge was ready. Remember it; capacitorDidLoad
+            // will pick it up rather than the request being dropped.
+            startPath = path
+            return
+        }
+        currentPath = path
+        webView.load(URLRequest(url: url))
     }
 }

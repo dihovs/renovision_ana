@@ -76,18 +76,33 @@ export async function GET() {
 
   for (const { table, column, migration } of COLUMNS) {
     const { error } = await client!.from(table).select(column).limit(1);
-    tables[`${table}.${column}`] = error ? `missing — run ${migration}` : "ok";
+    if (!error) {
+      tables[`${table}.${column}`] = "ok";
+      continue;
+    }
+    // Two very different causes look identical from here, and only one is
+    // the operator's to fix. PostgREST caches the schema: a column added a
+    // minute ago exists in Postgres but is unknown to the API until the
+    // cache reloads. Telling somebody to re-run a migration they already ran
+    // wastes their evening, so the two are separated by what the error says.
+    const stale = /schema cache/i.test(error.message);
+    tables[`${table}.${column}`] = stale
+      ? "column added but the API has not noticed yet — reload the schema cache"
+      : `missing — run ${migration}`;
   }
 
   const pending = Object.entries(tables).filter(([, state]) => state.startsWith("missing"));
+  const stale = Object.entries(tables).filter(([, state]) => state.includes("not noticed"));
 
   return NextResponse.json({
     ok: reachable && pending.length === 0,
     diagnosis: !reachable
       ? "The credentials are set but Supabase refused the query. Check the service-role key matches this project."
-      : pending.length > 0
-        ? `Connected. ${pending.length} migration step(s) still to run — paste supabase/RUN_ME_floor_plans.sql into the Supabase SQL editor.`
-        : "Connected, and every table this app needs is present.",
+      : stale.length > 0 && pending.length === 0
+        ? `Connected. ${stale.length} column(s) exist but Supabase's API has not picked them up yet. In the SQL editor run:  notify pgrst, 'reload schema';`
+        : pending.length > 0
+          ? `Connected. ${pending.length} step(s) still to run — paste supabase/RUN_ME_floor_plans.sql into the Supabase SQL editor.`
+          : "Connected, and everything this app needs is present.",
     env,
     tables,
   });

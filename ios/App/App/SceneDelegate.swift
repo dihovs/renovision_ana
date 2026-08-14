@@ -1,5 +1,6 @@
-import UIKit
 import Capacitor
+import SwiftUI
+import UIKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
@@ -8,11 +9,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        // MainViewController, not CAPBridgeViewController: it is the one that
-        // registers this app's own Swift plugins with the bridge. The
-        // storyboard's class is irrelevant — the root controller is built
-        // here, in code, so this line is what actually decides.
-        window?.rootViewController = MainViewController()
+        // The app is now rooted in SwiftUI. Screens that have not been ported
+        // yet are hosted inside it by WebScreen, which builds its own
+        // MainViewController — so this app's Swift plugins are still
+        // registered with a Capacitor bridge, just no longer at the root.
+        //
+        // The storyboard's class is irrelevant either way: the root
+        // controller is built here, in code, so this line is what decides.
+        window?.rootViewController = UIHostingController(rootView: AppShell())
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
