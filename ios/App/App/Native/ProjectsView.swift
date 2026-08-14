@@ -276,7 +276,13 @@ struct ProjectDetailView: View {
                             }
 
                             ForEach(rooms) { room in
-                                NavigationLink(value: room) {
+                                // A button, not a NavigationLink: the room
+                                // detail is an inspector sheet over this
+                                // screen, so a row tap and a canvas tap are
+                                // the same act — select the room.
+                                Button {
+                                    openRoom = room
+                                } label: {
                                     Card(padding: Brand.Space.small) {
                                         CardRow {
                                             HStack(spacing: Brand.Space.small) {
@@ -312,6 +318,9 @@ struct ProjectDetailView: View {
                                 trailing: runningUnits > 0 ? "\(runningUnits) running" : nil)
                             Spacer()
                             Button {
+                                // Same one-sheet rule as the Scan button:
+                                // the inspector may be up at medium detent.
+                                openRoom = nil
                                 addingEquipment = true
                             } label: {
                                 Label("Add", systemImage: "plus.circle.fill")
@@ -397,6 +406,11 @@ struct ProjectDetailView: View {
             // A camera rather than a plus, the way Jobber's turns into one on
             // a visit: on a property, the thing you add is a measured room.
             FloatingAction(icon: "camera.viewfinder", label: "Scan") {
+                // Reachable while the room inspector sits at its medium
+                // detent (background interaction is on). One view cannot
+                // present two sheets, so close the inspector first and let
+                // SwiftUI sequence the swap.
+                openRoom = nil
                 capturing = true
             }
             .padding(.trailing, Brand.Space.large)
@@ -404,8 +418,19 @@ struct ProjectDetailView: View {
         }
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.large)
-        .navigationDestination(for: RoomScan.self) { RoomDetailView(room: $0) }
-        .navigationDestination(item: $openRoom) { RoomDetailView(room: $0) }
+        // The room detail is a sheet, not a push (ORD-13): at its medium
+        // detent the storey canvas stays visible behind it, and tapping a
+        // sibling room there re-targets this binding, which swaps the sheet's
+        // content in place. `.id(room.id)` makes that swap a fresh view —
+        // without it the new room would inherit the old one's loaded areas
+        // and readings, because sheet content keeps its @State while the
+        // sheet stays up. Reload on dismiss because the inspector can change
+        // what this screen shows — a re-typed room moves the living-area
+        // figure, an adjusted plan redraws the canvas.
+        .sheet(item: $openRoom, onDismiss: { Task { await load() } }) { room in
+            RoomDetailView(room: room)
+                .id(room.id)
+        }
         .sheet(isPresented: $addingEquipment) {
             AddEquipmentSheet(projectId: project.id) { Task { await load() } }
         }

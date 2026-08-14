@@ -1,14 +1,33 @@
 import SwiftUI
 
-/// One room: what it measures, what is damaged in it, and how it is drying.
+/// One room, inspected in place — a sheet over the storey canvas, not a
+/// screen that replaces it.
 ///
-/// The order is the order the work happens in. Measurements first because
-/// everything else is derived from them, then the damage, then the drying
-/// record — which is the part an adjuster reads and the part magicplan's own
-/// report has no room for at all.
+/// The reference's strongest structural idea (spec §6.1, INT-E23): every
+/// entity gets the same swipe-up, multi-detent inspector with the same fixed
+/// tabs, and the plan stays visible behind it. Losing sight of the drawing to
+/// read a number about the drawing is the thing being fixed — at the medium
+/// detent the storey canvas is still there above this sheet, and tapping a
+/// sibling room on it swaps the inspector rather than stacking a screen.
+///
+/// Three tabs, fixed order, the same for every room — an inspector whose
+/// tabs move around is one the thumb cannot learn. Where magicplan's third
+/// tab is "Forms", ours is "Damage & Drying": this trade's forms ARE the
+/// damage record, and the adjuster who reads it is the reason it exists.
 struct RoomDetailView: View {
     let room: RoomScan
 
+    /// The fixed tab set. Raw values are the segment labels.
+    private enum Tab: String, CaseIterable, Identifiable {
+        case details = "Details"
+        case damage = "Damage & Drying"
+        case photos = "Photos & Notes"
+        var id: String { rawValue }
+    }
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var tab = Tab.details
     @State private var areas: [AffectedArea] = []
     @State private var readings: [MoistureReading] = []
     @State private var loading = true
@@ -37,202 +56,46 @@ struct RoomDetailView: View {
     }
 
     var body: some View {
-        List {
-            if let plan, !plan.isEmpty {
-                Section {
-                    FloorPlanView(
-                        plan: plan, areas: drawnAreas,
-                        label: (room.name, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
-                    )
-                    .frame(height: 240)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-                        .listRowBackground(Brand.surface)
+        VStack(spacing: 0) {
+            header
 
-                    Button {
-                        editingPlan = true
-                    } label: {
-                        Label("Adjust the plan", systemImage: "pencil.and.ruler")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Brand.blue)
-                    }
-                } footer: {
-                    if room.geometry?.editedPolygon != nil {
-                        Label(
-                            "Adjusted by hand. The scan's own measurements are kept underneath.",
-                            systemImage: "hand.draw")
-                            .font(.system(size: 11))
+            // A segmented control rather than a navigation bar: at the medium
+            // detent every point of chrome comes straight out of the content,
+            // and the three-tab strip is the whole identity of the inspector
+            // anyway (reference §6.1 — same shell for every entity).
+            Picker("Section", selection: $tab) {
+                ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.bottom, Brand.Space.tight)
+
+            List {
+                switch tab {
+                case .details: detailsTab
+                case .damage: damageTab
+                case .photos: photosTab
+                }
+
+                if let error {
+                    Section {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
                             .foregroundStyle(.orange)
                     }
                 }
             }
-
-            Section {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                    // Every figure states what it means — an adjuster who
-                    // cannot tell which definition a number used is an
-                    // adjuster who can discount it.
-                    DefinedFigure(
-                        value: Measure.sqftLabel(room.floorAreaSqm), unit: nil,
-                        meaning: .floorArea)
-                    DefinedFigure(
-                        value: Measure.sqftLabel(room.wallLengthM * room.ceilingHeightM),
-                        unit: "gross", meaning: .wallArea)
-                    DefinedFigure(
-                        value: Measure.ftLabel(room.wallLengthM), unit: nil, meaning: .perimeter)
-                    DefinedFigure(
-                        value: String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
-                        unit: nil, meaning: .ceiling)
-                }
-                .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
-            }
-
-            Section {
-                Button {
-                    pickingType = true
-                } label: {
-                    HStack {
-                        Text("Room type")
-                            .foregroundStyle(Brand.ink)
-                        Spacer()
-                        Text(typeLabel)
-                            .foregroundStyle(chosenType == nil ? Brand.inkFaint : Brand.blue)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Brand.inkFaint)
-                    }
-                    .font(.system(size: 15))
-                }
-                .buttonStyle(.plain)
-            } footer: {
-                if let note = roomTypes.first(where: { $0.id == chosenType })?.note {
-                    Text(note).font(.system(size: 11)).foregroundStyle(Brand.inkSoft)
-                } else {
-                    Text("Decides how much of this room counts as living area — the figure coverage is quoted against.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.inkFaint)
-                }
-            }
-
-            if let projectId = room.projectId {
-                RoomPhotosSection(projectId: projectId, roomScanId: room.id)
-            }
-
-            Section {
-                LabeledContent("Doors", value: "\(room.doorCount)")
-                LabeledContent("Windows", value: "\(room.windowCount)")
-                if room.stairCount > 0 {
-                    LabeledContent("Staircases", value: "\(room.stairCount)")
-                    Text("Treads and risers are not in the floor area above — price them separately.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section {
-                if loading {
-                    ProgressView()
-                } else if areas.isEmpty {
-                    Text("Nothing marked. The wet, burnt or mouldy part of this room is the figure an estimate is priced from.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(areas) { area in
-                        HStack {
-                            Circle()
-                                .fill(color(for: area.damageType))
-                                .frame(width: 10, height: 10)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(area.name)
-                                Text(area.label).font(.caption2).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(Measure.sqftLabel(area.areaSqm))
-                                .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                if plan != nil && !(plan?.isEmpty ?? true) {
-                    Button {
-                        drawing = true
-                    } label: {
-                        Label("Add a new area", systemImage: "plus.circle.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Brand.blue)
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("Affected areas")
-                    Spacer()
-                    if !areas.isEmpty {
-                        Text(Measure.sqftLabel(damagedSqm)).font(.caption.monospacedDigit())
-                    }
-                }
-            }
-
-            Section {
-                if readings.isEmpty && !loading {
-                    Text("No readings. One per visit, trending down, is what proves the drying was needed and when it could stop.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(readings) { reading in
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack {
-                                Text(reading.location.isEmpty ? (reading.material ?? "Reading") : reading.location)
-                                    .font(.subheadline.weight(.medium))
-                                Spacer()
-                                Text(reading.takenAt, format: .dateTime.month(.abbreviated).day())
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            HStack(spacing: 10) {
-                                if let mc = reading.materialPercent {
-                                    Text("\(Int(mc))% MC").font(.caption.bold().monospacedDigit())
-                                }
-                                if let rh = reading.relativeHumidity {
-                                    Text("\(Int(rh))% RH").font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
-                                if let t = reading.temperatureC {
-                                    Text("\(Int(t))°C").font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
-                Button {
-                    logging = true
-                } label: {
-                    Label("Log a reading", systemImage: "plus.circle.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.blue)
-                }
-            } header: {
-                HStack {
-                    Text("Moisture")
-                    Spacer()
-                    if let trend {
-                        Text("\(Int(trend.from))% → \(Int(trend.to))%")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(trend.to < trend.from ? .green : .secondary)
-                    }
-                }
-            }
-
-            if let error {
-                Section {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
-                }
-            }
+            .scrollContentBackground(.hidden)
+            .refreshable { await load() }
         }
-        .navigationTitle(room.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await load() }
+        .background(Brand.canvas)
+        // Medium and large only — no collapsed micro-detent. At medium the
+        // storey canvas behind stays visible AND live: background interaction
+        // is what lets a tap on a sibling room swap this inspector in place
+        // instead of forcing close-then-reopen.
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .sheet(isPresented: $drawing) {
             if let plan {
                 AreaEditor(plan: plan, existing: drawnAreas) { name, type, polygon in
@@ -264,12 +127,261 @@ struct RoomDetailView: View {
         .task { await load() }
     }
 
-    /// The plan, computed once from the stored geometry.
+    /// Name, where it is, how big it is, and a way out. The room name used to
+    /// be a navigation title; a sheet has no bar, so the identity moves here —
+    /// and the level joins it, because with the push gone there is no parent
+    /// screen on view to say which storey this room belongs to at large detent.
+    private var header: some View {
+        HStack(spacing: Brand.Space.small) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(room.name)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(1)
+                Text("\(room.level) · \(Measure.sqftLabel(room.floorAreaSqm))")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.inkFaint)
+            }
+            Spacer()
+            // The grabber already dismisses; the button is for the thumb that
+            // is at the bottom of a large-detent sheet and not going to drag.
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 24))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Brand.inkFaint)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.top, Brand.Space.base)
+        .padding(.bottom, Brand.Space.small)
+    }
+
+    // MARK: - Details
+
+    /// What the room IS: its drawing, its figures, its classification.
+    @ViewBuilder private var detailsTab: some View {
+        if let plan, !plan.isEmpty {
+            Section {
+                FloorPlanView(
+                    plan: plan, areas: drawnAreas,
+                    label: (room.name, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
+                )
+                .frame(height: 240)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                    .listRowBackground(Brand.surface)
+
+                Button {
+                    editingPlan = true
+                } label: {
+                    Label("Adjust the plan", systemImage: "pencil.and.ruler")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.blue)
+                }
+            } footer: {
+                if room.geometry?.editedPolygon != nil {
+                    Label(
+                        "Adjusted by hand. The scan's own measurements are kept underneath.",
+                        systemImage: "hand.draw")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+
+        Section {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                // Every figure states what it means — an adjuster who
+                // cannot tell which definition a number used is an
+                // adjuster who can discount it.
+                DefinedFigure(
+                    value: Measure.sqftLabel(room.floorAreaSqm), unit: nil,
+                    meaning: .floorArea)
+                DefinedFigure(
+                    value: Measure.sqftLabel(room.wallLengthM * room.ceilingHeightM),
+                    unit: "gross", meaning: .wallArea)
+                DefinedFigure(
+                    value: Measure.ftLabel(room.wallLengthM), unit: nil, meaning: .perimeter)
+                DefinedFigure(
+                    value: String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
+                    unit: nil, meaning: .ceiling)
+            }
+            .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+        }
+
+        Section {
+            Button {
+                pickingType = true
+            } label: {
+                HStack {
+                    Text("Room type")
+                        .foregroundStyle(Brand.ink)
+                    Spacer()
+                    Text(typeLabel)
+                        .foregroundStyle(chosenType == nil ? Brand.inkFaint : Brand.blue)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+                .font(.system(size: 15))
+            }
+            .buttonStyle(.plain)
+        } footer: {
+            if let note = roomTypes.first(where: { $0.id == chosenType })?.note {
+                Text(note).font(.system(size: 11)).foregroundStyle(Brand.inkSoft)
+            } else {
+                Text("Decides how much of this room counts as living area — the figure coverage is quoted against.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Brand.inkFaint)
+            }
+        }
+
+        Section {
+            LabeledContent("Doors", value: "\(room.doorCount)")
+            LabeledContent("Windows", value: "\(room.windowCount)")
+            if room.stairCount > 0 {
+                LabeledContent("Staircases", value: "\(room.stairCount)")
+                Text("Treads and risers are not in the floor area above — price them separately.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Damage & Drying
+
+    /// What is WRONG with the room and the proof it is being fixed. The order
+    /// is the order the work happens in: the damage is marked first because
+    /// the estimate is priced from it, then the drying record — the part
+    /// magicplan's own report has no room for at all.
+    @ViewBuilder private var damageTab: some View {
+        Section {
+            if loading {
+                ProgressView()
+            } else if areas.isEmpty {
+                Text("Nothing marked. The wet, burnt or mouldy part of this room is the figure an estimate is priced from.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(areas) { area in
+                    HStack {
+                        Circle()
+                            .fill(color(for: area.damageType))
+                            .frame(width: 10, height: 10)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(area.name)
+                            Text(area.label).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Measure.sqftLabel(area.areaSqm))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if plan != nil && !(plan?.isEmpty ?? true) {
+                Button {
+                    drawing = true
+                } label: {
+                    Label("Add a new area", systemImage: "plus.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.blue)
+                }
+            }
+        } header: {
+            HStack {
+                Text("Affected areas")
+                Spacer()
+                if !areas.isEmpty {
+                    Text(Measure.sqftLabel(damagedSqm)).font(.caption.monospacedDigit())
+                }
+            }
+        }
+
+        Section {
+            if readings.isEmpty && !loading {
+                Text("No readings. One per visit, trending down, is what proves the drying was needed and when it could stop.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(readings) { reading in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(reading.location.isEmpty ? (reading.material ?? "Reading") : reading.location)
+                                .font(.subheadline.weight(.medium))
+                            Spacer()
+                            Text(reading.takenAt, format: .dateTime.month(.abbreviated).day())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        HStack(spacing: 10) {
+                            if let mc = reading.materialPercent {
+                                Text("\(Int(mc))% MC").font(.caption.bold().monospacedDigit())
+                            }
+                            if let rh = reading.relativeHumidity {
+                                Text("\(Int(rh))% RH").font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let t = reading.temperatureC {
+                                Text("\(Int(t))°C").font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            Button {
+                logging = true
+            } label: {
+                Label("Log a reading", systemImage: "plus.circle.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.blue)
+            }
+        } header: {
+            HStack {
+                Text("Moisture")
+                Spacer()
+                if let trend {
+                    Text("\(Int(trend.from))% → \(Int(trend.to))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(trend.to < trend.from ? .green : .secondary)
+                }
+            }
+        }
+    }
+
+    // MARK: - Photos & Notes
+
+    /// The evidence. Photos only for now: room notes live in the web's
+    /// RoomEvidence panel and there is no native endpoint for them yet —
+    /// when one exists it belongs in this tab, under the photos, not on a
+    /// fourth tab (the tab set is fixed; reference §6.1).
+    @ViewBuilder private var photosTab: some View {
+        if let projectId = room.projectId {
+            RoomPhotosSection(projectId: projectId, roomScanId: room.id)
+        } else {
+            // A scan not yet attached to a project has nowhere to file a
+            // photo. Said plainly rather than showing a camera that fails.
+            Section {
+                Text("This room is not attached to a project yet, so photos have nowhere to file.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Derived
+
     private var typeLabel: String {
         guard let chosenType else { return "Not set" }
         return roomTypes.first { $0.id == chosenType }?.label ?? chosenType
     }
 
+    /// The plan, computed once from the stored geometry.
     private var plan: FloorPlanGeometry.Plan? {
         guard let geometry = room.geometry else { return nil }
         return FloorPlanGeometry.plan(from: geometry)
@@ -313,40 +425,5 @@ struct RoomDetailView: View {
         case "other": return Color(hex: 0x8A8A8E)
         default: return Color(hex: 0x2B7FD4)
         }
-    }
-}
-
-private struct Figure: View {
-    let label: String
-    let value: String
-    let hint: String
-
-    init(_ label: String, _ value: String, _ hint: String) {
-        self.label = label
-        self.value = value
-        self.hint = hint
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label.uppercased())
-                .font(.system(size: 10, weight: .heavy))
-                .tracking(0.3)
-                .foregroundStyle(Brand.inkFaint)
-            Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Brand.ink)
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-            // What the figure is FOR. A number on its own is a fact; a number
-            // with the trade it prices is a decision.
-            Text(hint)
-                .font(.system(size: 11))
-                .foregroundStyle(Brand.inkFaint)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Brand.Space.small)
-        .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
     }
 }
