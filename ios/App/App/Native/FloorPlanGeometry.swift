@@ -316,3 +316,92 @@ enum FloorPlanGeometry {
         return abs(sum) / 2
     }
 }
+
+// MARK: - Drafting helpers (v2 renderer)
+
+extension FloorPlanGeometry {
+    /// Points where two wall ends meet — the corners the two-pass stroke
+    /// must close by extending each centreline half a thickness.
+    static func joints(_ segments: [Segment], snap: Double = 0.06) -> [CGPoint] {
+        var pts: [CGPoint] = []
+        for s in segments {
+            pts.append(CGPoint(x: s.x1, y: s.y1))
+            pts.append(CGPoint(x: s.x2, y: s.y2))
+        }
+        var out: [CGPoint] = []
+        for i in pts.indices {
+            for j in (i + 1)..<pts.count
+            where hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y) < snap {
+                out.append(CGPoint(x: (pts[i].x + pts[j].x) / 2, y: (pts[i].y + pts[j].y) / 2))
+            }
+        }
+        return out
+    }
+
+    /// 17'-1" to the half inch — the drafted convention. Whole feet keep
+    /// their -0"; under a foot drops the zero-feet prefix.
+    static func feetInches(_ metres: Double) -> String {
+        let half = (metres / 0.0254 * 2).rounded() / 2
+        let feet = Int(half / 12)
+        let rem = half - Double(feet) * 12
+        let whole = Int(rem)
+        let frac = rem.truncatingRemainder(dividingBy: 1) == 0.5 ? " 1/2" : ""
+        if feet == 0 { return "\(whole)\(frac)\"" }
+        return "\(feet)'-\(whole)\(frac)\""
+    }
+
+    /// Where a label sits: the point deepest inside the polygon, by grid
+    /// sample — beats the centroid on an L-shaped room, where the centroid
+    /// can fall outside the room entirely.
+    static func labelAnchor(_ polygon: [CGPoint], width: Double, height: Double) -> CGPoint {
+        guard polygon.count >= 3 else { return CGPoint(x: width / 2, y: height / 2) }
+
+        func inside(_ x: Double, _ y: Double) -> Bool {
+            var c = false
+            var j = polygon.count - 1
+            for i in polygon.indices {
+                if (polygon[i].y > y) != (polygon[j].y > y),
+                    x < (polygon[j].x - polygon[i].x) * (y - polygon[i].y)
+                        / (polygon[j].y - polygon[i].y) + polygon[i].x {
+                    c.toggle()
+                }
+                j = i
+            }
+            return c
+        }
+
+        func edgeDistance(_ x: Double, _ y: Double) -> Double {
+            var best = Double.greatestFiniteMagnitude
+            var j = polygon.count - 1
+            for i in polygon.indices {
+                let ax = polygon[j].x, ay = polygon[j].y
+                let bx = polygon[i].x, by = polygon[i].y
+                let l2 = (bx - ax) * (bx - ax) + (by - ay) * (by - ay)
+                var t = l2 == 0 ? 0 : ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / l2
+                t = min(1, max(0, t))
+                best = min(best, hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay))))
+                j = i
+            }
+            return best
+        }
+
+        var bestPoint = CGPoint(x: width / 2, y: height / 2)
+        var bestDistance = -1.0
+        var gy = 0.2
+        while gy < height {
+            var gx = 0.2
+            while gx < width {
+                if inside(gx, gy) {
+                    let d = edgeDistance(gx, gy)
+                    if d > bestDistance {
+                        bestDistance = d
+                        bestPoint = CGPoint(x: gx, y: gy)
+                    }
+                }
+                gx += 0.18
+            }
+            gy += 0.18
+        }
+        return bestPoint
+    }
+}

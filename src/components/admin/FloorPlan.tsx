@@ -32,7 +32,46 @@ export default function FloorPlan({
   // A merged floor has dozens of walls; per-wall dimension tiers stack into
   // an unreadable smear. Keep the overall spans, drop the breakdowns.
   const dense = result.walls.length > 12;
-  const WALL = thumb ? 0.22 : 0.16;
+  // The REAL wall: 2x4 partition + drywall, 0.114 m, drawn at true thickness
+  // with a heavier cut face — the double-line-with-poché convention every
+  // drafted plan uses. Thumbnails keep a single solid band (the spec's L0):
+  // at card size the two face lines merge anyway.
+  const T = 0.114;
+  const CUT = 0.018;
+  const WALL = thumb ? 0.22 : T;
+
+  // Where walls meet. A centreline stroked to its exact length leaves a
+  // notched corner; extending each end that SHARES a joint by half a
+  // thickness closes the mitre — the two-pass trick from the renderer spec.
+  const joints: { x: number; y: number }[] = [];
+  {
+    const pts = plan.segments.flatMap((s) => [
+      { x: s.x1, y: s.y1 },
+      { x: s.x2, y: s.y2 },
+    ]);
+    for (let i = 0; i < pts.length; i += 1) {
+      for (let j = i + 1; j < pts.length; j += 1) {
+        if (Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y) < 0.06) {
+          joints.push({ x: (pts[i].x + pts[j].x) / 2, y: (pts[i].y + pts[j].y) / 2 });
+        }
+      }
+    }
+  }
+  const nearJoint = (x: number, y: number) =>
+    joints.some((j) => Math.hypot(j.x - x, j.y - y) < 0.06);
+
+  const wallPath = plan.segments
+    .map((s) => {
+      const dx = s.x2 - s.x1;
+      const dy = s.y2 - s.y1;
+      const L = Math.hypot(dx, dy) || 1;
+      const ux = dx / L;
+      const uy = dy / L;
+      const e1 = nearJoint(s.x1, s.y1) ? T / 2 : 0;
+      const e2 = nearJoint(s.x2, s.y2) ? T / 2 : 0;
+      return `M ${s.x1 - ux * e1} ${s.y1 - uy * e1} L ${s.x2 + ux * e2} ${s.y2 + uy * e2}`;
+    })
+    .join(" ");
   // Asymmetric on purpose: the vertical dimensions live off the right edge
   // and their rotated text needs more room than the bare left margin does.
   // A thumbnail has none of that, so it gets a tight even margin instead.
@@ -70,40 +109,98 @@ export default function FloorPlan({
           <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill="#ebebeb" />
         )}
 
-        {/* Butt caps, not round: a round cap on a 16cm wall bulges past the
-            corner and reads as a smudge at this scale. */}
-        {plan.segments.map((s, i) => (
-          <line
-            key={`w${i}`}
-            x1={s.x1}
-            y1={s.y1}
-            x2={s.x2}
-            y2={s.y2}
-            stroke="#111111"
-            strokeWidth={WALL}
-            strokeLinecap="square"
-          />
-        ))}
-
-        {/* Drawn over the wall in white, which cuts a real gap rather than
-            faking one — the same trick a printed plan uses. */}
-        {plan.openings.map((o, i) => (
-          <g key={`o${i}`}>
+        {/* Two passes: the wall body at true thickness over a slightly wider
+            ink stroke, which leaves the heavier CUT face lines on both sides
+            and closes every shared corner square — the poché convention. At
+            thumbnail size a single band, per the spec's smallest level. */}
+        {thumb ? (
+          plan.segments.map((s, i) => (
             <line
-              x1={o.x1}
-              y1={o.y1}
-              x2={o.x2}
-              y2={o.y2}
-              stroke="#ffffff"
-              strokeWidth={WALL * 1.25}
-              strokeLinecap="butt"
+              key={`w${i}`}
+              x1={s.x1}
+              y1={s.y1}
+              x2={s.x2}
+              y2={s.y2}
+              stroke="#111111"
+              strokeWidth={WALL}
+              strokeLinecap="square"
             />
-            {o.kind === "window" && (
-              <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke="#111111" strokeWidth={0.035} />
-            )}
-            {o.kind === "door" && <DoorSwing opening={o} />}
-          </g>
-        ))}
+          ))
+        ) : (
+          <>
+            <path d={wallPath} stroke="#111111" strokeWidth={T + 2 * CUT} fill="none" strokeLinecap="butt" />
+            <path d={wallPath} stroke="#111111" strokeWidth={T} fill="none" strokeLinecap="butt" />
+          </>
+        )}
+
+        {/* Openings knocked out of the band, then re-drawn as their proper
+            symbols: jamb caps at cut weight (the jambs ARE cut by the plan
+            plane), a three-line window, a door with its leaf and quarter
+            swing. Thumbnails keep plain gaps. */}
+        {plan.openings.map((o, i) => {
+          const dx = o.x2 - o.x1;
+          const dy = o.y2 - o.y1;
+          const w = Math.hypot(dx, dy);
+          if (w < 0.05) return null;
+          const ux = dx / w;
+          const uy = dy / w;
+          const nx = -uy;
+          const ny = ux;
+
+          return (
+            <g key={`o${i}`}>
+              <line
+                x1={o.x1}
+                y1={o.y1}
+                x2={o.x2}
+                y2={o.y2}
+                stroke="#ffffff"
+                strokeWidth={thumb ? WALL * 1.25 : T + 2 * CUT + 0.006}
+                strokeLinecap="butt"
+              />
+
+              {!thumb && (
+                <>
+                  {[
+                    { px: o.x1, py: o.y1 },
+                    { px: o.x2, py: o.y2 },
+                  ].map(({ px, py }, k) => (
+                    <line
+                      key={`j${k}`}
+                      x1={px - (nx * T) / 2}
+                      y1={py - (ny * T) / 2}
+                      x2={px + (nx * T) / 2}
+                      y2={py + (ny * T) / 2}
+                      stroke="#111111"
+                      strokeWidth={CUT}
+                    />
+                  ))}
+
+                  {o.kind === "window" && (
+                    <>
+                      {[1, -1].map((side) => (
+                        <line
+                          key={`f${side}`}
+                          x1={o.x1 + (side * nx * T) / 2}
+                          y1={o.y1 + (side * ny * T) / 2}
+                          x2={o.x2 + (side * nx * T) / 2}
+                          y2={o.y2 + (side * ny * T) / 2}
+                          stroke="#111111"
+                          strokeWidth={0.014}
+                        />
+                      ))}
+                      <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke="#111111" strokeWidth={0.01} />
+                    </>
+                  )}
+
+                  {o.kind === "door" && w >= 0.45 && (
+                    <Door opening={o} joints={joints} polygon={plan.polygon} T={T} />
+                  )}
+                </>
+              )}
+            </g>
+          );
+        })}
 
         {/* Dimensions and the scale bar are dropped at thumbnail size:
             none of it is legible on a card, and the outline alone is what
@@ -215,19 +312,19 @@ function Dimension({
 
       <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={grey} strokeWidth={0.022} />
 
-      {/* Arrowheads, drawn as triangles rather than SVG markers — markers
-          scale by stroke width and go wrong in a metre-unit viewBox. */}
-      {axis === "x" ? (
-        <>
-          <polygon points={`${a.x},${a.y} ${a.x + head},${a.y - head * 0.42} ${a.x + head},${a.y + head * 0.42}`} fill={grey} />
-          <polygon points={`${b.x},${b.y} ${b.x - head},${b.y - head * 0.42} ${b.x - head},${b.y + head * 0.42}`} fill={grey} />
-        </>
-      ) : (
-        <>
-          <polygon points={`${a.x},${a.y} ${a.x - head * 0.42},${a.y + head} ${a.x + head * 0.42},${a.y + head}`} fill={grey} />
-          <polygon points={`${b.x},${b.y} ${b.x - head * 0.42},${b.y - head} ${b.x + head * 0.42},${b.y - head}`} fill={grey} />
-        </>
-      )}
+      {/* 45-degree ticks, not arrowheads — the drafting convention for
+          dimension strings. Arrowheads stay reserved for leaders. */}
+      {[a, b].map((p, k) => (
+        <line
+          key={k}
+          x1={p.x - head * 0.6}
+          y1={p.y + head * 0.6}
+          x2={p.x + head * 0.6}
+          y2={p.y - head * 0.6}
+          stroke={grey}
+          strokeWidth={0.03}
+        />
+      ))}
 
       <text
         x={mid.x}
@@ -282,30 +379,77 @@ function ScaleBar({ y, width }: { y: number; width: number }) {
   );
 }
 
-/** The quarter-circle a door sweeps — hinged at one end, opening into the
-    room. Which side it actually opens to isn't in RoomPlan's data, so this
-    is a drawing convention, not a measurement. */
-function DoorSwing({ opening }: { opening: { x1: number; y1: number; x2: number; y2: number } }) {
+/**
+ * A door as a drawing draws one: leaf from the hinge, quarter arc to the
+ * latch. Which jamb hinges and which way it swings are not in RoomPlan's
+ * data, so both are the spec's stated heuristics — hinge at the jamb nearer
+ * a wall joint (doors hinge beside the adjoining wall), swing toward the
+ * room's interior — and are conventions, not measurements.
+ */
+function Door({
+  opening,
+  joints,
+  polygon,
+  T,
+}: {
+  opening: { x1: number; y1: number; x2: number; y2: number };
+  joints: { x: number; y: number }[];
+  polygon: { x: number; y: number }[];
+  T: number;
+}) {
   const dx = opening.x2 - opening.x1;
   const dy = opening.y2 - opening.y1;
-  const width = Math.hypot(dx, dy);
-  if (width < 0.05) return null;
-  const px = -dy / width;
-  const py = dx / width;
+  const w = Math.hypot(dx, dy);
+  const ux = dx / w;
+  const uy = dy / w;
+  const nx = -uy;
+  const ny = ux;
+
+  const dist = (x: number, y: number) =>
+    joints.length === 0 ? 9 : Math.min(...joints.map((j) => Math.hypot(j.x - x, j.y - y)));
+  const hingeAtStart = dist(opening.x1, opening.y1) <= dist(opening.x2, opening.y2);
+  const [hx, hy, lx, ly] = hingeAtStart
+    ? [opening.x1, opening.y1, opening.x2, opening.y2]
+    : [opening.x2, opening.y2, opening.x1, opening.y1];
+
+  // Interior side: where the floor's centroid sits relative to this wall.
+  let cx = 0;
+  let cy = 0;
+  if (polygon.length >= 3) {
+    cx = polygon.reduce((a, p) => a + p.x, 0) / polygon.length;
+    cy = polygon.reduce((a, p) => a + p.y, 0) / polygon.length;
+  }
+  const side = Math.sign((cx - hx) * nx + (cy - hy) * ny) || 1;
+
+  const H = { x: hx + (side * nx * T) / 2, y: hy + (side * ny * T) / 2 };
+  const L = { x: lx + (side * nx * T) / 2, y: ly + (side * ny * T) / 2 };
+  const tip = { x: H.x + side * nx * w, y: H.y + side * ny * w };
+  const sweep = (tip.x - H.x) * (L.y - H.y) - (tip.y - H.y) * (L.x - H.x) > 0 ? 1 : 0;
+
   return (
-    <path
-      d={`M ${opening.x1} ${opening.y1} L ${opening.x2} ${opening.y2} M ${opening.x2} ${opening.y2} A ${width} ${width} 0 0 1 ${opening.x1 + px * width} ${opening.y1 + py * width}`}
-      fill="none"
-      stroke="#b0b0b5"
-      strokeWidth={0.028}
-    />
+    <g>
+      <line x1={H.x} y1={H.y} x2={tip.x} y2={tip.y} stroke="#111111" strokeWidth={0.016} />
+      <path
+        d={`M ${tip.x} ${tip.y} A ${w} ${w} 0 0 ${sweep} ${L.x} ${L.y}`}
+        fill="none"
+        stroke="#111111"
+        strokeWidth={0.01}
+      />
+    </g>
   );
 }
 
-/** 12′ 4″ — how a tape measure reads, not 12.3 feet. */
+/**
+ * 17'-1" — the drafted convention, to the half inch. Whole feet keep their
+ * -0" (a drawing writes 4'-0", never a bare 4'); under a foot drops the
+ * zero-feet prefix entirely.
+ */
 function formatFeetInches(meters: number): string {
-  const totalInches = Math.round(metersToFeet(meters) * 12);
-  const feet = Math.floor(totalInches / 12);
-  const inches = totalInches % 12;
-  return inches === 0 ? `${feet}′` : `${feet}′ ${inches}″`;
+  const half = Math.round((meters / 0.0254) * 2) / 2;
+  const feet = Math.floor(half / 12);
+  const rem = half - feet * 12;
+  const whole = Math.floor(rem);
+  const frac = rem % 1 === 0.5 ? " 1/2" : "";
+  if (feet === 0) return `${whole}${frac}"`;
+  return `${feet}'-${whole}${frac}"`;
 }

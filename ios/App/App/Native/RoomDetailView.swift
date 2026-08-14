@@ -36,8 +36,11 @@ struct RoomDetailView: View {
         List {
             if let plan, !plan.isEmpty {
                 Section {
-                    FloorPlanView(plan: plan, areas: drawnAreas)
-                        .frame(height: 220)
+                    FloorPlanView(
+                        plan: plan, areas: drawnAreas,
+                        label: (room.name, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
+                    )
+                    .frame(height: 240)
                         .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                         .listRowBackground(Brand.surface)
                 }

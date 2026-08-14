@@ -1,89 +1,291 @@
 import SwiftUI
 
-/// A room drawn as a plan.
+/// A room drawn as an architect drafts one.
 ///
-/// The drafting conventions a printed floor plan actually uses, matched to
-/// the web renderer: solid walls with real thickness, a light floor behind
-/// them, openings cut clean out of the wall. A room the operator recognises
-/// on paper has to be the same room they see on the phone, or one of the two
-/// stops being believed.
+/// The v2 renderer, from the researched spec: pochéd double-line walls whose
+/// corners close square (the two-pass stroke technique), openings knocked out
+/// with jamb caps at cut weight, a three-line window symbol, a door with its
+/// leaf and quarter swing, tick-terminated dimensions in drafted feet-inches,
+/// and the room's name at the pole of inaccessibility. The web renderer and
+/// the printed report follow the same constants — one drawing, three places.
 struct FloorPlanView: View {
     let plan: FloorPlanGeometry.Plan
-    /// Damaged regions drawn over the floor, in the plan's own metres.
+    /// Damaged regions over the floor, in the plan's own metres.
     var areas: [(polygon: [CGPoint], colour: Color)] = []
     /// A shape being dragged right now, above everything else.
     var draft: (polygon: [CGPoint], colour: Color)?
+    /// Room name + area, drawn on the plan itself at full sizes.
+    var label: (name: String, sqft: Int)?
+
+    /// Real interior wall: 2×4 partition + drywall.
+    private let T = 0.114
+    /// The cut-face line weight, in device points — never scaled by zoom.
+    private let cutPt: CGFloat = 1.4
 
     var body: some View {
-        GeometryReader { proxy in
-            let scale = fitScale(in: proxy.size)
-            let offset = centreOffset(in: proxy.size, scale: scale)
+        Canvas { context, size in
+            guard plan.width > 0.1, plan.height > 0.1 else { return }
 
-            ZStack(alignment: .topLeading) {
-                Canvas { context, _ in
-                    func point(_ p: CGPoint) -> CGPoint {
-                        CGPoint(x: p.x * scale + offset.x, y: p.y * scale + offset.y)
+            // Dimensions need margin to live in; a thumbnail-sized canvas
+            // drops them entirely (the spec's smallest level).
+            let showDims = size.width >= 240
+            let inTop: CGFloat = showDims ? 34 : 10
+            let inRight: CGFloat = showDims ? 48 : 10
+            let inLeft: CGFloat = 12
+            let inBottom: CGFloat = 12
+
+            let scale = min(
+                (size.width - inLeft - inRight) / plan.width,
+                (size.height - inTop - inBottom) / plan.height)
+            guard scale > 0 else { return }
+            let ox = inLeft + (size.width - inLeft - inRight - plan.width * scale) / 2
+            let oy = inTop + (size.height - inTop - inBottom - plan.height * scale) / 2
+
+            func pt(_ x: Double, _ y: Double) -> CGPoint {
+                CGPoint(x: x * scale + ox, y: y * scale + oy)
+            }
+            func pt(_ p: CGPoint) -> CGPoint { pt(p.x, p.y) }
+
+            let ink = Color(hex: 0x111111)
+            let tPts = T * scale
+
+            // 1. Floor.
+            if plan.polygon.count >= 3 {
+                var floor = Path()
+                floor.move(to: pt(plan.polygon[0]))
+                for p in plan.polygon.dropFirst() { floor.addLine(to: pt(p)) }
+                floor.closeSubpath()
+                context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
+            }
+
+            // 2. Damage, over the floor and under the walls.
+            for area in areas where area.polygon.count >= 3 {
+                var path = Path()
+                path.move(to: pt(area.polygon[0]))
+                for p in area.polygon.dropFirst() { path.addLine(to: pt(p)) }
+                path.closeSubpath()
+                context.fill(path, with: .color(area.colour.opacity(0.28)))
+                context.stroke(path, with: .color(area.colour), lineWidth: 1.5)
+            }
+            if let draft, draft.polygon.count >= 3 {
+                var path = Path()
+                path.move(to: pt(draft.polygon[0]))
+                for p in draft.polygon.dropFirst() { path.addLine(to: pt(p)) }
+                path.closeSubpath()
+                context.fill(path, with: .color(draft.colour.opacity(0.3)))
+                context.stroke(path, with: .color(draft.colour), lineWidth: 2)
+            }
+
+            // 3. Walls — two passes. Centrelines extended half a thickness at
+            // shared joints, so corners close square; the wider ink pass
+            // leaves the heavier cut faces either side of the poché.
+            let joints = FloorPlanGeometry.joints(plan.segments)
+            func nearJoint(_ x: Double, _ y: Double) -> Bool {
+                joints.contains { hypot($0.x - x, $0.y - y) < 0.06 }
+            }
+
+            var walls = Path()
+            for s in plan.segments {
+                let L = s.length
+                guard L > 0 else { continue }
+                let ux = (s.x2 - s.x1) / L
+                let uy = (s.y2 - s.y1) / L
+                let e1 = nearJoint(s.x1, s.y1) ? T / 2 : 0
+                let e2 = nearJoint(s.x2, s.y2) ? T / 2 : 0
+                walls.move(to: pt(s.x1 - ux * e1, s.y1 - uy * e1))
+                walls.addLine(to: pt(s.x2 + ux * e2, s.y2 + uy * e2))
+            }
+
+            // Poché by effective scale: black at plan sizes, 45% grey with
+            // black faces once the band is wide enough to read as a cavity.
+            let poche: Color = tPts > 12 ? Color(white: 0.55) : ink
+            context.stroke(
+                walls, with: .color(ink),
+                style: StrokeStyle(lineWidth: max(2, tPts + 2 * cutPt), lineCap: .butt))
+            context.stroke(
+                walls, with: .color(poche),
+                style: StrokeStyle(lineWidth: max(1.5, tPts), lineCap: .butt))
+
+            // 4. Openings: knock the band out, cap the jambs, then the symbol.
+            let bg = Color(uiColor: .systemBackground)
+            for opening in plan.openings {
+                let s = opening.segment
+                let w = s.length
+                guard w > 0.05 else { continue }
+                let ux = (s.x2 - s.x1) / w
+                let uy = (s.y2 - s.y1) / w
+                let nx = -uy
+                let ny = ux
+
+                var cut = Path()
+                cut.move(to: pt(s.x1, s.y1))
+                cut.addLine(to: pt(s.x2, s.y2))
+                context.stroke(
+                    cut, with: .color(bg),
+                    style: StrokeStyle(lineWidth: max(2, tPts + 2 * cutPt) + 2, lineCap: .butt))
+
+                guard showDims || size.width >= 150 else { continue }
+
+                // Jamb caps — the jambs are cut by the plan plane and carry
+                // full cut weight.
+                for (jx, jy) in [(s.x1, s.y1), (s.x2, s.y2)] {
+                    var jamb = Path()
+                    jamb.move(to: pt(jx - nx * T / 2, jy - ny * T / 2))
+                    jamb.addLine(to: pt(jx + nx * T / 2, jy + ny * T / 2))
+                    context.stroke(jamb, with: .color(ink), lineWidth: cutPt)
+                }
+
+                switch opening.kind {
+                case .window:
+                    for side in [1.0, -1.0] {
+                        var frame = Path()
+                        frame.move(to: pt(s.x1 + side * nx * T / 2, s.y1 + side * ny * T / 2))
+                        frame.addLine(to: pt(s.x2 + side * nx * T / 2, s.y2 + side * ny * T / 2))
+                        context.stroke(frame, with: .color(ink), lineWidth: 1)
+                    }
+                    // Glazing on the centreline — suppressed when the cavity
+                    // is too narrow to hold three distinct lines.
+                    if tPts >= 4 {
+                        var glass = Path()
+                        glass.move(to: pt(s.x1, s.y1))
+                        glass.addLine(to: pt(s.x2, s.y2))
+                        context.stroke(glass, with: .color(ink), lineWidth: 0.7)
                     }
 
-                    // The floor, behind the walls.
+                case .door where w >= 0.45:
+                    // Hinge at the jamb nearer a wall joint; swing toward the
+                    // room's interior. Conventions, not measurements — the
+                    // scan records neither.
+                    func jointDistance(_ x: Double, _ y: Double) -> Double {
+                        joints.map { hypot($0.x - x, $0.y - y) }.min() ?? 9
+                    }
+                    let hingeAtStart = jointDistance(s.x1, s.y1) <= jointDistance(s.x2, s.y2)
+                    let (hx, hy, lx, ly) = hingeAtStart
+                        ? (s.x1, s.y1, s.x2, s.y2) : (s.x2, s.y2, s.x1, s.y1)
+
+                    var cx = plan.width / 2
+                    var cy = plan.height / 2
                     if plan.polygon.count >= 3 {
-                        var path = Path()
-                        path.move(to: point(plan.polygon[0]))
-                        for p in plan.polygon.dropFirst() { path.addLine(to: point(p)) }
-                        path.closeSubpath()
-                        context.fill(path, with: .color(Color(hex: 0xEBEBEB)))
+                        cx = plan.polygon.reduce(0) { $0 + $1.x } / Double(plan.polygon.count)
+                        cy = plan.polygon.reduce(0) { $0 + $1.y } / Double(plan.polygon.count)
+                    }
+                    let sideSign: Double = ((cx - hx) * nx + (cy - hy) * ny) >= 0 ? 1 : -1
+
+                    let H = pt(hx + sideSign * nx * T / 2, hy + sideSign * ny * T / 2)
+                    let latch = pt(lx + sideSign * nx * T / 2, ly + sideSign * ny * T / 2)
+                    let tip = pt(
+                        hx + sideSign * nx * (T / 2 + w) - 0,
+                        hy + sideSign * ny * (T / 2 + w))
+
+                    var leaf = Path()
+                    leaf.move(to: H)
+                    leaf.addLine(to: tip)
+                    context.stroke(leaf, with: .color(ink), lineWidth: 1)
+
+                    let r = hypot(tip.x - H.x, tip.y - H.y)
+                    let a0 = Angle(radians: atan2(tip.y - H.y, tip.x - H.x))
+                    let a1 = Angle(radians: atan2(latch.y - H.y, latch.x - H.x))
+                    // Sweep the quarter that goes tip → latch the short way.
+                    var delta = a1.radians - a0.radians
+                    while delta > .pi { delta -= 2 * .pi }
+                    while delta < -.pi { delta += 2 * .pi }
+                    var arc = Path()
+                    arc.addArc(
+                        center: H, radius: r, startAngle: a0,
+                        endAngle: a1, clockwise: delta < 0)
+                    context.stroke(arc, with: .color(ink), lineWidth: 0.7)
+
+                default:
+                    break
+                }
+            }
+
+            // 5. Dimensions — the overall spans, top and right, terminated
+            // with drafting ticks rather than arrowheads.
+            if showDims {
+                let grey = Color(hex: 0x6B6B70)
+                let off: CGFloat = 20
+                let overrun: CGFloat = 4
+                let gap: CGFloat = 3
+                let tick: CGFloat = 3.5
+
+                func dimension(
+                    from a: CGPoint, to b: CGPoint, outward: CGVector, text: String,
+                    rotated: Bool
+                ) {
+                    let da = CGPoint(x: a.x + outward.dx * off, y: a.y + outward.dy * off)
+                    let db = CGPoint(x: b.x + outward.dx * off, y: b.y + outward.dy * off)
+
+                    var witness = Path()
+                    witness.move(to: CGPoint(x: a.x + outward.dx * gap, y: a.y + outward.dy * gap))
+                    witness.addLine(
+                        to: CGPoint(
+                            x: da.x + outward.dx * overrun, y: da.y + outward.dy * overrun))
+                    witness.move(to: CGPoint(x: b.x + outward.dx * gap, y: b.y + outward.dy * gap))
+                    witness.addLine(
+                        to: CGPoint(
+                            x: db.x + outward.dx * overrun, y: db.y + outward.dy * overrun))
+                    context.stroke(witness, with: .color(grey), lineWidth: 0.6)
+
+                    var line = Path()
+                    line.move(to: da)
+                    line.addLine(to: db)
+                    context.stroke(line, with: .color(grey), lineWidth: 0.7)
+
+                    for p in [da, db] {
+                        var t = Path()
+                        t.move(to: CGPoint(x: p.x - tick, y: p.y + tick))
+                        t.addLine(to: CGPoint(x: p.x + tick, y: p.y - tick))
+                        context.stroke(t, with: .color(grey), lineWidth: 1.1)
                     }
 
-                    // Damage, over the floor and under the walls — a wet
-                    // patch is on the floor, not on top of the building.
-                    for area in areas where area.polygon.count >= 3 {
-                        var path = Path()
-                        path.move(to: point(area.polygon[0]))
-                        for p in area.polygon.dropFirst() { path.addLine(to: point(p)) }
-                        path.closeSubpath()
-                        context.fill(path, with: .color(area.colour.opacity(0.28)))
-                        context.stroke(path, with: .color(area.colour), lineWidth: 1.5)
-                    }
-
-                    if let draft, draft.polygon.count >= 3 {
-                        var path = Path()
-                        path.move(to: point(draft.polygon[0]))
-                        for p in draft.polygon.dropFirst() { path.addLine(to: point(p)) }
-                        path.closeSubpath()
-                        context.fill(path, with: .color(draft.colour.opacity(0.3)))
-                        context.stroke(path, with: .color(draft.colour), lineWidth: 2)
-                    }
-
-                    // Walls, with real thickness — a hairline reads as a
-                    // sketch rather than a plan.
-                    for wall in plan.segments {
-                        var path = Path()
-                        path.move(to: point(CGPoint(x: wall.x1, y: wall.y1)))
-                        path.addLine(to: point(CGPoint(x: wall.x2, y: wall.y2)))
-                        context.stroke(
-                            path, with: .color(Brand.ink),
-                            style: StrokeStyle(lineWidth: max(2, 0.11 * scale), lineCap: .square))
-                    }
-
-                    // Openings cut back out of the wall they sit in, so a
-                    // door is a gap rather than a mark drawn on top.
-                    for opening in plan.openings {
-                        var path = Path()
-                        path.move(to: point(CGPoint(x: opening.segment.x1, y: opening.segment.y1)))
-                        path.addLine(to: point(CGPoint(x: opening.segment.x2, y: opening.segment.y2)))
-                        context.stroke(
-                            path, with: .color(Brand.surface),
-                            style: StrokeStyle(lineWidth: max(2, 0.13 * scale), lineCap: .butt))
-
-                        // A window keeps a thin line through the gap; a door
-                        // and a cased opening are left open.
-                        if opening.kind == .window {
-                            context.stroke(
-                                path, with: .color(Brand.inkSoft),
-                                style: StrokeStyle(lineWidth: max(1, 0.02 * scale)))
+                    let mid = CGPoint(
+                        x: (da.x + db.x) / 2 + outward.dx * 9,
+                        y: (da.y + db.y) / 2 + outward.dy * 9)
+                    let resolved = context.resolve(
+                        Text(text).font(.system(size: 9, weight: .semibold)).foregroundStyle(grey))
+                    if rotated {
+                        context.drawLayer { layer in
+                            layer.translateBy(x: mid.x, y: mid.y)
+                            layer.rotate(by: .degrees(-90))
+                            layer.draw(resolved, at: .zero, anchor: .center)
                         }
+                    } else {
+                        context.draw(resolved, at: mid, anchor: .center)
                     }
                 }
+
+                dimension(
+                    from: pt(0, 0), to: pt(plan.width, 0), outward: CGVector(dx: 0, dy: -1),
+                    text: FloorPlanGeometry.feetInches(plan.width), rotated: false)
+                dimension(
+                    from: pt(plan.width, 0), to: pt(plan.width, plan.height),
+                    outward: CGVector(dx: 1, dy: 0),
+                    text: FloorPlanGeometry.feetInches(plan.height), rotated: true)
+            }
+
+            // 6. The room's own label, deepest inside its outline.
+            if let label, showDims, plan.polygon.count >= 3 {
+                let anchor = FloorPlanGeometry.labelAnchor(
+                    plan.polygon, width: plan.width, height: plan.height)
+                let at = pt(anchor)
+                let name = context.resolve(
+                    Text(label.name.uppercased())
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color(hex: 0x1A1A1A)))
+                let area = context.resolve(
+                    Text("\(label.sqft) SQFT")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(Color(hex: 0x666666)))
+                let nameSize = name.measure(in: size)
+                let pad: CGFloat = 4
+                let box = CGRect(
+                    x: at.x - nameSize.width / 2 - pad, y: at.y - 11 - pad,
+                    width: nameSize.width + pad * 2, height: 26 + pad * 2)
+                context.fill(
+                    Path(roundedRect: box, cornerRadius: 3), with: .color(bg.opacity(0.82)))
+                context.draw(name, at: CGPoint(x: at.x, y: at.y - 3), anchor: .center)
+                context.draw(area, at: CGPoint(x: at.x, y: at.y + 11), anchor: .center)
             }
         }
         .aspectRatio(aspect, contentMode: .fit)
@@ -92,20 +294,6 @@ struct FloorPlanView: View {
     private var aspect: CGFloat {
         guard plan.width > 0, plan.height > 0 else { return 1 }
         return CGFloat(plan.width / plan.height)
-    }
-
-    private func fitScale(in size: CGSize) -> CGFloat {
-        guard plan.width > 0, plan.height > 0 else { return 1 }
-        let pad: CGFloat = 12
-        return min(
-            (size.width - pad * 2) / CGFloat(plan.width),
-            (size.height - pad * 2) / CGFloat(plan.height))
-    }
-
-    private func centreOffset(in size: CGSize, scale: CGFloat) -> CGPoint {
-        CGPoint(
-            x: (size.width - CGFloat(plan.width) * scale) / 2,
-            y: (size.height - CGFloat(plan.height) * scale) / 2)
     }
 }
 
