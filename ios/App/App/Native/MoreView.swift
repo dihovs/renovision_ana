@@ -97,6 +97,13 @@ struct MoreView: View {
                             }
                         }
 
+                        Card(padding: Brand.Space.small) {
+                            CardRow {
+                                UnitsSettingRow()
+                                    .font(.system(size: 15, weight: .medium))
+                            }
+                        }
+
                         Button {
                             showStatus = true
                         } label: {

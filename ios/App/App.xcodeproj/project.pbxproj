@@ -58,6 +58,7 @@
 		2040CD2E8FB0C6B036E367DF /* EditorChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */; };
 		F4A3CDB5C85AE43389B25281 /* CollectionShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */; };
 		D4ED59C7422E160077F9C007 /* Units.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0713A71AD922BFBCB4884DB5 /* Units.swift */; };
+		DD208E3518249553DB7E9A8A /* UnitsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCC848DA8520209EBF4BF5D8 /* UnitsSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -113,6 +114,7 @@
 		6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/EditorChrome.swift; sourceTree = "<group>"; };
 		1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CollectionShell.swift; sourceTree = "<group>"; };
 		0713A71AD922BFBCB4884DB5 /* Units.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Units.swift; sourceTree = "<group>"; };
+		BCC848DA8520209EBF4BF5D8 /* UnitsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/UnitsSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -156,6 +158,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				BCC848DA8520209EBF4BF5D8 /* UnitsSheet.swift */,
 				0713A71AD922BFBCB4884DB5 /* Units.swift */,
 				6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */,
 				1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */,
@@ -285,6 +288,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD208E3518249553DB7E9A8A /* UnitsSheet.swift in Sources */,
 				D4ED59C7422E160077F9C007 /* Units.swift in Sources */,
 				2040CD2E8FB0C6B036E367DF /* EditorChrome.swift in Sources */,
 				F4A3CDB5C85AE43389B25281 /* CollectionShell.swift in Sources */,
