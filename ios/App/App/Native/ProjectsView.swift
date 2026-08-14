@@ -166,6 +166,7 @@ struct ProjectDetailView: View {
     @State private var error: String?
     @State private var capturing = false
     @State private var addingEquipment = false
+    @State private var openRoom: RoomScan?
     @StateObject private var queue = ScanQueue.shared
 
     /// Storeys in building order, not the order they happened to be scanned —
@@ -258,6 +259,16 @@ struct ProjectDetailView: View {
                                 title: level.uppercased(),
                                 trailing: "\(Measure.sqftLabel(area)) · \(rooms.count) room\(rooms.count == 1 ? "" : "s")"
                             )
+
+                            // The storey as one drawing, tappable — the plan
+                            // view of the same rooms listed below it.
+                            if rooms.contains(where: { $0.geometry != nil }) {
+                                Card(padding: Brand.Space.small) {
+                                    LevelCanvas(rooms: rooms) { room in
+                                        openRoom = room
+                                    }
+                                }
+                            }
 
                             ForEach(rooms) { room in
                                 NavigationLink(value: room) {
@@ -389,6 +400,7 @@ struct ProjectDetailView: View {
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: RoomScan.self) { RoomDetailView(room: $0) }
+        .navigationDestination(item: $openRoom) { RoomDetailView(room: $0) }
         .sheet(isPresented: $addingEquipment) {
             AddEquipmentSheet(projectId: project.id) { Task { await load() } }
         }

@@ -47,6 +47,7 @@
 		D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = A254CB749019586DB2A35202 /* ReportShare.swift */; };
 		679EC02AE877C7C78C7FA783 /* LeadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943916CB2AB009C43981176F /* LeadsView.swift */; };
 		1E98C473DA60BEF1FB5432B7 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A683A382E5E97EB8E6D8E72B /* ScheduleView.swift */; };
+		C7B29CAA04D8D49BC6B17A1D /* LevelCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = C934A2011186B59DF4D40110 /* LevelCanvas.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -91,6 +92,7 @@
 		A254CB749019586DB2A35202 /* ReportShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ReportShare.swift; sourceTree = "<group>"; };
 		943916CB2AB009C43981176F /* LeadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LeadsView.swift; sourceTree = "<group>"; };
 		A683A382E5E97EB8E6D8E72B /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScheduleView.swift; sourceTree = "<group>"; };
+		C934A2011186B59DF4D40110 /* LevelCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LevelCanvas.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +136,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				C934A2011186B59DF4D40110 /* LevelCanvas.swift */,
 				A683A382E5E97EB8E6D8E72B /* ScheduleView.swift */,
 				943916CB2AB009C43981176F /* LeadsView.swift */,
 				A254CB749019586DB2A35202 /* ReportShare.swift */,
@@ -252,6 +255,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C7B29CAA04D8D49BC6B17A1D /* LevelCanvas.swift in Sources */,
 				1E98C473DA60BEF1FB5432B7 /* ScheduleView.swift in Sources */,
 				679EC02AE877C7C78C7FA783 /* LeadsView.swift in Sources */,
 				D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */,
