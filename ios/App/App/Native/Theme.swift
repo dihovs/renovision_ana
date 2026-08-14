@@ -305,3 +305,46 @@ extension Color {
             })
     }
 }
+
+// MARK: - Getting back out
+
+/// A Done button, but only when the screen was presented as a sheet.
+///
+/// Several screens are reachable BOTH ways — Scan and Phone are tabs and are
+/// also opened from Home, Status is opened from two different menus. Pushed
+/// into a navigation stack they get a back button for free; presented as a
+/// sheet they got nothing, and a screen with no way out is the one bug a user
+/// cannot work around.
+///
+/// `isPresented` is true only in the modal case, so the button appears exactly
+/// when it is needed and never doubles up with a back chevron.
+struct DismissWhenPresented: ViewModifier {
+    @Environment(\.isPresented) private var isPresented
+    @Environment(\.dismiss) private var dismiss
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            if isPresented {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        // A chevron rather than the word "Done": this closes
+                        // a screen rather than confirming anything, and Done
+                        // on a read-only screen reads like it saved something.
+                        Label("Close", systemImage: "chevron.down")
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 15, weight: .bold))
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    /// Adds a way out when this screen is a sheet, and nothing when it is not.
+    func dismissableWhenPresented() -> some View {
+        modifier(DismissWhenPresented())
+    }
+}

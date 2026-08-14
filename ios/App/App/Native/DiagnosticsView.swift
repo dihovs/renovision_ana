@@ -96,6 +96,7 @@ struct DiagnosticsView: View {
                 }
             }
             .navigationTitle("Status")
+            .dismissableWhenPresented()
             .refreshable { await load() }
             .task { await load() }
         }

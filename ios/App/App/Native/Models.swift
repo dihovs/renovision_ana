@@ -322,9 +322,12 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     let stairCount: Int
     let planX: Double?
     let planY: Double?
+    /// The measurement blob, decoded. Optional because an old row saved
+    /// before a field existed must still list, just without a drawing.
+    let geometry: ScanGeometry?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, level, position
+        case id, name, level, position, geometry
         case floorAreaSqm = "floor_area_sqm"
         case wallLengthM = "wall_length_m"
         case ceilingHeightM = "ceiling_height_m"
@@ -352,7 +355,15 @@ struct RoomScan: Decodable, Identifiable, Hashable {
         stairCount = (try? c.decode(Int.self, forKey: .stairCount)) ?? 0
         planX = try? c.decodeIfPresent(Double.self, forKey: .planX)
         planY = try? c.decodeIfPresent(Double.self, forKey: .planY)
+        geometry = try? c.decodeIfPresent(ScanGeometry.self, forKey: .geometry)
     }
+
+    // Identity is the id, not the wall coordinates. Synthesising Hashable
+    // over the whole geometry would mean hashing several hundred doubles on
+    // every navigation comparison, and two rows with the same id ARE the same
+    // room whatever the measurements say.
+    static func == (a: RoomScan, b: RoomScan) -> Bool { a.id == b.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 // MARK: - Affected areas
@@ -365,9 +376,17 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
     let damageType: String
     let areaSqm: Double
     let surface: String
+    /// In the plan's own metres — the same space the walls are drawn in, so
+    /// an area needs no transform to line up with the room.
+    let polygon: [Point]
+
+    struct Point: Decodable, Hashable {
+        let x: Double
+        let y: Double
+    }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, surface
+        case id, name, surface, polygon
         case damageType = "damage_type"
         case areaSqm = "area_sqm"
     }
@@ -379,6 +398,7 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
         surface = (try? c.decode(String.self, forKey: .surface)) ?? "floor"
         damageType = (try? c.decode(String.self, forKey: .damageType)) ?? "water"
         areaSqm = try c.decodeFlexibleDouble(.areaSqm)
+        polygon = (try? c.decodeIfPresent([Point].self, forKey: .polygon)) ?? []
     }
 
     /// The label and colour a cause is shown in, matching the web exactly —

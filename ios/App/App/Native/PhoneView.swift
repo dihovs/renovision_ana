@@ -52,6 +52,7 @@ struct PhoneView: View {
                 }
             }
             .navigationTitle("Phone")
+            .dismissableWhenPresented()
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 await loadContacts()

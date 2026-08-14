@@ -13,6 +13,8 @@ struct RoomDetailView: View {
     @State private var readings: [MoistureReading] = []
     @State private var loading = true
     @State private var error: String?
+    @State private var drawing = false
+    @State private var logging = false
 
     private var damagedSqm: Double { areas.reduce(0) { $0 + $1.areaSqm } }
 
@@ -32,6 +34,15 @@ struct RoomDetailView: View {
 
     var body: some View {
         List {
+            if let plan, !plan.isEmpty {
+                Section {
+                    FloorPlanView(plan: plan, areas: drawnAreas)
+                        .frame(height: 220)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                        .listRowBackground(Brand.surface)
+                }
+            }
+
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
                     Figure("Floor", Measure.sqftLabel(room.floorAreaSqm), "Flooring, underlay")
@@ -83,6 +94,15 @@ struct RoomDetailView: View {
                         }
                     }
                 }
+                if plan != nil && !(plan?.isEmpty ?? true) {
+                    Button {
+                        drawing = true
+                    } label: {
+                        Label("Add a new area", systemImage: "plus.circle.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.blue)
+                    }
+                }
             } header: {
                 HStack {
                     Text("Affected areas")
@@ -125,6 +145,13 @@ struct RoomDetailView: View {
                         }
                     }
                 }
+                Button {
+                    logging = true
+                } label: {
+                    Label("Log a reading", systemImage: "plus.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.blue)
+                }
             } header: {
                 HStack {
                     Text("Moisture")
@@ -148,7 +175,36 @@ struct RoomDetailView: View {
         .navigationTitle(room.name)
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await load() }
+        .sheet(isPresented: $drawing) {
+            if let plan {
+                AreaEditor(plan: plan, existing: drawnAreas) { name, type, polygon in
+                    Task {
+                        try? await API.shared.createArea(
+                            roomScanId: room.id, name: name, damageType: type, polygon: polygon)
+                        drawing = false
+                        await load()
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $logging) {
+            ReadingSheet(roomId: room.id) { Task { await load() } }
+        }
         .task { await load() }
+    }
+
+    /// The plan, computed once from the stored geometry.
+    private var plan: FloorPlanGeometry.Plan? {
+        guard let geometry = room.geometry else { return nil }
+        return FloorPlanGeometry.plan(from: geometry)
+    }
+
+    /// Areas in the plan's own coordinates, ready to draw.
+    private var drawnAreas: [(polygon: [CGPoint], colour: Color)] {
+        areas.compactMap { area in
+            guard area.polygon.count >= 3 else { return nil }
+            return (area.polygon.map { CGPoint(x: $0.x, y: $0.y) }, color(for: area.damageType))
+        }
     }
 
     private func load() async {

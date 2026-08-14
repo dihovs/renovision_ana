@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Talks to the CRM's JSON API.
@@ -255,6 +256,52 @@ actor API {
     func areas(roomScanId: String) async throws -> [AffectedArea] {
         let encoded = roomScanId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? roomScanId
         return try await get("/api/v1/areas?roomScanId=\(encoded)", as: AreaListResponse.self).areas
+    }
+
+    private struct NewArea: Encodable {
+        struct Point: Encodable {
+            let x: Double
+            let y: Double
+        }
+        let roomScanId: String
+        let name: String
+        let damageType: String
+        let polygon: [Point]
+    }
+
+    func createArea(roomScanId: String, name: String, damageType: String, polygon: [CGPoint])
+        async throws -> String
+    {
+        struct Created: Decodable { let id: String }
+        let data = try await request(
+            "/api/v1/areas", method: "POST",
+            body: NewArea(
+                roomScanId: roomScanId, name: name, damageType: damageType,
+                polygon: polygon.map { .init(x: Double($0.x), y: Double($0.y)) }))
+        return try decode(Created.self, from: data).id
+    }
+
+    private struct NewReading: Encodable {
+        let roomScanId: String
+        let location: String
+        let material: String?
+        let materialPercent: Double?
+        let relativeHumidity: Double?
+        let temperatureC: Double?
+    }
+
+    func createReading(
+        roomScanId: String, location: String, material: String?,
+        materialPercent: Double?, relativeHumidity: Double?, temperatureC: Double?
+    ) async throws -> String {
+        struct Created: Decodable { let id: String }
+        let data = try await request(
+            "/api/v1/moisture", method: "POST",
+            body: NewReading(
+                roomScanId: roomScanId, location: location, material: material,
+                materialPercent: materialPercent, relativeHumidity: relativeHumidity,
+                temperatureC: temperatureC))
+        return try decode(Created.self, from: data).id
     }
 
     // MARK: - Drying log

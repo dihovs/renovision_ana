@@ -100,6 +100,7 @@ struct ScanEntryView: View {
                 .refreshable { await load() }
             }
             .navigationTitle("Scan")
+            .dismissableWhenPresented()
             .searchable(text: $query, prompt: "Search projects")
             .task { await load() }
             .sheet(item: $chosen) { project in
