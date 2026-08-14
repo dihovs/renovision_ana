@@ -65,16 +65,20 @@ struct RoomDetailView: View {
 
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                    Figure("Floor", Measure.sqftLabel(room.floorAreaSqm), "Flooring, underlay")
-                    Figure(
-                        "Wall area",
-                        Measure.sqftLabel(room.wallLengthM * room.ceilingHeightM),
-                        "Paint, drywall — gross")
-                    Figure("Perimeter", Measure.ftLabel(room.wallLengthM), "Baseboard, trim")
-                    Figure(
-                        "Ceiling",
-                        String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
-                        "Tallest wall")
+                    // Every figure states what it means — an adjuster who
+                    // cannot tell which definition a number used is an
+                    // adjuster who can discount it.
+                    DefinedFigure(
+                        value: Measure.sqftLabel(room.floorAreaSqm), unit: nil,
+                        meaning: .floorArea)
+                    DefinedFigure(
+                        value: Measure.sqftLabel(room.wallLengthM * room.ceilingHeightM),
+                        unit: "gross", meaning: .wallArea)
+                    DefinedFigure(
+                        value: Measure.ftLabel(room.wallLengthM), unit: nil, meaning: .perimeter)
+                    DefinedFigure(
+                        value: String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
+                        unit: nil, meaning: .ceiling)
                 }
                 .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
             }

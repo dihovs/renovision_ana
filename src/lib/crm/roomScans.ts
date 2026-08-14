@@ -159,6 +159,7 @@ export async function getRoomScanProject(id: string): Promise<string | null> {
 export async function saveEditedPolygon(
   id: string,
   polygon: { x: number; y: number }[],
+  lockedEdges: number[] = [],
 ): Promise<void> {
   const client = requireDb();
 
@@ -185,6 +186,10 @@ export async function saveEditedPolygon(
   const geometry = {
     ...((data?.geometry ?? {}) as Record<string, unknown>),
     editedPolygon: polygon,
+    // Which lengths were typed rather than measured. A claim file has to be
+    // able to tell those apart — "which of these did you measure?" is a fair
+    // question with a real answer.
+    lockedEdges,
     editedAt: new Date().toISOString(),
   };
 

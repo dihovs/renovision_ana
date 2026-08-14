@@ -28,7 +28,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (polygon.length < 3) {
         throw new Error("A room needs at least three corners.");
       }
-      await saveEditedPolygon(id, polygon);
+      const locked = Array.isArray(body.lockedEdges)
+        ? (body.lockedEdges as unknown[])
+            .map((n) => Number(n))
+            .filter((n) => Number.isInteger(n) && n >= 0 && n < polygon.length)
+        : [];
+      await saveEditedPolygon(id, polygon, locked);
     }
 
     await updateRoomScan(id, {

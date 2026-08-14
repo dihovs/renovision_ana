@@ -423,15 +423,17 @@ actor API {
             let y: Double
         }
         let editedPolygon: [Point]
+        let lockedEdges: [Int]
     }
 
     /// Save a plan corrected by hand. The scan's own measurements are kept —
     /// the server files this beside them, never over them.
-    func saveEditedPlan(roomId: String, corners: [CGPoint]) async throws {
+    func saveEditedPlan(roomId: String, corners: [CGPoint], locked: [Int] = []) async throws {
         _ = try await request(
             "/api/v1/scans/\(roomId)", method: "PATCH",
             body: EditedPlan(
-                editedPolygon: corners.map { .init(x: Double($0.x), y: Double($0.y)) }))
+                editedPolygon: corners.map { .init(x: Double($0.x), y: Double($0.y)) },
+                lockedEdges: locked))
     }
 
     // MARK: - Photos

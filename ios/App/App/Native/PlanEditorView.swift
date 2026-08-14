@@ -33,6 +33,11 @@ struct PlanEditorView: View {
     @State private var saving = false
     @State private var error: String?
     @State private var showDiscard = false
+    /// Wall lengths the operator TYPED. A measured number and an entered one
+    /// are different kinds of fact, and a claim file must be able to tell
+    /// them apart.
+    @State private var locked: Set<Int> = []
+    @State private var lockedWarning: Int?
 
     /// Viewport, in the plan's own metres.
     @State private var zoom: CGFloat = 1
@@ -107,9 +112,16 @@ struct PlanEditorView: View {
             }
             .task { load() }
             .sheet(item: $typing) { target in
-                LengthSheet(current: target.current) { metres in
+                LengthSheet(current: target.current, locked: locked.contains(target.edge)) { metres in
                     push()
                     corners = PlanEditing.setEdgeLength(corners, index: target.edge, to: metres)
+                    // Typed IS locked. That is the whole point: the number
+                    // came from a person, and later drags must ask before
+                    // overwriting it.
+                    locked.insert(target.edge)
+                    typing = nil
+                } onUnlock: {
+                    locked.remove(target.edge)
                     typing = nil
                 }
             }
@@ -118,6 +130,22 @@ struct PlanEditorView: View {
             ) {
                 Button("Discard", role: .destructive) { dismiss() }
                 Button("Keep editing", role: .cancel) {}
+            }
+            .confirmationDialog(
+                "A wall next to this one was measured by hand. Moving this wall changes it.",
+                isPresented: Binding(
+                    get: { lockedWarning != nil }, set: { if !$0 { lockedWarning = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Unlock and move it") {
+                    if let index = lockedWarning {
+                        let n = corners.count
+                        locked.remove((index - 1 + n) % n)
+                        locked.remove((index + 1) % n)
+                    }
+                    lockedWarning = nil
+                }
+                Button("Leave it alone", role: .cancel) { lockedWarning = nil }
             }
         }
     }
@@ -197,8 +225,9 @@ struct PlanEditorView: View {
                         guard metres > 0.15 else { continue }
 
                         let selected = selection == .wall(i)
+                        let isLocked = locked.contains(i)
                         let text = context.resolve(
-                            Text(FloorPlanGeometry.feetInches(metres))
+                            Text((isLocked ? "\u{1F512} " : "") + FloorPlanGeometry.feetInches(metres))
                                 .font(.system(size: 11, weight: selected ? .bold : .regular))
                                 .foregroundStyle(selected ? .white : Color(hex: 0x4A4A50)))
                         let size = text.measure(in: proxy.size)
@@ -315,6 +344,17 @@ struct PlanEditorView: View {
 
         switch selection {
         case .wall(let index):
+            // Dragging a wall changes its NEIGHBOURS' lengths, not its own —
+            // so a locked neighbour is what has to be defended here.
+            let n = start.count
+            let neighbours = [(index - 1 + n) % n, (index + 1) % n]
+            if neighbours.contains(where: { locked.contains($0) }), lockedWarning == nil {
+                lockedWarning = index
+                corners = start
+                dragStart = nil
+                return
+            }
+
             let (a, b) = PlanEditing.edgeCorners(index, count: start.count)
             let direction = PlanEditing.normalised(PlanEditing.sub(start[b], start[a]))
             let sideways = PlanEditing.normal(direction)
@@ -463,6 +503,7 @@ struct PlanEditorView: View {
 
     private func load() {
         guard corners.isEmpty, let scan else { return }
+        locked = Set(room.geometry?.lockedEdges ?? [])
         // The outline when the walls closed into one; the bounding box when
         // they did not, so an open scan is still editable rather than
         // refusing to appear.
@@ -502,7 +543,8 @@ struct PlanEditorView: View {
         saving = true
         error = nil
         do {
-            try await API.shared.saveEditedPlan(roomId: room.id, corners: corners)
+            try await API.shared.saveEditedPlan(
+                roomId: room.id, corners: corners, locked: Array(locked).sorted())
             onSaved()
             dismiss()
         } catch {
@@ -531,7 +573,9 @@ private struct EditorButton: ButtonStyle {
 /// the tape in the operator's hand reads.
 private struct LengthSheet: View {
     let current: Double
+    var locked: Bool = false
     let onApply: (Double) -> Void
+    var onUnlock: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
@@ -548,9 +592,13 @@ private struct LengthSheet: View {
                 Brand.canvas.ignoresSafeArea()
 
                 VStack(alignment: .leading, spacing: Brand.Space.base) {
-                    Text("Currently \(FloorPlanGeometry.feetInches(current))")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.inkSoft)
+                    Text(
+                        locked
+                            ? "Entered by hand: \(FloorPlanGeometry.feetInches(current))"
+                            : "Currently \(FloorPlanGeometry.feetInches(current))"
+                    )
+                    .font(.system(size: 13))
+                    .foregroundStyle(locked ? .orange : Brand.inkSoft)
 
                     TextField("12' 6", text: $text)
                         .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -570,6 +618,14 @@ private struct LengthSheet: View {
                     }
                     .buttonStyle(PrimaryButtonStyle(enabled: parsed != nil))
                     .disabled(parsed == nil)
+
+                    if locked {
+                        Button("Unlock — go back to the measured length") {
+                            onUnlock?()
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.orange)
+                    }
 
                     Spacer()
                 }

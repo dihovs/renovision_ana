@@ -49,6 +49,15 @@ struct ScanGeometry: Codable {
     /// before the editor existed has none.
     var editedPolygon: [EditedPoint]?
 
+    /// Which wall lengths were TYPED rather than measured, by edge index.
+    ///
+    /// A number somebody entered by hand is a different kind of fact from one
+    /// a sensor produced, and a claim file has to be able to tell them apart:
+    /// "which of these did you measure?" is a fair question and the answer
+    /// must not be a shrug. A locked length also refuses to be changed by a
+    /// stray drag without asking first.
+    var lockedEdges: [Int]?
+
     struct EditedPoint: Codable, Hashable {
         let x: Double
         let y: Double
@@ -105,6 +114,9 @@ struct ScanGeometry: Codable {
         self.openingCount = 0
         self.stairCount = 0
         self.editedPolygon = polygon.map { EditedPoint(x: $0.x, y: $0.y) }
+        // A drawn room is typed by definition — every wall of it is a number
+        // somebody entered, so every wall is locked.
+        self.lockedEdges = Array(0..<madeWalls.count)
     }
 
     init(room: CapturedRoom) {

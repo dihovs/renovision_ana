@@ -348,3 +348,123 @@ extension View {
         modifier(DismissWhenPresented())
     }
 }
+
+
+// MARK: - Defensible numbers
+
+/// What a measurement actually means, available on the figure itself.
+///
+/// "Floor area" has at least five legitimate definitions — to the inside
+/// face, to the outside face, with or without interior partitions, with or
+/// without openings deducted — and an adjuster who cannot tell which one a
+/// number used is an adjuster who can discount it. Every figure this app
+/// reports therefore carries its own definition, one tap away.
+///
+/// The definitions below state what THIS app computes. They are deliberately
+/// plain about their limits: where a figure is measured from the scan's wall
+/// centres rather than a finished face, it says so, because a stated
+/// approximation survives scrutiny and an unstated one does not.
+struct MeasureDefinition: Identifiable {
+    let id: String
+    let title: String
+    let definition: String
+
+    static let floorArea = MeasureDefinition(
+        id: "floor",
+        title: "Floor area",
+        definition: """
+            The area enclosed by the room's walls, measured to the wall faces             the scan detected — the clear floor you could lay covering on.             Interior partitions inside the room, if any, are not deducted.
+            """)
+
+    static let wallArea = MeasureDefinition(
+        id: "walls",
+        title: "Wall area",
+        definition: """
+            Perimeter multiplied by ceiling height. The gross figure counts             every wall full height; the net figure deducts the doors and             windows the scan found, and is the one paint and drywall are             priced from. Perimeter is measured at floor level, not at the             ceiling — the two differ, and using the ceiling would overstate             the wall area of any room whose walls are not perfectly plumb.
+            """)
+
+    static let perimeter = MeasureDefinition(
+        id: "perimeter",
+        title: "Perimeter",
+        definition: """
+            The total run of the walls at floor level — what baseboard and             trim are priced against. Door openings are included in the run;             deduct them separately if the trim does not cross them.
+            """)
+
+    static let ceiling = MeasureDefinition(
+        id: "ceiling",
+        title: "Ceiling height",
+        definition: """
+            The tallest wall the scan measured, floor to ceiling. A room with             a sloped or dropped ceiling has more than one height; this reports             the greatest, so volume derived from it is an upper bound.
+            """)
+
+    static let damaged = MeasureDefinition(
+        id: "damaged",
+        title: "Affected area",
+        definition: """
+            The area of the regions marked as damaged, totalled per cause.             Causes are kept apart rather than summed into one figure because             regions may overlap — a wall that is both wet and smoke-stained             would otherwise be counted twice.
+            """)
+
+    static let unitDays = MeasureDefinition(
+        id: "unitdays",
+        title: "Unit-days",
+        definition: """
+            Equipment quantity multiplied by days on site. The day of delivery             and the day of collection are both counted, which is how this trade             bills. Units still on site are counted up to today.
+            """)
+}
+
+/// A figure with its definition one tap away.
+struct DefinedFigure: View {
+    let value: String
+    let unit: String?
+    let meaning: MeasureDefinition
+    var dark = false
+
+    @State private var showing = false
+
+    var body: some View {
+        Button {
+            showing = true
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 3) {
+                    Text(meaning.title.uppercased())
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(0.3)
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 9))
+                }
+                .foregroundStyle(dark ? .white.opacity(0.55) : Brand.inkFaint)
+
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(value)
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    if let unit {
+                        Text(unit)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(dark ? .white.opacity(0.55) : Brand.inkFaint)
+                    }
+                }
+                .foregroundStyle(dark ? .white : Brand.ink)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showing) {
+            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                Text(meaning.title)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                Text(meaning.definition)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(Brand.Space.base)
+            .frame(width: 300)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
