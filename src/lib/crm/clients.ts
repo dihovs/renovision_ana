@@ -1,5 +1,5 @@
 import { isMissingColumn, refuse, type ConversionResult } from "./conversions";
-import { db, isMissingTable, MigrationPendingError } from "./db";
+import { db, isEmbedFailure, isMissingTable, MigrationPendingError } from "./db";
 import type {
   Client,
   ClientInput,
@@ -106,32 +106,47 @@ export async function listClients(
   const client = requireDb();
   const { search, limit = 200, includeArchived = false } = options;
 
-  let query = client
-    .from("clients")
-    .select("*, properties(id)")
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+  // Same two-form approach as listProjects: the property count is a nicety,
+  // the customer's name and phone number are the point. A customer book that
+  // will not open because a relationship could not be resolved is useless in
+  // a way that one missing a property count is not.
+  const build = (select: string) => {
+    let q = client
+      .from("clients")
+      .select(select)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
 
-  if (!includeArchived) query = query.is("archived_at", null);
+    if (!includeArchived) q = q.is("archived_at", null);
 
-  const term = search?.trim();
-  if (term) {
-    // Escaping matters: a comma inside the term would otherwise be read as an
-    // `or` separator and split the filter into malformed clauses.
-    const safe = term.replace(/[,()]/g, " ");
-    query = query.or(
-      `first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,company_name.ilike.%${safe}%`,
-    );
+    const term = search?.trim();
+    if (term) {
+      // Escaping matters: a comma inside the term would otherwise be read as
+      // an `or` separator and split the filter into malformed clauses.
+      const safe = term.replace(/[,()]/g, " ");
+      q = q.or(
+        `first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,company_name.ilike.%${safe}%`,
+      );
+    }
+    return q;
+  };
+
+  let { data, error } = await build("*, properties(id)");
+
+  if (error && isEmbedFailure(error)) {
+    console.warn("[clients] embed failed, falling back to a plain list", error.message);
+    ({ data, error } = await build("*"));
   }
 
-  const { data, error } = await query;
   if (error) {
     if (isMissingTable(error)) throw new MigrationPendingError("clients");
     throw new Error(`Could not load clients: ${error.message}`);
   }
 
   return (data ?? []).map((row) => {
-    const { properties, ...rest } = row as Client & { properties: { id: string }[] };
+    // Through `unknown`: the select string is built at runtime, so Supabase
+    // cannot infer the row shape and types it as a generic error union.
+    const { properties, ...rest } = row as unknown as Client & { properties: { id: string }[] };
     return { ...rest, property_count: properties?.length ?? 0 };
   });
 }

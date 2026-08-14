@@ -44,6 +44,21 @@ export async function GET() {
     isConfigured,
   };
 
+  // Calling is configured separately from the database and fails separately.
+  // "Error" on the dialer with no further detail is the worst possible
+  // report, and the answer is almost always one unset variable.
+  const voiceNames = [
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_API_KEY_SID",
+    "TWILIO_API_KEY_SECRET",
+    "TWILIO_TWIML_APP_SID",
+  ] as const;
+  const voiceMissing = voiceNames.filter((name) => !process.env[name]?.trim());
+  const voice = {
+    configured: voiceMissing.length === 0,
+    missing: voiceMissing,
+  };
+
   if (!isConfigured) {
     return NextResponse.json({
       ok: false,
@@ -52,6 +67,7 @@ export async function GET() {
       diagnosis:
         "This deployment has no Supabase credentials. In Vercel, check that SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are enabled for the Preview environment, not only Production — a preview branch does not inherit Production-only variables.",
       env,
+      voice,
       tables: null,
     });
   }
@@ -104,6 +120,7 @@ export async function GET() {
           ? `Connected. ${pending.length} step(s) still to run — paste supabase/RUN_ME_floor_plans.sql into the Supabase SQL editor.`
           : "Connected, and everything this app needs is present.",
     env,
+    voice,
     tables,
   });
 }

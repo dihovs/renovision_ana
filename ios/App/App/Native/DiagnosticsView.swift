@@ -50,6 +50,29 @@ struct DiagnosticsView: View {
                     }
                 }
 
+                if let voice = health?.voice {
+                    Section("Calling") {
+                        HStack {
+                            Text("Twilio").font(.subheadline.monospaced())
+                            Spacer()
+                            Image(systemName: voice.configured ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(voice.configured ? .green : .red)
+                        }
+                        ForEach(voice.missing, id: \.self) { name in
+                            HStack {
+                                Text(name).font(.caption.monospaced())
+                                Spacer()
+                                Text("not set").font(.caption).foregroundStyle(.orange)
+                            }
+                        }
+                        if !voice.configured {
+                            Text("Calls fail until these are set in Vercel, for the Preview environment as well as Production.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 if let tables = health?.tables, !tables.isEmpty {
                     Section("Tables") {
                         ForEach(tables.keys.sorted(), id: \.self) { key in
@@ -105,29 +128,6 @@ private struct Row: View {
             Spacer()
             Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .foregroundStyle(ok ? .green : .red)
-        }
-    }
-}
-
-/// Scanning, reached natively.
-///
-/// The capture itself is already native — RoomPlan, presented by
-/// `RoomScanPlugin`. What this screen replaces is the web chooser in front of
-/// it. Kept deliberately thin for now: the full project → floor → mode chain
-/// lives in the web build and is being ported behind it, and shipping a second
-/// half-built chooser would give the app two capture paths again, which is the
-/// exact problem that was just fixed.
-struct ScanEntryView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView {
-                Label("Scanning", systemImage: "camera.viewfinder")
-            } description: {
-                Text(
-                    "Room capture is native already. The project and floor chooser in front of it is being ported next — open a project to see what has been measured."
-                )
-            }
-            .navigationTitle("Scan")
         }
     }
 }

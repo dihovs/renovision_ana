@@ -21,7 +21,10 @@ struct AppShell: View {
         Group {
             switch phase {
             case .checking:
-                ProgressView().controlSize(.large)
+                ZStack {
+                    Brand.canvas.ignoresSafeArea()
+                    ProgressView().controlSize(.large)
+                }
             case .signedOut:
                 SignInView { phase = .ready }
             case .ready:
@@ -40,20 +43,31 @@ struct MainTabs: View {
     let onSignedOut: () -> Void
 
     var body: some View {
+        // Five tabs, which is iOS's limit before it collapses them into a
+        // "More" list of its own. Everything not here is reachable from the
+        // menu on Projects — a tab is for what gets used daily, and the
+        // connection diagnostic is not that.
         TabView {
             ProjectsView(onSignedOut: onSignedOut)
-                .tabItem { Label("Projects", systemImage: "folder") }
+                .tabItem { Label("Projects", systemImage: "folder.fill") }
 
+            CustomersView()
+                .tabItem { Label("Customers", systemImage: "person.2.fill") }
+
+            EstimatesView()
+                .tabItem { Label("Estimates", systemImage: "doc.text.fill") }
+
+            PhoneView()
+                .tabItem { Label("Phone", systemImage: "phone.fill") }
+
+            // Temporary. Scanning belongs inside a project — a measurement
+            // with no property attached is the problem that was just fixed on
+            // the web side. It has its own tab only while the scanner is being
+            // tested daily, and comes out once it is trusted.
             ScanEntryView()
                 .tabItem { Label("Scan", systemImage: "camera.viewfinder") }
-
-            MoreView()
-                .tabItem { Label("More", systemImage: "square.grid.2x2") }
-
-            DiagnosticsView()
-                .tabItem { Label("Status", systemImage: "waveform.path.ecg") }
         }
-        .tint(.brandBlue)
+        .tint(Brand.blue)
     }
 }
 
@@ -68,18 +82,27 @@ struct SignInView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(spacing: 18) {
+        ZStack {
+            Brand.canvas.ignoresSafeArea()
+
+            VStack(spacing: Brand.Space.large) {
             Spacer()
 
-            VStack(spacing: 6) {
-                Image(systemName: "house.lodge")
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(Color.brandBlue)
+            VStack(spacing: Brand.Space.small) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Brand.blue)
+                        .frame(width: 76, height: 76)
+                    Image(systemName: "drop.fill")
+                        .font(.system(size: 32, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
                 Text("Renovision AnA")
-                    .font(.title2.bold())
-                Text("Sign in to the admin")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                Text("Water damage · restoration · Laval")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.inkSoft)
             }
 
             VStack(spacing: 10) {
@@ -87,8 +110,12 @@ struct SignInView: View {
                     .textContentType(.password)
                     .submitLabel(.go)
                     .focused($focused)
-                    .padding(14)
-                    .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+                    .padding(Brand.Space.base)
+                    .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Brand.Radius.card)
+                            .strokeBorder(Brand.hairline, lineWidth: 0.5)
+                    )
                     .onSubmit { Task { await signIn() } }
 
                 if let error {
@@ -96,26 +123,25 @@ struct SignInView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 2)
                 }
 
                 Button {
                     Task { await signIn() }
                 } label: {
-                    HStack {
+                    HStack(spacing: Brand.Space.tight) {
                         if busy { ProgressView().tint(.white) }
-                        Text(busy ? "Signing in…" : "Sign in").bold()
+                        Text(busy ? "Signing in…" : "Sign in")
                     }
-                    .frame(maxWidth: .infinity, minHeight: 50)
                 }
-                .background(Color.brandBlue, in: .rect(cornerRadius: 14))
-                .foregroundStyle(.white)
+                .buttonStyle(PrimaryButtonStyle(enabled: !busy && !password.isEmpty))
                 .disabled(busy || password.isEmpty)
-                .opacity(busy || password.isEmpty ? 0.5 : 1)
             }
             .padding(.horizontal, 24)
 
             Spacer()
             Spacer()
+            }
         }
         .onAppear { focused = true }
     }
@@ -139,36 +165,7 @@ struct SignInView: View {
 
 // MARK: - Shared style
 
-extension Color {
-    /// Matched to the web app's --brand-blue, so the two halves of the app do
-    /// not look like two products during the changeover.
-    static let brandBlue = Color(red: 0.12, green: 0.44, blue: 0.82)
-}
-
-/// One way of showing "loading / empty / failed", because three screens each
-/// inventing their own is how an app starts to feel unfinished.
-struct LoadState<T>: View where T: Sendable {
-    let value: T?
-    let error: String?
-    let empty: String
-    let isEmpty: (T) -> Bool
-    let content: (T) -> AnyView
-
-    var body: some View {
-        if let error {
-            ContentUnavailableView {
-                Label("Could not load", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error)
-            }
-        } else if let value {
-            if isEmpty(value) {
-                ContentUnavailableView("Nothing here yet", systemImage: "tray", description: Text(empty))
-            } else {
-                content(value)
-            }
-        } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-}
+// Brand colours live in Theme.swift, read from globals.css. This file used
+// to declare its own `brandBlue` of #1f70d1 with a comment claiming it matched
+// the web app — it did not, and two blues one shade apart is worse than one
+// wrong blue, because nobody can tell which screen is the broken one.

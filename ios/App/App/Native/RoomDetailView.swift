@@ -162,15 +162,16 @@ struct RoomDetailView: View {
         loading = false
     }
 
-    /// Matches DAMAGE_COLOR in areaShapes.ts. Two apps colouring the same
-    /// damage differently is a support call.
+    /// Exactly DAMAGE_COLOR from areaShapes.ts. Two apps colouring the same
+    /// damage differently is a support call, so these are the hex values from
+    /// that file rather than anything re-picked to suit the native palette.
     private func color(for damageType: String) -> Color {
         switch damageType {
-        case "fire": return Color(red: 0.886, green: 0.404, blue: 0.227)
-        case "mould": return Color(red: 0.310, green: 0.616, blue: 0.227)
-        case "impact": return Color(red: 0.541, green: 0.388, blue: 0.824)
-        case "other": return Color(red: 0.541, green: 0.541, blue: 0.557)
-        default: return Color(red: 0.169, green: 0.498, blue: 0.831)
+        case "fire": return Color(hex: 0xE2673A)
+        case "mould": return Color(hex: 0x4F9D3A)
+        case "impact": return Color(hex: 0x8A63D2)
+        case "other": return Color(hex: 0x8A8A8E)
+        default: return Color(hex: 0x2B7FD4)
         }
     }
 }
@@ -187,20 +188,25 @@ private struct Figure: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(label.uppercased())
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(0.3)
+                .foregroundStyle(Brand.inkFaint)
             Text(value)
-                .font(.title3.bold().monospacedDigit())
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Brand.ink)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
+            // What the figure is FOR. A number on its own is a fact; a number
+            // with the trade it prices is a decision.
             Text(hint)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+        .padding(Brand.Space.small)
+        .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
     }
 }

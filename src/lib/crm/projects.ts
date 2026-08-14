@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { db, isMissingTable, MigrationPendingError } from "./db";
+import { db, isEmbedFailure, isMissingTable, MigrationPendingError } from "./db";
 import { clientDisplayName } from "./types";
 
 /**
@@ -181,18 +181,36 @@ export async function listProjects(
   const client = requireDb();
   const { status, limit = 200 } = options;
 
-  let query = client
-    .from("projects")
-    .select(
-      "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
-        "room_scans(name, floor_area_sqm, geometry)",
-    )
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+  /**
+   * Built twice on purpose. The rich form embeds the client, the files and
+   * the scans; the plain form embeds nothing. If PostgREST cannot resolve one
+   * of those relationships — a stale schema cache after a migration is the
+   * usual reason — the projects themselves are still perfectly readable, and
+   * a project list that refuses to load because a thumbnail join failed is a
+   * far worse outcome than a list without thumbnails.
+   */
+  const build = (select: string) => {
+    const q = client
+      .from("projects")
+      .select(select)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    return status ? q.eq("status", status) : q.neq("status", "archived");
+  };
 
-  query = status ? query.eq("status", status) : query.neq("status", "archived");
+  const RICH =
+    "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
+    "room_scans(name, floor_area_sqm, geometry)";
 
-  const { data, error } = await query;
+  let { data, error } = await build(RICH);
+
+  if (error && isEmbedFailure(error)) {
+    // Degrade rather than fail: names, statuses and dates are what the list
+    // is actually for.
+    console.warn("[projects] embed failed, falling back to a plain list", error.message);
+    ({ data, error } = await build("*"));
+  }
+
   if (error) {
     if (isMissingTable(error)) throw new MigrationPendingError("projects");
     throw new Error(`Could not load projects: ${error.message}`);

@@ -33,6 +33,24 @@ export function db(): SupabaseClient | null {
  * 42P01 is undefined_table; PGRST205 is PostgREST failing to find it in the
  * schema cache, which is what actually surfaces through supabase-js.
  */
+/**
+ * An EMBED failed — PostgREST could not resolve a relationship between two
+ * tables — as opposed to a table being absent outright.
+ *
+ * Worth separating because the consequences differ. A missing table means a
+ * feature cannot work. A failed embed usually means the schema cache has not
+ * caught up with a migration that HAS run, and the parent rows are perfectly
+ * readable without the join. Treating the second as the first took down the
+ * whole project list and told the operator to run a migration they had
+ * already run.
+ */
+export function isEmbedFailure(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  if ((error as { code?: string }).code === "PGRST200") return true;
+  const message = (error as { message?: string }).message ?? "";
+  return /could not find a relationship/i.test(message);
+}
+
 export function isMissingTable(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const code = (error as { code?: string }).code;

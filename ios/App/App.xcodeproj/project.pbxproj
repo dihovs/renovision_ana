@@ -29,6 +29,11 @@
 		5FDE153B1C86FC0F926EC270 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C52F5EDD0DD3E462D8A2FA /* DiagnosticsView.swift */; };
 		616B677340640888E918E2E0 /* WebScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E172AD5B231606B7F2A6BC71 /* WebScreen.swift */; };
 		TW11L10BUILD00000000FIL0 /* TwilioVoice in Frameworks */ = {isa = PBXBuildFile; productRef = TW11L10PROD000000000DEP0 /* TwilioVoice */; };
+		CA222D1BB6E2CDD8B11B84EC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FD9F04AB53B52854089E5C1 /* Theme.swift */; };
+		52763D817DEF74CB401D10C3 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDAFC13BEDFB912C801339B0 /* CallManager.swift */; };
+		FC777ADF70B94B6444C032C5 /* PhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757B8D35348C20F44D2EE482 /* PhoneView.swift */; };
+		0ABAB67263690A05807B70AB /* CustomersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */; };
+		134C11B1F11F4454AB0698EE /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0B83FB695A83FEF3FDE977 /* ScanView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +60,11 @@
 		FACEA5C22986924A3F421EC5 /* RoomDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomDetailView.swift; sourceTree = "<group>"; };
 		44C52F5EDD0DD3E462D8A2FA /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DiagnosticsView.swift; sourceTree = "<group>"; };
 		E172AD5B231606B7F2A6BC71 /* WebScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/WebScreen.swift; sourceTree = "<group>"; };
+		3FD9F04AB53B52854089E5C1 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Theme.swift; sourceTree = "<group>"; };
+		EDAFC13BEDFB912C801339B0 /* CallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CallManager.swift; sourceTree = "<group>"; };
+		757B8D35348C20F44D2EE482 /* PhoneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhoneView.swift; sourceTree = "<group>"; };
+		2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CustomersView.swift; sourceTree = "<group>"; };
+		0A0B83FB695A83FEF3FDE977 /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +108,11 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				0A0B83FB695A83FEF3FDE977 /* ScanView.swift */,
+				2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */,
+				757B8D35348C20F44D2EE482 /* PhoneView.swift */,
+				EDAFC13BEDFB912C801339B0 /* CallManager.swift */,
+				3FD9F04AB53B52854089E5C1 /* Theme.swift */,
 				E172AD5B231606B7F2A6BC71 /* WebScreen.swift */,
 				44C52F5EDD0DD3E462D8A2FA /* DiagnosticsView.swift */,
 				FACEA5C22986924A3F421EC5 /* RoomDetailView.swift */,
@@ -198,6 +213,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				134C11B1F11F4454AB0698EE /* ScanView.swift in Sources */,
+				0ABAB67263690A05807B70AB /* CustomersView.swift in Sources */,
+				FC777ADF70B94B6444C032C5 /* PhoneView.swift in Sources */,
+				52763D817DEF74CB401D10C3 /* CallManager.swift in Sources */,
+				CA222D1BB6E2CDD8B11B84EC /* Theme.swift in Sources */,
 				616B677340640888E918E2E0 /* WebScreen.swift in Sources */,
 				5FDE153B1C86FC0F926EC270 /* DiagnosticsView.swift in Sources */,
 				402C927B6946ED8278903114 /* RoomDetailView.swift in Sources */,

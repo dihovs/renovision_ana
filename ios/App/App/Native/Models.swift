@@ -19,7 +19,16 @@ struct Health: Decodable {
     let ok: Bool
     let diagnosis: String
     let env: Env
+    let voice: Voice?
     let tables: [String: String]?
+
+    /// Whether calling is configured. Separate from the database because it
+    /// fails separately, and "error" on the dialer with no detail is the
+    /// least useful report an app can give.
+    struct Voice: Decodable {
+        let configured: Bool
+        let missing: [String]
+    }
 
     struct Env: Decodable {
         let supabaseURL: Bool
@@ -51,6 +60,88 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
     let name: String
     let clientName: String?
     let roomCount: Int
+}
+
+// MARK: - Clients
+
+struct ClientListResponse: Decodable { let clients: [ClientSummary] }
+
+struct ClientSummary: Decodable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let company: String?
+    /// The primary number, and every number. The dialer offers a choice when
+    /// somebody has a mobile and a landline rather than guessing wrong.
+    let phone: String?
+    let phones: [Phone]
+    let email: String?
+    let propertyCount: Int
+
+    struct Phone: Decodable, Hashable {
+        let number: String
+        let type: String
+        let primary: Bool
+    }
+}
+
+// MARK: - Estimates
+
+struct QuoteListResponse: Decodable { let quotes: [QuoteSummary] }
+
+struct QuoteSummary: Decodable, Identifiable, Hashable {
+    let id: String
+    let quoteNumber: Int
+    let clientName: String
+    let title: String?
+    let status: String
+    /// Cents, as stored. Formatting money in two places is how the figure on
+    /// the phone ends up disagreeing with the one the customer was sent.
+    let totalCents: Int
+    let sentAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, status, title
+        case quoteNumber = "quote_number"
+        case clientName = "client_name"
+        case totalCents = "total_cents"
+        case sentAt = "sent_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        quoteNumber = (try? c.decode(Int.self, forKey: .quoteNumber)) ?? 0
+        clientName = (try? c.decode(String.self, forKey: .clientName)) ?? "No client"
+        title = try? c.decodeIfPresent(String.self, forKey: .title)
+        status = (try? c.decode(String.self, forKey: .status)) ?? "draft"
+        totalCents = (try? c.decode(Int.self, forKey: .totalCents)) ?? 0
+        if let raw = try? c.decodeIfPresent(String.self, forKey: .sentAt) {
+            sentAt = ISO8601.date(raw)
+        } else {
+            sentAt = nil
+        }
+    }
+
+    /// Sent, and nobody has said yes or no. The only state on this screen
+    /// that is a task rather than a record.
+    var isAwaitingAnswer: Bool {
+        ["sent", "viewed", "changes_requested"].contains(status)
+    }
+
+    /// Days since it went out — nil for a draft, which cannot be overdue for
+    /// an answer nobody was asked for.
+    var daysWaiting: Int? {
+        guard let sentAt, isAwaitingAnswer else { return nil }
+        return Calendar.current.dateComponents([.day], from: sentAt, to: Date()).day
+    }
+
+    var statusLabel: String {
+        switch status {
+        case "changes_requested": return "changes"
+        case "converted": return "won"
+        default: return status
+        }
+    }
 }
 
 // MARK: - Room scans

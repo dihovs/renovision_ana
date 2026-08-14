@@ -289,11 +289,15 @@ extension CallManager: CXProviderDelegate {
         action.fulfill()
     }
 
+    // CallKit owns the audio session, so Twilio's device must be switched on
+    // only once the system says the session is active — enabling it earlier is
+    // how a VoIP call ends up connected but silent. `audioDevice` is declared
+    // as the protocol; only the default implementation exposes the switch.
     nonisolated func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        TwilioVoiceSDK.audioDevice.isEnabled = true
+        (TwilioVoiceSDK.audioDevice as? DefaultAudioDevice)?.isEnabled = true
     }
 
     nonisolated func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-        TwilioVoiceSDK.audioDevice.isEnabled = false
+        (TwilioVoiceSDK.audioDevice as? DefaultAudioDevice)?.isEnabled = false
     }
 }

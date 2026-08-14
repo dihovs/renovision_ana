@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { db, isMissingTable, MigrationPendingError } from "./db";
+import { db, isMissingTable, MigrationPendingError, isEmbedFailure } from "./db";
 import { calculateQuoteTotals, type Discount, type QuoteTotals } from "./money";
 import {
   canChargeTax,
@@ -166,32 +166,45 @@ export async function listQuotes(
   const client = requireDb();
   const { status, clientId, search, limit = 200 } = options;
 
-  let query = client
-    .from("quotes")
-    .select("*, clients(first_name, last_name, company_name)")
-    .is("archived_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+  // Two forms, like listProjects and listClients: the customer's name is
+  // embedded, and an estimate list that will not open because that
+  // relationship could not be resolved is worse than one showing an estimate
+  // with no name against it.
+  const build = (select: string) => {
+    let q = client
+      .from("quotes")
+      .select(select)
+      .is("archived_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
 
-  if (status) query = query.eq("status", status);
-  if (clientId) query = query.eq("client_id", clientId);
+    if (status) q = q.eq("status", status);
+    if (clientId) q = q.eq("client_id", clientId);
 
-  const term = search?.trim();
-  if (term) {
-    const safe = term.replace(/[,()]/g, " ");
-    const asNumber = Number(safe);
-    query = Number.isInteger(asNumber)
-      ? query.eq("quote_number", asNumber)
-      : query.ilike("title", `%${safe}%`);
+    const term = search?.trim();
+    if (term) {
+      const safe = term.replace(/[,()]/g, " ");
+      const asNumber = Number(safe);
+      q = Number.isInteger(asNumber) ? q.eq("quote_number", asNumber) : q.ilike("title", `%${safe}%`);
+    }
+    return q;
+  };
+
+  let { data, error } = await build("*, clients(first_name, last_name, company_name)");
+
+  if (error && isEmbedFailure(error)) {
+    console.warn("[quotes] embed failed, falling back to a plain list", error.message);
+    ({ data, error } = await build("*"));
   }
 
-  const { data, error } = await query;
   if (error) {
     if (isMissingTable(error)) throw new MigrationPendingError("quotes");
     throw new Error(`Could not load quotes: ${error.message}`);
   }
 
-  return ((data ?? []) as (Quote & { clients: Parameters<typeof clientDisplayName>[0] | null })[]).map(
+  return ((data ?? []) as unknown as (Quote & {
+    clients: Parameters<typeof clientDisplayName>[0] | null;
+  })[]).map(
     ({ clients, ...quote }) => ({
       ...quote,
       client_name: clients ? clientDisplayName(clients) : "Unknown client",

@@ -144,6 +144,35 @@ actor API {
         }
     }
 
+    // MARK: - Voice
+
+    private struct VoiceToken: Decodable { let token: String; let identity: String }
+
+    /// A short-lived Twilio access token. Outgoing-only by construction on the
+    /// server — see accessToken.ts — and re-minted per call rather than held,
+    /// since it expires within the hour and a stale one fails at the worst
+    /// possible moment.
+    func voiceToken() async throws -> String {
+        try await get("/api/voice/token", as: VoiceToken.self).token
+    }
+
+    // MARK: - Clients
+
+    func clients(search: String? = nil) async throws -> [ClientSummary] {
+        var path = "/api/v1/clients"
+        if let search, !search.isEmpty,
+            let encoded = search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "?search=\(encoded)"
+        }
+        return try await get(path, as: ClientListResponse.self).clients
+    }
+
+    // MARK: - Estimates
+
+    func quotes() async throws -> [QuoteSummary] {
+        try await get("/api/v1/quotes", as: QuoteListResponse.self).quotes
+    }
+
     // MARK: - Health
 
     func health() async throws -> Health {
