@@ -57,6 +57,7 @@
 		4A3F921C3612FA79C4EE89C1 /* FloorVocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4AA76DB38060E02C09CC459 /* FloorVocabulary.swift */; };
 		2040CD2E8FB0C6B036E367DF /* EditorChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */; };
 		F4A3CDB5C85AE43389B25281 /* CollectionShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */; };
+		0EDA5CF7C13693ABFDB4CF44 /* ElevationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD499E1874371731843950D /* ElevationView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -111,6 +112,7 @@
 		D4AA76DB38060E02C09CC459 /* FloorVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorVocabulary.swift; sourceTree = "<group>"; };
 		6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/EditorChrome.swift; sourceTree = "<group>"; };
 		1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CollectionShell.swift; sourceTree = "<group>"; };
+		9DD499E1874371731843950D /* ElevationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ElevationView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +156,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				9DD499E1874371731843950D /* ElevationView.swift */,
 				6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */,
 				1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */,
 				D4AA76DB38060E02C09CC459 /* FloorVocabulary.swift */,
@@ -282,6 +285,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0EDA5CF7C13693ABFDB4CF44 /* ElevationView.swift in Sources */,
 				2040CD2E8FB0C6B036E367DF /* EditorChrome.swift in Sources */,
 				F4A3CDB5C85AE43389B25281 /* CollectionShell.swift in Sources */,
 				4A3F921C3612FA79C4EE89C1 /* FloorVocabulary.swift in Sources */,
