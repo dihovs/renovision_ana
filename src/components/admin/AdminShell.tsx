@@ -4,7 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import GlobalSearch from "./GlobalSearch";
+import { tapFeedback } from "@/lib/haptics";
 import TaskBar from "./TaskBar";
 import type { TaskBarResult } from "@/app/(internal)/admin/taskBarActions";
 import {
@@ -19,6 +21,7 @@ import {
   IconHome,
   IconPhone,
   IconShield,
+  IconStairs,
   IconTag,
 } from "@/components/ui/icons";
 
@@ -41,10 +44,25 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   ready: boolean;
+  /** Prefix that counts as "this item" for the header title, when it differs
+      from `href` — Jobs resolves to /admin/jobs/cards natively, but a job's
+      own detail page (/admin/jobs/[id]) should still title itself "Jobs". */
+  activePrefix?: string;
 };
 
-const NAV: NavItem[] = [
-  { href: "/admin", label: "Home", icon: IconDashboard, ready: true },
+/**
+ * "Home" means two different screens depending on where it's tapped from —
+ * the dense dashboard on desktop, the calm Ana-first screen natively. Same
+ * label, same position in the rail, because it is the same idea ("start
+ * here") even though the two audiences need different things from it.
+ */
+function homeHref(): string {
+  return Capacitor.isNativePlatform() ? "/admin/home" : "/admin";
+}
+
+function buildNav(): NavItem[] {
+  return [
+  { href: homeHref(), label: "Home", icon: IconDashboard, ready: true },
   { href: "/admin/ana", label: "Talk to Ana", icon: IconChat, ready: true },
   // Above Leads, and above the call LOG, because it is the one item here he
   // reaches for mid-task rather than while reviewing: a customer is on the
@@ -54,6 +72,9 @@ const NAV: NavItem[] = [
   // customer on the business number. The rail's "Inbox" further down is
   // WhatsApp job photos; this is SMS.
   { href: "/admin/messages", label: "Messages", icon: IconChat, ready: true },
+  // Next to the field tools rather than down with the office ones: it is
+  // used standing in the room being measured.
+  { href: "/admin/scan", label: "Scan", icon: IconStairs, ready: true },
   { href: "/admin/leads", label: "Leads", icon: IconFlag, ready: true },
   { href: "/admin/calls", label: "Call log", icon: IconPhone, ready: true },
   // Next to Calls, because everything on it was dictated on one.
@@ -65,13 +86,20 @@ const NAV: NavItem[] = [
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
   { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },
-  { href: "/admin/jobs", label: "Jobs", icon: IconHammer, ready: true },
+  {
+    href: Capacitor.isNativePlatform() ? "/admin/jobs/cards" : "/admin/jobs",
+    activePrefix: "/admin/jobs",
+    label: "Jobs",
+    icon: IconHammer,
+    ready: true,
+  },
   { href: "/admin/projects", label: "Projects", icon: IconBuilding, ready: true },
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: true },
   { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
   { href: "/admin/expenses", label: "Expenses", icon: IconTag, ready: true },
   { href: "/admin/reports", label: "Reports", icon: IconShield, ready: true },
-];
+  ];
+}
 
 /** What the ＋ button offers. Grows as each section becomes real. */
 const CREATE_ACTIONS = [
@@ -89,9 +117,12 @@ const FOOTER_NAV = [{ href: "/admin/settings", label: "Settings" }];
  * FOOTER_NAV is included so /admin/settings titles itself "Settings" instead
  * of falling through to the /admin root and titling itself "Home".
  */
-function activeNav(pathname: string): { href: string; label: string } | undefined {
-  return [...NAV, ...FOOTER_NAV]
-    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+function activeNav(pathname: string, nav: NavItem[]): { href: string; label: string } | undefined {
+  return [...nav, ...FOOTER_NAV]
+    .filter((item) => {
+      const prefix = "activePrefix" in item ? item.activePrefix ?? item.href : item.href;
+      return pathname === prefix || pathname.startsWith(`${prefix}/`);
+    })
     .sort((a, b) => b.href.length - a.href.length)[0];
 }
 
@@ -133,7 +164,21 @@ export default function AdminShell({
     setMobileNavOpen(false);
   }
 
-  const current = activeNav(pathname);
+  const nav = buildNav();
+  const current = activeNav(pathname, nav);
+
+  // A hamburger opening a side drawer is a web pattern, not an iOS one — real
+  // iOS apps navigate from a fixed bottom tab bar. Native gets one; desktop
+  // keeps the rail exactly as it was. The drawer itself isn't rewritten: it
+  // becomes the "More" tab's content, so nothing already built here is lost.
+  const isNative = Capacitor.isNativePlatform();
+  const tabBarItems = [
+    { href: homeHref(), label: "Home", icon: IconDashboard },
+    { href: "/admin/phone", label: "Call", icon: IconPhone },
+    { href: "/admin/ana", label: "Ana", icon: IconChat },
+    { href: "/admin/scan", label: "Scan", icon: IconStairs },
+    { href: isNative ? "/admin/jobs/cards" : "/admin/jobs", label: "Jobs", icon: IconHammer },
+  ];
 
   return (
     <div className="min-h-dvh bg-[#f1f3f5] lg:flex">
@@ -230,7 +275,7 @@ export default function AdminShell({
         </div>
 
         <nav className="flex-1 space-y-0.5 px-3" aria-label="Admin">
-          {NAV.map(({ href, label, icon: Icon, ready }) => {
+          {nav.map(({ href, label, icon: Icon, ready }) => {
             const active = pathname === href;
             if (!ready) {
               return (
@@ -291,16 +336,21 @@ export default function AdminShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-black/10 bg-white px-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            aria-label="Open navigation"
-            className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-charcoal/70 hover:bg-black/[0.04] lg:hidden"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
-            </svg>
-          </button>
+          {/* The bottom tab bar's "More" button opens this same drawer
+              natively, so the top hamburger — a web pattern the tab bar
+              already replaces — has nothing left to do there. */}
+          {!isNative && (
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open navigation"
+              className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-charcoal/70 hover:bg-black/[0.04] lg:hidden"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
 
           <h1 className="font-heading text-base font-bold text-charcoal">
             {current?.label ?? "Admin"}
@@ -318,10 +368,57 @@ export default function AdminShell({
           <div className="flex items-center gap-3">{onSignOut}</div>
         </header>
 
-        <main className="min-w-0 flex-1 p-4 sm:p-6">
+        <main className={`min-w-0 flex-1 p-4 sm:p-6 ${isNative ? "pb-28" : ""}`}>
           <div className="mx-auto max-w-5xl">{children}</div>
         </main>
       </div>
+
+      {/* The actual primary navigation, natively — fixed, safe-area-aware,
+          five items max per the same convention every iOS app follows. */}
+      {isNative && (
+        <nav
+          aria-label="Primary"
+          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-black/10 bg-white pb-[env(safe-area-inset-bottom)]"
+        >
+          {tabBarItems.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href || pathname.startsWith(`${href}/`);
+            return (
+              <Link
+                key={label}
+                href={href}
+                onClick={() => tapFeedback()}
+                className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition-colors ${
+                  active ? "text-brand-blue" : "text-charcoal/45"
+                }`}
+              >
+                <Icon className="h-6 w-6" />
+                {label}
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              tapFeedback();
+              setMobileNavOpen(true);
+            }}
+            className="flex flex-1 cursor-pointer flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-charcoal/45"
+          >
+            <MoreIcon />
+            More
+          </button>
+        </nav>
+      )}
     </div>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
   );
 }

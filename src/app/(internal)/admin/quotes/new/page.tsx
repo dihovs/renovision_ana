@@ -15,10 +15,11 @@ export default async function NewQuotePage({
   searchParams,
 }: {
   // The create menu is global rather than client-scoped, so a quote can be
-  // started from a client's page with ?client=<id> already chosen.
-  searchParams: Promise<{ client?: string; lead?: string }>;
+  // started from a client's page with ?client=<id> already chosen — and now
+  // from a project's page with ?project=<id> the same way.
+  searchParams: Promise<{ client?: string; lead?: string; project?: string }>;
 }) {
-  const { client: preselectedClient, lead } = await searchParams;
+  const { client: preselectedClient, lead, project: preselectedProject } = await searchParams;
 
   let clients: ClientOption[];
   try {
@@ -31,6 +32,7 @@ export default async function NewQuotePage({
       name: clientDisplayName(row),
       taxRateId: row.tax_rate_id,
       properties: [],
+      projects: [],
     }));
   } catch (err) {
     if (err instanceof MigrationPendingError) {
@@ -45,9 +47,10 @@ export default async function NewQuotePage({
     throw err;
   }
 
-  // Properties are fetched per client rather than joined into the list, so the
-  // dropdown stays correct without loading every address in the business.
-  const withProperties = await attachProperties(clients);
+  // Properties and projects are both fetched per client rather than joined
+  // into the list, so the dropdowns stay correct without loading every
+  // address and every project in the business.
+  const withProperties = await attachProjects(await attachProperties(clients));
 
   const [taxRates, company, defaults] = await Promise.all([
     getTaxRates(),
@@ -98,6 +101,7 @@ export default async function NewQuotePage({
         initial={{
           clientId: preselectedClient ?? "",
           propertyId: "",
+          projectId: preselectedProject ?? "",
           leadId: lead ?? "",
           title: "",
           taxRateId: "",
@@ -166,4 +170,27 @@ async function attachProperties(clients: ClientOption[]): Promise<ClientOption[]
   }
 
   return clients.map((c) => ({ ...c, properties: byClient.get(c.id) ?? [] }));
+}
+
+/** Same shape as `attachProperties` — per-client projects, fetched once
+    rather than joined, so listClients stays a plain client list. */
+async function attachProjects(clients: ClientOption[]): Promise<ClientOption[]> {
+  const { db } = await import("@/lib/crm/db");
+  const client = db();
+  if (!client) return clients;
+
+  const { data } = await client
+    .from("projects")
+    .select("id, client_id, name")
+    .neq("status", "archived")
+    .not("client_id", "is", null);
+
+  const byClient = new Map<string, ClientOption["projects"]>();
+  for (const row of (data ?? []) as { id: string; client_id: string; name: string }[]) {
+    const list = byClient.get(row.client_id) ?? [];
+    list.push({ id: row.id, name: row.name });
+    byClient.set(row.client_id, list);
+  }
+
+  return clients.map((c) => ({ ...c, projects: byClient.get(c.id) ?? [] }));
 }

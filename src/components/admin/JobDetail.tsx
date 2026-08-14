@@ -205,14 +205,17 @@ export default function JobDetail({
                 onClick={() => run(() => completeVisitAction(visit.id, !visit.completed_at))}
                 disabled={pending}
                 aria-label={visit.completed_at ? "Mark not done" : "Mark done"}
-                className={`mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-wait disabled:opacity-50 ${
+                // Same fix as JobChecklist's toggle: 20px was under the 44pt
+                // touch target Apple's HIG calls for, and this business's own
+                // crews work in gloves often enough for it to matter.
+                className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-wait disabled:opacity-50 ${
                   visit.completed_at
                     ? "border-brand-green bg-brand-green text-white"
                     : "border-black/20 hover:border-brand-green"
                 }`}
               >
                 {visit.completed_at && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}

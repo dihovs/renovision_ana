@@ -9,7 +9,6 @@ import {
   createVisit,
   deleteChecklistItem,
   deleteVisit,
-  listJobVisitIds,
   moveChecklistItem,
   saveRecurrence,
   scheduleJobVisit,
@@ -19,7 +18,7 @@ import {
   updateJob,
   updateVisit,
 } from "@/lib/crm/jobs";
-import { onVisitCancelled } from "@/lib/crm/callScheduler";
+import { withdrawJobCalls, withdrawQueuedCalls } from "@/lib/crm/jobCalls";
 import {
   conversionError,
   type ConversionResult,
@@ -54,60 +53,15 @@ function str(formData: FormData, key: string): string {
 // ticked off this morning and the customer telephoned tonight to confirm an
 // appointment that already happened.
 //
-// The wiring lives here, in the action layer, rather than inside `updateJob`
-// and `updateVisit`. `callScheduler` imports `listVisitsBetween` from
-// `crm/jobs`, so having `crm/jobs` import `callScheduler` back would close an
-// import cycle — and every write that must trigger a withdrawal goes through an
-// action on this screen anyway.
+// Both helpers now live in `@/lib/crm/jobCalls` so the native API's own job
+// endpoints run exactly this code — cancelling a job from the phone has to
+// withdraw the queued calls too, and a second implementation is a second
+// place for a customer to be telephoned about a job that isn't happening.
 //
 // Every one of them is best-effort. Marking a visit done, or calling a job off,
 // is the operator's action and it has already succeeded by the time any of this
 // runs; an unreachable call queue, or a database that has not had migration
 // 0018 applied yet, must not turn that into a failed click.
-
-/**
- * Withdraw whatever the dialer still has queued about one visit.
- *
- * Never throws. It does not swallow quietly either: `unconfigured` and
- * `migration_pending` are the two expected states of a database that has not
- * run 0018 and say nothing about this visit, but any other refusal means the
- * withdrawal was genuinely attempted and did not happen — which is a live call
- * about a dead appointment, and belongs in the log with the visit id on it.
- */
-async function withdrawQueuedCalls(visitId: string, because: string): Promise<void> {
-  try {
-    const result = await onVisitCancelled(visitId);
-    if (result.reason && result.reason !== "unconfigured" && result.reason !== "migration_pending") {
-      console.error(
-        `[jobs] ${because}: could not withdraw the queued calls for visit ${visitId} — ` +
-          `${result.reason}${result.detail ? `: ${result.detail}` : ""}`,
-      );
-    }
-  } catch (err) {
-    console.error(`[jobs] ${because}: withdrawing the queued calls for visit ${visitId} threw:`, err);
-  }
-}
-
-/**
- * The job is off, so every call still queued about any of its visits is off.
- *
- * The nightly sweep already refuses to queue anything new for a cancelled job
- * (`jobActive` in `callScheduler`), but that is only true going forward —
- * tomorrow's confirmations were written last night and are still live. A job
- * can have several visits, so this walks all of them.
- */
-async function withdrawJobCalls(jobId: string, because: string): Promise<void> {
-  let visitIds: string[];
-  try {
-    visitIds = await listJobVisitIds(jobId);
-  } catch (err) {
-    console.error(`[jobs] could not read the visits of job ${jobId} (${because}):`, err);
-    return;
-  }
-  for (const visitId of visitIds) {
-    await withdrawQueuedCalls(visitId, `job ${jobId} ${because}`);
-  }
-}
 
 /**
  * Convert an approved quote. Idempotent, so a double tap is harmless.

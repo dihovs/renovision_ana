@@ -83,14 +83,17 @@ export default function JobChecklist({
                 onClick={() => run(() => toggleAction(item.id, !item.done))}
                 disabled={pending}
                 aria-label={item.done ? "Mark not done" : "Mark done"}
-                className={`flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-wait disabled:opacity-50 ${
+                // A 20px circle is well under the 44pt touch target Apple's
+                // HIG calls for, and this business's own work is done in
+                // gloves often enough that it isn't a theoretical concern.
+                className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors disabled:cursor-wait disabled:opacity-50 ${
                   item.done
                     ? "border-brand-green bg-brand-green text-white"
                     : "border-black/20 hover:border-brand-green"
                 }`}
               >
                 {item.done && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}

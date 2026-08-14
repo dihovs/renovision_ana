@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { db, isMissingTable, MigrationPendingError } from "./db";
+import { db, isEmbedFailure, isMissingTable, MigrationPendingError } from "./db";
 import { clientDisplayName } from "./types";
 
 /**
@@ -32,6 +32,9 @@ export type Project = {
   description: string | null;
   started_on: string | null;
   archived_at: string | null;
+  /** Answers to the project-level custom fields — the claim details, when
+      the claim template has been applied. { fieldId: value }. */
+  custom: Record<string, string>;
 };
 
 export type ProjectFile = {
@@ -50,6 +53,12 @@ export type ProjectListItem = Project & {
   file_count: number;
   /** The later of the project's own updated_at and its newest upload. */
   last_activity: string;
+  /** How many rooms have been measured, and the geometry of the largest —
+      enough for the card to show a floor plan rather than a grey box. A
+      scan-less project simply has null here. */
+  room_count: number;
+  largest_room: { name: string; geometry: Record<string, unknown> } | null;
+  floor_area_sqm: number;
 };
 
 /** A job linked to the project — display fields only; jobs stay read-only here. */
@@ -60,10 +69,42 @@ export type AttachedJob = {
   status: string;
 };
 
+export type ProjectQuote = {
+  id: string;
+  quote_number: number;
+  title: string | null;
+  status: string;
+  total_cents: number;
+};
+
 export type ProjectDetail = Project & {
   client: { id: string; name: string } | null;
   files: ProjectFile[];
   jobs: AttachedJob[];
+  /** Newest first. Estimates built under this project — the other half of
+      "project → estimate → job → invoice", alongside the jobs above. */
+  quotes: ProjectQuote[];
+};
+
+/** The survey figures for the whole property, and per storey — what the
+    statistics band and the floor-plan sections are built from. */
+export type ProjectSurvey = {
+  rooms: {
+    id: string;
+    name: string;
+    level: string;
+    floorAreaSqm: number;
+    wallLengthM: number;
+    ceilingHeightM: number;
+    stairCount: number;
+    geometry: Record<string, unknown>;
+  }[];
+  levels: string[];
+  floorAreaSqm: number;
+  /** Perimeter × ceiling height, summed per room — paint and drywall are
+      priced off this, and it is the one headline figure that cannot be
+      derived from floor area. */
+  wallAreaSqm: number;
 };
 
 /** Bucket is private; files are only ever reachable via a signed URL. */
@@ -140,34 +181,120 @@ export async function listProjects(
   const client = requireDb();
   const { status, limit = 200 } = options;
 
-  let query = client
-    .from("projects")
-    .select("*, clients(first_name, last_name, company_name), project_files(uploaded_at)")
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+  /**
+   * Built twice on purpose. The rich form embeds the client, the files and
+   * the scans; the plain form embeds nothing. If PostgREST cannot resolve one
+   * of those relationships — a stale schema cache after a migration is the
+   * usual reason — the projects themselves are still perfectly readable, and
+   * a project list that refuses to load because a thumbnail join failed is a
+   * far worse outcome than a list without thumbnails.
+   */
+  const build = (select: string) => {
+    const q = client
+      .from("projects")
+      .select(select)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    return status ? q.eq("status", status) : q.neq("status", "archived");
+  };
 
-  query = status ? query.eq("status", status) : query.neq("status", "archived");
+  const RICH =
+    "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
+    "room_scans(name, floor_area_sqm, geometry)";
 
-  const { data, error } = await query;
+  let { data, error } = await build(RICH);
+
+  if (error && isEmbedFailure(error)) {
+    // Degrade rather than fail: names, statuses and dates are what the list
+    // is actually for.
+    console.warn("[projects] embed failed, falling back to a plain list", error.message);
+    ({ data, error } = await build("*"));
+  }
+
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("projects");
+    if (isMissingTable(error)) throw new MigrationPendingError("projects", error.message);
     throw new Error(`Could not load projects: ${error.message}`);
   }
 
-  return ((data ?? []) as (Project & {
+  return ((data ?? []) as unknown as (Project & {
     clients: Parameters<typeof clientDisplayName>[0] | null;
     project_files: { uploaded_at: string }[];
-  })[]).map(({ clients, project_files, ...project }) => {
+    room_scans: { name: string; floor_area_sqm: number; geometry: Record<string, unknown> }[] | null;
+  })[]).map(({ clients, project_files, room_scans, ...project }) => {
     const uploads = (project_files ?? []).map((f) => f.uploaded_at);
     // ISO timestamps sort lexicographically, so a plain sort finds the newest.
     const last = [project.updated_at, ...uploads].sort().pop() ?? project.updated_at;
+    // The biggest room is the one that identifies a property at a glance —
+    // a card showing the broom cupboard would be technically a floor plan
+    // and useless as a thumbnail.
+    const scans = room_scans ?? [];
+    const largest = scans.reduce<(typeof scans)[number] | null>(
+      (best, scan) => (!best || Number(scan.floor_area_sqm) > Number(best.floor_area_sqm) ? scan : best),
+      null,
+    );
+
     return {
       ...project,
       client_name: clients ? clientDisplayName(clients) : null,
       file_count: uploads.length,
       last_activity: last,
+      room_count: scans.length,
+      largest_room: largest ? { name: largest.name, geometry: largest.geometry } : null,
+      floor_area_sqm: scans.reduce((sum, scan) => sum + Number(scan.floor_area_sqm), 0),
     };
   });
+}
+
+/**
+ * Everything measured on a property, totalled.
+ *
+ * Separate from `getProject` because it degrades on its own: a database
+ * without migration 0024 should grey out the survey band, not take down the
+ * whole project page — the same rule the dashboard's cards follow.
+ */
+export async function getProjectSurvey(projectId: string): Promise<ProjectSurvey> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("room_scans")
+    .select("id, name, level, floor_area_sqm, wall_length_m, ceiling_height_m, stair_count, geometry")
+    .eq("project_id", projectId)
+    .order("level", { ascending: true })
+    .order("position", { ascending: true });
+
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
+    throw new Error(`Could not load the survey: ${error.message}`);
+  }
+
+  const rooms = ((data ?? []) as unknown as {
+    id: string;
+    name: string;
+    level: string;
+    floor_area_sqm: number;
+    wall_length_m: number;
+    ceiling_height_m: number;
+    stair_count: number;
+    geometry: Record<string, unknown>;
+  }[]).map((row) => ({
+    id: row.id,
+    name: row.name,
+    level: row.level,
+    floorAreaSqm: Number(row.floor_area_sqm),
+    wallLengthM: Number(row.wall_length_m),
+    ceilingHeightM: Number(row.ceiling_height_m),
+    stairCount: row.stair_count,
+    geometry: row.geometry,
+  }));
+
+  const levels: string[] = [];
+  for (const room of rooms) if (!levels.includes(room.level)) levels.push(room.level);
+
+  return {
+    rooms,
+    levels,
+    floorAreaSqm: rooms.reduce((sum, r) => sum + r.floorAreaSqm, 0),
+    wallAreaSqm: rooms.reduce((sum, r) => sum + r.wallLengthM * r.ceilingHeightM, 0),
+  };
 }
 
 export async function getProject(id: string): Promise<ProjectDetail | null> {
@@ -176,13 +303,14 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
     .from("projects")
     .select(
       "*, clients(id, first_name, last_name, company_name), project_files(*), " +
-        "project_jobs(job_id, jobs(id, job_number, title, status))",
+        "project_jobs(job_id, jobs(id, job_number, title, status)), " +
+        "quotes(id, quote_number, title, status, total_cents, archived_at)",
     )
     .eq("id", id)
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("projects");
+    if (isMissingTable(error)) throw new MigrationPendingError("projects", error.message);
     throw new Error(`Could not load the project: ${error.message}`);
   }
   if (!data) return null;
@@ -191,6 +319,7 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
     clients: ({ id: string } & Parameters<typeof clientDisplayName>[0]) | null;
     project_files: ProjectFile[];
     project_jobs: { job_id: string; jobs: AttachedJob | null }[];
+    quotes: (ProjectQuote & { archived_at: string | null })[];
   };
 
   return {
@@ -203,6 +332,9 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
     jobs: (row.project_jobs ?? [])
       .flatMap((link) => (link.jobs ? [link.jobs] : []))
       .sort((a, b) => b.job_number - a.job_number),
+    quotes: (row.quotes ?? [])
+      .filter((q) => !q.archived_at)
+      .sort((a, b) => b.quote_number - a.quote_number),
   };
 }
 
@@ -223,7 +355,7 @@ export async function listAttachableJobs(
     .limit(100);
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load jobs: ${error.message}`);
   }
 
@@ -270,10 +402,32 @@ export async function createProject(input: {
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("projects");
+    if (isMissingTable(error)) throw new MigrationPendingError("projects", error.message);
     throw new Error(`Could not create the project: ${error.message}`);
   }
   return data.id as string;
+}
+
+/**
+ * Save the project's custom-field answers — the claim details.
+ *
+ * Replaces the whole bag rather than merging keys: the form posts every
+ * field it knows about, including the conditionally hidden ones, so a
+ * partial write here would be the form's bug rather than a feature.
+ */
+export async function updateProjectCustom(
+  id: string,
+  custom: Record<string, string>,
+): Promise<void> {
+  const client = requireDb();
+  const { error } = await client
+    .from("projects")
+    .update({ custom, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("projects.custom", error.message);
+    throw new Error(`Could not save the claim details: ${error.message}`);
+  }
 }
 
 export async function updateProjectStatus(id: string, status: ProjectStatus): Promise<void> {
@@ -299,7 +453,7 @@ export async function attachJob(projectId: string, jobId: string): Promise<void>
     // 23505 is unique_violation: already attached, which on a double-tapped
     // button is success, not failure.
     if (error.code === "23505") return;
-    if (isMissingTable(error)) throw new MigrationPendingError("project_jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("project_jobs", error.message);
     throw new Error(`Could not attach the job: ${error.message}`);
   }
 }
@@ -328,7 +482,17 @@ export async function detachJob(projectId: string, jobId: string): Promise<void>
  */
 export async function addProjectFile(
   projectId: string,
-  input: { bytes: Buffer; filename: string; contentType?: string | null; note?: string | null },
+  input: {
+    bytes: Buffer;
+    filename: string;
+    contentType?: string | null;
+    note?: string | null;
+    /** Pin this photo to one room, and optionally to one damaged area
+        inside it. Both null means an ordinary project file — a permit, a
+        receipt — which is what every existing row is. */
+    roomScanId?: string | null;
+    affectedAreaId?: string | null;
+  },
 ): Promise<string> {
   const client = requireDb();
 
@@ -352,6 +516,8 @@ export async function addProjectFile(
       size_bytes: input.bytes.byteLength,
       content_type: contentType,
       note: orNull(input.note),
+      room_scan_id: input.roomScanId ?? null,
+      affected_area_id: input.affectedAreaId ?? null,
     })
     .select("id")
     .single();
@@ -361,7 +527,7 @@ export async function addProjectFile(
       .from(FILE_BUCKET)
       .remove([path])
       .catch(() => undefined);
-    if (isMissingTable(error)) throw new MigrationPendingError("project_files");
+    if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);
     throw new Error(`Could not record the file: ${error.message}`);
   }
 
@@ -372,6 +538,21 @@ export async function addProjectFile(
     .eq("id", projectId);
 
   return data.id as string;
+}
+
+/** One room's photos, newest first — what a report page is built from. */
+export async function listRoomFiles(roomScanId: string): Promise<ProjectFile[]> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("project_files")
+    .select("*")
+    .eq("room_scan_id", roomScanId)
+    .order("uploaded_at", { ascending: false });
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);
+    throw new Error(`Could not load the photos: ${error.message}`);
+  }
+  return (data ?? []) as ProjectFile[];
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   attachJobAction,
   deleteProjectFileAction,
   detachJobAction,
+  saveProjectCustomAction,
   setProjectStatusAction,
 } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
@@ -11,16 +12,25 @@ import ProjectFiles from "@/components/admin/ProjectFiles";
 import ProjectJobs from "@/components/admin/ProjectJobs";
 import ProjectStatusButtons from "@/components/admin/ProjectStatusButtons";
 import ProjectStatusPill from "@/components/admin/ProjectStatusPill";
+import FloorPlanSection from "@/components/admin/FloorPlanSection";
+import ClaimDetails from "@/components/admin/ClaimDetails";
+import EquipmentLog from "@/components/admin/EquipmentLog";
+import { squareMetersToSquareFeet } from "@/lib/roomScan";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
+import { formatMoney } from "@/lib/crm/money";
+import { CLAIM_FIELD_TEMPLATE, getCustomFields } from "@/lib/crm/settings";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/lib/crm/opsTypes";
+import { QUOTE_STATUS_LABEL, type QuoteStatus } from "@/lib/crm/quoteTypes";
 import {
   getProject,
+  getProjectSurvey,
   listAttachableJobs,
   MAX_PROJECT_FILE_BYTES,
   PROJECT_STATUS_LABEL,
   PROJECT_STATUSES,
   signProjectFileUrls,
   type ProjectDetail,
+  type ProjectSurvey,
 } from "@/lib/crm/projects";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +89,27 @@ export default async function ProjectDetailPage({
     attachable = await listAttachableJobs(project.jobs.map((job) => job.id));
   } catch {
     attachable = [];
+  }
+
+  // Null means the scans table isn't reachable yet (migration 0024), which
+  // is different from a property nobody has measured — the first hides the
+  // survey entirely, the second shows it empty with a prompt to scan.
+  let survey: ProjectSurvey | null = null;
+  try {
+    survey = await getProjectSurvey(project.id);
+  } catch {
+    survey = null;
+  }
+
+  // The claim schema. Falls back to the IICRC template when nobody has
+  // customised it, so an insurance job has the right questions on day one
+  // rather than an empty section.
+  let claimFields = CLAIM_FIELD_TEMPLATE;
+  try {
+    const configured = (await getCustomFields()).project;
+    if (configured.length > 0) claimFields = configured;
+  } catch {
+    // Settings unreachable is not a reason to hide the claim section.
   }
 
   // Signed per request, same as lead photos — never persisted.
@@ -156,6 +187,75 @@ export default async function ProjectDetailPage({
         )}
       </div>
 
+      <ClaimDetails
+        fields={claimFields}
+        initial={(project.custom ?? {}) as Record<string, string>}
+        action={saveProjectCustomAction.bind(null, project.id)}
+      />
+
+      {/* Statistics, then floor plans — the survey comes before the
+          paperwork, because on a restoration job the measurements are what
+          every other number on the page is derived from. */}
+      {survey && (
+        <>
+          <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="font-heading text-sm font-bold text-charcoal">Statistics</h2>
+            {survey.rooms.length === 0 ? (
+              <p className="mt-2 text-sm text-charcoal/45">
+                Nothing measured yet. Add a floor plan below, then measure the
+                rooms on it — the figures land here.
+              </p>
+            ) : (
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+                <Stat
+                  label="Floor area"
+                  value={fmt(squareMetersToSquareFeet(survey.floorAreaSqm))}
+                  unit="sq ft"
+                />
+                <Stat
+                  label="Wall area"
+                  value={fmt(squareMetersToSquareFeet(survey.wallAreaSqm))}
+                  unit="sq ft"
+                />
+                <Stat label="Floors" value={String(survey.levels.length)} />
+                <Stat label="Rooms" value={String(survey.rooms.length)} />
+              </dl>
+            )}
+          </section>
+        </>
+      )}
+
+      {/* Floor plans — the way IN to measuring the property, not a
+          read-only summary. Client-side because a floor that has been
+          created but not yet scanned lives on the device until a room
+          makes it real. */}
+      <FloorPlanSection
+        projectId={project.id}
+        measured={survey?.levels ?? []}
+        rooms={survey?.rooms ?? []}
+        migrationPending={survey === null}
+      />
+
+      <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-heading text-sm font-bold text-charcoal">Report</h2>
+            <p className="mt-0.5 text-sm leading-snug text-charcoal/50">
+              Claim identity, floor plans, affected areas, moisture and
+              equipment — printable, or saved as a PDF for the adjuster.
+            </p>
+          </div>
+          <Link
+            href={`/admin/projects/${project.id}/report`}
+            className="shrink-0 cursor-pointer rounded-lg bg-charcoal px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-charcoal/90"
+          >
+            Open report
+          </Link>
+        </div>
+      </section>
+
+      <EquipmentLog projectId={project.id} />
+
       <ProjectStatusButtons
         current={project.status}
         options={PROJECT_STATUSES.map((status) => ({
@@ -164,6 +264,55 @@ export default async function ProjectDetailPage({
         }))}
         statusAction={setProjectStatusAction.bind(null, project.id)}
       />
+
+      {/* The other half of "project → estimate → job → invoice" — jobs
+          below already show which of these converted; this shows the
+          estimates themselves, including ones still awaiting a decision. */}
+      <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="font-heading text-sm font-bold text-charcoal">Estimates</h2>
+          {project.client && (
+            <Link
+              href={`/admin/quotes/new?project=${project.id}&client=${project.client.id}`}
+              className="cursor-pointer rounded-lg bg-brand-blue px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-blue/90"
+            >
+              New estimate
+            </Link>
+          )}
+        </div>
+
+        {project.quotes.length === 0 ? (
+          <p className="mt-3 text-sm text-charcoal/40">
+            {project.client
+              ? "Nothing yet — build the first estimate for this project."
+              : "This project has no client, so an estimate can't be addressed to anybody yet."}
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-black/5">
+            {project.quotes.map((quote) => (
+              <li key={quote.id}>
+                <Link
+                  href={`/admin/quotes/${quote.id}`}
+                  className="flex items-center gap-3 py-2.5 transition-colors hover:bg-black/[0.02]"
+                >
+                  <span className="w-14 shrink-0 font-mono text-xs font-bold text-charcoal/45">
+                    #{quote.quote_number}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-charcoal">
+                    {quote.title || "Untitled estimate"}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-brand-blue/[0.08] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-blue">
+                    {QUOTE_STATUS_LABEL[quote.status as QuoteStatus] ?? quote.status}
+                  </span>
+                  <span className="w-24 shrink-0 text-right text-sm font-bold tabular-nums text-charcoal">
+                    {formatMoney(quote.total_cents)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <ProjectFiles
         projectId={project.id}
@@ -189,4 +338,23 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dd className="mt-0.5 break-words text-sm text-charcoal/80">{children}</dd>
     </div>
   );
+}
+
+/** One figure in the statistics band. */
+function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-bold uppercase tracking-wide text-charcoal/45">{label}</dt>
+      <dd className="mt-0.5 font-heading text-xl font-bold tabular-nums text-charcoal">
+        {value}
+        {unit && <span className="ml-1 text-xs font-semibold text-charcoal/50">{unit}</span>}
+      </dd>
+    </div>
+  );
+}
+
+/** Whole numbers: a square-foot figure with decimals reads as false precision
+    on a measurement that is already accurate to a few centimetres. */
+function fmt(value: number): string {
+  return Math.round(value).toLocaleString("en-CA");
 }

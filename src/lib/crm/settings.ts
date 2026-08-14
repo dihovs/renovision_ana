@@ -63,7 +63,13 @@ export const DEFAULT_LEAD_SOURCES = [
   "Other",
 ];
 
-export type CustomFieldType = "text" | "number" | "date" | "checkbox" | "select";
+export type CustomFieldType =
+  | "text"
+  | "number"
+  | "date"
+  | "checkbox"
+  | "select"
+  | "multiselect";
 
 export type CustomFieldDef = {
   id: string;
@@ -71,19 +77,88 @@ export type CustomFieldDef = {
   type: CustomFieldType;
   options?: string[];
   showOnQuote?: boolean;
+  required?: boolean;
+  /**
+   * Conditional display: show this field only when another field holds one
+   * of `equals`. This is what keeps a claim form honest — Category of Water
+   * is a meaningful question after "Type of Loss: Water" and a nonsense one
+   * after "Fire", and a form that asks it anyway gets answered anyway.
+   */
+  showIf?: { field: string; equals: string[] };
 };
 
 export type CustomFieldsSetting = {
   client: CustomFieldDef[];
   property: CustomFieldDef[];
   quote: CustomFieldDef[];
+  project: CustomFieldDef[];
 };
 
 export const DEFAULT_CUSTOM_FIELDS: CustomFieldsSetting = {
   client: [],
   property: [],
   quote: [],
+  project: [],
 };
+
+/**
+ * The claim fields an adjuster expects, ready to apply to a project.
+ *
+ * This is IICRC S500 vocabulary, and it is not decoration: Renovision does
+ * direct insurance work, so these are the data a carrier needs before they
+ * will pay. Category is contamination (1 clean, 2 grey, 3 black); Class is
+ * evaporation load — together they decide what drying is owed.
+ *
+ * Offered as a template rather than forced on every project, because a
+ * private-pay renovation has no claim number and should not be asked for one.
+ */
+export const CLAIM_FIELD_TEMPLATE: CustomFieldDef[] = [
+  { id: "job_number", label: "Job number", type: "text" },
+  // The address the loss happened at, which is not always the address on the
+  // client record — a landlord's claim is for a property they do not live in.
+  { id: "loss_address", label: "Address of loss", type: "text" },
+  { id: "carrier_name", label: "Carrier name", type: "text" },
+  { id: "claim_number", label: "Insurance claim number", type: "text" },
+  { id: "policy_number", label: "Policy number", type: "text" },
+  { id: "adjuster_name", label: "Adjuster name", type: "text" },
+  { id: "adjuster_email", label: "Adjuster email", type: "text" },
+  { id: "adjuster_phone", label: "Adjuster phone", type: "text" },
+  {
+    id: "property_type",
+    label: "Property type",
+    type: "select",
+    options: ["Residential", "Commercial"],
+  },
+  {
+    id: "loss_type",
+    label: "Type of loss",
+    type: "select",
+    options: ["Water", "Fire", "Vehicle impact", "Trauma", "Environmental", "Other"],
+    required: true,
+  },
+  {
+    id: "water_category",
+    label: "Category of water",
+    type: "select",
+    options: ["CAT 1 — clean", "CAT 2 — grey", "CAT 3 — black", "Not defined"],
+    showIf: { field: "loss_type", equals: ["Water"] },
+  },
+  {
+    id: "water_class",
+    label: "Class of water",
+    type: "select",
+    options: ["Class 1", "Class 2", "Class 3", "Not defined"],
+    showIf: { field: "loss_type", equals: ["Water"] },
+  },
+  {
+    id: "loss_type_other",
+    label: "Describe the loss",
+    type: "text",
+    showIf: { field: "loss_type", equals: ["Other"] },
+  },
+  { id: "loss_date", label: "Date of loss", type: "date" },
+  { id: "date_contacted", label: "Date contacted", type: "date" },
+];
 
 async function readSetting<T>(key: string, fallback: T): Promise<T> {
   const client = db();
@@ -234,8 +309,35 @@ export function getLeadSources(): Promise<string[]> {
   return readSetting("lead_sources", DEFAULT_LEAD_SOURCES);
 }
 
-export function getCustomFields(): Promise<CustomFieldsSetting> {
-  return readSetting("custom_fields", DEFAULT_CUSTOM_FIELDS);
+export async function getCustomFields(): Promise<CustomFieldsSetting> {
+  const stored = await readSetting("custom_fields", DEFAULT_CUSTOM_FIELDS);
+  // Merged rather than returned raw: a settings row written before `project`
+  // existed has no such key, and every caller maps over these arrays. One
+  // undefined here is a crashed settings screen.
+  return { ...DEFAULT_CUSTOM_FIELDS, ...stored };
+}
+
+/**
+ * Whether a field should be asked, given the answers so far.
+ *
+ * A hidden field's stored value is deliberately left alone rather than
+ * cleared — switching Type of Loss to Fire and back to Water should not have
+ * silently destroyed the category somebody already recorded.
+ */
+export function isFieldVisible(
+  field: CustomFieldDef,
+  values: Record<string, string>,
+): boolean {
+  if (!field.showIf) return true;
+  return field.showIf.equals.includes(values[field.showIf.field] ?? "");
+}
+
+/** The fields actually asked, in order, for a given set of answers. */
+export function visibleFields(
+  fields: CustomFieldDef[],
+  values: Record<string, string>,
+): CustomFieldDef[] {
+  return fields.filter((field) => isFieldVisible(field, values));
 }
 
 /**

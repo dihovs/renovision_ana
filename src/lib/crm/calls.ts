@@ -243,7 +243,7 @@ export async function listCalls(limit = 100): Promise<StoredCall[]> {
     .limit(limit);
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("calls");
+    if (isMissingTable(error)) throw new MigrationPendingError("calls", error.message);
     throw new Error(`Could not load calls: ${error.message}`);
   }
   return (data ?? []) as StoredCall[];

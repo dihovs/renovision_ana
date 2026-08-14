@@ -94,6 +94,15 @@ export type PropertySnapshot = {
 
 export type QuoteLineKind = "item" | "text";
 
+/**
+ * Good/Better/Best. A line without a tier behaves exactly as it always
+ * has — always-in, or individually tickable if optional. A line WITH a tier
+ * is presented grouped with its tier-mates on the public quote page, and
+ * picking a tier there ticks all of that tier's lines and unticks the
+ * other tiers' at once, rather than one checkbox at a time.
+ */
+export type QuoteTier = "good" | "better" | "best";
+
 export type QuoteLineItem = {
   id: string;
   quote_id: string;
@@ -110,6 +119,7 @@ export type QuoteLineItem = {
   selected: boolean;
   labor_hours: number | null;
   price_book_item_id: string | null;
+  tier: QuoteTier | null;
 };
 
 export type Quote = {
@@ -120,6 +130,7 @@ export type Quote = {
   client_id: string;
   property_id: string | null;
   lead_id: string | null;
+  project_id: string | null;
   title: string | null;
   status: QuoteStatus;
   tax_rate_id: string | null;

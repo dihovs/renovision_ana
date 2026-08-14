@@ -1,0 +1,362 @@
+import AVFoundation
+import CallKit
+import Combine
+import Foundation
+import TwilioVoice
+
+/// The phone.
+///
+/// This is what the WebView dialer could never be. A call placed here goes
+/// through **CallKit**, so it is a real iPhone call: it appears on the lock
+/// screen, it survives the app being backgrounded, it holds when a cellular
+/// call arrives, it routes to CarPlay and AirPods, and it lands in the system
+/// call history. A WebRTC call inside a web page has none of that — it dies
+/// the moment the phone locks, which on a job site is most of the time.
+///
+/// **Outgoing only, deliberately.** `accessToken.ts` mints a token with the
+/// outgoing grant and nothing else, and its reasoning is worth repeating: a
+/// leaked token that could register an incoming client would silently
+/// intercept customers calling the business, which is far worse than an
+/// unauthorised outbound call. Receiving calls here needs a VoIP push
+/// certificate and an incoming grant — a deliberate decision with a security
+/// cost, not an oversight to quietly fix.
+@MainActor
+final class CallManager: NSObject, ObservableObject {
+    static let shared = CallManager()
+
+    enum State: Equatable {
+        case idle
+        case connecting
+        case ringing
+        case active
+        case ended(String?)
+
+        var isBusy: Bool {
+            switch self {
+            case .idle, .ended: return false
+            case .connecting, .ringing, .active: return true
+            }
+        }
+    }
+
+    @Published private(set) var state: State = .idle
+    @Published private(set) var remoteLabel: String = ""
+    @Published private(set) var isMuted = false
+    @Published private(set) var isOnSpeaker = false
+    @Published private(set) var startedAt: Date?
+    @Published var lastError: String?
+
+    private var call: Call?
+    private var callKitUUID: UUID?
+    private let callKitProvider: CXProvider
+    private let callController = CXCallController()
+
+    /// Held, not created on demand, and assigned to the SDK once at launch.
+    ///
+    /// This is the piece that decides whether a call has audio at all. Twilio
+    /// hands its audio device the session that CallKit owns, so the device
+    /// must be switched OFF before connecting and left for
+    /// `provider(didActivate:)` to switch on. Connecting with it already
+    /// enabled produces a call that establishes, shows a timer, and carries
+    /// no sound in either direction — which looks like a network fault and is
+    /// not one.
+    private let audioDevice = DefaultAudioDevice()
+
+    /// What `provider(_:perform: CXStartCallAction)` should dial. The connect
+    /// belongs in that callback rather than after the transaction returns:
+    /// CallKit may refuse the action, and dialling before it has agreed is
+    /// how an app ends up in a call the system knows nothing about.
+    private var pendingNumber: String?
+    private var pendingToken: String?
+
+    private override init() {
+        let config = CXProviderConfiguration()
+        config.supportsVideo = false
+        config.maximumCallsPerCallGroup = 1
+        config.supportedHandleTypes = [.phoneNumber, .generic]
+        // The name shown on the lock screen and in Recents. Without it the
+        // system falls back to the bundle name, and the operator sees a call
+        // from "App".
+        config.iconTemplateImageData = nil
+        callKitProvider = CXProvider(configuration: config)
+
+        super.init()
+        callKitProvider.setDelegate(self, queue: nil)
+        TwilioVoiceSDK.audioDevice = audioDevice
+    }
+
+    // MARK: - Placing a call
+
+    /// Dial a number. `label` is what the operator should see — a client's
+    /// name where we know it, the number where we do not.
+    func place(to number: String, label: String? = nil) async {
+        guard !state.isBusy else { return }
+
+        let cleaned = Self.normalise(number)
+        guard !cleaned.isEmpty else {
+            lastError = "Enter a number to call."
+            return
+        }
+
+        // Asked before dialling rather than at first packet, so a refusal is a
+        // clear message instead of a call that connects to silence.
+        guard await Self.requestMicrophone() else {
+            lastError = "Calling needs the microphone. Enable it in Settings → Renovision."
+            return
+        }
+
+        // Fetched BEFORE telling CallKit anything. A token failure is by far
+        // the most common reason a call does not happen — an unset Twilio
+        // variable — and discovering it after the system has put a call on
+        // screen means tearing that call down again in front of the operator.
+        let token: String
+        do {
+            token = try await API.shared.voiceToken()
+        } catch {
+            lastError = error.localizedDescription
+            state = .ended(error.localizedDescription)
+            return
+        }
+
+        remoteLabel = label ?? Self.pretty(cleaned)
+        state = .connecting
+        lastError = nil
+        pendingToken = token
+        pendingNumber = cleaned
+
+        let uuid = UUID()
+        callKitUUID = uuid
+        let handle = CXHandle(type: .phoneNumber, value: cleaned)
+        let action = CXStartCallAction(call: uuid, handle: handle)
+        action.contactIdentifier = remoteLabel
+
+        do {
+            try await callController.request(CXTransaction(action: action))
+        } catch {
+            let explained = Self.explain(error)
+            state = .ended(explained)
+            lastError = explained
+            cleanUp()
+        }
+    }
+
+    /// CallKit reports refusals as a code. "requesttransaction error 1" is
+    /// meaningless on screen, and the real meaning is one sentence that names
+    /// the fix — this app spent a build failing on exactly that code.
+    static func explain(_ error: Error) -> String {
+        let nsError = error as NSError
+        guard nsError.domain == CXErrorDomainRequestTransaction else {
+            return error.localizedDescription
+        }
+        switch CXErrorCodeRequestTransactionError.Code(rawValue: nsError.code) {
+        case .unentitled:
+            return "iOS refused the call: this build is missing the VoIP background mode."
+        case .unknownCallProvider:
+            return "iOS did not recognise the call provider. Restart the app."
+        case .callUUIDAlreadyExists:
+            return "A call with that identifier is already in progress."
+        case .maximumCallGroupsReached:
+            return "Another call is already active. End it first."
+        case .invalidAction:
+            return "iOS rejected that call action."
+        default:
+            return "iOS refused the call (\(nsError.code))."
+        }
+    }
+
+    // MARK: - In-call controls
+
+    func toggleMute() {
+        guard let call else { return }
+        call.isMuted.toggle()
+        isMuted = call.isMuted
+    }
+
+    func toggleSpeaker() {
+        isOnSpeaker.toggle()
+        route(toSpeaker: isOnSpeaker)
+    }
+
+    /// Send a DTMF tone — the digits an IVR asks for once a call is up.
+    func sendDigits(_ digits: String) {
+        call?.sendDigits(digits)
+    }
+
+    func hangUp() {
+        guard let uuid = callKitUUID else {
+            call?.disconnect()
+            return
+        }
+        // Through CallKit, so the system UI and this app agree about what
+        // just happened. Disconnecting the Twilio call directly leaves the
+        // green in-call banner on screen.
+        Task {
+            try? await callController.request(CXTransaction(action: CXEndCallAction(call: uuid)))
+        }
+    }
+
+    // MARK: - Audio
+
+    private func route(toSpeaker speaker: Bool) {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.overrideOutputAudioPort(speaker ? .speaker : .none)
+        } catch {
+            lastError = "Could not switch the speaker."
+        }
+    }
+
+    private func endCallKit(uuid: UUID, reason: CXCallEndedReason) {
+        callKitProvider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+        cleanUp()
+    }
+
+    private func cleanUp() {
+        call = nil
+        callKitUUID = nil
+        pendingToken = nil
+        pendingNumber = nil
+        isMuted = false
+        isOnSpeaker = false
+        startedAt = nil
+    }
+
+    // MARK: - Helpers
+
+    /// Keep digits and a leading +. Twilio wants E.164; a number typed with
+    /// brackets and dashes is the normal case, not the exception.
+    static func normalise(_ raw: String) -> String {
+        var digits = raw.filter { $0.isNumber || $0 == "+" }
+        if digits.hasPrefix("+") {
+            digits = "+" + digits.dropFirst().filter(\.isNumber)
+        }
+        // A bare 10-digit number in Quebec is North American; without the
+        // country code Twilio rejects it outright.
+        if !digits.hasPrefix("+") && digits.count == 10 { return "+1" + digits }
+        if !digits.hasPrefix("+") && digits.count == 11 && digits.hasPrefix("1") {
+            return "+" + digits
+        }
+        return digits
+    }
+
+    static func pretty(_ e164: String) -> String {
+        let digits = e164.filter(\.isNumber)
+        guard digits.count == 11, digits.hasPrefix("1") else { return e164 }
+        let n = Array(digits.dropFirst())
+        return "(\(String(n[0...2]))) \(String(n[3...5]))-\(String(n[6...9]))"
+    }
+
+    private static func requestMicrophone() async -> Bool {
+        await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
+}
+
+// MARK: - Twilio
+
+extension CallManager: CallDelegate {
+    nonisolated func callDidConnect(call: Call) {
+        Task { @MainActor in
+            state = .active
+            startedAt = Date()
+            if let uuid = callKitUUID {
+                callKitProvider.reportOutgoingCall(with: uuid, connectedAt: Date())
+            }
+        }
+    }
+
+    nonisolated func callDidStartRinging(call: Call) {
+        Task { @MainActor in state = .ringing }
+    }
+
+    nonisolated func callDidFailToConnect(call: Call, error: Error) {
+        Task { @MainActor in
+            lastError = error.localizedDescription
+            state = .ended(error.localizedDescription)
+            if let uuid = callKitUUID { endCallKit(uuid: uuid, reason: .failed) }
+        }
+    }
+
+    nonisolated func callDidDisconnect(call: Call, error: Error?) {
+        Task { @MainActor in
+            state = .ended(error?.localizedDescription)
+            if let uuid = callKitUUID {
+                endCallKit(uuid: uuid, reason: error == nil ? .remoteEnded : .failed)
+            }
+        }
+    }
+}
+
+// MARK: - CallKit
+
+extension CallManager: CXProviderDelegate {
+    nonisolated func providerDidReset(_ provider: CXProvider) {
+        Task { @MainActor in
+            call?.disconnect()
+            cleanUp()
+            state = .idle
+        }
+    }
+
+    nonisolated func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+        Task { @MainActor in
+            guard let token = pendingToken, let number = pendingNumber else {
+                action.fail()
+                return
+            }
+
+            // OFF before connecting. CallKit owns the audio session and will
+            // activate it in a moment; enabling Twilio's device first is what
+            // produces a connected call with no sound.
+            audioDevice.isEnabled = false
+
+            let options = ConnectOptions(accessToken: token) { builder in
+                // The TwiML app reads `To` and dials it. The name is fixed by
+                // the server side in /api/voice/softphone.
+                builder.params = ["To": number]
+                builder.uuid = action.callUUID
+            }
+            call = TwilioVoiceSDK.connect(options: options, delegate: self)
+
+            pendingToken = nil
+            pendingNumber = nil
+            provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
+            action.fulfill()
+        }
+    }
+
+    nonisolated func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        Task { @MainActor in
+            call?.disconnect()
+            cleanUp()
+            state = .idle
+        }
+        action.fulfill()
+    }
+
+    /// The system mute button — the one on the CallKit screen and on CarPlay.
+    /// Kept in step with our own, or the two disagree about what the caller
+    /// can hear.
+    nonisolated func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+        Task { @MainActor in
+            call?.isMuted = action.isMuted
+            isMuted = action.isMuted
+        }
+        action.fulfill()
+    }
+
+    // CallKit owns the audio session, so Twilio's device must be switched on
+    // only once the system says the session is active — enabling it earlier is
+    // how a VoIP call ends up connected but silent. `audioDevice` is declared
+    // as the protocol; only the default implementation exposes the switch.
+    nonisolated func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        Task { @MainActor in audioDevice.isEnabled = true }
+    }
+
+    nonisolated func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        Task { @MainActor in audioDevice.isEnabled = false }
+    }
+}

@@ -84,7 +84,7 @@ export async function listPriceBook(
 
   const { data, error } = await query;
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("price_book_items");
+    if (isMissingTable(error)) throw new MigrationPendingError("price_book_items", error.message);
     throw new Error(`Could not load the price book: ${error.message}`);
   }
   return (data ?? []) as PriceBookItem[];
@@ -98,7 +98,7 @@ export async function createPriceBookItem(input: PriceBookInput): Promise<string
     .select("id")
     .single();
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("price_book_items");
+    if (isMissingTable(error)) throw new MigrationPendingError("price_book_items", error.message);
     if (error.code === "23505") throw new Error("That item code is already in use.");
     throw new Error(`Could not save the item: ${error.message}`);
   }
@@ -169,7 +169,7 @@ export async function seedPriceBookFromCatalog(): Promise<{ inserted: number; sk
     .from("price_book_items")
     .select("item_code");
   if (readError) {
-    if (isMissingTable(readError)) throw new MigrationPendingError("price_book_items");
+    if (isMissingTable(readError)) throw new MigrationPendingError("price_book_items", readError.message);
     throw new Error(`Could not read the price book: ${readError.message}`);
   }
 

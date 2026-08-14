@@ -1,0 +1,481 @@
+import SwiftUI
+
+/// Draw a room by hand.
+///
+/// The fallback that matters more than it sounds. LiDAR needs a Pro phone;
+/// the camera modes need light and texture to track against. A gutted
+/// basement at eight in the evening with the power off has neither, and that
+/// is an ordinary Tuesday on a water-damage job. A tape measure and a finger
+/// always work.
+///
+/// It opens as a rectangle you type the size of, because almost every room
+/// is one — and then it is the same canvas as the plan editor, so an L-shaped
+/// basement is that rectangle with a corner pulled in. Nothing new to learn.
+struct RoomSketchView: View {
+    let onCancel: () -> Void
+    let onDone: ([CGPoint], Double) -> Void
+
+    @State private var stage: Stage = .size
+    @State private var widthText = "12"
+    @State private var lengthText = "10"
+    @State private var heightText = "8"
+    @State private var corners: [CGPoint] = []
+    @State private var history: [[CGPoint]] = []
+    @State private var selection: Selection = .none
+    @State private var dragStart: [CGPoint]?
+    @State private var snapEngaged = false
+    @State private var liveLabel: String?
+    @State private var typing: Int?
+
+    private enum Stage { case size, shape }
+
+    private enum Selection: Equatable {
+        case none
+        case wall(Int)
+        case corner(Int)
+    }
+
+    private var width: Double? { FloorPlanGeometry.parseFeetInches(widthText) }
+    private var length: Double? { FloorPlanGeometry.parseFeetInches(lengthText) }
+    private var height: Double? { FloorPlanGeometry.parseFeetInches(heightText) }
+
+    private var sizeReady: Bool {
+        guard let width, let length, let height else { return false }
+        return width > 0.3 && width < 60 && length > 0.3 && length < 60 && height > 1 && height < 10
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+                switch stage {
+                case .size: sizeForm
+                case .shape: shapeEditor
+                }
+            }
+            .navigationTitle(stage == .size ? "Draw a room" : "Pull it into shape")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { onCancel() }
+                }
+                if stage == .shape {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button {
+                            if let previous = history.popLast() {
+                                corners = previous
+                                selection = .none
+                            }
+                        } label: {
+                            Image(systemName: "arrow.uturn.backward")
+                        }
+                        .disabled(history.isEmpty)
+
+                        Button("Use it") {
+                            onDone(corners, height ?? 2.44)
+                        }
+                        .fontWeight(.bold)
+                        .disabled(PlanEditing.selfIntersects(corners))
+                    }
+                }
+            }
+            .sheet(item: Binding(
+                get: { typing.map { EdgeTarget(edge: $0) } },
+                set: { typing = $0?.edge })
+            ) { target in
+                SketchLengthSheet(current: PlanEditing.edgeLength(corners, target.edge)) { metres in
+                    history.append(corners)
+                    corners = PlanEditing.setEdgeLength(corners, index: target.edge, to: metres)
+                    typing = nil
+                }
+            }
+        }
+    }
+
+    private struct EdgeTarget: Identifiable {
+        let edge: Int
+        var id: Int { edge }
+    }
+
+    // MARK: - Size
+
+    private var sizeForm: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Brand.Space.base) {
+                Text("Most rooms are a rectangle. Start with one, then pull any corner in for an L or a bump-out.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.inkSoft)
+
+                Field(label: "WIDTH", text: $widthText, placeholder: "12' 6")
+                Field(label: "LENGTH", text: $lengthText, placeholder: "10'")
+                Field(label: "CEILING HEIGHT", text: $heightText, placeholder: "8'")
+
+                // The live figure is the cheapest error check there is: a
+                // slipped decimal shows up instantly as an absurd area.
+                if let width, let length {
+                    HStack {
+                        Text(Measure.sqftLabel(width * length))
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                        Text("floor area")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.6))
+                        Spacer()
+                    }
+                    .padding(Brand.Space.base)
+                    .background(Brand.charcoalDark, in: .rect(cornerRadius: Brand.Radius.card))
+                }
+
+                Text("Feet and inches — type 12' 6, or 12.5.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Brand.inkFaint)
+
+                Button("Draw it") {
+                    guard let width, let length else { return }
+                    corners = [
+                        CGPoint(x: 0, y: 0), CGPoint(x: width, y: 0),
+                        CGPoint(x: width, y: length), CGPoint(x: 0, y: length),
+                    ]
+                    stage = .shape
+                }
+                .buttonStyle(PrimaryButtonStyle(enabled: sizeReady))
+                .disabled(!sizeReady)
+            }
+            .padding(Brand.Space.base)
+        }
+    }
+
+    // MARK: - Shape
+
+    private var shapeEditor: some View {
+        VStack(spacing: 0) {
+            GeometryReader { proxy in
+                let scale = fitScale(in: proxy.size)
+                let centre = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
+
+                let toScreen = { (p: CGPoint) in
+                    self.screenPoint(p, centre: centre, scale: scale)
+                }
+                let toModel = { (p: CGPoint) in
+                    self.modelPoint(p, centre: centre, scale: scale)
+                }
+
+                ZStack {
+                    Canvas { context, size in
+                        let pt = toScreen
+                        guard corners.count >= 3 else { return }
+                        let invalid = PlanEditing.selfIntersects(corners)
+
+                        var floor = Path()
+                        floor.move(to: pt(corners[0]))
+                        for c in corners.dropFirst() { floor.addLine(to: pt(c)) }
+                        floor.closeSubpath()
+                        context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
+
+                        for i in corners.indices {
+                            let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
+                            var wall = Path()
+                            wall.move(to: pt(corners[a]))
+                            wall.addLine(to: pt(corners[b]))
+                            let selected = selection == .wall(i)
+                            context.stroke(
+                                wall,
+                                with: .color(invalid ? .red : (selected ? Brand.blue : Color(hex: 0x111111))),
+                                style: StrokeStyle(
+                                    lineWidth: selected ? 9 : max(3, 0.114 * scale),
+                                    lineCap: .butt,
+                                    dash: invalid ? [8, 5] : []))
+                        }
+
+                        for i in corners.indices {
+                            let p = pt(corners[i])
+                            let big = selection == .corner(i)
+                            let r: CGFloat = big ? 9 : 7
+                            context.fill(
+                                Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
+                                with: .color(big ? Brand.blue : .white))
+                            context.stroke(
+                                Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
+                                with: .color(Brand.blue), lineWidth: 2)
+                        }
+
+                        for i in corners.indices {
+                            let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
+                            let mid = CGPoint(
+                                x: (pt(corners[a]).x + pt(corners[b]).x) / 2,
+                                y: (pt(corners[a]).y + pt(corners[b]).y) / 2)
+                            let metres = PlanEditing.edgeLength(corners, i)
+                            guard metres > 0.15 else { continue }
+                            let selected = selection == .wall(i)
+                            let text = context.resolve(
+                                Text(FloorPlanGeometry.feetInches(metres))
+                                    .font(.system(size: 11, weight: selected ? .bold : .regular))
+                                    .foregroundStyle(selected ? .white : Color(hex: 0x4A4A50)))
+                            let box = text.measure(in: size)
+                            context.fill(
+                                Path(
+                                    roundedRect: CGRect(
+                                        x: mid.x - box.width / 2 - 6, y: mid.y - 9,
+                                        width: box.width + 12, height: 18),
+                                    cornerRadius: 9),
+                                with: .color(selected ? Brand.blue : Color.white.opacity(0.9)))
+                            context.draw(text, at: mid, anchor: .center)
+                        }
+                    }
+
+                    if let liveLabel {
+                        VStack {
+                            Text(liveLabel)
+                                .font(.system(size: 15, weight: .bold).monospacedDigit())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(Brand.charcoalDark, in: .capsule)
+                                .padding(.top, 12)
+                            Spacer()
+                        }
+                    }
+                }
+                .contentShape(.rect)
+                .gesture(
+                    DragGesture(minimumDistance: 4)
+                        .onChanged { value in drag(value, scale: scale) }
+                        .onEnded { _ in
+                            dragStart = nil
+                            liveLabel = nil
+                            snapEngaged = false
+                        }
+                )
+                .onTapGesture { location in tap(toModel(location), scale: scale) }
+            }
+            .background(Brand.surface)
+
+            controls
+        }
+    }
+
+    private var controls: some View {
+        VStack(spacing: Brand.Space.small) {
+            if PlanEditing.selfIntersects(corners) {
+                Text("These walls cross. Straighten them out before using this room.")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+
+            HStack(spacing: Brand.Space.small) {
+                switch selection {
+                case .wall(let index):
+                    Button { typing = index } label: {
+                        Label("Type length", systemImage: "keyboard")
+                    }
+                    .buttonStyle(SketchButton())
+
+                    Button {
+                        history.append(corners)
+                        let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
+                        corners = next
+                        selection = .corner(made)
+                    } label: {
+                        Label("Add corner", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(SketchButton())
+
+                case .corner(let index):
+                    Button(role: .destructive) {
+                        history.append(corners)
+                        corners = PlanEditing.removeCorner(corners, index: index)
+                        selection = .none
+                    } label: {
+                        Label("Delete corner", systemImage: "minus.circle")
+                    }
+                    .buttonStyle(SketchButton())
+                    .disabled(corners.count <= 3)
+
+                case .none:
+                    Text("Tap a wall to move it, or a corner to drag it.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.inkSoft)
+                }
+                Spacer()
+            }
+
+            HStack {
+                Text(Measure.sqftLabel(PlanEditing.area(corners)))
+                    .font(.system(size: 17, weight: .bold).monospacedDigit())
+                    .foregroundStyle(Brand.ink)
+                Text("floor area")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.inkFaint)
+                Spacer()
+            }
+        }
+        .padding(Brand.Space.base)
+        .background(Brand.canvas)
+    }
+
+    // MARK: - Gestures
+
+    private func tap(_ point: CGPoint, scale: CGFloat) {
+        let cornerTolerance = 22 / scale
+        for i in corners.indices
+        where PlanEditing.length(PlanEditing.sub(corners[i], point)) < cornerTolerance {
+            UISelectionFeedbackGenerator().selectionChanged()
+            selection = .corner(i)
+            return
+        }
+
+        var best = -1
+        var bestDistance = 22 / scale
+        for i in corners.indices {
+            let d = distanceToEdge(point, index: i)
+            if d < bestDistance {
+                bestDistance = d
+                best = i
+            }
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+        selection = best >= 0 ? .wall(best) : .none
+    }
+
+    private func drag(_ value: DragGesture.Value, scale: CGFloat) {
+        guard selection != .none else { return }
+        if dragStart == nil {
+            dragStart = corners
+            history.append(corners)
+        }
+        guard let start = dragStart else { return }
+
+        switch selection {
+        case .wall(let index):
+            let (a, b) = PlanEditing.edgeCorners(index, count: start.count)
+            let sideways = PlanEditing.normal(
+                PlanEditing.normalised(PlanEditing.sub(start[b], start[a])))
+            let raw = PlanEditing.dot(
+                CGPoint(x: value.translation.width / scale, y: value.translation.height / scale),
+                sideways)
+            let snap = PlanEditing.snapOffset(
+                raw,
+                candidates: PlanEditing.collinearCandidates(start, index: index),
+                capture: 8 / scale,
+                alreadyEngaged: snapEngaged)
+            if snap.engaged && !snapEngaged { UISelectionFeedbackGenerator().selectionChanged() }
+            snapEngaged = snap.engaged
+            corners = PlanEditing.moveEdge(start, index: index, offset: snap.value)
+            liveLabel = FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index))
+
+        case .corner(let index):
+            corners = PlanEditing.moveCorner(
+                start, index: index,
+                to: CGPoint(
+                    x: start[index].x + value.translation.width / scale,
+                    y: start[index].y + value.translation.height / scale))
+            let before = (index - 1 + corners.count) % corners.count
+            liveLabel =
+                "\(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, before)))  ·  \(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index)))"
+
+        case .none:
+            break
+        }
+    }
+
+    private func distanceToEdge(_ p: CGPoint, index: Int) -> Double {
+        let (ai, bi) = PlanEditing.edgeCorners(index, count: corners.count)
+        let a = corners[ai]
+        let ab = PlanEditing.sub(corners[bi], a)
+        let l2 = PlanEditing.dot(ab, ab)
+        guard l2 > 1e-9 else { return PlanEditing.length(PlanEditing.sub(p, a)) }
+        var t = PlanEditing.dot(PlanEditing.sub(p, a), ab) / l2
+        t = min(1, max(0, t))
+        return PlanEditing.length(
+            PlanEditing.sub(p, CGPoint(x: a.x + ab.x * t, y: a.y + ab.y * t)))
+    }
+
+    // MARK: - Viewport
+
+    private var bounds: CGRect {
+        guard !corners.isEmpty else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
+        let xs = corners.map(\.x)
+        let ys = corners.map(\.y)
+        return CGRect(
+            x: xs.min()!, y: ys.min()!,
+            width: max(xs.max()! - xs.min()!, 0.1),
+            height: max(ys.max()! - ys.min()!, 0.1))
+    }
+
+    private func fitScale(in size: CGSize) -> CGFloat {
+        min((size.width - 80) / bounds.width, (size.height - 80) / bounds.height)
+    }
+
+    private func screenPoint(_ p: CGPoint, centre: CGPoint, scale: CGFloat) -> CGPoint {
+        CGPoint(
+            x: centre.x + (p.x - bounds.midX) * scale,
+            y: centre.y + (p.y - bounds.midY) * scale)
+    }
+
+    private func modelPoint(_ p: CGPoint, centre: CGPoint, scale: CGFloat) -> CGPoint {
+        CGPoint(
+            x: (p.x - centre.x) / scale + bounds.midX,
+            y: (p.y - centre.y) / scale + bounds.midY)
+    }
+}
+
+private struct SketchButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Brand.blue)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Brand.surface, in: .capsule)
+            .opacity(configuration.isPressed ? 0.6 : 1)
+    }
+}
+
+private struct SketchLengthSheet: View {
+    let current: Double
+    let onApply: (Double) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var parsed: Double? {
+        guard let metres = FloorPlanGeometry.parseFeetInches(text) else { return nil }
+        return (metres >= 0.10 && metres <= 50) ? metres : nil
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+                VStack(alignment: .leading, spacing: Brand.Space.base) {
+                    Text("Currently \(FloorPlanGeometry.feetInches(current))")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.inkSoft)
+
+                    TextField("12' 6", text: $text)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .keyboardType(.numbersAndPunctuation)
+                        .focused($focused)
+                        .padding(Brand.Space.base)
+                        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+
+                    Button("Apply") { if let parsed { onApply(parsed) } }
+                        .buttonStyle(PrimaryButtonStyle(enabled: parsed != nil))
+                        .disabled(parsed == nil)
+
+                    Spacer()
+                }
+                .padding(Brand.Space.base)
+            }
+            .navigationTitle("Wall length")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+            .task { focused = true }
+        }
+        .presentationDetents([.height(300)])
+    }
+}

@@ -1,5 +1,5 @@
 import { isMissingColumn, refuse, type ConversionResult } from "./conversions";
-import { db, isMissingTable, MigrationPendingError } from "./db";
+import { db, isEmbedFailure, isMissingTable, MigrationPendingError } from "./db";
 import type {
   Client,
   ClientInput,
@@ -106,32 +106,47 @@ export async function listClients(
   const client = requireDb();
   const { search, limit = 200, includeArchived = false } = options;
 
-  let query = client
-    .from("clients")
-    .select("*, properties(id)")
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+  // Same two-form approach as listProjects: the property count is a nicety,
+  // the customer's name and phone number are the point. A customer book that
+  // will not open because a relationship could not be resolved is useless in
+  // a way that one missing a property count is not.
+  const build = (select: string) => {
+    let q = client
+      .from("clients")
+      .select(select)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
 
-  if (!includeArchived) query = query.is("archived_at", null);
+    if (!includeArchived) q = q.is("archived_at", null);
 
-  const term = search?.trim();
-  if (term) {
-    // Escaping matters: a comma inside the term would otherwise be read as an
-    // `or` separator and split the filter into malformed clauses.
-    const safe = term.replace(/[,()]/g, " ");
-    query = query.or(
-      `first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,company_name.ilike.%${safe}%`,
-    );
+    const term = search?.trim();
+    if (term) {
+      // Escaping matters: a comma inside the term would otherwise be read as
+      // an `or` separator and split the filter into malformed clauses.
+      const safe = term.replace(/[,()]/g, " ");
+      q = q.or(
+        `first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,company_name.ilike.%${safe}%`,
+      );
+    }
+    return q;
+  };
+
+  let { data, error } = await build("*, properties(id)");
+
+  if (error && isEmbedFailure(error)) {
+    console.warn("[clients] embed failed, falling back to a plain list", error.message);
+    ({ data, error } = await build("*"));
   }
 
-  const { data, error } = await query;
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("clients");
+    if (isMissingTable(error)) throw new MigrationPendingError("clients", error.message);
     throw new Error(`Could not load clients: ${error.message}`);
   }
 
   return (data ?? []).map((row) => {
-    const { properties, ...rest } = row as Client & { properties: { id: string }[] };
+    // Through `unknown`: the select string is built at runtime, so Supabase
+    // cannot infer the row shape and types it as a generic error union.
+    const { properties, ...rest } = row as unknown as Client & { properties: { id: string }[] };
     return { ...rest, property_count: properties?.length ?? 0 };
   });
 }
@@ -145,7 +160,7 @@ export async function getClient(id: string): Promise<ClientWithProperties | null
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("clients");
+    if (isMissingTable(error)) throw new MigrationPendingError("clients", error.message);
     throw new Error(`Could not load client: ${error.message}`);
   }
   if (!data) return null;
@@ -211,7 +226,7 @@ export async function createClient(
   const { data, error } = insert;
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("clients");
+    if (isMissingTable(error)) throw new MigrationPendingError("clients", error.message);
     if (error.message.includes("clients_have_a_name")) {
       throw new Error("Enter a first name, last name, or company name.");
     }
@@ -229,6 +244,40 @@ export async function createClient(
   }
 
   return id;
+}
+
+/**
+ * Attach one more number to an existing customer.
+ *
+ * A focused update of the phones column alone, NOT updateClient: that one
+ * rebuilds every column from a full ClientInput, and calling it with only a
+ * phone would overwrite the client's name with nothing. This is the "Add to
+ * Existing Contact" action on the call log — the caller has a number and a
+ * chosen customer, and everything else about the record must survive.
+ */
+export async function addClientPhone(
+  id: string,
+  number: string,
+  type: string = "mobile",
+): Promise<void> {
+  const client = requireDb();
+
+  const { data, error } = await client.from("clients").select("phones").eq("id", id).single();
+  if (error) throw new Error(`Could not find that customer: ${error.message}`);
+
+  const phones = (data?.phones ?? []) as { number: string }[];
+  // The same digits twice on one record is clutter, not information.
+  const digits = (value: string) => value.replace(/\D/g, "");
+  if (phones.some((phone) => digits(phone.number) === digits(number))) return;
+
+  const { error: updateError } = await client
+    .from("clients")
+    .update({
+      phones: [...phones, { number, type, primary: phones.length === 0, smsAllowed: false }],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (updateError) throw new Error(`Could not add the number: ${updateError.message}`);
 }
 
 export async function updateClient(id: string, input: ClientInput): Promise<void> {
@@ -273,7 +322,7 @@ export async function createProperty(clientId: string, input: PropertyInput): Pr
     .select("id")
     .single();
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("properties");
+    if (isMissingTable(error)) throw new MigrationPendingError("properties", error.message);
     throw new Error(`Could not add property: ${error.message}`);
   }
   return data.id as string;
@@ -372,7 +421,7 @@ export async function convertLeadToClient(leadId: string): Promise<ConversionRes
     .maybeSingle();
 
   if (readError) {
-    if (isMissingTable(readError)) throw new MigrationPendingError("leads");
+    if (isMissingTable(readError)) throw new MigrationPendingError("leads", readError.message);
     throw new Error(`Could not read lead: ${readError.message}`);
   }
   if (!lead) refuse("not_found", "That lead no longer exists.");

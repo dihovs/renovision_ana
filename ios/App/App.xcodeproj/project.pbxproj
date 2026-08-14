@@ -11,11 +11,46 @@
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+		AA1000000000000000000012 /* RoomModelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000000000000000000011 /* RoomModelViewController.swift */; };
+		AA1000000000000000000008 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000000000000000000007 /* MainViewController.swift */; };
+		AA1000000000000000000006 /* RoomScanViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000000000000000000005 /* RoomScanViewController.swift */; };
+		AA1000000000000000000004 /* RoomScanPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000000000000000000003 /* RoomScanPlugin.swift */; };
+		AA1000000000000000000002 /* SpeakerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000000000000000000001 /* SpeakerPlugin.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		55646811E1DCA8B34AA70BDD /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC75A46A7D7D09F20DEC6972 /* API.swift */; };
+		0AED486DC5028236E648FC8C /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40DA283790D758CFDE43C9C /* Models.swift */; };
+		3F221149ED8B96410B355E05 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87AD402C01E25EF3FF581E18 /* AppShell.swift */; };
+		FD00F5AE1C3495665FE8774D /* ProjectsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1575A16D2C6E67C4FD1FB80 /* ProjectsView.swift */; };
+		402C927B6946ED8278903114 /* RoomDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FACEA5C22986924A3F421EC5 /* RoomDetailView.swift */; };
+		5FDE153B1C86FC0F926EC270 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C52F5EDD0DD3E462D8A2FA /* DiagnosticsView.swift */; };
+		616B677340640888E918E2E0 /* WebScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E172AD5B231606B7F2A6BC71 /* WebScreen.swift */; };
+		TW11L10BUILD00000000FIL0 /* TwilioVoice in Frameworks */ = {isa = PBXBuildFile; productRef = TW11L10PROD000000000DEP0 /* TwilioVoice */; };
+		CA222D1BB6E2CDD8B11B84EC /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FD9F04AB53B52854089E5C1 /* Theme.swift */; };
+		52763D817DEF74CB401D10C3 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDAFC13BEDFB912C801339B0 /* CallManager.swift */; };
+		FC777ADF70B94B6444C032C5 /* PhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757B8D35348C20F44D2EE482 /* PhoneView.swift */; };
+		0ABAB67263690A05807B70AB /* CustomersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */; };
+		134C11B1F11F4454AB0698EE /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0B83FB695A83FEF3FDE977 /* ScanView.swift */; };
+		805AB54A03F19C368F45A962 /* MoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F840D6CFE328A3196F454A /* MoreView.swift */; };
+		7C262F10406210A42BAD7978 /* ScanPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */; };
+		24FF0A017B0B1CA0B8BECB02 /* CaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432C81BFDBB37384FDC61E00 /* CaptureFlow.swift */; };
+		0C4F950F2542A6B30DF173DA /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B1C0B433DDDE917A7C6AC3D /* HomeView.swift */; };
+		31A8258D875E33BB7511747F /* CreateForms.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63622FE8793B5A476929ED7 /* CreateForms.swift */; };
+		475D5E68C8633C0C64637823 /* FloorPlanGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */; };
+		AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */; };
+		B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD833D37CF40538753EFB53 /* ScanQueue.swift */; };
+		3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */; };
+		2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */ = {isa = PBXBuildFile; fileRef = D656561111C08EA37D97551A /* RoomPhotos.swift */; };
+		D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = A254CB749019586DB2A35202 /* ReportShare.swift */; };
+		679EC02AE877C7C78C7FA783 /* LeadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943916CB2AB009C43981176F /* LeadsView.swift */; };
+		1E98C473DA60BEF1FB5432B7 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A683A382E5E97EB8E6D8E72B /* ScheduleView.swift */; };
+		C7B29CAA04D8D49BC6B17A1D /* LevelCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = C934A2011186B59DF4D40110 /* LevelCanvas.swift */; };
+		29CA0E88615983507CA586CF /* PlanEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E2CAE2D1A65B7CC2CC1AEE /* PlanEditing.swift */; };
+		712D75190AE25C18508B17E9 /* PlanEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */; };
+		F1E2E81F536021C842A0307A /* RoomSketchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +58,11 @@
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AA1000000000000000000011 /* RoomModelViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomModelViewController.swift; sourceTree = "<group>"; };
+		AA1000000000000000000007 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		AA1000000000000000000005 /* RoomScanViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomScanViewController.swift; sourceTree = "<group>"; };
+		AA1000000000000000000003 /* RoomScanPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomScanPlugin.swift; sourceTree = "<group>"; };
+		AA1000000000000000000001 /* SpeakerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerPlugin.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -30,6 +70,35 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		FC75A46A7D7D09F20DEC6972 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/API.swift; sourceTree = "<group>"; };
+		D40DA283790D758CFDE43C9C /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Models.swift; sourceTree = "<group>"; };
+		87AD402C01E25EF3FF581E18 /* AppShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/AppShell.swift; sourceTree = "<group>"; };
+		D1575A16D2C6E67C4FD1FB80 /* ProjectsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ProjectsView.swift; sourceTree = "<group>"; };
+		FACEA5C22986924A3F421EC5 /* RoomDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomDetailView.swift; sourceTree = "<group>"; };
+		44C52F5EDD0DD3E462D8A2FA /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DiagnosticsView.swift; sourceTree = "<group>"; };
+		E172AD5B231606B7F2A6BC71 /* WebScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/WebScreen.swift; sourceTree = "<group>"; };
+		3FD9F04AB53B52854089E5C1 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Theme.swift; sourceTree = "<group>"; };
+		EDAFC13BEDFB912C801339B0 /* CallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CallManager.swift; sourceTree = "<group>"; };
+		757B8D35348C20F44D2EE482 /* PhoneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhoneView.swift; sourceTree = "<group>"; };
+		2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CustomersView.swift; sourceTree = "<group>"; };
+		0A0B83FB695A83FEF3FDE977 /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanView.swift; sourceTree = "<group>"; };
+		12F840D6CFE328A3196F454A /* MoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MoreView.swift; sourceTree = "<group>"; };
+		29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanPayload.swift; sourceTree = "<group>"; };
+		432C81BFDBB37384FDC61E00 /* CaptureFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CaptureFlow.swift; sourceTree = "<group>"; };
+		5B1C0B433DDDE917A7C6AC3D /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/HomeView.swift; sourceTree = "<group>"; };
+		F63622FE8793B5A476929ED7 /* CreateForms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CreateForms.swift; sourceTree = "<group>"; };
+		F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorPlanGeometry.swift; sourceTree = "<group>"; };
+		41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorPlanView.swift; sourceTree = "<group>"; };
+		CAD833D37CF40538753EFB53 /* ScanQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanQueue.swift; sourceTree = "<group>"; };
+		75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MessagesView.swift; sourceTree = "<group>"; };
+		D656561111C08EA37D97551A /* RoomPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomPhotos.swift; sourceTree = "<group>"; };
+		A254CB749019586DB2A35202 /* ReportShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ReportShare.swift; sourceTree = "<group>"; };
+		943916CB2AB009C43981176F /* LeadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LeadsView.swift; sourceTree = "<group>"; };
+		A683A382E5E97EB8E6D8E72B /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScheduleView.swift; sourceTree = "<group>"; };
+		C934A2011186B59DF4D40110 /* LevelCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LevelCanvas.swift; sourceTree = "<group>"; };
+		00E2CAE2D1A65B7CC2CC1AEE /* PlanEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanEditing.swift; sourceTree = "<group>"; };
+		7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanEditorView.swift; sourceTree = "<group>"; };
+		4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomSketchView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,6 +107,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				TW11L10BUILD00000000FIL0 /* TwilioVoice in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -67,6 +137,40 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				AA1000000000000000000011 /* RoomModelViewController.swift */,
+				AA1000000000000000000007 /* MainViewController.swift */,
+				AA1000000000000000000005 /* RoomScanViewController.swift */,
+				AA1000000000000000000003 /* RoomScanPlugin.swift */,
+				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */,
+				7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */,
+				00E2CAE2D1A65B7CC2CC1AEE /* PlanEditing.swift */,
+				C934A2011186B59DF4D40110 /* LevelCanvas.swift */,
+				A683A382E5E97EB8E6D8E72B /* ScheduleView.swift */,
+				943916CB2AB009C43981176F /* LeadsView.swift */,
+				A254CB749019586DB2A35202 /* ReportShare.swift */,
+				D656561111C08EA37D97551A /* RoomPhotos.swift */,
+				75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */,
+				CAD833D37CF40538753EFB53 /* ScanQueue.swift */,
+				41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */,
+				F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */,
+				F63622FE8793B5A476929ED7 /* CreateForms.swift */,
+				5B1C0B433DDDE917A7C6AC3D /* HomeView.swift */,
+				432C81BFDBB37384FDC61E00 /* CaptureFlow.swift */,
+				29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */,
+				12F840D6CFE328A3196F454A /* MoreView.swift */,
+				0A0B83FB695A83FEF3FDE977 /* ScanView.swift */,
+				2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */,
+				757B8D35348C20F44D2EE482 /* PhoneView.swift */,
+				EDAFC13BEDFB912C801339B0 /* CallManager.swift */,
+				3FD9F04AB53B52854089E5C1 /* Theme.swift */,
+				E172AD5B231606B7F2A6BC71 /* WebScreen.swift */,
+				44C52F5EDD0DD3E462D8A2FA /* DiagnosticsView.swift */,
+				FACEA5C22986924A3F421EC5 /* RoomDetailView.swift */,
+				D1575A16D2C6E67C4FD1FB80 /* ProjectsView.swift */,
+				87AD402C01E25EF3FF581E18 /* AppShell.swift */,
+				D40DA283790D758CFDE43C9C /* Models.swift */,
+				FC75A46A7D7D09F20DEC6972 /* API.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -94,6 +198,7 @@
 			);
 			name = App;
 			packageProductDependencies = (
+				TW11L10PROD000000000DEP0 /* TwilioVoice */,
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
 			);
 			productName = App;
@@ -127,6 +232,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				TW11L10PKG0000000000REF0 /* XCRemoteSwiftPackageReference "twilio-voice-ios" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -158,7 +264,41 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F1E2E81F536021C842A0307A /* RoomSketchView.swift in Sources */,
+				712D75190AE25C18508B17E9 /* PlanEditorView.swift in Sources */,
+				29CA0E88615983507CA586CF /* PlanEditing.swift in Sources */,
+				C7B29CAA04D8D49BC6B17A1D /* LevelCanvas.swift in Sources */,
+				1E98C473DA60BEF1FB5432B7 /* ScheduleView.swift in Sources */,
+				679EC02AE877C7C78C7FA783 /* LeadsView.swift in Sources */,
+				D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */,
+				2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */,
+				3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */,
+				B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */,
+				AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */,
+				475D5E68C8633C0C64637823 /* FloorPlanGeometry.swift in Sources */,
+				31A8258D875E33BB7511747F /* CreateForms.swift in Sources */,
+				0C4F950F2542A6B30DF173DA /* HomeView.swift in Sources */,
+				24FF0A017B0B1CA0B8BECB02 /* CaptureFlow.swift in Sources */,
+				7C262F10406210A42BAD7978 /* ScanPayload.swift in Sources */,
+				805AB54A03F19C368F45A962 /* MoreView.swift in Sources */,
+				134C11B1F11F4454AB0698EE /* ScanView.swift in Sources */,
+				0ABAB67263690A05807B70AB /* CustomersView.swift in Sources */,
+				FC777ADF70B94B6444C032C5 /* PhoneView.swift in Sources */,
+				52763D817DEF74CB401D10C3 /* CallManager.swift in Sources */,
+				CA222D1BB6E2CDD8B11B84EC /* Theme.swift in Sources */,
+				616B677340640888E918E2E0 /* WebScreen.swift in Sources */,
+				5FDE153B1C86FC0F926EC270 /* DiagnosticsView.swift in Sources */,
+				402C927B6946ED8278903114 /* RoomDetailView.swift in Sources */,
+				FD00F5AE1C3495665FE8774D /* ProjectsView.swift in Sources */,
+				3F221149ED8B96410B355E05 /* AppShell.swift in Sources */,
+				0AED486DC5028236E648FC8C /* Models.swift in Sources */,
+				55646811E1DCA8B34AA70BDD /* API.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				AA1000000000000000000012 /* RoomModelViewController.swift in Sources */,
+				AA1000000000000000000008 /* MainViewController.swift in Sources */,
+				AA1000000000000000000006 /* RoomScanViewController.swift in Sources */,
+				AA1000000000000000000004 /* RoomScanPlugin.swift in Sources */,
+				AA1000000000000000000002 /* SpeakerPlugin.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -234,7 +374,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -285,7 +425,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -302,7 +442,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -324,7 +464,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -361,6 +501,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		TW11L10PKG0000000000REF0 /* XCRemoteSwiftPackageReference "twilio-voice-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/twilio/twilio-voice-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.13.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCLocalSwiftPackageReference section */
 		D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -373,6 +524,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		TW11L10PROD000000000DEP0 /* TwilioVoice */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = TW11L10PKG0000000000REF0 /* XCRemoteSwiftPackageReference "twilio-voice-ios" */;
+			productName = TwilioVoice;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

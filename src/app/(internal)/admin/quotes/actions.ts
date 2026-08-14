@@ -94,6 +94,14 @@ function parseLines(formData: FormData): QuoteLineInput[] {
             typeof line.priceBookItemId === "string" && line.priceBookItemId
               ? line.priceBookItemId
               : null,
+          // A tier on a non-optional line is meaningless — same rule the
+          // database enforces — so it's dropped here rather than sent
+          // through to fail on the constraint.
+          tier:
+            Boolean(line.optional) &&
+            (line.tier === "good" || line.tier === "better" || line.tier === "best")
+              ? line.tier
+              : null,
         },
       ];
     })
@@ -121,6 +129,7 @@ function parseInput(formData: FormData): QuoteInput {
     clientId,
     propertyId: str(formData, "propertyId") || null,
     leadId: str(formData, "leadId") || null,
+    projectId: str(formData, "projectId") || null,
     title: str(formData, "title") || null,
     taxRateId: str(formData, "taxRateId") || null,
     discountKind:

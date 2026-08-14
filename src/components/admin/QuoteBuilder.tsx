@@ -17,7 +17,7 @@ import {
 } from "@/lib/crm/money";
 import { blankLine, type EditableLine } from "@/lib/crm/quoteLines";
 import type { CompanySetting, TaxRate, TaxRatesSetting } from "@/lib/crm/settings";
-import type { DiscountKind, PriceBookItem } from "@/lib/crm/quoteTypes";
+import type { DiscountKind, PriceBookItem, QuoteTier } from "@/lib/crm/quoteTypes";
 
 /**
  * The estimate builder.
@@ -35,6 +35,7 @@ import type { DiscountKind, PriceBookItem } from "@/lib/crm/quoteTypes";
 export type QuoteFormValues = {
   clientId: string;
   propertyId: string;
+  projectId: string;
   leadId: string;
   title: string;
   taxRateId: string;
@@ -61,6 +62,7 @@ export type ClientOption = {
   name: string;
   taxRateId: string | null;
   properties: { id: string; label: string; taxRateId: string | null }[];
+  projects: { id: string; name: string }[];
 };
 
 export default function QuoteBuilder({
@@ -85,6 +87,7 @@ export default function QuoteBuilder({
 
   const [clientId, setClientId] = useState(initial.clientId);
   const [propertyId, setPropertyId] = useState(initial.propertyId);
+  const [projectId, setProjectId] = useState(initial.projectId);
   const [taxRateId, setTaxRateId] = useState(initial.taxRateId);
   const [lines, setLines] = useState<EditableLine[]>(
     initial.lines.length ? initial.lines : [blankLine()],
@@ -184,6 +187,7 @@ export default function QuoteBuilder({
     selected: line.selected,
     laborHours: line.laborHours,
     priceBookItemId: line.priceBookItemId,
+    tier: line.tier,
   }));
 
   function update(key: string, patch: Partial<EditableLine>) {
@@ -270,6 +274,35 @@ export default function QuoteBuilder({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Optional and secondary to Client/Property, so it gets its own row
+            rather than crowding into the same grid — most quotes belong to
+            no project at all, and the field should read that way. */}
+        <div>
+          <label htmlFor={`${id}-project`} className={labelClass}>
+            Project <span className="font-normal text-charcoal/40">optional</span>
+          </label>
+          <select
+            id={`${id}-project`}
+            name="projectId"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className={inputClass}
+            disabled={!client}
+          >
+            <option value="">
+              {client?.projects.length ? "Not part of a project" : "No projects on file"}
+            </option>
+            {client?.projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] leading-snug text-charcoal/45">
+            Converting this quote to a job will attach that job to the project too.
+          </p>
         </div>
 
         <Text name="title" label="Title" defaultValue={initial.title} hint="What this job is, in a few words. Appears at the top of the quote." />
@@ -688,11 +721,25 @@ function LineRow({
                     }
                   />
                   {line.optional && (
-                    <MiniCheck
-                      label="Pre-ticked"
-                      checked={line.selected}
-                      onChange={(selected) => onChange({ selected })}
-                    />
+                    <>
+                      {/* A tiered line's selected state is decided by which
+                          tier the customer picks on the public page, not by
+                          a pre-tick here — so the two controls are mutually
+                          exclusive rather than shown together. */}
+                      <TierSelect
+                        value={line.tier}
+                        onChange={(tier) =>
+                          onChange({ tier, selected: tier ? false : line.selected })
+                        }
+                      />
+                      {!line.tier && (
+                        <MiniCheck
+                          label="Pre-ticked"
+                          checked={line.selected}
+                          onChange={(selected) => onChange({ selected })}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
                 <span
@@ -974,6 +1021,32 @@ function MiniCheck({
         className="h-3.5 w-3.5 cursor-pointer accent-brand-blue"
       />
       {label}
+    </label>
+  );
+}
+
+/** Good/Better/Best, per line. "None" is the default — a quote with no tiers
+    assigned to any line behaves exactly like before this feature existed. */
+function TierSelect({
+  value,
+  onChange,
+}: {
+  value: QuoteTier | null;
+  onChange: (value: QuoteTier | null) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-charcoal/70">
+      Tier
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange((e.target.value || null) as QuoteTier | null)}
+        className="cursor-pointer rounded-md border border-black/10 bg-white px-1.5 py-0.5 text-xs outline-none focus:border-brand-blue"
+      >
+        <option value="">None</option>
+        <option value="good">Good</option>
+        <option value="better">Better</option>
+        <option value="best">Best</option>
+      </select>
     </label>
   );
 }

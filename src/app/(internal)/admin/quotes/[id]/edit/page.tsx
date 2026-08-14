@@ -28,13 +28,16 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
     getCompany(),
   ]);
 
-  const clients: ClientOption[] = await attachProperties(
-    clientRows.map((row) => ({
-      id: row.id,
-      name: clientDisplayName(row),
-      taxRateId: row.tax_rate_id,
-      properties: [],
-    })),
+  const clients: ClientOption[] = await attachProjects(
+    await attachProperties(
+      clientRows.map((row) => ({
+        id: row.id,
+        name: clientDisplayName(row),
+        taxRateId: row.tax_rate_id,
+        properties: [],
+        projects: [],
+      })),
+    ),
   );
 
   const lines: EditableLine[] = quote.lines.map((line, index) => ({
@@ -51,6 +54,7 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
     selected: line.selected,
     laborHours: line.labor_hours,
     priceBookItemId: line.price_book_item_id,
+    tier: line.tier,
   }));
 
   return (
@@ -75,6 +79,7 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
         initial={{
           clientId: quote.client_id,
           propertyId: quote.property_id ?? "",
+          projectId: quote.project_id ?? "",
           leadId: quote.lead_id ?? "",
           title: quote.title ?? "",
           taxRateId: quote.tax_rate_id ?? "",
@@ -130,4 +135,26 @@ async function attachProperties(clients: ClientOption[]): Promise<ClientOption[]
   }
 
   return clients.map((c) => ({ ...c, properties: byClient.get(c.id) ?? [] }));
+}
+
+/** Same shape as `attachProperties` — per-client projects, fetched once
+    rather than joined, so listClients stays a plain client list. */
+async function attachProjects(clients: ClientOption[]): Promise<ClientOption[]> {
+  const client = db();
+  if (!client) return clients;
+
+  const { data } = await client
+    .from("projects")
+    .select("id, client_id, name")
+    .neq("status", "archived")
+    .not("client_id", "is", null);
+
+  const byClient = new Map<string, ClientOption["projects"]>();
+  for (const row of (data ?? []) as { id: string; client_id: string; name: string }[]) {
+    const list = byClient.get(row.client_id) ?? [];
+    list.push({ id: row.id, name: row.name });
+    byClient.set(row.client_id, list);
+  }
+
+  return clients.map((c) => ({ ...c, projects: byClient.get(c.id) ?? [] }));
 }

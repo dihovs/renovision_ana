@@ -30,6 +30,7 @@ function itemLine(over: Partial<QuoteLineItem> = {}): QuoteLineItem {
     selected: false,
     labor_hours: null,
     price_book_item_id: null,
+    tier: null,
     ...over,
   };
 }

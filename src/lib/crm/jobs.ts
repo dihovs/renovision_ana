@@ -7,6 +7,7 @@ import {
 } from "./conversions";
 import { db, isMissingTable, MigrationPendingError } from "./db";
 import { calculateQuoteTotals } from "./money";
+import { attachJob } from "./projects";
 import type {
   ChecklistItem,
   DocumentLine,
@@ -46,7 +47,12 @@ function orNull(value: string | undefined | null): string | null {
   return trimmed ? trimmed : null;
 }
 
-export type JobListItem = Job & { client_name: string; visit_count: number };
+export type JobListItem = Job & {
+  client_name: string;
+  visit_count: number;
+  message_count: number;
+  photo_count: number;
+};
 
 export async function listJobs(
   options: { status?: JobStatus; clientId?: string; limit?: number } = {},
@@ -56,7 +62,9 @@ export async function listJobs(
 
   let query = client
     .from("jobs")
-    .select("*, clients(first_name, last_name, company_name), visits(id)")
+    .select(
+      "*, clients(first_name, last_name, company_name), visits(id), whatsapp_messages(id, media_mime)",
+    )
     .is("archived_at", null)
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -66,17 +74,20 @@ export async function listJobs(
 
   const { data, error } = await query;
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load jobs: ${error.message}`);
   }
 
   return ((data ?? []) as (Job & {
     clients: Parameters<typeof clientDisplayName>[0] | null;
     visits: { id: string }[];
-  })[]).map(({ clients, visits, ...job }) => ({
+    whatsapp_messages: { id: string; media_mime: string | null }[] | null;
+  })[]).map(({ clients, visits, whatsapp_messages, ...job }) => ({
     ...job,
     client_name: clients ? clientDisplayName(clients) : "Unknown client",
     visit_count: visits?.length ?? 0,
+    message_count: whatsapp_messages?.length ?? 0,
+    photo_count: whatsapp_messages?.filter((m) => m.media_mime?.startsWith("image/")).length ?? 0,
   }));
 }
 
@@ -89,7 +100,7 @@ export async function getJob(id: string): Promise<JobWithLines | null> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load the job: ${error.message}`);
   }
   if (!data) return null;
@@ -132,7 +143,7 @@ async function findJobForQuote(quoteId: string): Promise<JobStub | null> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not check whether the quote was already converted: ${error.message}`);
   }
   return (data as JobStub | null) ?? null;
@@ -279,7 +290,7 @@ export async function createJobFromQuote(quoteId: string): Promise<ConversionRes
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     // `jobs_one_per_quote` fired: another tap got here first, in the window
     // between our read above and this insert. Go and read what it made.
     if (isDuplicateKey(error)) {
@@ -305,6 +316,22 @@ export async function createJobFromQuote(quoteId: string): Promise<ConversionRes
   }
 
   await markQuoteConverted(quoteId);
+
+  // An estimate built under a project should hand its job straight to that
+  // same project — attaching it by hand every time is exactly the kind of
+  // step that gets forgotten. Best-effort: a project link failing here is
+  // not a reason to fail the job that was just successfully created.
+  if (quote.project_id) {
+    try {
+      await attachJob(quote.project_id, jobId);
+    } catch (err) {
+      console.warn(
+        `[jobs] could not attach job ${jobId} to project ${quote.project_id}: ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   return { id: jobId, created: true };
 }
 
@@ -424,7 +451,7 @@ export async function createJobForClient(
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not create the job: ${error.message}`);
   }
 
@@ -467,7 +494,7 @@ async function findRecentDirectJob(
 
   const { data, error } = await query.maybeSingle();
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     // Not worth failing the conversion over: the worst case is a duplicate the
     // owner can archive, and refusing to create the job at all is worse.
     console.error(`[jobs] could not check for a double submit: ${error.message}`);
@@ -541,7 +568,7 @@ async function loadSchedulableJob(jobId: string): Promise<JobStub> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load the job: ${error.message}`);
   }
 
@@ -584,7 +611,7 @@ export async function createVisit(
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("visits");
+    if (isMissingTable(error)) throw new MigrationPendingError("visits", error.message);
     throw new Error(`Could not schedule the visit: ${error.message}`);
   }
 
@@ -740,7 +767,7 @@ export async function listVisitsBetween(fromIso: string, toIso: string): Promise
     .order("starts_at", { ascending: true });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("visits");
+    if (isMissingTable(error)) throw new MigrationPendingError("visits", error.message);
     throw new Error(`Could not load the schedule: ${error.message}`);
   }
 

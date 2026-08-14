@@ -1,0 +1,455 @@
+"use client";
+
+import { metersToFeet, toFloorPlan, type RoomScanResult } from "@/lib/roomScan";
+
+/**
+ * A scanned room drawn as an actual floor plan.
+ *
+ * Shared, because the same drawing is the scan screen's main view AND the
+ * thumbnail on a project card — and a thumbnail that renders differently
+ * from the thing it is a thumbnail OF is its own small lie.
+ *
+ * `variant="thumb"` drops the dimensions, scale bar and labels: at card size
+ * none of them are legible, and the outline alone is what makes a project
+ * recognisable at a glance.
+ */
+export default function FloorPlan({
+  result,
+  name,
+  variant = "full",
+  sections,
+}: {
+  result: RoomScanResult;
+  name: string;
+  variant?: "full" | "thumb";
+  /** Room labels from a merged structure, drawn at their centres. */
+  sections?: { label: string; centerX: number; centerZ: number }[];
+}) {
+  const plan = toFloorPlan(result);
+  if (plan.segments.length === 0) return null;
+
+  const thumb = variant === "thumb";
+  // A merged floor has dozens of walls; per-wall dimension tiers stack into
+  // an unreadable smear. Keep the overall spans, drop the breakdowns.
+  const dense = result.walls.length > 12;
+  // The REAL wall: 2x4 partition + drywall, 0.114 m, drawn at true thickness
+  // with a heavier cut face — the double-line-with-poché convention every
+  // drafted plan uses. Thumbnails keep a single solid band (the spec's L0):
+  // at card size the two face lines merge anyway.
+  const T = 0.114;
+  const CUT = 0.018;
+  const WALL = thumb ? 0.22 : T;
+
+  // Where walls meet. A centreline stroked to its exact length leaves a
+  // notched corner; extending each end that SHARES a joint by half a
+  // thickness closes the mitre — the two-pass trick from the renderer spec.
+  const joints: { x: number; y: number }[] = [];
+  {
+    const pts = plan.segments.flatMap((s) => [
+      { x: s.x1, y: s.y1 },
+      { x: s.x2, y: s.y2 },
+    ]);
+    for (let i = 0; i < pts.length; i += 1) {
+      for (let j = i + 1; j < pts.length; j += 1) {
+        if (Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y) < 0.06) {
+          joints.push({ x: (pts[i].x + pts[j].x) / 2, y: (pts[i].y + pts[j].y) / 2 });
+        }
+      }
+    }
+  }
+  const nearJoint = (x: number, y: number) =>
+    joints.some((j) => Math.hypot(j.x - x, j.y - y) < 0.06);
+
+  const wallPath = plan.segments
+    .map((s) => {
+      const dx = s.x2 - s.x1;
+      const dy = s.y2 - s.y1;
+      const L = Math.hypot(dx, dy) || 1;
+      const ux = dx / L;
+      const uy = dy / L;
+      const e1 = nearJoint(s.x1, s.y1) ? T / 2 : 0;
+      const e2 = nearJoint(s.x2, s.y2) ? T / 2 : 0;
+      return `M ${s.x1 - ux * e1} ${s.y1 - uy * e1} L ${s.x2 + ux * e2} ${s.y2 + uy * e2}`;
+    })
+    .join(" ");
+  // Asymmetric on purpose: the vertical dimensions live off the right edge
+  // and their rotated text needs more room than the bare left margin does.
+  // A thumbnail has none of that, so it gets a tight even margin instead.
+  const padLeft = thumb ? 0.4 : 1.1;
+  const padRight = thumb ? 0.4 : 2.0;
+  const padTop = thumb ? 0.4 : 1.5;
+  const padBottom = thumb ? 0.4 : 2.2;
+  const { width, height } = plan;
+
+  // Which walls run across and which run up — a wall within ~15° of an axis
+  // is treated as that axis, since a scanned wall is never exactly square.
+  const horizontal = plan.segments.filter(
+    (s) => Math.abs(s.y2 - s.y1) < Math.abs(s.x2 - s.x1) * 0.27,
+  );
+  const vertical = plan.segments.filter(
+    (s) => Math.abs(s.x2 - s.x1) < Math.abs(s.y2 - s.y1) * 0.27,
+  );
+
+  
+  return (
+    <div
+      className={
+        thumb ? "h-full w-full" : "overflow-hidden rounded-xl border border-black/5 bg-white"
+      }
+    >
+      <svg
+        viewBox={`${-padLeft} ${-padTop} ${width + padLeft + padRight} ${height + padTop + padBottom}`}
+        className={thumb ? "h-full w-full" : "h-auto w-full"}
+        preserveAspectRatio="xMidYMid meet"
+        style={thumb ? undefined : { maxHeight: "56vh" }}
+        role="img"
+        aria-label={`Floor plan of ${name}`}
+      >
+        {plan.polygon.length > 0 && (
+          <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill="#ebebeb" />
+        )}
+
+        {/* Two passes: the wall body at true thickness over a slightly wider
+            ink stroke, which leaves the heavier CUT face lines on both sides
+            and closes every shared corner square — the poché convention. At
+            thumbnail size a single band, per the spec's smallest level. */}
+        {thumb ? (
+          plan.segments.map((s, i) => (
+            <line
+              key={`w${i}`}
+              x1={s.x1}
+              y1={s.y1}
+              x2={s.x2}
+              y2={s.y2}
+              stroke="#111111"
+              strokeWidth={WALL}
+              strokeLinecap="square"
+            />
+          ))
+        ) : (
+          <>
+            <path d={wallPath} stroke="#111111" strokeWidth={T + 2 * CUT} fill="none" strokeLinecap="butt" />
+            <path d={wallPath} stroke="#111111" strokeWidth={T} fill="none" strokeLinecap="butt" />
+          </>
+        )}
+
+        {/* Openings knocked out of the band, then re-drawn as their proper
+            symbols: jamb caps at cut weight (the jambs ARE cut by the plan
+            plane), a three-line window, a door with its leaf and quarter
+            swing. Thumbnails keep plain gaps. */}
+        {plan.openings.map((o, i) => {
+          const dx = o.x2 - o.x1;
+          const dy = o.y2 - o.y1;
+          const w = Math.hypot(dx, dy);
+          if (w < 0.05) return null;
+          const ux = dx / w;
+          const uy = dy / w;
+          const nx = -uy;
+          const ny = ux;
+
+          return (
+            <g key={`o${i}`}>
+              <line
+                x1={o.x1}
+                y1={o.y1}
+                x2={o.x2}
+                y2={o.y2}
+                stroke="#ffffff"
+                strokeWidth={thumb ? WALL * 1.25 : T + 2 * CUT + 0.006}
+                strokeLinecap="butt"
+              />
+
+              {!thumb && (
+                <>
+                  {[
+                    { px: o.x1, py: o.y1 },
+                    { px: o.x2, py: o.y2 },
+                  ].map(({ px, py }, k) => (
+                    <line
+                      key={`j${k}`}
+                      x1={px - (nx * T) / 2}
+                      y1={py - (ny * T) / 2}
+                      x2={px + (nx * T) / 2}
+                      y2={py + (ny * T) / 2}
+                      stroke="#111111"
+                      strokeWidth={CUT}
+                    />
+                  ))}
+
+                  {o.kind === "window" && (
+                    <>
+                      {[1, -1].map((side) => (
+                        <line
+                          key={`f${side}`}
+                          x1={o.x1 + (side * nx * T) / 2}
+                          y1={o.y1 + (side * ny * T) / 2}
+                          x2={o.x2 + (side * nx * T) / 2}
+                          y2={o.y2 + (side * ny * T) / 2}
+                          stroke="#111111"
+                          strokeWidth={0.014}
+                        />
+                      ))}
+                      <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke="#111111" strokeWidth={0.01} />
+                    </>
+                  )}
+
+                  {o.kind === "door" && w >= 0.45 && (
+                    <Door opening={o} joints={joints} polygon={plan.polygon} T={T} />
+                  )}
+                </>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Dimensions and the scale bar are dropped at thumbnail size:
+            none of it is legible on a card, and the outline alone is what
+            makes a project recognisable at a glance. */}
+        {!thumb && (
+          <>
+        {/* Outer tier: the overall span, top and right. Inner tier: each
+            wall on that side, but only when there is more than one — a
+            single wall would just repeat the overall figure. */}
+        <Dimension from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.05} axis="x" />
+        {!dense && horizontal.length > 1 &&
+          horizontal.map((s, i) => (
+            <Dimension
+              key={`hx${i}`}
+              from={{ x: Math.min(s.x1, s.x2), y: 0 }}
+              to={{ x: Math.max(s.x1, s.x2), y: 0 }}
+              offset={-0.5}
+              axis="x"
+            />
+          ))}
+
+        <Dimension from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.05} axis="y" />
+        {!dense && vertical.length > 1 &&
+          vertical.map((s, i) => (
+            <Dimension
+              key={`vy${i}`}
+              from={{ x: width, y: Math.min(s.y1, s.y2) }}
+              to={{ x: width, y: Math.max(s.y1, s.y2) }}
+              offset={0.5}
+              axis="y"
+            />
+          ))}
+
+        <ScaleBar y={height + 1.35} width={width} />
+          </>
+        )}
+
+        {/* Room names the merge recognised, at their own centres. */}
+        {!thumb &&
+          (sections ?? [])
+            .filter((s) => s.label && s.label !== "unidentified")
+            .map((s, i) => (
+              <text
+                key={`sec${i}`}
+                x={s.centerX - plan.offsetX}
+                y={s.centerZ - plan.offsetY}
+                textAnchor="middle"
+                fontSize={0.3}
+                fontWeight={700}
+                fill="#3c3c43"
+                style={{ textTransform: "capitalize" }}
+              >
+                {s.label.replace(/([A-Z])/g, " $1").toLowerCase()}
+              </text>
+            ))}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * One dimension: witness lines out to an offset, a line with arrowheads
+ * between them, and the measurement centred on it — horizontal text on an
+ * x dimension, rotated a quarter turn on a y one, as a drawing does.
+ *
+ * `offset` is signed and perpendicular: negative is above (x) or left (y).
+ */
+function Dimension({
+  from,
+  to,
+  offset,
+  axis,
+}: {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  offset: number;
+  axis: "x" | "y";
+}) {
+  const span = axis === "x" ? to.x - from.x : to.y - from.y;
+  // Anything under ~30cm has a label wider than the run it describes.
+  if (Math.abs(span) < 0.3) return null;
+
+  const line = axis === "x" ? from.y + offset : from.x + offset;
+  const a = axis === "x" ? { x: from.x, y: line } : { x: line, y: from.y };
+  const b = axis === "x" ? { x: to.x, y: line } : { x: line, y: to.y };
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const head = 0.12;
+  const grey = "#8a8a8e";
+
+  return (
+    <g>
+      {/* Witness lines, from the wall out past the dimension line. */}
+      <line
+        x1={from.x}
+        y1={from.y}
+        x2={axis === "x" ? from.x : line + Math.sign(offset) * 0.12}
+        y2={axis === "x" ? line + Math.sign(offset) * 0.12 : from.y}
+        stroke={grey}
+        strokeWidth={0.018}
+      />
+      <line
+        x1={to.x}
+        y1={to.y}
+        x2={axis === "x" ? to.x : line + Math.sign(offset) * 0.12}
+        y2={axis === "x" ? line + Math.sign(offset) * 0.12 : to.y}
+        stroke={grey}
+        strokeWidth={0.018}
+      />
+
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={grey} strokeWidth={0.022} />
+
+      {/* 45-degree ticks, not arrowheads — the drafting convention for
+          dimension strings. Arrowheads stay reserved for leaders. */}
+      {[a, b].map((p, k) => (
+        <line
+          key={k}
+          x1={p.x - head * 0.6}
+          y1={p.y + head * 0.6}
+          x2={p.x + head * 0.6}
+          y2={p.y - head * 0.6}
+          stroke={grey}
+          strokeWidth={0.03}
+        />
+      ))}
+
+      <text
+        x={mid.x}
+        y={axis === "x" ? mid.y - 0.11 : mid.y}
+        textAnchor="middle"
+        dominantBaseline={axis === "x" ? "auto" : "middle"}
+        fontSize={0.26}
+        fill="#3c3c43"
+        transform={axis === "y" ? `rotate(-90 ${mid.x} ${mid.y})` : undefined}
+        dy={axis === "y" ? -0.1 : undefined}
+      >
+        {formatFeetInches(Math.abs(span))}
+      </text>
+    </g>
+  );
+}
+
+/** Alternating black and white metre-ish blocks, as on a drawing. Feet
+    here, to match every other measurement on this screen. */
+function ScaleBar({ y, width }: { y: number; width: number }) {
+  const totalFt = metersToFeet(width);
+  // A round number of feet that fits comfortably under the plan.
+  const step = totalFt > 40 ? 10 : totalFt > 16 ? 5 : 2;
+  const blockM = step / 3.28084;
+  // Never draw a scale wider than the plan it measures — a bar running past
+  // the room reads as part of the drawing.
+  const blocks = Math.max(2, Math.min(4, Math.floor(width / blockM)));
+
+  return (
+    <g>
+      {Array.from({ length: blocks }).map((_, i) => (
+        <rect
+          key={i}
+          x={i * blockM}
+          y={y}
+          width={blockM}
+          height={0.13}
+          fill={i % 2 === 0 ? "#111111" : "#ffffff"}
+          stroke="#111111"
+          strokeWidth={0.014}
+        />
+      ))}
+      {Array.from({ length: blocks + 1 }).map((_, i) => (
+        <text key={i} x={i * blockM} y={y - 0.12} textAnchor="middle" fontSize={0.22} fill="#8a8a8e">
+          {i * step}
+        </text>
+      ))}
+      <text x={blocks * blockM + 0.14} y={y + 0.12} fontSize={0.22} fill="#8a8a8e">
+        ft
+      </text>
+    </g>
+  );
+}
+
+/**
+ * A door as a drawing draws one: leaf from the hinge, quarter arc to the
+ * latch. Which jamb hinges and which way it swings are not in RoomPlan's
+ * data, so both are the spec's stated heuristics — hinge at the jamb nearer
+ * a wall joint (doors hinge beside the adjoining wall), swing toward the
+ * room's interior — and are conventions, not measurements.
+ */
+function Door({
+  opening,
+  joints,
+  polygon,
+  T,
+}: {
+  opening: { x1: number; y1: number; x2: number; y2: number };
+  joints: { x: number; y: number }[];
+  polygon: { x: number; y: number }[];
+  T: number;
+}) {
+  const dx = opening.x2 - opening.x1;
+  const dy = opening.y2 - opening.y1;
+  const w = Math.hypot(dx, dy);
+  const ux = dx / w;
+  const uy = dy / w;
+  const nx = -uy;
+  const ny = ux;
+
+  const dist = (x: number, y: number) =>
+    joints.length === 0 ? 9 : Math.min(...joints.map((j) => Math.hypot(j.x - x, j.y - y)));
+  const hingeAtStart = dist(opening.x1, opening.y1) <= dist(opening.x2, opening.y2);
+  const [hx, hy, lx, ly] = hingeAtStart
+    ? [opening.x1, opening.y1, opening.x2, opening.y2]
+    : [opening.x2, opening.y2, opening.x1, opening.y1];
+
+  // Interior side: where the floor's centroid sits relative to this wall.
+  let cx = 0;
+  let cy = 0;
+  if (polygon.length >= 3) {
+    cx = polygon.reduce((a, p) => a + p.x, 0) / polygon.length;
+    cy = polygon.reduce((a, p) => a + p.y, 0) / polygon.length;
+  }
+  const side = Math.sign((cx - hx) * nx + (cy - hy) * ny) || 1;
+
+  const H = { x: hx + (side * nx * T) / 2, y: hy + (side * ny * T) / 2 };
+  const L = { x: lx + (side * nx * T) / 2, y: ly + (side * ny * T) / 2 };
+  const tip = { x: H.x + side * nx * w, y: H.y + side * ny * w };
+  const sweep = (tip.x - H.x) * (L.y - H.y) - (tip.y - H.y) * (L.x - H.x) > 0 ? 1 : 0;
+
+  return (
+    <g>
+      <line x1={H.x} y1={H.y} x2={tip.x} y2={tip.y} stroke="#111111" strokeWidth={0.016} />
+      <path
+        d={`M ${tip.x} ${tip.y} A ${w} ${w} 0 0 ${sweep} ${L.x} ${L.y}`}
+        fill="none"
+        stroke="#111111"
+        strokeWidth={0.01}
+      />
+    </g>
+  );
+}
+
+/**
+ * 17'-1" — the drafted convention, to the half inch. Whole feet keep their
+ * -0" (a drawing writes 4'-0", never a bare 4'); under a foot drops the
+ * zero-feet prefix entirely.
+ */
+function formatFeetInches(meters: number): string {
+  const half = Math.round((meters / 0.0254) * 2) / 2;
+  const feet = Math.floor(half / 12);
+  const rem = half - feet * 12;
+  const whole = Math.floor(rem);
+  const frac = rem % 1 === 0.5 ? " 1/2" : "";
+  if (feet === 0) return `${whole}${frac}"`;
+  return `${feet}'-${whole}${frac}"`;
+}
