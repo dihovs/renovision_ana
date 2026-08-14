@@ -62,6 +62,11 @@ struct ElevationView: View {
     /// An outline being dragged on the face right now, in wall-face metres.
     @State private var draft: FaceRect?
     @State private var drawing = false
+    /// Every area filed against this room. Held whole rather than
+    /// pre-filtered so stepping to the next wall costs no round trip.
+    @State private var areas: [AffectedArea] = []
+    @State private var naming = false
+    @State private var error: String?
 
     // MARK: - Geometry
 
@@ -152,37 +157,74 @@ struct ElevationView: View {
 
     private var isDrawable: Bool { wallCount >= 3 && wallLength > 0.05 }
 
+    /// Damage already filed against the wall being faced.
+    private var wallAreas: [AffectedArea] {
+        areas.filter { $0.isWall && $0.wallIndex == edge && $0.polygon.count >= 3 }
+    }
+
+    /// A room that has not been filed yet has no id to hang an area on. The
+    /// button says so rather than failing at the end of a drag.
+    private var canMark: Bool { isDrawable && !roomScanId.isEmpty }
+
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Brand.canvas.ignoresSafeArea()
+        ZStack {
+            Brand.canvas.ignoresSafeArea()
 
-                VStack(spacing: Brand.Space.small) {
-                    if isDrawable {
-                        canvas
-                    } else {
-                        unavailable
-                    }
-                    actionBar
+            VStack(spacing: Brand.Space.small) {
+                navBar
+                if isDrawable {
+                    canvas
+                } else {
+                    unavailable
                 }
-                .padding(.horizontal, Brand.Space.small)
-                .padding(.bottom, Brand.Space.small)
+                actionBar
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { escapePill }
-                ToolbarItem(placement: .principal) { titleBlock }
+            .padding(.horizontal, Brand.Space.small)
+            .padding(.bottom, Brand.Space.small)
+        }
+        .sheet(isPresented: $naming) {
+            if let draft {
+                WallDamageSheet(
+                    widthM: draft.width, heightM: draft.height, areaSqm: draft.areaSqm,
+                    wallNumber: edge + 1
+                ) { name, cause in
+                    Task { await save(draft, name: name, cause: cause) }
+                } onCancel: {
+                    naming = false
+                    self.draft = nil
+                }
             }
         }
+        .task { await load() }
     }
 
     // MARK: - Chrome (§1, §4)
 
-    /// The leading pill: a back chevron beside the literal text `2D` (§1). In
-    /// elevation the context glyph is not a chevron target but an escape —
-    /// what you would go back TO is the plan, and saying `2D` says it in one
+    /// §1's three slots, drawn rather than handed to `.toolbar`.
+    ///
+    /// The system bar was tried first and collapsed the leading pill to a
+    /// bare chevron — iOS gives a toolbar's leading slot its own circular
+    /// treatment and the `2D` never appeared. That text IS the control here
+    /// (§1: in 3D or elevation the context glyph is the literal `2D`, an
+    /// escape rather than a chevron target), so the bar is drawn instead of
+    /// negotiated with.
+    private var navBar: some View {
+        ZStack {
+            titleBlock
+            HStack {
+                escapePill
+                Spacer()
+            }
+        }
+        .padding(.top, Brand.Space.tight)
+        .padding(.bottom, Brand.Space.hair)
+    }
+
+    /// One rounded-rect pill, light grey, holding TWO glyphs side by side: a
+    /// back chevron and the context glyph, both `Brand.blue` (§1). What you
+    /// would go back to from here is the plan, and `2D` says that in one
     /// syllable the operator already reads on the view-mode stepper.
     private var escapePill: some View {
         Button(action: onClose) {
@@ -193,9 +235,12 @@ struct ElevationView: View {
                     .font(.system(size: 15, weight: .bold))
             }
             .foregroundStyle(Brand.blue)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
             .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.pill))
+            .overlay(
+                RoundedRectangle(cornerRadius: Brand.Radius.pill)
+                    .strokeBorder(Brand.hairline, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Back to the plan")
@@ -241,12 +286,12 @@ struct ElevationView: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .disabled(!isDrawable)
-            .opacity(isDrawable ? 1 : 0.35)
+            .disabled(!canMark)
+            .opacity(canMark ? 1 : 0.35)
 
-            Text(caption)
+            Text(error ?? caption)
                 .font(.system(size: 12))
-                .foregroundStyle(Brand.inkSoft)
+                .foregroundStyle(error == nil ? Brand.inkSoft : .orange)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Brand.Space.small)
                 .padding(.bottom, Brand.Space.tight)
@@ -260,13 +305,17 @@ struct ElevationView: View {
 
     private var caption: String {
         guard isDrawable else { return "This wall has no length to draw." }
+        guard canMark else { return "This room is not filed yet, so damage has nowhere to save." }
         if let draft, draft.areaSqm > 0 {
             return "\(FloorPlanGeometry.feetInches(draft.width)) × "
                 + "\(FloorPlanGeometry.feetInches(draft.height)) — "
                 + Measure.sqftLabel(draft.areaSqm)
         }
-        if drawing { return "Drag a rectangle over the part of the wall you mean." }
-        return "Insert outlines a region of this wall face."
+        if drawing { return "Drag a rectangle over the damaged part of the wall." }
+        if !wallAreas.isEmpty {
+            return "\(Measure.sqftLabel(wallAreas.reduce(0) { $0 + $1.areaSqm })) marked on this wall."
+        }
+        return "Insert marks a damaged area on this wall face."
     }
 
     private var unavailable: some View {
@@ -295,6 +344,7 @@ struct ElevationView: View {
                     guard let face else { return }
                     drawFolds(context: context, face: face)
                     drawFace(context: context, face: face)
+                    drawAreas(context: context, face: face, size: size)
                     drawDraft(context: context, face: face)
                     drawOpenings(context: context, face: face, size: size)
                     drawDimensions(context: context, face: face, size: size)
@@ -312,7 +362,7 @@ struct ElevationView: View {
                 .padding(.horizontal, 6)
             }
         }
-        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .background(Self.sheet, in: .rect(cornerRadius: Brand.Radius.card))
         .overlay(
             RoundedRectangle(cornerRadius: Brand.Radius.card)
                 .strokeBorder(Brand.hairline, lineWidth: 0.5))
@@ -325,7 +375,7 @@ struct ElevationView: View {
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(Brand.blue)
                 .frame(width: 40, height: 40)
-                .background(Color(uiColor: .systemBackground), in: .circle)
+                .background(Self.paper, in: .circle)
                 .overlay(Circle().strokeBorder(Brand.hairline, lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
         }
@@ -350,6 +400,55 @@ struct ElevationView: View {
                 let now = face.clampedFace(value.location)
                 draft = FaceRect(a: start, b: now)
             }
+            .onEnded { _ in
+                // A shape with no area is a tap, not a region. It clears
+                // rather than opening a sheet that has nothing to name.
+                guard let draft, draft.areaSqm > 0.01 else {
+                    self.draft = nil
+                    return
+                }
+                naming = true
+            }
+    }
+
+    // MARK: - Damage, saved and reloaded
+
+    private func load() async {
+        guard !roomScanId.isEmpty else { return }
+        areas = (try? await API.shared.areas(roomScanId: roomScanId)) ?? []
+    }
+
+    /// File the outline as a wall area.
+    ///
+    /// `surface` and `wallIndex` are what make it a wall area rather than a
+    /// floor one, and the polygon goes up in FACE metres — the space this
+    /// file's header defines. The server takes the shoelace of exactly those
+    /// numbers for `area_sqm`, so what lands in the column is square metres
+    /// of wall, priced at the wall trade's rate.
+    ///
+    /// No colour is sent. The cause carries the default, and a null column is
+    /// what lets the category be recoloured later without stranding this row
+    /// on a stale hex.
+    private func save(_ region: FaceRect, name: String, cause: DamageCause) async {
+        do {
+            _ = try await API.shared.createArea(
+                roomScanId: roomScanId,
+                name: name.isEmpty ? "Wall \(edge + 1)" : name,
+                damageType: cause.rawValue,
+                surface: "wall",
+                wallIndex: edge,
+                polygon: region.polygon)
+            error = nil
+            naming = false
+            draft = nil
+            drawing = false
+            await load()
+        } catch {
+            // The drawing survives the failure: it took a drag to make and
+            // the operator is standing in front of the wall it describes.
+            naming = false
+            self.error = "That did not save. \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Layout
@@ -429,7 +528,7 @@ struct ElevationView: View {
     private func drawFace(context: GraphicsContext, face: Face) {
         let rect = face.rect
         let outline = Path(rect)
-        context.fill(outline, with: .color(Color(uiColor: .systemBackground)))
+        context.fill(outline, with: .color(Self.paper))
 
         // Model-space pitch, so the tiles hold their real size as a short
         // wall is drawn bigger than a long one.
@@ -471,6 +570,49 @@ struct ElevationView: View {
     /// it cannot be mistaken for a dimension or a wall.
     private static let tile = Color(hex: 0xC08552)
 
+    /// The drawing's own palette, fixed in both appearances.
+    ///
+    /// An elevation is a sheet of paper, and paper does not invert. Drawn
+    /// against `.systemBackground` the face went black in dark mode under ink
+    /// that stayed near-black, which is a drawing nobody can see;
+    /// `FloorPlanView` already avoids that by fixing its floor fill. `paper`
+    /// is the face, `sheet` the flat very light grey it sits on (§2) — the
+    /// contrast between them is what makes the face read as a face.
+    private static let paper = Color(hex: 0xFFFFFF)
+    private static let sheet = Color(hex: 0xF2F2F5)
+
+    /// Damage already marked on this wall, each in its cause's colour — the
+    /// owner's *"different colour coatings for you to find them easily
+    /// after"* (G6). Drawn over the tile grid and under the openings, so a
+    /// window inside a wet region still reads as a window.
+    ///
+    /// Their polygons are in face metres, which is why they can be drawn with
+    /// the same `face.point` the dimensions use and nothing else.
+    private func drawAreas(context: GraphicsContext, face: Face, size: CGSize) {
+        for area in wallAreas {
+            var path = Path()
+            for (index, point) in area.polygon.enumerated() {
+                let at = face.point(point.x, point.y)
+                if index == 0 { path.move(to: at) } else { path.addLine(to: at) }
+            }
+            path.closeSubpath()
+
+            let colour = area.displayColor
+            context.fill(path, with: .color(colour.opacity(0.28)))
+            context.stroke(path, with: .color(colour), lineWidth: 1.5)
+
+            // The name on the region itself: a colour says the cause, and
+            // only the name says which of two wet patches this one is.
+            let box = path.boundingRect
+            guard box.width > 34, box.height > 16 else { continue }
+            let text = context.resolve(
+                Text(area.name)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(colour))
+            context.draw(text, at: CGPoint(x: box.midX, y: box.midY), anchor: .center)
+        }
+    }
+
     private func drawDraft(context: GraphicsContext, face: Face) {
         guard let draft, draft.areaSqm > 0 else { return }
         let path = Path(rectangle(draft, in: face))
@@ -495,7 +637,7 @@ struct ElevationView: View {
 
             // Clear the tile grid out of the opening: a window is a hole in
             // the surface, not a pane of it.
-            context.fill(Path(box), with: .color(Color(uiColor: .systemBackground)))
+            context.fill(Path(box), with: .color(Self.paper))
 
             let ink = Color(hex: 0x111111)
             switch opening.kind {
@@ -504,9 +646,8 @@ struct ElevationView: View {
                 // Concentric: casing, sash, glazing bead. Each inset by a
                 // real thickness rather than a fraction, so a small hopper
                 // does not get a frame thicker than its glass.
-                var inset: CGFloat = 0
                 for (step, weight) in [(0.0, 1.5), (0.045, 1.0), (0.085, 0.6)] {
-                    inset = CGFloat(step) * face.scale
+                    let inset = CGFloat(step) * face.scale
                     let r = box.insetBy(dx: inset, dy: inset)
                     guard r.width > 1, r.height > 1 else { break }
                     context.stroke(Path(r), with: .color(ink), lineWidth: weight)
@@ -589,7 +730,7 @@ struct ElevationView: View {
     private func openingRect(_ opening: PlanEditing.WallOpening, in face: Face) -> CGRect? {
         let offset = PlanEditing.clampedOffset(
             offset: opening.offset, width: opening.width, edgeLength: wallLength)
-        let head = headHeight(of: opening.kind)
+        let head = headHeight
         let sill = max(0, head - opening.kind.height)
         guard head > sill else { return nil }
         let a = face.point(offset, head)
@@ -599,11 +740,11 @@ struct ElevationView: View {
         return rect
     }
 
-    private static let headerHeight = 2.032
-
-    private func headHeight(of kind: PlanEditing.OpeningKind) -> Double {
-        min(Self.headerHeight, wallHeight - 0.05)
-    }
+    /// The framer's 6'-8" header. One line for every kind, deliberately: a
+    /// door and the window beside it head out together in stick framing, and
+    /// a wall drawn with a continuous header course is the wall a framer
+    /// recognises. Dropped to just under a ceiling too low to carry it.
+    private var headHeight: Double { min(2.032, wallHeight - 0.05) }
 
     // MARK: - Dimensions (§6, §10, G3)
 
@@ -725,7 +866,7 @@ struct ElevationView: View {
     private func drawOpeningHeights(context: GraphicsContext, face: Face, size: CGSize) {
         for opening in wallOpenings {
             guard let box = openingRect(opening, in: face) else { continue }
-            let head = headHeight(of: opening.kind)
+            let head = headHeight
             let sill = max(0, head - opening.kind.height)
 
             // Right of the opening by default; left when the right would run
@@ -782,8 +923,102 @@ struct ElevationView: View {
                         x: -measured.width / 2 - 3, y: -measured.height / 2 - 1,
                         width: measured.width + 6, height: measured.height + 2),
                     cornerRadius: 3),
-                with: .color(Color(uiColor: .systemBackground).opacity(0.88)))
+                with: .color(Self.paper.opacity(0.88)))
             layer.draw(resolved, at: .zero, anchor: .center)
         }
+    }
+}
+
+// MARK: - Naming the damage
+
+/// Name the region and say what caused it.
+///
+/// Two questions, asked once, after the shape exists. The owner's own account
+/// of the feature is a rectangle that is *named* and *colour-coded by cause*
+/// (G6), and those are exactly the two fields the row needs to be findable
+/// later and priceable at all — the cause is what decides which price-book
+/// lines apply, so it cannot be an afterthought.
+///
+/// The measurement is shown but not editable. It is the drag's own arithmetic,
+/// and a typed number that disagreed with the drawn rectangle would be a
+/// figure with no shape behind it.
+struct WallDamageSheet: View {
+    let widthM: Double
+    let heightM: Double
+    let areaSqm: Double
+    let wallNumber: Int
+    let onSave: (String, DamageCause) -> Void
+    let onCancel: () -> Void
+
+    @State private var name = ""
+    @State private var cause: DamageCause = .water
+    @State private var saving = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: Brand.Space.base) {
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Wall \(wallNumber)")
+                                .font(.system(size: 11, weight: .heavy))
+                                .tracking(0.3)
+                                .foregroundStyle(Brand.inkFaint)
+                            Text(
+                                "\(FloorPlanGeometry.feetInches(widthM)) × "
+                                    + FloorPlanGeometry.feetInches(heightM)
+                            )
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.inkSoft)
+                        }
+                        Spacer()
+                        Text(Measure.sqftLabel(areaSqm))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(cause.color)
+                    }
+
+                    TextField("Name it — \"below the window\"", text: $name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .textFieldStyle(.plain)
+                        .padding(Brand.Space.small)
+                        .background(
+                            Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
+
+                    VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                        Text("Cause")
+                            .font(.system(size: 11, weight: .heavy))
+                            .tracking(0.3)
+                            .foregroundStyle(Brand.inkFaint)
+                        DamageCausePicker(cause: $cause)
+                    }
+
+                    Text("Wall damage totals separately from floor damage — stripping drywall and lifting a floor are different trades at different rates.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.inkFaint)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 0)
+
+                    Button(saving ? "Saving…" : "Save area") {
+                        saving = true
+                        onSave(name.trimmingCharacters(in: .whitespacesAndNewlines), cause)
+                    }
+                    .buttonStyle(PrimaryButtonStyle(enabled: !saving))
+                    .disabled(saving)
+                }
+                .padding(Brand.Space.base)
+            }
+            .navigationTitle("Damaged area")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }

@@ -293,19 +293,46 @@ actor API {
             let y: Double
         }
         let roomScanId: String
+        /// `floor` or `wall`. This was never sent at all, and the route
+        /// defaults a missing one to `floor` — which is how a rectangle drawn
+        /// on a wall face would have been filed as floor damage, in the wrong
+        /// coordinate space, priced at the wrong trade's rate.
+        let surface: String
+        /// Which wall, for a wall area. The database refuses a wall area with
+        /// no wall and a floor area that names one, so this is nil exactly
+        /// when `surface` is `floor`.
+        let wallIndex: Int?
         let name: String
         let damageType: String
+        /// An override, and normally absent. Sending the cause's own colour
+        /// here would freeze it into the row and defeat the point of a
+        /// nullable column — the default belongs to the category, so that
+        /// recolouring the category later moves every area with it.
+        let color: String?
         let polygon: [Point]
     }
 
-    func createArea(roomScanId: String, name: String, damageType: String, polygon: [CGPoint])
-        async throws -> String
-    {
+    /// File a damaged region.
+    ///
+    /// `polygon` is in metres, in the space its surface is measured in: the
+    /// plan's own coordinates for a floor area, the wall's face coordinates
+    /// for a wall one (`ElevationView` defines those). The server computes
+    /// `area_sqm` from the shoelace of whatever is sent, so a wall rectangle
+    /// in face metres totals as real square metres of wall.
+    func createArea(
+        roomScanId: String, name: String, damageType: String,
+        surface: String = "floor", wallIndex: Int? = nil, color: String? = nil,
+        polygon: [CGPoint]
+    ) async throws -> String {
         struct Created: Decodable { let id: String }
+        let onWall = surface == "wall"
         let data = try await request(
             "/api/v1/areas", method: "POST",
             body: NewArea(
-                roomScanId: roomScanId, name: name, damageType: damageType,
+                roomScanId: roomScanId,
+                surface: onWall ? "wall" : "floor",
+                wallIndex: onWall ? (wallIndex ?? 0) : nil,
+                name: name, damageType: damageType, color: color,
                 polygon: polygon.map { .init(x: Double($0.x), y: Double($0.y)) }))
         return try decode(Created.self, from: data).id
     }

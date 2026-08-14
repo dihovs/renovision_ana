@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// The shapes the API actually returns.
 ///
@@ -601,6 +602,61 @@ struct RoomScan: Decodable, Identifiable, Hashable {
 
 // MARK: - Affected areas
 
+/// The five causes an affected area can carry, and the colour each draws in.
+///
+/// ONE table, matching `src/lib/crm/areaShapes.ts` exactly — `DAMAGE_TYPES`
+/// is the order (which is the order they are offered in), `DAMAGE_LABEL` the
+/// wording, `DAMAGE_COLOR` the hex. This existed as two private tables of UI
+/// constants, one in `FloorPlanView` and one in `RoomDetailView`, and a
+/// duplicated colour table is a colour table that drifts. The same damage
+/// showing in a different colour on the phone and on the web is a support
+/// call, and the web is the side the adjuster reads.
+///
+/// The spelling is `mould`. That is the `damage_type` check constraint's
+/// spelling in `0025_affected_areas.sql` and the vocabulary the rest of the
+/// claim uses; `mold` would be refused by the database.
+enum DamageCause: String, CaseIterable, Identifiable {
+    case water, fire, mould, impact, other
+
+    var id: String { rawValue }
+
+    /// `DAMAGE_LABEL`.
+    var label: String {
+        switch self {
+        case .water: return "Water"
+        case .fire: return "Fire / smoke"
+        case .mould: return "Mould"
+        case .impact: return "Impact"
+        case .other: return "Other"
+        }
+    }
+
+    /// `DAMAGE_COLOR`, the same six digits.
+    var hex: UInt32 {
+        switch self {
+        case .water: return 0x2B7FD4
+        case .fire: return 0xE2673A
+        case .mould: return 0x4F9D3A
+        case .impact: return 0x8A63D2
+        case .other: return 0x8A8A8E
+        }
+    }
+
+    var color: Color { Color(hex: hex) }
+
+    /// The `#rrggbb` the `color` column stores, lower case, so a colour
+    /// written from the phone is byte-identical to one written from the web.
+    var hexString: String { String(format: "#%06x", hex) }
+
+    /// An unrecognised cause reads as water rather than throwing.
+    /// `damage_type` is constrained in the database, so anything unfamiliar
+    /// arrived from a vocabulary newer than this build — and water is the one
+    /// this trade meets most.
+    static func named(_ raw: String?) -> DamageCause {
+        DamageCause(rawValue: raw ?? "") ?? .water
+    }
+}
+
 struct AreaListResponse: Decodable { let areas: [AffectedArea] }
 
 struct AffectedArea: Decodable, Identifiable, Hashable {
@@ -608,9 +664,27 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
     let name: String
     let damageType: String
     let areaSqm: Double
+    /// `floor` or `wall`. Not decoration: a wet floor and a mouldy wall are
+    /// different trades at different rates, they overlap in plan, and — see
+    /// `polygon` — their shapes are not even in the same coordinate space.
     let surface: String
-    /// In the plan's own metres — the same space the walls are drawn in, so
-    /// an area needs no transform to line up with the room.
+    /// Which wall a wall area sits on, indexed into the room polygon's edges
+    /// exactly as `PlanEditing.WallOpening.edge` is. Nil for a floor area;
+    /// the database constrains the pair both ways, so a wall area always has
+    /// one and a floor area never does.
+    let wallIndex: Int?
+    /// An override colour, when one was chosen. Nil means "use the cause's
+    /// default", which is what lets a category be recoloured later without
+    /// orphaning every old area on a stale hex.
+    let color: String?
+    /// The shape, in metres — but in WHICH metres depends on `surface`.
+    ///
+    /// A floor area is in the plan's own space, the same one the walls are
+    /// drawn in, so it needs no transform to line up with the room. A wall
+    /// area is in its wall's FACE space: x along the wall from the edge's
+    /// start corner, y above the floor. `ElevationView` documents that space
+    /// in full; the short version is that the two must never be drawn with
+    /// the same renderer.
     let polygon: [Point]
 
     struct Point: Decodable, Hashable {
@@ -619,7 +693,8 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, surface, polygon
+        case id, name, surface, polygon, color
+        case wallIndex = "wall_index"
         case damageType = "damage_type"
         case areaSqm = "area_sqm"
     }
@@ -629,21 +704,29 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
         id = try c.decode(String.self, forKey: .id)
         name = (try? c.decode(String.self, forKey: .name)) ?? "Affected area"
         surface = (try? c.decode(String.self, forKey: .surface)) ?? "floor"
+        wallIndex = try? c.decodeIfPresent(Int.self, forKey: .wallIndex)
+        color = try? c.decodeIfPresent(String.self, forKey: .color)
         damageType = (try? c.decode(String.self, forKey: .damageType)) ?? "water"
         areaSqm = try c.decodeFlexibleDouble(.areaSqm)
         polygon = (try? c.decodeIfPresent([Point].self, forKey: .polygon)) ?? []
     }
 
-    /// The label and colour a cause is shown in, matching the web exactly —
-    /// two apps that colour the same damage differently is a support call.
-    var label: String {
-        switch damageType {
-        case "fire": return "Fire / smoke"
-        case "mould": return "Mould"
-        case "impact": return "Impact"
-        case "other": return "Other"
-        default: return "Water"
+    var cause: DamageCause { DamageCause.named(damageType) }
+
+    var label: String { cause.label }
+
+    var isWall: Bool { surface == "wall" }
+
+    /// What it is drawn in: its own override, else its cause's default.
+    /// `areaColor()` in `areaShapes.ts`, to the digit.
+    var displayColor: Color {
+        if let override = color?.trimmingCharacters(in: .whitespaces),
+            override.hasPrefix("#"), override.count == 7,
+            let value = UInt32(override.dropFirst(), radix: 16)
+        {
+            return Color(hex: value)
         }
+        return cause.color
     }
 }
 

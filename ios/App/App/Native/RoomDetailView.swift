@@ -39,7 +39,18 @@ struct RoomDetailView: View {
     @State private var roomTypes: [LivingRoomType] = []
     @State private var chosenType: String?
 
-    private var damagedSqm: Double { areas.reduce(0) { $0 + $1.areaSqm } }
+    /// Floor and wall damage, kept apart all the way to the screen.
+    ///
+    /// Not a presentational nicety: stripping out 40 sq ft of wet subfloor
+    /// and stripping 40 sq ft of mouldy drywall are different trades at
+    /// different rates, and a single total is a figure no estimator can use
+    /// and no adjuster should accept. The surfaces also overlap in plan, so
+    /// summing them would double-count the footprint besides.
+    private var floorAreas: [AffectedArea] { areas.filter { !$0.isWall } }
+    private var wallAreas: [AffectedArea] { areas.filter(\.isWall) }
+
+    private var floorDamagedSqm: Double { floorAreas.reduce(0) { $0 + $1.areaSqm } }
+    private var wallDamagedSqm: Double { wallAreas.reduce(0) { $0 + $1.areaSqm } }
 
     /// Oldest and newest material readings — the sentence an adjuster actually
     /// reads, stated once rather than left to be inferred from a table.
@@ -100,8 +111,9 @@ struct RoomDetailView: View {
             if let plan {
                 AreaEditor(plan: plan, existing: drawnAreas) { name, type, polygon in
                     Task {
-                        try? await API.shared.createArea(
-                            roomScanId: room.id, name: name, damageType: type, polygon: polygon)
+                        _ = try? await API.shared.createArea(
+                            roomScanId: room.id, name: name, damageType: type,
+                            surface: "floor", polygon: polygon)
                         drawing = false
                         await load()
                     }
@@ -267,27 +279,21 @@ struct RoomDetailView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(areas) { area in
-                    HStack {
-                        Circle()
-                            .fill(color(for: area.damageType))
-                            .frame(width: 10, height: 10)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(area.name)
-                            Text(area.label).font(.caption2).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(Measure.sqftLabel(area.areaSqm))
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
+                // Floor first, then the walls in wall order — the order the
+                // work is scoped in, and the order the two totals in the
+                // header are read in.
+                ForEach(floorAreas) { area in
+                    areaRow(area, where: "Floor")
+                }
+                ForEach(wallAreas.sorted { ($0.wallIndex ?? 0) < ($1.wallIndex ?? 0) }) { area in
+                    areaRow(area, where: "Wall \((area.wallIndex ?? 0) + 1)")
                 }
             }
             if plan != nil && !(plan?.isEmpty ?? true) {
                 Button {
                     drawing = true
                 } label: {
-                    Label("Add a new area", systemImage: "plus.circle.fill")
+                    Label("Add a floor area", systemImage: "plus.circle.fill")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.blue)
                 }
@@ -297,8 +303,16 @@ struct RoomDetailView: View {
                 Text("Affected areas")
                 Spacer()
                 if !areas.isEmpty {
-                    Text(Measure.sqftLabel(damagedSqm)).font(.caption.monospacedDigit())
+                    // Two figures, never one. Which surface a square foot is
+                    // on decides what it costs to put right.
+                    Text(damageTotals).font(.caption.monospacedDigit())
                 }
+            }
+        } footer: {
+            if wallAreas.isEmpty {
+                Text("Wall damage is marked in elevation — open the plan, face a wall, and outline it there.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Brand.inkFaint)
             }
         }
 
@@ -354,6 +368,34 @@ struct RoomDetailView: View {
         }
     }
 
+    /// One marked region: its cause's colour, its name, and where it is.
+    /// The surface is stated on the row rather than implied by a grouping
+    /// header, because these rows end up read one at a time.
+    private func areaRow(_ area: AffectedArea, where place: String) -> some View {
+        HStack {
+            Circle()
+                .fill(area.displayColor)
+                .frame(width: 10, height: 10)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(area.name)
+                Text("\(place) · \(area.label)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(Measure.sqftLabel(area.areaSqm))
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var damageTotals: String {
+        var parts: [String] = []
+        if floorDamagedSqm > 0 { parts.append("Floor \(Measure.sqftLabel(floorDamagedSqm))") }
+        if wallDamagedSqm > 0 { parts.append("Wall \(Measure.sqftLabel(wallDamagedSqm))") }
+        return parts.joined(separator: " · ")
+    }
+
     // MARK: - Photos & Notes
 
     /// The evidence. Photos only for now: room notes live in the web's
@@ -388,10 +430,16 @@ struct RoomDetailView: View {
     }
 
     /// Areas in the plan's own coordinates, ready to draw.
+    ///
+    /// FLOOR ONLY, and that filter is load-bearing. A wall area's polygon is
+    /// in its wall's face space — distance along the wall by height above the
+    /// floor — so drawing one on the plan would put a rectangle somewhere in
+    /// the room bearing no relation to the damage. Wall areas are drawn where
+    /// they were measured, in `ElevationView`.
     private var drawnAreas: [(polygon: [CGPoint], colour: Color)] {
-        areas.compactMap { area in
+        floorAreas.compactMap { area in
             guard area.polygon.count >= 3 else { return nil }
-            return (area.polygon.map { CGPoint(x: $0.x, y: $0.y) }, color(for: area.damageType))
+            return (area.polygon.map { CGPoint(x: $0.x, y: $0.y) }, area.displayColor)
         }
     }
 
@@ -412,18 +460,5 @@ struct RoomDetailView: View {
             roomTypes = (try? await API.shared.livingArea(projectId: projectId).roomTypes) ?? []
         }
         loading = false
-    }
-
-    /// Exactly DAMAGE_COLOR from areaShapes.ts. Two apps colouring the same
-    /// damage differently is a support call, so these are the hex values from
-    /// that file rather than anything re-picked to suit the native palette.
-    private func color(for damageType: String) -> Color {
-        switch damageType {
-        case "fire": return Color(hex: 0xE2673A)
-        case "mould": return Color(hex: 0x4F9D3A)
-        case "impact": return Color(hex: 0x8A63D2)
-        case "other": return Color(hex: 0x8A8A8E)
-        default: return Color(hex: 0x2B7FD4)
-        }
     }
 }

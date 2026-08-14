@@ -313,20 +313,10 @@ struct AreaEditor: View {
     @State private var corners: [CGPoint] = []
     @State private var dragging: Int?
     @State private var name = "Affected area"
-    @State private var damageType = "water"
+    @State private var cause: DamageCause = .water
     @State private var saving = false
 
-    private static let types: [(id: String, label: String, colour: UInt32)] = [
-        ("water", "Water", 0x2B7FD4),
-        ("fire", "Fire / smoke", 0xE2673A),
-        ("mould", "Mould", 0x4F9D3A),
-        ("impact", "Impact", 0x8A63D2),
-        ("other", "Other", 0x8A8A8E),
-    ]
-
-    private var colour: Color {
-        Color(hex: Self.types.first { $0.id == damageType }?.colour ?? 0x2B7FD4)
-    }
+    private var colour: Color { cause.color }
 
     private var areaSqm: Double { FloorPlanGeometry.polygonArea(corners) }
 
@@ -381,24 +371,7 @@ struct AreaEditor: View {
                                 .foregroundStyle(Brand.ink)
                         }
 
-                        HStack(spacing: Brand.Space.tight) {
-                            ForEach(Self.types, id: \.id) { type in
-                                Button {
-                                    damageType = type.id
-                                } label: {
-                                    Text(type.label)
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(damageType == type.id ? .white : Brand.inkSoft)
-                                        .padding(.horizontal, 9)
-                                        .padding(.vertical, 7)
-                                        .background(
-                                            damageType == type.id
-                                                ? Color(hex: type.colour) : Brand.surfaceRaised,
-                                            in: .rect(cornerRadius: Brand.Radius.pill))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                        DamageCausePicker(cause: $cause)
 
                         Text("Drag the corners in to the damaged part. It opens covering the whole room.")
                             .font(.system(size: 11))
@@ -409,7 +382,7 @@ struct AreaEditor: View {
 
                     Button(saving ? "Saving…" : "Save area") {
                         saving = true
-                        onSave(name.trimmed, damageType, corners)
+                        onSave(name.trimmed, cause.rawValue, corners)
                     }
                     .buttonStyle(PrimaryButtonStyle(enabled: !saving && areaSqm > 0))
                     .disabled(saving || areaSqm <= 0)
@@ -454,6 +427,36 @@ struct AreaEditor: View {
         CGPoint(
             x: (size.width - CGFloat(plan.width) * scale) / 2,
             y: (size.height - CGFloat(plan.height) * scale) / 2)
+    }
+}
+
+/// The cause chips, in `DAMAGE_TYPES` order, each in its own colour.
+///
+/// One control rather than one per editor: the chips ARE the colour table
+/// made visible, and the whole point of collapsing that table into
+/// `DamageCause` is that there is no second place for it to drift in. The
+/// floor editor and the elevation face both draw this.
+struct DamageCausePicker: View {
+    @Binding var cause: DamageCause
+
+    var body: some View {
+        HStack(spacing: Brand.Space.tight) {
+            ForEach(DamageCause.allCases) { option in
+                Button {
+                    cause = option
+                } label: {
+                    Text(option.label)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(cause == option ? .white : Brand.inkSoft)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 7)
+                        .background(
+                            cause == option ? option.color : Brand.surfaceRaised,
+                            in: .rect(cornerRadius: Brand.Radius.pill))
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
 
