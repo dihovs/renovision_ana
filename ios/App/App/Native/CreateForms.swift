@@ -140,11 +140,19 @@ struct NewCustomerSheet: View {
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var company = ""
-    @State private var phone = ""
+    @State private var phone: String
     @State private var email = ""
     @State private var saving = false
     @State private var error: String?
     @FocusState private var focused: Bool
+
+    /// `prefillPhone` serves "Create New Contact" on a call row — the number
+    /// is the one thing already known, and retyping it is how digits get
+    /// transposed.
+    init(prefillPhone: String = "", onCreated: @escaping (String) -> Void) {
+        self.onCreated = onCreated
+        _phone = State(initialValue: prefillPhone)
+    }
 
     private var canSave: Bool {
         !(firstName.trimmed.isEmpty && lastName.trimmed.isEmpty && company.trimmed.isEmpty)

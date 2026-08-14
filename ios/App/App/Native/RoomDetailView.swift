@@ -59,6 +59,10 @@ struct RoomDetailView: View {
                 .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
             }
 
+            if let projectId = room.projectId {
+                RoomPhotosSection(projectId: projectId, roomScanId: room.id)
+            }
+
             Section {
                 LabeledContent("Doors", value: "\(room.doorCount)")
                 LabeledContent("Windows", value: "\(room.windowCount)")

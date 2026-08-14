@@ -1,89 +1,291 @@
 import SwiftUI
 
-/// The phone: a keypad, the contact book, and the in-call screen.
+/// The phone, drawn like the iPhone's own Phone app.
 ///
-/// Built to feel like the iPhone's own Phone app, because that is what was
-/// asked for and because it is the right answer — a dialer that behaves
-/// differently from the one on the same device is a dialer people misdial on.
-/// Big round keys, letters under the digits, a green call button, and mute /
-/// speaker / keypad in the same places the system puts them.
+/// Matched deliberately — pure black stage, a floating pill of tabs at the
+/// bottom, big grey keys, red missed calls with direction arrows — because
+/// the operator flips between this and the real dialer all day, and a layout
+/// that matches is one that muscle memory already knows.
+///
+/// The connections are the system's too: long-press a call for Message /
+/// Add to Contact / Delete, and every conversation carries a call button.
+/// Calls and messages are two views of the same person, not two apps.
 struct PhoneView: View {
     @StateObject private var calls = CallManager.shared
+    @State private var tab: Tab = .calls
     @State private var typed = ""
-    @State private var contacts: [ClientSummary]?
-    @State private var mode: Mode = .recents
     @State private var recents: [CallRecord]?
-    @State private var query = ""
+    @State private var contacts: [ClientSummary]?
     @State private var voice: Health.Voice?
+    @State private var query = ""
 
-    enum Mode: String, CaseIterable {
-        case recents = "Recents"
-        case keypad = "Keypad"
-        case contacts = "Contacts"
+    // Sheet targets. Item-based so one sheet mechanism serves every row.
+    @State private var messaging: PhoneTarget?
+    @State private var creatingContact: PhoneTarget?
+    @State private var attaching: PhoneTarget?
+
+    enum Tab { case calls, contacts, keypad }
+
+    struct PhoneTarget: Identifiable {
+        let number: String
+        var id: String { number }
     }
 
-    private var filtered: [ClientSummary] {
+    private var missedCount: Int {
+        (recents ?? []).filter { !$0.answered }.count
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                // The system Phone app's stage: true black in the dark, plain
+                // white in the light. Brand colour stays on the content.
+                Color(.systemBackground).ignoresSafeArea()
+
+                Group {
+                    switch tab {
+                    case .calls: callsList
+                    case .contacts: contactList
+                    case .keypad: keypad
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                pillBar
+            }
+            .navigationTitle(tab == .calls ? "Calls" : tab == .contacts ? "Contacts" : "")
+            .navigationBarTitleDisplayMode(.inline)
+            .dismissableWhenPresented()
+            .task {
+                async let r: Void = loadRecents()
+                async let c: Void = loadContacts()
+                voice = try? await API.shared.health().voice
+                _ = await (r, c)
+            }
+        }
+        .fullScreenCover(isPresented: .constant(calls.state.isBusy)) { InCallView() }
+        .sheet(item: $messaging) { target in
+            NavigationStack {
+                MessageThreadView(
+                    phone: target.number, displayName: contactName(for: target.number))
+            }
+        }
+        .sheet(item: $creatingContact) { target in
+            NewCustomerSheet(prefillPhone: target.number) { _ in
+                Task { await loadContacts() }
+            }
+        }
+        .sheet(item: $attaching) { target in
+            AttachNumberSheet(number: target.number) {
+                Task { await loadContacts() }
+            }
+        }
+    }
+
+    // MARK: - The floating bar
+
+    private var pillBar: some View {
+        HStack(spacing: Brand.Space.small) {
+            HStack(spacing: 0) {
+                pillItem(.calls, icon: "clock.fill", label: "Calls", badge: missedCount)
+                pillItem(.contacts, icon: "person.crop.circle.fill", label: "Contacts")
+                pillItem(.keypad, icon: "circle.grid.3x3.fill", label: "Keypad")
+            }
+            .padding(4)
+            .background(.ultraThinMaterial, in: .capsule)
+
+            Button {
+                tab = .contacts
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 52, height: 52)
+                    .background(.ultraThinMaterial, in: .circle)
+            }
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.bottom, Brand.Space.tight)
+    }
+
+    private func pillItem(_ target: Tab, icon: String, label: String, badge: Int = 0) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            tab = target
+        } label: {
+            VStack(spacing: 2) {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: icon)
+                        .font(.system(size: 19, weight: .medium))
+                    if badge > 0 {
+                        Text(badge > 99 ? "99+" : "\(badge)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(.red, in: .capsule)
+                            .offset(x: 12, y: -8)
+                    }
+                }
+                Text(label).font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(tab == target ? Brand.blue : .secondary)
+            .frame(width: 84, height: 52)
+            .background(
+                tab == target ? AnyShapeStyle(.thickMaterial) : AnyShapeStyle(.clear),
+                in: .capsule)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Calls
+
+    private var callsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                if let voice, !voice.configured {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label(
+                            "Calling is not switched on",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.orange)
+                        Text(
+                            "Unset on this deployment: \(voice.missing.joined(separator: ", ")). Tick Preview as well as Production in Vercel."
+                        )
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(Brand.Space.base)
+                }
+
+                if recents == nil {
+                    ProgressView().padding(.top, 60)
+                } else if recents!.isEmpty {
+                    Text("No calls yet. Calls to the business number land here.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 60)
+                        .padding(.horizontal, Brand.Space.section)
+                        .multilineTextAlignment(.center)
+                } else {
+                    ForEach(recents!) { record in
+                        CallRow(
+                            record: record,
+                            name: contactName(for: record.otherNumber),
+                            onCall: {
+                                Task {
+                                    await calls.place(
+                                        to: record.otherNumber,
+                                        label: contactName(for: record.otherNumber))
+                                }
+                            }
+                        )
+                        .contextMenu {
+                            Button {
+                                Task {
+                                    await calls.place(
+                                        to: record.otherNumber,
+                                        label: contactName(for: record.otherNumber))
+                                }
+                            } label: {
+                                Label("Call", systemImage: "phone")
+                            }
+                            Button {
+                                messaging = PhoneTarget(number: record.otherNumber)
+                            } label: {
+                                Label("Message", systemImage: "message")
+                            }
+                            Divider()
+                            Button {
+                                attaching = PhoneTarget(number: record.otherNumber)
+                            } label: {
+                                Label(
+                                    "Add to Existing Contact",
+                                    systemImage: "person.crop.circle.badge.plus")
+                            }
+                            Button {
+                                creatingContact = PhoneTarget(number: record.otherNumber)
+                            } label: {
+                                Label("Create New Contact", systemImage: "person.crop.circle")
+                            }
+                            Divider()
+                            Button(role: .destructive) {
+                                Task {
+                                    try? await API.shared.deleteCall(id: record.id)
+                                    await loadRecents()
+                                }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+
+                        Divider().padding(.leading, 76)
+                    }
+                }
+            }
+            .padding(.bottom, 90)
+        }
+        .refreshable { await loadRecents() }
+    }
+
+    // MARK: - Contacts
+
+    private var contactList: some View {
+        ScrollView {
+            LazyVStack(spacing: Brand.Space.small) {
+                // A custom field rather than .searchable: the floating pill
+                // owns the bottom of this screen, and the system search bar
+                // fights it for the same space.
+                TextField("Search customers", text: $query)
+                    .font(.system(size: 16))
+                    .padding(.horizontal, Brand.Space.base)
+                    .padding(.vertical, Brand.Space.small)
+                    .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+
+                if contacts == nil {
+                    ProgressView().padding(.top, 40)
+                } else if filteredContacts.isEmpty {
+                    Text(
+                        query.isEmpty
+                            ? "No customers with a number yet."
+                            : "Nothing matches “\(query)”."
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 40)
+                } else {
+                    ForEach(filteredContacts) { contact in
+                        ContactCard(contact: contact) { number in
+                            Task { await calls.place(to: number, label: contact.name) }
+                        }
+                        .contextMenu {
+                            if let number = contact.phone ?? contact.phones.first?.number {
+                                Button {
+                                    messaging = PhoneTarget(number: number)
+                                } label: {
+                                    Label("Message", systemImage: "message")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.bottom, 90)
+        }
+        .refreshable { await loadContacts() }
+    }
+
+    private var filteredContacts: [ClientSummary] {
         let withNumbers = (contacts ?? []).filter { !$0.phones.isEmpty || $0.phone != nil }
         guard !query.isEmpty else { return withNumbers }
         return withNumbers.filter {
             $0.name.localizedCaseInsensitiveContains(query)
                 || ($0.company ?? "").localizedCaseInsensitiveContains(query)
-                || $0.phones.contains { $0.number.contains(query) }
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Brand.canvas.ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    // Said before a call is attempted, not after. Dialling a
-                    // customer and getting an error is a worse way to find
-                    // out than being told on arrival.
-                    if let voice, !voice.configured {
-                        Card(padding: Brand.Space.small) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Label("Calling is not switched on", systemImage: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.orange)
-                                Text(
-                                    "These are unset on this deployment: \(voice.missing.joined(separator: ", ")). In Vercel they must be ticked for Preview as well as Production."
-                                )
-                                .font(.system(size: 12))
-                                .foregroundStyle(Brand.inkSoft)
-                            }
-                        }
-                        .padding(.horizontal, Brand.Space.base)
-                        .padding(.bottom, Brand.Space.small)
-                    }
-
-                    Picker("", selection: $mode) {
-                        ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal, Brand.Space.base)
-                    .padding(.bottom, Brand.Space.small)
-
-                    switch mode {
-                    case .recents: recentList
-                    case .keypad: keypad
-                    case .contacts: contactList
-                    }
-                }
-            }
-            .navigationTitle("Phone")
-            .dismissableWhenPresented()
-            .navigationBarTitleDisplayMode(.inline)
-            .task {
-                await loadContacts()
-                await loadRecents()
-                voice = try? await API.shared.health().voice
-            }
-        }
-        // The in-call screen covers everything, the way a call does on a phone.
-        .fullScreenCover(isPresented: .constant(calls.state.isBusy)) {
-            InCallView()
+                || $0.phones.contains { $0.number.contains(query.filter(\.isNumber)) }
         }
     }
 
@@ -91,15 +293,14 @@ struct PhoneView: View {
 
     private var keypad: some View {
         VStack(spacing: 0) {
-            Spacer(minLength: Brand.Space.small)
+            Spacer()
 
             Text(typed.isEmpty ? " " : CallManager.pretty(CallManager.normalise(typed)))
-                .font(.system(size: 34, weight: .regular, design: .rounded))
+                .font(.system(size: 36, weight: .regular, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(Brand.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                .frame(height: 46)
+                .frame(height: 48)
                 .padding(.horizontal, Brand.Space.large)
 
             if let error = calls.lastError {
@@ -110,11 +311,11 @@ struct PhoneView: View {
                     .padding(.horizontal, Brand.Space.large)
             }
 
-            Spacer(minLength: Brand.Space.small)
+            Spacer()
 
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 ForEach(Self.rows, id: \.first!.digit) { row in
-                    HStack(spacing: 26) {
+                    HStack(spacing: 24) {
                         ForEach(row, id: \.digit) { key in
                             DialKey(digit: key.digit, letters: key.letters) {
                                 typed.append(key.digit)
@@ -122,113 +323,37 @@ struct PhoneView: View {
                         }
                     }
                 }
-            }
 
-            Spacer(minLength: Brand.Space.base)
+                // The call row mirrors the system: green centred, delete to
+                // its right only while there is something to delete.
+                HStack(spacing: 24) {
+                    Color.clear.frame(width: 78, height: 78)
 
-            HStack {
-                // Balances the delete button so the call key sits centred, the
-                // way it does in the system dialer.
-                Color.clear.frame(width: 68, height: 68)
+                    Button {
+                        Task { await calls.place(to: typed) }
+                    } label: {
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 30))
+                            .foregroundStyle(.white)
+                            .frame(width: 78, height: 78)
+                            .background(Color(hex: 0x34C759), in: .circle)
+                    }
+                    .disabled(typed.isEmpty)
+                    .opacity(typed.isEmpty ? 0.5 : 1)
 
-                Spacer()
-
-                Button {
-                    Task { await calls.place(to: typed) }
-                } label: {
-                    Image(systemName: "phone.fill")
-                        .font(.system(size: 30))
-                        .foregroundStyle(.white)
-                        .frame(width: 74, height: 74)
-                        .background(typed.isEmpty ? Brand.inkFaint : Brand.green, in: .circle)
+                    Button {
+                        if !typed.isEmpty { typed.removeLast() }
+                    } label: {
+                        Image(systemName: "delete.left.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 78, height: 78)
+                    }
+                    .opacity(typed.isEmpty ? 0 : 1)
                 }
-                .disabled(typed.isEmpty)
-
-                Spacer()
-
-                Button {
-                    if !typed.isEmpty { typed.removeLast() }
-                } label: {
-                    Image(systemName: "delete.left.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(typed.isEmpty ? .clear : Brand.inkSoft)
-                        .frame(width: 68, height: 68)
-                }
-                .disabled(typed.isEmpty)
             }
-            .padding(.horizontal, Brand.Space.large)
-            .padding(.bottom, Brand.Space.large)
+            .padding(.bottom, 104)
         }
-    }
-
-    // MARK: - Contacts
-
-    private var contactList: some View {
-        ScrollView {
-            LazyVStack(spacing: Brand.Space.small) {
-                if contacts == nil {
-                    ProgressView().padding(.top, 40)
-                } else if filtered.isEmpty {
-                    Card {
-                        Text(
-                            query.isEmpty
-                                ? "No customers with a phone number yet."
-                                : "Nothing matches “\(query)”."
-                        )
-                        .font(.callout)
-                        .foregroundStyle(Brand.inkSoft)
-                    }
-                } else {
-                    ForEach(filtered) { contact in
-                        ContactCard(contact: contact) { number in
-                            Task { await calls.place(to: number, label: contact.name) }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, Brand.Space.base)
-            .padding(.bottom, Brand.Space.large)
-        }
-        .searchable(text: $query, prompt: "Search customers")
-        .refreshable { await loadContacts() }
-    }
-
-    private func loadContacts() async {
-        contacts = (try? await API.shared.clients()) ?? []
-    }
-
-    private func loadRecents() async {
-        recents = (try? await API.shared.calls()) ?? []
-    }
-
-    // MARK: - Recents
-
-    /// Who called, who was called, and whether anybody actually spoke. The
-    /// last of those matters most: a row for a call that rang out should not
-    /// look like one that was answered, or the log stops being scannable.
-    private var recentList: some View {
-        ScrollView {
-            LazyVStack(spacing: Brand.Space.small) {
-                if recents == nil {
-                    ProgressView().padding(.top, 40)
-                } else if recents!.isEmpty {
-                    Card {
-                        Text("No calls yet. Calls placed here and calls to the business number both land in this list.")
-                            .font(.callout)
-                            .foregroundStyle(Brand.inkSoft)
-                    }
-                } else {
-                    ForEach(recents!) { record in
-                        RecentRow(record: record) { number in
-                            Task { await calls.place(to: number) }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, Brand.Space.base)
-            .padding(.bottom, Brand.Space.large)
-        }
-        .refreshable { await loadRecents() }
     }
 
     private struct Key {
@@ -242,9 +367,99 @@ struct PhoneView: View {
         [.init(digit: "7", letters: "PQRS"), .init(digit: "8", letters: "TUV"), .init(digit: "9", letters: "WXYZ")],
         [.init(digit: "*", letters: ""), .init(digit: "0", letters: "+"), .init(digit: "#", letters: "")],
     ]
+
+    // MARK: - Data
+
+    private func loadRecents() async {
+        recents = (try? await API.shared.calls()) ?? []
+    }
+
+    private func loadContacts() async {
+        contacts = (try? await API.shared.clients()) ?? []
+    }
+
+    /// The name this number belongs to, when we know it — matched on the
+    /// last ten digits, the same rule the server's attribution uses.
+    private func contactName(for number: String) -> String? {
+        let tail = String(number.filter(\.isNumber).suffix(10))
+        guard !tail.isEmpty else { return nil }
+        return (contacts ?? []).first { contact in
+            contact.phones.contains { String($0.number.filter(\.isNumber).suffix(10)) == tail }
+                || (contact.phone.map { String($0.filter(\.isNumber).suffix(10)) == tail } ?? false)
+        }?.name
+    }
 }
 
-// MARK: - Pieces
+// MARK: - Rows
+
+private struct CallRow: View {
+    let record: CallRecord
+    let name: String?
+    let onCall: () -> Void
+
+    var body: some View {
+        HStack(spacing: Brand.Space.small) {
+            ZStack {
+                Circle().fill(Color(.secondarySystemBackground))
+                if let name, let first = name.first {
+                    Text(String(first).uppercased())
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name ?? CallManager.pretty(CallManager.normalise(record.otherNumber)))
+                    .font(.system(size: 16, weight: .medium))
+                    // Red for missed, exactly as the system draws it — the
+                    // colour IS the information on a fast scroll.
+                    .foregroundStyle(record.answered ? Color.primary : Color.red)
+
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.down.left")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(record.answered ? Color.secondary : Color.red)
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    if record.escalated {
+                        StatusBadge(text: "escalated", tone: .warning)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Text(shortTime(record.startedAt))
+                .font(.system(size: 14))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+
+            Button(action: onCall) {
+                Image(systemName: "phone.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.blue)
+                    .frame(width: 38, height: 38)
+                    .background(Color(.secondarySystemBackground), in: .circle)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.vertical, Brand.Space.small)
+        .contentShape(.rect)
+    }
+
+    private var subtitle: String {
+        if !record.answered { return "Missed" }
+        if let length = record.lengthLabel { return length }
+        return "Renovision line"
+    }
+}
 
 private struct DialKey: View {
     let digit: String
@@ -253,25 +468,22 @@ private struct DialKey: View {
 
     var body: some View {
         Button {
-            // The system dialer clicks; a silent keypad feels broken even when
-            // it is working.
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             action()
         } label: {
             VStack(spacing: 1) {
                 Text(digit)
-                    .font(.system(size: 32, weight: .regular, design: .rounded))
-                    .foregroundStyle(Brand.ink)
+                    .font(.system(size: 34, weight: .regular, design: .rounded))
+                    .foregroundStyle(.primary)
                 if !letters.isEmpty {
                     Text(letters)
                         .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.4)
-                        .foregroundStyle(Brand.inkSoft)
+                        .tracking(1.6)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 74, height: 74)
-            .background(Brand.surface, in: .circle)
-            .overlay(Circle().strokeBorder(Brand.hairline, lineWidth: 0.5))
+            .frame(width: 78, height: 78)
+            .background(Color(.secondarySystemBackground), in: .circle)
         }
         .buttonStyle(.plain)
     }
@@ -312,8 +524,6 @@ private struct ContactCard: View {
                     Spacer()
                 }
 
-                // Every number, not a guess at the right one: calling a
-                // landline when the customer is on site wastes the call.
                 ForEach(numbers, id: \.number) { phone in
                     Button {
                         onCall(phone.number)
@@ -341,18 +551,80 @@ private struct ContactCard: View {
     }
 
     private var initials: String {
-        let parts = contact.name.split(separator: " ").prefix(2)
-        return parts.map { String($0.prefix(1)).uppercased() }.joined()
+        contact.name.split(separator: " ").prefix(2).map { String($0.prefix(1)).uppercased() }
+            .joined()
+    }
+}
+
+// MARK: - Add to existing contact
+
+/// Pick which customer a number belongs to. The server does a phones-only
+/// update, so nothing else on the record can be clobbered from a call row.
+private struct AttachNumberSheet: View {
+    let number: String
+    let onDone: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var clients: [ClientSummary] = []
+    @State private var query = ""
+    @State private var error: String?
+
+    private var shown: [ClientSummary] {
+        guard !query.isEmpty else { return clients }
+        return clients.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text(CallManager.pretty(CallManager.normalise(number)))
+                        .font(.system(size: 17, weight: .semibold).monospacedDigit())
+                } header: {
+                    Text("Add this number to")
+                }
+
+                if let error {
+                    Text(error).foregroundStyle(.red).font(.footnote)
+                }
+
+                ForEach(shown) { client in
+                    Button {
+                        Task {
+                            do {
+                                try await API.shared.attachPhone(clientId: client.id, number: number)
+                                onDone()
+                                dismiss()
+                            } catch {
+                                self.error = error.localizedDescription
+                            }
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(client.name).foregroundStyle(Brand.ink)
+                            if let company = client.company, !company.isEmpty {
+                                Text(company).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .searchable(text: $query)
+            .navigationTitle("Choose customer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+            .task { clients = (try? await API.shared.clients()) ?? [] }
+        }
     }
 }
 
 // MARK: - In call
 
-/// What is on screen while a call is up.
-///
-/// The controls sit where the iPhone's own call screen puts them — mute top
-/// left, keypad top middle, speaker top right — so muscle memory works. The
-/// keypad here sends DTMF, which is what an insurance line's menu asks for.
+/// What is on screen while a call is up. Controls sit where the system's own
+/// call screen puts them, so muscle memory works; the keypad sends DTMF,
+/// which is what an insurance line's menu asks for.
 struct InCallView: View {
     @StateObject private var calls = CallManager.shared
     @State private var showKeypad = false
@@ -412,8 +684,7 @@ struct InCallView: View {
         switch calls.state {
         case .connecting: return "Calling…"
         case .ringing: return "Ringing…"
-        case .active:
-            return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+        case .active: return String(format: "%d:%02d", elapsed / 60, elapsed % 60)
         case .ended(let reason): return reason ?? "Call ended"
         case .idle: return ""
         }
@@ -421,7 +692,10 @@ struct InCallView: View {
 
     private var controls: some View {
         HStack(spacing: Brand.Space.section) {
-            CallToggle(icon: calls.isMuted ? "mic.slash.fill" : "mic.fill", label: "Mute", on: calls.isMuted) {
+            CallToggle(
+                icon: calls.isMuted ? "mic.slash.fill" : "mic.fill", label: "Mute",
+                on: calls.isMuted
+            ) {
                 calls.toggleMute()
             }
             CallToggle(icon: "circle.grid.3x3.fill", label: "Keypad", on: showKeypad) {
@@ -483,56 +757,5 @@ private struct CallToggle: View {
             }
         }
         .buttonStyle(.plain)
-    }
-}
-
-
-/// One line in Recents.
-private struct RecentRow: View {
-    let record: CallRecord
-    let onCall: (String) -> Void
-
-    var body: some View {
-        Card(padding: Brand.Space.small) {
-            HStack(spacing: Brand.Space.small) {
-                Image(systemName: record.icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(record.answered ? Brand.inkSoft : .red)
-                    .frame(width: 26)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(CallManager.pretty(CallManager.normalise(record.otherNumber)))
-                        .font(.system(size: 15, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(record.answered ? Brand.ink : .red)
-                    HStack(spacing: 5) {
-                        Text(record.startedAt, format: .dateTime.month(.abbreviated).day().hour().minute())
-                            .font(.system(size: 11))
-                            .foregroundStyle(Brand.inkFaint)
-                        if let length = record.lengthLabel {
-                            Text("·").font(.system(size: 11)).foregroundStyle(Brand.inkFaint)
-                            Text(length).font(.system(size: 11).monospacedDigit())
-                                .foregroundStyle(Brand.inkFaint)
-                        }
-                        if record.escalated {
-                            StatusBadge(text: "escalated", tone: .warning)
-                        }
-                    }
-                }
-
-                Spacer()
-
-                Button {
-                    onCall(record.otherNumber)
-                } label: {
-                    Image(systemName: "phone.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Brand.green, in: .circle)
-                }
-                .buttonStyle(.plain)
-            }
-        }
     }
 }

@@ -19,6 +19,7 @@ struct HomeView: View {
     @State private var scanning = false
     @State private var showMore = false
     @State private var phoning = false
+    @State private var texting = false
     @StateObject private var calls = CallManager.shared
 
     var body: some View {
@@ -194,10 +195,14 @@ struct HomeView: View {
                 QuickAction(icon: "phone.fill", label: "Phone", tint: Brand.green) {
                     phoning = true
                 }
+                QuickAction(icon: "message.fill", label: "Messages", tint: Brand.blueDark) {
+                    texting = true
+                }
             }
         }
         .sheet(isPresented: $scanning) { ScanEntryView() }
         .sheet(isPresented: $phoning) { PhoneView() }
+        .sheet(isPresented: $texting) { NavigationStack { MessagesView() } }
     }
 
     private func figuresSection(_ summary: DashboardSummary) -> some View {

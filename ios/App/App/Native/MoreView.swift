@@ -28,6 +28,36 @@ struct MoreView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: Brand.Space.large) {
+                        // Native screens first — no web dot, because they are
+                        // not the web.
+                        VStack(alignment: .leading, spacing: Brand.Space.small) {
+                            SectionHeading(title: "NATIVE")
+                            NavigationLink {
+                                MessagesView()
+                            } label: {
+                                Card(padding: Brand.Space.small) {
+                                    CardRow {
+                                        Label("Messages", systemImage: "message.fill")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(Brand.ink)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            NavigationLink {
+                                PhoneView()
+                            } label: {
+                                Card(padding: Brand.Space.small) {
+                                    CardRow {
+                                        Label("Phone", systemImage: "phone.fill")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(Brand.ink)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         ForEach(MoreGroup.all) { group in
                             VStack(alignment: .leading, spacing: Brand.Space.small) {
                                 SectionHeading(title: group.title.uppercased())
@@ -108,7 +138,6 @@ struct MoreGroup: Identifiable {
             items: [
                 MoreItem(title: "Leads", icon: "sparkles", path: "/admin/leads", tint: Brand.green),
                 MoreItem(title: "Inbox", icon: "tray.full", path: "/admin/inbox", tint: Brand.green),
-                MoreItem(title: "Messages", icon: "message", path: "/admin/messages", tint: Brand.green),
                 MoreItem(title: "Outreach", icon: "megaphone", path: "/admin/outreach", tint: Brand.green),
                 MoreItem(title: "Call log", icon: "phone.arrow.down.left", path: "/admin/calls", tint: Brand.green),
                 MoreItem(title: "Ana", icon: "waveform", path: "/admin/ana", tint: Brand.green),

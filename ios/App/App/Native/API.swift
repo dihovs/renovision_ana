@@ -314,6 +314,107 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    // MARK: - Messages
+
+    /// The path segment carries the number without its plus — the server
+    /// rebuilds and validates it. One consistent stripping, or one customer
+    /// becomes two threads.
+    private func phoneSegment(_ phone: String) -> String {
+        phone.filter(\.isNumber)
+    }
+
+    func conversations() async throws -> [SmsConversation] {
+        try await get("/api/v1/messages", as: ConversationListResponse.self).conversations
+    }
+
+    func thread(phone: String) async throws -> SmsThreadResponse {
+        try await get("/api/v1/messages/\(phoneSegment(phone))", as: SmsThreadResponse.self)
+    }
+
+    private struct SendSmsBody: Encodable {
+        let body: String
+        let locale: String
+    }
+
+    func sendSms(phone: String, body: String, locale: String = "fr") async throws -> SendSmsResponse {
+        let data = try await request(
+            "/api/v1/messages/\(phoneSegment(phone))", method: "POST",
+            body: SendSmsBody(body: body, locale: locale))
+        return try decode(SendSmsResponse.self, from: data)
+    }
+
+    // MARK: - Call log actions
+
+    func deleteCall(id: String) async throws {
+        _ = try await request("/api/v1/calls/\(id)", method: "DELETE", body: Optional<String>.none)
+    }
+
+    private struct AttachPhone: Encodable {
+        let addPhone: String
+        let type: String
+    }
+
+    /// "Add to Existing Contact" — a phones-only update on the server, so
+    /// nothing else about the record can be clobbered from a call row.
+    func attachPhone(clientId: String, number: String) async throws {
+        _ = try await request(
+            "/api/v1/clients/\(clientId)", method: "PATCH",
+            body: AttachPhone(addPhone: number, type: "mobile"))
+    }
+
+    // MARK: - Photos
+
+    func photos(roomScanId: String) async throws -> [RoomPhoto] {
+        let encoded = roomScanId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? roomScanId
+        return try await get("/api/v1/photos?roomScanId=\(encoded)", as: PhotoListResponse.self).photos
+    }
+
+    /// Upload one photo, multipart. Base64 JSON would inflate a 3 MB phone
+    /// photo by a third on the connection that is already the bottleneck.
+    func uploadPhoto(
+        projectId: String, roomScanId: String?, affectedAreaId: String?, jpeg: Data, note: String?
+    ) async throws -> String {
+        guard let url = URL(string: "/api/v1/photos", relativeTo: Self.baseURL) else {
+            throw APIError.server("Bad path.")
+        }
+
+        let boundary = "rv-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        func field(_ name: String, _ value: String) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append(
+                "Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n"
+                    .data(using: .utf8)!)
+        }
+        field("projectId", projectId)
+        if let roomScanId { field("roomScanId", roomScanId) }
+        if let affectedAreaId { field("affectedAreaId", affectedAreaId) }
+        if let note, !note.isEmpty { field("note", note) }
+
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\n"
+                .data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(jpeg)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        req.httpBody = body
+
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw APIError.server("No response.") }
+        if http.statusCode == 401 { throw APIError.notSignedIn }
+        guard (200..<300).contains(http.statusCode) else {
+            let bodyText = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error
+            throw APIError.server(bodyText ?? "Upload failed (\(http.statusCode)).")
+        }
+        struct Created: Decodable { let id: String }
+        return try decode(Created.self, from: data).id
+    }
+
     // MARK: - Drying log
 
     func moisture(roomScanId: String) async throws -> [MoistureReading] {

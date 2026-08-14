@@ -256,6 +256,107 @@ enum Money {
     }
 }
 
+// MARK: - Messages
+
+struct ConversationListResponse: Decodable { let conversations: [SmsConversation] }
+
+/// One texting relationship. There is no thread table anywhere — the E.164
+/// number IS the identity, which is why this has no separate id.
+struct SmsConversation: Decodable, Identifiable, Hashable {
+    let phone: String
+    let clientId: String?
+    let clientName: String?
+    let lastBody: String
+    let lastDirection: String
+    let lastAt: Date
+    /// Newest message is theirs — the only "needs attention" state that
+    /// exists. There is no read/unread anywhere, and inventing one here
+    /// would show badges the web inbox cannot see.
+    let awaitingReply: Bool
+    let lastFailed: Bool
+    let messageCount: Int
+    let optedOut: Bool
+
+    var id: String { phone }
+
+    enum CodingKeys: String, CodingKey {
+        case phone, clientId, clientName, lastBody, lastDirection, lastAt,
+            awaitingReply, lastFailed, messageCount, optedOut
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        phone = try c.decode(String.self, forKey: .phone)
+        clientId = try? c.decodeIfPresent(String.self, forKey: .clientId)
+        clientName = try? c.decodeIfPresent(String.self, forKey: .clientName)
+        lastBody = (try? c.decode(String.self, forKey: .lastBody)) ?? ""
+        lastDirection = (try? c.decode(String.self, forKey: .lastDirection)) ?? "inbound"
+        lastAt = ISO8601.date(try? c.decode(String.self, forKey: .lastAt))
+        awaitingReply = (try? c.decode(Bool.self, forKey: .awaitingReply)) ?? false
+        lastFailed = (try? c.decode(Bool.self, forKey: .lastFailed)) ?? false
+        messageCount = (try? c.decode(Int.self, forKey: .messageCount)) ?? 0
+        optedOut = (try? c.decode(Bool.self, forKey: .optedOut)) ?? false
+    }
+}
+
+struct SmsThreadResponse: Decodable {
+    let phone: String
+    let client: AttributedClient?
+    let optedOut: Bool
+    let messages: [SmsMessage]
+
+    struct AttributedClient: Decodable {
+        let id: String
+        let name: String
+    }
+}
+
+struct SmsMessage: Decodable, Identifiable, Hashable {
+    let id: String
+    let direction: String
+    let body: String
+    /// "queued", "failed" or "received" — nothing else exists. There are no
+    /// delivery receipts, so a "delivered" tick would be fabricated data.
+    let status: String
+    let error: String?
+    let createdAt: Date
+
+    var isOutbound: Bool { direction == "outbound" }
+
+    enum CodingKeys: String, CodingKey { case id, direction, body, status, error, createdAt }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        direction = (try? c.decode(String.self, forKey: .direction)) ?? "inbound"
+        body = (try? c.decode(String.self, forKey: .body)) ?? ""
+        status = (try? c.decode(String.self, forKey: .status)) ?? "received"
+        error = try? c.decodeIfPresent(String.self, forKey: .error)
+        createdAt = ISO8601.date(try? c.decode(String.self, forKey: .createdAt))
+    }
+}
+
+struct SendSmsResponse: Decodable {
+    let sent: Bool
+    let sid: String?
+    let reason: String?
+    /// The owner-readable sentence, mapped server-side to match the web
+    /// inbox word for word. Show verbatim.
+    let message: String?
+}
+
+// MARK: - Photos
+
+struct PhotoListResponse: Decodable { let photos: [RoomPhoto] }
+
+struct RoomPhoto: Decodable, Identifiable, Hashable {
+    let id: String
+    let filename: String
+    let note: String?
+    /// Signed per request and short-lived — never cache this across launches.
+    let url: String?
+}
+
 // MARK: - Calls
 
 struct CallListResponse: Decodable { let calls: [CallRecord] }
@@ -311,6 +412,7 @@ struct ScanListResponse: Decodable { let scans: [RoomScan] }
 
 struct RoomScan: Decodable, Identifiable, Hashable {
     let id: String
+    let projectId: String?
     let name: String
     let level: String
     let position: Int
@@ -328,6 +430,7 @@ struct RoomScan: Decodable, Identifiable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, level, position, geometry
+        case projectId = "project_id"
         case floorAreaSqm = "floor_area_sqm"
         case wallLengthM = "wall_length_m"
         case ceilingHeightM = "ceiling_height_m"
@@ -341,6 +444,7 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
+        projectId = try? c.decodeIfPresent(String.self, forKey: .projectId)
         name = try c.decode(String.self, forKey: .name)
         level = try c.decode(String.self, forKey: .level)
         position = (try? c.decode(Int.self, forKey: .position)) ?? 0

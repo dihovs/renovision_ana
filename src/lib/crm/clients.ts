@@ -246,6 +246,40 @@ export async function createClient(
   return id;
 }
 
+/**
+ * Attach one more number to an existing customer.
+ *
+ * A focused update of the phones column alone, NOT updateClient: that one
+ * rebuilds every column from a full ClientInput, and calling it with only a
+ * phone would overwrite the client's name with nothing. This is the "Add to
+ * Existing Contact" action on the call log — the caller has a number and a
+ * chosen customer, and everything else about the record must survive.
+ */
+export async function addClientPhone(
+  id: string,
+  number: string,
+  type: string = "mobile",
+): Promise<void> {
+  const client = requireDb();
+
+  const { data, error } = await client.from("clients").select("phones").eq("id", id).single();
+  if (error) throw new Error(`Could not find that customer: ${error.message}`);
+
+  const phones = (data?.phones ?? []) as { number: string }[];
+  // The same digits twice on one record is clutter, not information.
+  const digits = (value: string) => value.replace(/\D/g, "");
+  if (phones.some((phone) => digits(phone.number) === digits(number))) return;
+
+  const { error: updateError } = await client
+    .from("clients")
+    .update({
+      phones: [...phones, { number, type, primary: phones.length === 0, smsAllowed: false }],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (updateError) throw new Error(`Could not add the number: ${updateError.message}`);
+}
+
 export async function updateClient(id: string, input: ClientInput): Promise<void> {
   const client = requireDb();
   const { error } = await client.from("clients").update(clientColumns(input)).eq("id", id);

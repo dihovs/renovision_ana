@@ -42,6 +42,8 @@
 		475D5E68C8633C0C64637823 /* FloorPlanGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */; };
 		AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */; };
 		B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD833D37CF40538753EFB53 /* ScanQueue.swift */; };
+		3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */; };
+		2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */ = {isa = PBXBuildFile; fileRef = D656561111C08EA37D97551A /* RoomPhotos.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -81,6 +83,8 @@
 		F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorPlanGeometry.swift; sourceTree = "<group>"; };
 		41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorPlanView.swift; sourceTree = "<group>"; };
 		CAD833D37CF40538753EFB53 /* ScanQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanQueue.swift; sourceTree = "<group>"; };
+		75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MessagesView.swift; sourceTree = "<group>"; };
+		D656561111C08EA37D97551A /* RoomPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomPhotos.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +128,8 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				D656561111C08EA37D97551A /* RoomPhotos.swift */,
+				75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */,
 				CAD833D37CF40538753EFB53 /* ScanQueue.swift */,
 				41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */,
 				F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */,
@@ -237,6 +243,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */,
+				3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */,
 				B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */,
 				AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */,
 				475D5E68C8633C0C64637823 /* FloorPlanGeometry.swift in Sources */,
