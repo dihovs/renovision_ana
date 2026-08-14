@@ -6,21 +6,30 @@ import SwiftUI
 /// two directions — a scanned room being corrected and a blank room being
 /// drawn. Every visual word they do not share is a word the operator has to
 /// learn twice, so the words live here: the dotted grid the plan sits on, the
-/// hatch that means "this room is in hand", the drafted dimension strings,
-/// and the bottom bar that says what the selected thing can do. Same
-/// reasoning that put the opening glyphs in `OpeningGlyphs` and the keypad in
-/// `MeasurementPanel` — two hand-copies is how two canvases drift apart.
+/// tan tile grid that means "you are inside this room", the drafted dimension
+/// strings and their chains, the wall manipulators, and the whole chrome —
+/// nav bar, floating pills, view-mode menu, bottom action bar. Same reasoning
+/// that put the opening glyphs in `OpeningGlyphs` and the keypad in
+/// `MeasurementPanel`: two hand-copies is how two canvases drift apart.
 ///
-/// All colour comes from `Brand`. The reference's canvas vocabulary is the
-/// pattern being reused — grid, hatch, extension lines, contextual bar — but
-/// its system-blue trade dress is not; ours is the brand blue throughout.
+/// The layout is `Docs/reference/magicplan/editor-chrome-design.md`, which
+/// transcribes the screenshots the owner sent with the instruction *"I want
+/// exactly the design that I send you on the photos. Just keep the hint of my
+/// company."* Section numbers in the comments below refer to it.
+///
+/// What "the hint of my company" means precisely: the LAYOUT is copied — where
+/// things sit, how they group, what changes with state. The icon set is not;
+/// those are SF Symbols, Apple's and ours to use. And every accent that is
+/// system blue in the screenshots is `Brand.blue` here. Never system blue.
 enum EditorChrome {
 
     // MARK: - Dotted grid
 
-    /// The paper. A dot every half metre of MODEL space, a brand-blue
-    /// crosshair every two, drawn behind everything else so the room reads
-    /// as sitting on a sheet rather than floating in a void.
+    /// The paper. A dot every half metre of MODEL space, and every FIFTH dot
+    /// replaced by a brand-blue `+` crosshair (§2), drawn behind everything
+    /// else so the room reads as sitting on a sheet rather than floating in a
+    /// void. The crosshairs are what give it the drafting-paper feel and §2
+    /// is explicit that they must not be dropped.
     ///
     /// Model space, not screen space, deliberately: the grid must pan and
     /// zoom with the plan, because it is the sheet the room is drawn on —
@@ -30,8 +39,8 @@ enum EditorChrome {
     ///
     /// 0.5 m pitch because that is the scale of the things being drawn —
     /// door widths, wall jogs, closet depths are all judged in half-metre
-    /// steps — and the 2 m majors give the eye a coarse count without a
-    /// single ruled line competing with the walls.
+    /// steps — and the majors every fifth dot give the eye a coarse count
+    /// without a single ruled line competing with the walls.
     ///
     /// The fade: below ~8 pt of screen pitch the dots stop being countable
     /// marks and merge into grey smear, which is worse than no grid. So the
@@ -69,10 +78,10 @@ enum EditorChrome {
         var crosses = Path()
         let r: CGFloat = 1.1
         let arm: CGFloat = 3.5
-        // Crosshairs on the 2 m majors — every fourth half-metre line. The
+        // Every FIFTH dot is a crosshair (§2) — 2.5 m of model space. The
         // index test is on the MODEL multiple, not the loop counter, so the
         // majors stay pinned to the same model lines while panning.
-        let major = 4
+        let major = 5
 
         for ci in 0..<cols {
             let x = minX + Double(ci) * pitch
@@ -97,38 +106,53 @@ enum EditorChrome {
             crosses, with: .color(Brand.blue.opacity(0.45 * alpha)), lineWidth: 1)
     }
 
-    // MARK: - Selection hatch
+    // MARK: - The floor you are standing in
 
-    /// The engaged room's fill: fine diagonals, clipped to the outline.
+    /// The tan tile grid over the room you are INSIDE (§2).
+    ///
+    /// At floor level every room is flat grey; the one you have gone into is
+    /// white with a fine tan/terracotta grid over it, and the surrounding
+    /// rooms stay grey and un-gridded. That single difference is what makes
+    /// "inside a room" legible without a modal — and in these two editors it
+    /// is unconditional, because an editor only ever holds the one room and
+    /// you are by definition inside it.
+    ///
+    /// It replaces the blue diagonal hatch that used to mean "selected". The
+    /// hatch was carrying the wrong idea: selection is already said by the
+    /// blue wall and the corner dots, and hatching the whole floor for it
+    /// left nothing to say which room the canvas is about.
     ///
     /// Drawn as Canvas strokes at FIXED POINT spacing, deliberately. An image
     /// tile would pixelate under zoom; a pattern fill anchored to model space
-    /// would change density as the zoom changes, making "selected" look
+    /// would change density as the zoom changes, making the same floor look
     /// different at every magnification. Lines redrawn per frame at constant
-    /// point pitch cost almost nothing and always look like the same state.
-    ///
-    /// The base fill underneath stays — the hatch is a layer of meaning on
-    /// top of the floor, not a replacement for it.
-    static func hatch(_ outline: Path, context: GraphicsContext) {
+    /// point pitch cost almost nothing and always look the same.
+    static let tile = Color(light: 0xC9A08A, dark: 0x7A5B4B)
+
+    static func tileGrid(_ outline: Path, context: GraphicsContext) {
         let box = outline.boundingRect
         guard box.width > 0, box.height > 0 else { return }
 
         // A value copy of the context clips privately: the clip dies with
-        // the copy, so nothing drawn after the hatch is affected.
+        // the copy, so nothing drawn after this is affected.
         var clipped = context
         clipped.clip(to: outline)
 
-        // 45° lines; the step along x is the perpendicular pitch × √2.
-        let step: CGFloat = 6 * 1.41421356
+        let step: CGFloat = 11
         var lines = Path()
-        var x = box.minX - box.height
+        var x = box.minX
         while x < box.maxX {
             lines.move(to: CGPoint(x: x, y: box.minY))
-            lines.addLine(to: CGPoint(x: x + box.height, y: box.maxY))
+            lines.addLine(to: CGPoint(x: x, y: box.maxY))
             x += step
         }
-        clipped.stroke(
-            lines, with: .color(Brand.blue.opacity(0.28)), lineWidth: 0.5)
+        var y = box.minY
+        while y < box.maxY {
+            lines.move(to: CGPoint(x: box.minX, y: y))
+            lines.addLine(to: CGPoint(x: box.maxX, y: y))
+            y += step
+        }
+        clipped.stroke(lines, with: .color(tile.opacity(0.45)), lineWidth: 0.5)
     }
 
     // MARK: - Drafted wall dimensions
@@ -194,16 +218,9 @@ enum EditorChrome {
         // Which side is OUT is a property of the polygon's winding, not of
         // its centroid — an L-shaped room has walls whose outside faces the
         // centroid, and a centroid test would draw their dimensions through
-        // the room. The shoelace sign gives the winding; for a positively
-        // wound loop the interior is to the left of each directed edge, so
-        // outward is the right normal, and the negative case mirrors.
-        var shoelace = 0.0
-        for i in polygon.indices {
-            let p = polygon[i]
-            let q = polygon[(i + 1) % polygon.count]
-            shoelace += p.x * q.y - q.x * p.y
-        }
-        let winding: CGFloat = shoelace >= 0 ? 1 : -1
+        // the room. For a positively wound loop the interior is to the left
+        // of each directed edge, so outward is the right normal.
+        let winding = Self.winding(polygon)
 
         // The rows, outboard of the wall. `chainRow` is where a split chain
         // sits; `overallRow` is where the whole-wall figure sits when there
@@ -321,124 +338,622 @@ enum EditorChrome {
             }
         }
     }
+
+    // MARK: - The selected wall's manipulators (§7)
+
+    /// The indigo diamond drag handle at the wall's midpoint, and the small
+    /// pair of opposed triangles further along the same wall.
+    ///
+    /// Both are affordances, not new gestures: dragging a selected wall
+    /// already works anywhere on it (`PlanEditing.dragEdge`), and these say
+    /// so. The handle sits at the midpoint offset OUTBOARD, where a thumb
+    /// pulling the wall outward does not cover the number it is changing;
+    /// the `▶◀` marker sits three-quarters along, far enough from the handle
+    /// that the two never merge on a short wall.
+    static func drawWallHandles(
+        context: GraphicsContext,
+        polygon: [CGPoint],
+        edge: Int,
+        toScreen: (CGPoint) -> CGPoint,
+        winding: CGFloat
+    ) {
+        guard polygon.count >= 3, edge >= 0, edge < polygon.count else { return }
+        let (ai, bi) = PlanEditing.edgeCorners(edge, count: polygon.count)
+        let A = toScreen(polygon[ai])
+        let B = toScreen(polygon[bi])
+        let len = hypot(B.x - A.x, B.y - A.y)
+        guard len > 24 else { return }
+
+        let ux = (B.x - A.x) / len
+        let uy = (B.y - A.y) / len
+        // Outboard, the same sense the dimensions use, so the handle and the
+        // figure it moves are never on opposite sides of the wall.
+        let nx = winding * uy
+        let ny = -winding * ux
+
+        // The diamond handle: white ring, indigo fill, a diamond split by a
+        // line across the wall's own direction — the split says which way it
+        // travels, which is the one thing a drag handle has to communicate.
+        let centre = CGPoint(
+            x: (A.x + B.x) / 2 + nx * 15, y: (A.y + B.y) / 2 + ny * 15)
+        let r: CGFloat = 13
+        let disc = Path(
+            ellipseIn: CGRect(x: centre.x - r, y: centre.y - r, width: r * 2, height: r * 2))
+        context.fill(disc, with: .color(.white))
+        context.stroke(disc, with: .color(.white), lineWidth: 2)
+        context.fill(
+            Path(
+                ellipseIn: CGRect(
+                    x: centre.x - r + 2, y: centre.y - r + 2,
+                    width: (r - 2) * 2, height: (r - 2) * 2)),
+            with: .color(handleIndigo))
+
+        let d: CGFloat = 5.5
+        var diamond = Path()
+        diamond.move(to: CGPoint(x: centre.x + ux * d, y: centre.y + uy * d))
+        diamond.addLine(to: CGPoint(x: centre.x + nx * d, y: centre.y + ny * d))
+        diamond.addLine(to: CGPoint(x: centre.x - ux * d, y: centre.y - uy * d))
+        diamond.addLine(to: CGPoint(x: centre.x - nx * d, y: centre.y - ny * d))
+        diamond.closeSubpath()
+        context.stroke(diamond, with: .color(.white), lineWidth: 1.2)
+        var split = Path()
+        split.move(to: CGPoint(x: centre.x - nx * d, y: centre.y - ny * d))
+        split.addLine(to: CGPoint(x: centre.x + nx * d, y: centre.y + ny * d))
+        context.stroke(split, with: .color(.white), lineWidth: 1.2)
+
+        // The secondary marker, three-quarters along: opposed triangles on
+        // the wall line itself.
+        let at = CGPoint(x: A.x + ux * len * 0.78, y: A.y + uy * len * 0.78)
+        let gap: CGFloat = 1.6
+        let size: CGFloat = 5
+        var marks = Path()
+        for sign in [CGFloat(1), -1] {
+            let tip = CGPoint(x: at.x + ux * gap * sign, y: at.y + uy * gap * sign)
+            let base = CGPoint(x: tip.x + ux * size * sign, y: tip.y + uy * size * sign)
+            marks.move(to: tip)
+            marks.addLine(to: CGPoint(x: base.x + nx * size * 0.6, y: base.y + ny * size * 0.6))
+            marks.addLine(to: CGPoint(x: base.x - nx * size * 0.6, y: base.y - ny * size * 0.6))
+            marks.closeSubpath()
+        }
+        context.fill(marks, with: .color(.white))
+    }
+
+    /// The drag handle's fill. Indigo rather than `Brand.blue` deliberately:
+    /// the wall underneath is already brand blue, and a handle in the same
+    /// colour disappears into it. §7 calls for indigo and this is why.
+    static let handleIndigo = Color(hex: 0x4B3FA8)
+
+    /// The thin `Brand.blue` rectangle §7 draws around a selected opening.
+    static func drawOpeningSelection(
+        context: GraphicsContext,
+        polygon: [CGPoint],
+        opening: PlanEditing.WallOpening,
+        toScreen: (CGPoint) -> CGPoint,
+        scale: CGFloat
+    ) {
+        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { return }
+        let A = toScreen(a)
+        let B = toScreen(b)
+        let w = hypot(B.x - A.x, B.y - A.y)
+        guard w > 2 else { return }
+        let ux = (B.x - A.x) / w
+        let uy = (B.y - A.y) / w
+        // Deep enough to enclose the leaf and its swing, so the outline reads
+        // as "this object" rather than "this slice of wall".
+        let depth = max(14, OpeningGlyphs.bandT * scale * 0.5 + w * 0.55)
+        let nx = -uy
+        let ny = ux
+
+        var box = Path()
+        box.move(to: CGPoint(x: A.x - nx * depth / 2, y: A.y - ny * depth / 2))
+        box.addLine(to: CGPoint(x: B.x - nx * depth / 2, y: B.y - ny * depth / 2))
+        box.addLine(to: CGPoint(x: B.x + nx * depth / 2, y: B.y + ny * depth / 2))
+        box.addLine(to: CGPoint(x: A.x + nx * depth / 2, y: A.y + ny * depth / 2))
+        box.closeSubpath()
+        context.stroke(box, with: .color(Brand.blue), lineWidth: 1.2)
+    }
+
+    /// The polygon's winding, +1 when the interior lies to the left of each
+    /// directed edge. Every "which side is out" question in this file goes
+    /// through it, so the dimensions, the chain and the drag handle all agree
+    /// on which side of a wall is outdoors — a centroid test does not, and an
+    /// L-shaped room is where that shows.
+    static func winding(_ polygon: [CGPoint]) -> CGFloat {
+        var shoelace = 0.0
+        for i in polygon.indices {
+            let p = polygon[i]
+            let q = polygon[(i + 1) % polygon.count]
+            shoelace += p.x * q.y - q.x * p.y
+        }
+        return shoelace >= 0 ? 1 : -1
+    }
+
+    // MARK: - Naming the storey
+
+    /// The nav subtitle's floor name: `Ground` becomes `Ground Floor`, and
+    /// the two storeys that are already nouns are left alone — "Basement
+    /// Floor" is not a thing anybody says.
+    static func floorSubtitle(_ level: String) -> String {
+        let label = FloorVocabulary.levels.first { $0.id == level }?.label ?? level
+        switch label {
+        case "Basement", "Attic": return label
+        default: return "\(label) Floor"
+        }
+    }
 }
 
-// MARK: - Contextual action bar
+// MARK: - Where the editor is, and what it is showing
 
-/// What the bar has to know about the selection — a shared shape, because
-/// each editor keeps its own private `Selection` enum (they index different
-/// state) and the bar must not care which editor it is under.
-enum EditorBarSelection {
-    case none(hint: String)
-    /// `canAddOpening` is capability, not mood: the plan editor refuses to
-    /// author openings into a room whose scan already detected some, and the
-    /// bar only ever offers what the editor underneath actually supports.
-    case wall(canAddOpening: Bool)
-    /// A triangle is the floor of a closed room; the last three corners are
-    /// not deletable and the bar shows the control disabled rather than
-    /// hiding it, so the refusal is visible.
-    case corner(deletable: Bool)
-    case opening(label: String, isWindow: Bool)
-}
-
-/// The bottom bar both editors share, rewriting itself per selection depth —
-/// the reference's contextual-action-bar pattern (§6.2): the operator never
-/// hunts a menu, because the bar under their thumb always says what the
-/// selected thing can do. Nothing selected shows the hint; a wall offers its
-/// three verbs; a corner and an opening each offer deletion, tinted red and
-/// pinned trailing (§6.6), where a destructive control is expected to live.
+/// Which projection the canvas is drawing (§3, §5).
 ///
-/// The bar owns no state and mutates nothing — every tap calls back into the
+/// A mode, not a screen: the nav bar, the floating pills and the action bar
+/// are all functions of it, which is why it is one value rather than three
+/// booleans in three views.
+enum EditorViewMode: String, CaseIterable, Identifiable {
+    case plan
+    case threeD
+    case elevation
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .plan: return "2D View"
+        case .threeD: return "3D View"
+        case .elevation: return "Elevation View"
+        }
+    }
+
+    /// What the stepper pill and the menu's right-hand column show. Elevation
+    /// has no two-letter name, so it carries the glyph §5 transcribes.
+    var shortcut: String? {
+        switch self {
+        case .plan: return "2D"
+        case .threeD: return "3D"
+        case .elevation: return nil
+        }
+    }
+
+    static let elevationGlyph = "plus.circle"
+}
+
+/// How deep into the plan the selection has gone (§4).
+///
+/// The bar is a function of `(depth, mode)` and nothing else, so the depth
+/// has to be a value both editors can produce from their own private
+/// `Selection` enums — they index different state and neither should have to
+/// know the other's.
+enum EditorDepth: Equatable {
+    case floor(name: String)
+    case room(name: String)
+    /// `dragging` is the drag handle being held: §4 gives that its own row,
+    /// because a bar full of verbs under a finger that is mid-drag offers
+    /// things that cannot be tapped anyway.
+    case wall(dragging: Bool)
+    /// Ours, not in §4's table — magicplan has no corner depth. It follows
+    /// the drag-engaged row's shape because it offers the same two things.
+    case corner
+    case opening(label: String)
+
+    /// What the swipe-up caption calls this — `<name>` in
+    /// "Swipe up ↑ for <name> info".
+    var infoName: String {
+        switch self {
+        case .floor(let name): return name
+        case .room(let name): return name
+        case .wall: return "Wall"
+        case .corner: return "Corner"
+        case .opening(let label): return label
+        }
+    }
+}
+
+/// One verb the bar can offer. An enum rather than ten closures, because the
+/// bar's contents are a table lookup and a table of cases stays readable
+/// where a table of callbacks does not.
+enum EditorAction: Hashable {
+    case insert
+    case rotate
+    case setSize
+    case editLayout
+    case duplicate
+    case addCorner
+    case addWall
+    case splitRoom
+    case replaceWith
+    case delete
+
+    var label: String {
+        switch self {
+        case .insert: return "Insert"
+        case .rotate: return "Rotate"
+        case .setSize: return "Set Size"
+        case .editLayout: return "Edit Layout"
+        case .duplicate: return "Duplicate"
+        case .addCorner: return "Add Corner"
+        case .addWall: return "Add Wall"
+        case .splitRoom: return "Split Room"
+        case .replaceWith: return "Replace with..."
+        // The ellipsis is not decoration: §4 gives destructive labels one
+        // because they confirm before they act.
+        case .delete: return "Delete..."
+        }
+    }
+
+    /// SF Symbols throughout — the reference's icon set is its own trade
+    /// dress and is deliberately not copied; the shapes below are Apple's.
+    var icon: String {
+        switch self {
+        case .insert: return "plus"
+        case .rotate: return "arrow.clockwise"
+        case .setSize: return "ruler"
+        case .editLayout: return "square.and.pencil"
+        case .duplicate: return "square.on.square"
+        case .addCorner: return "plus.circle"
+        case .addWall: return "plus.rectangle"
+        case .splitRoom: return "scissors"
+        case .replaceWith: return "arrow.triangle.2.circlepath"
+        case .delete: return "trash"
+        }
+    }
+
+    var isDestructive: Bool { self == .delete }
+
+    /// §4's table, exactly. View mode wins over depth: 3D has no bar at all,
+    /// and elevation reduces to a single verb whatever is selected under it.
+    static func bar(depth: EditorDepth, mode: EditorViewMode) -> [EditorAction] {
+        switch mode {
+        case .threeD:
+            return []
+        case .elevation:
+            return [.insert]
+        case .plan:
+            break
+        }
+        switch depth {
+        case .floor:
+            return [.insert, .rotate]
+        case .room:
+            return [.insert, .setSize, .editLayout, .duplicate, .delete]
+        case .wall(let dragging):
+            return dragging
+                ? [.insert, .delete]
+                : [.insert, .addCorner, .addWall, .splitRoom, .delete]
+        case .corner:
+            return [.insert, .delete]
+        case .opening:
+            return [.insert, .replaceWith, .duplicate, .delete]
+        }
+    }
+}
+
+// MARK: - Bottom action bar (§4)
+
+/// The bar across the bottom, rewriting itself per `(depth, view mode)`.
+///
+/// The operator never hunts a menu, because the bar under their thumb always
+/// says what the selected thing can do. What it SHOWS is §4's table verbatim;
+/// what it ENABLES is `supported`, which each editor recomputes every render
+/// from its own capabilities.
+///
+/// **Disabled rather than hidden, deliberately.** Several of §4's verbs were
+/// seen in the reference's bar but never performed — no after-frames exist
+/// for Add Wall or Split Room, and ORDERS lists them as deliberately not
+/// ordered. Implementing a guess at what they do would be improvising a
+/// substitute for evidence; dropping them would quietly redesign a bar the
+/// owner asked for exactly. So they are drawn in their place, greyed: the
+/// layout is the one he sent, and the refusal is visible rather than
+/// mysterious — the rule the corner control already followed when a
+/// triangle's last three corners cannot be deleted.
+///
+/// The bar owns no state and mutates nothing. Every tap calls back into the
 /// editor that owns the geometry, so undo, opening renumbering and lock
 /// bookkeeping stay exactly where they were.
 struct EditorActionBar: View {
-    let selection: EditorBarSelection
-    var onTypeLength: () -> Void = {}
-    var onAddCorner: () -> Void = {}
-    var onAddOpening: () -> Void = {}
-    var onDeleteCorner: () -> Void = {}
-    var onDeleteOpening: () -> Void = {}
+    let depth: EditorDepth
+    var mode: EditorViewMode = .plan
+    /// The verbs this editor can actually perform right now. Everything else
+    /// in the row renders greyed.
+    let supported: Set<EditorAction>
+    let onAction: (EditorAction) -> Void
+    /// The swipe-up gesture into the inspector. nil where there is no
+    /// inspector to reach — and then the caption is not drawn either, because
+    /// a caption promising a gesture that does nothing is worse than none.
+    var onInfo: (() -> Void)?
+
+    private var actions: [EditorAction] { EditorAction.bar(depth: depth, mode: mode) }
 
     var body: some View {
-        HStack(spacing: Brand.Space.tight) {
-            switch selection {
-            case .none(let hint):
-                Text(hint)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Brand.inkSoft)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
+        // 3D is read-only, and §4 gives it no bar at all.
+        if actions.isEmpty {
+            EmptyView()
+        } else {
+            VStack(spacing: Brand.Space.small) {
+                // The grabber: this panel is the handle for the swipe-up.
+                Capsule()
+                    .fill(Brand.inkFaint.opacity(0.5))
+                    .frame(width: 36, height: 5)
 
-            case .wall(let canAddOpening):
-                item("Type length", icon: "keyboard", action: onTypeLength)
-                    .frame(maxWidth: .infinity)
-                item("Add corner", icon: "plus.circle", action: onAddCorner)
-                    .frame(maxWidth: .infinity)
-                if canAddOpening {
-                    item("Add opening", icon: "door.left.hand.open", action: onAddOpening)
-                        .frame(maxWidth: .infinity)
-                }
-
-            case .corner(let deletable):
-                Spacer()
-                item(
-                    "Delete corner", icon: "minus.circle", destructive: true,
-                    action: onDeleteCorner)
-                .disabled(!deletable)
-                .opacity(deletable ? 1 : 0.35)
-
-            case .opening(let label, let isWindow):
-                // The kind is stated, not just implied by the glyph on the
-                // canvas — the bar is where the selection says its name.
                 HStack(spacing: Brand.Space.tight) {
-                    Image(systemName: isWindow ? "rectangle.split.3x1" : "door.left.hand.open")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(label)
-                        .font(.system(size: 13, weight: .semibold))
+                    ForEach(actions, id: \.self) { action in
+                        tile(action)
+                    }
                 }
-                .foregroundStyle(Brand.ink)
-                .padding(.leading, Brand.Space.tight)
-                Spacer()
-                item("Delete", icon: "trash", destructive: true, action: onDeleteOpening)
+
+                if onInfo != nil {
+                    Text("Swipe up ↑ for \(depth.infoName) info")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.inkSoft)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
+            .padding(.top, Brand.Space.tight)
+            .padding(.horizontal, Brand.Space.small)
+            .padding(.bottom, Brand.Space.small)
+            .frame(maxWidth: .infinity)
+            // One sheet with rounded top corners, the way it sits in the
+            // screenshots — the grabber above it reads as the sheet's own
+            // handle rather than a mark floating on the background.
+            .background(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: Brand.Radius.sheet,
+                    topTrailingRadius: Brand.Radius.sheet
+                )
+                .fill(Brand.surface)
+                .ignoresSafeArea(edges: .bottom))
+            .contentShape(.rect)
+            .gesture(
+                DragGesture(minimumDistance: 20)
+                    .onEnded { value in
+                        if value.translation.height < -20 { onInfo?() }
+                    })
         }
-        // A constant height whatever the selection, so tapping around the
-        // room never makes the canvas above jump.
-        .frame(minHeight: 58)
-        .padding(.horizontal, Brand.Space.small)
-        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
-        .overlay(
-            RoundedRectangle(cornerRadius: Brand.Radius.card)
-                .strokeBorder(Brand.hairline, lineWidth: 0.5))
     }
 
-    /// One bar item: icon over label, the reference's bottom-bar idiom, in
-    /// our colours — brand blue for verbs, red only for the destructive one.
-    private func item(
-        _ label: String, icon: String, destructive: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                Text(label)
-                    .font(.system(size: 11, weight: .semibold))
+    /// One tile: equal width, light grey fill, icon above label (§4).
+    private func tile(_ action: EditorAction) -> some View {
+        let enabled = supported.contains(action)
+        return Button {
+            onAction(action)
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: action.icon)
+                    .font(.system(size: 22, weight: .regular))
+                Text(action.label)
+                    .font(.system(size: 13))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.7)
             }
-            .foregroundStyle(destructive ? Color.red : Brand.blue)
-            .padding(.horizontal, Brand.Space.tight)
-            .padding(.vertical, Brand.Space.tight)
-            .contentShape(.rect)
+            .foregroundStyle(action.isDestructive ? Color.red : Brand.blue)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Brand.Space.small)
+            .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.35)
+    }
+}
+
+// MARK: - Navigation bar (§1)
+
+/// The leading pill: one rounded rect holding a back chevron and a context
+/// glyph that says what you would go back TO.
+struct EditorBackPill: View {
+    /// §1's table: a floor-switcher at floor level, a single-room glyph
+    /// inside a room, and the literal text `2D` in 3D or elevation — where it
+    /// is an escape hatch rather than a chevron target.
+    enum Context: Equatable {
+        case floor
+        case room
+        case escapeTo2D
+    }
+
+    let context: Context
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                switch context {
+                case .floor:
+                    Image(systemName: "rectangle.split.2x1")
+                        .font(.system(size: 15, weight: .regular))
+                case .room:
+                    Image(systemName: "square.dashed")
+                        .font(.system(size: 15, weight: .regular))
+                case .escapeTo2D:
+                    Text("2D").font(.system(size: 14, weight: .bold))
+                }
+            }
+            .foregroundStyle(Brand.blue)
+            .padding(.horizontal, Brand.Space.small)
+            .padding(.vertical, 5)
+            .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
         }
         .buttonStyle(.plain)
     }
 }
 
-extension PlanEditing.OpeningKind {
-    /// Grouping for the bar's glyph only — the geometry's own `category`
-    /// distinguishes passages from doors, but on the bar a cased opening
-    /// reads best under the door glyph it was authored beside.
-    var isWindowForBar: Bool { category == .window }
+/// The centre slot: title bold, an optional grey subtitle under it carrying
+/// the parent or the mode (§1's second table).
+struct EditorNavTitle: View {
+    let title: String
+    var subtitle: String?
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(title)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Brand.ink)
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.inkSoft)
+            }
+        }
+        .lineLimit(1)
+    }
 }
+
+// MARK: - Floating controls (§3)
+
+/// Top-left: one pill, two halves split by a hairline. Unavailable actions
+/// grey out IN PLACE — the pill never disappears, so the thumb learns one
+/// position rather than hunting a control that comes and goes.
+struct EditorUndoRedoPill: View {
+    let canUndo: Bool
+    let canRedo: Bool
+    let onUndo: () -> Void
+    let onRedo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            half("arrow.uturn.backward", enabled: canUndo, action: onUndo)
+            Rectangle()
+                .fill(Brand.hairline)
+                .frame(width: 0.5, height: 22)
+            half("arrow.uturn.forward", enabled: canRedo, action: onRedo)
+        }
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.tile))
+        .overlay(
+            RoundedRectangle(cornerRadius: Brand.Radius.tile)
+                .strokeBorder(Brand.hairline, lineWidth: 0.5))
+    }
+
+    private func half(_ icon: String, enabled: Bool, action: @escaping () -> Void)
+        -> some View
+    {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(enabled ? Brand.blue : Brand.inkFaint.opacity(0.5))
+                .frame(width: 40, height: 34)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+}
+
+/// Top-right: a white pill with a chevron-up-down stepper glyph on its right.
+/// Two of them sit there — the layers one and the view-mode one — so the
+/// shell is shared and only the leading content differs.
+struct EditorStepperPill<Content: View>: View {
+    let action: () -> Void
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Brand.Space.tight) {
+                content
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Brand.inkSoft)
+            }
+            .foregroundStyle(Brand.blue)
+            .padding(.horizontal, Brand.Space.small)
+            .frame(height: 34)
+            .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.tile))
+            .overlay(
+                RoundedRectangle(cornerRadius: Brand.Radius.tile)
+                    .strokeBorder(Brand.hairline, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - View-mode menu (§5)
+
+/// The floating card under the view stepper: three rows, the current one
+/// carrying a leading checkmark, each with its shortcut glyph right-aligned.
+///
+/// The Elevation row is the interesting one. It has ONE subtitle slot
+/// carrying TWO kinds of message: disabled, the subtitle is the blocking
+/// reason; enabled, that same line becomes the shortcut hint. Worth keeping
+/// exactly — it is how a user learns the double-tap at all, since the
+/// sentence that told them why they could not use it is replaced in place by
+/// the one telling them the fast way in.
+struct EditorViewModeMenu: View {
+    let current: EditorViewMode
+    /// nil when Elevation can be entered; otherwise the reason it cannot.
+    let elevationBlocked: String?
+    /// Same, for 3D.
+    let threeDBlocked: String?
+    let onPick: (EditorViewMode) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            row(.plan, blocked: nil, subtitle: nil)
+            divider(thick: false)
+            row(.threeD, blocked: threeDBlocked, subtitle: threeDBlocked)
+            // §5: the third row is separated by a thicker divider.
+            divider(thick: true)
+            row(
+                .elevation, blocked: elevationBlocked,
+                subtitle: elevationBlocked ?? "You can also double-tap on a wall")
+        }
+        .frame(width: 274)
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .overlay(
+            RoundedRectangle(cornerRadius: Brand.Radius.card)
+                .strokeBorder(Brand.hairline, lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
+    }
+
+    private func divider(thick: Bool) -> some View {
+        Rectangle()
+            .fill(Brand.hairline)
+            .frame(height: thick ? 4 : 0.5)
+    }
+
+    private func row(_ mode: EditorViewMode, blocked: String?, subtitle: String?)
+        -> some View
+    {
+        let enabled = blocked == nil
+        return Button {
+            onPick(mode)
+        } label: {
+            HStack(spacing: Brand.Space.small) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Brand.blue)
+                    .opacity(current == mode ? 1 : 0)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(mode.title)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Brand.ink)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                Spacer(minLength: Brand.Space.small)
+                if let shortcut = mode.shortcut {
+                    Text(shortcut)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Brand.inkSoft)
+                } else {
+                    Image(systemName: EditorViewMode.elevationGlyph)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Brand.inkSoft)
+                }
+            }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, Brand.Space.small)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        // The WHOLE row greys, per §5 — reason and title together, so the
+        // sentence reads as belonging to the thing it is refusing.
+        .opacity(enabled ? 1 : 0.4)
+    }
+}
+

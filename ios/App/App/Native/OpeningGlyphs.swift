@@ -20,6 +20,12 @@ enum OpeningGlyphs {
 
     /// Draw one opening into an editor canvas. `toScreen` is the editor's
     /// own model-to-screen mapping; `scale` its points-per-metre.
+    ///
+    /// The gap is knocked out in TWO colours, not one. A wall band straddles
+    /// the room's boundary — half of it lies over the floor, half over the
+    /// canvas outside — and since §2 made those two different colours (white
+    /// floor, grey canvas), one flat knock-out would show the wrong colour
+    /// through on one side of every door in the room.
     static func draw(
         _ opening: PlanEditing.WallOpening,
         polygon: [CGPoint],
@@ -27,7 +33,8 @@ enum OpeningGlyphs {
         context: GraphicsContext,
         toScreen: (CGPoint) -> CGPoint,
         scale: CGFloat,
-        background: Color
+        inside: Color,
+        outside: Color
     ) {
         guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { return }
         let A = toScreen(a)
@@ -42,23 +49,6 @@ enum OpeningGlyphs {
         let tPts = bandT * scale
         let ink = selected ? Brand.blue : Color(hex: 0x111111)
 
-        // 1. Knock the band out. Slightly wider than the wall stroke so no
-        // sliver of wall survives antialiasing at the jambs.
-        var cut = Path()
-        cut.move(to: A)
-        cut.addLine(to: B)
-        context.stroke(
-            cut, with: .color(background),
-            style: StrokeStyle(lineWidth: max(3, tPts) + 3, lineCap: .butt))
-
-        // 2. Jamb caps — the cut faces either side of the gap.
-        for p in [A, B] {
-            var jamb = Path()
-            jamb.move(to: CGPoint(x: p.x - nx * tPts / 2, y: p.y - ny * tPts / 2))
-            jamb.addLine(to: CGPoint(x: p.x + nx * tPts / 2, y: p.y + ny * tPts / 2))
-            context.stroke(jamb, with: .color(ink), lineWidth: 1.4)
-        }
-
         // Which way is "into the room": toward the outline's own middle.
         var cx = 0.0
         var cy = 0.0
@@ -71,6 +61,35 @@ enum OpeningGlyphs {
         let centre = toScreen(CGPoint(x: cx, y: cy))
         let mid = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
         let side: CGFloat = ((centre.x - mid.x) * nx + (centre.y - mid.y) * ny) >= 0 ? 1 : -1
+
+        // 1. Knock the band out. The whole width goes first in the outside
+        // colour — slightly wider than the wall stroke so no sliver of wall
+        // survives antialiasing — then the inner half is repainted in the
+        // floor's colour, overlapping the centreline by a hair so the black
+        // wall leaves no seam between the two.
+        let reach = max(3, tPts) / 2 + 1.5
+        var cut = Path()
+        cut.move(to: A)
+        cut.addLine(to: B)
+        context.stroke(
+            cut, with: .color(outside),
+            style: StrokeStyle(lineWidth: reach * 2, lineCap: .butt))
+
+        var inner = Path()
+        inner.move(to: CGPoint(x: A.x - side * nx * 0.75, y: A.y - side * ny * 0.75))
+        inner.addLine(to: CGPoint(x: B.x - side * nx * 0.75, y: B.y - side * ny * 0.75))
+        inner.addLine(to: CGPoint(x: B.x + side * nx * reach, y: B.y + side * ny * reach))
+        inner.addLine(to: CGPoint(x: A.x + side * nx * reach, y: A.y + side * ny * reach))
+        inner.closeSubpath()
+        context.fill(inner, with: .color(inside))
+
+        // 2. Jamb caps — the cut faces either side of the gap.
+        for p in [A, B] {
+            var jamb = Path()
+            jamb.move(to: CGPoint(x: p.x - nx * tPts / 2, y: p.y - ny * tPts / 2))
+            jamb.addLine(to: CGPoint(x: p.x + nx * tPts / 2, y: p.y + ny * tPts / 2))
+            context.stroke(jamb, with: .color(ink), lineWidth: 1.4)
+        }
 
         func leafAndArc(hinge H: CGPoint, latch L: CGPoint) {
             let r = hypot(L.x - H.x, L.y - H.y)
