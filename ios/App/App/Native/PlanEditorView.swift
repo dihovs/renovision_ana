@@ -95,19 +95,6 @@ struct PlanEditorView: View {
         return geometry.doors.isEmpty && geometry.windows.isEmpty && geometry.openings.isEmpty
     }
 
-    /// The wall whose dimension chain is split right now: the selected wall,
-    /// or the host wall of the selected opening.
-    private var chainEdge: Int? {
-        switch selection {
-        case .wall(let index):
-            return openings.contains { $0.edge == index } ? index : nil
-        case .opening(let index):
-            return openings.indices.contains(index) ? openings[index].edge : nil
-        case .none, .corner:
-            return nil
-        }
-    }
-
     var body: some View {
         NavigationStack {
             ZStack {
@@ -284,19 +271,6 @@ struct PlanEditorView: View {
                             background: Brand.surface)
                     }
 
-                    // The split dimension chain of the wall that owns the
-                    // selection: offset · width · offset, the row that makes
-                    // an opening's position a measurable fact.
-                    if let edge = chainEdge {
-                        OpeningGlyphs.drawChain(
-                            edge: edge,
-                            polygon: corners,
-                            openings: openings,
-                            context: context,
-                            toScreen: pt,
-                            proxySize: proxy.size)
-                    }
-
                     // Corner handles, whenever anything is selected — they
                     // are what makes the shape feel grabbable.
                     if selection != .none {
@@ -313,15 +287,17 @@ struct PlanEditorView: View {
                         }
                     }
 
-                    // Every wall's length as a drafted string — witness
-                    // lines, ticks, the figure along the run — offset
+                    // Every wall's dimensions as a drafted string — witness
+                    // lines, arrowheads, the figure along the run — offset
                     // OUTSIDE the walls where a dimension belongs, not a
-                    // pill floating on the wall line. Locked values keep
-                    // their padlock; the selected wall's string goes blue
-                    // and bold with it.
+                    // pill floating on the wall line. Any wall carrying an
+                    // opening also gets its split chain on the row beneath,
+                    // whatever is selected (ORD-18). Locked values keep
+                    // their padlock; the selected wall's string goes bold.
                     EditorChrome.drawWallDimensions(
                         context: context,
                         polygon: corners,
+                        openings: openings,
                         toScreen: pt,
                         proxySize: proxy.size,
                         selectedEdge: {

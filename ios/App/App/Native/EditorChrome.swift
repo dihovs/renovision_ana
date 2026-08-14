@@ -133,18 +133,57 @@ enum EditorChrome {
 
     // MARK: - Drafted wall dimensions
 
-    /// Every wall's length as a drafted dimension string: witness lines off
-    /// the corners, a thin dimension line offset OUTSIDE the wall, oblique
-    /// ticks at the ends, the figure rotated along the run. The same
-    /// vocabulary `FloorPlanView` draws for presentation — the editors now
-    /// speak it too, instead of floating pill badges on the wall line.
+    /// The grey a dimension line and its witness lines are drawn in (§6).
+    static let dimensionGrey = Color(light: 0x8A8F97, dark: 0x7B818A)
+
+    /// A pair of opposed arrowheads at one point on a dimension line — the
+    /// mark §6 asks for at every segment boundary, and the fine head at each
+    /// end of an overall run. Drawn as two filled darts pointing along the
+    /// line in both directions, so one mark serves the segment either side.
+    static func arrowheads(
+        at p: CGPoint, along u: (CGFloat, CGFloat), context: GraphicsContext, color: Color
+    ) {
+        let len: CGFloat = 4
+        let half: CGFloat = 1.7
+        let nx = -u.1
+        let ny = u.0
+        var heads = Path()
+        for sign in [CGFloat(1), -1] {
+            let tail = CGPoint(x: p.x + u.0 * len * sign, y: p.y + u.1 * len * sign)
+            heads.move(to: p)
+            heads.addLine(to: CGPoint(x: tail.x + nx * half, y: tail.y + ny * half))
+            heads.addLine(to: CGPoint(x: tail.x - nx * half, y: tail.y - ny * half))
+            heads.closeSubpath()
+        }
+        context.fill(heads, with: .color(color))
+    }
+
+    /// Every wall's dimensions: witness lines off the corners, a thin
+    /// dimension line offset OUTSIDE the wall, fine arrowheads at the ends,
+    /// the figure rotated along the run — and, on any wall that carries an
+    /// opening, the SPLIT CHAIN on its own row between the wall and that
+    /// overall line.
     ///
-    /// The padlock prefix survives the move: a locked value is a number a
-    /// person typed, and the glyph is what tells the operator "drags will
-    /// ask before touching this".
+    /// **ORD-18.** The chain used to appear only on the selected wall, so
+    /// deselecting made every door width vanish. A door's width is the first
+    /// number an operator checks and it must not be behind a selection, so
+    /// the chain is now a property of the wall — drawn wherever there is an
+    /// opening, whatever is selected. Walls without an opening keep the
+    /// single figure alone; there is nothing to split.
+    ///
+    /// The two rows are laid out the way the reference draws them: overall
+    /// on the OUTER row, chain INBOARD of it, both outside the wall, witness
+    /// lines running from the wall past both. That is why `off` is decided
+    /// per wall — a wall with a chain needs its overall figure pushed out to
+    /// clear the row beneath it, and `chainLayout` has to be asked first
+    /// because it is what knows whether the row will be drawn at all.
+    ///
+    /// The padlock survives, moved to where §6 puts it: immediately AFTER a
+    /// hand-set number, not before it.
     static func drawWallDimensions(
         context: GraphicsContext,
         polygon: [CGPoint],
+        openings: [PlanEditing.WallOpening],
         toScreen: (CGPoint) -> CGPoint,
         proxySize: CGSize,
         selectedEdge: Int?,
@@ -166,12 +205,14 @@ enum EditorChrome {
         }
         let winding: CGFloat = shoelace >= 0 ? 1 : -1
 
-        // The same offsets the presentation renderer uses, so a plan looks
-        // like the same drawing in the editor and in the report.
-        let off: CGFloat = 18
+        // The rows, outboard of the wall. `chainRow` is where a split chain
+        // sits; `overallRow` is where the whole-wall figure sits when there
+        // is a chain under it, and `plainRow` when there is not.
+        let chainRow: CGFloat = 17
+        let overallRow: CGFloat = 38
+        let plainRow: CGFloat = 18
         let gap: CGFloat = 3
         let overrun: CGFloat = 4
-        let tick: CGFloat = 3.5
 
         for i in polygon.indices {
             let metres = PlanEditing.edgeLength(polygon, i)
@@ -189,15 +230,23 @@ enum EditorChrome {
             let nx = winding * uy
             let ny = -winding * ux
 
+            // Asked BEFORE the rows are placed: whether this wall gets a
+            // chain row is what decides how far out the overall line goes.
+            let layout = OpeningGlyphs.chainLayout(
+                edge: i, polygon: polygon, openings: openings,
+                screenLength: len, context: context, proxySize: proxySize)
+            let hasChain = !layout.isEmpty
+            let off = hasChain ? overallRow : plainRow
+
             let selected = selectedEdge == i
-            let lineColor = selected ? Brand.blue : Brand.inkSoft.opacity(0.8)
+            let lineColor = selected ? Brand.blue : dimensionGrey
 
             let da = CGPoint(x: A.x + nx * off, y: A.y + ny * off)
             let db = CGPoint(x: B.x + nx * off, y: B.y + ny * off)
 
             // Witness lines: a breath of gap at the wall, a hair of overrun
             // past the dimension line — the drafting convention that makes
-            // the string read as measuring THIS wall.
+            // the string read as measuring THIS wall. Dotted, per §6.
             var witness = Path()
             witness.move(to: CGPoint(x: A.x + nx * gap, y: A.y + ny * gap))
             witness.addLine(
@@ -205,7 +254,9 @@ enum EditorChrome {
             witness.move(to: CGPoint(x: B.x + nx * gap, y: B.y + ny * gap))
             witness.addLine(
                 to: CGPoint(x: db.x + nx * overrun, y: db.y + ny * overrun))
-            context.stroke(witness, with: .color(lineColor), lineWidth: 0.6)
+            context.stroke(
+                witness, with: .color(lineColor),
+                style: StrokeStyle(lineWidth: 0.6, dash: [1.5, 2.5]))
 
             var line = Path()
             line.move(to: da)
@@ -213,15 +264,20 @@ enum EditorChrome {
             context.stroke(
                 line, with: .color(lineColor), lineWidth: selected ? 1.1 : 0.7)
 
-            // Oblique ticks, not arrowheads — 45° to the run, whatever the
-            // wall's angle, so a rotated wall keeps the same mark.
-            let tx = (ux + nx) * 0.7071 * tick
-            let ty = (uy + ny) * 0.7071 * tick
+            // Fine arrowheads at each end, per §6 — the opposed pair reads
+            // the same whatever angle the wall runs at, where an oblique
+            // tick has to be rotated to stay legible.
             for p in [da, db] {
-                var t = Path()
-                t.move(to: CGPoint(x: p.x - tx, y: p.y - ty))
-                t.addLine(to: CGPoint(x: p.x + tx, y: p.y + ty))
-                context.stroke(t, with: .color(lineColor), lineWidth: 1.1)
+                arrowheads(at: p, along: (ux, uy), context: context, color: lineColor)
+            }
+
+            // The chain row, between the wall and the overall line. Every
+            // wall that has an opening, whatever is selected — ORD-18.
+            if hasChain {
+                OpeningGlyphs.drawChain(
+                    edge: i, polygon: polygon, layout: layout,
+                    context: context, toScreen: toScreen, proxySize: proxySize,
+                    offset: chainRow, winding: winding)
             }
 
             // The figure, along the run and the right way up: a wall read
@@ -230,14 +286,23 @@ enum EditorChrome {
             var angle = atan2(uy, ux)
             if angle > .pi / 2 { angle -= .pi } else if angle < -.pi / 2 { angle += .pi }
 
+            // Blue number, and the padlock immediately AFTER a hand-set one
+            // (§6) — an SF Symbol in the same string, so it sits on the
+            // digits' own baseline at their own size whatever the zoom. The
+            // lock keeps its own ink colour: §6 asks for a black filled
+            // padlock, and a blue one would read as part of the number.
+            var figure = Text(FloorPlanGeometry.feetInches(metres))
+                .foregroundStyle(Brand.blue)
+            if lockedEdges.contains(i) {
+                figure = figure + Text(" ") + Text(Image(systemName: "lock.fill"))
+                    .foregroundStyle(Brand.ink)
+            }
             let text = context.resolve(
-                Text((lockedEdges.contains(i) ? "\u{1F512} " : "") + FloorPlanGeometry.feetInches(metres))
-                    .font(.system(size: 11, weight: selected ? .bold : .regular))
-                    .foregroundStyle(selected ? Brand.blue : Brand.ink))
+                figure.font(.system(size: 15, weight: selected ? .bold : .regular)))
             let size = text.measure(in: proxySize)
             let at = CGPoint(
-                x: (da.x + db.x) / 2 + nx * 9,
-                y: (da.y + db.y) / 2 + ny * 9)
+                x: (da.x + db.x) / 2 + nx * 10,
+                y: (da.y + db.y) / 2 + ny * 10)
 
             context.drawLayer { layer in
                 layer.translateBy(x: at.x, y: at.y)

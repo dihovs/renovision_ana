@@ -53,19 +53,6 @@ struct RoomSketchView: View {
     private var length: Double? { FloorPlanGeometry.parseFeetInches(lengthText) }
     private var height: Double? { FloorPlanGeometry.parseFeetInches(heightText) }
 
-    /// The wall whose dimension chain is split right now: the selected wall,
-    /// or the host wall of the selected opening.
-    private var chainEdge: Int? {
-        switch selection {
-        case .wall(let index):
-            return openings.contains { $0.edge == index } ? index : nil
-        case .opening(let index):
-            return openings.indices.contains(index) ? openings[index].edge : nil
-        case .none, .corner:
-            return nil
-        }
-    }
-
     private func push() {
         history.append(Snapshot(corners: corners, openings: openings))
     }
@@ -285,8 +272,10 @@ struct RoomSketchView: View {
                         }
 
                         // Openings, cut into their walls — band break, jamb
-                        // caps, our own glyphs — then the split dimension
-                        // chain for the wall that owns the selection.
+                        // caps, our own glyphs. Their split dimension chains
+                        // are drawn with the wall dimensions below, so they
+                        // appear on every wall that has one rather than only
+                        // on the selected wall (ORD-18).
                         for (index, opening) in openings.enumerated() {
                             OpeningGlyphs.draw(
                                 opening,
@@ -296,15 +285,6 @@ struct RoomSketchView: View {
                                 toScreen: pt,
                                 scale: scale,
                                 background: Brand.surface)
-                        }
-                        if let edge = chainEdge {
-                            OpeningGlyphs.drawChain(
-                                edge: edge,
-                                polygon: corners,
-                                openings: openings,
-                                context: context,
-                                toScreen: pt,
-                                proxySize: proxy.size)
                         }
 
                         for i in corners.indices {
@@ -326,6 +306,7 @@ struct RoomSketchView: View {
                         EditorChrome.drawWallDimensions(
                             context: context,
                             polygon: corners,
+                            openings: openings,
                             toScreen: pt,
                             proxySize: size,
                             selectedEdge: {
