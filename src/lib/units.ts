@@ -29,10 +29,26 @@ export type UnitSystem = "metric" | "feet" | "inches";
  */
 export type LengthFormat =
   | { system: "metric"; unit: "m" | "cm"; decimals: number }
-  | { system: "feet"; denominator: ImperialDenominator }
-  | { system: "inches"; denominator: ImperialDenominator };
+  | { system: "feet"; denominator: ImperialDenominator; style?: ImperialStyle }
+  | { system: "inches"; denominator: ImperialDenominator; style?: ImperialStyle };
 
 export type ImperialDenominator = 1 | 2 | 4 | 8 | 16;
+
+/**
+ * Two legitimate ways to write feet and inches, and this repo needs both.
+ *
+ * `drafting` is `17'-1"` — hyphenated, and whole feet keep their `-0"`. That
+ * is what belongs on a dimension line of an architectural drawing, and it is
+ * what `FloorPlanGeometry.feetInches` has always drawn.
+ *
+ * `plain` is `17' 1"`, and whole feet are just `17'`. That is how a
+ * measurement reads in a text field, a list row, or a sentence.
+ *
+ * Keeping both named is the point. The two already existed in this codebase
+ * as separate functions that had quietly drifted apart; naming them stops a
+ * third from appearing.
+ */
+export type ImperialStyle = "drafting" | "plain";
 
 /**
  * The presets the units picker offers, per system, in the order shown. The
@@ -106,9 +122,10 @@ function formatMetric(metres: number, format: { unit: "m" | "cm"; decimals: numb
 
 function formatImperial(
   metres: number,
-  format: { system: "feet" | "inches"; denominator: ImperialDenominator },
+  format: { system: "feet" | "inches"; denominator: ImperialDenominator; style?: ImperialStyle },
 ): string {
   const { denominator } = format;
+  const style: ImperialStyle = format.style ?? "plain";
 
   // Round to the fraction first, in units of 1/denominator inch, so every
   // decision below is integer arithmetic and no carry can be lost to a float.
@@ -124,14 +141,18 @@ function formatImperial(
 
   const feet = Math.floor(wholeInches / 12);
   const inches = wholeInches % 12;
+  const inchPart = fraction ? `${inches} ${fraction}"` : `${inches}"`;
 
   // A measurement under a foot reads as inches alone; `0' 8"` is how a form
   // prints, not how anyone speaks or writes on a plan.
-  if (feet === 0) {
-    return fraction ? `${inches} ${fraction}"` : `${inches}"`;
-  }
+  if (feet === 0) return inchPart;
+
+  // The drafting convention keeps its -0" on whole feet, because a dimension
+  // line that reads `17'` is ambiguous about whether the inches were measured.
+  if (style === "drafting") return `${feet}'-${inchPart}`;
+
   if (inches === 0 && !fraction) return `${feet}'`;
-  return fraction ? `${feet}' ${inches} ${fraction}"` : `${feet}' ${inches}"`;
+  return `${feet}' ${inchPart}`;
 }
 
 /**

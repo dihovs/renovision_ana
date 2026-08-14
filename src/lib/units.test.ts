@@ -78,6 +78,31 @@ describe("formatLength — feet and inches", () => {
   });
 });
 
+describe("formatLength — the drafting style", () => {
+  const drafting: LengthFormat = { system: "feet", denominator: 2, style: "drafting" };
+
+  it("hyphenates, as a dimension line does", () => {
+    expect(formatLength(M(17, 1), drafting)).toBe(`17'-1"`);
+  });
+
+  it("keeps the -0\" on whole feet", () => {
+    // A dimension line reading `17'` is ambiguous about whether the inches
+    // were measured at all. This is what FloorPlanGeometry.feetInches has
+    // always drawn, and the plan renderer must keep drawing it.
+    expect(formatLength(M(17), drafting)).toBe(`17'-0"`);
+  });
+
+  it("still drops the feet under a foot", () => {
+    expect(formatLength(M(0, 8), drafting)).toBe(`8"`);
+  });
+
+  it("differs from plain only where it should", () => {
+    const plain: LengthFormat = { system: "feet", denominator: 2 };
+    expect(formatLength(M(17), plain)).toBe(`17'`);
+    expect(formatLength(M(17, 1), plain)).toBe(`17' 1"`);
+  });
+});
+
 describe("formatLength — plain inches", () => {
   it("does not roll up into feet", () => {
     expect(formatLength(M(1, 6), { system: "inches", denominator: 1 })).toBe(`18"`);
