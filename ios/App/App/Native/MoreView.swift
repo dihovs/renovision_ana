@@ -33,6 +33,18 @@ struct MoreView: View {
                         VStack(alignment: .leading, spacing: Brand.Space.small) {
                             SectionHeading(title: "NATIVE")
                             NavigationLink {
+                                ScheduleView()
+                            } label: {
+                                Card(padding: Brand.Space.small) {
+                                    CardRow {
+                                        Label("Schedule", systemImage: "calendar")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(Brand.ink)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            NavigationLink {
                                 LeadsView()
                             } label: {
                                 Card(padding: Brand.Space.small) {
@@ -157,7 +169,6 @@ struct MoreGroup: Identifiable {
             title: "Doing the work",
             items: [
                 MoreItem(title: "Jobs", icon: "hammer", path: "/admin/jobs", tint: Brand.blue),
-                MoreItem(title: "Schedule", icon: "calendar", path: "/admin/schedule", tint: Brand.blue),
                 MoreItem(title: "Tasks", icon: "checklist", path: "/admin/tasks", tint: Brand.blue),
             ]),
         MoreGroup(

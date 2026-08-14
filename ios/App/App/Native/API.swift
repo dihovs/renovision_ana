@@ -314,6 +314,19 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    // MARK: - Schedule
+
+    func visits() async throws -> [VisitSummary] {
+        try await get("/api/v1/visits", as: VisitListResponse.self).visits
+    }
+
+    private struct VisitDone: Encodable { let completed: Bool }
+
+    func setVisitDone(id: String, done: Bool) async throws {
+        _ = try await request(
+            "/api/v1/visits/\(id)", method: "PATCH", body: VisitDone(completed: done))
+    }
+
     // MARK: - Leads
 
     func leads() async throws -> [LeadSummary] {

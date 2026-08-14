@@ -256,6 +256,49 @@ enum Money {
     }
 }
 
+// MARK: - Schedule
+
+struct VisitListResponse: Decodable { let visits: [VisitSummary] }
+
+struct VisitSummary: Decodable, Identifiable, Hashable {
+    let id: String
+    let jobId: String
+    let title: String?
+    let jobTitle: String?
+    let jobNumber: Int?
+    let clientName: String?
+    let startsAt: Date
+    let allDay: Bool
+    let done: Bool
+    let notes: String?
+
+    /// What the row is called: the visit's own title first, then the job it
+    /// belongs to, then the customer — never a bare id.
+    var displayTitle: String {
+        if let title, !title.isEmpty { return title }
+        if let jobTitle, !jobTitle.isEmpty { return jobTitle }
+        return clientName ?? "Visit"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, jobId, title, jobTitle, jobNumber, clientName, startsAt, allDay, done, notes
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        jobId = (try? c.decode(String.self, forKey: .jobId)) ?? ""
+        title = try? c.decodeIfPresent(String.self, forKey: .title)
+        jobTitle = try? c.decodeIfPresent(String.self, forKey: .jobTitle)
+        jobNumber = try? c.decodeIfPresent(Int.self, forKey: .jobNumber)
+        clientName = try? c.decodeIfPresent(String.self, forKey: .clientName)
+        startsAt = ISO8601.date(try? c.decode(String.self, forKey: .startsAt))
+        allDay = (try? c.decode(Bool.self, forKey: .allDay)) ?? false
+        done = (try? c.decode(Bool.self, forKey: .done)) ?? false
+        notes = try? c.decodeIfPresent(String.self, forKey: .notes)
+    }
+}
+
 // MARK: - Leads
 
 struct LeadListResponse: Decodable { let leads: [LeadSummary] }
