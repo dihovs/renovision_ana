@@ -18,6 +18,10 @@ import Foundation
 enum APIError: LocalizedError {
     case notSignedIn
     case offline
+    /// The server answered but its database is missing a table — a migration
+    /// has not been run yet. Distinct from a refusal: the request was fine,
+    /// the server is not ready, and retrying after the SQL runs will work.
+    case serverNotReady(String)
     case server(String)
     case decoding(String)
 
@@ -27,6 +31,8 @@ enum APIError: LocalizedError {
             return "Signed out. Enter the admin password again."
         case .offline:
             return "No connection. This will work again when you have signal."
+        case .serverNotReady(let message):
+            return message
         case .server(let message):
             return message
         case .decoding(let detail):
@@ -98,6 +104,14 @@ actor API {
         // showing the password screen, so it gets its own case.
         if http.statusCode == 401 { throw APIError.notSignedIn }
 
+        if http.statusCode == 503 {
+            if let pending = try? JSONDecoder().decode(PendingBody.self, from: data),
+                pending.migrationPending == true {
+                throw APIError.serverNotReady(
+                    pending.error ?? "The server's database is missing a table.")
+            }
+        }
+
         guard (200..<300).contains(http.statusCode) else {
             // The API's own message is far more useful than the status code:
             // "An affected area needs at least three corners" beats "400".
@@ -117,6 +131,11 @@ actor API {
     /// call fails: the answer is almost always one unset variable, and
     /// "Calling is not configured" without saying which one sends somebody
     /// hunting through a dashboard.
+    private struct PendingBody: Decodable {
+        let error: String?
+        let migrationPending: Bool?
+    }
+
     private struct ErrorBody: Decodable {
         let error: String
         let missing: [String]?

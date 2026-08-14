@@ -75,10 +75,19 @@ final class ScanQueue: ObservableObject {
             let id = try await API.shared.saveScan(upload)
             return .sent(id)
         } catch let error as APIError {
-            guard case .offline = error else {
+            switch error {
+            case .offline:
+                return hold(upload) ? .held : .lost("This phone has no room left to hold the scan.")
+            case .serverNotReady(let message):
+                // The measurement is fine; the DATABASE is missing its table.
+                // Losing a walked room over an unrun migration would punish
+                // the operator for the server's state — hold it, and the
+                // queue sends it the moment the SQL has been run.
+                lastError = message
+                return hold(upload) ? .held : .lost("This phone has no room left to hold the scan.")
+            default:
                 return .lost(error.localizedDescription)
             }
-            return hold(upload) ? .held : .lost("This phone has no room left to hold the scan.")
         } catch {
             // A URLError that never became an APIError is still a network
             // problem; anything else came back with an answer.
@@ -128,6 +137,12 @@ final class ScanQueue: ObservableObject {
                 sent += 1
             } catch let error as APIError {
                 if case .offline = error { break }
+                // Not ready is not a refusal: the whole queue waits for the
+                // migration, nothing gets dropped.
+                if case .serverNotReady(let message) = error {
+                    lastError = message
+                    break
+                }
                 // The server refused this one on its merits. Drop it rather
                 // than letting a single malformed scan block every scan
                 // behind it forever — but say so, because a measurement is
