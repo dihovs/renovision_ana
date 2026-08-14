@@ -35,9 +35,18 @@ struct CaptureFlow: View {
     @State private var name = ""
     /// The living-area engine's input. nil until the operator picks — and a
     /// room cannot be saved untyped, because an untyped room silently counts
-    /// as `other` at 100%, which counts basements as living area until
-    /// somebody notices.
+    /// as `other` at 100%, which counts basements at 100% until somebody
+    /// notices.
     @State private var roomType: String?
+    /// What the sanity pass made of the capture, computed BEFORE the review
+    /// sheet shows so the sheet can lead with a problem instead of a row of
+    /// confident-looking numbers. Nil for drawn rooms — a drawn rectangle
+    /// is closed by construction and warning about it would be noise.
+    @State private var analysis: ReviewAnalysis?
+    /// The name the last filed room went out under. The saved stage reads
+    /// this, not `name` — `name` can already belong to a discarded retake by
+    /// the time the stage is on screen.
+    @State private var lastSavedName = ""
     @State private var saving = false
     @State private var error: String?
 
@@ -102,6 +111,7 @@ struct CaptureFlow: View {
                     geometry = ScanGeometry(polygon: polygon, ceilingHeight: ceiling)
                     name = "Room \(existingCount + savedThisVisit + 1)"
                     roomType = nil
+                    analysis = nil
                     lastWasScan = false
                     stage = .review
                 })
@@ -123,6 +133,9 @@ struct CaptureFlow: View {
                         // room's type forward would file a bathroom as a
                         // second kitchen the moment somebody saves fast.
                         roomType = nil
+                        // Judged BEFORE the sheet appears, so a bad capture
+                        // opens on its problem, not on a success state.
+                        analysis = ReviewAnalysis(geometry: captured)
                         lastWasScan = true
                         stage = .review
                     }
@@ -244,6 +257,47 @@ struct CaptureFlow: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Brand.Space.base) {
                 if let geometry {
+                    // A capture that failed the sanity pass opens on the
+                    // problem. The numbers still follow — they are real
+                    // sums of what was caught — but they do not get to
+                    // stand first pretending the capture went well.
+                    // magicplan leads with a green tick it cannot justify
+                    // (INT-S09); that is the one part not worth copying.
+                    if let analysis, !analysis.problems.isEmpty {
+                        Card {
+                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                                ForEach(analysis.problems, id: \.self) { problem in
+                                    Text(problem)
+                                        .font(.callout)
+                                        .foregroundStyle(.orange)
+                                }
+                                Text(
+                                    "Walk it again with the phone up, pointing at every wall in turn — or save it and correct the plan by hand later."
+                                )
+                                .font(.system(size: 12))
+                                .foregroundStyle(Brand.inkSoft)
+                            }
+                        }
+                    }
+
+                    // The shape that was caught, with the guessed closing
+                    // edge dashed — showing WHICH edge is a guess tells the
+                    // operator exactly what to distrust.
+                    if let analysis, !analysis.plan.isEmpty {
+                        Card(padding: Brand.Space.small) {
+                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                                ReviewPlanPreview(
+                                    plan: analysis.plan, outline: analysis.outline)
+                                    .frame(maxHeight: 220)
+                                if let note = analysis.inferredNote {
+                                    Text(note)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Brand.inkSoft)
+                                }
+                            }
+                        }
+                    }
+
                     StatBand(items: [
                         .init(
                             label: "Floor",
@@ -258,16 +312,6 @@ struct CaptureFlow: View {
                             value: String(format: "%.1f", Measure.feet(geometry.ceilingHeightMeters)),
                             unit: "ft"),
                     ])
-
-                    if !geometry.looksComplete {
-                        Card {
-                            Text(
-                                "This capture looks incomplete — \(geometry.walls.count) wall\(geometry.walls.count == 1 ? "" : "s") and \(Int(Measure.squareFeet(geometry.floorAreaSquareMeters).rounded())) sq ft of floor. Walk it again with the phone up, pointing at every wall in turn."
-                            )
-                            .font(.callout)
-                            .foregroundStyle(.orange)
-                        }
-                    }
 
                     Card {
                         VStack(alignment: .leading, spacing: Brand.Space.tight) {
@@ -326,17 +370,33 @@ struct CaptureFlow: View {
                 )
                 .disabled(saving || name.trimmed.isEmpty || roomType == nil)
 
-                Button("Scan again") {
+                Button(lastWasScan ? "Scan again" : "Draw it again") {
                     // A retake, not another room: the rejected capture must
                     // leave the merge set, or the builder would register a
                     // room the operator threw away.
                     if lastWasScan { session.discardLastUnsaved() }
-                    stage = .capturing
+                    stage = lastWasScan ? .capturing : .drawing
                 }
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Brand.inkSoft)
                 .frame(maxWidth: .infinity)
                 .padding(.top, Brand.Space.hair)
+
+                // The reject path (INT-S11): destructive, present, and
+                // visually subordinate to the primary — a bad capture must
+                // be as easy to throw away as a good one is to keep.
+                Button("Discard this capture") {
+                    if lastWasScan { session.discardLastUnsaved() }
+                    geometry = nil
+                    analysis = nil
+                    // Back into the visit if one is running, otherwise to
+                    // the start — never out of the flow entirely, because
+                    // discarding one room says nothing about being done.
+                    stage = savedThisVisit > 0 && lastWasScan ? .saved : .chooseFloor
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.red.opacity(0.75))
+                .frame(maxWidth: .infinity)
             }
             .padding(Brand.Space.base)
         }
@@ -353,7 +413,7 @@ struct CaptureFlow: View {
             VStack(alignment: .leading, spacing: Brand.Space.base) {
                 Card {
                     VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                        Text("\(name.trimmed.isEmpty ? "The room" : name.trimmed) is filed under \(level).")
+                        Text("\(lastSavedName.isEmpty ? "The room" : lastSavedName) is filed under \(level).")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Brand.ink)
                         Text(
@@ -454,6 +514,7 @@ struct CaptureFlow: View {
     /// for a fixed set of rooms, and the last write wins.
     private func finishSave() async {
         savedThisVisit += 1
+        lastSavedName = name.trimmed
         onSaved()
 
         guard lastWasScan else {
@@ -542,6 +603,149 @@ private struct TypeChips: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+/// The sanity pass a capture goes through before its review sheet shows.
+///
+/// Three checks, each catching a failure RoomPlan reports as success: an
+/// area too small to be a room, a shape too thin to be one, and an outline
+/// where too much of the perimeter had to be guessed. None of them blocks
+/// saving — a bad capture can still be worth keeping on a job with no time
+/// to rescan — but the sheet leads with the problem instead of a stat band.
+struct ReviewAnalysis {
+    let plan: FloorPlanGeometry.Plan
+    /// The chained outline with its guessed closing edge, when the walls
+    /// chain at all. Nil means fragments — not one open room but pieces.
+    let outline: FloorPlanGeometry.InferredOutline?
+    /// Worst first; the review leads with these when any exist.
+    let problems: [String]
+    /// The INT-S09-style sentence under the preview when an edge was
+    /// guessed but the guess is small enough to stand.
+    let inferredNote: String?
+
+    init(geometry: ScanGeometry) {
+        let plan = FloorPlanGeometry.plan(from: geometry)
+        self.plan = plan
+        let outline = FloorPlanGeometry.outlineWithClosure(plan.segments)
+        self.outline = outline
+
+        var problems: [String] = []
+
+        // The same floor as `looksComplete`: three walls and half a square
+        // metre. Below that, RoomPlan produced fragments, not a room.
+        if geometry.walls.count < 3 {
+            problems.append(
+                "Only \(geometry.walls.count) wall\(geometry.walls.count == 1 ? "" : "s") came back. A room needs at least three."
+            )
+        }
+        if geometry.floorAreaSquareMeters < 0.5 {
+            problems.append(
+                "Almost no floor was captured — \(Int(Measure.squareFeet(geometry.floorAreaSquareMeters).rounded())) sq ft."
+            )
+        }
+
+        // A guessed edge that is a large share of the outline means the
+        // figure below is not a measurement any more. 30% is a convention:
+        // one missed wall of a rectangular room sits near 25%, so anything
+        // beyond it means more than a wall went unwalked.
+        var inferredNote: String?
+        if geometry.walls.count >= 3 {
+            if let outline {
+                if let edge = outline.inferredEdge {
+                    var perimeter = edge.length
+                    for i in 0..<(outline.points.count - 1) {
+                        perimeter += hypot(
+                            outline.points[i + 1].x - outline.points[i].x,
+                            outline.points[i + 1].y - outline.points[i].y)
+                    }
+                    let fraction = perimeter > 0 ? edge.length / perimeter : 1
+                    if fraction > 0.3 {
+                        problems.append(
+                            "\(Int((fraction * 100).rounded()))% of this outline is guessed, not walked — the dashed edge below. The area is not a measurement at that point."
+                        )
+                    } else {
+                        inferredNote =
+                            "One edge was never walked. The dashed line closes the shape so the room is not lost — it is a guess, not a measurement."
+                    }
+                }
+            } else {
+                problems.append(
+                    "The walls do not join up into one room — the shape below is pieces, and the floor figure is a sum of what was caught, not a closed room."
+                )
+            }
+        }
+
+        // No habitable room is a 12:1 sliver. A long corridor can be —
+        // which is why this warns instead of blocking — but far more often
+        // a reading like this is one wall and a strip of floor.
+        if plan.width > 0.1, plan.height > 0.1 {
+            let aspect = max(plan.width, plan.height) / min(plan.width, plan.height)
+            if aspect > 12 {
+                problems.append(
+                    "This shape is unusually long and thin (\(Int(aspect.rounded())):1). If the room is not, the scan caught a wall rather than the room."
+                )
+            }
+        }
+
+        self.problems = problems
+        self.inferredNote = inferredNote
+    }
+}
+
+/// The review's plan preview: the walked walls solid, the guessed closing
+/// edge dashed, the enclosed floor filled. Deliberately plainer than the
+/// drafted plan — this is a moment-of-truth check, not a drawing.
+private struct ReviewPlanPreview: View {
+    let plan: FloorPlanGeometry.Plan
+    let outline: FloorPlanGeometry.InferredOutline?
+
+    var body: some View {
+        Canvas { context, size in
+            guard plan.width > 0.05, plan.height > 0.05 else { return }
+            let pad: CGFloat = 14
+            let scale = min(
+                (size.width - pad * 2) / plan.width,
+                (size.height - pad * 2) / plan.height)
+            guard scale > 0 else { return }
+            let ox = (size.width - plan.width * scale) / 2
+            let oy = (size.height - plan.height * scale) / 2
+
+            func pt(_ x: Double, _ y: Double) -> CGPoint {
+                CGPoint(x: x * scale + ox, y: y * scale + oy)
+            }
+
+            // Fill whatever loop exists — including one closed by the
+            // guess, because the dashed edge right on top of it says
+            // exactly which part is guesswork.
+            if let outline, outline.points.count >= 3 {
+                var floor = Path()
+                floor.move(to: pt(outline.points[0].x, outline.points[0].y))
+                for p in outline.points.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
+                floor.closeSubpath()
+                context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
+            }
+
+            var walls = Path()
+            for s in plan.segments {
+                walls.move(to: pt(s.x1, s.y1))
+                walls.addLine(to: pt(s.x2, s.y2))
+            }
+            context.stroke(
+                walls, with: .color(Color(hex: 0x111111)),
+                style: StrokeStyle(lineWidth: 3, lineCap: .round))
+
+            if let edge = outline?.inferredEdge {
+                var guess = Path()
+                guess.move(to: pt(edge.x1, edge.y1))
+                guess.addLine(to: pt(edge.x2, edge.y2))
+                context.stroke(
+                    guess, with: .color(.orange),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 5]))
+            }
+        }
+        .aspectRatio(
+            CGFloat(max(plan.width, 0.1) / max(plan.height, 0.1)), contentMode: .fit)
     }
 }
 
