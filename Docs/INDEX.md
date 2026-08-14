@@ -21,6 +21,7 @@ observation beats inference.
 
 | Question | Authority | Why |
 |---|---|---|
+| In what **order** does the capture flow run, and what happens after a real scan | `reference/magicplan/owner-walkthrough.md` | The owner ran a real scan on his own phone and narrated it. The only material covering a scan of an actual room and the editing that follows |
 | What does magicplan's UI actually *do* — screens, taps, state changes | `reference/magicplan/interactions-*.md` (88 entries, `INT-S*` / `INT-E*` / `INT-P*`) | Observed on device, screenshot-cited before and after each action |
 | What does the LiDAR scan flow do | `reference/magicplan/interactions-scan.md` | Frame-by-frame from a native-resolution screen recording |
 | What should our report/PDF contain and look like | `Report-Estimate-Blueprint.md` | Reverse-engineered from the client's real 20-page magicplan export. **Stronger than anything in `reference/`** — that is a real artefact, not an observation of a UI |
@@ -48,6 +49,7 @@ which assumed a SwiftUI/SwiftData app built from nothing.
 
 | File | Contents |
 |---|---|
+| `owner-walkthrough.md` | The owner's own narrated session, Aug 2026. Capture order, floor/room/wall/opening selection depths, the measurement panel, units, elevation. **Every claim tagged `[seen]` / `[owner]` / `[owner-unsure]`** — respect the tags |
 | `interactions-scan.md` | 19 entries — LiDAR capture, from a 2:50 recording. Authoritative for anything scan-related |
 | `interactions-editor.md` | 34 entries — editor, measurement entry, objects, elevation |
 | `interactions-project.md` | 35 entries — projects, statistics, export, settings |
@@ -82,8 +84,13 @@ destructive drags. Do not rebuild it. The gap is the export option that consumes
 
 Flag these; do not invent them.
 
-- magicplan's **Manual-Scan** flow, its detected-object rail, and the non-LiDAR
-  "Detect Corners" engine were never observed.
+- Whether a **freshly scanned room arrives with its dimensions already locked**. The owner
+  thought so but was not sure (`owner-walkthrough.md` E5). It decides whether the
+  "only manually set dimensions" export prints anything at all on a scanned room.
+- **How a damage rectangle is drawn in elevation** — the gesture, resizing, snapping. Described
+  in words, never captured (`owner-walkthrough.md` G6).
+- magicplan's **Manual-Scan** flow and the non-LiDAR "Detect Corners" engine were never observed.
+  The detected-object rail is now described in `owner-walkthrough.md` A5–A7, from testimony only.
 - Anything marked `[inferred]` or `[uncertain]` in the reference is a guess.
 - `REFERENCE-STATUS.md` marks items "unverified" where the source could not settle them.
 
