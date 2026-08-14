@@ -31,6 +31,9 @@ const COLUMNS = [
   { table: "projects", column: "custom", migration: "0026_project_custom_fields.sql" },
   { table: "room_scans", column: "plan_x", migration: "0027_room_positions.sql" },
   { table: "project_files", column: "room_scan_id", migration: "0028_room_evidence.sql" },
+  { table: "room_scans", column: "room_type", migration: "0030_living_area.sql" },
+  { table: "room_scans", column: "living_percent", migration: "0030_living_area.sql" },
+  { table: "projects", column: "living_area_config", migration: "0030_living_area.sql" },
 ];
 
 export async function GET() {
