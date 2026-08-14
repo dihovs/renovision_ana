@@ -1,5 +1,5 @@
 import FloorPlan from "./FloorPlan";
-import { squareMetersToSquareFeet, metersToFeet, type RoomScanResult } from "@/lib/roomScan";
+import { squareMetersToSquareFeet, metersToFeet, type ScanGeometry } from "@/lib/roomScan";
 import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
 import { areaColor, DAMAGE_LABEL, type AffectedArea, type DamageType } from "@/lib/crm/areaShapes";
 import { unitDays, type EquipmentPlacement, type MoistureReading } from "@/lib/crm/dryingLog";
@@ -33,7 +33,7 @@ export type ReportRoom = {
   ceilingHeightM: number;
   stairCount: number;
   notes: string | null;
-  geometry: RoomScanResult;
+  geometry: ScanGeometry;
   areas: AffectedArea[];
   readings: MoistureReading[];
   photos: { id: string; url: string | null; note: string | null }[];
@@ -50,6 +50,10 @@ export type ReportData = {
   rooms: ReportRoom[];
   equipment: EquipmentPlacement[];
   generatedAt: string;
+  /** Draw only the dimensions somebody set by hand (geometry.lockedEdges),
+      each padlocked — for the adjuster who wants measured-by-hand figures
+      and nothing inferred. Off by default: the full drawing is the report. */
+  onlyLockedDimensions?: boolean;
 };
 
 const sqft = (sqm: number) => Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA");
@@ -78,6 +82,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     rooms,
     equipment,
     generatedAt,
+    onlyLockedDimensions = false,
   } = data;
 
   const floorAreaSqm = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
@@ -252,8 +257,23 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <Running identity={identity} title={`${room.name} — ${room.level}`} company={company} />
 
           <div className="room-body">
-            <div className="plan large">
-              <FloorPlan result={room.geometry} name={room.name} />
+            {/* Wrapped so the plan and its note share one grid cell. */}
+            <div>
+              <div className="plan large">
+                <FloorPlan
+                  result={room.geometry}
+                  name={room.name}
+                  dimensions={onlyLockedDimensions ? "locked" : "all"}
+                />
+              </div>
+              {/* The printed page must say what it is showing — a plan with
+                  dimensions missing and no explanation reads as an error. */}
+              {onlyLockedDimensions && (
+                <p className="fineprint">
+                  Only dimensions that were set by hand are shown on this plan.
+                  A room with none shows no dimensions.
+                </p>
+              )}
             </div>
 
             <table className="measure">

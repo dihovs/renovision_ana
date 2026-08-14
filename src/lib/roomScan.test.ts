@@ -257,6 +257,21 @@ describe("a hand-corrected outline (editedPolygon)", () => {
     expect(drawnArea).not.toBeCloseTo(totalFloorAreaSquareMeters(bedroom()), 1);
   });
 
+  it("keeps segments in edge order, so lockedEdges indices map to drawn walls", () => {
+    // The report's "only dimensions that have been manually set" option
+    // looks a segment up by index in lockedEdges — which only works if
+    // segment i IS edge i (point i to point i+1). Pin that construction.
+    const plan = toFloorPlan(editedRoom());
+    plan.segments.forEach((segment, i) => {
+      const a = edited[i];
+      const b = edited[(i + 1) % edited.length];
+      expect(segment.x1).toBeCloseTo(a.x - 3, 9);
+      expect(segment.y1).toBeCloseTo(a.y - 2, 9);
+      expect(segment.x2).toBeCloseTo(b.x - 3, 9);
+      expect(segment.y2).toBeCloseTo(b.y - 2, 9);
+    });
+  });
+
   it("derives from the geometry when the columns were never filled", () => {
     // Rows from before the columns existed carry the default 0 — zero means
     // absent, and the raw scan is the only figure there is.

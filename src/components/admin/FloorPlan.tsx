@@ -1,6 +1,6 @@
 "use client";
 
-import { metersToFeet, toFloorPlan, type RoomScanResult } from "@/lib/roomScan";
+import { metersToFeet, toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
 
 /**
  * A scanned room drawn as an actual floor plan.
@@ -12,18 +12,34 @@ import { metersToFeet, toFloorPlan, type RoomScanResult } from "@/lib/roomScan";
  * `variant="thumb"` drops the dimensions, scale bar and labels: at card size
  * none of them are legible, and the outline alone is what makes a project
  * recognisable at a glance.
+ *
+ * `dimensions="locked"` draws ONLY the dimensions that were set by hand
+ * (`geometry.lockedEdges`), each with a padlock — the report option for an
+ * adjuster who wants the measured-by-hand figures and nothing inferred.
+ * Locked edge indices are editedPolygon edge indices, and in that case
+ * `toFloorPlan` returns one segment per edge in order, so segment index i IS
+ * edge i. A room that was never hand-edited has no editedPolygon and can
+ * have no locks (locks are only written by the editor, alongside the
+ * polygon), so it honestly shows no dimensions in this mode. Known limit: a
+ * locked edge that is not near-axis has no place in the renderer's two
+ * projected dimension tiers and is not drawn — stated here rather than
+ * approximated.
  */
 export default function FloorPlan({
   result,
   name,
   variant = "full",
   sections,
+  dimensions = "all",
 }: {
-  result: RoomScanResult;
+  result: ScanGeometry;
   name: string;
   variant?: "full" | "thumb";
   /** Room labels from a merged structure, drawn at their centres. */
   sections?: { label: string; centerX: number; centerZ: number }[];
+  /** "all" is the drawing as always. "locked" renders only hand-set
+      dimensions, padlocked, for the report option that consumes them. */
+  dimensions?: "all" | "locked";
 }) {
   const plan = toFloorPlan(result);
   if (plan.segments.length === 0) return null;
@@ -83,14 +99,26 @@ export default function FloorPlan({
 
   // Which walls run across and which run up — a wall within ~15° of an axis
   // is treated as that axis, since a scanned wall is never exactly square.
-  const horizontal = plan.segments.filter(
+  // Indexed BEFORE filtering: in the edited-polygon case the segment index
+  // is the edge index `lockedEdges` refers to, and the filter must not
+  // renumber it.
+  const indexed = plan.segments.map((s, index) => ({ ...s, index }));
+  const horizontal = indexed.filter(
     (s) => Math.abs(s.y2 - s.y1) < Math.abs(s.x2 - s.x1) * 0.27,
   );
-  const vertical = plan.segments.filter(
+  const vertical = indexed.filter(
     (s) => Math.abs(s.x2 - s.x1) < Math.abs(s.y2 - s.y1) * 0.27,
   );
 
-  
+  // Hand-set dimensions. The indices only mean something against an edited
+  // polygon's edges; without one there is nothing a lock could refer to.
+  const lockedOnly = dimensions === "locked";
+  const locked =
+    result.editedPolygon && result.editedPolygon.length >= 3
+      ? new Set(result.lockedEdges ?? [])
+      : new Set<number>();
+
+
   return (
     <div
       className={
@@ -205,7 +233,7 @@ export default function FloorPlan({
         {/* Dimensions and the scale bar are dropped at thumbnail size:
             none of it is legible on a card, and the outline alone is what
             makes a project recognisable at a glance. */}
-        {!thumb && (
+        {!thumb && !lockedOnly && (
           <>
         {/* Outer tier: the overall span, top and right. Inner tier: each
             wall on that side, but only when there is more than one — a
@@ -235,6 +263,42 @@ export default function FloorPlan({
           ))}
 
         <ScaleBar y={height + 1.35} width={width} />
+          </>
+        )}
+
+        {/* Only what was set by hand, each padlocked. The overall spans are
+            derived rather than set, so they are dropped with the rest, and
+            the `dense` guard does not apply — the locked dims are the whole
+            point of this mode, and an edited outline is never dozens of
+            edges. A room with no hand-set dimension shows none, which is
+            the truthful rendering of this option. */}
+        {!thumb && lockedOnly && (
+          <>
+            {horizontal
+              .filter((s) => locked.has(s.index))
+              .map((s, i) => (
+                <Dimension
+                  key={`lhx${i}`}
+                  from={{ x: Math.min(s.x1, s.x2), y: 0 }}
+                  to={{ x: Math.max(s.x1, s.x2), y: 0 }}
+                  offset={-0.55}
+                  axis="x"
+                  locked
+                />
+              ))}
+            {vertical
+              .filter((s) => locked.has(s.index))
+              .map((s, i) => (
+                <Dimension
+                  key={`lvy${i}`}
+                  from={{ x: width, y: Math.min(s.y1, s.y2) }}
+                  to={{ x: width, y: Math.max(s.y1, s.y2) }}
+                  offset={0.55}
+                  axis="y"
+                  locked
+                />
+              ))}
+            <ScaleBar y={height + 1.35} width={width} />
           </>
         )}
 
@@ -273,11 +337,14 @@ function Dimension({
   to,
   offset,
   axis,
+  locked = false,
 }: {
   from: { x: number; y: number };
   to: { x: number; y: number };
   offset: number;
   axis: "x" | "y";
+  /** Draw the hand-set provenance mark beside the figure. */
+  locked?: boolean;
 }) {
   const span = axis === "x" ? to.x - from.x : to.y - from.y;
   // Anything under ~30cm has a label wider than the run it describes.
@@ -289,6 +356,10 @@ function Dimension({
   const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const head = 0.12;
   const grey = "#8a8a8e";
+  const label = formatFeetInches(Math.abs(span));
+  // Where the label ends, near enough: ~0.15 per character at this font
+  // size. Only used to place the padlock clear of the text.
+  const halfLabel = label.length * 0.075;
 
   return (
     <g>
@@ -336,8 +407,42 @@ function Dimension({
         transform={axis === "y" ? `rotate(-90 ${mid.x} ${mid.y})` : undefined}
         dy={axis === "y" ? -0.1 : undefined}
       >
-        {formatFeetInches(Math.abs(span))}
+        {label}
       </text>
+
+      {/* The provenance mark, riding the text's own frame so a rotated
+          dimension keeps its padlock beside the figure. */}
+      {locked &&
+        (axis === "x" ? (
+          <Padlock x={mid.x + halfLabel + 0.08} baseline={mid.y - 0.11} />
+        ) : (
+          <g transform={`rotate(-90 ${mid.x} ${mid.y})`}>
+            <Padlock x={mid.x + halfLabel + 0.08} baseline={mid.y} />
+          </g>
+        ))}
+    </g>
+  );
+}
+
+/**
+ * A padlock beside a figure somebody typed — the provenance mark for a
+ * hand-set dimension, matching the plan editor's convention. Drawn as
+ * geometry rather than an icon font or emoji, so it prints identically
+ * everywhere the report does.
+ */
+function Padlock({ x, baseline }: { x: number; baseline: number }) {
+  const w = 0.15;
+  const bodyH = 0.11;
+  const r = 0.045;
+  return (
+    <g>
+      <path
+        d={`M ${x + w / 2 - r} ${baseline - bodyH} v -0.025 a ${r} ${r} 0 0 1 ${2 * r} 0 v 0.025`}
+        fill="none"
+        stroke="#3c3c43"
+        strokeWidth={0.022}
+      />
+      <rect x={x} y={baseline - bodyH} width={w} height={bodyH} rx={0.02} fill="#3c3c43" />
     </g>
   );
 }
