@@ -29,6 +29,11 @@ export type RoomScan = {
       layout rather than stacking every room at the origin. */
   plan_x: number | null;
   plan_y: number | null;
+  /** Bedroom, basement, garage… drives the living-area default. */
+  room_type: string | null;
+  /** Hand-set 0-100 override. NULL means "use the type's default", which is
+      a different statement from 0. */
+  living_percent: number | null;
 };
 
 export type RoomScanInput = {
@@ -108,6 +113,8 @@ export async function updateRoomScan(
     notes?: string | null;
     planX?: number | null;
     planY?: number | null;
+    roomType?: string | null;
+    livingPercent?: number | null;
   },
 ): Promise<void> {
   const client = requireDb();
@@ -120,6 +127,8 @@ export async function updateRoomScan(
       ...(patch.notes !== undefined ? { notes: patch.notes?.trim() || null } : {}),
       ...(patch.planX !== undefined ? { plan_x: patch.planX } : {}),
       ...(patch.planY !== undefined ? { plan_y: patch.planY } : {}),
+      ...(patch.roomType !== undefined ? { room_type: patch.roomType } : {}),
+      ...(patch.livingPercent !== undefined ? { living_percent: patch.livingPercent } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

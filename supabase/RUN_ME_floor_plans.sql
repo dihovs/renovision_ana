@@ -2,8 +2,8 @@
 -- Renovision AnA — the whole restoration file, in one paste.
 --
 -- WHAT THIS IS
---   Migrations 0023 to 0029 concatenated, in order, so the whole thing goes
---   into the Supabase SQL editor once instead of seven times. The individual
+--   Migrations 0023 to 0030 concatenated, in order, so the whole thing goes
+--   into the Supabase SQL editor once instead of eight times. The individual
 --   files in supabase/migrations/ are unchanged and remain the source of
 --   truth; this is a convenience copy.
 --
@@ -11,6 +11,11 @@
 --   1. Open your project at supabase.com, then SQL Editor in the left sidebar.
 --   2. New query, paste ALL of this, press Run.
 --   3. Expect "Success. No rows returned" — these create tables, not results.
+--
+--   If the app still reports a table as missing afterwards, PostgREST has not
+--   noticed the change yet. Run this once more, on its own:
+--
+--       notify pgrst, 'reload schema';
 --
 -- IS IT SAFE TO RUN TWICE?
 --   Yes, and safe to run again after an earlier version of this file. Every
@@ -32,6 +37,8 @@
 --   0028  photos and notes filed against a room, or one damaged area
 --   0029  moisture readings and equipment in/out — the drying record an
 --         adjuster needs, and the one magicplan's report has no room for
+--   0030  living area — room type and percentage per room, ANSI Z765 rules
+--         per project. The figure coverage is actually quoted against.
 -- ============================================================================
 
 
@@ -383,3 +390,38 @@ create table if not exists public.equipment_placements (
 
 create index if not exists equipment_placements_project_idx
   on public.equipment_placements (project_id, in_service_at desc);
+
+-- ==========================================================================
+-- 0030_living_area.sql
+-- ==========================================================================
+
+-- Renovision AnA — living area, the measurement that decides money.
+--
+-- Coverage limits, replacement cost and appraised value are all quoted per
+-- square foot of LIVING area, which is a far narrower thing than floor area:
+-- a basement can be finished, heated and carpeted and still count zero
+-- toward it. Until now this app could not express that difference at all,
+-- which meant its floor-area figures could be read as living area by anyone
+-- who did not know better — including an adjuster reading the report.
+--
+-- The rules follow ANSI Z765, the standard appraisers and carriers cite.
+
+alter table public.room_scans
+  -- Bedroom, basement, garage… decides the default percentage AND which
+  -- band the room counts toward. Text rather than an enum: the list will
+  -- grow, and a constraint that refuses a new room type is a constraint
+  -- somebody works around by mislabelling a room.
+  add column if not exists room_type text,
+
+  -- A hand-set override, 0-100. NULL means "use the type's default", which
+  -- is different from 0 — one is unanswered, the other is a decision that
+  -- this space does not count.
+  add column if not exists living_percent numeric
+    check (living_percent is null or (living_percent >= 0 and living_percent <= 100));
+
+alter table public.projects
+  -- { includeInteriorWalls, minHeightM }. Per project because a commercial
+  -- appraisal and a residential claim can genuinely want different rules,
+  -- and because the threshold is a citable standard the operator may need to
+  -- state rather than assume.
+  add column if not exists living_area_config jsonb;

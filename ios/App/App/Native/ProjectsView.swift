@@ -202,6 +202,11 @@ struct ProjectDetailView: View {
                         .init(label: "Rooms", value: "\((scans ?? []).count)"),
                     ])
 
+                    // Living area sits directly under the raw floor figure,
+                    // because the difference between the two is the point:
+                    // coverage is quoted against this one, not that one.
+                    LivingAreaCard(projectId: project.id)
+
                     if let error {
                         Card {
                             Label(error, systemImage: "exclamationmark.triangle.fill")

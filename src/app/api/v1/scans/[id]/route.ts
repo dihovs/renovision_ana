@@ -51,6 +51,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ...(body.planY === null || Number.isFinite(Number(body.planY))
         ? { planY: body.planY === null ? null : Number(body.planY) }
         : {}),
+      ...(typeof body.roomType === "string" || body.roomType === null
+        ? { roomType: body.roomType as string | null }
+        : {}),
+      // null is meaningful here and must survive: it means "go back to the
+      // room type's default", which is not the same as zero.
+      ...(body.livingPercent === null || Number.isFinite(Number(body.livingPercent))
+        ? { livingPercent: body.livingPercent === null ? null : Number(body.livingPercent) }
+        : {}),
     });
     return { ok: true };
   });

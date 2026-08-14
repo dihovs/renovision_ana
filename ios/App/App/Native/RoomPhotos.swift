@@ -180,3 +180,73 @@ extension UIImage {
         }
     }
 }
+
+/// Choose what kind of room this is.
+///
+/// Not cosmetic: the type decides how much of the room counts as living
+/// area, and whether it counts above or below grade. A basement labelled
+/// "bedroom" inflates the figure a carrier is quoting against, which is the
+/// kind of error that gets found late and expensively.
+struct RoomTypePicker: View {
+    let types: [LivingRoomType]
+    let selected: String?
+    let onPick: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(types) { type in
+                    Button {
+                        onPick(type.id)
+                    } label: {
+                        HStack(alignment: .top, spacing: Brand.Space.small) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(type.label)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Brand.ink)
+
+                                HStack(spacing: 5) {
+                                    // What it will do to the number, stated
+                                    // before the choice rather than after.
+                                    Text("\(Int(type.percent))% living area")
+                                    if type.band == "below" {
+                                        Text("· below grade")
+                                    } else if type.band == "excluded" {
+                                        Text("· never counts")
+                                    }
+                                }
+                                .font(.system(size: 12))
+                                .foregroundStyle(type.band == "above" ? Brand.greenDark : .orange)
+
+                                if let note = type.note {
+                                    Text(note)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Brand.inkSoft)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            Spacer()
+                            if selected == type.id {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Brand.blue)
+                            }
+                        }
+                        .padding(.vertical, 3)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("Room type")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+            .overlay {
+                if types.isEmpty { ProgressView() }
+            }
+        }
+    }
+}

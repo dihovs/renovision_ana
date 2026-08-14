@@ -256,6 +256,39 @@ enum Money {
     }
 }
 
+// MARK: - Living area
+
+struct LivingAreaResponse: Decodable {
+    let totals: LivingAreaTotals
+    let definition: String
+    let roomTypes: [LivingRoomType]
+}
+
+struct LivingAreaTotals: Decodable {
+    let aboveGradeSqm: Double
+    let belowGradeSqm: Double
+    let totalSqm: Double
+    let excludedSqm: Double
+    let rooms: [LivingAreaRoomResult]
+}
+
+struct LivingAreaRoomResult: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let countedSqm: Double
+    let band: String
+    let percentApplied: Double
+    let belowMinHeight: Bool
+}
+
+struct LivingRoomType: Decodable, Identifiable, Hashable {
+    let id: String
+    let label: String
+    let percent: Double
+    let band: String
+    let note: String?
+}
+
 // MARK: - Schedule
 
 struct VisitListResponse: Decodable { let visits: [VisitSummary] }
@@ -514,9 +547,16 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     /// The measurement blob, decoded. Optional because an old row saved
     /// before a field existed must still list, just without a drawing.
     let geometry: ScanGeometry?
+    /// Bedroom, basement, garage… drives what counts as living area.
+    let roomType: String?
+    /// Hand-set 0-100 override. nil means "use the type's default", which is
+    /// a different statement from zero.
+    let livingPercent: Double?
 
     enum CodingKeys: String, CodingKey {
         case id, name, level, position, geometry
+        case roomType = "room_type"
+        case livingPercent = "living_percent"
         case projectId = "project_id"
         case floorAreaSqm = "floor_area_sqm"
         case wallLengthM = "wall_length_m"
@@ -547,6 +587,8 @@ struct RoomScan: Decodable, Identifiable, Hashable {
         planX = try? c.decodeIfPresent(Double.self, forKey: .planX)
         planY = try? c.decodeIfPresent(Double.self, forKey: .planY)
         geometry = try? c.decodeIfPresent(ScanGeometry.self, forKey: .geometry)
+        roomType = try? c.decodeIfPresent(String.self, forKey: .roomType)
+        livingPercent = try? c.decodeIfPresent(Double.self, forKey: .livingPercent)
     }
 
     // Identity is the id, not the wall coordinates. Synthesising Hashable

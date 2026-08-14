@@ -333,6 +333,22 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    // MARK: - Living area
+
+    func livingArea(projectId: String) async throws -> LivingAreaResponse {
+        let encoded = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        return try await get("/api/v1/living-area?projectId=\(encoded)", as: LivingAreaResponse.self)
+    }
+
+    private struct RoomTypePatch: Encodable {
+        let roomType: String?
+    }
+
+    func setRoomType(roomId: String, type: String?) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomTypePatch(roomType: type))
+    }
+
     // MARK: - Schedule
 
     func visits() async throws -> [VisitSummary] {

@@ -168,3 +168,134 @@ struct LevelCanvas: View {
         }
     }
 }
+
+/// What counts as living area on this property, and why.
+///
+/// The totals AND the working. A living-area figure with no breakdown is one
+/// an adjuster has to take on faith, and they will not — so every room that
+/// contributed nothing says why it contributed nothing, right there.
+struct LivingAreaCard: View {
+    let projectId: String
+
+    @State private var result: LivingAreaResponse?
+    @State private var expanded = false
+    @State private var showDefinition = false
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                Button {
+                    showDefinition = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("LIVING AREA")
+                            .font(.system(size: 10, weight: .heavy))
+                            .tracking(0.3)
+                        Image(systemName: "info.circle").font(.system(size: 9))
+                    }
+                    .foregroundStyle(Brand.inkFaint)
+                }
+                .buttonStyle(.plain)
+
+                if let totals = result?.totals {
+                    HStack(alignment: .firstTextBaseline, spacing: Brand.Space.base) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(Measure.sqftLabel(totals.aboveGradeSqm))
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(Brand.ink)
+                            Text("above grade")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Brand.inkFaint)
+                        }
+
+                        if totals.belowGradeSqm > 0 {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(Measure.sqftLabel(totals.belowGradeSqm))
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Brand.inkSoft)
+                                Text("below grade")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Brand.inkFaint)
+                            }
+                        }
+                        Spacer()
+                    }
+
+                    // Kept separate and never summed into the headline: a
+                    // figure that silently includes a basement is the most
+                    // common way a living-area number gets challenged.
+                    if totals.excludedSqm > 0 {
+                        Text("\(Measure.sqftLabel(totals.excludedSqm)) measured but not counted")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.orange)
+                    }
+
+                    Button {
+                        expanded.toggle()
+                    } label: {
+                        Text(expanded ? "Hide the working" : "Show the working")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Brand.blue)
+                    }
+                    .buttonStyle(.plain)
+
+                    if expanded {
+                        VStack(spacing: 5) {
+                            ForEach(totals.rooms) { room in
+                                HStack(spacing: Brand.Space.tight) {
+                                    Text(room.name)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Brand.ink)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    if room.belowMinHeight {
+                                        Text("ceiling under 7 ft")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.orange)
+                                    } else if room.band == "excluded" {
+                                        Text("not living area")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(Brand.inkFaint)
+                                    } else if room.percentApplied != 100 {
+                                        Text("\(Int(room.percentApplied))%")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(Brand.inkFaint)
+                                    }
+                                    Text(Measure.sqftLabel(room.countedSqm))
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .monospacedDigit()
+                                        .foregroundStyle(
+                                            room.countedSqm > 0 ? Brand.ink : Brand.inkFaint)
+                                }
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
+                } else {
+                    Text("Measure some rooms and set their types to see this.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkSoft)
+                }
+            }
+        }
+        .task {
+            result = try? await API.shared.livingArea(projectId: projectId)
+        }
+        .popover(isPresented: $showDefinition) {
+            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                Text("Living area")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                Text(result?.definition ?? "")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(Brand.Space.base)
+            .frame(width: 320)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}

@@ -16,6 +16,9 @@ struct RoomDetailView: View {
     @State private var drawing = false
     @State private var logging = false
     @State private var editingPlan = false
+    @State private var pickingType = false
+    @State private var roomTypes: [LivingRoomType] = []
+    @State private var chosenType: String?
 
     private var damagedSqm: Double { areas.reduce(0) { $0 + $1.areaSqm } }
 
@@ -81,6 +84,33 @@ struct RoomDetailView: View {
                         unit: nil, meaning: .ceiling)
                 }
                 .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+            }
+
+            Section {
+                Button {
+                    pickingType = true
+                } label: {
+                    HStack {
+                        Text("Room type")
+                            .foregroundStyle(Brand.ink)
+                        Spacer()
+                        Text(typeLabel)
+                            .foregroundStyle(chosenType == nil ? Brand.inkFaint : Brand.blue)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                    .font(.system(size: 15))
+                }
+                .buttonStyle(.plain)
+            } footer: {
+                if let note = roomTypes.first(where: { $0.id == chosenType })?.note {
+                    Text(note).font(.system(size: 11)).foregroundStyle(Brand.inkSoft)
+                } else {
+                    Text("Decides how much of this room counts as living area — the figure coverage is quoted against.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.inkFaint)
+                }
             }
 
             if let projectId = room.projectId {
@@ -215,6 +245,16 @@ struct RoomDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $pickingType) {
+            RoomTypePicker(types: roomTypes, selected: chosenType) { picked in
+                chosenType = picked
+                pickingType = false
+                Task {
+                    try? await API.shared.setRoomType(roomId: room.id, type: picked)
+                    await load()
+                }
+            }
+        }
         .sheet(isPresented: $editingPlan) {
             PlanEditorView(room: room) { Task { await load() } }
         }
@@ -225,6 +265,11 @@ struct RoomDetailView: View {
     }
 
     /// The plan, computed once from the stored geometry.
+    private var typeLabel: String {
+        guard let chosenType else { return "Not set" }
+        return roomTypes.first { $0.id == chosenType }?.label ?? chosenType
+    }
+
     private var plan: FloorPlanGeometry.Plan? {
         guard let geometry = room.geometry else { return nil }
         return FloorPlanGeometry.plan(from: geometry)
@@ -246,6 +291,14 @@ struct RoomDetailView: View {
         async let m = API.shared.moisture(roomScanId: room.id)
         areas = (try? await a) ?? []
         readings = (try? await m) ?? []
+
+        // The type list and the room's own type. Fetched from the project's
+        // living-area endpoint so the labels and rules are the server's, not
+        // a second copy drifting in the app.
+        if chosenType == nil { chosenType = room.roomType }
+        if roomTypes.isEmpty, let projectId = room.projectId {
+            roomTypes = (try? await API.shared.livingArea(projectId: projectId).roomTypes) ?? []
+        }
         loading = false
     }
 
