@@ -226,6 +226,15 @@ struct PlanEditorView: View {
             ZStack {
                 Canvas { context, _ in
                     let pt = toScreen
+
+                    // The paper first: the half-metre dotted grid with its
+                    // 2 m brand-blue crosshairs, behind everything, moving
+                    // with the plan because it is drawn in the plan's own
+                    // metres through the same mapping as the walls.
+                    EditorChrome.drawGrid(
+                        context: context, size: proxy.size,
+                        toScreen: pt, toModel: toModel, scale: scale)
+
                     guard corners.count >= 3 else { return }
 
                     var floor = Path()
@@ -233,6 +242,13 @@ struct PlanEditorView: View {
                     for c in corners.dropFirst() { floor.addLine(to: pt(c)) }
                     floor.closeSubpath()
                     context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
+
+                    // Any selection means the room is in hand, and the fill
+                    // says so with a fine hatch — the flat grey alone can't,
+                    // because the selected WALL already carries the blue.
+                    if selection != .none {
+                        EditorChrome.hatch(floor, context: context)
+                    }
 
                     // Walls. The selected one is blue and thicker; an invalid
                     // shape goes dashed red — signalled, never blocked, since
@@ -297,31 +313,22 @@ struct PlanEditorView: View {
                         }
                     }
 
-                    // Every wall's length, and a "+" on the selected one to
-                    // split it.
-                    for i in corners.indices {
-                        let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
-                        let mid = CGPoint(
-                            x: (pt(corners[a]).x + pt(corners[b]).x) / 2,
-                            y: (pt(corners[a]).y + pt(corners[b]).y) / 2)
-                        let metres = PlanEditing.edgeLength(corners, i)
-                        guard metres > 0.15 else { continue }
-
-                        let selected = selection == .wall(i)
-                        let isLocked = locked.contains(i)
-                        let text = context.resolve(
-                            Text((isLocked ? "\u{1F512} " : "") + FloorPlanGeometry.feetInches(metres))
-                                .font(.system(size: 11, weight: selected ? .bold : .regular))
-                                .foregroundStyle(selected ? .white : Color(hex: 0x4A4A50)))
-                        let size = text.measure(in: proxy.size)
-                        let box = CGRect(
-                            x: mid.x - size.width / 2 - 6, y: mid.y - 9,
-                            width: size.width + 12, height: 18)
-                        context.fill(
-                            Path(roundedRect: box, cornerRadius: 9),
-                            with: .color(selected ? Brand.blue : Color.white.opacity(0.9)))
-                        context.draw(text, at: mid, anchor: .center)
-                    }
+                    // Every wall's length as a drafted string — witness
+                    // lines, ticks, the figure along the run — offset
+                    // OUTSIDE the walls where a dimension belongs, not a
+                    // pill floating on the wall line. Locked values keep
+                    // their padlock; the selected wall's string goes blue
+                    // and bold with it.
+                    EditorChrome.drawWallDimensions(
+                        context: context,
+                        polygon: corners,
+                        toScreen: pt,
+                        proxySize: proxy.size,
+                        selectedEdge: {
+                            if case .wall(let i) = selection { return i }
+                            return nil
+                        }(),
+                        lockedEdges: locked)
                 }
 
                 // The live figure during a drag, well above the finger.
@@ -608,79 +615,25 @@ struct PlanEditorView: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
 
-            HStack(spacing: Brand.Space.small) {
-                switch selection {
-                case .wall(let index):
-                    Button {
-                        startMeasuring(at: index)
-                    } label: {
-                        Label("Type length", systemImage: "keyboard")
-                    }
-                    .buttonStyle(EditorButton())
-
-                    Button {
-                        push()
-                        // The split renumbers every edge after it; openings
-                        // and locks are keyed by edge and must move too, or
-                        // a door quietly changes wall.
-                        openings = PlanEditing.openingsAfterCornerAdded(
-                            openings, polygon: corners, splitEdge: index)
-                        locked = PlanEditing.lockedAfterCornerAdded(locked, splitEdge: index)
-                        let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
-                        corners = next
-                        selection = .corner(made)
-                    } label: {
-                        Label("Add corner", systemImage: "plus.circle")
-                    }
-                    .buttonStyle(EditorButton())
-
-                    if canAuthorOpenings {
-                        Button {
-                            addingOpening = true
-                        } label: {
-                            Label("Add opening", systemImage: "door.left.hand.open")
-                        }
-                        .buttonStyle(EditorButton())
-                    }
-
-                case .corner(let index):
-                    Button(role: .destructive) {
-                        push()
-                        openings = PlanEditing.openingsAfterCornerRemoved(
-                            openings, polygon: corners, corner: index)
-                        locked = PlanEditing.lockedAfterCornerRemoved(
-                            locked, corner: index, count: corners.count)
-                        corners = PlanEditing.removeCorner(corners, index: index)
-                        selection = .none
-                    } label: {
-                        Label("Delete corner", systemImage: "minus.circle")
-                    }
-                    .buttonStyle(EditorButton())
-                    .disabled(corners.count <= 3)
-
-                case .opening(let index):
-                    if openings.indices.contains(index) {
-                        Text(openings[index].kind.label)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Brand.ink)
-
-                        Button(role: .destructive) {
-                            push()
-                            openings.remove(at: index)
-                            selection = .none
-                        } label: {
-                            Label("Remove", systemImage: "minus.circle")
-                        }
-                        .buttonStyle(EditorButton())
-                    }
-
-                case .none:
-                    Text("Tap a wall to select it. Two fingers to zoom and pan.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.inkSoft)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // The shared contextual bar, in place of the old capsule strip —
+            // it rewrites itself per selection, and both editors speak the
+            // same verbs through it. Undo/redo stay in the toolbar and the
+            // area readout stays below; only the verbs moved.
+            EditorActionBar(
+                selection: barSelection,
+                onTypeLength: {
+                    if case .wall(let index) = selection { startMeasuring(at: index) }
+                },
+                onAddCorner: {
+                    if case .wall(let index) = selection { addCorner(on: index) }
+                },
+                onAddOpening: { addingOpening = true },
+                onDeleteCorner: {
+                    if case .corner(let index) = selection { deleteCorner(index) }
+                },
+                onDeleteOpening: {
+                    if case .opening(let index) = selection { deleteOpening(index) }
+                })
 
             HStack {
                 Text(Measure.sqftLabel(PlanEditing.area(corners)))
@@ -699,6 +652,56 @@ struct PlanEditorView: View {
         }
         .padding(Brand.Space.base)
         .background(Brand.canvas)
+    }
+
+    /// This editor's selection, in the bar's shared shape. The capability
+    /// answers travel with it: opening authoring is offered only where this
+    /// editor allows it (`canAuthorOpenings` — a scanned room with detected
+    /// openings refuses), and the last three corners are undeletable.
+    private var barSelection: EditorBarSelection {
+        switch selection {
+        case .none:
+            return .none(hint: "Tap a wall to select it. Two fingers to zoom and pan.")
+        case .wall:
+            return .wall(canAddOpening: canAuthorOpenings)
+        case .corner:
+            return .corner(deletable: corners.count > 3)
+        case .opening(let index):
+            guard openings.indices.contains(index) else {
+                return .none(hint: "Tap a wall to select it. Two fingers to zoom and pan.")
+            }
+            let kind = openings[index].kind
+            return .opening(label: kind.label, isWindow: kind.isWindowForBar)
+        }
+    }
+
+    private func addCorner(on index: Int) {
+        push()
+        // The split renumbers every edge after it; openings and locks are
+        // keyed by edge and must move too, or a door quietly changes wall.
+        openings = PlanEditing.openingsAfterCornerAdded(
+            openings, polygon: corners, splitEdge: index)
+        locked = PlanEditing.lockedAfterCornerAdded(locked, splitEdge: index)
+        let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
+        corners = next
+        selection = .corner(made)
+    }
+
+    private func deleteCorner(_ index: Int) {
+        push()
+        openings = PlanEditing.openingsAfterCornerRemoved(
+            openings, polygon: corners, corner: index)
+        locked = PlanEditing.lockedAfterCornerRemoved(
+            locked, corner: index, count: corners.count)
+        corners = PlanEditing.removeCorner(corners, index: index)
+        selection = .none
+    }
+
+    private func deleteOpening(_ index: Int) {
+        guard openings.indices.contains(index) else { return }
+        push()
+        openings.remove(at: index)
+        selection = .none
     }
 
     // MARK: - State
@@ -790,18 +793,6 @@ struct PlanEditorView: View {
             self.error = error.localizedDescription
         }
         saving = false
-    }
-}
-
-private struct EditorButton: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Brand.blue)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(Brand.surface, in: .capsule)
-            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
 

@@ -244,6 +244,15 @@ struct RoomSketchView: View {
                 ZStack {
                     Canvas { context, size in
                         let pt = toScreen
+
+                        // The paper first: the same half-metre dotted grid as
+                        // the plan editor, brand-blue crosshairs on the 2 m
+                        // majors, drawn through this canvas's own mapping so
+                        // it sits under the room, not behind the glass.
+                        EditorChrome.drawGrid(
+                            context: context, size: size,
+                            toScreen: pt, toModel: toModel, scale: scale)
+
                         guard corners.count >= 3 else { return }
                         let invalid = PlanEditing.selfIntersects(corners)
 
@@ -252,6 +261,13 @@ struct RoomSketchView: View {
                         for c in corners.dropFirst() { floor.addLine(to: pt(c)) }
                         floor.closeSubpath()
                         context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
+
+                        // Any selection means the room is in hand — the fill
+                        // hatches to say so, same vocabulary as the plan
+                        // editor.
+                        if selection != .none {
+                            EditorChrome.hatch(floor, context: context)
+                        }
 
                         for i in corners.indices {
                             let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
@@ -303,28 +319,20 @@ struct RoomSketchView: View {
                                 with: .color(Brand.blue), lineWidth: 2)
                         }
 
-                        for i in corners.indices {
-                            let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
-                            let mid = CGPoint(
-                                x: (pt(corners[a]).x + pt(corners[b]).x) / 2,
-                                y: (pt(corners[a]).y + pt(corners[b]).y) / 2)
-                            let metres = PlanEditing.edgeLength(corners, i)
-                            guard metres > 0.15 else { continue }
-                            let selected = selection == .wall(i)
-                            let text = context.resolve(
-                                Text(FloorPlanGeometry.feetInches(metres))
-                                    .font(.system(size: 11, weight: selected ? .bold : .regular))
-                                    .foregroundStyle(selected ? .white : Color(hex: 0x4A4A50)))
-                            let box = text.measure(in: size)
-                            context.fill(
-                                Path(
-                                    roundedRect: CGRect(
-                                        x: mid.x - box.width / 2 - 6, y: mid.y - 9,
-                                        width: box.width + 12, height: 18),
-                                    cornerRadius: 9),
-                                with: .color(selected ? Brand.blue : Color.white.opacity(0.9)))
-                            context.draw(text, at: mid, anchor: .center)
-                        }
+                        // Drafted dimension strings outside the walls, same
+                        // as the plan editor. A drawn room has no locks yet
+                        // — every wall locks at save by definition — so the
+                        // padlock set is empty here.
+                        EditorChrome.drawWallDimensions(
+                            context: context,
+                            polygon: corners,
+                            toScreen: pt,
+                            proxySize: size,
+                            selectedEdge: {
+                                if case .wall(let i) = selection { return i }
+                                return nil
+                            }(),
+                            lockedEdges: [])
                     }
 
                     if let liveLabel {
@@ -388,71 +396,25 @@ struct RoomSketchView: View {
                     .foregroundStyle(.red)
             }
 
-            HStack(spacing: Brand.Space.small) {
-                switch selection {
-                case .wall(let index):
-                    Button { startMeasuring(at: index) } label: {
-                        Label("Type length", systemImage: "keyboard")
-                    }
-                    .buttonStyle(SketchButton())
-
-                    Button {
-                        push()
-                        // Openings are keyed by edge index; the split
-                        // renumbers the edges, so they move together.
-                        openings = PlanEditing.openingsAfterCornerAdded(
-                            openings, polygon: corners, splitEdge: index)
-                        let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
-                        corners = next
-                        selection = .corner(made)
-                    } label: {
-                        Label("Add corner", systemImage: "plus.circle")
-                    }
-                    .buttonStyle(SketchButton())
-
-                    Button {
-                        addingOpening = true
-                    } label: {
-                        Label("Add opening", systemImage: "door.left.hand.open")
-                    }
-                    .buttonStyle(SketchButton())
-
-                case .corner(let index):
-                    Button(role: .destructive) {
-                        push()
-                        openings = PlanEditing.openingsAfterCornerRemoved(
-                            openings, polygon: corners, corner: index)
-                        corners = PlanEditing.removeCorner(corners, index: index)
-                        selection = .none
-                    } label: {
-                        Label("Delete corner", systemImage: "minus.circle")
-                    }
-                    .buttonStyle(SketchButton())
-                    .disabled(corners.count <= 3)
-
-                case .opening(let index):
-                    if openings.indices.contains(index) {
-                        Text(openings[index].kind.label)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Brand.ink)
-
-                        Button(role: .destructive) {
-                            push()
-                            openings.remove(at: index)
-                            selection = .none
-                        } label: {
-                            Label("Remove", systemImage: "minus.circle")
-                        }
-                        .buttonStyle(SketchButton())
-                    }
-
-                case .none:
-                    Text("Tap a wall to move it, or a corner to drag it.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.inkSoft)
-                }
-                Spacer()
-            }
+            // The shared contextual bar — the same component and the same
+            // verbs as the plan editor, so the two canvases stay one skill.
+            // This editor authors openings unconditionally (a drawn room has
+            // no scan to conflict with), so the wall case always offers it.
+            EditorActionBar(
+                selection: barSelection,
+                onTypeLength: {
+                    if case .wall(let index) = selection { startMeasuring(at: index) }
+                },
+                onAddCorner: {
+                    if case .wall(let index) = selection { addCorner(on: index) }
+                },
+                onAddOpening: { addingOpening = true },
+                onDeleteCorner: {
+                    if case .corner(let index) = selection { deleteCorner(index) }
+                },
+                onDeleteOpening: {
+                    if case .opening(let index) = selection { deleteOpening(index) }
+                })
 
             HStack {
                 Text(Measure.sqftLabel(PlanEditing.area(corners)))
@@ -466,6 +428,51 @@ struct RoomSketchView: View {
         }
         .padding(Brand.Space.base)
         .background(Brand.canvas)
+    }
+
+    /// This editor's selection, in the bar's shared shape. Opening authoring
+    /// is always on — a drawn room has no detected openings to double-count.
+    private var barSelection: EditorBarSelection {
+        switch selection {
+        case .none:
+            return .none(hint: "Tap a wall to move it, or a corner to drag it.")
+        case .wall:
+            return .wall(canAddOpening: true)
+        case .corner:
+            return .corner(deletable: corners.count > 3)
+        case .opening(let index):
+            guard openings.indices.contains(index) else {
+                return .none(hint: "Tap a wall to move it, or a corner to drag it.")
+            }
+            let kind = openings[index].kind
+            return .opening(label: kind.label, isWindow: kind.isWindowForBar)
+        }
+    }
+
+    private func addCorner(on index: Int) {
+        push()
+        // Openings are keyed by edge index; the split renumbers the edges,
+        // so they move together.
+        openings = PlanEditing.openingsAfterCornerAdded(
+            openings, polygon: corners, splitEdge: index)
+        let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
+        corners = next
+        selection = .corner(made)
+    }
+
+    private func deleteCorner(_ index: Int) {
+        push()
+        openings = PlanEditing.openingsAfterCornerRemoved(
+            openings, polygon: corners, corner: index)
+        corners = PlanEditing.removeCorner(corners, index: index)
+        selection = .none
+    }
+
+    private func deleteOpening(_ index: Int) {
+        guard openings.indices.contains(index) else { return }
+        push()
+        openings.remove(at: index)
+        selection = .none
     }
 
     // MARK: - Gestures
@@ -614,18 +621,6 @@ struct RoomSketchView: View {
         CGPoint(
             x: (p.x - centre.x) / scale + bounds.midX,
             y: (p.y - centre.y) / scale + bounds.midY)
-    }
-}
-
-private struct SketchButton: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Brand.blue)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(Brand.surface, in: .capsule)
-            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
 
