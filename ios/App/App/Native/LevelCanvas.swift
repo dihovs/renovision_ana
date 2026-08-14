@@ -13,13 +13,54 @@ import SwiftUI
 /// measurements.
 struct LevelCanvas: View {
     let rooms: [RoomScan]
+    /// Rooms filed this visit that have no row to come back from the API yet —
+    /// a scan held on a phone with no signal. The storey plan the operator
+    /// lands on after Done (ORD-16) has to show the room he just walked, and
+    /// a basement with the power off is a normal Tuesday on this trade, so a
+    /// held room is drawn from the copy the capture flow still holds rather
+    /// than left off the sheet until the phone finds a bar.
+    var pending: [FiledRoom] = []
+    /// Ids of rooms whose geometry did not survive the sanity pass. Drawn with
+    /// a mark on the room itself, because a warning about a room belongs on
+    /// the room (ORD-16), not on a card the operator already tapped past.
+    var flagged: Set<String> = []
+    /// Ids to draw the eye to — the rooms just measured. "Where is my scan
+    /// after the scanning" is answered by the plan opening with the new room
+    /// already picked out, not by making the operator find it.
+    var spotlight: Set<String> = []
+    /// The drafting-paper grid behind the rooms (`editor-chrome-design.md` §2):
+    /// fine dots, every fifth one a `+` crosshair. Off for the thumbnail on
+    /// the project screen, where it would only be noise at that size.
+    var grid: Bool = false
+    /// Nil fills whatever height it is given — the full-storey sheet. The
+    /// default keeps the project screen's thumbnail exactly as it was.
+    var maxHeight: CGFloat? = 320
+    /// Only meaningful alongside `pending`; a held room has no row to open.
+    var onTapPending: ((FiledRoom) -> Void)? = nil
+    /// Declared last so `LevelCanvas(rooms:) { … }` keeps binding its trailing
+    /// closure here.
     let onTap: (RoomScan) -> Void
 
-    private struct Slot {
-        let room: RoomScan
+    /// One drawable room, whatever its provenance — a filed row or a scan
+    /// still waiting to upload. The drawing is identical either way; only
+    /// what a tap can open differs.
+    private struct Piece {
+        let id: String
+        let name: String
+        let areaSqm: Double
         let plan: FloorPlanGeometry.Plan
+        let planX: Double?
+        let planY: Double?
+        let room: RoomScan?
+        let filed: FiledRoom?
+    }
+
+    private struct Slot {
+        let piece: Piece
         var x: Double
         var y: Double
+
+        var plan: FloorPlanGeometry.Plan { piece.plan }
     }
 
     /// Shelf-packed slots, honouring dragged positions where they exist.
@@ -30,7 +71,24 @@ struct LevelCanvas: View {
             guard let geometry = room.geometry else { continue }
             let plan = FloorPlanGeometry.plan(from: geometry)
             guard !plan.isEmpty else { continue }
-            slots.append(Slot(room: room, plan: plan, x: 0, y: 0))
+            slots.append(
+                Slot(
+                    piece: Piece(
+                        id: room.id, name: room.name, areaSqm: room.floorAreaSqm, plan: plan,
+                        planX: room.planX, planY: room.planY, room: room, filed: nil),
+                    x: 0, y: 0))
+        }
+        // A held room that has since landed arrives twice — once from the API,
+        // once from the flow's own copy. The row wins; it is the same room.
+        for item in pending where !rooms.contains(where: { $0.id == item.id }) {
+            let plan = FloorPlanGeometry.plan(from: item.geometry)
+            guard !plan.isEmpty else { continue }
+            slots.append(
+                Slot(
+                    piece: Piece(
+                        id: item.id, name: item.name, areaSqm: item.floorAreaSqm, plan: plan,
+                        planX: nil, planY: nil, room: nil, filed: item),
+                    x: 0, y: 0))
         }
         guard !slots.isEmpty else { return ([], 0, 0) }
 
@@ -43,7 +101,7 @@ struct LevelCanvas: View {
         var y = 0.0
         var rowHeight = 0.0
         for i in slots.indices {
-            if let px = slots[i].room.planX, let py = slots[i].room.planY {
+            if let px = slots[i].piece.planX, let py = slots[i].piece.planY {
                 slots[i].x = px
                 slots[i].y = py
                 continue
@@ -84,11 +142,14 @@ struct LevelCanvas: View {
                 let ox = pad + (proxy.size.width - pad * 2 - layout.width * scale) / 2
                 let oy = pad + (proxy.size.height - pad * 2 - layout.height * scale) / 2
 
-                Canvas { context, _ in
+                Canvas { context, canvasSize in
                     let ink = Color(hex: 0x111111)
                     let bg = Color(uiColor: .systemBackground)
 
+                    if grid { Self.drawGrid(in: context, size: canvasSize) }
+
                     for slot in layout.slots {
+                        let isNew = spotlight.contains(slot.piece.id)
                         func pt(_ px: Double, _ py: Double) -> CGPoint {
                             CGPoint(
                                 x: (slot.x + px) * scale + ox,
@@ -100,7 +161,19 @@ struct LevelCanvas: View {
                             floor.move(to: pt(slot.plan.polygon[0].x, slot.plan.polygon[0].y))
                             for p in slot.plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
                             floor.closeSubpath()
-                            context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
+                            // The room just measured is white, the way the room
+                            // you are inside is white in the editor
+                            // (`editor-chrome-design.md` §2) — the others stay
+                            // grey. That is what makes "here is your scan"
+                            // legible without a label pointing at it.
+                            context.fill(
+                                floor,
+                                with: .color(isNew ? Color(hex: 0xFFFFFF) : Color(hex: 0xEFEEF4)))
+                            if isNew {
+                                context.stroke(
+                                    floor, with: .color(Brand.blue.opacity(0.55)),
+                                    style: StrokeStyle(lineWidth: 1.5))
+                            }
                         }
 
                         // Sheet level-of-detail: solid bands and honest gaps —
@@ -128,14 +201,29 @@ struct LevelCanvas: View {
                         // Name + area, when the room plots big enough to hold
                         // them.
                         let plotWidth = slot.plan.width * scale
+
+                        // A warning belongs on the room it is about (ORD-16).
+                        // Drawn inside the room's own top-left corner, so it
+                        // travels with the shape however the sheet is packed.
+                        if flagged.contains(slot.piece.id), plotWidth >= 40 {
+                            let mark = context.resolve(
+                                Text(Image(systemName: "exclamationmark.triangle.fill"))
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Color.orange))
+                            let corner = pt(0, 0)
+                            context.draw(
+                                mark, at: CGPoint(x: corner.x + 10, y: corner.y + 10),
+                                anchor: .center)
+                        }
+
                         if plotWidth >= 64 {
                             let centre = pt(slot.plan.width / 2, slot.plan.height / 2)
                             let name = context.resolve(
-                                Text(slot.room.name)
+                                Text(slot.piece.name)
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundStyle(Color(hex: 0x1A1A1A)))
                             let sqft = context.resolve(
-                                Text(Measure.sqftLabel(slot.room.floorAreaSqm))
+                                Text(Measure.sqftLabel(slot.piece.areaSqm))
                                     .font(.system(size: 9))
                                     .foregroundStyle(Color(hex: 0x666666)))
                             let box = name.measure(in: proxy.size)
@@ -162,14 +250,94 @@ struct LevelCanvas: View {
                             && py <= slot.y + slot.plan.height
                     }) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        onTap(hit.room)
+                        if let room = hit.piece.room {
+                            onTap(room)
+                        } else if let filed = hit.piece.filed {
+                            onTapPending?(filed)
+                        }
                     }
                 }
             }
-            .aspectRatio(CGFloat(max(layout.width, 0.1) / max(layout.height, 0.1)), contentMode: .fit)
-            .frame(maxHeight: 320)
+            .modifier(PlanSheetSizing(aspect: layout.width / layout.height, maxHeight: maxHeight))
         }
     }
+
+    /// The drafting-paper grid: fine dots on a regular pitch, every fifth one
+    /// replaced by a slightly larger, slightly more saturated `+` crosshair
+    /// (`editor-chrome-design.md` §2). The crosshairs are the whole character
+    /// of it — a plain dot field reads as a placeholder texture.
+    private static func drawGrid(in context: GraphicsContext, size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        let pitch: CGFloat = 15
+        let dot = Color(hex: 0xBFC9D6).opacity(0.55)
+        let cross = Color(hex: 0x9FAFC4).opacity(0.85)
+
+        var dots = Path()
+        var crosses = Path()
+        var row = 0
+        var y: CGFloat = pitch / 2
+        while y < size.height {
+            var column = 0
+            var x: CGFloat = pitch / 2
+            while x < size.width {
+                if row % 5 == 0 && column % 5 == 0 {
+                    let arm: CGFloat = 2.6
+                    crosses.move(to: CGPoint(x: x - arm, y: y))
+                    crosses.addLine(to: CGPoint(x: x + arm, y: y))
+                    crosses.move(to: CGPoint(x: x, y: y - arm))
+                    crosses.addLine(to: CGPoint(x: x, y: y + arm))
+                } else {
+                    dots.addEllipse(
+                        in: CGRect(x: x - 0.6, y: y - 0.6, width: 1.2, height: 1.2))
+                }
+                x += pitch
+                column += 1
+            }
+            y += pitch
+            row += 1
+        }
+        context.fill(dots, with: .color(dot))
+        context.stroke(crosses, with: .color(cross), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+    }
+}
+
+/// Two sizings for one drawing: the project screen's thumbnail keeps its
+/// shape and its 320pt ceiling, the full-storey sheet fills what it is given.
+private struct PlanSheetSizing: ViewModifier {
+    let aspect: Double
+    let maxHeight: CGFloat?
+
+    func body(content: Content) -> some View {
+        if let maxHeight {
+            content
+                .aspectRatio(CGFloat(max(aspect, 0.1)), contentMode: .fit)
+                .frame(maxHeight: maxHeight)
+        } else {
+            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+/// A room filed during a capture visit, carried straight to the plan the
+/// operator lands on (ORD-16).
+///
+/// A scan that went up has a row and comes back from the API like any other.
+/// A scan held offline has none — and the plan the owner asked to see must
+/// still show the room he just walked, so the flow hands over its own copy
+/// and the canvas draws it the same.
+struct FiledRoom: Identifiable, Hashable {
+    /// The server row id where there is one, otherwise a local id that exists
+    /// only to keep the room distinct on this sheet.
+    let id: String
+    let name: String
+    let level: String
+    let floorAreaSqm: Double
+    let geometry: ScanGeometry
+    /// True while the scan is still on the phone waiting for a connection.
+    let held: Bool
+
+    static func == (a: FiledRoom, b: FiledRoom) -> Bool { a.id == b.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 /// What counts as living area on this property, and why.
@@ -300,5 +468,424 @@ struct LivingAreaCard: View {
             .frame(width: 320)
             .presentationCompactAdaptation(.popover)
         }
+    }
+}
+
+/// The storey, drawn — where a finished capture lands (ORD-16).
+///
+/// The owner's loudest complaint was *"where is my scan after the scanning, I
+/// need to see it right away"*: the flow used to end on a project list, so the
+/// answer to "did that work?" was three taps away. Done now arrives here, on
+/// the floor just scanned, with the new room picked out in white.
+///
+/// The warnings the review used to carry live here too, attached to the room
+/// they are about. That is more than a move — recomputed from stored geometry
+/// rather than remembered from the capture, they now cover every room on the
+/// sheet, including ones scanned last week, and they survive being tapped past.
+///
+/// Chrome follows `editor-chrome-design.md` §1, §2 and §4 — the leading pill,
+/// the dotted grid with its crosshairs, the grabber and the icon-above-label
+/// tile. Every accent that would be system blue is `Brand.blue`.
+struct StoreyPlanView: View {
+    let projectId: String
+    let projectName: String
+    let level: String
+    /// Rooms filed by the capture visit that led here. Held scans among them
+    /// have no row yet and are drawn from this copy.
+    let arrivals: [FiledRoom]
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var scans: [RoomScan]?
+    @State private var filed: [FiledRoom]
+    @State private var openRoom: RoomScan?
+    @State private var capturing = false
+    @State private var showingHelp = false
+    @State private var showingFloorInfo = false
+    @State private var error: String?
+
+    init(projectId: String, projectName: String, level: String, arrivals: [FiledRoom]) {
+        self.projectId = projectId
+        self.projectName = projectName
+        self.level = level
+        self.arrivals = arrivals
+        _filed = State(initialValue: arrivals)
+    }
+
+    private var rooms: [RoomScan] { (scans ?? []).filter { $0.level == level } }
+    private var pending: [FiledRoom] { filed.filter { $0.level == level } }
+    /// The rooms this visit produced — the sheet opens with these in white.
+    private var spotlight: Set<String> { Set(filed.map(\.id)) }
+
+    /// What the capture sanity pass makes of every room on this storey.
+    ///
+    /// Recomputed from geometry rather than carried over from the review,
+    /// which is what lets an old room be flagged too. A drawn room is closed
+    /// by construction and produces nothing, so it stays quiet.
+    private var concerns: [Concern] {
+        var out: [Concern] = []
+        for room in rooms {
+            guard let geometry = room.geometry else { continue }
+            let problems = ReviewAnalysis(geometry: geometry).problems
+            guard !problems.isEmpty else { continue }
+            out.append(Concern(id: room.id, name: room.name, problems: problems, room: room))
+        }
+        for item in pending where !rooms.contains(where: { $0.id == item.id }) {
+            let problems = ReviewAnalysis(geometry: item.geometry).problems
+            guard !problems.isEmpty else { continue }
+            out.append(Concern(id: item.id, name: item.name, problems: problems, room: nil))
+        }
+        return out
+    }
+
+    private struct Concern: Identifiable {
+        let id: String
+        let name: String
+        let problems: [String]
+        let room: RoomScan?
+    }
+
+    /// `Ground` is a storey id; `Ground Floor` is what it is called out loud.
+    private var storeyTitle: String {
+        ["Basement", "Attic"].contains(level) ? level : "\(level) Floor"
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            navBar
+
+            ZStack {
+                Brand.canvas
+
+                if scans == nil {
+                    ProgressView()
+                } else if rooms.isEmpty && pending.isEmpty {
+                    VStack(spacing: Brand.Space.tight) {
+                        Text("Nothing drawn on this floor yet")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+                        Text("Measure a room and it appears here, to scale.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.inkSoft)
+                    }
+                } else {
+                    LevelCanvas(
+                        rooms: rooms,
+                        pending: pending,
+                        flagged: Set(concerns.map(\.id)),
+                        spotlight: spotlight,
+                        grid: true,
+                        maxHeight: nil,
+                        onTapPending: { _ in showingFloorInfo = true }
+                    ) { room in
+                        openRoom = room
+                    }
+                    .padding(Brand.Space.small)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            warningStrip
+            actionBar
+        }
+        .background(Brand.canvas)
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $openRoom, onDismiss: { Task { await load() } }) { room in
+            RoomDetailView(room: room).id(room.id)
+        }
+        .sheet(isPresented: $showingFloorInfo) {
+            StoreyInfoSheet(
+                storey: storeyTitle, rooms: rooms, pending: pending, concerns: concerns.count)
+        }
+        .sheet(isPresented: $capturing) {
+            CaptureFlow(
+                projectId: projectId,
+                projectName: projectName,
+                existingCount: (scans ?? []).count,
+                existingNames: (scans ?? []).map(\.name),
+                initialLevel: level,
+                onSaved: { Task { await load() } },
+                // Already standing on the plan: a finished capture reloads
+                // this sheet rather than navigating anywhere new.
+                onFinished: { _, arrived in
+                    filed = arrived
+                    Task { await load() }
+                })
+        }
+        .task { await load() }
+    }
+
+    // MARK: - Nav bar (§1)
+
+    private var navBar: some View {
+        HStack(spacing: Brand.Space.small) {
+            Button {
+                dismiss()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.left")
+                    // The context glyph says what you would go back TO — at
+                    // floor level, the storey switcher.
+                    Image(systemName: "square.split.1x2")
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.blue)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+                .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 1) {
+                Text(storeyTitle)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                Text(projectName)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.inkSoft)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: Brand.Space.small) {
+                Button { showingHelp = true } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    ReportShareView(projectId: projectId, projectName: projectName)
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .buttonStyle(.plain)
+            }
+            .font(.system(size: 17))
+            .foregroundStyle(Brand.blue)
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.vertical, Brand.Space.small)
+        .background(Brand.canvas)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Brand.hairline).frame(height: 0.5)
+        }
+        .popover(isPresented: $showingHelp) {
+            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                Text("This floor, to scale")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                Text(
+                    "Rooms measured in one visit sit where they sit in the building. Rooms measured on separate visits carry no relative position, so they are packed into rows — the shapes are still measurements, the arrangement is not. Tap a room to open it; an amber mark means the capture had a problem worth reading."
+                )
+                .font(.system(size: 14))
+                .foregroundStyle(Brand.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(Brand.Space.base)
+            .frame(width: 320)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    // MARK: - The warnings, attached to their room (ORD-16)
+
+    @ViewBuilder
+    private var warningStrip: some View {
+        if !concerns.isEmpty || pending.contains(where: \.held) || error != nil {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                    if let error {
+                        Text(error).font(.footnote).foregroundStyle(.orange)
+                    }
+
+                    // Said here rather than left to be noticed: a room drawn on
+                    // this sheet that has not reached the server yet is a fact
+                    // the operator is entitled to before he drives away.
+                    if pending.contains(where: \.held) {
+                        let held = pending.filter(\.held).count
+                        Text(
+                            "^[\(held) room](inflect: true) on this floor is drawn from this phone and still waiting to upload. It sends itself as soon as there is a connection."
+                        )
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkSoft)
+                    }
+
+                    ForEach(concerns) { concern in
+                        Button {
+                            if let room = concern.room { openRoom = room }
+                        } label: {
+                            HStack(alignment: .top, spacing: Brand.Space.tight) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.orange)
+                                    .padding(.top, 2)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(concern.name)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Brand.ink)
+                                    ForEach(concern.problems, id: \.self) { problem in
+                                        Text(problem)
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Brand.inkSoft)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                            .multilineTextAlignment(.leading)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, Brand.Space.base)
+                .padding(.vertical, Brand.Space.small)
+            }
+            .frame(maxHeight: 132)
+            .background(Brand.surface)
+            .overlay(alignment: .top) {
+                Rectangle().fill(Brand.hairline).frame(height: 0.5)
+            }
+        }
+    }
+
+    // MARK: - Action bar (§4)
+
+    private var actionBar: some View {
+        VStack(spacing: Brand.Space.small) {
+            Capsule()
+                .fill(Brand.inkFaint.opacity(0.4))
+                .frame(width: 36, height: 5)
+
+            // One tile, the way §4 reduces the bar to a single `Insert` in
+            // elevation. The floor-level pair in that table is Insert · Rotate
+            // — both editor actions, and the editor is not this screen's to
+            // build. What this screen can honestly do is take the next room.
+            Button {
+                capturing = true
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "camera.viewfinder")
+                        .font(.system(size: 22))
+                    Text("Add Room")
+                        .font(.system(size: 13))
+                }
+                .foregroundStyle(Brand.blue)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Brand.Space.small)
+                .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: 210)
+
+            Text("Swipe up ↑ for Floor info")
+                .font(.system(size: 13))
+                .foregroundStyle(Brand.inkFaint)
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.top, Brand.Space.small)
+        .padding(.bottom, Brand.Space.tight)
+        .frame(maxWidth: .infinity)
+        .background(Brand.canvas)
+        .contentShape(.rect)
+        // The gesture the bar advertises, on the bar itself: attached to the
+        // whole screen it would fight the canvas's tap and the warning
+        // strip's scroll, and the grabber is what says "drag here" anyway.
+        .gesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { drag in
+                    if drag.translation.height < -30 { showingFloorInfo = true }
+                }
+        )
+    }
+
+    private func load() async {
+        do {
+            let loaded = try await API.shared.scans(projectId: projectId)
+            scans = loaded
+            // A held room that has since landed is the same room twice. Drop
+            // the local copy once its row exists.
+            filed = filed.filter { item in !loaded.contains { $0.id == item.id } }
+            error = nil
+        } catch {
+            // The plan still draws — whatever this visit filed is in hand, and
+            // that is the room the operator came here to look at.
+            if scans == nil { scans = [] }
+            self.error = "This floor could not be refreshed just now: \(error.localizedDescription)"
+        }
+    }
+}
+
+/// The storey's own figures — what the action bar's `Swipe up ↑` reaches.
+private struct StoreyInfoSheet: View {
+    let storey: String
+    let rooms: [RoomScan]
+    let pending: [FiledRoom]
+    let concerns: Int
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var floorAreaSqm: Double {
+        rooms.reduce(0) { $0 + $1.floorAreaSqm } + pending.reduce(0) { $0 + $1.floorAreaSqm }
+    }
+    private var wallAreaSqm: Double {
+        rooms.reduce(0) { $0 + $1.wallLengthM * $1.ceilingHeightM }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Brand.Space.base) {
+                    StatBand(items: [
+                        .init(
+                            label: "Floor",
+                            value: "\(Int(Measure.squareFeet(floorAreaSqm).rounded()))",
+                            unit: "sq ft"),
+                        .init(
+                            label: "Walls",
+                            value: "\(Int(Measure.squareFeet(wallAreaSqm).rounded()))",
+                            unit: "sq ft"),
+                        .init(label: "Rooms", value: "\(rooms.count + pending.count)"),
+                    ])
+
+                    if concerns > 0 {
+                        Card {
+                            Text(
+                                "^[\(concerns) room](inflect: true) on this floor has a capture worth re-reading — the amber marks on the plan."
+                            )
+                            .font(.system(size: 13))
+                            .foregroundStyle(.orange)
+                        }
+                    }
+
+                    // Which definition produced the figure is the question an
+                    // adjuster asks, so it is stated rather than assumed.
+                    Card {
+                        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                            Text("Wall area on this floor is interior perimeter × ceiling height.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Brand.inkSoft)
+                            Text(
+                                "Rooms still waiting to upload count in the floor figure and not in the wall figure — a held room has no row to read a perimeter from yet."
+                            )
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.inkFaint)
+                        }
+                    }
+                }
+                .padding(Brand.Space.base)
+            }
+            .background(Brand.canvas)
+            .navigationTitle("\(storey) info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
