@@ -424,6 +424,29 @@ actor API {
         ).readings
     }
 
+    private struct NewEquipment: Encodable {
+        let projectId: String
+        let kind: String
+        let quantity: Int
+    }
+
+    func addEquipment(projectId: String, kind: String, quantity: Int) async throws {
+        _ = try await request(
+            "/api/v1/equipment", method: "POST",
+            body: NewEquipment(projectId: projectId, kind: kind, quantity: quantity))
+    }
+
+    private struct Collect: Encodable { let outOfServiceAt: String }
+
+    /// Stop the clock on a unit. The timestamp is minted here, now, because
+    /// "collected" means this moment — a server default would also work, but
+    /// an explicit time is one the operator watched happen.
+    func collectEquipment(id: String) async throws {
+        _ = try await request(
+            "/api/v1/equipment/\(id)", method: "PATCH",
+            body: Collect(outOfServiceAt: ISO8601DateFormatter().string(from: Date())))
+    }
+
     func equipment(projectId: String) async throws -> [EquipmentPlacement] {
         let encoded = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
         return try await get(

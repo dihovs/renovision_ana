@@ -165,6 +165,7 @@ struct ProjectDetailView: View {
     @State private var equipment: [EquipmentPlacement] = []
     @State private var error: String?
     @State private var capturing = false
+    @State private var addingEquipment = false
     @StateObject private var queue = ScanQueue.shared
 
     /// Storeys in building order, not the order they happened to be scanned —
@@ -288,41 +289,88 @@ struct ProjectDetailView: View {
                         }
                     }
 
-                    if !equipment.isEmpty {
-                        VStack(alignment: .leading, spacing: Brand.Space.small) {
+                    VStack(alignment: .leading, spacing: Brand.Space.small) {
+                        HStack {
                             SectionHeading(
                                 title: "EQUIPMENT",
                                 trailing: runningUnits > 0 ? "\(runningUnits) running" : nil)
+                            Spacer()
+                            Button {
+                                addingEquipment = true
+                            } label: {
+                                Label("Add", systemImage: "plus.circle.fill")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(Brand.blue)
+                            }
+                            .buttonStyle(.plain)
+                        }
 
-                            ForEach(equipment) { item in
-                                Card(padding: Brand.Space.small) {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(
-                                                item.quantity > 1
-                                                    ? "\(item.quantity)× \(item.kind)" : item.kind
-                                            )
-                                            .font(.system(size: 15, weight: .semibold))
+                        if equipment.isEmpty {
+                            Card(padding: Brand.Space.small) {
+                                Text("Air movers and dehumidifiers bill per unit per day. Logged when they land, they bill themselves.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Brand.inkSoft)
+                            }
+                        }
+
+                        ForEach(equipment) { item in
+                            Card(padding: Brand.Space.small) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(
+                                            item.quantity > 1
+                                                ? "\(item.quantity)× \(item.kind)" : item.kind
+                                        )
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(Brand.ink)
+                                        StatusBadge(
+                                            text: item.isRunning ? "On site" : "Collected",
+                                            tone: item.isRunning ? .active : .neutral)
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: 1) {
+                                        Text("\(item.unitDays())")
+                                            .font(.system(size: 17, weight: .bold))
+                                            .monospacedDigit()
                                             .foregroundStyle(Brand.ink)
-                                            StatusBadge(
-                                                text: item.isRunning ? "On site" : "Collected",
-                                                tone: item.isRunning ? .active : .neutral)
+                                        Text("unit-days")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundStyle(Brand.inkFaint)
+                                    }
+                                    if item.isRunning {
+                                        Button {
+                                            Task {
+                                                try? await API.shared.collectEquipment(id: item.id)
+                                                await load()
+                                            }
+                                        } label: {
+                                            Text("Collected")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundStyle(Brand.inkSoft)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 7)
+                                                .background(Brand.surfaceRaised, in: .capsule)
                                         }
-                                        Spacer()
-                                        VStack(alignment: .trailing, spacing: 1) {
-                                            Text("\(item.unitDays())")
-                                                .font(.system(size: 17, weight: .bold))
-                                                .monospacedDigit()
-                                                .foregroundStyle(Brand.ink)
-                                            Text("unit-days")
-                                                .font(.system(size: 10, weight: .semibold))
-                                                .foregroundStyle(Brand.inkFaint)
-                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }
                         }
                     }
+
+                    // The report, one tap from the job it describes.
+                    NavigationLink {
+                        ReportShareView(projectId: project.id, projectName: project.name)
+                    } label: {
+                        Card(padding: Brand.Space.small) {
+                            CardRow {
+                                Label("Report — make and send the PDF", systemImage: "doc.richtext")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Brand.ink)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, Brand.Space.base)
                 .padding(.top, Brand.Space.small)
@@ -341,6 +389,9 @@ struct ProjectDetailView: View {
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: RoomScan.self) { RoomDetailView(room: $0) }
+        .sheet(isPresented: $addingEquipment) {
+            AddEquipmentSheet(projectId: project.id) { Task { await load() } }
+        }
         .sheet(isPresented: $capturing) {
             CaptureFlow(
                 projectId: project.id,

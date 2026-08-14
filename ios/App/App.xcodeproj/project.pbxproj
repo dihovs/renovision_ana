@@ -44,6 +44,7 @@
 		B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD833D37CF40538753EFB53 /* ScanQueue.swift */; };
 		3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */; };
 		2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */ = {isa = PBXBuildFile; fileRef = D656561111C08EA37D97551A /* RoomPhotos.swift */; };
+		D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = A254CB749019586DB2A35202 /* ReportShare.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +86,7 @@
 		CAD833D37CF40538753EFB53 /* ScanQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanQueue.swift; sourceTree = "<group>"; };
 		75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MessagesView.swift; sourceTree = "<group>"; };
 		D656561111C08EA37D97551A /* RoomPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomPhotos.swift; sourceTree = "<group>"; };
+		A254CB749019586DB2A35202 /* ReportShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ReportShare.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -128,6 +130,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				A254CB749019586DB2A35202 /* ReportShare.swift */,
 				D656561111C08EA37D97551A /* RoomPhotos.swift */,
 				75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */,
 				CAD833D37CF40538753EFB53 /* ScanQueue.swift */,
@@ -243,6 +246,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */,
 				2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */,
 				3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */,
 				B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */,

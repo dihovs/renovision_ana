@@ -263,3 +263,102 @@ struct Field: View {
         }
     }
 }
+
+/// Put equipment on site.
+///
+/// The kinds are suggestions, not an enum — the rental catalogue changes, and
+/// a form that refuses a new machine gets worked around with a lie. Quantity
+/// is a stepper because "6 air movers" is one line, not six taps of a form.
+struct AddEquipmentSheet: View {
+    let projectId: String
+    let onSaved: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var kind = ""
+    @State private var quantity = 1
+    @State private var saving = false
+    @State private var error: String?
+
+    private static let kinds = [
+        "Air mover", "LGR dehumidifier", "Conventional dehumidifier",
+        "Air scrubber / HEPA", "Heater", "Injectidry / wall drying", "Ozone generator",
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Brand.Space.base) {
+                        SectionHeading(title: "WHAT LANDED ON SITE?")
+
+                        LazyVGrid(
+                            columns: [GridItem(.adaptive(minimum: 150), spacing: Brand.Space.tight)],
+                            spacing: Brand.Space.tight
+                        ) {
+                            ForEach(Self.kinds, id: \.self) { option in
+                                Button {
+                                    kind = option
+                                } label: {
+                                    Text(option)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundStyle(kind == option ? .white : Brand.inkSoft)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            kind == option ? Brand.charcoalDark : Brand.surface,
+                                            in: .rect(cornerRadius: Brand.Radius.tile))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        Field(label: "OR TYPE IT", text: $kind, placeholder: "What is it?")
+
+                        Stepper(value: $quantity, in: 1...50) {
+                            Text("^[\(quantity) unit](inflect: true)")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .padding(Brand.Space.base)
+                        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+
+                        if let error {
+                            Text(error).font(.footnote).foregroundStyle(.red)
+                        }
+
+                        Button(saving ? "Adding…" : "On site from now") {
+                            Task { await save() }
+                        }
+                        .buttonStyle(PrimaryButtonStyle(enabled: !saving && !kind.trimmed.isEmpty))
+                        .disabled(saving || kind.trimmed.isEmpty)
+
+                        Text("The clock starts now and stops when you mark it collected. Both days bill — delivered Monday, collected Wednesday is three days.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                    .padding(Brand.Space.base)
+                }
+            }
+            .navigationTitle("Add equipment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+        }
+    }
+
+    private func save() async {
+        saving = true
+        error = nil
+        do {
+            try await API.shared.addEquipment(
+                projectId: projectId, kind: kind.trimmed, quantity: quantity)
+            onSaved()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        saving = false
+    }
+}
