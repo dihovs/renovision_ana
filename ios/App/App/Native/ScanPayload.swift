@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import RoomPlan
 
@@ -56,6 +57,56 @@ struct ScanGeometry: Codable {
     // MARK: - From RoomPlan
 
     @available(iOS 17.0, *)
+    /// Build a room from a drawn outline, with no sensor involved.
+    ///
+    /// The same shape the scanner produces, so a drawn room is a room
+    /// everywhere downstream — plan, totals, damage areas, report — with no
+    /// second kind of room for every future feature to learn about.
+    ///
+    /// Openings are empty, deliberately. Wall area is priced net of doors and
+    /// windows, so inventing an opening nobody drew would be inventing money.
+    init(polygon: [CGPoint], ceilingHeight: Double) {
+        var madeWalls: [Surface] = []
+        for i in polygon.indices {
+            let a = polygon[i]
+            let b = polygon[(i + 1) % polygon.count]
+            let dx = b.x - a.x
+            let dy = b.y - a.y
+            let length = hypot(dx, dy)
+            guard length > 0.01 else { continue }
+            madeWalls.append(
+                Surface(
+                    lengthMeters: length,
+                    widthMeters: length,
+                    heightMeters: ceilingHeight,
+                    centerX: (a.x + b.x) / 2,
+                    centerZ: (a.y + b.y) / 2,
+                    axisX: dx / length,
+                    axisZ: dy / length))
+        }
+
+        // Shoelace, absolute — a room traced either way round measures the
+        // same, because somebody dragging corners has no idea which way they
+        // are going.
+        var twice = 0.0
+        for i in polygon.indices {
+            let a = polygon[i]
+            let b = polygon[(i + 1) % polygon.count]
+            twice += a.x * b.y - b.x * a.y
+        }
+
+        self.walls = madeWalls
+        self.floors = [Floor(areaSquareMeters: abs(twice) / 2)]
+        self.doors = []
+        self.windows = []
+        self.openings = []
+        self.doorCount = 0
+        self.windowCount = 0
+        self.openingCount = 0
+        self.stairCount = 0
+        self.editedPolygon = polygon.map { EditedPoint(x: $0.x, y: $0.y) }
+    }
+
     init(room: CapturedRoom) {
         func map(_ list: [CapturedRoom.Surface]) -> [Surface] {
             list.map { surface in

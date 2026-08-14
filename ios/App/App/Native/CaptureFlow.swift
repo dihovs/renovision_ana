@@ -31,6 +31,8 @@ struct CaptureFlow: View {
     private enum Stage {
         case chooseFloor
         case capturing
+        /// Drawing a room by hand, on the plan editor's canvas.
+        case drawing
         case review
     }
 
@@ -43,7 +45,7 @@ struct CaptureFlow: View {
 
                 switch stage {
                 case .chooseFloor: floorChooser
-                case .capturing: Color.clear
+                case .capturing, .drawing: Color.clear
                 case .review: review
                 }
             }
@@ -54,6 +56,15 @@ struct CaptureFlow: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+        }
+        .fullScreenCover(isPresented: .init(get: { stage == .drawing }, set: { _ in })) {
+            RoomSketchView(
+                onCancel: { stage = .chooseFloor },
+                onDone: { polygon, ceiling in
+                    geometry = ScanGeometry(polygon: polygon, ceilingHeight: ceiling)
+                    name = "Room \(existingCount + 1)"
+                    stage = .review
+                })
         }
         .fullScreenCover(isPresented: .init(get: { stage == .capturing }, set: { _ in })) {
             RoomCaptureScreen { outcome in
@@ -124,10 +135,41 @@ struct CaptureFlow: View {
                     }
                 }
 
-                Button("Start scan") { stage = .capturing }
+                SectionHeading(title: "HOW WILL YOU MEASURE IT?")
+                    .padding(.top, Brand.Space.small)
+
+                Button("Scan the room") { stage = .capturing }
                     .buttonStyle(PrimaryButtonStyle(enabled: RoomCaptureSession.isSupported))
                     .disabled(!RoomCaptureSession.isSupported)
-                    .padding(.top, Brand.Space.small)
+
+                // Drawing works on any phone, in any light, in a gutted
+                // basement with the power off — which is a normal Tuesday on
+                // a water-damage job, and exactly when the camera cannot
+                // track anything.
+                Button {
+                    stage = .drawing
+                } label: {
+                    HStack {
+                        Image(systemName: "pencil.and.ruler")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Draw it instead")
+                                .font(.system(size: 15, weight: .bold))
+                            Text("Start from a rectangle and pull it into shape. No camera needed.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Brand.inkSoft)
+                                .multilineTextAlignment(.leading)
+                        }
+                        Spacer()
+                    }
+                    .foregroundStyle(Brand.blue)
+                    .padding(Brand.Space.base)
+                    .frame(maxWidth: .infinity)
+                    .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Brand.Radius.card)
+                            .strokeBorder(Brand.blue.opacity(0.3), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
             .padding(Brand.Space.base)
         }
