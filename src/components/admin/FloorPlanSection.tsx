@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useSyncExternalStore } from "react";
 import FloorPlan from "./FloorPlan";
 import AddFloorPlan from "./AddFloorPlan";
+import CollectionShell from "./CollectionShell";
 import {
   floorsSnapshot,
   mergeFloors,
@@ -21,6 +22,9 @@ import { FLOOR_ORDER } from "@/lib/crm/floors";
  * lives on the device (see `floorMemory`), and the server rendering this
  * page cannot see that. So the server sends what it has measured, and this
  * merges in what the operator has started.
+ *
+ * Presented through the collection shell: a rail of floor cards led by the
+ * dashed `+` tile, with the per-room detail behind `See all (n)`.
  */
 
 export type FloorRoom = {
@@ -65,24 +69,27 @@ export default function FloorPlanSection({
   const levels = mergeFloors(measured, remembered, FLOOR_ORDER);
 
   return (
-    <section className="rounded-xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="font-heading text-sm font-bold text-charcoal">Floor plans</h2>
-        <AddFloorPlan projectId={projectId} existing={levels} />
-      </div>
-
-      {migrationPending ? (
-        <p className="mt-3 text-sm leading-snug text-charcoal/45">
-          Run <code className="font-mono text-brand-blue">0024_room_scans.sql</code> in
-          Supabase to turn floor plans on.
-        </p>
-      ) : levels.length === 0 ? (
-        <p className="mt-3 text-sm leading-snug text-charcoal/45">
-          No floor yet. Add a floor plan, then measure the rooms on it — the
-          figures roll up into the statistics above.
-        </p>
-      ) : (
-        <div className="mt-3 space-y-4">
+    <CollectionShell
+      title="Floor plans"
+      count={levels.length}
+      caption="Sorted by floor level"
+      addTile={<AddFloorPlan projectId={projectId} existing={levels} variant="tile" />}
+      note={
+        migrationPending ? (
+          <p className="mt-3 text-sm leading-snug text-charcoal/45">
+            Run <code className="font-mono text-brand-blue">0024_room_scans.sql</code> in
+            Supabase to turn floor plans on.
+          </p>
+        ) : levels.length === 0 ? (
+          <p className="mt-3 text-sm leading-snug text-charcoal/45">
+            No floor yet. Add a floor plan, then measure the rooms on it — the
+            figures roll up into the statistics above.
+          </p>
+        ) : null
+      }
+      expanded={
+        migrationPending ? undefined : (
+        <div className="mt-4 space-y-4 border-t border-black/5 pt-3">
           {levels.map((level) => {
             const onLevel = rooms.filter((room) => room.level === level);
             const levelArea = onLevel.reduce((sum, room) => sum + room.floorAreaSqm, 0);
@@ -137,8 +144,50 @@ export default function FloorPlanSection({
             );
           })}
         </div>
-      )}
-    </section>
+        )
+      }
+    >
+      {!migrationPending &&
+        levels.map((level) => {
+          const onLevel = rooms.filter((room) => room.level === level);
+          const levelArea = onLevel.reduce((sum, room) => sum + room.floorAreaSqm, 0);
+          const thumb = onLevel.find((room) => room.geometry);
+
+          return (
+            <Link
+              key={level}
+              href={`/admin/projects/${projectId}/floors/${encodeURIComponent(level)}`}
+              className="w-36 shrink-0 overflow-hidden rounded-xl border border-black/5 transition-colors hover:border-brand-blue/30"
+            >
+              <div className="flex h-24 items-center justify-center bg-[#f7f7f8] p-2">
+                {thumb ? (
+                  <FloorPlan
+                    result={thumb.geometry as RoomScanResult}
+                    name={thumb.name}
+                    variant="thumb"
+                  />
+                ) : (
+                  // Created but not measured: an outline where the plan will
+                  // be, so the card reads as "waiting", not broken.
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-charcoal/20" aria-hidden>
+                    <path d="M4 4h16v16H4z M4 12h8 M12 12v8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+              <div className="border-t border-black/5 px-2.5 py-2">
+                <span className="block truncate text-xs font-bold text-charcoal">{level}</span>
+                <span className="block text-[11px] tabular-nums text-charcoal/45">
+                  {onLevel.length === 0
+                    ? "Not measured"
+                    : `${fmt(squareMetersToSquareFeet(levelArea))} sq ft · ${onLevel.length} room${
+                        onLevel.length === 1 ? "" : "s"
+                      }`}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+    </CollectionShell>
   );
 }
 

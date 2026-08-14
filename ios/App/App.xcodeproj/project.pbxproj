@@ -56,6 +56,7 @@
 		6EB8E4BB573B70520B47F100 /* MeasurementPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005231B41F924DA2E538E4C4 /* MeasurementPanel.swift */; };
 		4A3F921C3612FA79C4EE89C1 /* FloorVocabulary.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4AA76DB38060E02C09CC459 /* FloorVocabulary.swift */; };
 		2040CD2E8FB0C6B036E367DF /* EditorChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */; };
+		F4A3CDB5C85AE43389B25281 /* CollectionShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -109,6 +110,7 @@
 		005231B41F924DA2E538E4C4 /* MeasurementPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MeasurementPanel.swift; sourceTree = "<group>"; };
 		D4AA76DB38060E02C09CC459 /* FloorVocabulary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorVocabulary.swift; sourceTree = "<group>"; };
 		6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/EditorChrome.swift; sourceTree = "<group>"; };
+		1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CollectionShell.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -153,6 +155,7 @@
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
 				6086771E4EECC3FB4EEB5CCB /* EditorChrome.swift */,
+				1A3E9B896D89EEC54864CDD8 /* CollectionShell.swift */,
 				D4AA76DB38060E02C09CC459 /* FloorVocabulary.swift */,
 				2D2DE65F4E46AFE854860438 /* ScanSession.swift */,
 				005231B41F924DA2E538E4C4 /* MeasurementPanel.swift */,
@@ -280,6 +283,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2040CD2E8FB0C6B036E367DF /* EditorChrome.swift in Sources */,
+				F4A3CDB5C85AE43389B25281 /* CollectionShell.swift in Sources */,
 				4A3F921C3612FA79C4EE89C1 /* FloorVocabulary.swift in Sources */,
 				2229C7C593BA4F1B00A7AAE1 /* ScanSession.swift in Sources */,
 				6EB8E4BB573B70520B47F100 /* MeasurementPanel.swift in Sources */,

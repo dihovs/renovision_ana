@@ -41,6 +41,15 @@ export const FLOOR_LEVELS: readonly FloorLevel[] = [
 export const FLOOR_ORDER: readonly string[] = FLOOR_LEVELS.map((level) => level.id);
 
 /**
+ * The storeys nearly every job is on, most-common-first — the short list a
+ * floor picker leads with, the rest one tap behind "See more". Ground first
+ * because most water starts there; Basement second because this trade lives
+ * in basements; 2nd for the storey above. PRESENTATION order, not building
+ * order — a subset of `FLOOR_ORDER`, never a sixth spelling.
+ */
+export const COMMON_FLOOR_IDS: readonly string[] = ["Ground", "Basement", "2nd"];
+
+/**
  * Find the level a stored text value names, or null for text this vocabulary
  * does not know. Tolerant of case and whitespace — those are typos — but
  * deliberately NOT of abbreviations ("Bsmt"): guessing at spellings is how
