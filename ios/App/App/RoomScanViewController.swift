@@ -1,3 +1,4 @@
+import ARKit
 import UIKit
 import RoomPlan
 
@@ -10,7 +11,28 @@ import RoomPlan
 final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate, RoomCaptureViewDelegate {
     var onFinish: ((Result<CapturedRoom, Error>) -> Void)?
 
-    private let captureView = RoomCaptureView(frame: .zero)
+    /**
+     * The AR session shared across every room of one capture visit, when
+     * there is one. Set before the view loads (the SwiftUI wrapper assigns
+     * it at construction).
+     *
+     * This is what multi-room placement hangs on: rooms captured in one
+     * continuous AR session share a world frame, so `StructureBuilder` can
+     * register them against each other. Rooms captured in separate sessions
+     * are each measured from wherever the operator happened to be standing,
+     * and the builder refuses the set (`.invalidRoomLocation`). When this is
+     * set, stopping uses `pauseARSession: false` so tracking survives the
+     * walk to the next room — pausing between rooms would sever exactly the
+     * continuity the shared session exists to provide.
+     */
+    var sharedARSession: ARSession?
+
+    private lazy var captureView: RoomCaptureView = {
+        if let shared = sharedARSession {
+            return RoomCaptureView(frame: .zero, arSession: shared)
+        }
+        return RoomCaptureView(frame: .zero)
+    }()
     private var isScanning = false
 
     override func viewDidLoad() {
@@ -58,10 +80,22 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         UIApplication.shared.isIdleTimerDisabled = false
     }
 
+    /// Stop this room's capture. With a shared AR session the underlying
+    /// tracking is deliberately left running — see `sharedARSession` — and
+    /// the owner of that session is responsible for pausing it when the
+    /// whole visit ends.
+    private func stopCapture() {
+        if sharedARSession != nil {
+            captureView.captureSession.stop(pauseARSession: false)
+        } else {
+            captureView.captureSession.stop()
+        }
+    }
+
     @objc private func doneTapped() {
         // Stopping hands the final, processed CapturedRoom to
         // captureView(didPresent:error:) below — not to a completion here.
-        captureView.captureSession.stop()
+        stopCapture()
     }
 
     @objc private func cancelTapped() {
@@ -71,7 +105,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         // deliberately discarded would enter the merge set anyway.
         let finish = onFinish
         onFinish = nil
-        captureView.captureSession.stop()
+        stopCapture()
         dismiss(animated: true) {
             finish?(.failure(RoomScanError.cancelled))
         }

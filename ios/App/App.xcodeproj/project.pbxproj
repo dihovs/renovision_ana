@@ -51,6 +51,7 @@
 		29CA0E88615983507CA586CF /* PlanEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E2CAE2D1A65B7CC2CC1AEE /* PlanEditing.swift */; };
 		712D75190AE25C18508B17E9 /* PlanEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */; };
 		F1E2E81F536021C842A0307A /* RoomSketchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */; };
+		2229C7C593BA4F1B00A7AAE1 /* ScanSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D2DE65F4E46AFE854860438 /* ScanSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -99,6 +100,7 @@
 		00E2CAE2D1A65B7CC2CC1AEE /* PlanEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanEditing.swift; sourceTree = "<group>"; };
 		7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanEditorView.swift; sourceTree = "<group>"; };
 		4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomSketchView.swift; sourceTree = "<group>"; };
+		2D2DE65F4E46AFE854860438 /* ScanSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +144,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				2D2DE65F4E46AFE854860438 /* ScanSession.swift */,
 				4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */,
 				7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */,
 				00E2CAE2D1A65B7CC2CC1AEE /* PlanEditing.swift */,
@@ -264,6 +267,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2229C7C593BA4F1B00A7AAE1 /* ScanSession.swift in Sources */,
 				F1E2E81F536021C842A0307A /* RoomSketchView.swift in Sources */,
 				712D75190AE25C18508B17E9 /* PlanEditorView.swift in Sources */,
 				29CA0E88615983507CA586CF /* PlanEditing.swift in Sources */,

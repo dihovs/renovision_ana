@@ -1,7 +1,8 @@
+import ARKit
 import RoomPlan
 import SwiftUI
 
-/// Scan a room and file it, in one pass.
+/// Scan a room and file it, in one pass — or several rooms, in one visit.
 ///
 /// The chain the web build already has, now native: which floor, then capture,
 /// then name it and accept it. The project is known before this opens — it is
@@ -11,6 +12,13 @@ import SwiftUI
 /// A capture is NOT saved until the operator says so. The web version once
 /// filed every scan the instant RoomPlan returned it, named "Room 3", which
 /// kept bad captures and gave good ones a name nobody recognised a week later.
+///
+/// Multi-room is a loop inside this one sheet, not repeated visits to it.
+/// After a room is filed the flow offers the next scan instead of closing,
+/// because the value of staying is invisible but real: every room captured
+/// while the sheet is open shares one AR world frame (`ScanSession`), which
+/// is the only thing that lets the plan show the rooms where they actually
+/// sit instead of packed side by side.
 struct CaptureFlow: View {
     let projectId: String
     let projectName: String
@@ -28,12 +36,29 @@ struct CaptureFlow: View {
     @State private var saving = false
     @State private var error: String?
 
+    /// Everything captured this visit, and the AR session tying it together.
+    @StateObject private var session = ScanSession()
+    /// Rooms filed since this sheet opened — numbering and positions have to
+    /// advance past them, and `existingCount` was read once at presentation.
+    @State private var savedThisVisit = 0
+    /// Whether the room under review came from the camera. A drawn room has
+    /// no `CapturedRoom`, so it can neither join the merge set nor anchor a
+    /// "scan another room" loop.
+    @State private var lastWasScan = false
+    /// What happened when the visit's rooms were registered together —
+    /// shown on the saved stage, because a placement that silently failed
+    /// would leave the operator expecting a plan the canvas cannot draw.
+    @State private var placementNote: String?
+    @State private var placementFailed = false
+
     private enum Stage {
         case chooseFloor
         case capturing
         /// Drawing a room by hand, on the plan editor's canvas.
         case drawing
         case review
+        /// Filed. Offer the next room while the AR session still tracks.
+        case saved
     }
 
     private static let levels = ["Basement", "Ground", "2nd", "3rd", "Attic"]
@@ -47,13 +72,21 @@ struct CaptureFlow: View {
                 case .chooseFloor: floorChooser
                 case .capturing, .drawing: Color.clear
                 case .review: review
+                case .saved: savedStage
                 }
             }
-            .navigationTitle(stage == .review ? "Room measured" : "Add a room")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                    // Nothing to cancel once a room is filed — the saved
+                    // stage's own buttons are the only honest exits.
+                    if stage != .saved {
+                        Button("Cancel") {
+                            session.end()
+                            dismiss()
+                        }
+                    }
                 }
             }
         }
@@ -62,18 +95,25 @@ struct CaptureFlow: View {
                 onCancel: { stage = .chooseFloor },
                 onDone: { polygon, ceiling in
                     geometry = ScanGeometry(polygon: polygon, ceilingHeight: ceiling)
-                    name = "Room \(existingCount + 1)"
+                    name = "Room \(existingCount + savedThisVisit + 1)"
+                    lastWasScan = false
                     stage = .review
                 })
         }
         .fullScreenCover(isPresented: .init(get: { stage == .capturing }, set: { _ in })) {
-            RoomCaptureScreen { outcome in
+            RoomCaptureScreen(arSession: session.arSession) { outcome in
                 switch outcome {
                 case .success(let room):
                     if #available(iOS 17.0, *) {
+                        // Held for the merge as well as reviewed: every room
+                        // of the visit has to stay in hand until
+                        // StructureBuilder can register them against each
+                        // other.
+                        session.add(room)
                         let captured = ScanGeometry(room: room)
                         geometry = captured
-                        name = "Room \(existingCount + 1)"
+                        name = "Room \(existingCount + savedThisVisit + 1)"
+                        lastWasScan = true
                         stage = .review
                     }
                 case .failure(let failure):
@@ -85,6 +125,14 @@ struct CaptureFlow: View {
                 }
             }
             .ignoresSafeArea()
+        }
+    }
+
+    private var title: String {
+        switch stage {
+        case .review: return "Room measured"
+        case .saved: return "Room saved"
+        default: return "Add a room"
         }
     }
 
@@ -102,6 +150,11 @@ struct CaptureFlow: View {
                 VStack(spacing: Brand.Space.tight) {
                     ForEach(Self.levels, id: \.self) { option in
                         Button {
+                            // A merge set is one storey. Rooms on different
+                            // floors still share the AR frame, but placing a
+                            // basement against a kitchen would write plan
+                            // positions that mean nothing on either sheet.
+                            if level != option { session.resetRooms() }
                             level = option
                         } label: {
                             Card(padding: Brand.Space.small) {
@@ -244,11 +297,65 @@ struct CaptureFlow: View {
                 .buttonStyle(PrimaryButtonStyle(enabled: !saving && !name.trimmed.isEmpty))
                 .disabled(saving || name.trimmed.isEmpty)
 
-                Button("Scan again") { stage = .capturing }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.inkSoft)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, Brand.Space.hair)
+                Button("Scan again") {
+                    // A retake, not another room: the rejected capture must
+                    // leave the merge set, or the builder would register a
+                    // room the operator threw away.
+                    if lastWasScan { session.discardLastUnsaved() }
+                    stage = .capturing
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.inkSoft)
+                .frame(maxWidth: .infinity)
+                .padding(.top, Brand.Space.hair)
+            }
+            .padding(Brand.Space.base)
+        }
+    }
+
+    // MARK: - Saved: offer the next room
+
+    /// The room is filed; the AR session is still tracking. This screen
+    /// exists to say why staying is worth it — rooms scanned in one visit
+    /// land on the plan where they actually sit — and to report honestly
+    /// when that placement could not be delivered.
+    private var savedStage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Brand.Space.base) {
+                Card {
+                    VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                        Text("\(name.trimmed.isEmpty ? "The room" : name.trimmed) is filed under \(level).")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+                        Text(
+                            savedThisVisit >= 2
+                                ? "\(savedThisVisit) rooms this visit."
+                                : "Keep going while the phone is still tracking: rooms scanned in one visit are placed on the plan the way they actually sit. Close this, and the next room starts from scratch."
+                        )
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.inkSoft)
+                    }
+                }
+
+                if let placementNote {
+                    Card {
+                        Text(placementNote)
+                            .font(.callout)
+                            .foregroundStyle(placementFailed ? .orange : Brand.inkSoft)
+                    }
+                }
+
+                Button("Scan another room") { stage = .capturing }
+                    .buttonStyle(PrimaryButtonStyle(enabled: true))
+
+                Button("Done") {
+                    session.end()
+                    dismiss()
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Brand.inkSoft)
+                .frame(maxWidth: .infinity)
+                .padding(.top, Brand.Space.hair)
             }
             .padding(Brand.Space.base)
         }
@@ -268,32 +375,79 @@ struct CaptureFlow: View {
                 projectId: projectId,
                 name: name.trimmed,
                 level: level,
-                position: existingCount,
+                position: existingCount + savedThisVisit,
                 geometry: geometry))
 
         switch outcome {
-        case .sent:
-            onSaved()
-            dismiss()
+        case .sent(let id):
+            // The row id is what a position can later be written against.
+            // A held scan has no row yet, so it keeps its measurement and
+            // loses only its placement — the packed layout catches it.
+            if lastWasScan { session.markLastSaved(id) }
+            await finishSave()
         case .held:
-            // Kept, not lost. Dismissing is right — the measurement is safe
-            // and the project screen says how many are waiting.
-            onSaved()
-            dismiss()
+            // Kept, not lost. The measurement is safe and the project
+            // screen says how many are waiting.
+            await finishSave()
         case .lost(let reason):
             error = reason
         }
         saving = false
     }
+
+    /// After a room is filed: register the visit's rooms together, then
+    /// either offer the next scan or close.
+    ///
+    /// Placement runs after EVERY save from the second room on, not once at
+    /// the end, because the operator can leave this flow any way they like —
+    /// Done, Cancel, the home indicator — and positions already written must
+    /// stay written. Re-running is harmless: the builder is deterministic
+    /// for a fixed set of rooms, and the last write wins.
+    private func finishSave() async {
+        savedThisVisit += 1
+        onSaved()
+
+        guard lastWasScan else {
+            // A drawn room cannot join a merge set or continue an AR
+            // session; the one-room-and-out flow is still the right shape.
+            session.end()
+            dismiss()
+            return
+        }
+
+        if session.roomCount >= 2 {
+            switch await session.pushPlacements() {
+            case .placed(let count):
+                placementFailed = false
+                placementNote = "The plan shows these \(count) rooms as they sit in the building."
+            case .skipped:
+                placementFailed = false
+                placementNote = nil
+            case .failed(let reason):
+                placementFailed = true
+                placementNote = reason
+            }
+        } else {
+            placementFailed = false
+            placementNote = nil
+        }
+        stage = .saved
+    }
 }
 
 /// The RoomPlan capture screen, wrapped for SwiftUI.
+///
+/// `arSession` is the visit-wide AR session. Passing the same one into every
+/// capture is what keeps consecutive rooms in one world frame — see
+/// `ScanSession` for why that is the whole multi-room feature.
 struct RoomCaptureScreen: UIViewControllerRepresentable {
+    var arSession: ARSession?
     let onFinish: (Result<CapturedRoom, Error>) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
         guard #available(iOS 17.0, *) else { return UIViewController() }
         let controller = RoomScanViewController()
+        controller.sharedARSession = arSession
         controller.onFinish = onFinish
         return controller
     }

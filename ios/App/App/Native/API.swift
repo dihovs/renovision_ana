@@ -349,6 +349,20 @@ actor API {
             "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomTypePatch(roomType: type))
     }
 
+    private struct PlacementPatch: Encodable {
+        let planX: Double
+        let planY: Double
+    }
+
+    /// Where a room sits on its floor sheet, in metres of plan space — the
+    /// same `plan_x`/`plan_y` the web canvas writes when the operator drags
+    /// a room. Written by the multi-room merge (`ScanSession`), so rooms
+    /// scanned in one visit land where they actually sit.
+    func placeRoom(roomId: String, x: Double, y: Double) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH", body: PlacementPatch(planX: x, planY: y))
+    }
+
     // MARK: - Schedule
 
     func visits() async throws -> [VisitSummary] {

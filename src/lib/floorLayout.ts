@@ -1,19 +1,23 @@
 /**
  * Arranging a floor's rooms on one drawing.
  *
- * An honest caveat lives at the centre of this file. RoomPlan measures each
- * room in ITS OWN coordinate space, from wherever the operator was standing
- * when they started. Two rooms scanned separately carry no information about
- * where they sit relative to each other — so a plan that showed them joined
- * would be inventing the building's layout, and inventing geometry is the
- * one thing a measurement tool must never do.
+ * An honest caveat, now SCOPED rather than universal. RoomPlan measures each
+ * room from wherever the operator was standing when capture began, so rooms
+ * scanned on separate visits — and rooms typed or drawn by hand — carry no
+ * information about where they sit relative to each other. Showing those
+ * joined would be inventing the building's layout, and inventing geometry is
+ * the one thing a measurement tool must never do.
  *
- * So rooms are PACKED, not positioned: laid out in tidy rows at true scale,
- * each room's own shape and dimensions exact, their arrangement on the sheet
- * arbitrary. The UI says so. Real relative placement needs either a single
- * multi-room capture session (RoomPlan's own structure builder, which does
- * know) or the operator dragging rooms together — and that is the next piece
- * of work, not something to fake here.
+ * Rooms scanned in ONE native capture visit are different: they share an AR
+ * world frame, RoomPlan's StructureBuilder registers them against each other
+ * on the phone (`ios/App/App/Native/ScanSession.swift`), and each arrives
+ * here with `plan_x`/`plan_y` already set to its true position — the same
+ * columns the operator's own drags write. `resolvePlacements` honours those.
+ *
+ * Everything WITHOUT a position — manual entry, separately-scanned rooms,
+ * scans saved offline before a row existed — is PACKED: laid out in tidy
+ * rows at true scale, each room's own shape and dimensions exact, the
+ * arrangement on the sheet arbitrary.
  */
 
 export type Size = { width: number; height: number };
