@@ -14,6 +14,7 @@ struct ProjectsView: View {
     @State private var query = ""
     @State private var showStatus = false
     @State private var showMore = false
+    @State private var creating = false
 
     private var shown: [ProjectSummary] {
         guard let projects else { return [] }
@@ -114,7 +115,7 @@ struct ProjectsView: View {
                 }
                 .refreshable { await load() }
 
-                FloatingAction(icon: "plus") {}
+                FloatingAction(icon: "plus") { creating = true }
                     .padding(.trailing, Brand.Space.large)
                     .padding(.bottom, Brand.Space.large)
             }
@@ -136,6 +137,9 @@ struct ProjectsView: View {
             }
             .sheet(isPresented: $showStatus) { DiagnosticsView() }
             .sheet(isPresented: $showMore) { MoreView() }
+            .sheet(isPresented: $creating) {
+                NewProjectSheet { _ in Task { await load() } }
+            }
             .task { await load() }
         }
     }

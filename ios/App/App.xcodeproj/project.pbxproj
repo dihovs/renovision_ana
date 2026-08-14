@@ -38,6 +38,7 @@
 		7C262F10406210A42BAD7978 /* ScanPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */; };
 		24FF0A017B0B1CA0B8BECB02 /* CaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432C81BFDBB37384FDC61E00 /* CaptureFlow.swift */; };
 		0C4F950F2542A6B30DF173DA /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B1C0B433DDDE917A7C6AC3D /* HomeView.swift */; };
+		31A8258D875E33BB7511747F /* CreateForms.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63622FE8793B5A476929ED7 /* CreateForms.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +74,7 @@
 		29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanPayload.swift; sourceTree = "<group>"; };
 		432C81BFDBB37384FDC61E00 /* CaptureFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CaptureFlow.swift; sourceTree = "<group>"; };
 		5B1C0B433DDDE917A7C6AC3D /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/HomeView.swift; sourceTree = "<group>"; };
+		F63622FE8793B5A476929ED7 /* CreateForms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CreateForms.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +118,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				F63622FE8793B5A476929ED7 /* CreateForms.swift */,
 				5B1C0B433DDDE917A7C6AC3D /* HomeView.swift */,
 				432C81BFDBB37384FDC61E00 /* CaptureFlow.swift */,
 				29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */,
@@ -225,6 +228,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				31A8258D875E33BB7511747F /* CreateForms.swift in Sources */,
 				0C4F950F2542A6B30DF173DA /* HomeView.swift in Sources */,
 				24FF0A017B0B1CA0B8BECB02 /* CaptureFlow.swift in Sources */,
 				7C262F10406210A42BAD7978 /* ScanPayload.swift in Sources */,

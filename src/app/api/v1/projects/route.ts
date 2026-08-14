@@ -1,5 +1,6 @@
+import { NextResponse } from "next/server";
 import { guarded } from "../guard";
-import { listProjects } from "@/lib/crm/projects";
+import { createProject, listProjects } from "@/lib/crm/projects";
 
 /**
  * Projects the phone can scan into.
@@ -17,5 +18,35 @@ export async function GET() {
       clientName: project.client_name,
       roomCount: project.room_count,
     })),
+  }));
+}
+
+/**
+ * Start a project from the phone.
+ *
+ * A name is the only requirement, and the client is optional, because the
+ * common case is standing at a property that has just flooded: the job
+ * exists, the paperwork does not yet, and refusing to record it until a
+ * customer has been created is how measurements end up in a notes app.
+ */
+export async function POST(request: Request) {
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
+  }
+
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (!name) {
+    return NextResponse.json({ error: "Give the project a name." }, { status: 400 });
+  }
+
+  return guarded(async () => ({
+    id: await createProject({
+      name,
+      clientId: typeof body.clientId === "string" && body.clientId ? body.clientId : null,
+      description: typeof body.description === "string" ? body.description : null,
+    }),
   }));
 }

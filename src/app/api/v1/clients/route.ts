@@ -1,5 +1,6 @@
+import { NextResponse } from "next/server";
 import { guarded } from "../guard";
-import { listClients } from "@/lib/crm/clients";
+import { createClient, listClients } from "@/lib/crm/clients";
 import { clientDisplayName, primaryEmail, primaryPhone } from "@/lib/crm/types";
 
 /**
@@ -30,5 +31,58 @@ export async function GET(request: Request) {
       email: primaryEmail(client),
       propertyCount: client.property_count,
     })),
+  }));
+}
+
+/**
+ * Create a customer from the phone.
+ *
+ * Deliberately minimal: a name, a number, an email. Everything else — billing
+ * address, tax rate, tags — is desk work, and a form asking for it on a
+ * driveway is a form nobody finishes. The record can be filled in later; what
+ * cannot be recovered later is the number of the person standing in front of
+ * you.
+ */
+export async function POST(request: Request) {
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
+  }
+
+  const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+  const firstName = text(body.firstName);
+  const lastName = text(body.lastName);
+  const companyName = text(body.companyName);
+
+  // A customer with no name at all is a row nobody can find again.
+  if (!firstName && !lastName && !companyName) {
+    return NextResponse.json(
+      { error: "Give the customer a name or a company." },
+      { status: 400 },
+    );
+  }
+
+  const phone = text(body.phone);
+  const email = text(body.email);
+
+  return guarded(async () => ({
+    id: await createClient({
+      firstName,
+      lastName,
+      companyName,
+      phones: phone
+        ? [{ number: phone, type: "mobile", primary: true, smsAllowed: false }]
+        : [],
+      // Opted IN to both by default: a customer added on site is one whose
+      // estimate and invoice are going to be emailed within the hour, and
+      // discovering the flags were off after sending is a wasted trip back
+      // into the record. Consent for MARKETING is a separate flag entirely
+      // and is not touched here.
+      emails: email
+        ? [{ address: email, type: "main", primary: true, receivesQuotes: true, receivesInvoices: true }]
+        : [],
+    }),
   }));
 }

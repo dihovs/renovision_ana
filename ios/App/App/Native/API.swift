@@ -173,6 +173,42 @@ actor API {
         try await get("/api/v1/quotes", as: QuoteListResponse.self).quotes
     }
 
+    // MARK: - Creating
+
+    private struct NewProject: Encodable {
+        let name: String
+        let clientId: String?
+        let description: String?
+    }
+
+    func createProject(name: String, clientId: String?, description: String?) async throws -> String {
+        struct Created: Decodable { let id: String }
+        let data = try await request(
+            "/api/v1/projects", method: "POST",
+            body: NewProject(name: name, clientId: clientId, description: description))
+        return try decode(Created.self, from: data).id
+    }
+
+    private struct NewClient: Encodable {
+        let firstName: String
+        let lastName: String
+        let companyName: String
+        let phone: String
+        let email: String
+    }
+
+    func createClient(
+        firstName: String, lastName: String, companyName: String, phone: String, email: String
+    ) async throws -> String {
+        struct Created: Decodable { let id: String }
+        let data = try await request(
+            "/api/v1/clients", method: "POST",
+            body: NewClient(
+                firstName: firstName, lastName: lastName, companyName: companyName,
+                phone: phone, email: email))
+        return try decode(Created.self, from: data).id
+    }
+
     // MARK: - Dashboard
 
     func dashboard() async throws -> DashboardSummary {

@@ -10,6 +10,7 @@ struct CustomersView: View {
     @State private var error: String?
     @State private var query = ""
     @StateObject private var calls = CallManager.shared
+    @State private var creating = false
 
     private var shown: [ClientSummary] {
         guard let clients else { return [] }
@@ -57,12 +58,15 @@ struct CustomersView: View {
                 }
                 .refreshable { await load() }
 
-                FloatingAction(icon: "person.badge.plus") {}
+                FloatingAction(icon: "person.badge.plus") { creating = true }
                     .padding(.trailing, Brand.Space.large)
                     .padding(.bottom, Brand.Space.large)
             }
             .navigationTitle("Customers")
             .searchable(text: $query, prompt: "Search customers")
+            .sheet(isPresented: $creating) {
+                NewCustomerSheet { Task { await load() } }
+            }
             .task { await load() }
         }
         .fullScreenCover(isPresented: .constant(calls.state.isBusy)) { InCallView() }
@@ -149,6 +153,7 @@ struct EstimatesView: View {
     @State private var invoices: [QuoteSummary]?
     @State private var error: String?
     @State private var showPaid = false
+    @State private var buildingQuote = false
 
     private var awaiting: [QuoteSummary] { (invoices ?? []).filter(\.isAwaitingAnswer) }
     private var rest: [QuoteSummary] { (invoices ?? []).filter { !$0.isAwaitingAnswer } }
@@ -218,11 +223,23 @@ struct EstimatesView: View {
                 }
                 .refreshable { await load() }
 
-                FloatingAction(icon: "plus") {}
+                // Building an estimate means line items, tiers and pricing —
+                // a desk job, and a half-built native version would be worse
+                // than the one that already works. Opens the web builder
+                // rather than sitting there as a dead button.
+                FloatingAction(icon: "plus") { buildingQuote = true }
                     .padding(.trailing, Brand.Space.large)
                     .padding(.bottom, Brand.Space.large)
             }
             .navigationTitle("Estimates")
+            .sheet(isPresented: $buildingQuote) {
+                NavigationStack {
+                    WebScreen(path: "/admin/quotes/new")
+                        .ignoresSafeArea(edges: .bottom)
+                        .navigationTitle("New estimate")
+                        .navigationBarTitleDisplayMode(.inline)
+                }
+            }
             .task { await load() }
         }
     }
