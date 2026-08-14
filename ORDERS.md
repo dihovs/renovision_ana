@@ -445,3 +445,41 @@ web twin in `src/lib/`.
 - **Room-as-selection** (move, rotate, duplicate a whole room on the canvas). Real in
   magicplan, but this trade scans rooms rather than composing them; low value until someone
   asks.
+
+---
+
+## ORD-22 — Commercial room types  ⚠️ needs an owner decision first
+
+Found while building ORD-17. The reference's Select Room Type screen has a
+**Residential / Commercial** segmented control, and the walkthrough confirms it
+(`owner-walkthrough.md` A3). We have no commercial half: `ROOM_TYPES` in
+`src/lib/crm/livingArea.ts` is 18 residential types and nothing else. The control was
+omitted from ORD-17 rather than shipped as tabs that lie.
+
+**Do not build this from a guess.** Two questions only the owner can answer:
+
+1. **Which commercial types?** A restoration company's commercial jobs are not an office
+   fit-out's rooms. Likely candidates are things like retail floor, warehouse, mechanical
+   room, commercial kitchen, server room, common corridor, washroom block — but that list
+   is a guess and guessing it wrong means an operator picks "Other" every time, which is
+   exactly the failure ORD-06 existed to fix.
+2. **How does living area treat them?** ANSI Z765 is a *residential* standard. A warehouse
+   has no "living area" and the percentage model does not apply. Either commercial types
+   opt out of the living-area engine entirely, or they need their own rule. Getting this
+   wrong puts a number in a claim that no standard backs.
+
+**Then** — types and rules in `livingArea.ts`, the segmented control in `CaptureFlow.swift`,
+and the chips split by segment. The Swift and TypeScript type tables must stay twins.
+
+**Territory:** `src/lib/crm/livingArea.ts`, `CaptureFlow.swift`, `API.swift`.
+
+---
+
+## Integration notes, not orders
+
+- **Two dotted grids.** ORD-16 added `LevelCanvas.drawGrid`; the chrome work adds its own
+  in `EditorChrome.swift`. One design, two implementations — dedupe to whichever is the
+  better home, and keep the `+` crosshairs either way.
+- **The floor-level action bar** currently offers one tile (`Add Room`) where
+  `editor-chrome-design.md` §4 says `Insert · Rotate`. That was a territory boundary during
+  parallel work, not a decision. Reconcile once the editor chrome lands.
