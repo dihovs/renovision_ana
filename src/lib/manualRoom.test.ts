@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  OPENING_PRESETS,
   formatFeetInches,
   makeRectangularRoom,
   parseFeetInches,
   validateDimension,
+  withOpening,
 } from "./manualRoom";
 import {
   squareMetersToSquareFeet,
@@ -120,5 +122,73 @@ describe("makeRectangularRoom", () => {
     });
     // 12.5 × 10 = 125 sq ft.
     expect(squareMetersToSquareFeet(totalFloorAreaSquareMeters(room))).toBeCloseTo(125, 1);
+  });
+});
+
+describe("withOpening", () => {
+  // The ORD-05 premise made right: a room nobody scanned can still carry the
+  // door and window every real room has, so its paint figure stops being
+  // systematically high by exactly those openings.
+  const bare = makeRectangularRoom({ widthMeters: 4, lengthMeters: 3, heightMeters: 2.44 });
+  const withDoor = withOpening(bare, { wall: 0, preset: "doorSingle" });
+  const furnished = withOpening(withDoor, { wall: 1, preset: "windowStandard" });
+
+  it("drops net wall area below gross by exactly the openings placed", () => {
+    const { gross, net } = wallAreaSquareMeters(furnished);
+    const door = OPENING_PRESETS.doorSingle;
+    const window = OPENING_PRESETS.windowStandard;
+    const deducted =
+      door.widthMeters * door.heightMeters + window.widthMeters * window.heightMeters;
+    expect(net).toBeLessThan(gross);
+    expect(gross - net).toBeCloseTo(deducted, 6);
+  });
+
+  it("counts what it placed, and nothing else moves", () => {
+    expect(furnished.doorCount).toBe(1);
+    expect(furnished.windowCount).toBe(1);
+    // Floor and perimeter are wall facts, not opening facts.
+    expect(totalFloorAreaSquareMeters(furnished)).toBeCloseTo(12, 6);
+    expect(totalWallLengthMeters(furnished)).toBeCloseTo(14, 6);
+  });
+
+  it("leaves the room it was given untouched", () => {
+    expect(bare.doorCount).toBe(0);
+    const { gross, net } = wallAreaSquareMeters(bare);
+    expect(net).toBeCloseTo(gross, 6);
+  });
+
+  it("sits the opening inside its host wall on the drawn plan", () => {
+    const plan = toFloorPlan(furnished);
+    expect(plan.openings).toHaveLength(2);
+    for (const opening of plan.openings) {
+      // Every opening endpoint lies on some wall segment — the cut stays in
+      // a wall through the shared rotation and shift.
+      for (const p of [
+        { x: opening.x1, y: opening.y1 },
+        { x: opening.x2, y: opening.y2 },
+      ]) {
+        const onAWall = plan.segments.some((s) => {
+          const lengthSq = (s.x2 - s.x1) ** 2 + (s.y2 - s.y1) ** 2;
+          if (lengthSq === 0) return false;
+          const t = ((p.x - s.x1) * (s.x2 - s.x1) + (p.y - s.y1) * (s.y2 - s.y1)) / lengthSq;
+          if (t < -0.001 || t > 1.001) return false;
+          const px = s.x1 + t * (s.x2 - s.x1);
+          const py = s.y1 + t * (s.y2 - s.y1);
+          return Math.hypot(p.x - px, p.y - py) < 0.01;
+        });
+        expect(onAWall).toBe(true);
+      }
+    }
+  });
+
+  it("clamps a tall door to a low ceiling rather than deducting phantom wall", () => {
+    const crawl = withOpening(
+      makeRectangularRoom({ widthMeters: 4, lengthMeters: 3, heightMeters: 1.8 }),
+      { wall: 0, preset: "doorSingle" },
+    );
+    const { gross, net } = wallAreaSquareMeters(crawl);
+    // The deduction is width × the 1.8 m the wall actually has, not the
+    // door's nominal 6'8".
+    expect(gross - net).toBeCloseTo(OPENING_PRESETS.doorSingle.widthMeters * 1.8, 6);
   });
 });

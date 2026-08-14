@@ -440,16 +440,57 @@ actor API {
         }
         let editedPolygon: [Point]
         let lockedEdges: [Int]
+        /// Openings placed by hand, in their editable edge-keyed form AND as
+        /// the synthesized centre-plus-axis surfaces everything downstream
+        /// already reads. Synthesized here, not on the server — the server
+        /// does not recompute measurements, because it was not there.
+        ///
+        /// nil means "this save says nothing about openings" and the keys are
+        /// left out of the JSON entirely, so a scanned room's DETECTED doors
+        /// are never overwritten by a polygon correction. An empty array is a
+        /// different statement: the operator removed the last one.
+        let authoredOpenings: [ScanGeometry.AuthoredOpening]?
+        let doors: [ScanGeometry.Surface]?
+        let windows: [ScanGeometry.Surface]?
+        let openings: [ScanGeometry.Surface]?
+        let doorCount: Int?
+        let windowCount: Int?
+        let openingCount: Int?
     }
 
     /// Save a plan corrected by hand. The scan's own measurements are kept —
-    /// the server files this beside them, never over them.
-    func saveEditedPlan(roomId: String, corners: [CGPoint], locked: [Int] = []) async throws {
+    /// the server files this beside them, never over them. Pass `openings`
+    /// only for rooms whose openings are authored rather than detected.
+    func saveEditedPlan(
+        roomId: String, corners: [CGPoint], locked: [Int] = [],
+        openings placed: [PlanEditing.WallOpening]? = nil, ceilingHeight: Double = 0
+    ) async throws {
+        let synthesized = placed.map {
+            ScanGeometry.surfaces(
+                for: $0, polygon: corners,
+                // A room with no recorded ceiling still has to deduct
+                // SOMETHING for a door; the builder's 8' is the least
+                // surprising stand-in.
+                ceilingHeight: ceilingHeight > 0 ? ceilingHeight : 2.44)
+        }
         _ = try await request(
             "/api/v1/scans/\(roomId)", method: "PATCH",
             body: EditedPlan(
                 editedPolygon: corners.map { .init(x: Double($0.x), y: Double($0.y)) },
-                lockedEdges: locked))
+                lockedEdges: locked,
+                authoredOpenings: placed.map {
+                    $0.map {
+                        ScanGeometry.AuthoredOpening(
+                            edge: $0.edge, offset: $0.offset, width: $0.width,
+                            kind: $0.kind.rawValue)
+                    }
+                },
+                doors: synthesized?.doors,
+                windows: synthesized?.windows,
+                openings: synthesized?.passages,
+                doorCount: synthesized?.doors.count,
+                windowCount: synthesized?.windows.count,
+                openingCount: synthesized?.passages.count))
     }
 
     // MARK: - Photos

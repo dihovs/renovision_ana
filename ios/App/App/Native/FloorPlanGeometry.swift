@@ -60,10 +60,40 @@ enum FloorPlanGeometry {
             let shifted = segments.map {
                 Segment(x1: $0.x1 - minX, y1: $0.y1 - minY, x2: $0.x2 - minX, y2: $0.y2 - minY)
             }
+
+            // Openings the operator PLACED are keyed to this polygon's edges,
+            // so they can be cut into the corrected walls exactly. Detected
+            // openings stay out of an edited plan — they live in the scan's
+            // own coordinate frame, which the corrected polygon has left.
+            var openings: [Opening] = []
+            for record in geometry.authoredOpenings ?? [] {
+                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { continue }
+                let placed = PlanEditing.WallOpening(
+                    edge: record.edge, offset: record.offset, width: record.width, kind: kind)
+                guard let (a, b) = PlanEditing.openingEndpoints(points, placed) else { continue }
+                let drawn: Opening.Kind
+                switch kind.category {
+                case .door: drawn = .door
+                case .window: drawn = .window
+                case .passage: drawn = .opening
+                }
+                openings.append(
+                    Opening(
+                        segment: Segment(
+                            x1: a.x - minX, y1: a.y - minY, x2: b.x - minX, y2: b.y - minY),
+                        kind: drawn))
+            }
+
+            // The outline repeats its first point, matching what
+            // `chainIntoPolygon` produces — the editors reconstruct their
+            // corners by dropping that closing point, and an outline without
+            // it loses a real corner to the drop.
+            var loop = points.map { CGPoint(x: $0.x - minX, y: $0.y - minY) }
+            if let first = loop.first { loop.append(first) }
             return Plan(
                 segments: shifted,
-                openings: [],
-                polygon: points.map { CGPoint(x: $0.x - minX, y: $0.y - minY) },
+                openings: openings,
+                polygon: loop,
                 width: (xs.max() ?? 0) - minX,
                 height: (ys.max() ?? 0) - minY)
         }

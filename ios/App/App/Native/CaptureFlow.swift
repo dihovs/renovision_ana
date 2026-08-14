@@ -60,8 +60,9 @@ struct CaptureFlow: View {
         .fullScreenCover(isPresented: .init(get: { stage == .drawing }, set: { _ in })) {
             RoomSketchView(
                 onCancel: { stage = .chooseFloor },
-                onDone: { polygon, ceiling in
-                    geometry = ScanGeometry(polygon: polygon, ceilingHeight: ceiling)
+                onDone: { polygon, ceiling, openings in
+                    geometry = ScanGeometry(
+                        polygon: polygon, ceilingHeight: ceiling, authored: openings)
                     name = "Room \(existingCount + 1)"
                     stage = .review
                 })

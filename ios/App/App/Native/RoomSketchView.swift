@@ -13,31 +13,60 @@ import SwiftUI
 /// basement is that rectangle with a corner pulled in. Nothing new to learn.
 struct RoomSketchView: View {
     let onCancel: () -> Void
-    let onDone: ([CGPoint], Double) -> Void
+    let onDone: ([CGPoint], Double, [PlanEditing.WallOpening]) -> Void
 
     @State private var stage: Stage = .size
     @State private var widthText = "12"
     @State private var lengthText = "10"
     @State private var heightText = "8"
     @State private var corners: [CGPoint] = []
-    @State private var history: [[CGPoint]] = []
+    /// Doors and windows placed on the drawn walls. Snapshotted with the
+    /// corners, because they are keyed to edge indices — an undo that
+    /// restored one without the other would hang a door on the wrong wall.
+    @State private var openings: [PlanEditing.WallOpening] = []
+    @State private var history: [Snapshot] = []
     @State private var selection: Selection = .none
-    @State private var dragStart: [CGPoint]?
+    @State private var dragStart: Snapshot?
     @State private var snapEngaged = false
     @State private var liveLabel: String?
     @State private var typing: Int?
+    @State private var addingOpening = false
 
     private enum Stage { case size, shape }
+
+    private struct Snapshot {
+        var corners: [CGPoint]
+        var openings: [PlanEditing.WallOpening]
+    }
 
     private enum Selection: Equatable {
         case none
         case wall(Int)
         case corner(Int)
+        /// Index into `openings`.
+        case opening(Int)
     }
 
     private var width: Double? { FloorPlanGeometry.parseFeetInches(widthText) }
     private var length: Double? { FloorPlanGeometry.parseFeetInches(lengthText) }
     private var height: Double? { FloorPlanGeometry.parseFeetInches(heightText) }
+
+    /// The wall whose dimension chain is split right now: the selected wall,
+    /// or the host wall of the selected opening.
+    private var chainEdge: Int? {
+        switch selection {
+        case .wall(let index):
+            return openings.contains { $0.edge == index } ? index : nil
+        case .opening(let index):
+            return openings.indices.contains(index) ? openings[index].edge : nil
+        case .none, .corner:
+            return nil
+        }
+    }
+
+    private func push() {
+        history.append(Snapshot(corners: corners, openings: openings))
+    }
 
     private var sizeReady: Bool {
         guard let width, let length, let height else { return false }
@@ -63,7 +92,8 @@ struct RoomSketchView: View {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         Button {
                             if let previous = history.popLast() {
-                                corners = previous
+                                corners = previous.corners
+                                openings = previous.openings
                                 selection = .none
                             }
                         } label: {
@@ -72,7 +102,7 @@ struct RoomSketchView: View {
                         .disabled(history.isEmpty)
 
                         Button("Use it") {
-                            onDone(corners, height ?? 2.44)
+                            onDone(corners, height ?? 2.44, openings)
                         }
                         .fontWeight(.bold)
                         .disabled(PlanEditing.selfIntersects(corners))
@@ -84,9 +114,29 @@ struct RoomSketchView: View {
                 set: { typing = $0?.edge })
             ) { target in
                 SketchLengthSheet(current: PlanEditing.edgeLength(corners, target.edge)) { metres in
-                    history.append(corners)
+                    push()
                     corners = PlanEditing.setEdgeLength(corners, index: target.edge, to: metres)
                     typing = nil
+                }
+            }
+            .sheet(isPresented: $addingOpening) {
+                if case .wall(let edge) = selection {
+                    OpeningPicker(
+                        edgeLength: PlanEditing.edgeLength(corners, edge),
+                        fits: { kind in
+                            PlanEditing.placeOpening(
+                                kind, onEdge: edge, of: corners, avoiding: openings) != nil
+                        }
+                    ) { kind in
+                        if let placed = PlanEditing.placeOpening(
+                            kind, onEdge: edge, of: corners, avoiding: openings)
+                        {
+                            push()
+                            openings.append(placed)
+                            selection = .opening(openings.count - 1)
+                        }
+                        addingOpening = false
+                    }
                 }
             }
         }
@@ -188,6 +238,29 @@ struct RoomSketchView: View {
                                     dash: invalid ? [8, 5] : []))
                         }
 
+                        // Openings, cut into their walls — band break, jamb
+                        // caps, our own glyphs — then the split dimension
+                        // chain for the wall that owns the selection.
+                        for (index, opening) in openings.enumerated() {
+                            OpeningGlyphs.draw(
+                                opening,
+                                polygon: corners,
+                                selected: selection == .opening(index),
+                                context: context,
+                                toScreen: pt,
+                                scale: scale,
+                                background: Brand.surface)
+                        }
+                        if let edge = chainEdge {
+                            OpeningGlyphs.drawChain(
+                                edge: edge,
+                                polygon: corners,
+                                openings: openings,
+                                context: context,
+                                toScreen: pt,
+                                proxySize: proxy.size)
+                        }
+
                         for i in corners.indices {
                             let p = pt(corners[i])
                             let big = selection == .corner(i)
@@ -272,7 +345,11 @@ struct RoomSketchView: View {
                     .buttonStyle(SketchButton())
 
                     Button {
-                        history.append(corners)
+                        push()
+                        // Openings are keyed by edge index; the split
+                        // renumbers the edges, so they move together.
+                        openings = PlanEditing.openingsAfterCornerAdded(
+                            openings, polygon: corners, splitEdge: index)
                         let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
                         corners = next
                         selection = .corner(made)
@@ -281,9 +358,18 @@ struct RoomSketchView: View {
                     }
                     .buttonStyle(SketchButton())
 
+                    Button {
+                        addingOpening = true
+                    } label: {
+                        Label("Add opening", systemImage: "door.left.hand.open")
+                    }
+                    .buttonStyle(SketchButton())
+
                 case .corner(let index):
                     Button(role: .destructive) {
-                        history.append(corners)
+                        push()
+                        openings = PlanEditing.openingsAfterCornerRemoved(
+                            openings, polygon: corners, corner: index)
                         corners = PlanEditing.removeCorner(corners, index: index)
                         selection = .none
                     } label: {
@@ -291,6 +377,22 @@ struct RoomSketchView: View {
                     }
                     .buttonStyle(SketchButton())
                     .disabled(corners.count <= 3)
+
+                case .opening(let index):
+                    if openings.indices.contains(index) {
+                        Text(openings[index].kind.label)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+
+                        Button(role: .destructive) {
+                            push()
+                            openings.remove(at: index)
+                            selection = .none
+                        } label: {
+                            Label("Remove", systemImage: "minus.circle")
+                        }
+                        .buttonStyle(SketchButton())
+                    }
 
                 case .none:
                     Text("Tap a wall to move it, or a corner to drag it.")
@@ -325,6 +427,23 @@ struct RoomSketchView: View {
             return
         }
 
+        // Openings before walls: an opening lies ON its wall, so the wall
+        // would otherwise always win the hit.
+        var bestOpening = -1
+        var bestOpeningDistance = 22 / scale
+        for i in openings.indices {
+            let d = OpeningGlyphs.distance(to: openings[i], polygon: corners, from: point)
+            if d < bestOpeningDistance {
+                bestOpeningDistance = d
+                bestOpening = i
+            }
+        }
+        if bestOpening >= 0 {
+            UISelectionFeedbackGenerator().selectionChanged()
+            selection = .opening(bestOpening)
+            return
+        }
+
         var best = -1
         var bestDistance = 22 / scale
         for i in corners.indices {
@@ -341,10 +460,10 @@ struct RoomSketchView: View {
     private func drag(_ value: DragGesture.Value, scale: CGFloat) {
         guard selection != .none else { return }
         if dragStart == nil {
-            dragStart = corners
-            history.append(corners)
+            dragStart = Snapshot(corners: corners, openings: openings)
+            push()
         }
-        guard let start = dragStart else { return }
+        guard let start = dragStart?.corners else { return }
 
         switch selection {
         case .wall(let index):
@@ -373,6 +492,22 @@ struct RoomSketchView: View {
             let before = (index - 1 + corners.count) % corners.count
             liveLabel =
                 "\(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, before)))  ·  \(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index)))"
+
+        case .opening(let index):
+            guard let base = dragStart?.openings, base.indices.contains(index) else { return }
+            let (a, b) = PlanEditing.edgeCorners(base[index].edge, count: start.count)
+            let direction = PlanEditing.normalised(PlanEditing.sub(start[b], start[a]))
+            // Only the component ALONG the wall counts — an opening slides
+            // in its wall; it does not leave it.
+            let along = PlanEditing.dot(
+                CGPoint(x: value.translation.width / scale, y: value.translation.height / scale),
+                direction)
+            openings[index] = PlanEditing.slideOpening(
+                base[index], along: corners, by: along,
+                avoiding: openings.enumerated().filter { $0.offset != index }.map(\.element))
+            liveLabel = PlanEditing.chain(corners, edge: base[index].edge, openings: openings)
+                .map(FloorPlanGeometry.feetInches)
+                .joined(separator: "  ·  ")
 
         case .none:
             break
