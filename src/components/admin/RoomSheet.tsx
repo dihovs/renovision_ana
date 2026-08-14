@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import FloorPlan from "./FloorPlan";
 import AffectedAreaEditor, { type DraftArea } from "./AffectedAreaEditor";
+import MeasureInfo from "./MeasureInfo";
 import RoomEvidence from "./RoomEvidence";
 import MoistureLog from "./MoistureLog";
 import { tapFeedback } from "@/lib/haptics";
+import { MEASURE_DEFINITIONS, type MeasureDefinition } from "@/lib/crm/measureDefinitions";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
 import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
 import {
@@ -48,6 +50,8 @@ export default function RoomSheet({
   const [areas, setAreas] = useState<AffectedArea[] | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which figure's definition is open, if any — the (i) beside each stat.
+  const [defining, setDefining] = useState<MeasureDefinition | null>(null);
 
   const result = room.geometry;
 
@@ -146,10 +150,34 @@ export default function RoomSheet({
             </div>
 
             <div className="grid grid-cols-4 gap-2">
-              <Stat label="Floor" value={floorSqFt} unit="sq ft" />
-              <Stat label="Walls" value={wallSqFt} unit="sq ft" />
-              <Stat label="Perim." value={perimeterFt} unit="ft" />
-              <Stat label="Ceiling" value={ceilingFt} unit="ft" decimals={1} />
+              {/* The Walls tile shows the NET area, so that is the definition
+                  it carries — a tile defined as something it does not show
+                  would be worse than no definition. */}
+              <Stat
+                label="Floor"
+                value={floorSqFt}
+                unit="sq ft"
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.floorArea)}
+              />
+              <Stat
+                label="Walls"
+                value={wallSqFt}
+                unit="sq ft"
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.wallAreaNet)}
+              />
+              <Stat
+                label="Perim."
+                value={perimeterFt}
+                unit="ft"
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.perimeter)}
+              />
+              <Stat
+                label="Ceiling"
+                value={ceilingFt}
+                unit="ft"
+                decimals={1}
+                onInfo={() => setDefining(MEASURE_DEFINITIONS.ceilingHeight)}
+              />
             </div>
 
             {result.modelId && (
@@ -276,6 +304,8 @@ export default function RoomSheet({
           </div>
         )}
       </div>
+
+      {defining && <MeasureInfo meaning={defining} onClose={() => setDefining(null)} />}
     </div>
   );
 }
@@ -285,16 +315,26 @@ function Stat({
   value,
   unit,
   decimals = 0,
+  onInfo,
 }: {
   label: string;
   value: number;
   unit: string;
   decimals?: number;
+  /** Opens the figure's definition. The whole tile is the target — a 9px
+      glyph alone is not something a thumb can hit on site. */
+  onInfo?: () => void;
 }) {
-  return (
-    <div className="rounded-xl border border-black/5 bg-white px-2 py-2 text-center">
-      <span className="block text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
+  const body = (
+    <>
+      <span className="flex items-center justify-center gap-0.5 text-[10px] font-bold uppercase tracking-wide text-charcoal/40">
         {label}
+        {onInfo && (
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8v.5" strokeLinecap="round" />
+          </svg>
+        )}
       </span>
       <span className="mt-0.5 block font-heading text-base font-bold tabular-nums text-charcoal">
         {value.toLocaleString("en-CA", {
@@ -303,6 +343,20 @@ function Stat({
         })}
       </span>
       <span className="block text-[9px] font-semibold text-charcoal/40">{unit}</span>
-    </div>
+    </>
+  );
+
+  if (!onInfo) {
+    return <div className="rounded-xl border border-black/5 bg-white px-2 py-2 text-center">{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onInfo}
+      aria-label={`${label} — what this figure means`}
+      className="cursor-pointer rounded-xl border border-black/5 bg-white px-2 py-2 text-center active:bg-black/[0.03]"
+    >
+      {body}
+    </button>
   );
 }

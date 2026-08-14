@@ -111,6 +111,17 @@
 .report .measure th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 6px; }
 .report .measure td { padding: 4px 6px; font-weight: 700; }
 
+/* The definitions appendix: the term is the emphatic column and the prose is
+   ordinary text — the reverse of a measurement row, where the number leads. */
+.report .measure.definitions th {
+  font-weight: 700; color: var(--ink); vertical-align: top;
+  white-space: nowrap; padding: 6px 14px 6px 6px;
+}
+.report .measure.definitions td {
+  font-weight: 400; font-size: 11px; line-height: 1.5; padding: 6px;
+  border-bottom: 1px solid #eee;
+}
+
 .report .swatch {
   display: inline-block; width: 8px; height: 8px; border-radius: 2px;
   margin-right: 6px; vertical-align: middle;
