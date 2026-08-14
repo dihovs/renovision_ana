@@ -47,7 +47,7 @@ export async function listAffectedAreas(roomScanId: string): Promise<AffectedAre
     .order("created_at", { ascending: true });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("affected_areas");
+    if (isMissingTable(error)) throw new MigrationPendingError("affected_areas", error.message);
     throw new Error(`Could not load the affected areas: ${error.message}`);
   }
   return (data ?? []) as AffectedArea[];
@@ -63,7 +63,7 @@ export async function listProjectAffectedAreas(projectId: string): Promise<Affec
     .order("created_at", { ascending: true });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("affected_areas");
+    if (isMissingTable(error)) throw new MigrationPendingError("affected_areas", error.message);
     throw new Error(`Could not load the affected areas: ${error.message}`);
   }
   return (data ?? []) as AffectedArea[];
@@ -91,7 +91,7 @@ export async function createAffectedArea(input: AffectedAreaInput): Promise<stri
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("affected_areas");
+    if (isMissingTable(error)) throw new MigrationPendingError("affected_areas", error.message);
     throw new Error(`Could not save the affected area: ${error.message}`);
   }
   return data.id as string;

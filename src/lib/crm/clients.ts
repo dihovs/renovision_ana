@@ -139,7 +139,7 @@ export async function listClients(
   }
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("clients");
+    if (isMissingTable(error)) throw new MigrationPendingError("clients", error.message);
     throw new Error(`Could not load clients: ${error.message}`);
   }
 
@@ -160,7 +160,7 @@ export async function getClient(id: string): Promise<ClientWithProperties | null
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("clients");
+    if (isMissingTable(error)) throw new MigrationPendingError("clients", error.message);
     throw new Error(`Could not load client: ${error.message}`);
   }
   if (!data) return null;
@@ -226,7 +226,7 @@ export async function createClient(
   const { data, error } = insert;
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("clients");
+    if (isMissingTable(error)) throw new MigrationPendingError("clients", error.message);
     if (error.message.includes("clients_have_a_name")) {
       throw new Error("Enter a first name, last name, or company name.");
     }
@@ -288,7 +288,7 @@ export async function createProperty(clientId: string, input: PropertyInput): Pr
     .select("id")
     .single();
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("properties");
+    if (isMissingTable(error)) throw new MigrationPendingError("properties", error.message);
     throw new Error(`Could not add property: ${error.message}`);
   }
   return data.id as string;
@@ -387,7 +387,7 @@ export async function convertLeadToClient(leadId: string): Promise<ConversionRes
     .maybeSingle();
 
   if (readError) {
-    if (isMissingTable(readError)) throw new MigrationPendingError("leads");
+    if (isMissingTable(readError)) throw new MigrationPendingError("leads", readError.message);
     throw new Error(`Could not read lead: ${readError.message}`);
   }
   if (!lead) refuse("not_found", "That lead no longer exists.");

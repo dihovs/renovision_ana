@@ -60,7 +60,7 @@ export async function listInvoices(
 
   const { data, error } = await query;
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("invoices");
+    if (isMissingTable(error)) throw new MigrationPendingError("invoices", error.message);
     throw new Error(`Could not load invoices: ${error.message}`);
   }
 
@@ -81,7 +81,7 @@ export async function getInvoice(id: string): Promise<InvoiceWithLines | null> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("invoices");
+    if (isMissingTable(error)) throw new MigrationPendingError("invoices", error.message);
     throw new Error(`Could not load the invoice: ${error.message}`);
   }
   if (!data) return null;
@@ -216,7 +216,7 @@ async function invoicesForJob(jobId: string): Promise<InvoiceStub[]> {
     .order("created_at", { ascending: true });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("invoices");
+    if (isMissingTable(error)) throw new MigrationPendingError("invoices", error.message);
     throw new Error(`Could not check what has already been invoiced: ${error.message}`);
   }
   return (data ?? []) as InvoiceStub[];
@@ -491,7 +491,7 @@ export async function createInvoiceFromJob(
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("invoices");
+    if (isMissingTable(error)) throw new MigrationPendingError("invoices", error.message);
     // `invoices_one_final_per_job` / `invoices_one_deposit_per_job` fired:
     // another press won the race between the check above and this insert.
     if (isDuplicateKey(error)) {
@@ -698,7 +698,7 @@ export async function recordPayment(
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("payments");
+    if (isMissingTable(error)) throw new MigrationPendingError("payments", error.message);
     throw new Error(`Could not record the payment: ${error.message}`);
   }
   return data.id as string;

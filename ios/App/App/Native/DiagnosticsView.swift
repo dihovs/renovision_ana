@@ -77,13 +77,14 @@ struct DiagnosticsView: View {
                     Section("Tables") {
                         ForEach(tables.keys.sorted(), id: \.self) { key in
                             let state = tables[key] ?? ""
+                            let healthy = state.hasPrefix("ok")
                             HStack(alignment: .firstTextBaseline) {
                                 Text(key).font(.subheadline.monospaced())
                                 Spacer()
-                                Text(state == "ok" ? "ok" : state)
+                                Text(state)
                                     .font(.caption)
                                     .multilineTextAlignment(.trailing)
-                                    .foregroundStyle(state == "ok" ? .green : .orange)
+                                    .foregroundStyle(healthy ? .green : .orange)
                             }
                         }
                     }

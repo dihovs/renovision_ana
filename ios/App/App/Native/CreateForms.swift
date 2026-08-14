@@ -16,6 +16,7 @@ struct NewProjectSheet: View {
     @State private var clientId: String?
     @State private var saving = false
     @State private var error: String?
+    @State private var addingCustomer = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -31,8 +32,19 @@ struct NewProjectSheet: View {
                         VStack(alignment: .leading, spacing: Brand.Space.tight) {
                             SectionHeading(title: "CUSTOMER", trailing: "optional")
                             Menu {
-                                Button("No customer yet") { clientId = nil }
+                                // First, because the situation this form is
+                                // used in is meeting somebody new: the
+                                // customer usually does not exist yet, and
+                                // making that the last option means backing
+                                // out of the project to go and create one.
+                                Button {
+                                    addingCustomer = true
+                                } label: {
+                                    Label("New customer…", systemImage: "person.badge.plus")
+                                }
                                 Divider()
+                                Button("No customer yet") { clientId = nil }
+                                if !clients.isEmpty { Divider() }
                                 ForEach(clients) { client in
                                     Button(client.name) { clientId = client.id }
                                 }
@@ -77,6 +89,17 @@ struct NewProjectSheet: View {
                 focused = true
                 clients = (try? await API.shared.clients()) ?? []
             }
+            .sheet(isPresented: $addingCustomer) {
+                NewCustomerSheet { newId in
+                    Task {
+                        // Reload and select the one just made, so the operator
+                        // is not left to find their own customer in a list
+                        // they just added to.
+                        clients = (try? await API.shared.clients()) ?? []
+                        clientId = newId
+                    }
+                }
+            }
         }
     }
 
@@ -109,7 +132,9 @@ struct NewProjectSheet: View {
 /// be recovered later is the phone number of the person standing in front of
 /// you.
 struct NewCustomerSheet: View {
-    let onCreated: () -> Void
+    /// The new customer's id, so a caller that needed one — the project form,
+    /// mid-flow — can select it without asking the operator to find it.
+    let onCreated: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var firstName = ""
@@ -180,13 +205,13 @@ struct NewCustomerSheet: View {
         saving = true
         error = nil
         do {
-            _ = try await API.shared.createClient(
+            let id = try await API.shared.createClient(
                 firstName: firstName.trimmed,
                 lastName: lastName.trimmed,
                 companyName: company.trimmed,
                 phone: phone.trimmed,
                 email: email.trimmed)
-            onCreated()
+            onCreated(id)
             dismiss()
         } catch {
             self.error = error.localizedDescription

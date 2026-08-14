@@ -74,7 +74,7 @@ export async function listJobs(
 
   const { data, error } = await query;
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load jobs: ${error.message}`);
   }
 
@@ -100,7 +100,7 @@ export async function getJob(id: string): Promise<JobWithLines | null> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load the job: ${error.message}`);
   }
   if (!data) return null;
@@ -143,7 +143,7 @@ async function findJobForQuote(quoteId: string): Promise<JobStub | null> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not check whether the quote was already converted: ${error.message}`);
   }
   return (data as JobStub | null) ?? null;
@@ -290,7 +290,7 @@ export async function createJobFromQuote(quoteId: string): Promise<ConversionRes
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     // `jobs_one_per_quote` fired: another tap got here first, in the window
     // between our read above and this insert. Go and read what it made.
     if (isDuplicateKey(error)) {
@@ -451,7 +451,7 @@ export async function createJobForClient(
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not create the job: ${error.message}`);
   }
 
@@ -494,7 +494,7 @@ async function findRecentDirectJob(
 
   const { data, error } = await query.maybeSingle();
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     // Not worth failing the conversion over: the worst case is a duplicate the
     // owner can archive, and refusing to create the job at all is worse.
     console.error(`[jobs] could not check for a double submit: ${error.message}`);
@@ -568,7 +568,7 @@ async function loadSchedulableJob(jobId: string): Promise<JobStub> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load the job: ${error.message}`);
   }
 
@@ -611,7 +611,7 @@ export async function createVisit(
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("visits");
+    if (isMissingTable(error)) throw new MigrationPendingError("visits", error.message);
     throw new Error(`Could not schedule the visit: ${error.message}`);
   }
 
@@ -767,7 +767,7 @@ export async function listVisitsBetween(fromIso: string, toIso: string): Promise
     .order("starts_at", { ascending: true });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("visits");
+    if (isMissingTable(error)) throw new MigrationPendingError("visits", error.message);
     throw new Error(`Could not load the schedule: ${error.message}`);
   }
 

@@ -212,7 +212,7 @@ export async function listProjects(
   }
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("projects");
+    if (isMissingTable(error)) throw new MigrationPendingError("projects", error.message);
     throw new Error(`Could not load projects: ${error.message}`);
   }
 
@@ -262,7 +262,7 @@ export async function getProjectSurvey(projectId: string): Promise<ProjectSurvey
     .order("position", { ascending: true });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("room_scans");
+    if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not load the survey: ${error.message}`);
   }
 
@@ -310,7 +310,7 @@ export async function getProject(id: string): Promise<ProjectDetail | null> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("projects");
+    if (isMissingTable(error)) throw new MigrationPendingError("projects", error.message);
     throw new Error(`Could not load the project: ${error.message}`);
   }
   if (!data) return null;
@@ -355,7 +355,7 @@ export async function listAttachableJobs(
     .limit(100);
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("jobs", error.message);
     throw new Error(`Could not load jobs: ${error.message}`);
   }
 
@@ -402,7 +402,7 @@ export async function createProject(input: {
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("projects");
+    if (isMissingTable(error)) throw new MigrationPendingError("projects", error.message);
     throw new Error(`Could not create the project: ${error.message}`);
   }
   return data.id as string;
@@ -425,7 +425,7 @@ export async function updateProjectCustom(
     .update({ custom, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("projects.custom");
+    if (isMissingTable(error)) throw new MigrationPendingError("projects.custom", error.message);
     throw new Error(`Could not save the claim details: ${error.message}`);
   }
 }
@@ -453,7 +453,7 @@ export async function attachJob(projectId: string, jobId: string): Promise<void>
     // 23505 is unique_violation: already attached, which on a double-tapped
     // button is success, not failure.
     if (error.code === "23505") return;
-    if (isMissingTable(error)) throw new MigrationPendingError("project_jobs");
+    if (isMissingTable(error)) throw new MigrationPendingError("project_jobs", error.message);
     throw new Error(`Could not attach the job: ${error.message}`);
   }
 }
@@ -527,7 +527,7 @@ export async function addProjectFile(
       .from(FILE_BUCKET)
       .remove([path])
       .catch(() => undefined);
-    if (isMissingTable(error)) throw new MigrationPendingError("project_files");
+    if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);
     throw new Error(`Could not record the file: ${error.message}`);
   }
 
@@ -549,7 +549,7 @@ export async function listRoomFiles(roomScanId: string): Promise<ProjectFile[]> 
     .eq("room_scan_id", roomScanId)
     .order("uploaded_at", { ascending: false });
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("project_files");
+    if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);
     throw new Error(`Could not load the photos: ${error.message}`);
   }
   return (data ?? []) as ProjectFile[];

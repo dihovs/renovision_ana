@@ -66,8 +66,20 @@ export function isMissingTable(error: unknown): boolean {
 
 /** Thrown when the CRM tables are absent, so pages can render a notice. */
 export class MigrationPendingError extends Error {
-  constructor(table: string) {
-    super(`The "${table}" table does not exist yet — run the migration in supabase/migrations.`);
+  /**
+   * `detail` is the database's own words, and carrying them is the whole
+   * point. PostgREST reports a failed EMBED and a genuinely absent table in
+   * ways this codebase cannot always tell apart, so "the room_scans table
+   * does not exist" has been shown for a table that plainly did exist — the
+   * real cause being a relationship its schema cache had not caught up with.
+   * Naming the underlying error turns a wrong instruction into a diagnosis.
+   */
+  constructor(table: string, detail?: string) {
+    super(
+      `The "${table}" table is not reachable — run the migration in supabase/migrations, ` +
+        `or reload Supabase's schema cache.` +
+        (detail ? ` Database said: ${detail}` : ""),
+    );
     this.name = "MigrationPendingError";
   }
 }

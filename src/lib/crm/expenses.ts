@@ -105,7 +105,7 @@ export async function listExpenses(limit = 300): Promise<ExpenseListItem[]> {
     .limit(limit);
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("expenses");
+    if (isMissingTable(error)) throw new MigrationPendingError("expenses", error.message);
     throw new Error(`Could not load expenses: ${error.message}`);
   }
   return ((data ?? []) as (Expense & { jobs: JobRef })[]).map(withJob);
@@ -121,7 +121,7 @@ export async function listTimeEntries(limit = 300): Promise<TimeEntryListItem[]>
     .limit(limit);
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("time_entries");
+    if (isMissingTable(error)) throw new MigrationPendingError("time_entries", error.message);
     throw new Error(`Could not load time entries: ${error.message}`);
   }
   return ((data ?? []) as (TimeEntry & { jobs: JobRef })[]).map(withJob);
@@ -146,7 +146,7 @@ export async function createExpense(input: {
   });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("expenses");
+    if (isMissingTable(error)) throw new MigrationPendingError("expenses", error.message);
     throw new Error(`Could not save the expense: ${error.message}`);
   }
 }
@@ -168,7 +168,7 @@ export async function createTimeEntry(input: {
   });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("time_entries");
+    if (isMissingTable(error)) throw new MigrationPendingError("time_entries", error.message);
     throw new Error(`Could not save the time entry: ${error.message}`);
   }
 }

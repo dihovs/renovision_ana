@@ -77,9 +77,14 @@ export async function GET() {
   let reachable = true;
 
   for (const { name, migration } of TABLES) {
-    const { error } = await client!.from(name).select("*", { head: true, count: "exact" }).limit(1);
+    const { error, count } = await client!
+      .from(name)
+      .select("*", { head: true, count: "exact" });
     if (!error) {
-      tables[name] = "ok";
+      // The COUNT, not just "ok". "I scanned a room and cannot see it" is
+      // two completely different problems depending on whether the row is
+      // there — and one of them is a save that silently failed.
+      tables[name] = count === 0 ? "ok — empty" : `ok — ${count} row${count === 1 ? "" : "s"}`;
       continue;
     }
     // A missing table means a migration is pending; anything else means the

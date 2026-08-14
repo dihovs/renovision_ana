@@ -65,7 +65,7 @@ struct CustomersView: View {
             .navigationTitle("Customers")
             .searchable(text: $query, prompt: "Search customers")
             .sheet(isPresented: $creating) {
-                NewCustomerSheet { Task { await load() } }
+                NewCustomerSheet { _ in Task { await load() } }
             }
             .task { await load() }
         }

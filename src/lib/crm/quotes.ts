@@ -198,7 +198,7 @@ export async function listQuotes(
   }
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("quotes");
+    if (isMissingTable(error)) throw new MigrationPendingError("quotes", error.message);
     throw new Error(`Could not load quotes: ${error.message}`);
   }
 
@@ -221,7 +221,7 @@ export async function getQuote(id: string): Promise<QuoteWithLines | null> {
     .maybeSingle();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("quotes");
+    if (isMissingTable(error)) throw new MigrationPendingError("quotes", error.message);
     throw new Error(`Could not load the quote: ${error.message}`);
   }
   if (!data) return null;
@@ -383,7 +383,7 @@ export async function createQuote(input: QuoteInput): Promise<string> {
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("quotes");
+    if (isMissingTable(error)) throw new MigrationPendingError("quotes", error.message);
     throw new Error(`Could not create the quote: ${error.message}`);
   }
 

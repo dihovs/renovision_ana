@@ -63,7 +63,7 @@ export async function listRoomScans(projectId: string): Promise<RoomScan[]> {
     .order("position", { ascending: true });
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("room_scans");
+    if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not load the scans: ${error.message}`);
   }
   return (data ?? []) as RoomScan[];
@@ -91,7 +91,7 @@ export async function createRoomScan(input: RoomScanInput): Promise<string> {
     .single();
 
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("room_scans");
+    if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not save the scan: ${error.message}`);
   }
   return data.id as string;
@@ -136,7 +136,7 @@ export async function getRoomScanProject(id: string): Promise<string | null> {
     .eq("id", id)
     .maybeSingle();
   if (error) {
-    if (isMissingTable(error)) throw new MigrationPendingError("room_scans");
+    if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not find the room: ${error.message}`);
   }
   return (data?.project_id as string | undefined) ?? null;
