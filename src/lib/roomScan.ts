@@ -165,6 +165,9 @@ export async function saveScan(input: {
   level: string;
   position: number;
   result: RoomScanResult;
+  /** The living-area vocabulary id, asked at review. Sent with the scan so
+      a room lands classified rather than falling through to `other`. */
+  roomType?: string | null;
 }): Promise<string> {
   const response = await fetch("/api/v1/scans", {
     method: "POST",
@@ -181,6 +184,7 @@ export async function saveScan(input: {
       windowCount: input.result.windowCount,
       stairCount: input.result.stairCount,
       geometry: input.result,
+      roomType: input.roomType ?? null,
     }),
   });
   if (!response.ok) {
@@ -207,6 +211,9 @@ export type SavedScan = {
   /** Where this room was dragged to on the floor, or null if never placed. */
   plan_x?: number | null;
   plan_y?: number | null;
+  /** The living-area vocabulary id (`livingArea.ts` ROOM_TYPES), asked at
+      capture. Null means unclassified, which the engine counts as `other`. */
+  room_type?: string | null;
 };
 
 /** Every room saved on a project, in walking order within each floor. */
@@ -229,6 +236,9 @@ export async function updateSavedScan(
     notes?: string | null;
     planX?: number | null;
     planY?: number | null;
+    /** Reclassify the room. Null puts it back to unclassified — a real
+        statement ("nobody has said"), distinct from any type. */
+    roomType?: string | null;
   },
 ): Promise<void> {
   const response = await fetch(`/api/v1/scans/${encodeURIComponent(id)}`, {

@@ -51,6 +51,10 @@ export async function POST(request: Request) {
           ? (body.geometry as Record<string, unknown>)
           : {},
       notes: typeof body.notes === "string" ? body.notes : null,
+      // Asked at capture, so it arrives with the scan — including a scan
+      // that sat in the offline queue. Absent means unclassified, which the
+      // living-area engine treats as `other`; it must never be invented here.
+      roomType: typeof body.roomType === "string" ? body.roomType : null,
     }),
   }));
 }

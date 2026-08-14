@@ -27,6 +27,10 @@ export type PendingScan = {
   level: string;
   position: number;
   result: RoomScanResult;
+  /** The living-area classification, kept with the held scan so a room that
+      waited out an outage still lands typed. Absent on scans queued before
+      the field existed. */
+  roomType?: string | null;
   queuedAt: string;
 };
 
@@ -125,6 +129,7 @@ export async function saveScanResilient(input: {
   level: string;
   position: number;
   result: RoomScanResult;
+  roomType?: string | null;
 }): Promise<{ stored: "server"; id: string } | { stored: "device" } | { stored: "lost" }> {
   try {
     const id = await saveScan(input);
@@ -166,6 +171,7 @@ export async function flushScans(): Promise<{ sent: number; remaining: number }>
         level: next.level,
         position: next.position,
         result: next.result,
+        roomType: next.roomType ?? null,
       });
       sent += 1;
       queue = queue.slice(1);

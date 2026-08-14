@@ -208,8 +208,17 @@ struct ScanUpload: Codable {
     let windowCount: Int
     let stairCount: Int
     let geometry: ScanGeometry
+    /// The living-area vocabulary id, asked at capture. Rides the POST
+    /// rather than a follow-up PATCH so a scan held offline still lands
+    /// typed — an untyped room silently counts as `other` at 100%, which
+    /// counts basements as living area. Optional in the CODEC only, for
+    /// scans held on disk from before the field existed.
+    let roomType: String?
 
-    init(projectId: String, name: String, level: String, position: Int, geometry: ScanGeometry) {
+    init(
+        projectId: String, name: String, level: String, position: Int, geometry: ScanGeometry,
+        roomType: String? = nil
+    ) {
         self.projectId = projectId
         self.name = name
         self.level = level
@@ -221,5 +230,6 @@ struct ScanUpload: Codable {
         self.windowCount = geometry.windowCount
         self.stairCount = geometry.stairCount
         self.geometry = geometry
+        self.roomType = roomType
     }
 }

@@ -38,11 +38,12 @@ export default function ScanReview({
   /** How this was measured — decides the wording, and whether "Scan again"
       means the camera or the keypad. */
   measuredBy?: "scan" | "manual";
-  onSave: (name: string) => void | Promise<void>;
+  onSave: (name: string, roomType: string) => void | Promise<void>;
   onRescan: () => void;
   onDiscard: () => void;
 }) {
   const [name, setName] = useState(suggestedName);
+  const [roomType, setRoomType] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const floorSqFt = squareMetersToSquareFeet(totalFloorAreaSquareMeters(result));
@@ -104,32 +105,52 @@ export default function ScanReview({
           className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3 py-3 text-charcoal outline-none transition-colors placeholder:text-charcoal/30 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/15"
         />
 
-        {/* Common names, because typing on a phone in a wet basement with
-            gloves on is the actual situation this is used in. */}
+        <p className="mt-4 block text-xs font-bold uppercase tracking-wide text-charcoal/45">
+          What kind of room?
+        </p>
+
+        {/* Chips, not a picker — tapping in a wet basement with gloves on is
+            the actual situation this is used in. The type feeds the
+            living-area engine, which is why a room cannot be saved without
+            one: an untyped room falls through to `other` at 100% and a
+            basement quietly becomes living area. Picking a type also names a
+            room still wearing its auto number. */}
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {QUICK_NAMES.map((quick) => (
+          {TYPE_CHIPS.map((chip) => (
             <button
-              key={quick}
+              key={chip.id}
               type="button"
               onClick={() => {
                 tapFeedback();
-                setName(quick);
+                setRoomType(chip.id);
+                if (!name.trim() || name === suggestedName) setName(chip.label);
               }}
-              className="cursor-pointer rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-bold text-charcoal/60 active:bg-black/[0.09]"
+              className={
+                chip.id === roomType
+                  ? "cursor-pointer rounded-full bg-brand-blue px-3 py-1.5 text-xs font-bold text-white"
+                  : "cursor-pointer rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-bold text-charcoal/60 active:bg-black/[0.09]"
+              }
             >
-              {quick}
+              {chip.label}
             </button>
           ))}
         </div>
 
+        {roomType === null && (
+          <p className="mt-2 text-xs leading-snug text-charcoal/45">
+            Pick what kind of room this is — living area is counted from it.
+          </p>
+        )}
+
         <button
           type="button"
-          disabled={saving || !name.trim()}
+          disabled={saving || !name.trim() || roomType === null}
           onClick={async () => {
+            if (roomType === null) return;
             tapFeedback("medium");
             setSaving(true);
             try {
-              await onSave(name.trim());
+              await onSave(name.trim(), roomType);
             } finally {
               setSaving(false);
             }
@@ -168,14 +189,21 @@ export default function ScanReview({
   );
 }
 
-const QUICK_NAMES = [
-  "Kitchen",
-  "Bathroom",
-  "Bedroom",
-  "Living room",
-  "Hallway",
-  "Laundry",
-  "Storage",
+/** The eight kinds of room this trade actually walks into, mapped onto the
+    living-area vocabulary (`livingArea.ts` ROOM_TYPES ids). The full
+    eighteen-type list stays available on the room sheet for the odd crawl
+    space; these eight cover the walk. Labels double as quick names for a
+    room still wearing its auto number — which is what the quick-name chips
+    these replaced existed for. */
+const TYPE_CHIPS: { label: string; id: string }[] = [
+  { label: "Kitchen", id: "kitchen" },
+  { label: "Bathroom", id: "bathroom" },
+  { label: "Bedroom", id: "bedroom" },
+  { label: "Living room", id: "living_room" },
+  { label: "Hallway", id: "hallway" },
+  { label: "Laundry", id: "laundry" },
+  { label: "Storage", id: "storage" },
+  { label: "Garage", id: "garage" },
 ];
 
 function Figure({

@@ -33,6 +33,11 @@ struct CaptureFlow: View {
     @State private var stage: Stage = .chooseFloor
     @State private var geometry: ScanGeometry?
     @State private var name = ""
+    /// The living-area engine's input. nil until the operator picks — and a
+    /// room cannot be saved untyped, because an untyped room silently counts
+    /// as `other` at 100%, which counts basements as living area until
+    /// somebody notices.
+    @State private var roomType: String?
     @State private var saving = false
     @State private var error: String?
 
@@ -96,6 +101,7 @@ struct CaptureFlow: View {
                 onDone: { polygon, ceiling in
                     geometry = ScanGeometry(polygon: polygon, ceilingHeight: ceiling)
                     name = "Room \(existingCount + savedThisVisit + 1)"
+                    roomType = nil
                     lastWasScan = false
                     stage = .review
                 })
@@ -113,6 +119,10 @@ struct CaptureFlow: View {
                         let captured = ScanGeometry(room: room)
                         geometry = captured
                         name = "Room \(existingCount + savedThisVisit + 1)"
+                        // Each room is typed on its own: carrying the last
+                        // room's type forward would file a bathroom as a
+                        // second kitchen the moment somebody saves fast.
+                        roomType = nil
                         lastWasScan = true
                         stage = .review
                     }
@@ -283,9 +293,26 @@ struct CaptureFlow: View {
                         RoundedRectangle(cornerRadius: Brand.Radius.card)
                             .strokeBorder(Brand.hairline, lineWidth: 0.5))
 
-                // Typing on a phone with wet gloves on is the actual
-                // situation this is used in.
-                FlowChips(options: Self.quickNames) { name = $0 }
+                SectionHeading(title: "WHAT KIND OF ROOM?")
+                    .padding(.top, Brand.Space.small)
+
+                // Chips, not a picker — tapping with wet gloves on is the
+                // actual situation this is used in. The type feeds the
+                // living-area engine, which is why a room cannot be saved
+                // without one: an untyped room falls through to `other` at
+                // 100% and a basement quietly becomes living area. Picking
+                // a type also names a room still wearing its auto number,
+                // which is what the old quick-name chips existed for.
+                TypeChips(options: Self.typeChips, selected: roomType) { chip in
+                    roomType = chip.id
+                    if name.trimmed.isEmpty || name == autoName { name = chip.label }
+                }
+
+                if roomType == nil {
+                    Text("Pick what kind of room this is — living area is counted from it.")
+                        .font(.footnote)
+                        .foregroundStyle(Brand.inkSoft)
+                }
 
                 if let error {
                     Text(error).font(.footnote).foregroundStyle(.red)
@@ -294,8 +321,10 @@ struct CaptureFlow: View {
                 Button(saving ? "Saving…" : "Save room") {
                     Task { await save() }
                 }
-                .buttonStyle(PrimaryButtonStyle(enabled: !saving && !name.trimmed.isEmpty))
-                .disabled(saving || name.trimmed.isEmpty)
+                .buttonStyle(
+                    PrimaryButtonStyle(enabled: !saving && !name.trimmed.isEmpty && roomType != nil)
+                )
+                .disabled(saving || name.trimmed.isEmpty || roomType == nil)
 
                 Button("Scan again") {
                     // A retake, not another room: the rejected capture must
@@ -361,8 +390,27 @@ struct CaptureFlow: View {
         }
     }
 
-    private static let quickNames = [
-        "Kitchen", "Bathroom", "Bedroom", "Living room", "Hallway", "Laundry", "Storage", "Garage",
+    /// The room's auto-numbered placeholder name. Kept as a computed value
+    /// so "has the operator actually named this?" stays answerable — a type
+    /// chip only overwrites a name nobody chose.
+    private var autoName: String {
+        "Room \(existingCount + savedThisVisit + 1)"
+    }
+
+    /// The eight kinds of room this trade actually walks into, mapped onto
+    /// the living-area vocabulary (`livingArea.ts` ROOM_TYPES ids — the
+    /// string is the contract, the server never re-derives it). The full
+    /// eighteen-type list stays available in the room detail for the odd
+    /// crawl space; these eight cover the walk.
+    private static let typeChips: [TypeChip] = [
+        TypeChip(label: "Kitchen", id: "kitchen"),
+        TypeChip(label: "Bathroom", id: "bathroom"),
+        TypeChip(label: "Bedroom", id: "bedroom"),
+        TypeChip(label: "Living room", id: "living_room"),
+        TypeChip(label: "Hallway", id: "hallway"),
+        TypeChip(label: "Laundry", id: "laundry"),
+        TypeChip(label: "Storage", id: "storage"),
+        TypeChip(label: "Garage", id: "garage"),
     ]
 
     private func save() async {
@@ -376,7 +424,8 @@ struct CaptureFlow: View {
                 name: name.trimmed,
                 level: level,
                 position: existingCount + savedThisVisit,
-                geometry: geometry))
+                geometry: geometry,
+                roomType: roomType))
 
         switch outcome {
         case .sent(let id):
@@ -455,27 +504,40 @@ struct RoomCaptureScreen: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UIViewController, context: Context) {}
 }
 
-/// A wrapping row of tappable suggestions.
-private struct FlowChips: View {
-    let options: [String]
-    let onPick: (String) -> Void
+/// A room type a chip can select: the label the operator reads, the id the
+/// living-area engine understands.
+struct TypeChip: Hashable {
+    let label: String
+    let id: String
+}
+
+/// A wrapping grid of room-type chips with a visible selected state — the
+/// selection is a fact the save button depends on, so it has to be
+/// legible at arm's length, not just a highlight that flashed once.
+private struct TypeChips: View {
+    let options: [TypeChip]
+    let selected: String?
+    let onPick: (TypeChip) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 84), spacing: Brand.Space.tight)]
 
     var body: some View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: Brand.Space.tight) {
             ForEach(options, id: \.self) { option in
+                let isOn = option.id == selected
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     onPick(option)
                 } label: {
-                    Text(option)
+                    Text(option.label)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Brand.inkSoft)
+                        .foregroundStyle(isOn ? Color.white : Brand.inkSoft)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
                         .frame(maxWidth: .infinity)
-                        .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.pill))
+                        .background(
+                            isOn ? Brand.blue : Brand.surfaceRaised,
+                            in: .rect(cornerRadius: Brand.Radius.pill))
                 }
                 .buttonStyle(.plain)
             }

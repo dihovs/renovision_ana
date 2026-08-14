@@ -8,6 +8,7 @@ import MoistureLog from "./MoistureLog";
 import { tapFeedback } from "@/lib/haptics";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
 import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
+import { ROOM_TYPES, roomTypeRule } from "@/lib/crm/livingArea";
 import {
   ceilingHeightMeters,
   deleteSavedScan,
@@ -45,6 +46,7 @@ export default function RoomSheet({
   onChanged: () => void;
 }) {
   const [name, setName] = useState(room.name);
+  const [roomType, setRoomType] = useState(room.room_type ?? null);
   const [areas, setAreas] = useState<AffectedArea[] | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +150,51 @@ export default function RoomSheet({
               <Stat label="Perim." value={perimeterFt} unit="ft" />
               <Stat label="Ceiling" value={ceilingFt} unit="ft" decimals={1} />
             </div>
+
+            {/* Room type — the living-area engine's input. Read-only in
+                spirit: the label states the current classification and the
+                select is the change control, with the rule's own note under
+                it so nobody guesses why a basement counts zero. */}
+            <section className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-heading text-sm font-bold text-charcoal">Room type</h3>
+                  <p className="text-[11px] text-charcoal/45">
+                    {roomType === null
+                      ? "Not set — counted as “Other” for living area."
+                      : `Counted as ${roomTypeRule(roomType).label.toLowerCase()} for living area.`}
+                  </p>
+                </div>
+                <select
+                  aria-label="Room type"
+                  value={roomType ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value || null;
+                    setRoomType(value);
+                    void updateSavedScan(room.id, { roomType: value })
+                      .then(onChanged)
+                      .catch((err: unknown) => {
+                        setError(
+                          err instanceof Error ? err.message : "Could not save the room type.",
+                        );
+                      });
+                  }}
+                  className="shrink-0 cursor-pointer rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm font-semibold text-charcoal"
+                >
+                  <option value="">Not set</option>
+                  {ROOM_TYPES.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {roomType !== null && roomTypeRule(roomType).note && (
+                <p className="mt-2 text-[11px] leading-snug text-charcoal/45">
+                  {roomTypeRule(roomType).note}
+                </p>
+              )}
+            </section>
 
             {result.modelId && (
               <button
