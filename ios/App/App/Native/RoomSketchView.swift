@@ -29,7 +29,9 @@ struct RoomSketchView: View {
     @State private var dragStart: Snapshot?
     @State private var snapEngaged = false
     @State private var liveLabel: String?
-    @State private var typing: Int?
+    /// The wall-by-wall measurement walk, when one is running — same panel
+    /// and same walk as the plan editor.
+    @State private var measuring: MeasureRun?
     @State private var addingOpening = false
 
     private enum Stage { case size, shape }
@@ -95,6 +97,9 @@ struct RoomSketchView: View {
                                 corners = previous.corners
                                 openings = previous.openings
                                 selection = .none
+                                // The walk indexes the polygon it started
+                                // on; restored geometry may not be it.
+                                measuring = nil
                             }
                         } label: {
                             Image(systemName: "arrow.uturn.backward")
@@ -107,16 +112,6 @@ struct RoomSketchView: View {
                         .fontWeight(.bold)
                         .disabled(PlanEditing.selfIntersects(corners))
                     }
-                }
-            }
-            .sheet(item: Binding(
-                get: { typing.map { EdgeTarget(edge: $0) } },
-                set: { typing = $0?.edge })
-            ) { target in
-                SketchLengthSheet(current: PlanEditing.edgeLength(corners, target.edge)) { metres in
-                    push()
-                    corners = PlanEditing.setEdgeLength(corners, index: target.edge, to: metres)
-                    typing = nil
                 }
             }
             .sheet(isPresented: $addingOpening) {
@@ -142,9 +137,44 @@ struct RoomSketchView: View {
         }
     }
 
-    private struct EdgeTarget: Identifiable {
-        let edge: Int
-        var id: Int { edge }
+    // MARK: - Measurement walk
+
+    /// Open the panel at a wall and queue every wall from there, in order —
+    /// the walk the operator would make with a tape.
+    private func startMeasuring(at edge: Int) {
+        let n = corners.count
+        guard n >= 3, edge >= 0, edge < n else { return }
+        measuring = MeasureRun(
+            queue: (0..<n).map { (edge + $0) % n },
+            position: 0,
+            baseline: corners,
+            typed: Array(repeating: nil, count: n))
+        selection = .wall(edge)
+    }
+
+    /// One `Next`/`Apply`: apply the typed length if any, then advance.
+    /// nil means "this wall is fine as it is".
+    private func commitMeasurement(_ metres: Double?) {
+        guard var run = measuring else { return }
+        if let metres {
+            push()
+            if run.isLast {
+                // The walk's closing wall is implied by all the others; a
+                // value typed here anyway is applied the single-wall way.
+                corners = PlanEditing.setEdgeLength(corners, index: run.active, to: metres)
+            } else {
+                run.typed[run.active] = metres
+                corners = PlanEditing.applyWalkLengths(
+                    run.baseline, startEdge: run.queue[0], typed: run.typed)
+            }
+        }
+        if run.isLast {
+            measuring = nil
+        } else {
+            run.position += 1
+            measuring = run
+            selection = .wall(run.active)
+        }
     }
 
     // MARK: - Size
@@ -315,6 +345,12 @@ struct RoomSketchView: View {
                     DragGesture(minimumDistance: 4)
                         .onChanged { value in drag(value, scale: scale) }
                         .onEnded { _ in
+                            // A hand edit mid-walk becomes the walk's new
+                            // ground truth.
+                            if dragStart != nil, measuring != nil {
+                                measuring?.baseline = corners
+                                measuring?.typed = Array(repeating: nil, count: corners.count)
+                            }
                             dragStart = nil
                             liveLabel = nil
                             snapEngaged = false
@@ -324,7 +360,23 @@ struct RoomSketchView: View {
             }
             .background(Brand.surface)
 
-            controls
+            // While a measurement walk runs, the panel takes the controls'
+            // place — the canvas stays above with the active wall
+            // highlighted, redrawing as each value lands.
+            if let run = measuring {
+                MeasurementPanel(
+                    step: run.position,
+                    total: run.queue.count,
+                    current: PlanEditing.edgeLength(corners, run.active),
+                    // A drawn room's every wall is a typed number by
+                    // definition and locks at save; mid-draw there is no
+                    // lock to show or defend.
+                    locked: false,
+                    onCommit: { commitMeasurement($0) },
+                    onClose: { measuring = nil })
+            } else {
+                controls
+            }
         }
     }
 
@@ -339,7 +391,7 @@ struct RoomSketchView: View {
             HStack(spacing: Brand.Space.small) {
                 switch selection {
                 case .wall(let index):
-                    Button { typing = index } label: {
+                    Button { startMeasuring(at: index) } label: {
                         Label("Type length", systemImage: "keyboard")
                     }
                     .buttonStyle(SketchButton())
@@ -452,6 +504,16 @@ struct RoomSketchView: View {
                 bestDistance = d
                 best = i
             }
+        }
+        if best >= 0, measuring != nil {
+            // Mid-walk, tapping a wall JUMPS the walk there — the queue
+            // holds every wall, so the step counter stays honest.
+            if let position = measuring?.queue.firstIndex(of: best) {
+                measuring?.position = position
+                UISelectionFeedbackGenerator().selectionChanged()
+                selection = .wall(best)
+            }
+            return
         }
         UISelectionFeedbackGenerator().selectionChanged()
         selection = best >= 0 ? .wall(best) : .none
@@ -567,50 +629,3 @@ private struct SketchButton: ButtonStyle {
     }
 }
 
-private struct SketchLengthSheet: View {
-    let current: Double
-    let onApply: (Double) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @FocusState private var focused: Bool
-
-    private var parsed: Double? {
-        guard let metres = FloorPlanGeometry.parseFeetInches(text) else { return nil }
-        return (metres >= 0.10 && metres <= 50) ? metres : nil
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Brand.canvas.ignoresSafeArea()
-                VStack(alignment: .leading, spacing: Brand.Space.base) {
-                    Text("Currently \(FloorPlanGeometry.feetInches(current))")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.inkSoft)
-
-                    TextField("12' 6", text: $text)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .keyboardType(.numbersAndPunctuation)
-                        .focused($focused)
-                        .padding(Brand.Space.base)
-                        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
-
-                    Button("Apply") { if let parsed { onApply(parsed) } }
-                        .buttonStyle(PrimaryButtonStyle(enabled: parsed != nil))
-                        .disabled(parsed == nil)
-
-                    Spacer()
-                }
-                .padding(Brand.Space.base)
-            }
-            .navigationTitle("Wall length")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
-            }
-            .task { focused = true }
-        }
-        .presentationDetents([.height(300)])
-    }
-}

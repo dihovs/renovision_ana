@@ -52,6 +52,7 @@
 		712D75190AE25C18508B17E9 /* PlanEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */; };
 		F1E2E81F536021C842A0307A /* RoomSketchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */; };
 		AAEDA7A6B3176ACC59156D8E /* OpeningGlyphs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27FF0029CF36C77B35592BA4 /* OpeningGlyphs.swift */; };
+		6EB8E4BB573B70520B47F100 /* MeasurementPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005231B41F924DA2E538E4C4 /* MeasurementPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -101,6 +102,7 @@
 		7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanEditorView.swift; sourceTree = "<group>"; };
 		4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomSketchView.swift; sourceTree = "<group>"; };
 		27FF0029CF36C77B35592BA4 /* OpeningGlyphs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/OpeningGlyphs.swift; sourceTree = "<group>"; };
+		005231B41F924DA2E538E4C4 /* MeasurementPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MeasurementPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +146,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				005231B41F924DA2E538E4C4 /* MeasurementPanel.swift */,
 				27FF0029CF36C77B35592BA4 /* OpeningGlyphs.swift */,
 				4EEB5992B95447EFABBCB20F /* RoomSketchView.swift */,
 				7B0AA36873771F07CEAD0DEF /* PlanEditorView.swift */,
@@ -267,6 +270,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6EB8E4BB573B70520B47F100 /* MeasurementPanel.swift in Sources */,
 				AAEDA7A6B3176ACC59156D8E /* OpeningGlyphs.swift in Sources */,
 				F1E2E81F536021C842A0307A /* RoomSketchView.swift in Sources */,
 				712D75190AE25C18508B17E9 /* PlanEditorView.swift in Sources */,

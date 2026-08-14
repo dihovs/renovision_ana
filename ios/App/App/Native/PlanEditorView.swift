@@ -34,7 +34,10 @@ struct PlanEditorView: View {
     @State private var dragStart: Snapshot?
     @State private var snapEngaged = false
     @State private var liveLabel: String?
-    @State private var typing: TypedLength?
+    /// The wall-by-wall measurement walk, when one is running. The queue is
+    /// every wall in order starting from the one the operator asked about;
+    /// the panel below the canvas drives it, the canvas highlights it.
+    @State private var measuring: MeasureRun?
     @State private var addingOpening = false
     @State private var saving = false
     @State private var error: String?
@@ -65,11 +68,6 @@ struct PlanEditorView: View {
         case opening(Int)
     }
 
-    struct TypedLength: Identifiable {
-        let edge: Int
-        let current: Double
-        var id: Int { edge }
-    }
 
     // MARK: - Constants (from the spec's table)
 
@@ -117,7 +115,21 @@ struct PlanEditorView: View {
 
                 VStack(spacing: 0) {
                     canvas
-                    controls
+                    // While a measurement walk runs, the panel takes the
+                    // controls' place — the canvas stays above, live, with
+                    // the active wall highlighted.
+                    if let run = measuring {
+                        MeasurementPanel(
+                            step: run.position,
+                            total: run.queue.count,
+                            current: PlanEditing.edgeLength(corners, run.active),
+                            locked: locked.contains(run.active),
+                            onCommit: { commitMeasurement($0) },
+                            onUnlock: { locked.remove(run.active) },
+                            onClose: { endMeasuring() })
+                    } else {
+                        controls
+                    }
                 }
             }
             .navigationTitle(room.name)
@@ -167,20 +179,6 @@ struct PlanEditorView: View {
                         }
                         addingOpening = false
                     }
-                }
-            }
-            .sheet(item: $typing) { target in
-                LengthSheet(current: target.current, locked: locked.contains(target.edge)) { metres in
-                    push()
-                    corners = PlanEditing.setEdgeLength(corners, index: target.edge, to: metres)
-                    // Typed IS locked. That is the whole point: the number
-                    // came from a person, and later drags must ask before
-                    // overwriting it.
-                    locked.insert(target.edge)
-                    typing = nil
-                } onUnlock: {
-                    locked.remove(target.edge)
-                    typing = nil
                 }
             }
             .confirmationDialog(
@@ -359,6 +357,13 @@ struct PlanEditorView: View {
                         handleDrag(value, scale: scale)
                     }
                     .onEnded { _ in
+                        // A hand edit mid-walk becomes the walk's new ground
+                        // truth — the next commit chains from what is on
+                        // screen, not from before the drag.
+                        if dragStart != nil, measuring != nil {
+                            measuring?.baseline = corners
+                            measuring?.typed = Array(repeating: nil, count: corners.count)
+                        }
                         dragStart = nil
                         liveLabel = nil
                         snapEngaged = false
@@ -409,10 +414,17 @@ struct PlanEditorView: View {
             }
         }
         if best >= 0 {
-            // Tapping the already-selected wall's label opens the keypad —
-            // the dimension IS the control.
-            if selection == .wall(best) {
-                typing = TypedLength(edge: best, current: PlanEditing.edgeLength(corners, best))
+            if measuring != nil {
+                // Mid-walk, tapping a wall JUMPS the walk there — the queue
+                // holds every wall, so the step counter stays honest.
+                if let position = measuring?.queue.firstIndex(of: best) {
+                    measuring?.position = position
+                    select(.wall(best))
+                }
+            } else if selection == .wall(best) {
+                // Tapping the already-selected wall's label opens the panel —
+                // the dimension IS the control.
+                startMeasuring(at: best)
             } else {
                 select(.wall(best))
             }
@@ -516,6 +528,60 @@ struct PlanEditorView: View {
         withAnimation(.easeOut(duration: 0.15)) { selection = next }
     }
 
+    // MARK: - Measurement walk
+
+    /// Open the panel at a wall and queue every wall from there, in order —
+    /// the walk the operator would make with a tape, starting where they
+    /// are standing.
+    private func startMeasuring(at edge: Int) {
+        let n = corners.count
+        guard n >= 3, edge >= 0, edge < n else { return }
+        measuring = MeasureRun(
+            queue: (0..<n).map { (edge + $0) % n },
+            position: 0,
+            baseline: corners,
+            typed: Array(repeating: nil, count: n))
+        select(.wall(edge))
+    }
+
+    /// One `Next`/`Apply`: apply the typed length if there is one, then
+    /// advance. nil means "this wall is fine as it is" — skipping is how
+    /// half the walls of a real room get treated.
+    private func commitMeasurement(_ metres: Double?) {
+        guard var run = measuring else { return }
+        if let metres {
+            push()
+            if run.isLast {
+                // The walk's closing wall is implied by all the others; a
+                // value typed here anyway is applied the single-wall way,
+                // and any inconsistency it carries lands on the neighbours
+                // where the canvas shows it.
+                corners = PlanEditing.setEdgeLength(corners, index: run.active, to: metres)
+            } else {
+                run.typed[run.active] = metres
+                corners = PlanEditing.applyWalkLengths(
+                    run.baseline, startEdge: run.queue[0], typed: run.typed)
+            }
+            // Typed IS locked. That is the whole point: the number came from
+            // a person, and later drags must ask before overwriting it.
+            locked.insert(run.active)
+        }
+        if run.isLast {
+            endMeasuring()
+        } else {
+            run.position += 1
+            measuring = run
+            select(.wall(run.active))
+        }
+    }
+
+    /// Close the panel. Values already committed stay committed — each
+    /// `Next` was its own undoable step, so backing out of the walk is not
+    /// the same as undoing it.
+    private func endMeasuring() {
+        measuring = nil
+    }
+
     private func distanceToEdge(_ p: CGPoint, index: Int) -> Double {
         let (ai, bi) = PlanEditing.edgeCorners(index, count: corners.count)
         let a = corners[ai]
@@ -546,8 +612,7 @@ struct PlanEditorView: View {
                 switch selection {
                 case .wall(let index):
                     Button {
-                        typing = TypedLength(
-                            edge: index, current: PlanEditing.edgeLength(corners, index))
+                        startMeasuring(at: index)
                     } label: {
                         Label("Type length", systemImage: "keyboard")
                     }
@@ -692,6 +757,9 @@ struct PlanEditorView: View {
         openings = previous.openings
         locked = previous.locked
         selection = .none
+        // A measurement walk indexes the polygon it started on; geometry
+        // restored from history may not be that polygon. End it.
+        measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -702,6 +770,7 @@ struct PlanEditorView: View {
         openings = next.openings
         locked = next.locked
         selection = .none
+        measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -822,78 +891,3 @@ struct OpeningPicker: View {
     }
 }
 
-/// Type an exact length.
-///
-/// The keypad is the whole point: a drag gets a wall roughly right, and a
-/// typed number gets it exactly right. Feet and inches, because that is what
-/// the tape in the operator's hand reads.
-private struct LengthSheet: View {
-    let current: Double
-    var locked: Bool = false
-    let onApply: (Double) -> Void
-    var onUnlock: (() -> Void)?
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @FocusState private var focused: Bool
-
-    private var parsed: Double? {
-        guard let metres = FloorPlanGeometry.parseFeetInches(text) else { return nil }
-        return (metres >= 0.10 && metres <= 50) ? metres : nil
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Brand.canvas.ignoresSafeArea()
-
-                VStack(alignment: .leading, spacing: Brand.Space.base) {
-                    Text(
-                        locked
-                            ? "Entered by hand: \(FloorPlanGeometry.feetInches(current))"
-                            : "Currently \(FloorPlanGeometry.feetInches(current))"
-                    )
-                    .font(.system(size: 13))
-                    .foregroundStyle(locked ? .orange : Brand.inkSoft)
-
-                    TextField("12' 6", text: $text)
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .keyboardType(.numbersAndPunctuation)
-                        .focused($focused)
-                        .padding(Brand.Space.base)
-                        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
-
-                    if !text.isEmpty && parsed == nil {
-                        Text("Between 4 inches and 164 feet.")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-
-                    Button("Apply") {
-                        if let parsed { onApply(parsed) }
-                    }
-                    .buttonStyle(PrimaryButtonStyle(enabled: parsed != nil))
-                    .disabled(parsed == nil)
-
-                    if locked {
-                        Button("Unlock — go back to the measured length") {
-                            onUnlock?()
-                        }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.orange)
-                    }
-
-                    Spacer()
-                }
-                .padding(Brand.Space.base)
-            }
-            .navigationTitle("Wall length")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
-            }
-            .task { focused = true }
-        }
-        .presentationDetents([.height(300)])
-    }
-}

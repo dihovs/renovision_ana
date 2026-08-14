@@ -175,6 +175,47 @@ enum PlanEditing {
         return result
     }
 
+    /// Rebuild a room from one trusted corner, the wall directions it was
+    /// drawn with, and the lengths typed so far — the maths behind the
+    /// wall-by-wall measurement walk.
+    ///
+    /// The symmetric resize above is right for a single wall and wrong for a
+    /// sequence: it moves the shared corner BEHIND the walk and quietly
+    /// changes the wall just typed. Here the walk is honest instead: anchor
+    /// at the start edge's first corner, freeze every wall's direction as it
+    /// was when the walk began, and chain each wall's length — typed where
+    /// typed, as-drawn where not — corner by corner, the way a tape is run
+    /// from the corner you already trust. Every typed wall lands exactly and
+    /// stays exactly.
+    ///
+    /// The LAST edge of the walk is derived, never chained: a closed room's
+    /// final wall is already implied by all the others and their angles, so
+    /// it absorbs whatever inconsistency the typed numbers carry — visibly,
+    /// on the canvas, rather than by silently corrupting a number somebody
+    /// entered. `typed` is indexed by edge; a nil keeps that wall as drawn.
+    static func applyWalkLengths(
+        _ baseline: [CGPoint], startEdge: Int, typed: [Double?]
+    ) -> [CGPoint] {
+        let n = baseline.count
+        guard n >= 3, startEdge >= 0, startEdge < n, typed.count == n else { return baseline }
+
+        var result = baseline
+        // Walk n-1 edges from the anchor; the edge that returns to the
+        // anchor is the derived one.
+        for i in 0..<(n - 1) {
+            let edge = (startEdge + i) % n
+            let (a, b) = edgeCorners(edge, count: n)
+            let direction = normalised(sub(baseline[b], baseline[a]))
+            let length = typed[edge] ?? edgeLength(baseline, edge)
+            guard length > 0 else { continue }
+            result[b] = quantise(
+                CGPoint(
+                    x: result[a].x + direction.x * length,
+                    y: result[a].y + direction.y * length))
+        }
+        return result
+    }
+
     // MARK: - Corners
 
     static func moveCorner(_ polygon: [CGPoint], index: Int, to point: CGPoint) -> [CGPoint] {
