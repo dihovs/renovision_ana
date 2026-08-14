@@ -101,16 +101,26 @@ actor API {
         guard (200..<300).contains(http.statusCode) else {
             // The API's own message is far more useful than the status code:
             // "An affected area needs at least three corners" beats "400".
-            let message =
-                (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error
-                ?? "Request failed (\(http.statusCode))."
+            let body = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            var message = body?.error ?? "Request failed (\(http.statusCode))."
+            if let missing = body?.missing, !missing.isEmpty {
+                message += " Not set: \(missing.joined(separator: ", "))."
+            }
             throw APIError.server(message)
         }
 
         return data
     }
 
-    private struct ErrorBody: Decodable { let error: String }
+    /// The API's error shape. `missing` is only sent by the voice-token
+    /// route, and it is the single most useful field in the whole app when a
+    /// call fails: the answer is almost always one unset variable, and
+    /// "Calling is not configured" without saying which one sends somebody
+    /// hunting through a dashboard.
+    private struct ErrorBody: Decodable {
+        let error: String
+        let missing: [String]?
+    }
 
     private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {

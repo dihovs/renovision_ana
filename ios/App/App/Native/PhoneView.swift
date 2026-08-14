@@ -14,6 +14,7 @@ struct PhoneView: View {
     @State private var mode: Mode = .recents
     @State private var recents: [CallRecord]?
     @State private var query = ""
+    @State private var voice: Health.Voice?
 
     enum Mode: String, CaseIterable {
         case recents = "Recents"
@@ -37,6 +38,26 @@ struct PhoneView: View {
                 Brand.canvas.ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    // Said before a call is attempted, not after. Dialling a
+                    // customer and getting an error is a worse way to find
+                    // out than being told on arrival.
+                    if let voice, !voice.configured {
+                        Card(padding: Brand.Space.small) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Label("Calling is not switched on", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.orange)
+                                Text(
+                                    "These are unset on this deployment: \(voice.missing.joined(separator: ", ")). In Vercel they must be ticked for Preview as well as Production."
+                                )
+                                .font(.system(size: 12))
+                                .foregroundStyle(Brand.inkSoft)
+                            }
+                        }
+                        .padding(.horizontal, Brand.Space.base)
+                        .padding(.bottom, Brand.Space.small)
+                    }
+
                     Picker("", selection: $mode) {
                         ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
@@ -57,6 +78,7 @@ struct PhoneView: View {
             .task {
                 await loadContacts()
                 await loadRecents()
+                voice = try? await API.shared.health().voice
             }
         }
         // The in-call screen covers everything, the way a call does on a phone.

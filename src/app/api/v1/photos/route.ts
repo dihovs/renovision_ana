@@ -1,0 +1,89 @@
+import { NextResponse } from "next/server";
+import { guarded } from "../guard";
+import {
+  addProjectFile,
+  listRoomFiles,
+  signProjectFileUrls,
+  MAX_PROJECT_FILE_BYTES,
+} from "@/lib/crm/projects";
+
+/**
+ * Photographs, filed against a room or a damaged area.
+ *
+ * Evidence is most of a restoration claim — nine of the twenty pages in the
+ * report this app is measured against are photo grids — and a photo is worth
+ * having only if it is attached to something. "Which room was this?" is a
+ * question nobody can answer from a filename a week later.
+ */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  const roomScanId = new URL(request.url).searchParams.get("roomScanId");
+  if (!roomScanId) {
+    return NextResponse.json({ error: "roomScanId is required." }, { status: 400 });
+  }
+
+  return guarded(async () => {
+    const files = await listRoomFiles(roomScanId);
+    // Signed per request and never persisted — a stored URL outlives its own
+    // expiry and starts serving 403s to a report nobody can regenerate.
+    const urls = await signProjectFileUrls(files.map((file) => file.storage_path));
+    return {
+      photos: files.map((file) => ({
+        id: file.id,
+        filename: file.filename,
+        note: file.note,
+        uploadedAt: file.uploaded_at,
+        url: urls[file.storage_path] ?? null,
+      })),
+    };
+  });
+}
+
+/**
+ * Upload one photo. Multipart rather than base64 JSON: a phone photo is
+ * two to five megabytes, and base64 inflates that by a third for no reason
+ * on a connection that is already the bottleneck.
+ */
+export async function POST(request: Request) {
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return NextResponse.json({ error: "Expected a multipart upload." }, { status: 400 });
+  }
+
+  const projectId = String(form.get("projectId") ?? "");
+  const roomScanId = String(form.get("roomScanId") ?? "");
+  const affectedAreaId = String(form.get("affectedAreaId") ?? "");
+  const note = String(form.get("note") ?? "");
+  const file = form.get("file");
+
+  if (!projectId) {
+    return NextResponse.json({ error: "projectId is required." }, { status: 400 });
+  }
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "No photo was attached." }, { status: 400 });
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  // Measured from what actually arrived, never from what the client claimed.
+  if (bytes.byteLength > MAX_PROJECT_FILE_BYTES) {
+    return NextResponse.json(
+      { error: "That photo is too large. Take it again at a smaller size." },
+      { status: 413 },
+    );
+  }
+
+  return guarded(async () => ({
+    id: await addProjectFile(projectId, {
+      bytes,
+      filename: file.name || "photo.jpg",
+      contentType: file.type || "image/jpeg",
+      note: note || null,
+      roomScanId: roomScanId || null,
+      affectedAreaId: affectedAreaId || null,
+    }),
+  }));
+}

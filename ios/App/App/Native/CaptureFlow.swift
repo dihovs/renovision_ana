@@ -220,18 +220,26 @@ struct CaptureFlow: View {
         guard let geometry else { return }
         saving = true
         error = nil
-        do {
-            _ = try await API.shared.saveScan(
-                ScanUpload(
-                    projectId: projectId,
-                    name: name.trimmed,
-                    level: level,
-                    position: existingCount,
-                    geometry: geometry))
+
+        let outcome = await ScanQueue.shared.save(
+            ScanUpload(
+                projectId: projectId,
+                name: name.trimmed,
+                level: level,
+                position: existingCount,
+                geometry: geometry))
+
+        switch outcome {
+        case .sent:
             onSaved()
             dismiss()
-        } catch {
-            self.error = error.localizedDescription
+        case .held:
+            // Kept, not lost. Dismissing is right — the measurement is safe
+            // and the project screen says how many are waiting.
+            onSaved()
+            dismiss()
+        case .lost(let reason):
+            error = reason
         }
         saving = false
     }

@@ -165,6 +165,7 @@ struct ProjectDetailView: View {
     @State private var equipment: [EquipmentPlacement] = []
     @State private var error: String?
     @State private var capturing = false
+    @StateObject private var queue = ScanQueue.shared
 
     /// Storeys in building order, not the order they happened to be scanned —
     /// a basement measured last still belongs at the bottom of the list.
@@ -204,6 +205,33 @@ struct ProjectDetailView: View {
                             Label(error, systemImage: "exclamationmark.triangle.fill")
                                 .font(.footnote)
                                 .foregroundStyle(.orange)
+                        }
+                    }
+
+                    // Held scans, said plainly. A measurement the operator
+                    // believes was filed and was not is the worst outcome
+                    // this screen can produce.
+                    if !queue.pending(for: project.id).isEmpty {
+                        let held = queue.pending(for: project.id)
+                        Card {
+                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                                Label(
+                                    "^[\(held.count) room](inflect: true) waiting to upload",
+                                    systemImage: "arrow.up.circle"
+                                )
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.orange)
+                                Text(
+                                    "Measured with no signal and held on this phone. They send themselves as soon as you have a connection — nothing to do."
+                                )
+                                .font(.system(size: 12))
+                                .foregroundStyle(Brand.inkSoft)
+                                ForEach(held) { item in
+                                    Text("· \(item.name) — \(item.level)")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Brand.inkFaint)
+                                }
+                            }
                         }
                     }
 
@@ -320,7 +348,12 @@ struct ProjectDetailView: View {
                 existingCount: (scans ?? []).count,
                 onSaved: { Task { await load() } })
         }
-        .task { await load() }
+        .task {
+            // Anything held from a previous visit goes up on arrival, before
+            // the list is drawn, so a reconnected phone catches up quietly.
+            if await ScanQueue.shared.flush() > 0 { await load() }
+            await load()
+        }
     }
 
     private func load() async {

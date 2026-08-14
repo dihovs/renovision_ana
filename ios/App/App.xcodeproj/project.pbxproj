@@ -41,6 +41,7 @@
 		31A8258D875E33BB7511747F /* CreateForms.swift in Sources */ = {isa = PBXBuildFile; fileRef = F63622FE8793B5A476929ED7 /* CreateForms.swift */; };
 		475D5E68C8633C0C64637823 /* FloorPlanGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */; };
 		AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */; };
+		B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD833D37CF40538753EFB53 /* ScanQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +80,7 @@
 		F63622FE8793B5A476929ED7 /* CreateForms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CreateForms.swift; sourceTree = "<group>"; };
 		F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorPlanGeometry.swift; sourceTree = "<group>"; };
 		41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorPlanView.swift; sourceTree = "<group>"; };
+		CAD833D37CF40538753EFB53 /* ScanQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -122,6 +124,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				CAD833D37CF40538753EFB53 /* ScanQueue.swift */,
 				41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */,
 				F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */,
 				F63622FE8793B5A476929ED7 /* CreateForms.swift */,
@@ -234,6 +237,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */,
 				AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */,
 				475D5E68C8633C0C64637823 /* FloorPlanGeometry.swift in Sources */,
 				31A8258D875E33BB7511747F /* CreateForms.swift in Sources */,

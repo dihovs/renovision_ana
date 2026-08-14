@@ -115,7 +115,11 @@ struct ScanGeometry: Codable {
 }
 
 /// What gets POSTed to /api/v1/scans.
-struct ScanUpload: Encodable {
+///
+/// Decodable as well as Encodable because a scan taken with no signal is
+/// written to disk and read back later — possibly after the app has been
+/// killed and relaunched.
+struct ScanUpload: Codable {
     let projectId: String
     let name: String
     let level: String

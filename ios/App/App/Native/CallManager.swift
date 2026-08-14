@@ -51,6 +51,24 @@ final class CallManager: NSObject, ObservableObject {
     private let callKitProvider: CXProvider
     private let callController = CXCallController()
 
+    /// Held, not created on demand, and assigned to the SDK once at launch.
+    ///
+    /// This is the piece that decides whether a call has audio at all. Twilio
+    /// hands its audio device the session that CallKit owns, so the device
+    /// must be switched OFF before connecting and left for
+    /// `provider(didActivate:)` to switch on. Connecting with it already
+    /// enabled produces a call that establishes, shows a timer, and carries
+    /// no sound in either direction — which looks like a network fault and is
+    /// not one.
+    private let audioDevice = DefaultAudioDevice()
+
+    /// What `provider(_:perform: CXStartCallAction)` should dial. The connect
+    /// belongs in that callback rather than after the transaction returns:
+    /// CallKit may refuse the action, and dialling before it has agreed is
+    /// how an app ends up in a call the system knows nothing about.
+    private var pendingNumber: String?
+    private var pendingToken: String?
+
     private override init() {
         let config = CXProviderConfiguration()
         config.supportsVideo = false
@@ -64,6 +82,7 @@ final class CallManager: NSObject, ObservableObject {
 
         super.init()
         callKitProvider.setDelegate(self, queue: nil)
+        TwilioVoiceSDK.audioDevice = audioDevice
     }
 
     // MARK: - Placing a call
@@ -86,13 +105,25 @@ final class CallManager: NSObject, ObservableObject {
             return
         }
 
+        // Fetched BEFORE telling CallKit anything. A token failure is by far
+        // the most common reason a call does not happen — an unset Twilio
+        // variable — and discovering it after the system has put a call on
+        // screen means tearing that call down again in front of the operator.
+        let token: String
+        do {
+            token = try await API.shared.voiceToken()
+        } catch {
+            lastError = error.localizedDescription
+            state = .ended(error.localizedDescription)
+            return
+        }
+
         remoteLabel = label ?? Self.pretty(cleaned)
         state = .connecting
         lastError = nil
+        pendingToken = token
+        pendingNumber = cleaned
 
-        // CallKit is told first. Doing it the other way round produces a call
-        // that is audible before the system knows it exists, which is what
-        // makes some VoIP apps drop audio when the screen locks.
         let uuid = UUID()
         callKitUUID = uuid
         let handle = CXHandle(type: .phoneNumber, value: cleaned)
@@ -104,22 +135,7 @@ final class CallManager: NSObject, ObservableObject {
         } catch {
             state = .ended(error.localizedDescription)
             lastError = error.localizedDescription
-            return
-        }
-
-        do {
-            let token = try await API.shared.voiceToken()
-            let options = ConnectOptions(accessToken: token) { builder in
-                // The TwiML app reads `To` and dials it. The parameter name is
-                // fixed by the server side in /api/voice/softphone.
-                builder.params = ["To": cleaned]
-                builder.uuid = uuid
-            }
-            call = TwilioVoiceSDK.connect(options: options, delegate: self)
-        } catch {
-            lastError = error.localizedDescription
-            state = .ended(error.localizedDescription)
-            endCallKit(uuid: uuid, reason: .failed)
+            cleanUp()
         }
     }
 
@@ -173,6 +189,8 @@ final class CallManager: NSObject, ObservableObject {
     private func cleanUp() {
         call = nil
         callKitUUID = nil
+        pendingToken = nil
+        pendingNumber = nil
         isMuted = false
         isOnSpeaker = false
         startedAt = nil
@@ -226,12 +244,7 @@ extension CallManager: CallDelegate {
     }
 
     nonisolated func callDidStartRinging(call: Call) {
-        Task { @MainActor in
-            state = .ringing
-            if let uuid = callKitUUID {
-                callKitProvider.reportOutgoingCall(with: uuid, startedConnectingAt: Date())
-            }
-        }
+        Task { @MainActor in state = .ringing }
     }
 
     nonisolated func callDidFailToConnect(call: Call, error: Error) {
@@ -264,9 +277,30 @@ extension CallManager: CXProviderDelegate {
     }
 
     nonisolated func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-        // Twilio manages the audio session itself; answering here just tells
-        // CallKit the request was accepted.
-        action.fulfill()
+        Task { @MainActor in
+            guard let token = pendingToken, let number = pendingNumber else {
+                action.fail()
+                return
+            }
+
+            // OFF before connecting. CallKit owns the audio session and will
+            // activate it in a moment; enabling Twilio's device first is what
+            // produces a connected call with no sound.
+            audioDevice.isEnabled = false
+
+            let options = ConnectOptions(accessToken: token) { builder in
+                // The TwiML app reads `To` and dials it. The name is fixed by
+                // the server side in /api/voice/softphone.
+                builder.params = ["To": number]
+                builder.uuid = action.callUUID
+            }
+            call = TwilioVoiceSDK.connect(options: options, delegate: self)
+
+            pendingToken = nil
+            pendingNumber = nil
+            provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
+            action.fulfill()
+        }
     }
 
     nonisolated func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
@@ -294,10 +328,10 @@ extension CallManager: CXProviderDelegate {
     // how a VoIP call ends up connected but silent. `audioDevice` is declared
     // as the protocol; only the default implementation exposes the switch.
     nonisolated func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        (TwilioVoiceSDK.audioDevice as? DefaultAudioDevice)?.isEnabled = true
+        Task { @MainActor in audioDevice.isEnabled = true }
     }
 
     nonisolated func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-        (TwilioVoiceSDK.audioDevice as? DefaultAudioDevice)?.isEnabled = false
+        Task { @MainActor in audioDevice.isEnabled = false }
     }
 }
