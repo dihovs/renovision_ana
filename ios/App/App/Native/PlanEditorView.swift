@@ -722,44 +722,20 @@ struct PlanEditorView: View {
             })
     }
 
-    // ========================================================================
-    // MERGE STUB — ORD-19's `ElevationView.swift` is being written by another
-    // agent and does not exist in this worktree, so this placeholder stands
-    // in to keep the build green. At merge, replace the ENTIRE body of this
-    // property with the call already written out in the comment below; every
-    // value it needs is in scope and the signature matches exactly. Nothing
-    // else in this file has to change — the state, the double-tap, the
-    // view-mode row, the binding and the full-screen presentation are all
-    // real and wired.
-    //
-    //     ElevationView(
-    //         corners: corners,
-    //         openings: openings,
-    //         ceilingHeight: room.ceilingHeightM,
-    //         roomScanId: room.id,
-    //         wallIndex: elevationWallBinding,
-    //         onClose: closeElevation)
-    //
-    // ========================================================================
+    /// The wall, seen straight on.
+    ///
+    /// `wallIndex` is a binding rather than a value because the view's own
+    /// ← / → arrows step it, and the editor's selection has to follow — a
+    /// wall face showing one wall while the plan behind it has another
+    /// selected is how an operator marks damage on the wrong wall.
     private var elevationPresentation: some View {
-        VStack(spacing: Brand.Space.base) {
-            Text("Elevation")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(Brand.ink)
-            Text("Wall \((elevationWall ?? 0) + 1) of \(max(corners.count, 1))")
-                .font(.system(size: 15))
-                .foregroundStyle(Brand.inkSoft)
-            Text("This view is being built under ORD-19 and lands at merge.")
-                .font(.system(size: 13))
-                .foregroundStyle(Brand.inkFaint)
-                .multilineTextAlignment(.center)
-            Button("2D") { closeElevation() }
-                .buttonStyle(PrimaryButtonStyle())
-                .padding(.horizontal, Brand.Space.section)
-        }
-        .padding(Brand.Space.large)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Brand.canvas)
+        ElevationView(
+            corners: corners,
+            openings: openings,
+            ceilingHeight: room.ceilingHeightM,
+            roomScanId: room.id,
+            wallIndex: elevationWallBinding,
+            onClose: closeElevation)
     }
 
     // MARK: - Measurement walk
