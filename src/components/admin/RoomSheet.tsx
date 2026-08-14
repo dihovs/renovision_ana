@@ -8,6 +8,7 @@ import RoomEvidence from "./RoomEvidence";
 import MoistureLog from "./MoistureLog";
 import { tapFeedback } from "@/lib/haptics";
 import { MEASURE_DEFINITIONS, type MeasureDefinition } from "@/lib/crm/measureDefinitions";
+import { ROOM_TYPES } from "@/lib/crm/livingArea";
 import { createArea, deleteArea, listRoomAreas } from "@/lib/areasClient";
 import { areaColor, DAMAGE_LABEL, type AffectedArea } from "@/lib/crm/areaShapes";
 import {
@@ -52,6 +53,10 @@ export default function RoomSheet({
   const [error, setError] = useState<string | null>(null);
   // Which figure's definition is open, if any — the (i) beside each stat.
   const [defining, setDefining] = useState<MeasureDefinition | null>(null);
+  // "" is "nobody has said" — kept distinct from any real type because the
+  // living-area engine treats an unset room as "other" and somebody should
+  // be able to see that nothing was chosen.
+  const [roomType, setRoomType] = useState(room.room_type ?? "");
 
   const result = room.geometry;
 
@@ -78,6 +83,21 @@ export default function RoomSheet({
   const wallSqFt = squareMetersToSquareFeet(savedWallAreaSquareMeters(room).net);
   const perimeterFt = metersToFeet(savedPerimeterMeters(room));
   const ceilingFt = metersToFeet(savedCeilingHeightMeters(room));
+
+  const typeRule = ROOM_TYPES.find((type) => type.id === roomType) ?? null;
+
+  /** Reclassify the room. Not cosmetic: the type decides how much of this
+      room counts as living area, and whether above or below grade. */
+  async function chooseType(next: string) {
+    setRoomType(next);
+    try {
+      await updateSavedScan(room.id, { roomType: next || null });
+      setError(null);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save the room type.");
+    }
+  }
 
   async function saveArea(draft: DraftArea) {
     try {
@@ -179,6 +199,52 @@ export default function RoomSheet({
                 onInfo={() => setDefining(MEASURE_DEFINITIONS.ceilingHeight)}
               />
             </div>
+
+            {/* What kind of room this is — the input the living-area figure
+                is computed from, so it belongs beside the measurements. */}
+            <section className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-heading text-sm font-bold text-charcoal">Room type</span>
+                <select
+                  value={roomType}
+                  onChange={(event) => void chooseType(event.target.value)}
+                  className="max-w-[55%] cursor-pointer rounded-lg border border-black/10 bg-white px-2 py-1.5 text-sm font-semibold text-charcoal"
+                >
+                  <option value="">Not set</option>
+                  {ROOM_TYPES.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {typeRule ? (
+                <>
+                  {/* What the choice does to the number, stated with it. */}
+                  <p
+                    className={`mt-1.5 text-xs font-medium ${
+                      typeRule.band === "above" ? "text-emerald-700" : "text-amber-700"
+                    }`}
+                  >
+                    {Math.round(typeRule.percent)}% living area
+                    {typeRule.band === "below" && " · below grade"}
+                    {typeRule.band === "excluded" && " · never counts"}
+                  </p>
+                  {typeRule.note && (
+                    <p className="mt-1 text-[11px] leading-snug text-charcoal/50">
+                      {typeRule.note}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-1.5 text-[11px] leading-snug text-charcoal/50">
+                  Until a type is set, this room counts in full toward
+                  above-grade living area — a basement left unset inflates the
+                  figure.
+                </p>
+              )}
+            </section>
 
             {result.modelId && (
               <button

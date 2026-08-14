@@ -225,6 +225,11 @@ export type SavedScan = {
   /** Where this room was dragged to on the floor, or null if never placed. */
   plan_x?: number | null;
   plan_y?: number | null;
+  /** Bedroom, basement, garage… drives the living-area default. Null means
+      nobody has said, which the rules engine treats as "other". */
+  room_type?: string | null;
+  /** Hand-set 0-100 living-area override, or null for the type's default. */
+  living_percent?: number | null;
 };
 
 /** Every room saved on a project, in walking order within each floor. */
@@ -237,7 +242,7 @@ export async function listSavedScans(projectId: string): Promise<SavedScan[]> {
   return ((await response.json()) as { scans: SavedScan[] }).scans;
 }
 
-/** Rename a saved room, or move it to another floor. */
+/** Rename a saved room, move it to another floor, or reclassify it. */
 export async function updateSavedScan(
   id: string,
   patch: {
@@ -247,6 +252,8 @@ export async function updateSavedScan(
     notes?: string | null;
     planX?: number | null;
     planY?: number | null;
+    /** Null puts the room back to "nobody has said". */
+    roomType?: string | null;
   },
 ): Promise<void> {
   const response = await fetch(`/api/v1/scans/${encodeURIComponent(id)}`, {
