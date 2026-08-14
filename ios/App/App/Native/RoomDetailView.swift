@@ -15,6 +15,7 @@ struct RoomDetailView: View {
     @State private var error: String?
     @State private var drawing = false
     @State private var logging = false
+    @State private var editingPlan = false
 
     private var damagedSqm: Double { areas.reduce(0) { $0 + $1.areaSqm } }
 
@@ -43,6 +44,22 @@ struct RoomDetailView: View {
                     .frame(height: 240)
                         .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
                         .listRowBackground(Brand.surface)
+
+                    Button {
+                        editingPlan = true
+                    } label: {
+                        Label("Adjust the plan", systemImage: "pencil.and.ruler")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.blue)
+                    }
+                } footer: {
+                    if room.geometry?.editedPolygon != nil {
+                        Label(
+                            "Adjusted by hand. The scan's own measurements are kept underneath.",
+                            systemImage: "hand.draw")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
 
@@ -193,6 +210,9 @@ struct RoomDetailView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $editingPlan) {
+            PlanEditorView(room: room) { Task { await load() } }
         }
         .sheet(isPresented: $logging) {
             ReadingSheet(roomId: room.id) { Task { await load() } }

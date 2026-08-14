@@ -142,6 +142,64 @@ export async function getRoomScanProject(id: string): Promise<string | null> {
   return (data?.project_id as string | undefined) ?? null;
 }
 
+/**
+ * Record a plan the operator corrected by hand.
+ *
+ * The scan's own geometry is NEVER overwritten. The corrected outline is
+ * added to the same jsonb blob under `editedPolygon`, beside the walls and
+ * floors the sensor reported, so "what did the laser actually say" stays
+ * answerable forever — which matters when an adjuster asks why a figure
+ * changed between the first visit and the invoice.
+ *
+ * The derived numbers DO move, because they are the whole point of
+ * correcting the plan: floor area and perimeter are recomputed from the
+ * corrected outline and written to their columns, where every total, every
+ * report line and every estimate reads them.
+ */
+export async function saveEditedPolygon(
+  id: string,
+  polygon: { x: number; y: number }[],
+): Promise<void> {
+  const client = requireDb();
+
+  const { data, error: readError } = await client
+    .from("room_scans")
+    .select("geometry, ceiling_height_m")
+    .eq("id", id)
+    .single();
+  if (readError) throw new Error(`Could not find that room: ${readError.message}`);
+
+  // Shoelace, absolute — a room traced clockwise measures the same as one
+  // traced the other way, and an operator dragging corners has no idea which
+  // way round they are going.
+  let twiceArea = 0;
+  let perimeter = 0;
+  for (let i = 0; i < polygon.length; i += 1) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % polygon.length];
+    twiceArea += a.x * b.y - b.x * a.y;
+    perimeter += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  const areaSqm = Math.abs(twiceArea) / 2;
+
+  const geometry = {
+    ...((data?.geometry ?? {}) as Record<string, unknown>),
+    editedPolygon: polygon,
+    editedAt: new Date().toISOString(),
+  };
+
+  const { error } = await client
+    .from("room_scans")
+    .update({
+      geometry,
+      floor_area_sqm: areaSqm,
+      wall_length_m: perimeter,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw new Error(`Could not save the corrected plan: ${error.message}`);
+}
+
 export async function deleteRoomScan(id: string): Promise<void> {
   const client = requireDb();
   const { error } = await client.from("room_scans").delete().eq("id", id);

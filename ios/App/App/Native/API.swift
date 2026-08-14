@@ -417,6 +417,23 @@ actor API {
             body: AttachPhone(addPhone: number, type: "mobile"))
     }
 
+    private struct EditedPlan: Encodable {
+        struct Point: Encodable {
+            let x: Double
+            let y: Double
+        }
+        let editedPolygon: [Point]
+    }
+
+    /// Save a plan corrected by hand. The scan's own measurements are kept —
+    /// the server files this beside them, never over them.
+    func saveEditedPlan(roomId: String, corners: [CGPoint]) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH",
+            body: EditedPlan(
+                editedPolygon: corners.map { .init(x: Double($0.x), y: Double($0.y)) }))
+    }
+
     // MARK: - Photos
 
     func photos(roomScanId: String) async throws -> [RoomPhoto] {

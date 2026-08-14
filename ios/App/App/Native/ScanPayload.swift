@@ -39,6 +39,20 @@ struct ScanGeometry: Codable {
     let openingCount: Int
     let stairCount: Int
 
+    /// The outline after the operator corrected it by hand.
+    ///
+    /// Sits BESIDE the sensor's own walls rather than replacing them, so
+    /// "what did the laser actually say" stays answerable after a correction
+    /// — which is the question an adjuster asks when a figure changes between
+    /// the first visit and the invoice. Optional, because every scan taken
+    /// before the editor existed has none.
+    var editedPolygon: [EditedPoint]?
+
+    struct EditedPoint: Codable, Hashable {
+        let x: Double
+        let y: Double
+    }
+
     // MARK: - From RoomPlan
 
     @available(iOS 17.0, *)

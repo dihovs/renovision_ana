@@ -42,6 +42,32 @@ enum FloorPlanGeometry {
     // MARK: - Entry point
 
     static func plan(from geometry: ScanGeometry) -> Plan {
+        // A plan the operator corrected by hand replaces the scan's walls for
+        // drawing purposes — but only for drawing. The sensor's own geometry
+        // is still in the record underneath, untouched.
+        if let edited = geometry.editedPolygon, edited.count >= 3 {
+            let points = edited.map { CGPoint(x: $0.x, y: $0.y) }
+            var segments: [Segment] = []
+            for i in points.indices {
+                let a = points[i]
+                let b = points[(i + 1) % points.count]
+                segments.append(Segment(x1: a.x, y1: a.y, x2: b.x, y2: b.y))
+            }
+            let xs = points.map { $0.x }
+            let ys = points.map { $0.y }
+            let minX = xs.min() ?? 0
+            let minY = ys.min() ?? 0
+            let shifted = segments.map {
+                Segment(x1: $0.x1 - minX, y1: $0.y1 - minY, x2: $0.x2 - minX, y2: $0.y2 - minY)
+            }
+            return Plan(
+                segments: shifted,
+                openings: [],
+                polygon: points.map { CGPoint(x: $0.x - minX, y: $0.y - minY) },
+                width: (xs.max() ?? 0) - minX,
+                height: (ys.max() ?? 0) - minY)
+        }
+
         // Each wall's endpoints are its centre ± half its length along its own
         // axis. RoomPlan's z grows toward the viewer and a screen's y grows
         // downward, so z maps to y directly and the result reads the right
@@ -348,6 +374,45 @@ extension FloorPlanGeometry {
         let frac = rem.truncatingRemainder(dividingBy: 1) == 0.5 ? " 1/2" : ""
         if feet == 0 { return "\(whole)\(frac)\"" }
         return "\(feet)'-\(whole)\(frac)\""
+    }
+
+    /// Read a length the way a contractor writes one: 12, 12.5, 12' 6,
+    /// 12'6", 12-6. Returns METRES, or nil when there is no number in there.
+    /// Deliberately permissive — this is typed with one thumb in a basement.
+    static func parseFeetInches(_ input: String) -> Double? {
+        let text = input.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty, text.rangeOfCharacter(from: .decimalDigits) != nil else { return nil }
+
+        let feetToMetres = 0.3048
+        let cleaned = text.replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
+
+        // Feet and inches, however they are written.
+        let patterns = [
+            "^(-?[0-9]+(?:\\.[0-9]+)?)\\s*(?:'|ft|feet)\\s*([0-9]+(?:\\.[0-9]+)?)?\\s*(?:\"|in|inch|inches)?$",
+            "^(-?[0-9]+(?:\\.[0-9]+)?)\\s*[- ]\\s*([0-9]+(?:\\.[0-9]+)?)$",
+        ]
+        for pattern in patterns {
+            guard
+                let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+                let match = regex.firstMatch(
+                    in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned))
+            else { continue }
+
+            func group(_ i: Int) -> Double? {
+                guard let r = Range(match.range(at: i), in: cleaned) else { return nil }
+                return Double(cleaned[r])
+            }
+            guard let feet = group(1) else { continue }
+            let inches = group(2) ?? 0
+            return (abs(feet) + inches / 12) * (feet < 0 ? -1 : 1) * feetToMetres
+        }
+
+        // Plain feet, with or without a mark.
+        let bare = cleaned.replacingOccurrences(
+            of: "\\s*(?:'|ft|feet)\\s*$", with: "", options: [.regularExpression, .caseInsensitive])
+        guard let plain = Double(bare) else { return nil }
+        return plain * feetToMetres
     }
 
     /// Where a label sits: the point deepest inside the polygon, by grid

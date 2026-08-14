@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { guarded } from "../../guard";
-import { deleteRoomScan, updateRoomScan } from "@/lib/crm/roomScans";
+import { deleteRoomScan, saveEditedPolygon, updateRoomScan } from "@/lib/crm/roomScans";
 
 /** Rename a room or move it to another floor. The measurements themselves
     are a record of what was scanned and are deliberately not editable. */
@@ -15,6 +15,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   return guarded(async () => {
+    // A corrected outline, from the plan editor. Handled before the field
+    // updates because it is a different kind of change: the others rename
+    // and file a room, this one restates its measurements.
+    if (Array.isArray(body.editedPolygon)) {
+      const polygon = (body.editedPolygon as unknown[]).flatMap((p) => {
+        const point = p as { x?: unknown; y?: unknown };
+        const x = Number(point?.x);
+        const y = Number(point?.y);
+        return Number.isFinite(x) && Number.isFinite(y) ? [{ x, y }] : [];
+      });
+      if (polygon.length < 3) {
+        throw new Error("A room needs at least three corners.");
+      }
+      await saveEditedPolygon(id, polygon);
+    }
+
     await updateRoomScan(id, {
       ...(typeof body.name === "string" ? { name: body.name } : {}),
       ...(typeof body.level === "string" ? { level: body.level } : {}),
