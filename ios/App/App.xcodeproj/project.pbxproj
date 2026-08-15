@@ -60,6 +60,7 @@
 		D4ED59C7422E160077F9C007 /* Units.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0713A71AD922BFBCB4884DB5 /* Units.swift */; };
 		DD208E3518249553DB7E9A8A /* UnitsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCC848DA8520209EBF4BF5D8 /* UnitsSheet.swift */; };
 		0EDA5CF7C13693ABFDB4CF44 /* ElevationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD499E1874371731843950D /* ElevationView.swift */; };
+		E70A2EEC684546E9A37EFC4C /* ProjectStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5AD9F71F8C69CCF51090D0C /* ProjectStatistics.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -117,6 +118,7 @@
 		0713A71AD922BFBCB4884DB5 /* Units.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Units.swift; sourceTree = "<group>"; };
 		BCC848DA8520209EBF4BF5D8 /* UnitsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/UnitsSheet.swift; sourceTree = "<group>"; };
 		9DD499E1874371731843950D /* ElevationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ElevationView.swift; sourceTree = "<group>"; };
+		E5AD9F71F8C69CCF51090D0C /* ProjectStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ProjectStatistics.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -160,6 +162,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				E5AD9F71F8C69CCF51090D0C /* ProjectStatistics.swift */,
 				BCC848DA8520209EBF4BF5D8 /* UnitsSheet.swift */,
 				0713A71AD922BFBCB4884DB5 /* Units.swift */,
 				9DD499E1874371731843950D /* ElevationView.swift */,
@@ -291,6 +294,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E70A2EEC684546E9A37EFC4C /* ProjectStatistics.swift in Sources */,
 				DD208E3518249553DB7E9A8A /* UnitsSheet.swift in Sources */,
 				D4ED59C7422E160077F9C007 /* Units.swift in Sources */,
 				0EDA5CF7C13693ABFDB4CF44 /* ElevationView.swift in Sources */,

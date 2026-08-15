@@ -1,7 +1,22 @@
 import FloorPlan from "./FloorPlan";
-import { squareMetersToSquareFeet, metersToFeet, type ScanGeometry } from "@/lib/roomScan";
+import { RoomElevations } from "./WallElevation";
+import {
+  planCorners,
+  squareMetersToSquareFeet,
+  metersToFeet,
+  toFloorPlan,
+  type ScanGeometry,
+} from "@/lib/roomScan";
 import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
-import { areaColor, DAMAGE_LABEL, type AffectedArea, type DamageType } from "@/lib/crm/areaShapes";
+import {
+  areaColor,
+  floorAreas,
+  totalsBySurface,
+  wallAreas,
+  DAMAGE_LABEL,
+  type AffectedArea,
+  type DamageType,
+} from "@/lib/crm/areaShapes";
 import { unitDays, type EquipmentPlacement, type MoistureReading } from "@/lib/crm/dryingLog";
 import type { CompanySetting, CustomFieldDef } from "@/lib/crm/settings";
 import { isFieldVisible } from "@/lib/crm/settings";
@@ -99,14 +114,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   // and wall square footage are different trades at different rates; added
   // together they price neither. An adjuster reading one merged figure
   // cannot check it against anything.
-  const damage = new Map<DamageType, number>();
-  const wallDamage = new Map<DamageType, number>();
-  for (const room of rooms) {
-    for (const area of room.areas) {
-      const into = area.surface === "wall" ? wallDamage : damage;
-      into.set(area.damage_type, (into.get(area.damage_type) ?? 0) + Number(area.area_sqm));
-    }
-  }
+  const damage = totalsBySurface(rooms.flatMap((room) => room.areas));
 
   const now = new Date(generatedAt);
   const shownClaim = claimFields.filter(
@@ -192,50 +200,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           </tbody>
         </table>
 
-        {damage.size > 0 && (
-          <table className="stats damage">
-            <thead>
-              <tr>
-                {/* Named as floor area, not just "affected area". The wall
-                    table below is also affected area, and an adjuster must be
-                    able to tell which surface a figure priced. */}
-                <th colSpan={2}>Affected floor area by cause</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...damage.entries()].map(([type, sqm]) => (
-                <tr key={type}>
-                  <td>
-                    <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
-                    {DAMAGE_LABEL[type]}
-                  </td>
-                  <td className="num">{sqft(sqm)} sq ft</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {wallDamage.size > 0 && (
-          <table className="stats damage">
-            <thead>
-              <tr>
-                <th colSpan={2}>Affected wall area by cause</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...wallDamage.entries()].map(([type, sqm]) => (
-                <tr key={type}>
-                  <td>
-                    <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
-                    {DAMAGE_LABEL[type]}
-                  </td>
-                  <td className="num">{sqft(sqm)} sq ft</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {/* Two tables, never one. Named by surface, not just "affected
+            area": both of these are affected area, and an adjuster must be
+            able to tell which surface a figure priced. */}
+        <DamageTotals title="Affected floor area by cause" totals={damage.floor} />
+        <DamageTotals title="Affected wall area by cause" totals={damage.wall} />
 
         {project.description && <p className="desc">{project.description}</p>}
 
@@ -338,20 +307,31 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           </div>
 
           {room.areas.length > 0 && (
+            /* Floor rows first, then the walls in wall order — and every row
+               says which surface it measured. Without that column the table
+               puts 40 sq ft of floor and 40 sq ft of wall in the same column
+               under the same heading, and the two are priced by different
+               trades. */
             <table className="listing">
               <thead>
                 <tr>
                   <th>Affected area</th>
+                  <th>Surface</th>
                   <th>Cause</th>
                   <th className="num">Measured</th>
                 </tr>
               </thead>
               <tbody>
-                {room.areas.map((area) => (
+                {[...floorAreas(room.areas), ...wallAreas(room.areas)].map((area) => (
                   <tr key={area.id}>
                     <td>
                       <span className="swatch" style={{ background: areaColor(area) }} />
                       {area.name}
+                    </td>
+                    <td>
+                      {area.surface === "wall"
+                        ? `Wall ${(area.wall_index ?? 0) + 1}`
+                        : "Floor"}
                     </td>
                     <td>{DAMAGE_LABEL[area.damage_type]}</td>
                     <td className="num">{sqft(Number(area.area_sqm))} sq ft</td>
@@ -360,6 +340,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               </tbody>
             </table>
           )}
+
+          {/* The damaged walls, seen straight on. The plan above cannot show
+              them: it is a view from overhead, where a wall is a line with no
+              height, and the height is the whole of what was marked. */}
+          <RoomElevations
+            corners={planCorners(toFloorPlan(room.geometry))}
+            ceilingHeightM={room.ceilingHeightM}
+            areas={wallAreas(room.areas)}
+          />
 
           {room.readings.length > 0 && (
             <table className="listing">
@@ -479,6 +468,43 @@ export default function ReportDocument({ data }: { data: ReportData }) {
         </section>
       )}
     </article>
+  );
+}
+
+/**
+ * One surface's damage, totalled by cause.
+ *
+ * Nothing recorded on that surface prints nothing at all — an empty table
+ * headed "affected wall area" reads as a wall that was checked and found
+ * dry, which is a claim this report has no basis to make.
+ */
+function DamageTotals({
+  title,
+  totals,
+}: {
+  title: string;
+  totals: { type: DamageType; sqm: number }[];
+}) {
+  if (totals.length === 0) return null;
+  return (
+    <table className="stats damage">
+      <thead>
+        <tr>
+          <th colSpan={2}>{title}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {totals.map(({ type, sqm }) => (
+          <tr key={type}>
+            <td>
+              <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
+              {DAMAGE_LABEL[type]}
+            </td>
+            <td className="num">{sqft(sqm)} sq ft</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

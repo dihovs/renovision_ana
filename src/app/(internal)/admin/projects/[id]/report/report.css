@@ -157,6 +157,32 @@
 }
 .report .plan-grid figcaption strong { color: var(--ink); }
 
+/* ------------------------------------------------------------ elevations */
+/* The damaged walls, seen straight on. Sized well under the plan above it:
+   the plan is the room, an elevation is one wall of it, and a face printed
+   as large as the plan claims an importance it does not have. */
+.report .elevations {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.report .elevations figure { margin: 0; }
+.report .elevations .elevation {
+  width: 100%;
+  /* Capped for the same reason .plan.large is: a long low wall left to grow
+     would otherwise take a page to say one thing. */
+  max-height: 130px;
+  background: #f6f6f7;
+  border-radius: 6px;
+  padding: 6px;
+}
+.report .elevations figcaption {
+  display: flex; justify-content: space-between; gap: 8px;
+  margin-top: 4px; font-size: 10px; color: var(--muted);
+}
+.report .elevations figcaption strong { color: var(--ink); }
+
 .report .room-body { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: start; }
 @media (max-width: 640px) {
   .report .room-body { grid-template-columns: 1fr; }

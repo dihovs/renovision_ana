@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { tapFeedback } from "@/lib/haptics";
-import { squareMetersToSquareFeet, toFloorPlan, type RoomScanResult } from "@/lib/roomScan";
+import {
+  planCorners,
+  squareMetersToSquareFeet,
+  toFloorPlan,
+  type RoomScanResult,
+} from "@/lib/roomScan";
 import {
   areaColor,
   floorAreas,
@@ -59,7 +64,10 @@ export default function AffectedAreaEditor({
     // from when a scan left the room open.
     polygon:
       plan.polygon.length >= 3
-        ? plan.polygon.slice(0, -1).map((p) => ({ x: p.x, y: p.y }))
+        ? // planCorners rather than dropping the last point: a hand-corrected
+          // outline is already a bare corner list, and slicing one of those
+          // loses a real corner off the shape the operator starts from.
+          planCorners(plan).map((p) => ({ x: p.x, y: p.y }))
         : [
             { x: 0, y: 0 },
             { x: plan.width, y: 0 },

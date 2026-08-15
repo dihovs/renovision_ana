@@ -3,6 +3,7 @@ import {
   ceilingHeightMeters,
   metersToFeet,
   openingAreaSquareMeters,
+  planCorners,
   savedFloorAreaSquareMeters,
   savedPerimeterMeters,
   squareMetersToSquareFeet,
@@ -278,5 +279,53 @@ describe("a hand-corrected outline (editedPolygon)", () => {
     const row: SavedScan = { ...savedRow(), floor_area_sqm: 0, wall_length_m: 0, geometry: bedroom() };
     expect(savedFloorAreaSquareMeters(row)).toBeCloseTo(totalFloorAreaSquareMeters(bedroom()), 9);
     expect(savedPerimeterMeters(row)).toBeCloseTo(totalWallLengthMeters(bedroom()), 9);
+  });
+});
+
+describe("planCorners", () => {
+  /**
+   * The corner list a wall index counts against — and the reason it cannot
+   * just be `polygon.slice(0, -1)`.
+   *
+   * `toFloorPlan` returns a closed outline when it chained one out of the
+   * walls, and a bare corner list when the operator corrected the plan by
+   * hand. Dropping the last point unconditionally is right for the first and
+   * deletes a real corner from the second, which renumbers every wall after
+   * it — so a wall area drawn on the phone against wall 3 would print on
+   * wall 2 here.
+   */
+  const square = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 3 },
+    { x: 0, y: 3 },
+  ];
+
+  it("drops the closing point from an outline that repeats its first", () => {
+    expect(planCorners({ polygon: [...square, { x: 0, y: 0 }] })).toEqual(square);
+  });
+
+  it("keeps every corner of an outline that does not", () => {
+    expect(planCorners({ polygon: square })).toEqual(square);
+  });
+
+  it("agrees with itself whichever form the same room arrives in", () => {
+    expect(planCorners({ polygon: square })).toEqual(
+      planCorners({ polygon: [...square, { x: 0, y: 0 }] }),
+    );
+  });
+
+  it("gives the same corner count for a chained plan and a corrected one", () => {
+    // The chained-from-walls path closes its loop; the hand-corrected path
+    // does not. Both must describe a four-walled room as four corners.
+    const chained = toFloorPlan(bedroom());
+    const corrected = toFloorPlan({ ...bedroom(), editedPolygon: square });
+    expect(planCorners(chained)).toHaveLength(4);
+    expect(planCorners(corrected)).toHaveLength(4);
+  });
+
+  it("leaves a degenerate outline alone rather than emptying it", () => {
+    expect(planCorners({ polygon: [] })).toEqual([]);
+    expect(planCorners({ polygon: [{ x: 1, y: 1 }] })).toEqual([{ x: 1, y: 1 }]);
   });
 });

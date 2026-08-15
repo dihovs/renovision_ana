@@ -32,8 +32,17 @@ export {
   floorAreas,
   wallAreas,
   totalsByDamageType,
+  totalsBySurface,
+  wallEdgeCorners,
+  wallLengthM,
 } from "./areaShapes";
-export type { AffectedArea, AffectedAreaInput, AreaPoint, DamageType } from "./areaShapes";
+export type {
+  AffectedArea,
+  AffectedAreaInput,
+  AreaPoint,
+  DamageType,
+  SurfaceTotals,
+} from "./areaShapes";
 
 function requireDb() {
   const client = db();

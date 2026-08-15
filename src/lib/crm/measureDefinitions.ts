@@ -77,6 +77,29 @@ export const CEILING_HEIGHT_DEFINITION: MeasureDefinition = {
 };
 
 /**
+ * Volume — floor area × ceiling height, the air in the room.
+ *
+ * The reference computes this too, as one more line in a statistics sheet.
+ * Here it is not a statistic, it is the input to equipment sizing: IICRC S500
+ * sizes dehumidification from the cubic footage of the affected space, and an
+ * adjuster who questions why four LGRs were on site for six days is asking a
+ * question that cubic feet answers and square feet cannot.
+ *
+ * Stated as an upper bound, for the same reason the ceiling height is: it
+ * multiplies the tallest wall the scan found across the whole floor plate.
+ */
+export const VOLUME_DEFINITION: MeasureDefinition = {
+  id: "volume",
+  title: "Volume",
+  definition:
+    "Floor area multiplied by ceiling height — the air the room holds, which is " +
+    "what dehumidification is sized from. Because ceiling height is the tallest " +
+    "wall measured, a room with a sloped or dropped ceiling holds less air than " +
+    "this figure states; it is an upper bound, and equipment sized from it errs " +
+    "toward drying faster rather than slower.",
+};
+
+/**
  * The definitions as one object, in the shape API responses attach — keyed
  * the way the figures themselves are named in those responses, so a client
  * can look a definition up from the field it is about to display.
@@ -87,4 +110,5 @@ export const MEASURE_DEFINITIONS = {
   wallAreaGross: WALL_AREA_GROSS_DEFINITION,
   wallAreaNet: WALL_AREA_NET_DEFINITION,
   ceilingHeight: CEILING_HEIGHT_DEFINITION,
+  volume: VOLUME_DEFINITION,
 } as const;

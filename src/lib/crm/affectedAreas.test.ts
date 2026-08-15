@@ -6,6 +6,9 @@ import {
   floorAreas,
   wallAreas,
   totalsByDamageType,
+  totalsBySurface,
+  wallEdgeCorners,
+  wallLengthM,
   DAMAGE_COLOR,
   type AffectedArea,
 } from "./affectedAreas";
@@ -180,5 +183,136 @@ describe("splitting by surface", () => {
       { type: "water", sqm: 6 },
       { type: "mould", sqm: 4 },
     ]);
+  });
+});
+
+describe("totalsBySurface", () => {
+  /**
+   * The figures the report prints. The split has to happen here rather than
+   * in each consumer, because a consumer that forgets prints one merged
+   * number — and a merged number is wrong twice over: the surfaces overlap
+   * in plan so it double-counts, and they are different trades so no single
+   * rate prices it.
+   */
+  const mixed = [
+    area({ id: "f1", surface: "floor", damage_type: "water", area_sqm: 10 }),
+    area({ id: "f2", surface: "floor", damage_type: "water", area_sqm: 2.5 }),
+    area({ id: "f3", surface: "floor", damage_type: "fire", area_sqm: 3 }),
+    area({ id: "w1", surface: "wall", wall_index: 1, damage_type: "water", area_sqm: 6 }),
+    area({ id: "w2", surface: "wall", wall_index: 0, damage_type: "mould", area_sqm: 4 }),
+  ];
+
+  it("totals each surface separately, by cause", () => {
+    expect(totalsBySurface(mixed)).toEqual({
+      floor: [
+        { type: "water", sqm: 12.5 },
+        { type: "fire", sqm: 3 },
+      ],
+      wall: [
+        { type: "water", sqm: 6 },
+        { type: "mould", sqm: 4 },
+      ],
+    });
+  });
+
+  it("agrees with splitting and totalling by hand", () => {
+    const split = totalsBySurface(mixed);
+    expect(split.floor).toEqual(totalsByDamageType(floorAreas(mixed)));
+    expect(split.wall).toEqual(totalsByDamageType(wallAreas(mixed)));
+  });
+
+  it("counts every square metre exactly once, on one surface or the other", () => {
+    const sum = (totals: { sqm: number }[]) => totals.reduce((t, row) => t + row.sqm, 0);
+    const { floor, wall } = totalsBySurface(mixed);
+    expect(sum(floor) + sum(wall)).toBeCloseTo(25.5, 6);
+  });
+
+  it("gives an empty list for a surface with nothing on it", () => {
+    // Empty rather than a zero row: "no wall damage recorded" is a table not
+    // to print. A zero printed under "affected wall area" reads as a wall
+    // that was checked and found dry, which is a different claim.
+    const floorOnly = [area({ surface: "floor", area_sqm: 4 })];
+    expect(totalsBySurface(floorOnly)).toEqual({
+      floor: [{ type: "water", sqm: 4 }],
+      wall: [],
+    });
+    expect(totalsBySurface([])).toEqual({ floor: [], wall: [] });
+  });
+
+  it("counts a legacy row with no surface as floor", () => {
+    // Rows written before wall areas existed. Counting them as wall, or
+    // dropping them, would move square footage off finished claims.
+    const legacy = { ...area({ area_sqm: 7 }), surface: undefined as unknown as "floor" };
+    expect(totalsBySurface([legacy])).toEqual({
+      floor: [{ type: "water", sqm: 7 }],
+      wall: [],
+    });
+  });
+});
+
+describe("the wall face a wall area is measured on", () => {
+  /**
+   * The convention documented on `AffectedArea`, and the same one
+   * `ElevationView.swift` draws in: edge i runs from corner i to corner
+   * i + 1, and a wall area's x is measured from that start corner.
+   *
+   * If these two disagree with the phone, every wall area lands on the wrong
+   * wall or at the wrong length — silently, because the shape still draws.
+   */
+  const room = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 3 },
+    { x: 0, y: 3 },
+  ];
+
+  it("runs each edge from its corner to the next, wrapping at the end", () => {
+    expect(wallEdgeCorners(4, 0)).toEqual([0, 1]);
+    expect(wallEdgeCorners(4, 2)).toEqual([2, 3]);
+    expect(wallEdgeCorners(4, 3)).toEqual([3, 0]);
+  });
+
+  it("normalises a wall index from outside the room rather than crashing", () => {
+    // The phone does the same modulo, for the same reason: the index comes
+    // from a record that may name a wall the plan has since lost.
+    expect(wallEdgeCorners(4, 4)).toEqual([0, 1]);
+    expect(wallEdgeCorners(4, -1)).toEqual([3, 0]);
+  });
+
+  it("measures each wall's length in plan metres", () => {
+    expect(wallLengthM(room, 0)).toBeCloseTo(4, 6);
+    expect(wallLengthM(room, 1)).toBeCloseTo(3, 6);
+    expect(wallLengthM(room, 3)).toBeCloseTo(3, 6);
+  });
+
+  it("measures a wall that runs at an angle", () => {
+    expect(
+      wallLengthM(
+        [
+          { x: 0, y: 0 },
+          { x: 3, y: 4 },
+          { x: 0, y: 4 },
+        ],
+        0,
+      ),
+    ).toBeCloseTo(5, 6);
+  });
+
+  it("has no wall to face when the corners enclose nothing", () => {
+    expect(wallLengthM([], 0)).toBe(0);
+    expect(wallLengthM([{ x: 0, y: 0 }, { x: 4, y: 0 }], 0)).toBe(0);
+  });
+
+  it("keeps a wall area's own square metres — the face is not a projection", () => {
+    // A 2m x 1.2m patch on the wall measures 2.4 m2 of WALL. It is stored in
+    // face metres, so the ordinary shoelace applies unchanged; nothing here
+    // divides by a wall length or projects onto the plan.
+    const patch = [
+      { x: 1, y: 0.4 },
+      { x: 3, y: 0.4 },
+      { x: 3, y: 1.6 },
+      { x: 1, y: 1.6 },
+    ];
+    expect(polygonAreaSqm(patch)).toBeCloseTo(2.4, 6);
   });
 });

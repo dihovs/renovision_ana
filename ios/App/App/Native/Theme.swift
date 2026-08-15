@@ -410,6 +410,15 @@ struct MeasureDefinition: Identifiable {
         definition: """
             Equipment quantity multiplied by days on site. The day of delivery             and the day of collection are both counted, which is how this trade             bills. Units still on site are counted up to today.
             """)
+
+    /// The TypeScript twin is `VOLUME_DEFINITION` in
+    /// src/lib/crm/measureDefinitions.ts. The two must not disagree.
+    static let volume = MeasureDefinition(
+        id: "volume",
+        title: "Volume",
+        definition: """
+            Floor area multiplied by ceiling height — the air the room holds,             which is what dehumidification is sized from. Because ceiling             height is the tallest wall measured, a room with a sloped or             dropped ceiling holds less air than this states; it is an upper             bound, and equipment sized from it errs toward drying faster.
+            """)
 }
 
 /// A figure with its definition one tap away.

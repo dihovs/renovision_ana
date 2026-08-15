@@ -323,8 +323,15 @@ export default function RoomSheet({
                         <span className="block truncate text-sm font-semibold text-charcoal">
                           {area.name}
                         </span>
+                        {/* Which surface, on every row. Two rows reading
+                            "Water · 40 sq ft" are not the same measurement
+                            when one is a floor and the other a wall, and the
+                            list is the only place that difference shows. */}
                         <span className="block text-[11px] text-charcoal/45">
-                          {DAMAGE_LABEL[area.damage_type]}
+                          {DAMAGE_LABEL[area.damage_type]} ·{" "}
+                          {area.surface === "wall"
+                            ? `wall ${(area.wall_index ?? 0) + 1}`
+                            : "floor"}
                         </span>
                       </span>
                       <span className="shrink-0 text-sm font-bold tabular-nums text-charcoal">

@@ -166,6 +166,7 @@ struct ProjectDetailView: View {
     @State private var error: String?
     @State private var capturing = false
     @State private var addingEquipment = false
+    @State private var showingStatistics = false
     @State private var openRoom: RoomScan?
     /// ORD-16 — where a finished capture lands: the drawn plan for the storey
     /// just measured, not this list. Held in two steps because a push made
@@ -259,6 +260,14 @@ struct ProjectDetailView: View {
                                     .foregroundStyle(Brand.inkSoft)
                             }
                         }
+                    }
+
+                    // The whole property in four numbers, above the storeys —
+                    // the reference puts its statistics band here too, and it
+                    // is the right place: it answers "how big is this job"
+                    // before you have scrolled into any one room.
+                    if let scans, !scans.isEmpty {
+                        ProjectStatisticsBand(rooms: scans) { showingStatistics = true }
                     }
 
                     // Each storey through the collection shell (ORD-15): the
@@ -450,6 +459,9 @@ struct ProjectDetailView: View {
         }
         .sheet(isPresented: $addingEquipment) {
             AddEquipmentSheet(projectId: project.id) { Task { await load() } }
+        }
+        .sheet(isPresented: $showingStatistics) {
+            ProjectStatisticsSheet(rooms: scans ?? [])
         }
         .sheet(
             isPresented: $capturing,

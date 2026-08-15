@@ -34,16 +34,64 @@ export const DAMAGE_COLOR: Record<DamageType, string> = {
 
 export type AreaPoint = { x: number; y: number };
 
+/**
+ * A damaged region of one room.
+ *
+ * # What `polygon` is measured in
+ *
+ * There are two coordinate spaces here and `surface` says which one applies.
+ * Both are metres; nothing else about them is shared. Reading one as the
+ * other draws a shape somewhere arbitrary, which looks like a broken scan
+ * rather than like a bug.
+ *
+ * **`surface: "floor"`** — the plan's own metres, the space `toFloorPlan`
+ * draws in. Origin top-left of the plan's bounding box, y down the page,
+ * exactly like the walls beside it. Nothing to transform: a floor area is
+ * drawn on the plan as it is stored.
+ *
+ * **`surface: "wall"`** — the face of the wall named by `wall_index`, seen
+ * straight on. That face has its own two axes:
+ *
+ *   * **x — along the wall.** Measured from the edge's START corner toward
+ *     its end corner, where edge `i` of the room polygon runs from
+ *     `corners[i]` to `corners[(i + 1) % corners.length]` (`wallEdgeCorners`
+ *     below). Range `0 … wallLengthM(corners, wall_index)`. This is
+ *     deliberately the same origin and the same direction as an authored
+ *     opening's `offset`, so a damaged region's x can be compared with a
+ *     door's offset without a transform.
+ *
+ *   * **y — above the floor.** Range `0 … ceilingHeight`. y grows UPWARD,
+ *     the opposite of the plan's y. The inversion is the point: heights
+ *     counted down from the ceiling are not ones an estimator can read, and
+ *     every trade quotes a sill height up from the floor.
+ *
+ * Corners are wound anticlockwise from the bottom-left, so `area_sqm` is
+ * real square metres of wall rather than a signed or projected figure.
+ *
+ * The face is taken in the edge's own parametric direction rather than
+ * mirrored to "as seen standing in the room": winding is not guaranteed
+ * across scanned rooms, so a from-inside rule would be a guess, while the
+ * parametric rule is exact and is the one already baked into every opening
+ * offset in the record.
+ *
+ * This is the same convention `ios/App/App/Native/ElevationView.swift` draws
+ * and saves in — stated here as well, so the TypeScript side is a definition
+ * rather than a pointer at a Swift file. A renderer needs no more than the
+ * room polygon, the wall index and the ceiling height to reproduce the face.
+ */
 export type AffectedArea = {
   id: string;
   created_at: string;
   room_scan_id: string;
   surface: "floor" | "wall";
+  /** Which edge of the room polygon a wall area sits on. Null on the floor. */
   wall_index: number | null;
   name: string;
   damage_type: DamageType;
   color: string | null;
   area_sqm: number;
+  /** Plan metres for a floor area, wall-face metres for a wall area — see
+      the note above, which is the whole of the difference. */
   polygon: AreaPoint[];
   notes: string | null;
 };
@@ -87,14 +135,6 @@ export function areaColor(area: Pick<AffectedArea, "color" | "damage_type">): st
 }
 
 /**
- * Damaged area totalled by cause.
- *
- * By cause rather than one grand total because the causes do not share a
- * trade or a rate — and because areas may overlap, a single sum across all
- * of them would double-count the square footage where a wall is both wet
- * and smoke-stained.
- */
-/**
  * Split areas by the surface they sit on.
  *
  * These two are not interchangeable and must never be added together, for
@@ -137,9 +177,17 @@ export function wallAreas(areas: AffectedArea[]): AffectedArea[] {
 }
 
 /**
- * Totals per cause for the areas GIVEN. It sums exactly what it is handed and
- * does not filter — pass `floorAreas(...)` or `wallAreas(...)`, never a raw
- * mixed list, or the result is square metres of two different things.
+ * Damaged area totalled by cause.
+ *
+ * By cause rather than one grand total because the causes do not share a
+ * trade or a rate — and because areas may overlap, a single sum across all
+ * of them would double-count the square footage where a wall is both wet
+ * and smoke-stained.
+ *
+ * Totals for the areas GIVEN. It sums exactly what it is handed and does not
+ * filter — pass `floorAreas(...)` or `wallAreas(...)`, never a raw mixed
+ * list, or the result is square metres of two different things. When both
+ * surfaces are wanted, `totalsBySurface` is that call made correctly.
  */
 export function totalsByDamageType(areas: AffectedArea[]): { type: DamageType; sqm: number }[] {
   const totals = new Map<DamageType, number>();
@@ -150,4 +198,56 @@ export function totalsByDamageType(areas: AffectedArea[]): { type: DamageType; s
     type,
     sqm: totals.get(type) ?? 0,
   }));
+}
+
+export type SurfaceTotals = {
+  floor: { type: DamageType; sqm: number }[];
+  wall: { type: DamageType; sqm: number }[];
+};
+
+/**
+ * Damaged area totalled by cause, kept apart by surface.
+ *
+ * The split every consumer of a mixed area list actually wants, so that
+ * splitting correctly is one call rather than a filter each caller has to
+ * remember. A caller that forgets prints floor and wall square footage added
+ * together, and that figure is wrong twice over: the two surfaces overlap in
+ * plan, so the sum double-counts, and they are different trades at different
+ * rates, so no single rate prices the result.
+ *
+ * Either list is empty when nothing is recorded on that surface — an empty
+ * list is "no wall damage", which is a table not to print rather than a zero
+ * to print.
+ */
+export function totalsBySurface(areas: AffectedArea[]): SurfaceTotals {
+  const { floor, wall } = bySurface(areas);
+  return { floor: totalsByDamageType(floor), wall: totalsByDamageType(wall) };
+}
+
+/**
+ * The two corners of edge `index`, as indices into the room polygon.
+ *
+ * Edge `i` runs from corner `i` to corner `i + 1`, wrapping — the same rule
+ * as `PlanEditing.edgeCorners` on the phone, which is what `wall_index`
+ * counts against. The pair is ordered: the first is the START corner a wall
+ * area's x is measured from.
+ */
+export function wallEdgeCorners(count: number, index: number): [number, number] {
+  if (count <= 0) return [0, 0];
+  const edge = ((index % count) + count) % count;
+  return [edge, (edge + 1) % count];
+}
+
+/**
+ * How long the faced wall is, in metres — the width of the space a wall
+ * area's x runs across.
+ *
+ * `corners` is the room polygon in plan metres, WITHOUT the repeated closing
+ * point (`planCorners` in roomScan.ts strips it). Fewer than three corners
+ * encloses no room and so has no wall to face.
+ */
+export function wallLengthM(corners: AreaPoint[], index: number): number {
+  if (corners.length < 3) return 0;
+  const [start, end] = wallEdgeCorners(corners.length, index);
+  return Math.hypot(corners[end].x - corners[start].x, corners[end].y - corners[start].y);
 }

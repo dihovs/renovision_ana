@@ -719,6 +719,28 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
   };
 }
 
+/**
+ * The room's corners — the array a wall index counts against.
+ *
+ * `plan.polygon` may or may not repeat its first point at the end: the
+ * chained-from-walls outline closes itself, while a hand-corrected one is
+ * already a bare corner list. The phone reconstructs its corners by dropping
+ * the last point unconditionally (`PlanEditorView.swift`), which is why
+ * `FloorPlanGeometry` appends a closing point in both cases. Here the test is
+ * on the points themselves, so it is right either way round rather than
+ * depending on which branch of `toFloorPlan` produced the outline — reading
+ * an unclosed outline as a closed one silently deletes a real corner, and
+ * with it renumbers every wall after it.
+ */
+export function planCorners(plan: Pick<FloorPlan, "polygon">): PlanPoint[] {
+  const points = plan.polygon;
+  if (points.length < 2) return [...points];
+  const first = points[0];
+  const last = points[points.length - 1];
+  const closed = Math.hypot(last.x - first.x, last.y - first.y) < 1e-6;
+  return closed ? points.slice(0, -1) : [...points];
+}
+
 /** RoomPlan measures in meters; every price book unit here is imperial. */
 export function metersToFeet(meters: number): number {
   return meters * 3.28084;
