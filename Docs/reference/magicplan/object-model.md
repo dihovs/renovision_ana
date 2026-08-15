@@ -422,6 +422,72 @@ rectangle-only — which makes sense of the guided walk, and tells us our own
 
 ---
 
+## 2e. A real job — the condo
+
+Everything above was learned on a 2.5 × 2.5 test room. This section is a real
+project of the owner's: a Montréal condo, **9 rooms, 78.68 m² floor,
+212.70 m² wall, 39 photos**. What changes at that scale is worth its own
+section.
+
+### The project page
+
+Above the floor plans, in this order:
+
+1. `Add project description…` — free text
+2. **An address card with a Google Maps thumbnail** — street, city, postcode,
+   country. We hold an address as text on the job; they render it as a map.
+3. **Forms** — a row with a chevron, project level
+4. **Statistics** — `78.68 m² Floor Area · 212.70 m² Wall Area · 1 Floor ·
+   9 Rooms`, with `See All`
+5. **Floor Plans** — a rail, `See All (1)`, captioned **"Sorted by floor level"**
+6. **Photos** — a rail, `See All (39)`, captioned **"Sorted by last modified"**
+
+Both collections state their sort order in the header. Ours do not, and on a
+39-photo job the order is the difference between finding a photo and scrolling.
+
+### The plan at nine rooms
+
+The floor-level render holds up: poché walls, flat grey floors, each room
+labelled with **name and area on two lines**, door swings drawn, and
+**furniture and fixtures as line-work** — beds, counters, a bathtub, a toilet,
+a vanity, all as proper plan symbols. No dimensions, no handles, no tan grid.
+
+Inside a room it becomes the live drawing: the Bathroom is `1.615 × 3.208`,
+tan floor grid, full chains, fixtures still drawn.
+
+### The finding that matters most
+
+The Bathroom's **`Room Type` is `Other`**. On a real job the operator named the
+rooms — "Bathroom", "Kitchen", "1st bedroom" — and never set a single type.
+
+That is why the report cover prints **`Bathroom 0`** for a condo that plainly
+has one: **the cover counts by TYPE, and no room carries a type.** The statistic
+is wrong, it looks authoritative, and nobody notices.
+
+This is the strongest evidence yet for ORD-17's decision to ask the room type
+**before** the camera opens rather than offering it afterwards. Type-after is
+type-never.
+
+### Photos and video, at 39 attachments
+
+The Bathroom alone holds six. **Photos and videos share one grid**, videos
+marked with a **duration badge** (`0:30`, `0:03`).
+
+The video viewer is the photo viewer with one difference: **no `Edit`**. The
+annotation editor of §2a is photo-only; a video gets caption, share, info and
+delete but cannot be marked up.
+
+The `…` menu completes the attachment model:
+
+    Move · Save · Share · Delete
+
+**`Move` re-attaches an existing photo to a different room or object.** On a
+job where 39 photos were taken quickly, filing one against the wrong room is
+routine, and being able to move it afterwards is the difference between a
+correct claim file and a re-shoot. We have no equivalent.
+
+---
+
 ## 3a. The three wall actions, performed
 
 All three were run on a clean bottom wall and undone afterwards.
