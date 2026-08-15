@@ -551,3 +551,29 @@ inside it as partition, and say so in the definition.
 
 **Territory:** `src/lib/crm/projectStatistics.ts`, `ProjectStatistics.swift`,
 `measureDefinitions.ts`, `Theme.swift`.
+
+---
+
+## ORD-22 — CORRECTION, from the device
+
+The Residential / Commercial split was observed in magicplan on 15 Aug 2026,
+and **their commercial list has now been read**:
+
+> Private Office · Shared Office · Open Space · Meeting Room · Conference Room ·
+> Reception · Kitchenette · Cafeteria · Lounge · Waiting Room · Training Room ·
+> Maintenance Room · Archives · Photocopy Room · Lab · …
+
+That answers question 1 — in the negative. It is an **office fit-out**
+vocabulary, and copying it would be worse than having no commercial half at
+all. Nobody restoring a flooded commercial building picks `Photocopy Room`;
+they pick a mechanical room, an electrical room, a server room, a retail floor,
+a warehouse bay, storage, a washroom block, a corridor, a stairwell, a loading
+dock. An operator who cannot find their room picks "Other", which is exactly
+the failure ORD-06 existed to fix.
+
+**So: take the split, not the list.** The control is confirmed real and worth
+building. The types behind it must come from the owner's own jobs.
+
+Question 2 is unchanged and still the owner's: ANSI Z765 is a residential
+standard and does not apply to a warehouse, so commercial types either opt out
+of the living-area engine or need their own rule.

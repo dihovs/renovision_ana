@@ -349,6 +349,56 @@ under ORD-04. What is missing is coverage: their list is longer than ours.
 
 ---
 
+## 2d. The room sheet
+
+| Section | Field | Value |
+|---|---|---|
+| Statistics | | `6.25 m² Floor · 20.18 m² Wall · 8.40 m Perimeter · 15.25 m³ Volume` |
+| Dimensions | Ceiling Height | 2.440 m |
+| Dimensions | **Living Area (%)** | 100 |
+| Affected Areas | `Affected Area 1` | `On the wall` · 6.10 m² |
+| Affected Areas | `+ Add New Area` | |
+| General | Floor | `Ground Floor ›` |
+| General | Room Type | `Living Room ›` |
+| General | Room Name | `Living Room` |
+| General | Room Color | swatch |
+
+Three things confirm work we already did. **Living Area (%)** is our
+`living_percent` (migration 0030). Each affected area is listed **with the
+surface it sits on** — *"On the wall"* — which is our `surface` column. And the
+room's `Perimeter` statistic is **8.40 m**, the ground perimeter, not the 10.00 m
+ceiling perimeter: at room level the number they lead with is the baseboard one.
+
+`Floor` is a picker, so a room can be moved between storeys. `Room Color` is a
+per-room fill.
+
+### Room types — and the Residential / Commercial split
+
+The Room Type picker is a single-select with the **Residential | Commercial**
+segmented control at its head. This is the control ORD-17 could not build.
+
+**Residential**, in their order: Kitchen · Dining Room · Living Room · Hall ·
+Bedroom · Primary Bedroom · Children Bedroom · Bathroom · Closet · Study ·
+Music Room · Balcony · Garage · Hallway · Laundry Room · (more below the fold).
+
+**Commercial**: Private Office · Shared Office · Open Space · Meeting Room ·
+Conference Room · Reception · Kitchenette · Cafeteria · Lounge · Waiting Room ·
+Training Room · Maintenance Room · Archives · Photocopy Room · Lab · (more).
+
+**Their commercial list is an office fit-out vocabulary, and adopting it would
+be a mistake** — which is exactly what ORD-22 predicted. A water-damage job in a
+commercial building is a mechanical room, an electrical room, a server room, a
+retail floor, a warehouse bay, a storage room, a washroom block, a corridor, a
+stairwell, a loading dock. `Photocopy Room` and `Archives` will never be picked
+on one of these jobs, and an operator who cannot find their room picks "Other",
+which is the failure ORD-06 existed to fix.
+
+So ORD-22's first question is now answered in the negative: **take the split,
+not the list.** The second question — how living area treats commercial rooms —
+is still the owner's, and ANSI Z765 still does not apply to a warehouse.
+
+---
+
 ## 3. The action bar changes with what is selected
 
 Confirms and extends `editor-chrome-design.md` §4. Observed, at each depth:
@@ -499,6 +549,8 @@ nobody "fixes" it back.
   "with/without openings". §2c.
 - **ORD-36 — the objects takeoff.** A per-type count roll-up per floor and per
   project: how many doors, how many windows, how many affected areas. §2c.
+- **ORD-37 — room colour, and moving a room between floors.** Both are single
+  fields on their room sheet and both are things an operator asks for. §2d.
 - **ORD-29 — 360 photo and video capture.** Their `+` offers Photo, 360 or
   Video; we offer stills only. Sizing not yet done. §2.
 - Set Size should **hide** on a non-rectangular room, not grey. §3.
