@@ -18,11 +18,25 @@ struct ProjectsView: View {
     /// The project being opened. A grid card is a button rather than a
     /// NavigationLink, so the push is driven from here.
     @State private var opened: ProjectSummary?
+    @State private var filter: ProjectFilter = .all
+
+    /// The reference filters All / Favorites / Archived. Neither of those is
+    /// a thing this trade has; what an operator actually sorts by is whether
+    /// the job has been measured yet, which is the one fact that decides
+    /// whether they need to drive there.
+    enum ProjectFilter: Hashable { case all, measured, unmeasured }
 
     private var shown: [ProjectSummary] {
         guard let projects else { return [] }
-        guard !query.isEmpty else { return projects }
-        return projects.filter {
+        let byFilter = projects.filter {
+            switch filter {
+            case .all: return true
+            case .measured: return $0.roomCount > 0
+            case .unmeasured: return $0.roomCount == 0
+            }
+        }
+        guard !query.isEmpty else { return byFilter }
+        return byFilter.filter {
             $0.name.localizedCaseInsensitiveContains(query)
                 || ($0.clientName ?? "").localizedCaseInsensitiveContains(query)
         }
@@ -44,13 +58,14 @@ struct ProjectsView: View {
                 ScrollView {
                     VStack(spacing: Brand.Space.base) {
                         if let projects, !projects.isEmpty {
-                            StatBand(items: [
-                                .init(label: "Projects", value: "\(projects.count)"),
-                                .init(label: "Rooms", value: "\(measured)"),
-                                .init(
-                                    label: "Active",
-                                    value: "\(projects.filter { $0.roomCount > 0 }.count)"),
-                            ])
+                            FilterChips(
+                                options: [
+                                    (.all, "All", "briefcase"),
+                                    (.measured, "Measured", "ruler"),
+                                    (.unmeasured, "To measure", "tray"),
+                                ],
+                                selection: $filter)
+                            .padding(.bottom, 2)
                         }
 
                         if let error {
@@ -118,13 +133,11 @@ struct ProjectsView: View {
                     .padding(.top, Brand.Space.small)
                     // Clear of the floating button, which otherwise covers the
                     // last row exactly when the list is long enough to matter.
-                    .padding(.bottom, 96)
+                    .padding(.bottom, Brand.Space.large)
                 }
                 .refreshable { await load() }
 
-                FloatingAction(icon: "plus") { creating = true }
-                    .padding(.trailing, Brand.Space.large)
-                    .padding(.bottom, Brand.Space.large)
+                EmptyView()
             }
             .navigationTitle("Projects")
             .navigationDestination(item: $opened) { ProjectDetailView(project: $0) }
