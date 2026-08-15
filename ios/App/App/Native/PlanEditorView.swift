@@ -572,7 +572,9 @@ struct PlanEditorView: View {
         // typed that length, and until now un-typing it meant re-running the
         // whole Set Size walk; the panel this opens carries Unlock for the
         // wall you actually pointed at.
-        if measuring == nil,
+        // BISECT: temporarily disabled to establish whether this branch is
+        // what stopped every canvas tap from registering.
+        if false, measuring == nil,
             let edge = EditorChrome.dimensionHit(at: point, polygon: corners, scale: scale)
         {
             startMeasuring(at: edge)
