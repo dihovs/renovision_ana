@@ -279,11 +279,23 @@ struct RoomSketchView: View {
                             wall.move(to: pt(corners[a]))
                             wall.addLine(to: pt(corners[b]))
                             let selected = selection == .wall(i)
+                            let core = selected ? 9 : max(3, 0.114 * scale)
+
+                            // The wall's own footprint, under the black — see
+                            // the note in PlanEditorView. Both canvases draw a
+                            // wall the same way or the same room looks like
+                            // two different buildings.
+                            if !invalid {
+                                context.stroke(
+                                    wall, with: .color(Brand.Plan.wallFootprint),
+                                    style: StrokeStyle(lineWidth: core + 7, lineCap: .butt))
+                            }
+
                             context.stroke(
                                 wall,
                                 with: .color(invalid ? .red : (selected ? Brand.blue : Brand.Plan.ink)),
                                 style: StrokeStyle(
-                                    lineWidth: selected ? 9 : max(3, 0.114 * scale),
+                                    lineWidth: core,
                                     lineCap: .butt,
                                     dash: invalid ? [8, 5] : []))
                         }

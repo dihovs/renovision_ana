@@ -42,6 +42,7 @@ struct PlanEditorView: View {
     @State private var saving = false
     @State private var error: String?
     @State private var showDiscard = false
+    @State private var confirmingRoomDelete = false
     /// Wall lengths the operator TYPED. A measured number and an entered one
     /// are different kinds of fact, and a claim file must be able to tell
     /// them apart.
@@ -300,11 +301,27 @@ struct PlanEditorView: View {
                         wall.addLine(to: pt(corners[b]))
 
                         let isSelected = selection == .wall(i)
+                        let core = isSelected ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale)
+
+                        // A wall is a BAND, not a line. The reference draws the
+                        // wall black with a grey band around it, and the grey
+                        // is the assembly's own thickness — the footprint the
+                        // wall occupies rather than the face you measure to.
+                        // Without it a plan reads as a sketch; with it, it
+                        // reads as a drawing of a building. Drawn under the
+                        // black so the measured face stays exactly where it
+                        // was: this adds nothing to any dimension.
+                        if !invalid {
+                            context.stroke(
+                                wall, with: .color(Brand.Plan.wallFootprint),
+                                style: StrokeStyle(lineWidth: core + 7, lineCap: .butt))
+                        }
+
                         context.stroke(
                             wall,
                             with: .color(invalid ? .red : (isSelected ? Brand.blue : Brand.Plan.ink)),
                             style: StrokeStyle(
-                                lineWidth: isSelected ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale),
+                                lineWidth: core,
                                 lineCap: .butt,
                                 dash: invalid ? [8, 5] : []))
                     }
@@ -342,9 +359,11 @@ struct PlanEditorView: View {
                             toScreen: pt, winding: EditorChrome.winding(corners))
                     }
 
-                    // Corner handles, whenever anything is selected — they
-                    // are what makes the shape feel grabbable.
-                    if selection != .none {
+                    // Corner handles, ALWAYS — the reference shows them on an
+                    // untouched room, and they are what says the shape can be
+                    // grabbed at all. Hiding them until something is selected
+                    // meant the first drag had to be guessed at.
+                    if true {
                         for i in corners.indices {
                             let p = pt(corners[i])
                             let big = selection == .corner(i)
@@ -748,6 +767,45 @@ struct PlanEditorView: View {
             onClose: closeElevation)
     }
 
+    /// Copy this room, geometry and all, onto the same storey.
+    ///
+    /// A real second room rather than a reference: two identical bedrooms are
+    /// two rooms to dry, two floors to price and two rows in a claim, and an
+    /// edit to one must never silently change the other.
+    ///
+    /// It copies what the scan MEASURED, not the corrections made in this
+    /// editor — unsaved edits belong to the room being edited, and carrying
+    /// them into a copy would put an unreviewed outline into a new record.
+    private func duplicateRoom() async {
+        guard let projectId = room.projectId, let geometry = room.geometry else { return }
+        do {
+            // Every measurement is derived from the geometry by the
+            // initialiser rather than copied field by field, so a duplicate
+            // cannot end up stating an area its own outline disagrees with.
+            _ = try await API.shared.saveScan(ScanUpload(
+                projectId: projectId,
+                name: "\(room.name) copy",
+                level: room.level,
+                position: room.position + 1,
+                geometry: geometry,
+                roomType: room.roomType))
+            onSaved()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func deleteRoom() async {
+        do {
+            try await API.shared.deleteScan(id: room.id)
+            onSaved()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     // MARK: - Measurement walk
 
     /// Open the panel at a wall and queue every wall from there, in order —
@@ -864,6 +922,18 @@ struct PlanEditorView: View {
         }
         .padding(.top, Brand.Space.small)
         .background(Brand.Plan.sheet)
+        .confirmationDialog(
+            "Delete \(room.name)?",
+            isPresented: $confirmingRoomDelete, titleVisibility: .visible
+        ) {
+            Button("Delete room", role: .destructive) { Task { await deleteRoom() } }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            // Say what goes with it. A room carries its damage, its readings
+            // and its photos, and an operator who has to discover that
+            // afterwards has lost evidence rather than a measurement.
+            Text("Its measurements, damage areas, moisture readings and photos go too. This cannot be undone.")
+        }
     }
 
     /// This editor's selection as a depth the shared bar understands.
@@ -907,9 +977,17 @@ struct PlanEditorView: View {
     private var supportedActions: Set<EditorAction> {
         switch selection {
         case .none:
-            // Set Size walks every wall through the keypad — exactly what
-            // C5 describes, and already built.
-            return [.setSize]
+            // Room depth. The reference enables all five here, and its own
+            // screen settles what they act on: the ROOM, not the storey —
+            // which reverses the earlier call to grey Duplicate and Delete.
+            //
+            // Insert and Edit Layout stay greyed, and that is not the same
+            // decision. Insert at room level opens their Room/Object/Note/
+            // Photo/Form menu, which we do not have; Edit Layout is a
+            // reposition mode nobody has observed performing anything. Those
+            // remain unimplemented rather than guessed. Duplicate and Delete
+            // are enabled because we can actually do them.
+            return [.setSize, .duplicate, .delete]
         case .wall:
             return canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
         case .corner:
@@ -926,6 +1004,10 @@ struct PlanEditorView: View {
         switch (action, selection) {
         case (.setSize, _):
             startMeasuring(at: 0)
+        case (.duplicate, .none):
+            Task { await duplicateRoom() }
+        case (.delete, .none):
+            confirmingRoomDelete = true
         case (.insert, .wall):
             addingOpening = true
         case (.addCorner, .wall(let index)):

@@ -78,6 +78,12 @@ enum Brand {
         static let sheet = Color(hex: 0xF2F2F5)
         /// Walls, and anything else that is a line on the drawing.
         static let ink = Color(hex: 0x111111)
+        /// The band around a wall: the assembly's own thickness, the
+        /// footprint it occupies rather than the face measurements are taken
+        /// to. Drawn UNDER the black wall, so it adds nothing to any
+        /// dimension — it is what makes a plan read as a building rather
+        /// than a sketch.
+        static let wallFootprint = Color(hex: 0xBFBFC4)
         /// The floor fill of a room that is not the one being edited.
         static let floorMuted = Color(hex: 0xEFEEF4)
         /// The tan floor-tile grid inside a room.
@@ -218,7 +224,7 @@ struct StatBand: View {
                     Text(item.label.uppercased())
                         .font(.system(size: 10, weight: .heavy))
                         .tracking(0.3)
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(Brand.inkFaint)
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text(item.value)
                             .font(.system(size: 19, weight: .bold, design: .rounded))
@@ -226,10 +232,10 @@ struct StatBand: View {
                         if let unit = item.unit {
                             Text(unit)
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(Brand.inkFaint)
                         }
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Brand.ink)
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                 }
@@ -237,14 +243,22 @@ struct StatBand: View {
 
                 if index < items.count - 1 {
                     Rectangle()
-                        .fill(.white.opacity(0.12))
+                        .fill(Brand.hairline)
                         .frame(width: 1, height: 30)
                 }
             }
         }
         .padding(.vertical, Brand.Space.base)
         .padding(.horizontal, Brand.Space.small)
-        .background(Brand.charcoalDark, in: .rect(cornerRadius: Brand.Radius.card))
+        // A card, not a dark slab. It was white-on-charcoal, which read as an
+        // accent when the app around it was dark and as a black bar across the
+        // page once the app went light. The reference's own statistics band is
+        // a light card, and a figure the operator is meant to read belongs on
+        // paper like every other figure.
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .overlay(
+            RoundedRectangle(cornerRadius: Brand.Radius.card)
+                .strokeBorder(Brand.hairline, lineWidth: 0.5))
     }
 }
 

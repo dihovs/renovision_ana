@@ -457,6 +457,10 @@ actor API {
 
     // MARK: - Call log actions
 
+    func deleteScan(id: String) async throws {
+        _ = try await request("/api/v1/scans/\(id)", method: "DELETE", body: Optional<String>.none)
+    }
+
     func deleteCall(id: String) async throws {
         _ = try await request("/api/v1/calls/\(id)", method: "DELETE", body: Optional<String>.none)
     }
