@@ -599,7 +599,16 @@ private struct RoomRailCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Brand.Space.tight) {
-            RoomGlyph(stairs: room.stairCount > 0)
+            // The room's OWN outline, not a generic mark. Six rooms on a rail
+            // used to be six copies of one glyph; the shape is what lets you
+            // pick the L-shaped one out without reading names. Falls back to
+            // the glyph only when there is no geometry to draw — a typed room
+            // that was never scanned.
+            if room.geometry != nil {
+                RoomThumbnail(room: room)
+            } else {
+                RoomGlyph(stairs: room.stairCount > 0)
+            }
             Spacer(minLength: 0)
             Text(room.name)
                 .font(.system(size: 13, weight: .semibold))
