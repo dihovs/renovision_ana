@@ -43,7 +43,13 @@ export async function createArea(input: {
 
 export async function updateArea(
   id: string,
-  patch: { name?: string; damageType?: DamageType; polygon?: AreaPoint[] },
+  patch: {
+    name?: string;
+    damageType?: DamageType;
+    polygon?: AreaPoint[];
+    notes?: string;
+    showDimensions?: boolean;
+  },
 ): Promise<void> {
   const response = await fetch(`/api/v1/areas/${encodeURIComponent(id)}`, {
     method: "PATCH",

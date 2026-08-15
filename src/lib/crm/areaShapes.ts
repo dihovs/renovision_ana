@@ -94,6 +94,11 @@ export type AffectedArea = {
       the note above, which is the whole of the difference. */
   polygon: AreaPoint[];
   notes: string | null;
+  /** Whether this area's width/height print on the wall elevation. Off by
+      default — most areas mark WHERE damage is, not what it measures;
+      turning this on is a deliberate choice for the ones that matter to
+      an estimate. */
+  show_dimensions: boolean;
 };
 
 export type AffectedAreaInput = {

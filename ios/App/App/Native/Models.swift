@@ -578,11 +578,15 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     /// Hand-set 0-100 override. nil means "use the type's default", which is
     /// a different statement from zero.
     let livingPercent: Double?
+    /// A hex colour for this room on the floor plan, separate from any
+    /// damage colouring inside it. nil draws the plan's ordinary grey.
+    let roomColor: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, level, position, geometry
         case roomType = "room_type"
         case livingPercent = "living_percent"
+        case roomColor = "room_color"
         case projectId = "project_id"
         case floorAreaSqm = "floor_area_sqm"
         case wallLengthM = "wall_length_m"
@@ -615,6 +619,7 @@ struct RoomScan: Decodable, Identifiable, Hashable {
         geometry = try? c.decodeIfPresent(ScanGeometry.self, forKey: .geometry)
         roomType = try? c.decodeIfPresent(String.self, forKey: .roomType)
         livingPercent = try? c.decodeIfPresent(Double.self, forKey: .livingPercent)
+        roomColor = try? c.decodeIfPresent(String.self, forKey: .roomColor)
     }
 
     // Identity is the id, not the wall coordinates. Synthesising Hashable
@@ -623,6 +628,17 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     // room whatever the measurements say.
     static func == (a: RoomScan, b: RoomScan) -> Bool { a.id == b.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    /// The parsed plan colour, or nil to fall back to the plan's own grey.
+    /// Same parse as `AffectedArea.displayColor` — a malformed or missing
+    /// value degrades to no colour rather than a crash or a black room.
+    var displayColor: Color? {
+        guard let hex = roomColor?.trimmingCharacters(in: .whitespaces),
+            hex.hasPrefix("#"), hex.count == 7,
+            let value = UInt32(hex.dropFirst(), radix: 16)
+        else { return nil }
+        return Color(hex: value)
+    }
 }
 
 // MARK: - Affected areas
@@ -711,6 +727,13 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
     /// in full; the short version is that the two must never be drawn with
     /// the same renderer.
     let polygon: [Point]
+    /// A free-text note against this area — separate from the room's own
+    /// notes, since "the drywall was already cut back here" is a fact about
+    /// the region, not the room.
+    let notes: String?
+    /// Whether this area's width/height print on the wall elevation. Off by
+    /// default: most areas mark WHERE damage is, not what it measures.
+    let showDimensions: Bool
 
     struct Point: Decodable, Hashable {
         let x: Double
@@ -718,10 +741,11 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, surface, polygon, color
+        case id, name, surface, polygon, color, notes
         case wallIndex = "wall_index"
         case damageType = "damage_type"
         case areaSqm = "area_sqm"
+        case showDimensions = "show_dimensions"
     }
 
     init(from decoder: Decoder) throws {
@@ -734,6 +758,8 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
         damageType = (try? c.decode(String.self, forKey: .damageType)) ?? "water"
         areaSqm = try c.decodeFlexibleDouble(.areaSqm)
         polygon = (try? c.decodeIfPresent([Point].self, forKey: .polygon)) ?? []
+        notes = try? c.decodeIfPresent(String.self, forKey: .notes)
+        showDimensions = (try? c.decode(Bool.self, forKey: .showDimensions)) ?? false
     }
 
     var cause: DamageCause { DamageCause.named(damageType) }

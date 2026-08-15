@@ -8,7 +8,7 @@ import {
   type DamageType,
 } from "@/lib/crm/affectedAreas";
 
-/** Rename, recolour, reclassify or reshape one area. */
+/** Rename, recolour, reclassify, reshape, or toggle dimension display on one area. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -29,6 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (DAMAGE_TYPES.includes(body.damageType as DamageType)) {
     patch.damageType = body.damageType as DamageType;
   }
+  if (typeof body.showDimensions === "boolean") patch.showDimensions = body.showDimensions;
 
   if (body.polygon !== undefined) {
     const polygon = Array.isArray(body.polygon)

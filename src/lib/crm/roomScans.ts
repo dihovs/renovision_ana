@@ -34,6 +34,9 @@ export type RoomScan = {
   /** Hand-set 0-100 override. NULL means "use the type's default", which is
       a different statement from 0. */
   living_percent: number | null;
+  /** A hex colour for this room on the floor plan, distinct from any damage
+      colouring inside it. NULL draws the plan's ordinary grey. */
+  room_color: string | null;
 };
 
 export type RoomScanInput = {
@@ -119,6 +122,7 @@ export async function updateRoomScan(
     planY?: number | null;
     roomType?: string | null;
     livingPercent?: number | null;
+    roomColor?: string | null;
   },
 ): Promise<void> {
   const client = requireDb();
@@ -133,6 +137,7 @@ export async function updateRoomScan(
       ...(patch.planY !== undefined ? { plan_y: patch.planY } : {}),
       ...(patch.roomType !== undefined ? { room_type: patch.roomType } : {}),
       ...(patch.livingPercent !== undefined ? { living_percent: patch.livingPercent } : {}),
+      ...(patch.roomColor !== undefined ? { room_color: patch.roomColor?.trim() || null } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

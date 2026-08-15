@@ -36,8 +36,15 @@ struct RoomDetailView: View {
     @State private var logging = false
     @State private var editingPlan = false
     @State private var pickingType = false
+    /// The area whose inspector is open — rename, notes, and whether its
+    /// dimensions print on the elevation.
+    @State private var editingArea: AffectedArea?
     @State private var roomTypes: [LivingRoomType] = []
     @State private var chosenType: String?
+    @State private var pickingFloor = false
+    @State private var chosenLevel = ""
+    @State private var chosenColor: String?
+    @State private var savingRoomField = false
 
     /// Floor and wall damage, kept apart all the way to the screen.
     ///
@@ -135,6 +142,16 @@ struct RoomDetailView: View {
         }
         .sheet(isPresented: $logging) {
             ReadingSheet(roomId: room.id) { Task { await load() } }
+        }
+        .sheet(item: $editingArea) { area in
+            AffectedAreaSheet(area: area) { Task { await load() } }
+        }
+        .sheet(isPresented: $pickingFloor) {
+            FloorPicker(selected: chosenLevel) { picked in
+                chosenLevel = picked
+                pickingFloor = false
+                Task { await saveRoomLevel(picked) }
+            }
         }
         .task { await load() }
     }
@@ -265,6 +282,48 @@ struct RoomDetailView: View {
         }
 
         Section {
+            Button {
+                pickingFloor = true
+            } label: {
+                HStack {
+                    Text("Floor")
+                        .foregroundStyle(Brand.ink)
+                    Spacer()
+                    Text(FloorVocabulary.levels.first { $0.id == chosenLevel }?.label ?? chosenLevel)
+                        .foregroundStyle(Brand.blue)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+                .font(.system(size: 15))
+            }
+            .buttonStyle(.plain)
+            .disabled(savingRoomField)
+
+            // The plan's ordinary grey by default; a swatch says "this room,
+            // deliberately" the way a highlighter does on a paper drawing.
+            // The circle with a slash is the way back to no colour at all —
+            // clearing a choice needs its own target, not just picking
+            // nothing.
+            VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                Text("Colour on the plan")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.ink)
+                HStack(spacing: 10) {
+                    swatch(nil)
+                    ForEach(Self.roomColors, id: \.self) { hex in
+                        swatch(hex)
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        } footer: {
+            Text("Separate from damage colouring — this is the room itself, on the floor sheet.")
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
+        }
+
+        Section {
             LabeledContent("Doors", value: "\(room.doorCount)")
             LabeledContent("Windows", value: "\(room.windowCount)")
             if room.stairCount > 0 {
@@ -384,21 +443,34 @@ struct RoomDetailView: View {
     /// The surface is stated on the row rather than implied by a grouping
     /// header, because these rows end up read one at a time.
     private func areaRow(_ area: AffectedArea, where place: String) -> some View {
-        HStack {
-            Circle()
-                .fill(area.displayColor)
-                .frame(width: 10, height: 10)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(area.name)
-                Text("\(place) · \(area.label)")
-                    .font(.caption2)
+        Button {
+            editingArea = area
+        } label: {
+            HStack {
+                Circle()
+                    .fill(area.displayColor)
+                    .frame(width: 10, height: 10)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(area.name)
+                        .foregroundStyle(Brand.ink)
+                    Text("\(place) · \(area.label)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(Measure.sqftLabel(area.areaSqm))
+                    .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.secondary)
+                // A tappable row that does not look tappable is a row nobody
+                // taps. The chevron is the only signal; the row itself still
+                // reads exactly as it did before.
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
             }
-            Spacer()
-            Text(Measure.sqftLabel(area.areaSqm))
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(.secondary)
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
     }
 
     private var damageTotals: String {
@@ -435,6 +507,43 @@ struct RoomDetailView: View {
         return roomTypes.first { $0.id == chosenType }?.label ?? chosenType
     }
 
+    /// Distinct from `DamageCause`'s palette on purpose: a room highlighted
+    /// teal must never read as if it were marked for water damage.
+    private static let roomColors: [UInt32] = [0x2FB6A8, 0x5B6FE0, 0xE0587F, 0xE8A93A, 0x7A8599]
+
+    /// The `#rrggbb` a swatch is stored and compared as — `DamageCause
+    /// .hexString`'s exact format, lower case, so a colour written from the
+    /// phone matches one written from the web byte for byte.
+    private static func hexString(_ value: UInt32) -> String { String(format: "#%06x", value) }
+
+    /// One swatch. `nil` is "no colour" — its own circle with a slash, not
+    /// merely the absence of a selected one, because clearing a choice needs
+    /// somewhere to tap exactly as much as making one does.
+    private func swatch(_ value: UInt32?) -> some View {
+        let hex = value.map(Self.hexString)
+        let selected = chosenColor == hex
+        return Button {
+            guard !savingRoomField else { return }
+            chosenColor = hex
+            Task { await saveRoomColor(hex) }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(value.map { Color(hex: $0) } ?? Brand.Plan.floorMuted)
+                if value == nil {
+                    Image(systemName: "slash.circle")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+            }
+            .frame(width: 26, height: 26)
+            .overlay(
+                Circle().strokeBorder(selected ? Brand.blue : .clear, lineWidth: 2.5)
+                    .padding(-3))
+        }
+        .buttonStyle(.plain)
+    }
+
     /// The plan, computed once from the stored geometry.
     private var plan: FloorPlanGeometry.Plan? {
         guard let geometry = room.geometry else { return nil }
@@ -468,9 +577,219 @@ struct RoomDetailView: View {
         // living-area endpoint so the labels and rules are the server's, not
         // a second copy drifting in the app.
         if chosenType == nil { chosenType = room.roomType }
+        if chosenLevel.isEmpty { chosenLevel = room.level }
+        if chosenColor == nil { chosenColor = room.roomColor }
         if roomTypes.isEmpty, let projectId = room.projectId {
             roomTypes = (try? await API.shared.livingArea(projectId: projectId).roomTypes) ?? []
         }
         loading = false
+    }
+
+    /// The measurements travel with the room; only which floor sheet it
+    /// files under changes. A failed save reverts the picker to the room's
+    /// own level rather than leaving the UI claiming a move that did not
+    /// happen — the same "optimistic, then honest" pattern the type picker
+    /// already follows.
+    private func saveRoomLevel(_ level: String) async {
+        savingRoomField = true
+        do {
+            try await API.shared.moveRoom(roomId: room.id, toLevel: level)
+        } catch {
+            chosenLevel = room.level
+            self.error = error.localizedDescription
+        }
+        savingRoomField = false
+    }
+
+    private func saveRoomColor(_ hex: String?) async {
+        savingRoomField = true
+        do {
+            try await API.shared.setRoomColor(roomId: room.id, hex: hex)
+        } catch {
+            chosenColor = room.roomColor
+            self.error = error.localizedDescription
+        }
+        savingRoomField = false
+    }
+}
+
+/// One affected area's inspector — its name, a note about it, and whether it
+/// gets dimensioned on the wall elevation. Reshaping and recolouring stay
+/// where they already work well: the drag on the elevation face, and the web
+/// editor. This sheet is the surface for the fields that have no home yet.
+struct AffectedAreaSheet: View {
+    let area: AffectedArea
+    let onChanged: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var notes: String
+    @State private var showDimensions: Bool
+    @State private var saving = false
+    @State private var confirmingDelete = false
+    @State private var error: String?
+
+    init(area: AffectedArea, onChanged: @escaping () -> Void) {
+        self.area = area
+        self.onChanged = onChanged
+        _name = State(initialValue: area.name)
+        _notes = State(initialValue: area.notes ?? "")
+        _showDimensions = State(initialValue: area.showDimensions)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Brand.Space.base) {
+                        HStack {
+                            Circle()
+                                .fill(area.displayColor)
+                                .frame(width: 12, height: 12)
+                            Text(area.isWall ? "On the wall" : "On the floor")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Brand.inkSoft)
+                            Spacer()
+                            Text(Measure.sqftLabel(area.areaSqm))
+                                .font(.system(size: 13, weight: .bold).monospacedDigit())
+                                .foregroundStyle(Brand.inkFaint)
+                        }
+
+                        Field(label: "NAME", text: $name, placeholder: "Affected area")
+
+                        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                            Text("NOTES")
+                                .font(.system(size: 10, weight: .heavy))
+                                .foregroundStyle(Brand.inkFaint)
+                            TextField(
+                                "What's here, what was already cut back — whatever the next visit needs to know.",
+                                text: $notes, axis: .vertical
+                            )
+                            .lineLimit(3...6)
+                            .padding(Brand.Space.small)
+                            .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
+                        }
+
+                        // Only meaningful on a wall — a floor area has no
+                        // elevation to print its dimensions on.
+                        if area.isWall {
+                            Toggle(isOn: $showDimensions) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Show dimensions")
+                                        .foregroundStyle(Brand.ink)
+                                    Text("Print this area's width and height on the wall elevation.")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Brand.inkFaint)
+                                }
+                            }
+                            .tint(Brand.blue)
+                        }
+
+                        if let error {
+                            Text(error).font(.footnote).foregroundStyle(.red)
+                        }
+
+                        Button(saving ? "Saving…" : "Save") {
+                            Task { await save() }
+                        }
+                        .buttonStyle(PrimaryButtonStyle(enabled: !saving))
+                        .disabled(saving)
+
+                        Button("Delete this area", role: .destructive) {
+                            confirmingDelete = true
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(Brand.Space.base)
+                }
+            }
+            .navigationTitle(area.label)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+            .confirmationDialog(
+                "Delete \(area.name)?",
+                isPresented: $confirmingDelete, titleVisibility: .visible
+            ) {
+                Button("Delete area", role: .destructive) { Task { await delete() } }
+                Button("Keep it", role: .cancel) {}
+            } message: {
+                Text("Its measurement, note and dimension setting go with it. This cannot be undone.")
+            }
+        }
+    }
+
+    private func save() async {
+        saving = true
+        error = nil
+        do {
+            try await API.shared.updateArea(
+                id: area.id,
+                name: name.trimmed.isEmpty ? nil : name.trimmed,
+                notes: notes.trimmed,
+                showDimensions: showDimensions)
+            onChanged()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        saving = false
+    }
+
+    private func delete() async {
+        saving = true
+        error = nil
+        do {
+            try await API.shared.deleteArea(id: area.id)
+            onChanged()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        saving = false
+    }
+}
+
+/// Which storey a room files under — `FloorVocabulary`'s own list, in
+/// building order, so a basement and an attic are never adjacent by
+/// accident of alphabetical sort.
+struct FloorPicker: View {
+    let selected: String
+    let onPick: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(FloorVocabulary.levels.sorted { $0.index > $1.index }, id: \.id) { level in
+                    Button {
+                        onPick(level.id)
+                    } label: {
+                        HStack {
+                            Text(level.label)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Brand.ink)
+                            Spacer()
+                            if level.id == selected {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Brand.blue)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Move to floor")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+        }
     }
 }

@@ -33,6 +33,7 @@ function area(over: Partial<AffectedArea> = {}): AffectedArea {
     area_sqm: 0,
     polygon: [],
     notes: null,
+    show_dimensions: false,
     ...over,
   };
 }

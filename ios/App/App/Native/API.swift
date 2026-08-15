@@ -337,6 +337,28 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    private struct AreaPatch: Encodable {
+        var name: String?
+        var notes: String?
+        var showDimensions: Bool?
+    }
+
+    /// Rename, annotate, or set whether an area's dimensions print on its
+    /// elevation. Reshaping and recolouring an area are not exposed from the
+    /// phone yet — those stay the wall-elevation drag and the web editor's
+    /// job — this is the inspector sheet's surface only.
+    func updateArea(id: String, name: String? = nil, notes: String? = nil, showDimensions: Bool? = nil)
+        async throws
+    {
+        _ = try await request(
+            "/api/v1/areas/\(id)", method: "PATCH",
+            body: AreaPatch(name: name, notes: notes, showDimensions: showDimensions))
+    }
+
+    func deleteArea(id: String) async throws {
+        _ = try await request("/api/v1/areas/\(id)", method: "DELETE", body: Optional<String>.none)
+    }
+
     private struct NewReading: Encodable {
         let roomScanId: String
         let location: String
@@ -374,6 +396,29 @@ actor API {
     func setRoomType(roomId: String, type: String?) async throws {
         _ = try await request(
             "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomTypePatch(roomType: type))
+    }
+
+    private struct RoomFloorPatch: Encodable {
+        let level: String
+    }
+
+    /// Move a room to another storey. The measurements travel with it
+    /// unchanged — this rewrites which floor sheet the room files under, not
+    /// what was measured.
+    func moveRoom(roomId: String, toLevel level: String) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomFloorPatch(level: level))
+    }
+
+    private struct RoomColorPatch: Encodable {
+        let roomColor: String?
+    }
+
+    /// A room's own colour on the floor plan — separate from any damage
+    /// colouring inside it. `nil` clears it back to the plan's ordinary grey.
+    func setRoomColor(roomId: String, hex: String?) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomColorPatch(roomColor: hex))
     }
 
     private struct PlacementPatch: Encodable {

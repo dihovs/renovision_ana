@@ -52,8 +52,9 @@ function readOpenings(body: Record<string, unknown>): AuthoredOpenings | undefin
   };
 }
 
-/** Rename a room or move it to another floor. The measurements themselves
-    are a record of what was scanned and are deliberately not editable. */
+/** Rename a room, move it to another floor, or recolour it on the plan. The
+    measurements themselves are a record of what was scanned and are
+    deliberately not editable. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -108,6 +109,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       // room type's default", which is not the same as zero.
       ...(body.livingPercent === null || Number.isFinite(Number(body.livingPercent))
         ? { livingPercent: body.livingPercent === null ? null : Number(body.livingPercent) }
+        : {}),
+      ...(typeof body.roomColor === "string" || body.roomColor === null
+        ? { roomColor: body.roomColor as string | null }
         : {}),
     });
     return { ok: true };

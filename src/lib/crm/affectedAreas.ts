@@ -122,6 +122,7 @@ export async function updateAffectedArea(
     color?: string | null;
     polygon?: AreaPoint[];
     notes?: string | null;
+    showDimensions?: boolean;
   },
 ): Promise<void> {
   const client = requireDb();
@@ -137,6 +138,7 @@ export async function updateAffectedArea(
         ? { polygon: patch.polygon, area_sqm: polygonAreaSqm(patch.polygon) }
         : {}),
       ...(patch.notes !== undefined ? { notes: patch.notes?.trim() || null } : {}),
+      ...(patch.showDimensions !== undefined ? { show_dimensions: patch.showDimensions } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

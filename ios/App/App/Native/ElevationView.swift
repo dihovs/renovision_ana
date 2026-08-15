@@ -345,6 +345,7 @@ struct ElevationView: View {
                     drawFolds(context: context, face: face)
                     drawFace(context: context, face: face)
                     drawAreas(context: context, face: face, size: size)
+                    drawAreaDimensions(context: context, face: face, size: size)
                     drawDraft(context: context, face: face)
                     drawOpenings(context: context, face: face, size: size)
                     drawDimensions(context: context, face: face, size: size)
@@ -610,6 +611,97 @@ struct ElevationView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(colour))
             context.draw(text, at: CGPoint(x: box.midX, y: box.midY), anchor: .center)
+        }
+    }
+
+    /// Width and height for the areas marked `showDimensions` — ORD-32, and
+    /// off by default: most areas exist to mark WHERE damage is, not to be
+    /// measured against, so this is a deliberate choice per area rather than
+    /// something every region prints.
+    ///
+    /// Measured from the polygon's own metres, not the screen box, so the
+    /// figure is exact regardless of zoom. Drawn in the area's own colour —
+    /// on a wall with two marked regions, a blue figure belonging to the
+    /// wrong one is worse than no figure.
+    private func drawAreaDimensions(context: GraphicsContext, face: Face, size: CGSize) {
+        for area in wallAreas where area.showDimensions {
+            let xs = area.polygon.map(\.x)
+            let ys = area.polygon.map(\.y)
+            guard let minX = xs.min(), let maxX = xs.max(),
+                let minY = ys.min(), let maxY = ys.max()
+            else { continue }
+            let width = maxX - minX
+            let height = maxY - minY
+            guard width > 0.02, height > 0.02 else { continue }
+
+            let colour = area.displayColor
+            let topLeft = face.point(minX, maxY)
+            let bottomLeft = face.point(minX, minY)
+            let bottomRight = face.point(maxX, minY)
+
+            // Width: a witness line under the region's own bottom edge,
+            // pulled down a few points so it never sits on top of the fill.
+            let widthY = bottomLeft.y + 12
+            var widthLine = Path()
+            widthLine.move(to: CGPoint(x: bottomLeft.x, y: widthY))
+            widthLine.addLine(to: CGPoint(x: bottomRight.x, y: widthY))
+            context.stroke(widthLine, with: .color(colour.opacity(0.8)), lineWidth: 0.7)
+            for x in [bottomLeft.x, bottomRight.x] {
+                var tick = Path()
+                tick.move(to: CGPoint(x: x, y: widthY - 3))
+                tick.addLine(to: CGPoint(x: x, y: widthY + 3))
+                context.stroke(tick, with: .color(colour.opacity(0.8)), lineWidth: 1)
+            }
+            writeAreaFigure(
+                UnitSettings.shared.format.format(Double(width)),
+                at: CGPoint(x: (bottomLeft.x + bottomRight.x) / 2, y: widthY), colour: colour,
+                context: context, size: size)
+
+            // Height: a witness line beside the region's own left edge —
+            // right of it if the region starts near the wall's own left
+            // edge, so the figure never runs off the face.
+            let toRight = minX < 0.3
+            let heightX = toRight ? bottomLeft.x + 12 : bottomLeft.x - 12
+            var heightLine = Path()
+            heightLine.move(to: CGPoint(x: heightX, y: topLeft.y))
+            heightLine.addLine(to: CGPoint(x: heightX, y: bottomLeft.y))
+            context.stroke(heightLine, with: .color(colour.opacity(0.8)), lineWidth: 0.7)
+            for y in [topLeft.y, bottomLeft.y] {
+                var tick = Path()
+                tick.move(to: CGPoint(x: heightX - 3, y: y))
+                tick.addLine(to: CGPoint(x: heightX + 3, y: y))
+                context.stroke(tick, with: .color(colour.opacity(0.8)), lineWidth: 1)
+            }
+            writeAreaFigure(
+                UnitSettings.shared.format.format(Double(height)),
+                at: CGPoint(x: heightX, y: (topLeft.y + bottomLeft.y) / 2), colour: colour,
+                rotated: -90, context: context, size: size)
+        }
+    }
+
+    /// `write()` fixes its figures to Brand.blue — right for the wall's own
+    /// dimensions, wrong here, where the colour IS the information: it says
+    /// which of possibly several marked regions this figure belongs to.
+    private func writeAreaFigure(
+        _ string: String, at point: CGPoint, colour: Color, rotated degrees: Double = 0,
+        context: GraphicsContext, size: CGSize
+    ) {
+        let resolved = context.resolve(
+            Text(string)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(colour))
+        let measured = resolved.measure(in: size)
+        context.drawLayer { layer in
+            layer.translateBy(x: point.x, y: point.y)
+            if degrees != 0 { layer.rotate(by: .degrees(degrees)) }
+            layer.fill(
+                Path(
+                    roundedRect: CGRect(
+                        x: -measured.width / 2 - 3, y: -measured.height / 2 - 1,
+                        width: measured.width + 6, height: measured.height + 2),
+                    cornerRadius: 3),
+                with: .color(Self.paper.opacity(0.85)))
+            layer.draw(resolved, at: .zero, anchor: .center)
         }
     }
 

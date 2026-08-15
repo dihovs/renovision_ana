@@ -168,11 +168,19 @@ struct LevelCanvas: View {
                             // The room just measured is white, the way the room
                             // you are inside is white in the editor
                             // (`editor-chrome-design.md` §2) — the others stay
-                            // grey. That is what makes "here is your scan"
-                            // legible without a label pointing at it.
-                            context.fill(
-                                floor,
-                                with: .color(isNew ? Brand.Plan.paper : Brand.Plan.floorMuted))
+                            // grey, UNLESS the operator gave this one its own
+                            // colour (ORD-37), which then wins: a colour
+                            // chosen on purpose says more than "not the one
+                            // just scanned".
+                            let fill: Color
+                            if isNew {
+                                fill = Brand.Plan.paper
+                            } else if let custom = slot.piece.room?.displayColor {
+                                fill = custom.opacity(0.35)
+                            } else {
+                                fill = Brand.Plan.floorMuted
+                            }
+                            context.fill(floor, with: .color(fill))
                             if isNew {
                                 context.stroke(
                                     floor, with: .color(Brand.blue.opacity(0.55)),
