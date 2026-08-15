@@ -85,12 +85,15 @@ describe("projectStatistics", () => {
     expect(Number.isFinite(stats.measurements.find((r) => r.id === "volume")!.value)).toBe(true);
   });
 
-  it("does not invent the reference's three ground-surface variants", () => {
-    // They need wall thickness, which a scan of wall faces does not have.
-    // Shipping them would mean reporting a guess as a measurement.
+  it("still does not put a footprint figure on the project statistics", () => {
+    // The refusal here stands, but the reason has moved. Wall thickness is a
+    // FLOOR setting -- the reference keeps it there too -- and this function
+    // is handed rooms from every floor at once, with no way to know which
+    // thickness applies to which. The figures exist now (wallThickness.ts) and
+    // are computed per floor, where the thickness is known.
     const ids = projectStatistics([room()]).measurements.map((r) => r.id);
-    expect(ids).not.toContain("groundSurfaceWithAllWalls");
-    expect(ids).not.toContain("groundSurfaceWithInteriorWalls");
+    expect(ids).not.toContain("footprintGross");
+    expect(ids).not.toContain("footprintInterior");
   });
 });
 

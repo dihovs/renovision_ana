@@ -112,6 +112,42 @@ export const VOLUME_DEFINITION: MeasureDefinition = {
 };
 
 /**
+ * The footprint including wall assemblies.
+ *
+ * These two were refused for months, and the refusal was right at the time:
+ * they need a wall thickness, and a scan of wall faces does not have one.
+ * What changed is that the operator states it now, per floor, the way the
+ * reference does — and a stated thickness is not an invented one.
+ *
+ * They are honest about their own limit. Our rooms are scanned one at a time
+ * and are not registered into a single footprint, so a room cannot know which
+ * of its walls a neighbour is on the far side of. Each room is therefore grown
+ * by HALF its wall thickness: a shared partition gets half from each side and
+ * is counted once, correctly, while an exterior wall gets only its inner half.
+ */
+export const FOOTPRINT_INTERIOR_DEFINITION: MeasureDefinition = {
+  id: "footprint-interior",
+  title: "Footprint with interior walls",
+  definition:
+    "The floor area plus the partitions between rooms, using the wall thickness " +
+    "set for this floor. Each room is grown by half that thickness, so a wall " +
+    "shared by two rooms is counted once. On a floor with a single room there " +
+    "are no partitions, and this equals the floor area.",
+};
+
+export const FOOTPRINT_GROSS_DEFINITION: MeasureDefinition = {
+  id: "footprint-gross",
+  title: "Footprint with all walls",
+  definition:
+    "The floor area plus every wall, using the thicknesses set for this floor — " +
+    "the closest figure to a gross building footprint. It is an UNDER-estimate: " +
+    "because rooms are scanned separately, an exterior wall cannot be told from " +
+    "a shared one, so each room contributes only the inner half of its outer " +
+    "walls. Expect it to read slightly under a figure measured to the outside " +
+    "face of the building.",
+};
+
+/**
  * The definitions as one object, in the shape API responses attach — keyed
  * the way the figures themselves are named in those responses, so a client
  * can look a definition up from the field it is about to display.
@@ -124,4 +160,6 @@ export const MEASURE_DEFINITIONS = {
   wallAreaNet: WALL_AREA_NET_DEFINITION,
   ceilingHeight: CEILING_HEIGHT_DEFINITION,
   volume: VOLUME_DEFINITION,
+  footprintInterior: FOOTPRINT_INTERIOR_DEFINITION,
+  footprintGross: FOOTPRINT_GROSS_DEFINITION,
 } as const;
