@@ -188,6 +188,21 @@ struct MiniPlan: View {
             context.stroke(
                 walls, with: .color(Brand.Plan.ink),
                 style: StrokeStyle(lineWidth: 2.2, lineCap: .square))
+
+            // A door or window is a gap in the wall, cut back to the paper
+            // colour, the same convention `LevelCanvas` draws with. Without
+            // this a card's own walls were unconditionally solid, so a room
+            // with a door on it looked identical to one with none — the
+            // thing this card exists to show at a glance was the one thing
+            // it could not show.
+            for opening in plan.openings {
+                var cut = Path()
+                cut.move(to: pt(opening.segment.x1, opening.segment.y1))
+                cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
+                context.stroke(
+                    cut, with: .color(Brand.Plan.paper),
+                    style: StrokeStyle(lineWidth: 3.7, lineCap: .butt))
+            }
         }
     }
 }

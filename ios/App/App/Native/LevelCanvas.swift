@@ -229,7 +229,16 @@ struct LevelCanvas: View {
                         }
 
                         if plotWidth >= 64 {
-                            let centre = pt(slot.plan.width / 2, slot.plan.height / 2)
+                            // The point deepest inside the room's own shape,
+                            // not the bounding box's midpoint. The two agree
+                            // on a plain rectangle, which is why this bug sat
+                            // unnoticed — but an L-shaped room's bounding-box
+                            // centre can land outside the room entirely,
+                            // which reads as "the label isn't in the middle"
+                            // because it genuinely is not.
+                            let anchor = FloorPlanGeometry.labelAnchor(
+                                slot.plan.polygon, width: slot.plan.width, height: slot.plan.height)
+                            let centre = pt(anchor.x, anchor.y)
                             let name = context.resolve(
                                 Text(slot.piece.name)
                                     .font(.system(size: 11, weight: .bold))
