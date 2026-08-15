@@ -12,10 +12,10 @@
 --   2. New query, paste ALL of this, press Run.
 --   3. Expect "Success. No rows returned" — these create tables, not results.
 --
---   If the app still reports a table as missing afterwards, PostgREST has not
---   noticed the change yet. Run this once more, on its own:
---
---       notify pgrst, 'reload schema';
+--   The last line reloads PostgREST's schema cache, so there is no second
+--   step. If the app still reports a table as missing after this ran
+--   cleanly, that is a real failure, not a caching delay -- read the error
+--   the editor printed rather than running it again.
 --
 -- IS IT SAFE TO RUN TWICE?
 --   Yes, and safe to run again after an earlier version of this file. Every
@@ -425,3 +425,17 @@ alter table public.projects
   -- and because the threshold is a citable standard the operator may need to
   -- state rather than assume.
   add column if not exists living_area_config jsonb;
+
+-- ==========================================================================
+-- Tell PostgREST the schema changed.
+--
+-- Creating a table is not enough on its own. Supabase's API layer serves
+-- from a cached copy of the schema, and until it reloads, every request for
+-- a brand-new table comes back PGRST205 "table not found" — which reads
+-- exactly like the migration having failed, when in fact it succeeded.
+--
+-- This used to be a separate step in the instructions above, run only after
+-- the app still looked broken. There is no reason to make anyone diagnose
+-- that. It is harmless to run when nothing changed, so it always runs.
+-- ==========================================================================
+notify pgrst, 'reload schema';
