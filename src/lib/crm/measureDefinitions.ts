@@ -44,9 +44,21 @@ export const PERIMETER_DEFINITION: MeasureDefinition = {
   id: "perimeter",
   title: "Perimeter",
   definition:
-    "The total run of the walls — the interior perimeter, at floor level — which " +
-    "is what baseboard and trim are priced against. Door openings are included " +
-    "in the run; deduct them separately if the trim does not cross them.",
+    "The total run of the walls — the interior perimeter, measured at floor " +
+    "level, with doorways included in the run. It is the basis for wall area. " +
+    "For trim, use baseboard length instead: that is this figure with the " +
+    "doorways taken out.",
+};
+
+export const BASEBOARD_DEFINITION: MeasureDefinition = {
+  id: "baseboard",
+  title: "Baseboard length",
+  definition:
+    "The perimeter with every doorway taken out — the run trim actually " +
+    "covers, since baseboard and shoe moulding do not cross a door or a cased " +
+    "opening. Windows are not deducted; trim runs under them. This is the " +
+    "figure to price linear-foot trim against, and on a room with two doors it " +
+    "is close to a metre shorter than the perimeter.",
 };
 
 export const WALL_AREA_GROSS_DEFINITION: MeasureDefinition = {
@@ -107,6 +119,7 @@ export const VOLUME_DEFINITION: MeasureDefinition = {
 export const MEASURE_DEFINITIONS = {
   floorArea: FLOOR_AREA_DEFINITION,
   perimeter: PERIMETER_DEFINITION,
+  baseboard: BASEBOARD_DEFINITION,
   wallAreaGross: WALL_AREA_GROSS_DEFINITION,
   wallAreaNet: WALL_AREA_NET_DEFINITION,
   ceilingHeight: CEILING_HEIGHT_DEFINITION,

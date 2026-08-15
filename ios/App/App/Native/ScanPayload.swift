@@ -40,6 +40,29 @@ struct ScanGeometry: Codable {
     let openingCount: Int
     let stairCount: Int
 
+    /// The interior perimeter — the full run of wall, doorways included.
+    var perimeterM: Double { walls.reduce(0) { $0 + $1.lengthMeters } }
+
+    /// Baseboard length: the perimeter with every doorway taken out.
+    ///
+    /// What trim is actually priced against, and it is NOT the perimeter —
+    /// baseboard and shoe moulding do not cross a doorway. On a room with two
+    /// doors that is most of a metre, charged per linear foot.
+    ///
+    /// What interrupts trim is anything you walk THROUGH: a door, or a cased
+    /// opening. A window does not — trim runs under it. That is the same
+    /// `sill == 0` rule as `PlanEditing.OpeningKind.sill`, carried here by
+    /// which list a surface landed in, since RoomPlan reports no sill of its
+    /// own.
+    ///
+    /// The TypeScript twin is `baseboardLengthMeters` in src/lib/roomScan.ts.
+    /// Clamped at zero: a bad scan reporting a door wider than its room must
+    /// not price a negative run.
+    var baseboardLengthM: Double {
+        let doorways = (doors + openings).reduce(0) { $0 + $1.widthMeters }
+        return max(0, perimeterM - doorways)
+    }
+
     /// The outline after the operator corrected it by hand.
     ///
     /// Sits BESIDE the sensor's own walls rather than replacing them, so

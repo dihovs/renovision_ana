@@ -8,6 +8,7 @@ import {
   withOpening,
 } from "./manualRoom";
 import {
+  baseboardLengthMeters,
   squareMetersToSquareFeet,
   toFloorPlan,
   totalFloorAreaSquareMeters,
@@ -250,5 +251,59 @@ describe("sill height", () => {
     );
     const { gross, net } = wallAreaSquareMeters(crawl);
     expect(net).toBeCloseTo(gross, 6);
+  });
+});
+
+describe("baseboardLengthMeters", () => {
+  /**
+   * The figure trim is actually priced on. Trim does not cross a doorway,
+   * so the perimeter over-states it by exactly the doors — and on a room
+   * with two of them that is most of a metre, charged per linear foot.
+   */
+  const bare = makeRectangularRoom({ widthMeters: 4, lengthMeters: 3, heightMeters: 2.44 });
+
+  it("equals the perimeter when there is nothing to walk through", () => {
+    expect(baseboardLengthMeters(bare)).toBeCloseTo(14, 6);
+  });
+
+  it("takes out a door", () => {
+    const withDoor = withOpening(bare, { wall: 0, preset: "doorSingle" });
+    expect(baseboardLengthMeters(withDoor)).toBeCloseTo(
+      14 - OPENING_PRESETS.doorSingle.widthMeters,
+      6,
+    );
+  });
+
+  it("takes out a cased opening too — you walk through it", () => {
+    const cased = withOpening(bare, { wall: 1, preset: "doorCased" });
+    expect(baseboardLengthMeters(cased)).toBeCloseTo(
+      14 - OPENING_PRESETS.doorCased.widthMeters,
+      6,
+    );
+  });
+
+  it("leaves a window alone — trim runs under it", () => {
+    const withWindow = withOpening(bare, { wall: 2, preset: "windowStandard" });
+    expect(baseboardLengthMeters(withWindow)).toBeCloseTo(14, 6);
+    // And the perimeter is unchanged either way.
+    expect(totalWallLengthMeters(withWindow)).toBeCloseTo(14, 6);
+  });
+
+  it("is always shorter than the perimeter once a door exists", () => {
+    const busy = withOpening(withOpening(bare, { wall: 0, preset: "doorSingle" }), {
+      wall: 1,
+      preset: "doorDouble",
+    });
+    expect(baseboardLengthMeters(busy)).toBeLessThan(totalWallLengthMeters(busy));
+  });
+
+  it("never goes negative on a bad scan", () => {
+    // A door reported wider than the room it sits in. Nonsense in, zero out —
+    // not a negative length that reaches a price.
+    const broken = withOpening(
+      makeRectangularRoom({ widthMeters: 0.4, lengthMeters: 0.4, heightMeters: 2.44 }),
+      { wall: 0, preset: "doorSliding" },
+    );
+    expect(baseboardLengthMeters(broken)).toBeGreaterThanOrEqual(0);
   });
 });

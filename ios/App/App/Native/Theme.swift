@@ -439,7 +439,20 @@ struct MeasureDefinition: Identifiable {
         id: "perimeter",
         title: "Perimeter",
         definition: """
-            The total run of the walls at floor level — what baseboard and             trim are priced against. Door openings are included in the run;             deduct them separately if the trim does not cross them.
+            The total run of the walls at floor level, with doorways included \
+            in the run. It is the basis for wall area. For trim, use baseboard \
+            length instead: that is this figure with the doorways taken out.
+            """)
+
+    static let baseboard = MeasureDefinition(
+        id: "baseboard",
+        title: "Baseboard length",
+        definition: """
+            The perimeter with every doorway taken out — the run trim actually \
+            covers, since baseboard and shoe moulding do not cross a door or a \
+            cased opening. Windows are not deducted; trim runs under them. \
+            This is the figure to price linear-foot trim against, and on a room \
+            with two doors it is close to a metre shorter than the perimeter.
             """)
 
     static let ceiling = MeasureDefinition(

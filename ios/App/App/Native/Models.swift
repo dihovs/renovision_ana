@@ -893,4 +893,14 @@ enum Measure {
     static func ftLabel(_ metres: Double) -> String {
         "\(Int(feet(metres).rounded())) ft"
     }
+
+    static func cubicFeet(_ cubicMetres: Double) -> Double { cubicMetres * 35.314_666_7 }
+
+    /// Cubic feet, for the volume a dehumidifier is sized from. Rounded to a
+    /// whole foot like the others — S500 sizing works in hundreds of cubic
+    /// feet, so a decimal here would imply a precision the ceiling height
+    /// does not have.
+    static func cuftLabel(_ cubicMetres: Double) -> String {
+        "\(Int(cubicFeet(cubicMetres).rounded())) cu ft"
+    }
 }

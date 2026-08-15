@@ -221,6 +221,18 @@ struct RoomDetailView: View {
                 DefinedFigure(
                     value: String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
                     unit: nil, meaning: .ceiling)
+                // Baseboard beside the perimeter it is derived from, so the
+                // shorter number is obviously the trim one rather than looking
+                // like a contradiction. Falls back to the perimeter when there
+                // is no geometry to read doorways out of — equal, not absent,
+                // because a room with no detected doors genuinely has no
+                // deduction.
+                DefinedFigure(
+                    value: Measure.ftLabel(room.geometry?.baseboardLengthM ?? room.wallLengthM),
+                    unit: nil, meaning: .baseboard)
+                DefinedFigure(
+                    value: Measure.cuftLabel(room.floorAreaSqm * room.ceilingHeightM),
+                    unit: nil, meaning: .volume)
             }
             .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
         }

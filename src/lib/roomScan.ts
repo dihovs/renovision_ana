@@ -292,10 +292,38 @@ export async function resetScans(): Promise<void> {
   }
 }
 
-/** Perimeter, not floor area — what a baseboard or a chair rail is priced
-    against, and RoomPlan hands back individual wall segments, not a sum. */
+/** The interior perimeter — the full run of wall at ceiling level. RoomPlan
+    hands back individual wall segments, not a sum. */
 export function totalWallLengthMeters(result: RoomScanResult): number {
   return result.walls.reduce((sum, wall) => sum + wall.lengthMeters, 0);
+}
+
+/**
+ * Baseboard length — the perimeter with every doorway taken out.
+ *
+ * The number baseboard, shoe moulding and floor trim are actually priced
+ * against, and it is NOT the perimeter: trim does not run across a doorway.
+ * On a room with two doors that is most of a metre, and it is charged per
+ * linear foot.
+ *
+ * magicplan publishes the same figure and calls it "ground perimeter", with
+ * this definition (`Docs/reference/magicplan/object-model.md` §2c, quoted from
+ * their own ⓘ): *the total length of all interior walls, excluding doors,
+ * deducting the width of all doors on those walls.*
+ *
+ * What interrupts trim is anything you walk through — a door, or a cased
+ * opening. A window does not. That is exactly the `sill === 0` rule from
+ * ORD-24, and for a scanned room, where RoomPlan reports no sill, the same
+ * split is carried by which list a surface landed in: `doors` and `openings`
+ * are walked through, `windows` are not.
+ *
+ * Never negative: a bad scan that reports a door wider than the room it is in
+ * would otherwise price a negative length.
+ */
+export function baseboardLengthMeters(result: RoomScanResult): number {
+  const walkThrough = [...result.doors, ...(result.openings ?? [])];
+  const doorways = walkThrough.reduce((sum, opening) => sum + opening.widthMeters, 0);
+  return Math.max(0, totalWallLengthMeters(result) - doorways);
 }
 
 export function totalFloorAreaSquareMeters(result: RoomScanResult): number {
