@@ -524,9 +524,56 @@ claim.
   rooms carry photos without leaving the PDF.
 - Full dimension chains print, opening chains included.
 
-Pages 3 and 4 were **not read** — the PDF viewer does not respond to scroll or
-drag under iPhone Mirroring. The other two page layouts were likewise not
-generated. Both are open.
+**Page 3 — the room page, and the most important layout in the document.**
+
+A numbered key, exactly as an architect draws one:
+
+- A **locator thumbnail** top left: a miniature of the whole floor with this room
+  picked out, so a reader knows where they are. Essential on a multi-room plan.
+- The room plan with **numbered yellow badges** placed at each object — ① on the
+  door, ② on the affected area.
+- Beneath it, `▼ Living Room/Ground Floor`, an **itemised legend** keyed to those
+  numbers, each row carrying a small **thumbnail** of the thing:
+
+      ① DOUBLE HINGED DOOR
+         Photo   1 Photo (see photos page)
+         Notes   Swing clear, no binding on the jmb.
+      ② AFFECTED WALL AREA
+         Area    6.10 m²
+         Name    Affected Area 1
+
+- Room header, right aligned: `WIDTH: 2.500 m · LENGTH: 2.500 m` /
+  `AREA: 6.25 m² · PERIMETER: 10.00 m`.
+- Footer: the Sensopia disclaimer, a **graduated scale bar** (`0.0 0.5 1.0 1.5
+  2.0m`) and the **scale ratio `1:45`**.
+
+**Page 4 — photos**, on their own page, grouped by room and keyed back to the
+object number: `▼ Photos/Living Room`, then `1 Double Hinged Door` with the
+caption `Front entry door` beneath the image.
+
+So photos never interrupt the plan; the plan says "1 Photo (see photos page)"
+and the photos page carries them keyed by number.
+
+**The logo in the header is the OWNER'S** — Renovision AnA's, not magicplan's.
+The report is branded to whoever generated it, and the cover footer carries the
+full company block: name, email, address, website, phone.
+
+### One trap, in their own product
+
+The room detail page prints **`PERIMETER: 10.00 m`** — the ceiling perimeter.
+The app's room sheet, for the same room, showed **`8.40 m`** — the ground
+perimeter. **Same word, two different numbers, one product.** Anyone comparing
+the screen to the PDF sees a 1.6 m discrepancy and has no way to know which is
+which.
+
+This is precisely what `MEASURE_DEFINITIONS` and the ⓘ buttons exist to prevent.
+Whatever we print, the label has to say which perimeter it is.
+
+### Still not generated
+
+The other two page layouts — `All Floors & Rooms with annotations` and
+`Only floors`. Reading the PDF required AirDropping it to the Mac, since the
+in-app viewer does not respond to scroll under mirroring.
 
 ### Report PDF options
 
