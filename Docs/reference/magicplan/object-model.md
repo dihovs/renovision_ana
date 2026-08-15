@@ -635,11 +635,69 @@ which.
 This is precisely what `MEASURE_DEFINITIONS` and the ⓘ buttons exist to prevent.
 Whatever we print, the label has to say which perimeter it is.
 
+### Layout 2 — `All Floors & Rooms with annotations`, on the real job
+
+Generated from the 9-room condo. **18 pages.** The structure is the important
+part: it **interleaves each room with its own photo pages** rather than pooling
+photos at the end.
+
+    1   Cover
+    2   Floor plan, all rooms                      1:70
+    3   1st bedroom      → "6 Photos (see photos page)"   1:54
+    4     Photos/1st bedroom      6 tiles
+    5   2nd bedroom      → 7 photos                       1:64
+    6     Photos/2nd bedroom      6 tiles
+    7     Photos/2nd bedroom      1 tile   (overflow)
+    8   3rd bedroom      → 11 photos                      1:49
+    9     Photos/3rd bedroom      6 tiles
+    10    Photos/3rd bedroom      5 tiles  (overflow)
+    11  Bathroom         → 6 photos                       1:54
+    12    Photos/Bathroom         6 tiles
+    13  Bog closet       → 2 photos                       1:41
+    14    Photos/Bog closet       2 tiles
+    15  Kitchen                                            …
+    …
+
+**Six photo tiles per page, 2 × 3**, overflowing onto a second page when a room
+has more. Each tile is captioned `<room> Photo n` — and **videos print too**,
+captioned `<room> Video n`, presumably as poster frames.
+
+Differences from the basic layout, beyond the interleaving:
+
+- The cover gains a **LOCATION block** — street, postcode, city, province,
+  country — because this project has an address. The basic report had none.
+- Every page header repeats the address under the project name.
+- The room header gains **CEILING HEIGHT**:
+  `WIDTH: 5.205 m · LENGTH: 3.300 m · CEILING HEIGHT: 2.449 m` /
+  `AREA: 17.15 m² · PERIMETER: 17.00 m`
+- Room labels on the floor plan carry name, area and bounding dimensions —
+  `Kitchen 24.69 m² (5.524 × 9.116)` — and for a small room the dimensions drop
+  to their own line: `Bog closet 1.64 m² / 1.680 × 0.980`.
+- Scale varies per page and is stated: 1:70 for the floor, 1:41 to 1:64 per
+  room, each with its own graduated bar.
+
+### The perimeter discrepancy, confirmed twice
+
+The Bathroom's room sheet in the app reads **`9.15 m`**. This report prints
+**`PERIMETER: 9.82 m`** for the same room. The difference is 0.67 m — exactly
+the width of its door.
+
+So it is systematic, not a rounding artefact: **the app shows the ground
+perimeter (baseboard, doors deducted) and the report prints the ceiling
+perimeter (full interior), both labelled simply "perimeter".** Anyone checking
+one against the other finds a discrepancy they cannot explain.
+
+### And the cover statistic is wrong on the real job too
+
+`Bathroom 0`, on a condo whose plan is labelled "Bathroom". Because the room's
+`Room Type` is `Other` — see §2e. The error survives all the way to the client
+deliverable.
+
 ### Still not generated
 
-The other two page layouts — `All Floors & Rooms with annotations` and
-`Only floors`. Reading the PDF required AirDropping it to the Mac, since the
-in-app viewer does not respond to scroll under mirroring.
+`Only floors`. AirDrop could not reach the Mac from the office network — it uses
+AWDL, the same peer-to-peer layer that breaks mirroring there — so each PDF has
+to be sent across by hand.
 
 ### Report PDF options
 
