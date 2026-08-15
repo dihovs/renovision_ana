@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { chainOutline } from "./wallChain";
 
 /**
  * Bridges to `RoomScanPlugin.swift` — a native-only capability, so every
@@ -562,59 +563,24 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
 /**
  * Chain wall segments into a closed outline.
  *
- * RoomPlan hands back walls in no particular order, so a fill needs them
- * sorted end-to-end first: start at one wall, repeatedly take whichever
- * remaining endpoint is nearest the current one, and stop when nothing is
- * near enough to be the same corner. `tolerance` is generous (25cm) because
- * scanned walls rarely meet exactly.
+ * The walk lives in `wallChain.ts` now, behind a cleaning pass, because the
+ * old one gave up on real RoomPlan output — walls in pieces, walls seen
+ * twice, doorway stubs — and something downstream then drew a bounding box,
+ * silently turning a room with a nook into a rectangle.
  *
- * Returns an empty array rather than a wrong shape when the walls don't
- * close — an L-shaped room scanned from one side genuinely has no outline,
- * and inventing one would draw a fill that isn't the room.
+ * Still returns an empty array rather than a wrong shape when the walls
+ * genuinely do not close. What changed is how rarely that now happens, and
+ * that a guessed closing edge is reported instead of assumed.
  */
-function chainIntoPolygon(segments: PlanSegment[], tolerance = 0.25): PlanPoint[] {
-  if (segments.length < 3) return [];
-
-  const remaining = segments.slice(1);
-  const first = segments[0];
-  const points: PlanPoint[] = [
-    { x: first.x1, y: first.y1 },
-    { x: first.x2, y: first.y2 },
-  ];
-
-  while (remaining.length > 0) {
-    const tail = points[points.length - 1];
-    let bestIndex = -1;
-    let bestDistance = Infinity;
-    let bestEnd: PlanPoint | null = null;
-
-    remaining.forEach((segment, index) => {
-      const start = { x: segment.x1, y: segment.y1 };
-      const end = { x: segment.x2, y: segment.y2 };
-      const toStart = Math.hypot(start.x - tail.x, start.y - tail.y);
-      const toEnd = Math.hypot(end.x - tail.x, end.y - tail.y);
-      if (toStart < bestDistance) {
-        bestDistance = toStart;
-        bestIndex = index;
-        bestEnd = end;
-      }
-      if (toEnd < bestDistance) {
-        bestDistance = toEnd;
-        bestIndex = index;
-        bestEnd = start;
-      }
-    });
-
-    if (bestIndex < 0 || bestDistance > tolerance || !bestEnd) return [];
-    remaining.splice(bestIndex, 1);
-    points.push(bestEnd);
-  }
-
-  // The loop has to come back to where it started to be an outline at all.
-  const start = points[0];
-  const end = points[points.length - 1];
-  if (Math.hypot(end.x - start.x, end.y - start.y) > tolerance) return [];
-  return points;
+function chainIntoPolygon(segments: PlanSegment[]): PlanPoint[] {
+  const outline = chainOutline(segments);
+  if (!outline || outline.inferredClosingEdge) return [];
+  // Repeat the first corner at the end. `chainOutline` returns bare corners,
+  // which is the better primitive, but everything downstream of here has
+  // always been handed a closed ring — a fill needs one, and `planCorners`
+  // exists to strip it back off. Changing that contract here would be a
+  // silent behaviour change in every consumer at once.
+  return [...outline.points, outline.points[0]];
 }
 
 /**

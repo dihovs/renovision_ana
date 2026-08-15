@@ -51,6 +51,11 @@ struct PlanEditorView: View {
     /// them apart.
     @State private var locked: Set<Int> = []
     @State private var lockedWarning: Int?
+    /// True when the scan's walls never closed and this rectangle is a
+    /// placeholder rather than the room. Everything derived from it — the
+    /// floor area under the canvas most of all — is a guess until the
+    /// operator drags it onto the real walls and saves.
+    @State private var outlineGuessed = false
 
     /// Which projection the canvas is drawing (§3/§5). The plan editor opens
     /// in 2D and, in this build, stays there — see `threeDBlocked` below.
@@ -894,13 +899,38 @@ struct PlanEditorView: View {
                     .padding(.horizontal, Brand.Space.base)
             }
 
+            // The scan never closed, so this shape is ours, not the room's.
+            // Said before the figure it produced, in the operator's own
+            // terms, with the one action that fixes it.
+            if outlineGuessed {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("These walls never joined up")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+                        Text("The scan stopped short, so this rectangle is a placeholder — not the room. Drag the corners onto the real walls, or rescan.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.horizontal, Brand.Space.base)
+                .padding(.bottom, Brand.Space.hair)
+            }
+
             HStack {
                 Text(Measure.sqftLabel(PlanEditing.area(corners)))
                     .font(.system(size: 15, weight: .bold).monospacedDigit())
-                    .foregroundStyle(Brand.ink)
-                Text("floor area")
+                    .foregroundStyle(outlineGuessed ? Brand.inkSoft : Brand.ink)
+                // Never the bare words "floor area" over a number nobody
+                // measured — the label carries the doubt with the figure,
+                // because the figure is what gets copied into an estimate.
+                Text(outlineGuessed ? "placeholder, not measured" : "floor area")
                     .font(.system(size: 12))
-                    .foregroundStyle(Brand.inkFaint)
+                    .foregroundStyle(outlineGuessed ? .orange : Brand.inkFaint)
                 Spacer()
                 if isDirty {
                     Text("Adjusted by hand")
@@ -1128,13 +1158,23 @@ struct PlanEditorView: View {
         // The outline when the walls closed into one; the bounding box when
         // they did not, so an open scan is still editable rather than
         // refusing to appear.
+        //
+        // But the box is NOT a measurement, and it must never look like one.
+        // A scan whose walls never met is an incomplete walk — a room with a
+        // nook, or one the operator only got half way round — and squaring it
+        // off produces a clean rectangle with a plausible area that nobody
+        // measured. That figure reaches an estimate and then a claim. So the
+        // fallback is kept, and flagged, loudly, until the operator has
+        // actually corrected it.
         if scan.polygon.count >= 4 {
             corners = Array(scan.polygon.dropLast())
+            outlineGuessed = false
         } else {
             corners = [
                 CGPoint(x: 0, y: 0), CGPoint(x: scan.width, y: 0),
                 CGPoint(x: scan.width, y: scan.height), CGPoint(x: 0, y: scan.height),
             ]
+            outlineGuessed = true
         }
         // Placed openings come back in their editable form. An unknown kind
         // (from a newer build) is left out of the editor rather than guessed

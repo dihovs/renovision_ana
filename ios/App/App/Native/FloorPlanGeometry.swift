@@ -303,6 +303,109 @@ enum FloorPlanGeometry {
         return (movedWalls, movedOpenings)
     }
 
+    // MARK: - Cleaning scanned walls
+
+    /// Shorter than this is not a wall — a doorway stub or a scan artefact.
+    static let minWallM = 0.12
+    private static let collinearOffsetM = 0.12
+    private static let collinearAngleDeg = 8.0
+
+    /// Smallest angle between two undirected lines, in degrees (0…90).
+    private static func angleBetween(_ a: Segment, _ b: Segment) -> Double {
+        let a1 = atan2(a.y2 - a.y1, a.x2 - a.x1)
+        let a2 = atan2(b.y2 - b.y1, b.x2 - b.x1)
+        var d = abs(a1 - a2).truncatingRemainder(dividingBy: .pi)
+        if d > .pi / 2 { d = .pi - d }
+        return d * 180 / .pi
+    }
+
+    /// Perpendicular distance from a point to the infinite line through a segment.
+    private static func offsetFromLine(_ s: Segment, _ px: Double, _ py: Double) -> Double {
+        let dx = s.x2 - s.x1, dy = s.y2 - s.y1
+        let len = hypot(dx, dy)
+        if len == 0 { return hypot(px - s.x1, py - s.y1) }
+        return abs(dy * (px - s.x1) - dx * (py - s.y1)) / len
+    }
+
+    /// Are these two pieces the same physical wall, cut in two or seen twice?
+    private static func sameWall(_ a: Segment, _ b: Segment, weld: Double) -> Bool {
+        guard angleBetween(a, b) <= collinearAngleDeg else { return false }
+        // Both ends of b must sit on a's line. Parallel but offset is the two
+        // sides of a partition — merging those deletes a wall that exists.
+        guard offsetFromLine(a, b.x1, b.y1) <= collinearOffsetM,
+            offsetFromLine(a, b.x2, b.y2) <= collinearOffsetM
+        else { return false }
+
+        let dx = a.x2 - a.x1, dy = a.y2 - a.y1
+        let len = hypot(dx, dy)
+        guard len > 0 else { return false }
+        let ux = dx / len, uy = dy / len
+        let project = { (px: Double, py: Double) in (px - a.x1) * ux + (py - a.y1) * uy }
+        let b1 = project(b.x1, b.y1), b2 = project(b.x2, b.y2)
+        // Collinear but metres apart are two walls with a gap — a room open
+        // to a hallway — not one wall. Touching or overlapping only.
+        return min(b1, b2) <= len + weld && 0 <= max(b1, b2) + weld
+    }
+
+    /// Merge two collinear pieces into the one wall they came from, by keeping
+    /// the extremes along the longer one's direction. Summing their lengths
+    /// instead would price a wall twice as long as the room.
+    private static func mergeCollinear(_ a: Segment, _ b: Segment) -> Segment {
+        let base = a.length >= b.length ? a : b
+        let dx = base.x2 - base.x1, dy = base.y2 - base.y1
+        let len = max(hypot(dx, dy), 1e-9)
+        let ux = dx / len, uy = dy / len
+        let points = [(a.x1, a.y1), (a.x2, a.y2), (b.x1, b.y1), (b.x2, b.y2)]
+        var lo = Double.infinity, hi = -Double.infinity
+        var loPoint = points[0], hiPoint = points[0]
+        for p in points {
+            let t = (p.0 - base.x1) * ux + (p.1 - base.y1) * uy
+            if t < lo { lo = t; loPoint = p }
+            if t > hi { hi = t; hiPoint = p }
+        }
+        return Segment(x1: loPoint.0, y1: loPoint.1, x2: hiPoint.0, y2: hiPoint.1)
+    }
+
+    /// Drop noise, merge one-wall-in-pieces, weld near corners.
+    ///
+    /// Order matters: merging first means two halves of a wall become one
+    /// before their shared midpoint can be mistaken for a corner.
+    static func cleanedForChaining(_ segments: [Segment], weld: Double = 0.30) -> [Segment] {
+        var work = segments.filter { $0.length >= minWallM }
+
+        var merged = true
+        while merged {
+            merged = false
+            outer: for i in work.indices {
+                for j in work.indices where j > i {
+                    if sameWall(work[i], work[j], weld: weld) {
+                        let combined = mergeCollinear(work[i], work[j])
+                        work.remove(at: j)
+                        work.remove(at: i)
+                        work.append(combined)
+                        merged = true
+                        break outer
+                    }
+                }
+            }
+        }
+
+        // Weld the endpoints that are the same corner into one point, so the
+        // walk matches exactly rather than within a tolerance that can drift.
+        var corners: [CGPoint] = []
+        func snap(_ x: Double, _ y: Double) -> CGPoint {
+            for c in corners where hypot(c.x - x, c.y - y) <= weld { return c }
+            let p = CGPoint(x: x, y: y)
+            corners.append(p)
+            return p
+        }
+        return work.map { s in
+            let a = snap(s.x1, s.y1)
+            let b = snap(s.x2, s.y2)
+            return Segment(x1: a.x, y1: a.y, x2: b.x, y2: b.y)
+        }
+    }
+
     // MARK: - Outline
 
     /// A room outline with, possibly, one edge the scan never walked.
@@ -331,6 +434,14 @@ enum FloorPlanGeometry {
     static func outlineWithClosure(_ segments: [Segment], tolerance: Double = 0.25)
         -> InferredOutline?
     {
+        // Clean before walking. RoomPlan does not give one segment per wall:
+        // a long wall arrives in pieces, a wall seen twice arrives twice, a
+        // doorway leaves a stub. Walking that raw made the chain fail on
+        // ordinary rooms, and a failed chain meant an empty polygon, which
+        // meant the editor drew the bounding box — a room with a nook
+        // silently squared off, with nobody told. The twin of this pass, and
+        // its tests, are in src/lib/wallChain.ts.
+        let segments = cleanedForChaining(segments, weld: tolerance)
         guard segments.count >= 3 else { return nil }
 
         var remaining = Array(segments.dropFirst())
