@@ -19,6 +19,9 @@ struct RoomSketchView: View {
     @State private var widthText = "12"
     @State private var lengthText = "10"
     @State private var heightText = "8"
+    /// Observed so changing the unit redraws every dimension on the
+    /// canvas, not just the keypad's own readout.
+    @ObservedObject private var units = UnitSettings.shared
     @State private var corners: [CGPoint] = []
     /// Doors and windows placed on the drawn walls. Snapshotted with the
     /// corners, because they are keyed to edge indices — an undo that
@@ -360,7 +363,8 @@ struct RoomSketchView: View {
                                     if case .wall(let i) = selection { return i }
                                     return nil
                                 }(),
-                                lockedEdges: [])
+                                lockedEdges: [],
+                            format: units.format)
                         }
                     }
 
@@ -700,7 +704,7 @@ struct RoomSketchView: View {
             if snap.engaged && !snapEngaged { UISelectionFeedbackGenerator().selectionChanged() }
             snapEngaged = snap.engaged
             corners = PlanEditing.moveEdge(start, index: index, offset: snap.value)
-            liveLabel = FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index))
+            liveLabel = UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index))
 
         case .corner(let index):
             corners = PlanEditing.moveCorner(
@@ -710,7 +714,7 @@ struct RoomSketchView: View {
                     y: start[index].y + value.translation.height / scale))
             let before = (index - 1 + corners.count) % corners.count
             liveLabel =
-                "\(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, before)))  ·  \(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index)))"
+                "\(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, before)))  ·  \(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index)))"
 
         case .opening(let index):
             guard let base = dragStart?.openings, base.indices.contains(index) else { return }
@@ -725,7 +729,7 @@ struct RoomSketchView: View {
                 base[index], along: corners, by: along,
                 avoiding: openings.enumerated().filter { $0.offset != index }.map(\.element))
             liveLabel = PlanEditing.chain(corners, edge: base[index].edge, openings: openings)
-                .map(FloorPlanGeometry.feetInches)
+                .map(UnitSettings.shared.format.format)
                 .joined(separator: "  ·  ")
 
         case .none:

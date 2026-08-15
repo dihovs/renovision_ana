@@ -146,8 +146,14 @@ struct MeasurementPanel: View {
             // buried in the pad, because they are what make 13' 6 typeable
             // at all.
             HStack(spacing: Brand.Space.tight) {
-                key("′ ft") { text += "'" }
-                key("″ in") { text += "\"" }
+                // Feet and inches marks only where they mean something. In
+                // metric they are noise on the pad and produce a string the
+                // metric parser rejects, which reads to the operator as the
+                // keypad being broken.
+                if units.format.system != .metric {
+                    key("′ ft") { text += "'" }
+                    key("″ in") { text += "\"" }
+                }
                 if let onUnlock, locked {
                     Button {
                         onUnlock()

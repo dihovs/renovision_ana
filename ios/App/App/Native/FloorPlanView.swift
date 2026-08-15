@@ -257,11 +257,11 @@ struct FloorPlanView: View {
 
                 dimension(
                     from: pt(0, 0), to: pt(plan.width, 0), outward: CGVector(dx: 0, dy: -1),
-                    text: FloorPlanGeometry.feetInches(plan.width), rotated: false)
+                    text: UnitSettings.shared.format.format(plan.width), rotated: false)
                 dimension(
                     from: pt(plan.width, 0), to: pt(plan.width, plan.height),
                     outward: CGVector(dx: 1, dy: 0),
-                    text: FloorPlanGeometry.feetInches(plan.height), rotated: true)
+                    text: UnitSettings.shared.format.format(plan.height), rotated: true)
             }
 
             // 6. The room's own label, deepest inside its outline.

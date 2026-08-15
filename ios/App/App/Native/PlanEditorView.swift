@@ -17,6 +17,9 @@ struct PlanEditorView: View {
     let onSaved: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    /// Observed so changing the unit redraws every dimension on the
+    /// canvas, not just the keypad's own readout.
+    @ObservedObject private var units = UnitSettings.shared
 
     /// Corners of the room being edited. The polygon IS the model; walls are
     /// its edges, re-derived every frame, so there is no state in which a
@@ -395,7 +398,8 @@ struct PlanEditorView: View {
                                 if case .wall(let i) = selection { return i }
                                 return nil
                             }(),
-                            lockedEdges: locked)
+                            lockedEdges: locked,
+                            format: units.format)
                     }
                 }
 
@@ -660,7 +664,7 @@ struct PlanEditorView: View {
             snapEngaged = snap.engaged
 
             corners = PlanEditing.moveEdge(start, index: index, offset: snap.value)
-            liveLabel = FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index))
+            liveLabel = UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index))
 
         case .corner(let index):
             let moved = CGPoint(
@@ -668,7 +672,7 @@ struct PlanEditorView: View {
                 y: start[index].y + value.translation.height / scale)
             corners = PlanEditing.moveCorner(start, index: index, to: moved)
             let before = (index - 1 + corners.count) % corners.count
-            liveLabel = "\(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, before)))  ·  \(FloorPlanGeometry.feetInches(PlanEditing.edgeLength(corners, index)))"
+            liveLabel = "\(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, before)))  ·  \(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index)))"
 
         case .opening(let index):
             guard let base = dragStart?.openings, base.indices.contains(index) else { return }
@@ -683,7 +687,7 @@ struct PlanEditorView: View {
                 base[index], along: corners, by: along,
                 avoiding: openings.enumerated().filter { $0.offset != index }.map(\.element))
             liveLabel = PlanEditing.chain(corners, edge: base[index].edge, openings: openings)
-                .map(FloorPlanGeometry.feetInches)
+                .map(UnitSettings.shared.format.format)
                 .joined(separator: "  ·  ")
 
         case .none:
@@ -1258,7 +1262,7 @@ struct OpeningPicker: View {
                                     .foregroundStyle(allowed ? Brand.ink : Brand.inkFaint)
                                 Text(
                                     allowed
-                                        ? FloorPlanGeometry.feetInches(kind.width) + " wide"
+                                        ? UnitSettings.shared.format.format(kind.width) + " wide"
                                         : "Too wide for this wall"
                                 )
                                 .font(.system(size: 12))

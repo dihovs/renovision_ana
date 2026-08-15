@@ -206,7 +206,11 @@ enum EditorChrome {
         toScreen: (CGPoint) -> CGPoint,
         proxySize: CGSize,
         selectedEdge: Int?,
-        lockedEdges: Set<Int>
+        lockedEdges: Set<Int>,
+        /// Passed in rather than read from the shared setting: this is a
+        /// nonisolated drawing routine and the setting lives on the main
+        /// actor. The caller is a view body, which already has it.
+        format: LengthFormat
     ) {
         guard polygon.count >= 3 else { return }
 
@@ -303,7 +307,7 @@ enum EditorChrome {
             // digits' own baseline at their own size whatever the zoom. The
             // lock keeps its own ink colour: §6 asks for a black filled
             // padlock, and a blue one would read as part of the number.
-            var figure = Text(FloorPlanGeometry.feetInches(metres))
+            var figure = Text(format.format(metres))
                 .foregroundStyle(Brand.blue)
             if lockedEdges.contains(i) {
                 figure = figure + Text(" ") + Text(Image(systemName: "lock.fill"))

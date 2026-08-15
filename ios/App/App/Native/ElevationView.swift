@@ -307,8 +307,8 @@ struct ElevationView: View {
         guard isDrawable else { return "This wall has no length to draw." }
         guard canMark else { return "This room is not filed yet, so damage has nowhere to save." }
         if let draft, draft.areaSqm > 0 {
-            return "\(FloorPlanGeometry.feetInches(draft.width)) × "
-                + "\(FloorPlanGeometry.feetInches(draft.height)) — "
+            return "\(UnitSettings.shared.format.format(draft.width)) × "
+                + "\(UnitSettings.shared.format.format(draft.height)) — "
                 + Measure.sqftLabel(draft.areaSqm)
         }
         if drawing { return "Drag a rectangle over the damaged part of the wall." }
@@ -794,7 +794,7 @@ struct ElevationView: View {
             // Openings sit at the odd indices by construction of the chain.
             let isOpening = index % 2 == 1
             write(
-                FloorPlanGeometry.feetInches(piece),
+                UnitSettings.shared.format.format(piece),
                 at: CGPoint(x: face.point(midpoint, 0).x, y: y - 9),
                 bold: isOpening, context: context, size: size)
         }
@@ -810,7 +810,7 @@ struct ElevationView: View {
     /// lines, which is what makes it a height rather than a note.
     private func drawHeights(context: GraphicsContext, face: Face, size: CGSize) {
         let inset: CGFloat = min(20, face.widthPts / 4)
-        let text = FloorPlanGeometry.feetInches(wallHeight)
+        let text = UnitSettings.shared.format.format(wallHeight)
         for x in [face.origin.x + inset, face.right - inset] {
             var line = Path()
             line.move(to: CGPoint(x: x, y: face.top))
@@ -850,7 +850,7 @@ struct ElevationView: View {
         }
 
         write(
-            FloorPlanGeometry.feetInches(wallLength),
+            UnitSettings.shared.format.format(wallLength),
             at: CGPoint(x: (face.origin.x + face.right) / 2, y: y + 11),
             bold: true, context: context, size: size)
     }
@@ -893,11 +893,11 @@ struct ElevationView: View {
 
             run(
                 from: face.top, to: box.minY,
-                label: FloorPlanGeometry.feetInches(max(0, wallHeight - head)))
+                label: UnitSettings.shared.format.format(max(0, wallHeight - head)))
             if sill > 0.02 {
                 run(
                     from: box.maxY, to: face.origin.y,
-                    label: FloorPlanGeometry.feetInches(sill))
+                    label: UnitSettings.shared.format.format(sill))
             }
         }
     }
@@ -967,8 +967,8 @@ struct WallDamageSheet: View {
                                 .tracking(0.3)
                                 .foregroundStyle(Brand.inkFaint)
                             Text(
-                                "\(FloorPlanGeometry.feetInches(widthM)) × "
-                                    + FloorPlanGeometry.feetInches(heightM)
+                                "\(UnitSettings.shared.format.format(widthM)) × "
+                                    + UnitSettings.shared.format.format(heightM)
                             )
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Brand.inkSoft)
