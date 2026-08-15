@@ -422,6 +422,138 @@ rectangle-only — which makes sense of the guided walk, and tells us our own
 
 ---
 
+## 3a. The three wall actions, performed
+
+All three were run on a clean bottom wall and undone afterwards.
+
+**Every one of them first raised the same guard:**
+
+> You are about to modify a locked dimension. Confirm? — `Cancel` / `Confirm`
+
+So a locked wall is not merely annotated: **any operation that would change it
+stops and asks**. Ours has `lockedWarning`; this confirms the behaviour is right
+and that it should fire on structural actions, not only on drags.
+
+**Add Corner** — splits the selected wall in two at a point, leaving the room
+closed with one more corner. The 2.500 wall became `1.035 + 1.465` — *not* the
+midpoint, so the corner lands where the operator indicated rather than at 50%.
+
+**Add Wall** — inserts a **partition stub growing into the room**, perpendicular
+to the selected wall, anchored at one end and free at the other. Length `1.250`.
+The host wall split into `0.974 + 1.405 = 2.379`, and `2.379 + 0.120` (the
+interior wall thickness) `= 2.499`. **The segments account for the new wall's
+thickness** — they do not simply sum to the host wall's length.
+
+**Split Room** — divides the room into **two rooms** with a full partition. The
+selected half became `0.975 × 2.500` and kept the name; the remainder became a
+second room. This is the operation for a scan that captured two spaces as one,
+which happens constantly on a real job.
+
+ORDERS previously listed Add Wall and Split Room as `[seen]` but never
+performed, and ORD-18's chrome greys them for that reason. **They are now
+observed end to end and can be built.**
+
+## 3b. Insert's five branches
+
+| Branch | What it does |
+|---|---|
+| Room | places a new room (not exercised) |
+| Object | the catalogue — §1 |
+| **Note** | jumps to the selected thing's Notes and opens the Add Text sheet |
+| **Photo** | jumps to its photo capture |
+| **Form** | jumps to its Forms tab |
+
+**Three of the five are shortcuts, not creators.** Note, Photo and Form simply
+navigate to a tab of the inspector for whatever is selected. Only Room and
+Object bring anything into existence. Worth knowing before we build five
+things where we need two.
+
+## 3c. Export
+
+The share glyph in the nav bar opens **Export Floor Plans**, tabs
+**Exports | Integrations**.
+
+**Exports** — each with its own options button:
+
+| Export | Description |
+|---|---|
+| Report PDF | the project report |
+| Sketch PDF | the sketch |
+| Sketch Files | the sketch in various file formats |
+| 3D Model | the 3D model in various file formats |
+| **Statistics** | "areas and perimeters of rooms and objects" |
+| Previously Generated Files | jumps to a Files section holding past exports |
+
+**Share Links** — `Send a copy via email` ("an editable copy of your floor
+plan") and `Get Shareable Link` ("choose what to share, who to share with, and
+at which access level").
+
+Two things we do not have and should: **exports are retained** and re-shareable
+rather than regenerated each time, and a **statistics export** separate from the
+report — an estimator wants the numbers as data, not as a PDF page.
+
+### The generated Report PDF
+
+`All Floors & All Rooms` was generated and read. Four pages for a one-room
+project.
+
+**Page 1 — cover.** Logo top right, project name, `CREATED ON August 14, 2026`,
+a large empty middle, and one four-column table at the foot:
+
+    Total area 6.25 m² | Floors 1 | Rooms 1 | Bathroom 0
+
+That is the whole cover, and it matches what `Report-Estimate-Blueprint.md`
+already found from the client's own export: no claim number, no insured, no
+adjuster. `Bathroom` as a cover statistic is an appraiser's convention —
+bathroom count drives property valuation — and is meaningless on a water-damage
+claim.
+
+**Page 2 — the floor plan.** Much richer, and several parts are worth taking:
+
+- A **running header on every page**: company name and email left, address and
+  website centre, phone and `Page 1/4` right. Their account carries the owner's
+  own company block, so this is his branding, not theirs.
+- A **title block** under it: project name with
+  `TOTAL AREA · LIVING AREA · FLOORS · ROOMS`, then a per-floor band
+  `▼ Ground Floor` repeating `TOTAL AREA · LIVING AREA · ROOMS` for that storey.
+- The room label prints **name, area AND bounding dimensions**:
+  `Living Room  6.25 m² (2.500 × 2.500)`.
+- The plan is **rotated** to fit the page — `Rotate plan to maximize scale`
+  demonstrably works, and the dimension chains rotate with it.
+- **The yellow attachment paperclip prints on the plan.** A reader can see which
+  rooms carry photos without leaving the PDF.
+- Full dimension chains print, opening chains included.
+
+Pages 3 and 4 were **not read** — the PDF viewer does not respond to scroll or
+drag under iPhone Mirroring. The other two page layouts were likewise not
+generated. Both are open.
+
+### Report PDF options
+
+| Section | Setting | Default seen |
+|---|---|---|
+| Page Layout | Select Page Layout | `All Floors & All Rooms` |
+| Page Size | | `US Letter` |
+| Room Labels | | `Show all room names` |
+| Scale | Display scale | on |
+| Scale | Floor Scale | `Scale that maximizes plan size` |
+| Scale | Room Scale | `Scale that maximizes plan size` |
+| Scale | Rotate plan to maximize scale | on |
+| Scale | Use the same scale for all floors | on |
+| Floor Plan Dimensions | | preview below |
+
+Page Layout has exactly three options, each with a thumbnail:
+
+    All Floors & All Rooms · All Floors & Rooms with annotations · Only floors
+
+The scale block is the interesting part and it is all about **legibility on
+paper**: maximize the plan within the page, rotate it if that helps, but hold
+one scale across floors so two storeys can be compared. Our report prints at
+whatever size the HTML lands on. `Display scale` also means they print a **scale
+bar**, which a drawing handed to an adjuster ought to carry.
+
+---
+
 ## 4. What an opening does to the dimension chain
 
 Placing the door on the top wall broke that wall's dimension into a chain,
