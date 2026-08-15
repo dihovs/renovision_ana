@@ -719,19 +719,24 @@ struct ElevationView: View {
 
     /// Where an opening sits on the face.
     ///
-    /// The height placement is a CONVENTION, like the stock widths in
-    /// `OpeningKind`: doors and windows head out on one line — the framer's
-    /// 6'-8" header — so a wall reads with a continuous header course, and
-    /// the sill falls out of the opening's own height. Nothing in the record
-    /// stores a real sill, and inventing one that looks measured would be
-    /// worse than one that is stated. A ceiling too low for the standard
-    /// header drops it to just under the ceiling rather than drawing an
-    /// opening through it.
+    /// This used to head every opening on one line — the framer's 6'-8"
+    /// header — and derive the sill by subtracting the opening's height,
+    /// because at the time **nothing in the record stored a real sill** and a
+    /// derived number that looks measured is worse than a stated convention.
+    ///
+    /// That premise no longer holds: `OpeningKind.sill` is a real stored
+    /// height now (ORD-24), so the sill is read rather than reconstructed and
+    /// the head falls out of it. A door still lands at 6'-8" because its sill
+    /// is zero and its height is 6'-8"; a window sits where its sill puts it.
+    ///
+    /// Both ends are clamped into the wall, so a low ceiling clips the head
+    /// instead of drawing an opening through it, and a hopper whose sill is
+    /// above the ceiling is not drawn at all rather than upside down.
     private func openingRect(_ opening: PlanEditing.WallOpening, in face: Face) -> CGRect? {
         let offset = PlanEditing.clampedOffset(
             offset: opening.offset, width: opening.width, edgeLength: wallLength)
-        let head = headHeight
-        let sill = max(0, head - opening.kind.height)
+        let sill = min(opening.kind.sill, wallHeight)
+        let head = min(opening.kind.head, wallHeight)
         guard head > sill else { return nil }
         let a = face.point(offset, head)
         let b = face.point(offset + opening.width, sill)
@@ -739,12 +744,6 @@ struct ElevationView: View {
         guard rect.width > 1, rect.height > 1 else { return nil }
         return rect
     }
-
-    /// The framer's 6'-8" header. One line for every kind, deliberately: a
-    /// door and the window beside it head out together in stick framing, and
-    /// a wall drawn with a continuous header course is the wall a framer
-    /// recognises. Dropped to just under a ceiling too low to carry it.
-    private var headHeight: Double { min(2.032, wallHeight - 0.05) }
 
     // MARK: - Dimensions (§6, §10, G3)
 
@@ -866,8 +865,10 @@ struct ElevationView: View {
     private func drawOpeningHeights(context: GraphicsContext, face: Face, size: CGSize) {
         for opening in wallOpenings {
             guard let box = openingRect(opening, in: face) else { continue }
-            let head = headHeight
-            let sill = max(0, head - opening.kind.height)
+            // The same clamped sill and head the rectangle was drawn from, so
+            // the figures cannot disagree with the shape they annotate.
+            let sill = min(opening.kind.sill, wallHeight)
+            let head = min(opening.kind.head, wallHeight)
 
             // Right of the opening by default; left when the right would run
             // off the face.

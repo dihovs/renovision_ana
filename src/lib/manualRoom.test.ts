@@ -192,3 +192,63 @@ describe("withOpening", () => {
     expect(gross - net).toBeCloseTo(OPENING_PRESETS.doorSingle.widthMeters * 1.8, 6);
   });
 });
+
+describe("sill height", () => {
+  /**
+   * The one number separating a door from a window. It is not bookkeeping:
+   * an elevation cannot place a window without it, and a water line at 18"
+   * either crosses a sill or does not — which decides whether that window
+   * is in the claim.
+   */
+  it("puts every door on the floor and every window above it", () => {
+    for (const kind of ["doorSingle", "doorDouble", "doorSliding", "doorCased"] as const) {
+      expect(OPENING_PRESETS[kind].sillMeters, kind).toBe(0);
+    }
+    for (const kind of ["windowStandard", "windowWide", "windowSmall"] as const) {
+      expect(OPENING_PRESETS[kind].sillMeters, kind).toBeGreaterThan(0);
+    }
+  });
+
+  it("sits the basement hopper highest, because it is at grade", () => {
+    expect(OPENING_PRESETS.windowSmall.sillMeters).toBeGreaterThan(
+      OPENING_PRESETS.windowStandard.sillMeters,
+    );
+    // And the wide one lowest of the three — it is a picture window.
+    expect(OPENING_PRESETS.windowWide.sillMeters).toBeLessThan(
+      OPENING_PRESETS.windowStandard.sillMeters,
+    );
+  });
+
+  it("deducts the full opening when the wall is tall enough to hold it", () => {
+    const room = withOpening(
+      makeRectangularRoom({ widthMeters: 4, lengthMeters: 3, heightMeters: 2.44 }),
+      { wall: 0, preset: "windowStandard" },
+    );
+    const spec = OPENING_PRESETS.windowStandard;
+    const { gross, net } = wallAreaSquareMeters(room);
+    expect(gross - net).toBeCloseTo(spec.widthMeters * spec.heightMeters, 6);
+  });
+
+  it("clips a window to the ceiling rather than deducting wall that is not there", () => {
+    // Sill 36", height 48" — the head wants 84", the wall only has 78".
+    const low = 78 * 0.0254;
+    const room = withOpening(
+      makeRectangularRoom({ widthMeters: 4, lengthMeters: 3, heightMeters: low }),
+      { wall: 0, preset: "windowStandard" },
+    );
+    const spec = OPENING_PRESETS.windowStandard;
+    const { gross, net } = wallAreaSquareMeters(room);
+    expect(gross - net).toBeCloseTo(spec.widthMeters * (low - spec.sillMeters), 6);
+  });
+
+  it("deducts nothing for a window whose sill is above the ceiling", () => {
+    // A 6' hopper sill in a 5' crawl space. The old maths, which ignored the
+    // sill, would have deducted the whole window from a wall it never touches.
+    const crawl = withOpening(
+      makeRectangularRoom({ widthMeters: 4, lengthMeters: 3, heightMeters: 60 * 0.0254 }),
+      { wall: 0, preset: "windowSmall" },
+    );
+    const { gross, net } = wallAreaSquareMeters(crawl);
+    expect(net).toBeCloseTo(gross, 6);
+  });
+});

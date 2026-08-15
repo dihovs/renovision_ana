@@ -116,16 +116,32 @@ const INCHES_TO_METRES = 0.0254;
  * a wrong number here is money.
  */
 export const OPENING_PRESETS = {
-  doorSingle: { widthMeters: 32 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "doors" },
-  doorDouble: { widthMeters: 60 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "doors" },
-  doorSliding: { widthMeters: 72 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "doors" },
+  doorSingle: { widthMeters: 32 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, sillMeters: 0, list: "doors" },
+  doorDouble: { widthMeters: 60 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, sillMeters: 0, list: "doors" },
+  doorSliding: { widthMeters: 72 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, sillMeters: 0, list: "doors" },
   /** A cased opening — a doorless passage. Filed with the connective
       openings, because that is what it is. */
-  doorCased: { widthMeters: 48 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, list: "openings" },
-  windowStandard: { widthMeters: 36 * INCHES_TO_METRES, heightMeters: 48 * INCHES_TO_METRES, list: "windows" },
-  windowWide: { widthMeters: 60 * INCHES_TO_METRES, heightMeters: 48 * INCHES_TO_METRES, list: "windows" },
-  windowSmall: { widthMeters: 24 * INCHES_TO_METRES, heightMeters: 24 * INCHES_TO_METRES, list: "windows" },
+  doorCased: { widthMeters: 48 * INCHES_TO_METRES, heightMeters: 80 * INCHES_TO_METRES, sillMeters: 0, list: "openings" },
+  windowStandard: { widthMeters: 36 * INCHES_TO_METRES, heightMeters: 48 * INCHES_TO_METRES, sillMeters: 36 * INCHES_TO_METRES, list: "windows" },
+  windowWide: { widthMeters: 60 * INCHES_TO_METRES, heightMeters: 48 * INCHES_TO_METRES, sillMeters: 30 * INCHES_TO_METRES, list: "windows" },
+  windowSmall: { widthMeters: 24 * INCHES_TO_METRES, heightMeters: 24 * INCHES_TO_METRES, sillMeters: 72 * INCHES_TO_METRES, list: "windows" },
 } as const;
+
+/**
+ * `sillMeters` is the height of the opening's underside above the floor, and
+ * it is the ONLY thing separating a door from a window.
+ *
+ * magicplan models it exactly this way and calls it `Distance to Floor`
+ * (`Docs/reference/magicplan/object-model.md` §2): no door type, no window
+ * type, just an object whose underside happens to sit at zero. Matching that
+ * shape means the two stop being different kinds of thing downstream.
+ *
+ * It is a real measurement, not bookkeeping. An elevation cannot place a
+ * window without it, and a water line at 18" either crosses a sill or does
+ * not — which decides whether that window is in the claim at all.
+ *
+ * The Swift twin is `PlanEditing.OpeningKind.sill`; the numbers must match.
+ */
 
 export type OpeningPreset = keyof typeof OPENING_PRESETS;
 
@@ -159,10 +175,16 @@ export function withOpening(
   // The wall's start is its centre walked back half its length; the opening's
   // centre is then `offset + width / 2` along the same axis.
   const along = offset + width / 2 - host.lengthMeters / 2;
+  // The opening occupies [sill, sill + height] up the wall. What it can
+  // deduct is only the part of that band the wall actually has, so a 6'8"
+  // door in a lower room loses its top, and a hopper whose sill is above a
+  // crawl space's ceiling deducts nothing at all rather than a negative.
+  const bandTop = Math.min(spec.sillMeters + spec.heightMeters, host.heightMeters);
+  const bandBottom = Math.min(spec.sillMeters, host.heightMeters);
+
   const surface = {
     widthMeters: width,
-    // A 6'8" door in a lower room must not deduct wall that does not exist.
-    heightMeters: Math.min(spec.heightMeters, host.heightMeters),
+    heightMeters: Math.max(0, bandTop - bandBottom),
     centerX: host.centerX + host.axisX * along,
     centerZ: host.centerZ + host.axisZ * along,
     axisX: host.axisX,

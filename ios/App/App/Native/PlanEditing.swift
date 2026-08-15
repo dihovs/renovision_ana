@@ -376,6 +376,40 @@ enum PlanEditing {
             }
         }
 
+        /// Height of the opening's underside above the floor — a window's
+        /// sill, and zero for anything you walk through.
+        ///
+        /// This is the ONLY thing that distinguishes a door from a window.
+        /// magicplan models it exactly this way and calls it `Distance to
+        /// Floor` (`Docs/reference/magicplan/object-model.md` §2): there is no
+        /// door type and no window type, only an object whose underside
+        /// happens to sit on the floor. Keeping the same shape here means the
+        /// two cases stop being different kinds of thing everywhere
+        /// downstream.
+        ///
+        /// It is also a measurement in its own right. An elevation cannot draw
+        /// a window in the right place without it, and a water line at 18"
+        /// either crosses a sill or does not — which decides whether the
+        /// window is in the claim.
+        ///
+        /// Standard sills: a punched window at 3', a wide one lower at 2'6"
+        /// because it is usually a picture window, a basement hopper high at
+        /// 6' since it sits at grade.
+        var sill: Double {
+            switch self {
+            case .doorSingle, .doorDouble, .doorSliding, .doorCased:
+                return 0
+            case .windowStandard: return 36 * Self.inch
+            case .windowWide: return 30 * Self.inch
+            case .windowSmall: return 72 * Self.inch
+            }
+        }
+
+        /// The top of the opening above the floor. Derived, never stored — a
+        /// sill and a height that disagreed with a head would be one fact
+        /// recorded twice.
+        var head: Double { sill + height }
+
         var label: String {
             switch self {
             case .doorSingle: return "Door"
