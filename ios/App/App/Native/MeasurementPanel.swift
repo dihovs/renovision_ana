@@ -55,11 +55,15 @@ struct MeasurementPanel: View {
     let onClose: () -> Void
 
     @State private var text = ""
+    @State private var changingUnits = false
+    @ObservedObject private var units = UnitSettings.shared
 
     private var isLast: Bool { step >= total - 1 }
 
     private var parsed: Double? {
-        guard let metres = FloorPlanGeometry.parseFeetInches(text) else { return nil }
+        // Read in whatever the operator has chosen. Parsing as feet while
+        // the panel prints metres is how "2.5" becomes 2 feet 6.
+        guard let metres = units.format.parse(text) else { return nil }
         // Same range the sheet enforced: under 4 inches is a typo, over 164
         // feet is a warehouse with a slipped digit.
         return (metres >= 0.10 && metres <= 50) ? metres : nil
@@ -69,6 +73,12 @@ struct MeasurementPanel: View {
     private var canAdvance: Bool { text.isEmpty || parsed != nil }
 
     var body: some View {
+        panel.sheet(isPresented: $changingUnits) {
+            UnitsSheet().presentationDetents([.medium, .large])
+        }
+    }
+
+    private var panel: some View {
         VStack(spacing: Brand.Space.small) {
             // Header: where the walk is, and the way out.
             HStack {
@@ -76,9 +86,21 @@ struct MeasurementPanel: View {
                     Text("Wall length")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Brand.ink)
-                    Text("Wall \(step + 1) of \(total)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.inkSoft)
+                    // Unit, and the way to change it — the reference puts
+                    // this here rather than in a settings screen, and it is
+                    // right: the moment you care what unit a number is in is
+                    // the moment you are typing one. Ours had the switcher
+                    // buried under More, on a screen you cannot even scroll
+                    // to it on.
+                    HStack(spacing: 4) {
+                        Text("Wall \(step + 1) of \(total) · \(units.format.system.title)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkSoft)
+                        Button("Change Unit…") { changingUnits = true }
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Brand.blue)
+                            .buttonStyle(.plain)
+                    }
                 }
                 Spacer()
                 Button {
@@ -94,7 +116,7 @@ struct MeasurementPanel: View {
             // The readout. The wall's current length sits greyed until a
             // digit replaces it — confirm by glance, overwrite by thumb.
             HStack(alignment: .firstTextBaseline) {
-                Text(text.isEmpty ? FloorPlanGeometry.feetInches(current) : text)
+                Text(text.isEmpty ? units.format.format(current) : text)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(text.isEmpty ? Brand.inkFaint : Brand.ink)
