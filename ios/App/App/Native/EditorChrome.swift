@@ -231,6 +231,39 @@ enum EditorChrome {
     ///
     /// The padlock survives, moved to where §6 puts it: immediately AFTER a
     /// hand-set number, not before it.
+    // The dimension rows, outboard of the wall, in points. Type-level because
+    // the renderer and the hit test MUST agree on them: when they did not,
+    // the target sat 10pt short of the digits and tapping a dimension
+    // silently did nothing, through two build-and-install cycles.
+    static let chainRow: CGFloat = 17
+    static let overallRow: CGFloat = 38
+    static let plainRow: CGFloat = 18
+    /// How far past its own dimension line the string is anchored. This is
+    /// the 10pt that was missed.
+    static let textLift: CGFloat = 10
+
+    /// Where a wall's dimension string is centred.
+    ///
+    /// The single definition of that position. `drawWallDimensions` draws at
+    /// it and `dimensionHit` tests against it, so the drawn number and its
+    /// tap target cannot drift apart again — the earlier bug was two copies
+    /// of this arithmetic, one of them missing a term.
+    ///
+    /// Unit-agnostic: pass screen points to place the text, plan metres (with
+    /// the offsets divided by scale) to hit-test it.
+    static func dimensionAnchor(
+        a: CGPoint, b: CGPoint, winding: CGFloat, rowOffset: CGFloat, lift: CGFloat
+    ) -> CGPoint? {
+        let len = hypot(b.x - a.x, b.y - a.y)
+        guard len > 0 else { return nil }
+        let ux = (b.x - a.x) / len
+        let uy = (b.y - a.y) / len
+        let nx = winding * uy
+        let ny = -winding * ux
+        let out = rowOffset + lift
+        return CGPoint(x: (a.x + b.x) / 2 + nx * out, y: (a.y + b.y) / 2 + ny * out)
+    }
+
     /// Which wall's dimension string the operator tapped, if any.
     ///
     /// The number IS the control — that is how the reference works, and it is
@@ -268,24 +301,17 @@ enum EditorChrome {
 
         for i in polygon.indices {
             let (ai, bi) = PlanEditing.edgeCorners(i, count: polygon.count)
-            let A = polygon[ai]
-            let B = polygon[bi]
-            let len = hypot(B.x - A.x, B.y - A.y)
-            guard len > 0.01 else { continue }
 
-            let ux = (B.x - A.x) / len
-            let uy = (B.y - A.y) / len
-            let nx = winding * uy
-            let ny = -winding * ux
-            let mid = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
-
-            // The string sits 10pt beyond its dimension LINE — `drawWallDimensions`
-            // draws the line at the row offset and then anchors the text at
-            // `(da + db) / 2 + n * 10`. Testing the line's own offset instead
-            // leaves the target short of the digits by exactly that much,
-            // which on a phone is the difference between hitting and missing.
-            for off in [CGFloat(18 + 10) / scale, CGFloat(38 + 10) / scale] {
-                let label = CGPoint(x: mid.x + nx * off, y: mid.y + ny * off)
+            // Both rows are tried: which one applies depends on whether the
+            // wall carries an opening chain, and deciding that needs a
+            // GraphicsContext to measure text in, which a hit test has none
+            // of. Only one row is ever drawn, so testing both costs nothing.
+            for row in [Self.plainRow, Self.overallRow] {
+                guard
+                    let label = Self.dimensionAnchor(
+                        a: polygon[ai], b: polygon[bi], winding: winding,
+                        rowOffset: row / scale, lift: Self.textLift / scale)
+                else { continue }
                 let d = hypot(point.x - label.x, point.y - label.y)
                 if d < bestDistance {
                     bestDistance = d
@@ -321,9 +347,9 @@ enum EditorChrome {
         // The rows, outboard of the wall. `chainRow` is where a split chain
         // sits; `overallRow` is where the whole-wall figure sits when there
         // is a chain under it, and `plainRow` when there is not.
-        let chainRow: CGFloat = 17
-        let overallRow: CGFloat = 38
-        let plainRow: CGFloat = 18
+        let chainRow = Self.chainRow
+        let overallRow = Self.overallRow
+        let plainRow = Self.plainRow
         let gap: CGFloat = 3
         let overrun: CGFloat = 4
 
@@ -413,9 +439,12 @@ enum EditorChrome {
             let text = context.resolve(
                 figure.font(.system(size: 15, weight: selected ? .bold : .regular)))
             let size = text.measure(in: proxySize)
-            let at = CGPoint(
-                x: (da.x + db.x) / 2 + nx * 10,
-                y: (da.y + db.y) / 2 + ny * 10)
+            // Shared with `dimensionHit`, so the number and its tap target
+            // are the same point by construction.
+            guard
+                let at = Self.dimensionAnchor(
+                    a: A, b: B, winding: winding, rowOffset: off, lift: Self.textLift)
+            else { continue }
 
             context.drawLayer { layer in
                 layer.translateBy(x: at.x, y: at.y)
