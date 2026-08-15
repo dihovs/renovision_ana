@@ -194,6 +194,84 @@ Cloud-authored, attached per object. Not observed in use.
 
 ---
 
+## 2b. A wall is an inspectable thing too — and it owns affected areas
+
+Select a wall, swipe up. **Same three tabs as an object**: Details, Photos &
+Notes, Forms. A wall carries its own photos and its own notes.
+
+**Details:**
+
+| Section | Field | Value seen |
+|---|---|---|
+| Dimensions | Length | 2.500 m |
+| Affected Areas | `+ Add New Area` | — |
+| Settings | **Display Elevation in Report** | toggle, off |
+| Settings | **Load-Bearing Wall** | toggle, off |
+| | `+ New Field` | link out |
+
+The Affected Areas note reads:
+
+> Define one or more affected areas (overlapping allowed) within a room **or a
+> wall**. Affected areas can be included in your exports.
+
+So **affected areas are first-class, on both floors and walls, and they are
+allowed to overlap** — which is exactly the model we built in ORD-20 and exactly
+why `totalsByDamageType` must never produce one grand total.
+
+`Display Elevation in Report` is a **per-wall** flag deciding whether that wall's
+elevation drawing prints. We built the elevation (ORD-19) with no such switch;
+a claim does not want twelve elevations, it wants the three that are damaged.
+
+`Load-Bearing Wall` is a structural flag we do not have. Cheap to add and it
+matters on a job where a wall is coming out.
+
+### The affected area itself
+
+`+ Add New Area` opens **Edit Affected Area** — and it opens *the wall face,
+straight on*: width across the top, height down both sides, the two adjoining
+walls folded away as grey trapezoids. The same elevation drawing we built. The
+new area arrives covering most of the face, to be pulled in — reductive, like
+ours.
+
+Its own inspector, again three tabs:
+
+| Section | Field | Notes |
+|---|---|---|
+| Dimensions | Area | `6.10 m²` — computed, read-only |
+| General | Name | `Affected Area 1`, editable |
+| General | **Fill Color** | full colour matrix + `Reset` |
+| Settings | **Show Dimensions** | toggle, off |
+| | `+ New Field` | |
+
+**They have no damage type.** A name and a colour, nothing more. Our
+water / fire / mould / impact / other classification is a deliberate addition —
+in restoration the cause decides the trade and the rate, and an adjuster asks
+for it. Keep it; theirs is a general-purpose plan app.
+
+What they have that we do not: **Show Dimensions** per area, and photos, notes
+and forms attached to the *area* rather than only to the room.
+
+### Editing the shape
+
+Action bar for a selected area: **Insert · Edit Shape · Delete**.
+
+`Edit Shape`, captioned *"Tap to adjust points"*:
+
+1. **Tap a point** — it becomes a red four-way move handle, and a **Delete**
+   button appears at the bottom for removing that point.
+2. **Drag it** — the point moves freely. The shape does **not** stay
+   rectangular; it became a quadrilateral with a diagonal edge.
+3. **Live dimensions** appear on the two edges adjoining the dragged point.
+4. Points can be **added as well as deleted**, so an area can be an L, a T, or
+   any polygon — the owner's own note.
+5. Undo / redo throughout, `Cancel` / `Done` to commit.
+
+Ours already drags corners, splits edges and removes corners. What ours lacks is
+the **live edge dimensions during the drag** and the tap-to-select-then-move
+step, which is what makes it usable with a thumb.
+
+---
+
 ## 3. The action bar changes with what is selected
 
 Confirms and extends `editor-chrome-design.md` §4. Observed, at each depth:
@@ -204,6 +282,7 @@ Confirms and extends `editor-chrome-design.md` §4. Observed, at each depth:
 | Room | Insert · Set Size · Edit Layout · Duplicate · Delete |
 | Wall | Insert · Add Corner · Add Wall · Split Room · Delete |
 | Object | Insert · **Replace with…** · **Rotate** · Duplicate · Delete |
+| Affected area | Insert · **Edit Shape** · Delete |
 
 Two new ones for us. **Replace with…** swaps the object for another from the
 catalogue while keeping its position and size — the fix for "that's a window,
@@ -322,6 +401,16 @@ nobody "fixes" it back.
   system; build the shape tools (arrow, line, rectangle, ellipse, text) and the
   cropper ourselves. Blur first — it is the one that is currently costing
   photos.
+- **ORD-30 — the wall inspector.** A wall needs its own sheet: length, its
+  affected areas, `Display Elevation in Report` (per wall — a claim wants the
+  three damaged elevations, not twelve), `Load-Bearing Wall`, and its own photos
+  and notes. §2b.
+- **ORD-31 — live dimensions while dragging an area corner**, and
+  tap-to-select-then-move rather than direct drag. The two things that make
+  their shape editor usable with a thumb. Ours already has the polygon maths.
+  §2b.
+- **ORD-32 — Show Dimensions per affected area**, and photos/notes attached to
+  the area itself rather than only its room. §2b.
 - **ORD-29 — 360 photo and video capture.** Their `+` offers Photo, 360 or
   Video; we offer stills only. Sizing not yet done. §2.
 - Set Size should **hide** on a non-rectangular room, not grey. §3.
