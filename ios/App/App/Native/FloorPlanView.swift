@@ -354,14 +354,25 @@ struct AreaEditor: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var corners: [CGPoint] = []
-    @State private var dragging: Int?
+    /// The point being adjusted. Selection is a STEP, not a side effect of
+    /// touching the canvas: the reference's own caption is "Tap to adjust
+    /// points", and a point you have chosen is one your thumb can then drag
+    /// without having to stay on a 26pt target it cannot see under itself.
+    @State private var selected: Int?
+    @State private var history: [[CGPoint]] = []
+    @State private var future: [[CGPoint]] = []
     @State private var name = "Affected area"
     @State private var cause: DamageCause = .water
     @State private var saving = false
+    @State private var confirmingDiscard = false
 
     private var colour: Color { cause.color }
 
     private var areaSqm: Double { FloorPlanGeometry.polygonArea(corners) }
+
+    /// Nothing has been pulled in yet — the shape is still the whole room it
+    /// opened as. Used to keep Save honest rather than to block a gesture.
+    private var isDirty: Bool { !history.isEmpty }
 
     var body: some View {
         NavigationStack {
@@ -370,8 +381,6 @@ struct AreaEditor: View {
 
                 VStack(spacing: Brand.Space.base) {
                     GeometryReader { proxy in
-                        // The SAME transform the drawing below uses, so a
-                        // handle lands exactly on the corner it moves.
                         let transform = PlanTransform.fit(plan, in: proxy.size)
 
                         ZStack(alignment: .topLeading) {
@@ -380,24 +389,16 @@ struct AreaEditor: View {
                                 draft: (corners, colour))
 
                             if let transform {
-                                // Corner handles. Generous targets — this is
-                                // dragged with a thumb, in a basement.
-                                ForEach(corners.indices, id: \.self) { index in
-                                    let at = transform.point(corners[index])
-                                    Circle()
-                                        .fill(colour)
-                                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                                        .frame(width: 26, height: 26)
-                                        .position(x: at.x, y: at.y)
-                                        .gesture(
-                                            DragGesture()
-                                                .onChanged { value in
-                                                    corners[index] = transform.model(value.location)
-                                                }
-                                        )
-                                }
+                                edgeHandles(transform)
+                                cornerHandles(transform)
+                                liveDimensions(transform)
                             }
                         }
+                        // A tap on bare canvas clears the selection, so the
+                        // four-way handle and its Delete cannot linger over a
+                        // point the operator has moved on from.
+                        .contentShape(.rect)
+                        .onTapGesture { selected = nil }
                     }
                     .frame(maxHeight: 360)
                     .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
@@ -415,7 +416,25 @@ struct AreaEditor: View {
 
                         DamageCausePicker(cause: $cause)
 
-                        Text("Drag the corners in to the damaged part. It opens covering the whole room.")
+                        // Delete belongs to the SELECTED point and appears
+                        // with it, which is where the reference puts it —
+                        // not a permanent control for a target that may not
+                        // exist.
+                        if let selected, corners.count > 3 {
+                            Button(role: .destructive) {
+                                push()
+                                corners = PlanEditing.removeCorner(corners, index: selected)
+                                self.selected = nil
+                            } label: {
+                                Label("Delete point", systemImage: "minus.circle")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                        }
+
+                        Text(
+                            selected == nil
+                                ? "Tap to adjust points. Tap a midpoint to add one."
+                                : "Drag to move it. Tap the plan to deselect.")
                             .font(.system(size: 11))
                             .foregroundStyle(Brand.inkFaint)
                     }
@@ -434,10 +453,149 @@ struct AreaEditor: View {
             .navigationTitle("Affected area")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        if isDirty { confirmingDiscard = true } else { dismiss() }
+                    }
+                }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        undo()
+                    } label: { Image(systemName: "arrow.uturn.backward") }
+                        .disabled(history.isEmpty)
+                    Button {
+                        redo()
+                    } label: { Image(systemName: "arrow.uturn.forward") }
+                        .disabled(future.isEmpty)
+                }
+            }
+            .confirmationDialog(
+                "Discard changes?", isPresented: $confirmingDiscard, titleVisibility: .visible
+            ) {
+                Button("Discard", role: .destructive) { dismiss() }
+                Button("Keep editing", role: .cancel) {}
             }
             .onAppear(perform: seed)
         }
+    }
+
+    // MARK: - Handles
+
+    /// A hollow dot at each edge's midpoint — tap it to put a real corner
+    /// there. This is how an L or a T gets made out of the rectangle the
+    /// shape opens as.
+    private func edgeHandles(_ transform: PlanTransform) -> some View {
+        ForEach(corners.indices, id: \.self) { index in
+            let (a, b) = PlanEditing.edgeCorners(index, count: corners.count)
+            let mid = CGPoint(
+                x: (corners[a].x + corners[b].x) / 2, y: (corners[a].y + corners[b].y) / 2)
+            let at = transform.point(mid)
+            Circle()
+                .fill(Brand.Plan.paper)
+                .overlay(Circle().strokeBorder(colour.opacity(0.7), lineWidth: 1.5))
+                .frame(width: 15, height: 15)
+                .position(x: at.x, y: at.y)
+                .onTapGesture {
+                    push()
+                    let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
+                    corners = next
+                    selected = made >= 0 ? made : nil
+                }
+        }
+    }
+
+    /// The corners themselves. An unselected one is a plain dot; the selected
+    /// one becomes the reference's red four-way handle, and only it is
+    /// draggable — which is what stops a thumb resting on the canvas from
+    /// dragging whatever happens to be under it.
+    private func cornerHandles(_ transform: PlanTransform) -> some View {
+        ForEach(corners.indices, id: \.self) { index in
+            let at = transform.point(corners[index])
+            let isSelected = selected == index
+            ZStack {
+                Circle()
+                    .fill(isSelected ? Color.red : colour)
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                if isSelected {
+                    Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(width: isSelected ? 32 : 24, height: isSelected ? 32 : 24)
+            .position(x: at.x, y: at.y)
+            .onTapGesture { selected = isSelected ? nil : index }
+            .gesture(
+                isSelected
+                    ? DragGesture()
+                        .onChanged { value in
+                            if dragOrigin == nil { dragOrigin = corners }
+                            corners = PlanEditing.moveCorner(
+                                corners, index: index, to: transform.model(value.location))
+                        }
+                        .onEnded { _ in
+                            // One history entry per drag, not per frame.
+                            if let origin = dragOrigin {
+                                history.append(origin)
+                                future.removeAll()
+                                dragOrigin = nil
+                            }
+                        }
+                    : nil
+            )
+        }
+    }
+
+    /// The two edges either side of the selected point, measured. The
+    /// reference shows these while a point is being moved, and they are the
+    /// whole reason the gesture is usable: a damaged patch is being matched
+    /// to a tape measure, not eyeballed.
+    private func liveDimensions(_ transform: PlanTransform) -> some View {
+        ForEach(adjoiningEdges, id: \.self) { index in
+            let (a, b) = PlanEditing.edgeCorners(index, count: corners.count)
+            let mid = CGPoint(
+                x: (corners[a].x + corners[b].x) / 2, y: (corners[a].y + corners[b].y) / 2)
+            let at = transform.point(mid)
+            Text(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index)))
+                .font(.system(size: 10, weight: .bold).monospacedDigit())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Color.red.opacity(0.9), in: .capsule)
+                .position(x: at.x, y: at.y)
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// The edge before the selected corner and the edge after it.
+    private var adjoiningEdges: [Int] {
+        guard let selected, corners.count >= 3 else { return [] }
+        let before = (selected - 1 + corners.count) % corners.count
+        return [before, selected]
+    }
+
+    @State private var dragOrigin: [CGPoint]?
+
+    // MARK: - History
+
+    private func push() {
+        history.append(corners)
+        future.removeAll()
+        if history.count > 60 { history.removeFirst() }
+    }
+
+    private func undo() {
+        guard let previous = history.popLast() else { return }
+        future.append(corners)
+        corners = previous
+        selected = nil
+    }
+
+    private func redo() {
+        guard let next = future.popLast() else { return }
+        history.append(corners)
+        corners = next
+        selected = nil
     }
 
     /// Opens covering the room: its outline when the walls closed into one,
@@ -456,7 +614,6 @@ struct AreaEditor: View {
             ]
         }
     }
-
 }
 
 /// The cause chips, in `DAMAGE_TYPES` order, each in its own colour.
