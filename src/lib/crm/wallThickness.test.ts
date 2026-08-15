@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_WALL_THICKNESS,
+  DEFAULT_WALL_THICKNESS_CONFIG,
+  parseWallThicknessConfig,
+  thicknessForLevel,
   WALL_ASSEMBLIES,
   footprintWithHalfWalls,
   groundSurfaces,
@@ -104,5 +107,63 @@ describe("groundSurfaces", () => {
     const s = groundSurfaces([]);
     expect(s.withoutWalls).toBe(0);
     expect(s.withAllWalls).toBe(0);
+  });
+});
+
+describe("parseWallThicknessConfig", () => {
+  /**
+   * The column is jsonb written by a client, so it can hold an older shape,
+   * a half-written object, or nonsense. Every one of these has to produce
+   * usable figures rather than an error on a job site.
+   */
+  it("falls back completely when there is nothing stored", () => {
+    expect(parseWallThicknessConfig(null)).toEqual(DEFAULT_WALL_THICKNESS_CONFIG);
+    expect(parseWallThicknessConfig(undefined)).toEqual(DEFAULT_WALL_THICKNESS_CONFIG);
+    expect(parseWallThicknessConfig("2x4")).toEqual(DEFAULT_WALL_THICKNESS_CONFIG);
+  });
+
+  it("reads a stated default", () => {
+    const parsed = parseWallThicknessConfig({ default: { interiorM: 0.2, exteriorM: 0.3 } });
+    expect(parsed.default).toEqual({ interiorM: 0.2, exteriorM: 0.3 });
+  });
+
+  it("rejects a thickness nobody could have measured", () => {
+    // 4 metres is not a wall; 0.0001 is not either. Someone typed the wrong
+    // unit, and the default is safer than the number.
+    const parsed = parseWallThicknessConfig({ default: { interiorM: 4, exteriorM: 0.0001 } });
+    expect(parsed.default).toEqual(DEFAULT_WALL_THICKNESS);
+  });
+
+  it("keeps a good field when its neighbour is nonsense", () => {
+    const parsed = parseWallThicknessConfig({ default: { interiorM: 0.2, exteriorM: "thick" } });
+    expect(parsed.default.interiorM).toBe(0.2);
+    expect(parsed.default.exteriorM).toBe(DEFAULT_WALL_THICKNESS.exteriorM);
+  });
+
+  it("carries per-level overrides, and drops unnamed ones", () => {
+    const parsed = parseWallThicknessConfig({
+      default: { interiorM: 0.1, exteriorM: 0.2 },
+      byLevel: { Basement: { interiorM: 0.1, exteriorM: 0.3 }, "  ": { interiorM: 0.9 } },
+    });
+    expect(parsed.byLevel?.Basement.exteriorM).toBe(0.3);
+    expect(Object.keys(parsed.byLevel ?? {})).toEqual(["Basement"]);
+  });
+});
+
+describe("thicknessForLevel", () => {
+  const config = parseWallThicknessConfig({
+    default: { interiorM: 0.1143, exteriorM: 0.1778 },
+    byLevel: { Basement: { interiorM: 0.1143, exteriorM: 0.2032 } },
+  });
+
+  it("uses a floor's own thickness when it has one", () => {
+    // The case that motivated per-level at all: a poured foundation under
+    // stud walls.
+    expect(thicknessForLevel(config, "Basement").exteriorM).toBe(0.2032);
+  });
+
+  it("falls back to the project default for every other floor", () => {
+    expect(thicknessForLevel(config, "Ground").exteriorM).toBe(0.1778);
+    expect(thicknessForLevel(config, "2nd").exteriorM).toBe(0.1778);
   });
 });

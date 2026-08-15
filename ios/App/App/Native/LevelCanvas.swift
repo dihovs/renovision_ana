@@ -805,6 +805,30 @@ private struct StoreyInfoSheet: View {
         rooms.reduce(0) { $0 + $1.wallLengthM * $1.ceilingHeightM }
     }
 
+    /// Held rooms are included: a floor's footprint should not jump when a
+    /// phone finds a bar. They carry an area and a perimeter like any other.
+    private var surfaces: WallThickness.Surfaces {
+        WallThickness.groundSurfaces(
+            rooms: rooms.map { (floorAreaSqm: $0.floorAreaSqm, perimeterM: $0.wallLengthM) }
+                + pending.map {
+                    // A held room has no row to read a perimeter column from,
+                    // but it carries the geometry the perimeter comes from.
+                    (floorAreaSqm: $0.floorAreaSqm, perimeterM: $0.geometry.perimeterM)
+                })
+    }
+
+    private func footprintFigure(_ label: String, _ sqm: Double) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("\(Int(Measure.squareFeet(sqm).rounded()))")
+                .font(.system(size: 15, weight: .bold).monospacedDigit())
+                .foregroundStyle(Brand.ink)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Brand.inkSoft)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -828,6 +852,35 @@ private struct StoreyInfoSheet: View {
                             )
                             .font(.system(size: 13))
                             .foregroundStyle(.orange)
+                        }
+                    }
+
+                    // The footprint including wall assemblies. Stated as
+                    // derived from an assumed thickness, never as measured —
+                    // the scan sees wall faces and cannot know what is inside
+                    // them.
+                    Card {
+                        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                            HStack {
+                                Text("Footprint")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Brand.ink)
+                                Spacer()
+                                Text(WallThickness.Assembly.stud2x4.shortLabel)
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(Brand.inkFaint)
+                            }
+                            HStack(spacing: Brand.Space.base) {
+                                footprintFigure("Clear floor", surfaces.withoutWalls)
+                                footprintFigure("With partitions", surfaces.withInteriorWalls)
+                                footprintFigure("With all walls", surfaces.withAllWalls)
+                            }
+                            Text(
+                                "Computed from an assumed 2×4 partition and 2×6 exterior, not measured — a scan sees wall faces, not what is inside them. \"With all walls\" reads slightly under a true outside-face figure, because a room scanned on its own cannot tell an exterior wall from one it shares."
+                            )
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                     }
 

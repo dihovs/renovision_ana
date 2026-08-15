@@ -124,3 +124,71 @@ export function groundSurfaces(
 
   return { withoutWalls, withInteriorWalls, withAllWalls };
 }
+
+/**
+ * What a project stores: one default, and overrides for the floors that
+ * differ.
+ *
+ * Most jobs are one construction throughout, so a single pair covers them.
+ * The exception is real and common on this trade — a basement's poured
+ * foundation is nothing like the stud walls above it — so a level can say
+ * otherwise without the operator re-stating the whole building.
+ */
+export type WallThicknessConfig = {
+  default: WallThickness;
+  byLevel?: Record<string, WallThickness>;
+};
+
+export const DEFAULT_WALL_THICKNESS_CONFIG: WallThicknessConfig = {
+  default: DEFAULT_WALL_THICKNESS,
+};
+
+/** A thickness that could not have been typed by someone measuring a wall. */
+function sane(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  // Two millimetres to half a metre. Below that is a sheet of board, above it
+  // is a vault — either way somebody typed inches into a metres field, or the
+  // other way round, and the fallback is safer than the number.
+  return Number.isFinite(n) && n >= 0.002 && n <= 0.5 ? n : fallback;
+}
+
+function readPair(raw: unknown, fallback: WallThickness): WallThickness {
+  if (!raw || typeof raw !== "object") return fallback;
+  const value = raw as Record<string, unknown>;
+  return {
+    interiorM: sane(value.interiorM, fallback.interiorM),
+    exteriorM: sane(value.exteriorM, fallback.exteriorM),
+  };
+}
+
+/**
+ * Read a stored config, tolerating anything.
+ *
+ * The column is jsonb written by a client, so it can hold a shape from an
+ * older build, a half-written object, or nonsense. Every field falls back
+ * rather than throwing: a project whose config is corrupt still reports
+ * figures, computed on the documented default, instead of a screen of errors
+ * on a job site.
+ */
+export function parseWallThicknessConfig(raw: unknown): WallThicknessConfig {
+  if (!raw || typeof raw !== "object") return DEFAULT_WALL_THICKNESS_CONFIG;
+  const value = raw as Record<string, unknown>;
+  const base = readPair(value.default, DEFAULT_WALL_THICKNESS);
+
+  const byLevel: Record<string, WallThickness> = {};
+  if (value.byLevel && typeof value.byLevel === "object") {
+    for (const [level, pair] of Object.entries(value.byLevel as Record<string, unknown>)) {
+      if (level.trim()) byLevel[level] = readPair(pair, base);
+    }
+  }
+
+  return Object.keys(byLevel).length > 0 ? { default: base, byLevel } : { default: base };
+}
+
+/** The thickness that applies on one floor: its own if stated, else the default. */
+export function thicknessForLevel(
+  config: WallThicknessConfig,
+  level: string,
+): WallThickness {
+  return config.byLevel?.[level] ?? config.default;
+}

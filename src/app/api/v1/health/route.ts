@@ -34,6 +34,7 @@ const COLUMNS = [
   { table: "room_scans", column: "room_type", migration: "0030_living_area.sql" },
   { table: "room_scans", column: "living_percent", migration: "0030_living_area.sql" },
   { table: "projects", column: "living_area_config", migration: "0030_living_area.sql" },
+  { table: "projects", column: "wall_thickness", migration: "0031_wall_thickness.sql" },
 ];
 
 export async function GET() {
