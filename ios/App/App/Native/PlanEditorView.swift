@@ -291,7 +291,7 @@ struct PlanEditorView: View {
                     // are in it — so this is unconditional, and it no longer
                     // waits on a selection the way the old hatch did.
                     context.fill(floor, with: .color(Brand.surface))
-                    EditorChrome.tileGrid(floor, context: context)
+                    EditorChrome.tileGrid(floor, context: context, scale: scale)
 
                     // Walls. The selected one is blue and thicker; an invalid
                     // shape goes dashed red — signalled, never blocked, since

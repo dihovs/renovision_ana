@@ -124,30 +124,62 @@ enum EditorChrome {
     /// point pitch cost almost nothing and always look the same.
     static let tile = Brand.Plan.tile
 
-    static func tileGrid(_ outline: Path, context: GraphicsContext) {
+    static func tileGrid(_ outline: Path, context: GraphicsContext, scale: CGFloat) {
         let box = outline.boundingRect
-        guard box.width > 0, box.height > 0 else { return }
+        guard box.width > 0, box.height > 0, scale.isFinite, scale > 0 else { return }
 
-        // A value copy of the context clips privately: the clip dies with
-        // the copy, so nothing drawn after this is affected.
+        // MODEL space, not screen space — the opposite rule to `drawGrid`
+        // above, and deliberately so. The background dots are the paper the
+        // drawing sits on and must not move; this grid is ON the floor. It is
+        // a scale reference: counting cells is how you judge whether a jog is
+        // a closet or a chimney, and a grid whose cell stops meaning a fixed
+        // distance answers no question at all.
+        //
+        // Verified against the reference by measuring the same room at two
+        // zooms: the cell COUNT stayed constant while the room changed size,
+        // which is only true of a model-space grid. An earlier version of
+        // this function used fixed point pitch on the reasoning that constant
+        // density looks steadier. It does — and it means nothing.
+        let minor = 0.25
+        let majorEvery = 4
+
+        // Below this the cells are closer than a hairline and the floor turns
+        // grey. Fade rather than pop, and drop out entirely when unreadable.
+        let cell = CGFloat(minor) * scale
+        let alpha = min(max((cell - 3) / 3, 0), 1)
+        guard alpha > 0.01 else { return }
+
         var clipped = context
         clipped.clip(to: outline)
 
-        let step: CGFloat = 11
-        var lines = Path()
+        var minorLines = Path()
+        var majorLines = Path()
+
+        // Anchored to the box's own origin so the grid does not crawl across
+        // the floor as a corner is dragged.
+        var i = 0
         var x = box.minX
-        while x < box.maxX {
-            lines.move(to: CGPoint(x: x, y: box.minY))
-            lines.addLine(to: CGPoint(x: x, y: box.maxY))
-            x += step
+        while x <= box.maxX {
+            var line = Path()
+            line.move(to: CGPoint(x: x, y: box.minY))
+            line.addLine(to: CGPoint(x: x, y: box.maxY))
+            if i % majorEvery == 0 { majorLines.addPath(line) } else { minorLines.addPath(line) }
+            x += cell
+            i += 1
         }
+        i = 0
         var y = box.minY
-        while y < box.maxY {
-            lines.move(to: CGPoint(x: box.minX, y: y))
-            lines.addLine(to: CGPoint(x: box.maxX, y: y))
-            y += step
+        while y <= box.maxY {
+            var line = Path()
+            line.move(to: CGPoint(x: box.minX, y: y))
+            line.addLine(to: CGPoint(x: box.maxX, y: y))
+            if i % majorEvery == 0 { majorLines.addPath(line) } else { minorLines.addPath(line) }
+            y += cell
+            i += 1
         }
-        clipped.stroke(lines, with: .color(tile.opacity(0.45)), lineWidth: 0.5)
+
+        clipped.stroke(minorLines, with: .color(tile.opacity(0.28 * alpha)), lineWidth: 0.5)
+        clipped.stroke(majorLines, with: .color(tile.opacity(0.55 * alpha)), lineWidth: 0.6)
     }
 
     // MARK: - Drafted wall dimensions

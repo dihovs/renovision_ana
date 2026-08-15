@@ -274,7 +274,7 @@ struct RoomSketchView: View {
                         // plan editor, unconditional for the same reason —
                         // there is only ever the one room on this canvas.
                         context.fill(floor, with: .color(Brand.surface))
-                        EditorChrome.tileGrid(floor, context: context)
+                        EditorChrome.tileGrid(floor, context: context, scale: scale)
 
                         for i in corners.indices {
                             let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
