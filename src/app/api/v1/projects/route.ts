@@ -17,6 +17,10 @@ export async function GET() {
       name: project.name,
       clientName: project.client_name,
       roomCount: project.room_count,
+      // The geometry of the largest room, so a card can show the floor plan
+      // rather than a grey box. `listProjects` already reads it for the web
+      // list; forwarding it costs one embed that is already being made.
+      largestRoom: project.largest_room?.geometry ?? null,
     })),
   }));
 }

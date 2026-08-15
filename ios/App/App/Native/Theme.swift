@@ -39,7 +39,10 @@ enum Brand {
     // genuinely harder to read in one of those.
 
     /// What the whole screen sits on.
-    static let canvas = Color(light: 0xF4F5F7, dark: 0x111316)
+    /// Measured off the reference: the flat, very light grey a card grid
+    /// sits on. Slightly cooler than iOS's own grouped background, which
+    /// is what keeps a white card reading as paper against it.
+    static let canvas = Color(light: 0xF2F2F5, dark: 0x111316)
 
     /// A card.
     static let surface = Color(light: 0xFFFFFF, dark: 0x1C1F24)

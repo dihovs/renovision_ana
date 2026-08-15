@@ -61,6 +61,31 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
     let name: String
     let clientName: String?
     let roomCount: Int
+    /// The largest room's geometry, for the card's thumbnail. Optional
+    /// because a project with nothing measured has no plan to show — and
+    /// because an older server does not send it at all, which must degrade
+    /// to a placeholder rather than a failed decode of the whole list.
+    let largestRoom: ScanGeometry?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, clientName, roomCount, largestRoom
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        clientName = try c.decodeIfPresent(String.self, forKey: .clientName)
+        roomCount = try c.decodeIfPresent(Int.self, forKey: .roomCount) ?? 0
+        // A malformed geometry costs this card its thumbnail, never the list.
+        largestRoom = try? c.decodeIfPresent(ScanGeometry.self, forKey: .largestRoom)
+    }
+
+    // Identity is the id. Synthesised conformance would have to hash the
+    // geometry too, which is both expensive and wrong: the same project with a
+    // redrawn plan is still the same project, and navigation compares these.
+    static func == (a: ProjectSummary, b: ProjectSummary) -> Bool { a.id == b.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 // MARK: - Clients

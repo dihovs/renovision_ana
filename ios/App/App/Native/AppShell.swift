@@ -9,6 +9,21 @@ import SwiftUI
 /// simply were not created yet. The native app asks `/api/v1/health` at launch
 /// and says which it is.
 struct AppShell: View {
+    /// The whole app is a light document, like the reference.
+    ///
+    /// A floor plan is ink on paper, and the screens around it stopped
+    /// matching it: paper-white drawings sat inside dark chrome, and the two
+    /// read as different apps. Every Brand colour is already declared as
+    /// Color(light:dark:), so pinning the appearance here switches all of
+    /// them at once — there is no screen that can be half-converted, which is
+    /// exactly the failure the per-screen pins were starting to create.
+    ///
+    /// Those per-screen pins on the editor, sketch pad and projects list are
+    /// now redundant. They are harmless and left in place: each states why
+    /// ITS surface must be light regardless of what the app around it does,
+    /// which stays true if this ever becomes a preference.
+    private let appearance: ColorScheme = .light
+
     @State private var phase: Phase = .checking
 
     enum Phase {
@@ -36,6 +51,8 @@ struct AppShell: View {
             // screen entirely — the same behaviour the WebView had.
             phase = await API.shared.isSignedIn() ? .ready : .signedOut
         }
+        .preferredColorScheme(appearance)
+        .environment(\.colorScheme, appearance)
     }
 }
 

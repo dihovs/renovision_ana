@@ -118,15 +118,20 @@ struct ProjectsView: View {
                                         : "Not measured")
                                 }
                             ) { project in
-                                // No geometry travels with a project summary,
-                                // so this is a placeholder rather than a plan.
-                                // Drawing a fake floor plan here would be a
-                                // picture of a room nobody measured.
-                                Image(systemName: project.roomCount > 0
-                                        ? "square.split.bottomrightquarter"
-                                        : "doc")
-                                    .font(.system(size: 30, weight: .light))
-                                    .foregroundStyle(Brand.Plan.dimension.opacity(0.55))
+                                // The floor plan itself, drawn from the
+                                // largest room's geometry — the same renderer
+                                // the storey canvas uses, so a card and the
+                                // plan behind it cannot disagree. A project
+                                // with nothing measured has nothing to draw
+                                // and says so instead of faking a room.
+                                if let geometry = project.largestRoom {
+                                    MiniPlan(geometry: geometry)
+                                        .padding(6)
+                                } else {
+                                    Image(systemName: "doc")
+                                        .font(.system(size: 26, weight: .light))
+                                        .foregroundStyle(Brand.Plan.dimension.opacity(0.45))
+                                }
                             }
                         }
                     }
