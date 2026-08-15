@@ -19,6 +19,7 @@ struct ProjectsView: View {
     /// NavigationLink, so the push is driven from here.
     @State private var opened: ProjectSummary?
     @State private var filter: ProjectFilter = .all
+    @State private var creatingNow = false
 
     /// The reference filters All / Favorites / Archived. Neither of those is
     /// a thing this trade has; what an operator actually sorts by is whether
@@ -107,7 +108,7 @@ struct ProjectsView: View {
                             CardGrid(
                                 items: shown,
                                 addLabel: "New Project",
-                                onAdd: { creating = true },
+                                onAdd: { Task { await createNow() } },
                                 onOpen: { opened = $0 },
                                 caption: { project in
                                     (project.name,
@@ -146,6 +147,7 @@ struct ProjectsView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Refresh") { Task { await load() } }
+                        Button("New project with details…") { creating = true }
                         Button("Other screens") { showMore = true }
                         Button("Connection status") { showStatus = true }
                         Divider()
@@ -161,6 +163,46 @@ struct ProjectsView: View {
                 NewProjectSheet { _ in Task { await load() } }
             }
             .task { await load() }
+        }
+    }
+
+    /// Create and open, with no form in between.
+    ///
+    /// The reference does exactly this: its New Project tile makes the project
+    /// on the spot, names it by default and drops you on it. Nothing about a
+    /// job is known at the moment it starts — the address gets typed from the
+    /// van, the client is often a claim number for the first hour — so a form
+    /// demanding a name before anything can exist is a form answered with
+    /// junk. The name is editable on the project itself, which is where the
+    /// operator is standing when they finally know it.
+    ///
+    /// The old form is still there under the menu, for a job booked at a desk
+    /// with the client and address already in hand.
+    private func createNow() async {
+        guard !creatingNow else { return }
+        creatingNow = true
+        defer { creatingNow = false }
+
+        // Unique against what is on screen, so a phone that makes three in a
+        // row does not show three identical cards.
+        let base = "New project"
+        let taken = Set((projects ?? []).map(\.name))
+        var name = base
+        var n = 2
+        while taken.contains(name) {
+            name = "\(base) \(n)"
+            n += 1
+        }
+
+        do {
+            let id = try await API.shared.createProject(
+                name: name, clientId: nil, description: nil)
+            await load()
+            // Push the project just made, so the next tap is the work rather
+            // than hunting for what was created.
+            if let made = (projects ?? []).first(where: { $0.id == id }) { opened = made }
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 
