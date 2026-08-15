@@ -1153,7 +1153,28 @@ struct PlanEditorView: View {
 
     // MARK: - State
 
-    private var bounds: CGRect {
+    /// The frame the canvas draws through, FROZEN when the room opens.
+    ///
+    /// This used to be recomputed from the live corners every frame, and the
+    /// result was that the camera chased every edit. Drag the top wall down
+    /// and the room got shorter, so the fit scale grew and the drawing
+    /// re-centred — which on screen looks exactly like the bottom wall rising
+    /// to meet the top one and both side walls shrinking symmetrically. The
+    /// geometry was right the whole time; the viewport was moving underneath
+    /// it, and no amount of correct maths reads as correct through a moving
+    /// camera.
+    ///
+    /// A drawing does not rescale while you draw on it. Frozen at open, the
+    /// wall you drag is the only thing that moves, which is the whole point of
+    /// dragging it. Two fingers still pan and zoom whenever the room needs
+    /// re-framing.
+    @State private var frozenBounds: CGRect?
+
+    private var bounds: CGRect { frozenBounds ?? measuredBounds }
+
+    /// The corners' actual extent — what the frame is set FROM, at open, and
+    /// what a deliberate re-fit would read again.
+    private var measuredBounds: CGRect {
         guard !corners.isEmpty else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
         let xs = corners.map(\.x)
         let ys = corners.map(\.y)
@@ -1202,6 +1223,13 @@ struct PlanEditorView: View {
             return PlanEditing.WallOpening(
                 edge: record.edge, offset: record.offset, width: record.width, kind: kind)
         }
+
+        // Freeze the viewport to the room's extent AS OPENED. `measuredBounds`
+        // is now correct for `corners`, so this is the one moment to capture
+        // it — every drag after this reads through `frozenBounds` instead,
+        // so the camera stops chasing the edit. Two-finger pan/zoom still
+        // works on top of this frame; nothing re-fits it automatically.
+        frozenBounds = measuredBounds
     }
 
     private func push() {

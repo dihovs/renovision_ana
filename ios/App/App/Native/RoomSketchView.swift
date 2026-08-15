@@ -225,6 +225,10 @@ struct RoomSketchView: View {
                         CGPoint(x: 0, y: 0), CGPoint(x: width, y: 0),
                         CGPoint(x: width, y: length), CGPoint(x: 0, y: length),
                     ]
+                    // Freeze the viewport to the seed rectangle now, before
+                    // any drag can make `measuredBounds` disagree with what
+                    // the operator is looking at.
+                    frozenBounds = CGRect(x: 0, y: 0, width: width, height: length)
                     stage = .shape
                 }
                 .buttonStyle(PrimaryButtonStyle(enabled: sizeReady))
@@ -751,7 +755,19 @@ struct RoomSketchView: View {
 
     // MARK: - Viewport
 
-    private var bounds: CGRect {
+    /// The frame the canvas draws through, FROZEN when the shape is drawn.
+    ///
+    /// Recomputing this from live corners on every frame means the camera
+    /// chases every drag: shrink the room and the fit scale grows to fill the
+    /// same screen space, which reads as the OPPOSITE walls moving too — the
+    /// same bug fixed in `PlanEditorView`, and this editor has the identical
+    /// pattern since the operator is actively growing/adjusting a room from
+    /// nothing here, where it would be at least as disorienting.
+    @State private var frozenBounds: CGRect?
+
+    private var bounds: CGRect { frozenBounds ?? measuredBounds }
+
+    private var measuredBounds: CGRect {
         guard !corners.isEmpty else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
         let xs = corners.map(\.x)
         let ys = corners.map(\.y)
