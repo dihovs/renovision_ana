@@ -50,60 +50,55 @@ enum EditorChrome {
     static func drawGrid(
         context: GraphicsContext,
         size: CGSize,
-        toScreen: (CGPoint) -> CGPoint,
-        toModel: (CGPoint) -> CGPoint,
-        scale: CGFloat
+        pitch: CGFloat = 22,
+        dotRadius: CGFloat = 1.1,
+        arm: CGFloat = 3.5
     ) {
-        let pitch = 0.5
-        let pitchPts = pitch * scale
-        guard pitchPts.isFinite, pitchPts > 0 else { return }
-
-        // A ramp, not a pop: zooming through the threshold should feel like
-        // the paper receding, not a layer being switched off.
-        let alpha = min(max((pitchPts - 8) / 4, 0), 1)
-        guard alpha > 0.01 else { return }
-
-        // The visible window, in the plan's own metres, snapped down to the
-        // grid so the first line is on-pitch rather than at the screen edge.
-        let a = toModel(.zero)
-        let b = toModel(CGPoint(x: size.width, y: size.height))
-        let minX = (min(a.x, b.x) / pitch).rounded(.down) * pitch
-        let minY = (min(a.y, b.y) / pitch).rounded(.down) * pitch
-        let cols = Int((max(a.x, b.x) - minX) / pitch) + 1
-        let rows = Int((max(a.y, b.y) - minY) / pitch) + 1
-        // The fade already bounds this; the cap is a belt for the braces.
-        guard cols > 0, rows > 0, cols * rows <= 40_000 else { return }
+        // SCREEN pitch, not model pitch. The grid is the paper, not the
+        // drawing: it belongs to the view the way graph paper under glass
+        // belongs to the desk, and glass does not magnify when the sheet on
+        // top of it is scaled.
+        //
+        // This used to be generated at a 0.5 m model pitch and transformed,
+        // so zooming in spread the dots apart and zooming out packed them
+        // into grey smear — the grid appeared to breathe, and the operator
+        // lost the fixed reference that made panning legible. Which is
+        // exactly the argument `tileGrid` below already makes for the tan
+        // floor grid; the background grid simply never got it.
+        //
+        // Fixed pitch also deletes three things the model-space version
+        // needed: the alpha fade through the unreadable zooms, the dot-count
+        // cap, and the model-multiple test that kept the majors from
+        // swimming while panning. None of them can arise now.
+        let major = 5
+        guard size.width > 0, size.height > 0 else { return }
 
         var dots = Path()
         var crosses = Path()
-        let r: CGFloat = 1.1
-        let arm: CGFloat = 3.5
-        // Every FIFTH dot is a crosshair (§2) — 2.5 m of model space. The
-        // index test is on the MODEL multiple, not the loop counter, so the
-        // majors stay pinned to the same model lines while panning.
-        let major = 5
+        let r = dotRadius
 
-        for ci in 0..<cols {
-            let x = minX + Double(ci) * pitch
-            let xi = Int((x / pitch).rounded())
-            for ri in 0..<rows {
-                let y = minY + Double(ri) * pitch
-                let yi = Int((y / pitch).rounded())
-                let p = toScreen(CGPoint(x: x, y: y))
-                if xi % major == 0, yi % major == 0 {
-                    crosses.move(to: CGPoint(x: p.x - arm, y: p.y))
-                    crosses.addLine(to: CGPoint(x: p.x + arm, y: p.y))
-                    crosses.move(to: CGPoint(x: p.x, y: p.y - arm))
-                    crosses.addLine(to: CGPoint(x: p.x, y: p.y + arm))
+        let cols = Int(size.width / pitch) + 1
+        let rows = Int(size.height / pitch) + 1
+
+        for ci in 0...cols {
+            let x = CGFloat(ci) * pitch
+            for ri in 0...rows {
+                let y = CGFloat(ri) * pitch
+                // Every fifth intersection is a crosshair (§2), counted from
+                // the view's own origin so the majors sit still.
+                if ci % major == 0, ri % major == 0 {
+                    crosses.move(to: CGPoint(x: x - arm, y: y))
+                    crosses.addLine(to: CGPoint(x: x + arm, y: y))
+                    crosses.move(to: CGPoint(x: x, y: y - arm))
+                    crosses.addLine(to: CGPoint(x: x, y: y + arm))
                 } else {
                     dots.addEllipse(
-                        in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
+                        in: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
                 }
             }
         }
-        context.fill(dots, with: .color(Brand.inkFaint.opacity(0.35 * alpha)))
-        context.stroke(
-            crosses, with: .color(Brand.blue.opacity(0.45 * alpha)), lineWidth: 1)
+        context.fill(dots, with: .color(Brand.Plan.grid.opacity(0.55)))
+        context.stroke(crosses, with: .color(Brand.Plan.gridCross.opacity(0.85)), lineWidth: 1)
     }
 
     // MARK: - The floor you are standing in

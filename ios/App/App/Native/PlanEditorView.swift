@@ -271,9 +271,7 @@ struct PlanEditorView: View {
                     // the plan's own metres through the same mapping as the
                     // walls.
                     if showGrid {
-                        EditorChrome.drawGrid(
-                            context: context, size: proxy.size,
-                            toScreen: pt, toModel: toModel, scale: scale)
+                        EditorChrome.drawGrid(context: context, size: proxy.size)
                     }
 
                     guard corners.count >= 3 else { return }

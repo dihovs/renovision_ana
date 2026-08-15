@@ -255,9 +255,7 @@ struct RoomSketchView: View {
                         // dot, drawn through this canvas's own mapping so it
                         // sits under the room, not behind the glass.
                         if showGrid {
-                            EditorChrome.drawGrid(
-                                context: context, size: size,
-                                toScreen: pt, toModel: toModel, scale: scale)
+                            EditorChrome.drawGrid(context: context, size: size)
                         }
 
                         guard corners.count >= 3 else { return }

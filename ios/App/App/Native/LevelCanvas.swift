@@ -146,7 +146,11 @@ struct LevelCanvas: View {
                     let ink = Brand.Plan.ink
                     let bg = Brand.Plan.paper
 
-                    if grid { Self.drawGrid(in: context, size: canvasSize) }
+                    if grid {
+                        EditorChrome.drawGrid(
+                            context: context, size: canvasSize,
+                            pitch: 15, dotRadius: 0.6, arm: 2.6)
+                    }
 
                     for slot in layout.slots {
                         let isNew = spotlight.contains(slot.piece.id)
@@ -266,39 +270,6 @@ struct LevelCanvas: View {
     /// replaced by a slightly larger, slightly more saturated `+` crosshair
     /// (`editor-chrome-design.md` §2). The crosshairs are the whole character
     /// of it — a plain dot field reads as a placeholder texture.
-    private static func drawGrid(in context: GraphicsContext, size: CGSize) {
-        guard size.width > 0, size.height > 0 else { return }
-        let pitch: CGFloat = 15
-        let dot = Brand.Plan.grid.opacity(0.55)
-        let cross = Brand.Plan.gridCross.opacity(0.85)
-
-        var dots = Path()
-        var crosses = Path()
-        var row = 0
-        var y: CGFloat = pitch / 2
-        while y < size.height {
-            var column = 0
-            var x: CGFloat = pitch / 2
-            while x < size.width {
-                if row % 5 == 0 && column % 5 == 0 {
-                    let arm: CGFloat = 2.6
-                    crosses.move(to: CGPoint(x: x - arm, y: y))
-                    crosses.addLine(to: CGPoint(x: x + arm, y: y))
-                    crosses.move(to: CGPoint(x: x, y: y - arm))
-                    crosses.addLine(to: CGPoint(x: x, y: y + arm))
-                } else {
-                    dots.addEllipse(
-                        in: CGRect(x: x - 0.6, y: y - 0.6, width: 1.2, height: 1.2))
-                }
-                x += pitch
-                column += 1
-            }
-            y += pitch
-            row += 1
-        }
-        context.fill(dots, with: .color(dot))
-        context.stroke(crosses, with: .color(cross), style: StrokeStyle(lineWidth: 1, lineCap: .round))
-    }
 }
 
 /// Two sizings for one drawing: the project screen's thumbnail keeps its
