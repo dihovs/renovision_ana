@@ -272,6 +272,83 @@ step, which is what makes it usable with a thumb.
 
 ---
 
+## 2c. The floor sheet — where wall thickness lives
+
+Swipe up at floor level. Same three tabs.
+
+**Statistics** (with `See All`): `6.24 m² Floor Area · 20.18 m² Wall Area ·
+15.25 m³ Volume · 1 # Rooms`. **Volume** is a figure we do not compute.
+
+**Dimensions:**
+
+| Field | Value |
+|---|---|
+| Ceiling Height | 2.440 m |
+| **Interior Wall Thickness** | **0.120 m** |
+| **Exterior Wall Thickness** | **0.250 m** |
+
+**This is the answer to the wall-thickness question.** Thickness is a *floor-level
+setting*, interior and exterior separately, and every derived figure is computed
+from it. Which is exactly the owner's instruction — make it adjustable, default
+to 2×4 — and it means the three ground-surface figures below are not guesses,
+they are arithmetic on a number the operator stated.
+
+`General` holds a `Floor Name` free-text field. Then `+ New Field`.
+
+### The complete statistics list
+
+`See All` opens a **Statistics** sheet with two tabs, **Rooms** and **Objects**,
+and every row carries an ⓘ giving its definition. Read off our 2.5 × 2.5 room
+with one door and one window:
+
+| Measure | Value | What it is |
+|---|---:|---|
+| Floors / Rooms / Doors / Windows | 1 / 1 / 1 / 1 | counts |
+| Ground surface with all walls | 8.99 m² | to the **outside** face — (2.5 + 0.25×2)² = 9.00 ✓ |
+| Ground surface with interior walls | 6.24 m² | equal to "without" here; no partitions on a one-room floor |
+| Ground surface without walls | 6.24 m² | interior floor |
+| **Walls with openings** | 24.40 m² | **GROSS** — ceiling perimeter 10.00 × 2.440 ✓ |
+| **Walls without openings** | 20.18 m² | **NET** — 24.40 − door 3.264 − window 0.96 ✓ |
+| Ceiling perimeter | 10.00 m | 4 × 2.5, the interior perimeter |
+| **Ground perimeter** | 8.40 m | 10.00 − the 1.6 m door |
+| Above grade living area | 6.24 m² | |
+| Below grade living area | 0.00 m² | |
+| Total living area | 6.24 m² | |
+| Volume | 15.25 m³ | 6.25 × 2.44 ✓ |
+
+Two things here are worth more than the rest.
+
+**Their "with / without openings" naming is the reverse of intuition.** "Walls
+with openings" is the GROSS area — the wall counted *including* the holes.
+"Walls without openings" is the NET. Read the wrong way round it is a 4 m²
+error on a room this size. Our `wallAreaSquareMeters` returns `{gross, net}`,
+which is unambiguous; keep our naming and never adopt theirs.
+
+**Ground perimeter is baseboard length.** Their own ⓘ, verbatim:
+
+> "Ground perimeter" is the total length of all interior walls in a building,
+> excluding doors. It is computed by adding up the length of all interior walls
+> and deducting the width of all doors on those walls.
+
+We publish perimeter but not this. Baseboard is priced on it, and it is the
+figure an estimator actually wants — a door has no baseboard across it.
+
+**Objects tab** is a per-type tally with icon and count — `Double Hinged Door 1`,
+`Affected Wall Area 1`, `Fixed Window 1`. A takeoff schedule. (Their group
+headers are visibly buggy: a door files under "Affected Areas".)
+
+We already have the ⓘ pattern — `MEASURE_DEFINITIONS` and `MeasureInfo`, built
+under ORD-04. What is missing is coverage: their list is longer than ours.
+
+### Two smaller observations
+
+- At floor level a room with attachments carries a **yellow paperclip badge**.
+  Attachments are visible on the plan without opening anything.
+- `Cancel` in the shape editor asks **"Discard Changes"** rather than dropping
+  the edit silently.
+
+---
+
 ## 3. The action bar changes with what is selected
 
 Confirms and extends `editor-chrome-design.md` §4. Observed, at each depth:
@@ -411,6 +488,17 @@ nobody "fixes" it back.
   §2b.
 - **ORD-32 — Show Dimensions per affected area**, and photos/notes attached to
   the area itself rather than only its room. §2b.
+- **ORD-33 — wall thickness, per floor.** Interior and exterior, defaulting to
+  2×4 construction, stored on the floor. Unblocks the three ground-surface
+  figures, which then become arithmetic on a stated number rather than an
+  invented one. §2c.
+- **ORD-34 — ground perimeter (baseboard length).** Perimeter minus door
+  widths. Priced directly, and we do not publish it. §2c.
+- **ORD-35 — extend MEASURE_DEFINITIONS** to their full list, volume included,
+  keeping OUR gross/net naming rather than their inverted
+  "with/without openings". §2c.
+- **ORD-36 — the objects takeoff.** A per-type count roll-up per floor and per
+  project: how many doors, how many windows, how many affected areas. §2c.
 - **ORD-29 — 360 photo and video capture.** Their `+` offers Photo, 360 or
   Video; we offer stills only. Sizing not yet done. §2.
 - Set Size should **hide** on a non-rectangular room, not grey. §3.
