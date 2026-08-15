@@ -116,9 +116,21 @@ struct PlanEditorView: View {
     }
 
     var body: some View {
+        editor.environment(\.colorScheme, .light)
+    }
+
+    /// The editor, as a light document.
+    ///
+    /// Pinned to the light appearance because a drawing is ink on paper
+    /// and paper does not invert. Fixing only the canvas would leave the
+    /// chrome's ink inverting to near-white on top of white paper --
+    /// trading an invisible drawing for invisible labels. It is also
+    /// what the operator hands an adjuster: a plan that looks different
+    /// on two phones is a plan whose measurements get questioned.
+    private var editor: some View {
         NavigationStack {
             ZStack {
-                Brand.canvas.ignoresSafeArea()
+                Brand.Plan.sheet.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     canvas
@@ -292,7 +304,7 @@ struct PlanEditorView: View {
                         let isSelected = selection == .wall(i)
                         context.stroke(
                             wall,
-                            with: .color(invalid ? .red : (isSelected ? Brand.blue : Color(hex: 0x111111))),
+                            with: .color(invalid ? .red : (isSelected ? Brand.blue : Brand.Plan.ink)),
                             style: StrokeStyle(
                                 lineWidth: isSelected ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale),
                                 lineCap: .butt,
@@ -313,7 +325,7 @@ struct PlanEditorView: View {
                                 toScreen: pt,
                                 scale: scale,
                                 inside: Brand.surface,
-                                outside: Brand.canvas)
+                                outside: Brand.Plan.sheet)
                             if selection == .opening(index) {
                                 EditorChrome.drawOpeningSelection(
                                     context: context, polygon: corners, opening: opening,
@@ -426,7 +438,7 @@ struct PlanEditorView: View {
                 handleTap(toModel(location), scale: scale)
             }
         }
-        .background(Brand.canvas)
+        .background(Brand.Plan.sheet)
         // §3's floating controls, over the canvas rather than in the bar:
         // undo/redo top-left, the layers and view-mode steppers top-right.
         .overlay(alignment: .top) { floatingControls }
@@ -853,7 +865,7 @@ struct PlanEditorView: View {
                 onInfo: { if isDirty { showDiscard = true } else { dismiss() } })
         }
         .padding(.top, Brand.Space.small)
-        .background(Brand.canvas)
+        .background(Brand.Plan.sheet)
     }
 
     /// This editor's selection as a depth the shared bar understands.
@@ -1123,7 +1135,7 @@ struct OpeningPicker: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Brand.canvas.ignoresSafeArea()
+                Brand.Plan.sheet.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: Brand.Space.base) {

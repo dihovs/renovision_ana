@@ -54,6 +54,41 @@ enum Brand {
     static let inkSoft = Color(light: 0x62666D, dark: 0x9BA1AA)
     static let inkFaint = Color(light: 0x8E939B, dark: 0x6E747D)
 
+    /// The drawing's own palette — FIXED in both appearances.
+    ///
+    /// A floor plan is ink on paper, and paper does not invert. Every other
+    /// colour in this app follows the system theme; these deliberately do not.
+    ///
+    /// The reason is not taste. Drawn against `.systemBackground`, the sheet
+    /// goes near-black in dark mode while the walls stay fixed at `0x111111`,
+    /// and the result is a drawing nobody can see — black lines on a black
+    /// page. It is also what the operator hands an adjuster: a plan that
+    /// looks different on two phones is a plan whose measurements get
+    /// questioned.
+    ///
+    /// Everything that draws a plan uses these: the storey canvas, the room
+    /// plan, the editor, the sketch pad and the elevation.
+    enum Plan {
+        /// The floor itself — the white you draw a room onto.
+        static let paper = Color(hex: 0xFFFFFF)
+        /// The flat light grey the sheet sits on, behind the paper.
+        static let sheet = Color(hex: 0xF2F2F5)
+        /// Walls, and anything else that is a line on the drawing.
+        static let ink = Color(hex: 0x111111)
+        /// The floor fill of a room that is not the one being edited.
+        static let floorMuted = Color(hex: 0xEFEEF4)
+        /// The tan floor-tile grid inside a room.
+        static let tile = Color(hex: 0xC9A08A)
+        /// Dimension lines and their witness lines.
+        static let dimension = Color(hex: 0x8A8F97)
+        /// The dotted drafting grid and its crosshairs.
+        static let grid = Color(hex: 0xBFC9D6)
+        static let gridCross = Color(hex: 0x9FAFC4)
+        /// Labels on the drawing.
+        static let label = Color(hex: 0x1A1A1A)
+        static let labelSoft = Color(hex: 0x666666)
+    }
+
     // MARK: - Spacing
     //
     // A 4pt scale. Named rather than numeric so a screen says why a gap is

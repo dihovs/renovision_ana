@@ -143,8 +143,8 @@ struct LevelCanvas: View {
                 let oy = pad + (proxy.size.height - pad * 2 - layout.height * scale) / 2
 
                 Canvas { context, canvasSize in
-                    let ink = Color(hex: 0x111111)
-                    let bg = Color(uiColor: .systemBackground)
+                    let ink = Brand.Plan.ink
+                    let bg = Brand.Plan.paper
 
                     if grid { Self.drawGrid(in: context, size: canvasSize) }
 
@@ -168,7 +168,7 @@ struct LevelCanvas: View {
                             // legible without a label pointing at it.
                             context.fill(
                                 floor,
-                                with: .color(isNew ? Color(hex: 0xFFFFFF) : Color(hex: 0xEFEEF4)))
+                                with: .color(isNew ? Brand.Plan.paper : Brand.Plan.floorMuted))
                             if isNew {
                                 context.stroke(
                                     floor, with: .color(Brand.blue.opacity(0.55)),
@@ -221,11 +221,11 @@ struct LevelCanvas: View {
                             let name = context.resolve(
                                 Text(slot.piece.name)
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(Color(hex: 0x1A1A1A)))
+                                    .foregroundStyle(Brand.Plan.label))
                             let sqft = context.resolve(
                                 Text(Measure.sqftLabel(slot.piece.areaSqm))
                                     .font(.system(size: 9))
-                                    .foregroundStyle(Color(hex: 0x666666)))
+                                    .foregroundStyle(Brand.Plan.labelSoft))
                             let box = name.measure(in: proxy.size)
                             context.fill(
                                 Path(
@@ -269,8 +269,8 @@ struct LevelCanvas: View {
     private static func drawGrid(in context: GraphicsContext, size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
         let pitch: CGFloat = 15
-        let dot = Color(hex: 0xBFC9D6).opacity(0.55)
-        let cross = Color(hex: 0x9FAFC4).opacity(0.85)
+        let dot = Brand.Plan.grid.opacity(0.55)
+        let cross = Brand.Plan.gridCross.opacity(0.85)
 
         var dots = Path()
         var crosses = Path()

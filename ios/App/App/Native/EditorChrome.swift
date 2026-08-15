@@ -127,7 +127,7 @@ enum EditorChrome {
     /// would change density as the zoom changes, making the same floor look
     /// different at every magnification. Lines redrawn per frame at constant
     /// point pitch cost almost nothing and always look the same.
-    static let tile = Color(light: 0xC9A08A, dark: 0x7A5B4B)
+    static let tile = Brand.Plan.tile
 
     static func tileGrid(_ outline: Path, context: GraphicsContext) {
         let box = outline.boundingRect
@@ -158,7 +158,7 @@ enum EditorChrome {
     // MARK: - Drafted wall dimensions
 
     /// The grey a dimension line and its witness lines are drawn in (§6).
-    static let dimensionGrey = Color(light: 0x8A8F97, dark: 0x7B818A)
+    static let dimensionGrey = Brand.Plan.dimension
 
     /// A pair of opposed arrowheads at one point on a dimension line — the
     /// mark §6 asks for at every segment boundary, and the fine head at each

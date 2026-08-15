@@ -69,9 +69,21 @@ struct RoomSketchView: View {
     }
 
     var body: some View {
+        sketchPad.environment(\.colorScheme, .light)
+    }
+
+    /// The sketch pad, as a light document.
+    ///
+    /// Pinned to the light appearance because a drawing is ink on paper
+    /// and paper does not invert. Fixing only the canvas would leave the
+    /// chrome's ink inverting to near-white on top of white paper --
+    /// trading an invisible drawing for invisible labels. It is also
+    /// what the operator hands an adjuster: a plan that looks different
+    /// on two phones is a plan whose measurements get questioned.
+    private var sketchPad: some View {
         NavigationStack {
             ZStack {
-                Brand.canvas.ignoresSafeArea()
+                Brand.Plan.sheet.ignoresSafeArea()
                 switch stage {
                 case .size: sizeForm
                 case .shape: shapeEditor
@@ -271,7 +283,7 @@ struct RoomSketchView: View {
                             let selected = selection == .wall(i)
                             context.stroke(
                                 wall,
-                                with: .color(invalid ? .red : (selected ? Brand.blue : Color(hex: 0x111111))),
+                                with: .color(invalid ? .red : (selected ? Brand.blue : Brand.Plan.ink)),
                                 style: StrokeStyle(
                                     lineWidth: selected ? 9 : max(3, 0.114 * scale),
                                     lineCap: .butt,
@@ -293,7 +305,7 @@ struct RoomSketchView: View {
                                     toScreen: pt,
                                     scale: scale,
                                     inside: Brand.surface,
-                                    outside: Brand.canvas)
+                                    outside: Brand.Plan.sheet)
                                 if selection == .opening(index) {
                                     EditorChrome.drawOpeningSelection(
                                         context: context, polygon: corners, opening: opening,
@@ -373,7 +385,7 @@ struct RoomSketchView: View {
                 )
                 .onTapGesture { location in tap(toModel(location), scale: scale) }
             }
-            .background(Brand.canvas)
+            .background(Brand.Plan.sheet)
             .overlay(alignment: .top) { floatingControls }
 
             // While a measurement walk runs, the panel takes the controls'
@@ -512,7 +524,7 @@ struct RoomSketchView: View {
                 onAction: perform)
         }
         .padding(.top, Brand.Space.small)
-        .background(Brand.canvas)
+        .background(Brand.Plan.sheet)
     }
 
     /// The nav title changes with depth, the same as the plan editor's.

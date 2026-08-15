@@ -46,7 +46,7 @@ struct FloorPlanView: View {
             }
             func pt(_ p: CGPoint) -> CGPoint { pt(p.x, p.y) }
 
-            let ink = Color(hex: 0x111111)
+            let ink = Brand.Plan.ink
             let tPts = T * scale
 
             // 1. Floor.
@@ -55,7 +55,7 @@ struct FloorPlanView: View {
                 floor.move(to: pt(plan.polygon[0]))
                 for p in plan.polygon.dropFirst() { floor.addLine(to: pt(p)) }
                 floor.closeSubpath()
-                context.fill(floor, with: .color(Color(hex: 0xEFEEF4)))
+                context.fill(floor, with: .color(Brand.Plan.floorMuted))
             }
 
             // 2. Damage, over the floor and under the walls.
@@ -107,7 +107,7 @@ struct FloorPlanView: View {
                 style: StrokeStyle(lineWidth: max(1.5, tPts), lineCap: .butt))
 
             // 4. Openings: knock the band out, cap the jambs, then the symbol.
-            let bg = Color(uiColor: .systemBackground)
+            let bg = Brand.Plan.paper
             for opening in plan.openings {
                 let s = opening.segment
                 let w = s.length
@@ -272,11 +272,11 @@ struct FloorPlanView: View {
                 let name = context.resolve(
                     Text(label.name.uppercased())
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color(hex: 0x1A1A1A)))
+                        .foregroundStyle(Brand.Plan.label))
                 let area = context.resolve(
                     Text("\(label.sqft) SQFT")
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(Color(hex: 0x666666)))
+                        .foregroundStyle(Brand.Plan.labelSoft))
                 let nameSize = name.measure(in: size)
                 let pad: CGFloat = 4
                 let box = CGRect(
