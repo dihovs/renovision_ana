@@ -483,3 +483,71 @@ and the chips split by segment. The Swift and TypeScript type tables must stay t
 - **The floor-level action bar** currently offers one tile (`Add Room`) where
   `editor-chrome-design.md` §4 says `Insert · Rotate`. That was a territory boundary during
   parallel work, not a decision. Reconcile once the editor chrome lands.
+
+---
+
+## ORD-23 — The floor as a place, and one Insert verb
+
+From `Docs/reference/magicplan/workflow-new-project.md`, walked on the device.
+
+Two structural differences, both worth taking:
+
+1. **Land on a floor.** They add a *floor*, arrive on that floor's empty canvas,
+   and insert a room into it. We ask for the floor as one field in a capture
+   chain and never put the operator on a floor as a place they can stand.
+2. **Insert is one verb with five nouns** — Room · Object · Note · Photo · Form —
+   the same menu at floor level and at wall level. We have separate entry points
+   per kind, which is why adding a note and adding a photo feel unrelated.
+
+**Territory:** `CaptureFlow.swift`, `LevelCanvas.swift` (`StoreyPlanView`),
+`ProjectsView.swift`.
+
+---
+
+## ORD-24 — Two more ways to make a room
+
+They offer five; we have three. Missing:
+
+- **Add Square Room** — a rectangle template you then tweak. Cheap, and it is
+  the fastest path for a plain room when the light is bad.
+- **Import & Draw** — trace over a photo of an existing plan. The strongest of
+  the five for insurance work: the builder's plan or the adjuster's sketch is
+  often the only source for a storey nobody can scan, and tracing it produces
+  real geometry rather than a photo in an appendix.
+
+Import & Draw needs a scale-setting step (tap two points, type the real distance
+between them) or every measurement off it is decorative. Do not ship it without
+that.
+
+**Territory:** `CaptureFlow.swift`, `RoomSketchView.swift`.
+
+---
+
+## ORD-25 — Ground surface, from a stated wall thickness  ⚠️ owner decided
+
+Supersedes the refusal recorded in ORD-22's neighbourhood. The reference reports
+three ground-surface figures; we reported one, because the other two need wall
+thickness and a scan gives faces, not assemblies.
+
+**The owner's answer:** make the thickness a setting, default 2×4, "here it is
+mostly 2×4". That resolves it — a figure derived from a STATED thickness is
+honest in a way an invented one is not, provided the statement travels with the
+number.
+
+Build:
+- A wall-thickness setting per project (default 2×4 = 3½" stud + ½" board each
+  side = 4½"; offer 2×6 and a typed value).
+- `Ground surface without walls` — what we already report.
+- `Ground surface with interior walls` — plus the partitions inside the outline.
+- `Ground surface with all walls` — plus the exterior envelope.
+- Every one of the three must state the thickness it used, in the ⓘ, in the API
+  response and in the report. A figure derived from an assumption that does not
+  travel with it is the exact failure `measureDefinitions.ts` exists to prevent.
+
+**Still unresolved and must be flagged, not guessed:** telling an exterior wall
+from a shared partition. Per-room scans do not say which is which. Until they
+do, treat every wall of the storey's outer boundary as exterior and everything
+inside it as partition, and say so in the definition.
+
+**Territory:** `src/lib/crm/projectStatistics.ts`, `ProjectStatistics.swift`,
+`measureDefinitions.ts`, `Theme.swift`.
