@@ -1,5 +1,63 @@
 import SwiftUI
 
+/// Plan metres → canvas points, in ONE place.
+///
+/// This mapping was written twice: once inside `FloorPlanView`'s Canvas to
+/// draw with, and once in `AreaEditor` to position its drag handles — with
+/// different insets. The drawing reserved margin for the dimension strings
+/// (48pt on the right, 34 on top); the handles assumed a flat 12 all round.
+/// So every handle sat down and to the right of the corner it belonged to,
+/// and the four of them spread wider than the shape they were meant to
+/// grab. A handle that is not on its corner is not a handle.
+///
+/// Both callers now derive from this, so they cannot disagree again.
+struct PlanTransform {
+    let scale: CGFloat
+    let ox: CGFloat
+    let oy: CGFloat
+    /// Whether this canvas is big enough to carry dimension strings. Lives
+    /// here because it is the same decision that sets the insets — asking it
+    /// separately is how the two got out of step in the first place.
+    let showDims: Bool
+
+    /// Returns nil for a plan too small to draw, which is the caller's cue
+    /// to render nothing rather than divide by a zero scale.
+    static func fit(_ plan: FloorPlanGeometry.Plan, in size: CGSize) -> PlanTransform? {
+        guard plan.width > 0.1, plan.height > 0.1 else { return nil }
+
+        // Dimensions need margin to live in; a thumbnail-sized canvas drops
+        // them entirely (the spec's smallest level), so the insets depend on
+        // how much room there is.
+        let showDims = size.width >= 240
+        let inTop: CGFloat = showDims ? 34 : 10
+        let inRight: CGFloat = showDims ? 48 : 10
+        let inLeft: CGFloat = 12
+        let inBottom: CGFloat = 12
+
+        let scale = min(
+            (size.width - inLeft - inRight) / plan.width,
+            (size.height - inTop - inBottom) / plan.height)
+        guard scale > 0 else { return nil }
+
+        return PlanTransform(
+            scale: scale,
+            ox: inLeft + (size.width - inLeft - inRight - plan.width * scale) / 2,
+            oy: inTop + (size.height - inTop - inBottom - plan.height * scale) / 2,
+            showDims: showDims)
+    }
+
+    func point(_ x: Double, _ y: Double) -> CGPoint {
+        CGPoint(x: x * scale + ox, y: y * scale + oy)
+    }
+
+    func point(_ p: CGPoint) -> CGPoint { point(p.x, p.y) }
+
+    /// Canvas points back to plan metres — what a drag needs to write.
+    func model(_ p: CGPoint) -> CGPoint {
+        CGPoint(x: (p.x - ox) / scale, y: (p.y - oy) / scale)
+    }
+}
+
 /// A room drawn as an architect drafts one.
 ///
 /// The v2 renderer, from the researched spec: pochéd double-line walls whose
@@ -24,27 +82,12 @@ struct FloorPlanView: View {
 
     var body: some View {
         Canvas { context, size in
-            guard plan.width > 0.1, plan.height > 0.1 else { return }
+            guard let transform = PlanTransform.fit(plan, in: size) else { return }
+            let scale = transform.scale
+            let showDims = transform.showDims
 
-            // Dimensions need margin to live in; a thumbnail-sized canvas
-            // drops them entirely (the spec's smallest level).
-            let showDims = size.width >= 240
-            let inTop: CGFloat = showDims ? 34 : 10
-            let inRight: CGFloat = showDims ? 48 : 10
-            let inLeft: CGFloat = 12
-            let inBottom: CGFloat = 12
-
-            let scale = min(
-                (size.width - inLeft - inRight) / plan.width,
-                (size.height - inTop - inBottom) / plan.height)
-            guard scale > 0 else { return }
-            let ox = inLeft + (size.width - inLeft - inRight - plan.width * scale) / 2
-            let oy = inTop + (size.height - inTop - inBottom - plan.height * scale) / 2
-
-            func pt(_ x: Double, _ y: Double) -> CGPoint {
-                CGPoint(x: x * scale + ox, y: y * scale + oy)
-            }
-            func pt(_ p: CGPoint) -> CGPoint { pt(p.x, p.y) }
+            func pt(_ x: Double, _ y: Double) -> CGPoint { transform.point(x, y) }
+            func pt(_ p: CGPoint) -> CGPoint { transform.point(p) }
 
             let ink = Brand.Plan.ink
             let tPts = T * scale
@@ -327,33 +370,32 @@ struct AreaEditor: View {
 
                 VStack(spacing: Brand.Space.base) {
                     GeometryReader { proxy in
-                        let scale = fitScale(in: proxy.size)
-                        let offset = centreOffset(in: proxy.size, scale: scale)
+                        // The SAME transform the drawing below uses, so a
+                        // handle lands exactly on the corner it moves.
+                        let transform = PlanTransform.fit(plan, in: proxy.size)
 
                         ZStack(alignment: .topLeading) {
                             FloorPlanView(
                                 plan: plan, areas: existing,
                                 draft: (corners, colour))
 
-                            // Corner handles. Generous targets — this is
-                            // dragged with a thumb, in a basement.
-                            ForEach(corners.indices, id: \.self) { index in
-                                Circle()
-                                    .fill(colour)
-                                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                                    .frame(width: 26, height: 26)
-                                    .position(
-                                        x: corners[index].x * scale + offset.x,
-                                        y: corners[index].y * scale + offset.y
-                                    )
-                                    .gesture(
-                                        DragGesture()
-                                            .onChanged { value in
-                                                corners[index] = CGPoint(
-                                                    x: (value.location.x - offset.x) / scale,
-                                                    y: (value.location.y - offset.y) / scale)
-                                            }
-                                    )
+                            if let transform {
+                                // Corner handles. Generous targets — this is
+                                // dragged with a thumb, in a basement.
+                                ForEach(corners.indices, id: \.self) { index in
+                                    let at = transform.point(corners[index])
+                                    Circle()
+                                        .fill(colour)
+                                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                                        .frame(width: 26, height: 26)
+                                        .position(x: at.x, y: at.y)
+                                        .gesture(
+                                            DragGesture()
+                                                .onChanged { value in
+                                                    corners[index] = transform.model(value.location)
+                                                }
+                                        )
+                                }
                             }
                         }
                     }
@@ -415,19 +457,6 @@ struct AreaEditor: View {
         }
     }
 
-    private func fitScale(in size: CGSize) -> CGFloat {
-        guard plan.width > 0, plan.height > 0 else { return 1 }
-        let pad: CGFloat = 12
-        return min(
-            (size.width - pad * 2) / CGFloat(plan.width),
-            (size.height - pad * 2) / CGFloat(plan.height))
-    }
-
-    private func centreOffset(in size: CGSize, scale: CGFloat) -> CGPoint {
-        CGPoint(
-            x: (size.width - CGFloat(plan.width) * scale) / 2,
-            y: (size.height - CGFloat(plan.height) * scale) / 2)
-    }
 }
 
 /// The cause chips, in `DAMAGE_TYPES` order, each in its own colour.
