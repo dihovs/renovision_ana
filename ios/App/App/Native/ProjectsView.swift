@@ -15,6 +15,9 @@ struct ProjectsView: View {
     @State private var showStatus = false
     @State private var showMore = false
     @State private var creating = false
+    /// The project being opened. A grid card is a button rather than a
+    /// NavigationLink, so the push is driven from here.
+    @State private var opened: ProjectSummary?
 
     private var shown: [ProjectSummary] {
         guard let projects else { return [] }
@@ -28,9 +31,15 @@ struct ProjectsView: View {
     private var measured: Int { (projects ?? []).reduce(0) { $0 + $1.roomCount } }
 
     var body: some View {
+        // Pinned light, like the reference and like every other
+        // surface that shows a drawing.
+        list.environment(\.colorScheme, .light)
+    }
+
+    private var list: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
-                Brand.canvas.ignoresSafeArea()
+                Brand.Plan.sheet.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: Brand.Space.base) {
@@ -77,33 +86,31 @@ struct ProjectsView: View {
                                 }
                             }
                         } else {
-                            ForEach(shown) { project in
-                                NavigationLink(value: project) {
-                                    Card {
-                                        CardRow {
-                                            VStack(alignment: .leading, spacing: 5) {
-                                                Text(project.name)
-                                                    .font(.system(size: 16, weight: .semibold))
-                                                    .foregroundStyle(Brand.ink)
-                                                    .multilineTextAlignment(.leading)
-
-                                                Text(project.clientName ?? "No client")
-                                                    .font(.system(size: 13))
-                                                    .foregroundStyle(Brand.inkSoft)
-
-                                                if project.roomCount > 0 {
-                                                    StatusBadge(
-                                                        text:
-                                                            "\(project.roomCount) room\(project.roomCount == 1 ? "" : "s") measured",
-                                                        tone: .active)
-                                                } else {
-                                                    StatusBadge(text: "Not measured", tone: .neutral)
-                                                }
-                                            }
-                                        }
-                                    }
+                            // The reference's grid, measured off the device:
+                            // two columns, the dashed add tile first, the
+                            // label BELOW the card rather than inside it.
+                            CardGrid(
+                                items: shown,
+                                addLabel: "New Project",
+                                onAdd: { creating = true },
+                                onOpen: { opened = $0 },
+                                caption: { project in
+                                    (project.name,
+                                     project.clientName ?? "No client",
+                                     project.roomCount > 0
+                                        ? "\(project.roomCount) room\(project.roomCount == 1 ? "" : "s")"
+                                        : "Not measured")
                                 }
-                                .buttonStyle(.plain)
+                            ) { project in
+                                // No geometry travels with a project summary,
+                                // so this is a placeholder rather than a plan.
+                                // Drawing a fake floor plan here would be a
+                                // picture of a room nobody measured.
+                                Image(systemName: project.roomCount > 0
+                                        ? "square.split.bottomrightquarter"
+                                        : "doc")
+                                    .font(.system(size: 30, weight: .light))
+                                    .foregroundStyle(Brand.Plan.dimension.opacity(0.55))
                             }
                         }
                     }
@@ -120,7 +127,7 @@ struct ProjectsView: View {
                     .padding(.bottom, Brand.Space.large)
             }
             .navigationTitle("Projects")
-            .navigationDestination(for: ProjectSummary.self) { ProjectDetailView(project: $0) }
+            .navigationDestination(item: $opened) { ProjectDetailView(project: $0) }
             .searchable(text: $query, prompt: "Search projects or clients")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
