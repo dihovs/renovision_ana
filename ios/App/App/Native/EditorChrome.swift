@@ -231,6 +231,71 @@ enum EditorChrome {
     ///
     /// The padlock survives, moved to where §6 puts it: immediately AFTER a
     /// hand-set number, not before it.
+    /// Which wall's dimension string the operator tapped, if any.
+    ///
+    /// The number IS the control — that is how the reference works, and it is
+    /// the natural gesture: you tap the figure you want to change, not the
+    /// wall behind it. Without this the only way to a wall's measurement was
+    /// to select the wall and tap it a second time, which nobody guesses, and
+    /// the only way to UNLOCK a typed length was to run the whole Set Size
+    /// walk again.
+    ///
+    /// Placement is recomputed the same way `drawWallDimensions` places it,
+    /// so the target sits where the string was actually drawn. Both rows are
+    /// tested — 18pt out when the wall carries no opening chain, 38pt when it
+    /// does — because deciding which applies needs a GraphicsContext to
+    /// measure text in, and a hit test has none. Accepting either is right
+    /// anyway: the operator aimed at a number, and only one is ever there.
+    /// `point`, `polygon` and the result are all in the plan's own metres —
+    /// the space the editor's tap handler works in. The row offsets and the
+    /// hit radius are in POINTS, so they are divided by `scale` to land in
+    /// metres, which also means the target stays a constant size on screen at
+    /// any zoom.
+    static func dimensionHit(
+        at point: CGPoint,
+        polygon: [CGPoint],
+        scale: CGFloat,
+        /// Generous on purpose: the string is small type, it is tapped with a
+        /// thumb, and nothing else on the canvas competes for the space
+        /// outboard of the walls.
+        radius: CGFloat = 30
+    ) -> Int? {
+        guard polygon.count >= 3, scale > 0 else { return nil }
+        let winding = Self.winding(polygon)
+
+        var best: Int?
+        var bestDistance = radius / scale
+
+        for i in polygon.indices {
+            let (ai, bi) = PlanEditing.edgeCorners(i, count: polygon.count)
+            let A = polygon[ai]
+            let B = polygon[bi]
+            let len = hypot(B.x - A.x, B.y - A.y)
+            guard len > 0.01 else { continue }
+
+            let ux = (B.x - A.x) / len
+            let uy = (B.y - A.y) / len
+            let nx = winding * uy
+            let ny = -winding * ux
+            let mid = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
+
+            // The string sits 10pt beyond its dimension LINE — `drawWallDimensions`
+            // draws the line at the row offset and then anchors the text at
+            // `(da + db) / 2 + n * 10`. Testing the line's own offset instead
+            // leaves the target short of the digits by exactly that much,
+            // which on a phone is the difference between hitting and missing.
+            for off in [CGFloat(18 + 10) / scale, CGFloat(38 + 10) / scale] {
+                let label = CGPoint(x: mid.x + nx * off, y: mid.y + ny * off)
+                let d = hypot(point.x - label.x, point.y - label.y)
+                if d < bestDistance {
+                    bestDistance = d
+                    best = i
+                }
+            }
+        }
+        return best
+    }
+
     static func drawWallDimensions(
         context: GraphicsContext,
         polygon: [CGPoint],

@@ -563,6 +563,22 @@ struct PlanEditorView: View {
             return
         }
 
+        // The dimension string is a control in its own right, and it is
+        // OUTBOARD of the room, so nothing else competes for the tap. Tested
+        // first anyway: it is the smallest target on the canvas and the one
+        // the operator is aiming at when they hit it.
+        //
+        // This is the only route to a locked wall. A padlock means somebody
+        // typed that length, and until now un-typing it meant re-running the
+        // whole Set Size walk; the panel this opens carries Unlock for the
+        // wall you actually pointed at.
+        if measuring == nil,
+            let edge = EditorChrome.dimensionHit(at: point, polygon: corners, scale: scale)
+        {
+            startMeasuring(at: edge)
+            return
+        }
+
         // Openings before walls: an opening lies ON its wall, so the wall
         // would otherwise always win the hit and the door could never be
         // picked up.
