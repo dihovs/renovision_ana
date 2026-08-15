@@ -149,31 +149,45 @@ struct MiniPlan: View {
     var body: some View {
         Canvas { context, size in
             let plan = FloorPlanGeometry.plan(from: geometry)
-            let corners = plan.polygon
-            guard corners.count >= 3 else { return }
+            guard !plan.segments.isEmpty else { return }
 
-            let xs = corners.map(\.x), ys = corners.map(\.y)
-            let minX = xs.min()!, maxX = xs.max()!
-            let minY = ys.min()!, maxY = ys.max()!
+            // Bounds come from the SEGMENTS, not the polygon. `plan.polygon`
+            // is empty whenever the walls do not close — deliberately, since
+            // inventing an outline would draw a fill that is not the room —
+            // and a scan that failed to close is exactly the one whose
+            // thumbnail matters most, because its shape is how you notice.
+            let xs = plan.segments.flatMap { [$0.x1, $0.x2] }
+            let ys = plan.segments.flatMap { [$0.y1, $0.y2] }
+            guard let minX = xs.min(), let maxX = xs.max(),
+                  let minY = ys.min(), let maxY = ys.max() else { return }
+
             let w = max(maxX - minX, 0.001), h = max(maxY - minY, 0.001)
-            // Fit with a margin, and never scale UP past life size on screen —
-            // a one-room job should not fill the card edge to edge while a
-            // whole storey shrinks to fit.
             let scale = min(size.width / w, size.height / h) * 0.86
             let ox = (size.width - w * scale) / 2 - minX * scale
             let oy = (size.height - h * scale) / 2 - minY * scale
-
-            var path = Path()
-            for (i, p) in corners.enumerated() {
-                let point = CGPoint(x: p.x * scale + ox, y: p.y * scale + oy)
-                if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+            let pt = { (x: Double, y: Double) in
+                CGPoint(x: x * scale + ox, y: y * scale + oy)
             }
-            path.closeSubpath()
 
-            context.fill(path, with: .color(Brand.Plan.floorMuted))
+            // The floor, only when there is a real outline to fill.
+            if plan.polygon.count >= 3 {
+                var floor = Path()
+                for (i, p) in plan.polygon.enumerated() {
+                    let q = pt(p.x, p.y)
+                    if i == 0 { floor.move(to: q) } else { floor.addLine(to: q) }
+                }
+                floor.closeSubpath()
+                context.fill(floor, with: .color(Brand.Plan.floorMuted))
+            }
+
+            var walls = Path()
+            for s in plan.segments {
+                walls.move(to: pt(s.x1, s.y1))
+                walls.addLine(to: pt(s.x2, s.y2))
+            }
             context.stroke(
-                path, with: .color(Brand.Plan.ink),
-                style: StrokeStyle(lineWidth: 2.5, lineJoin: .miter))
+                walls, with: .color(Brand.Plan.ink),
+                style: StrokeStyle(lineWidth: 2.2, lineCap: .square))
         }
     }
 }
