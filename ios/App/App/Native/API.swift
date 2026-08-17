@@ -219,6 +219,15 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    /// Off the list, not off the record — `listProjects` already excludes
+    /// archived projects, which is the phone's whole cleanup path for a
+    /// project made by mistake. Nothing underneath it (rooms, scans, photos)
+    /// is touched.
+    func archiveProject(id: String) async throws {
+        struct Status: Encodable { let status = "archived" }
+        _ = try await request("/api/v1/projects/\(id)", method: "PATCH", body: Status())
+    }
+
     private struct NewClient: Encodable {
         let firstName: String
         let lastName: String

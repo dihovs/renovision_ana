@@ -20,6 +20,12 @@ struct ProjectsView: View {
     @State private var opened: ProjectSummary?
     @State private var filter: ProjectFilter = .all
     @State private var creatingNow = false
+    @StateObject private var queue = ScanQueue.shared
+    /// Set by the card's "…" menu; the confirmation dialog it drives is the
+    /// only thing that actually calls `archive`. A one-tap Archive in a menu
+    /// is one distracted thumb away from a real job disappearing off the
+    /// list, and there is no undo surfaced anywhere yet.
+    @State private var archiving: ProjectSummary?
 
     /// The reference filters All / Favorites / Archived. Neither of those is
     /// a thing this trade has; what an operator actually sorts by is whether
@@ -59,6 +65,9 @@ struct ProjectsView: View {
                 ScrollView {
                     VStack(spacing: Brand.Space.base) {
                         if let projects, !projects.isEmpty {
+                            WorkspaceInfoRow(
+                                projectCount: projects.count, pendingUploads: queue.pending.count)
+
                             FilterChips(
                                 options: [
                                     (.all, "All", "briefcase"),
@@ -132,6 +141,8 @@ struct ProjectsView: View {
                                         .font(.system(size: 26, weight: .light))
                                         .foregroundStyle(Brand.Plan.dimension.opacity(0.45))
                                 }
+                            } menu: { project in
+                                AnyView(ProjectCardMenu(onArchive: { archiving = project }))
                             }
                         }
                     }
@@ -166,6 +177,19 @@ struct ProjectsView: View {
             .sheet(isPresented: $showMore) { MoreView() }
             .sheet(isPresented: $creating) {
                 NewProjectSheet { _ in Task { await load() } }
+            }
+            .confirmationDialog(
+                archiving.map { "Archive “\($0.name)”?" } ?? "",
+                isPresented: Binding(
+                    get: { archiving != nil }, set: { if !$0 { archiving = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Archive", role: .destructive) {
+                    if let project = archiving { Task { await archive(project) } }
+                }
+                Button("Cancel", role: .cancel) { archiving = nil }
+            } message: {
+                Text("It comes off this list. Nothing measured under it is touched, and it can be restored later.")
             }
             .task { await load() }
         }
@@ -211,6 +235,16 @@ struct ProjectsView: View {
         }
     }
 
+    private func archive(_ project: ProjectSummary) async {
+        archiving = nil
+        do {
+            try await API.shared.archiveProject(id: project.id)
+            await load()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     private func load() async {
         do {
             projects = try await API.shared.projects()
@@ -220,6 +254,66 @@ struct ProjectsView: View {
         } catch {
             self.error = error.localizedDescription
             if projects == nil { projects = [] }
+        }
+    }
+}
+
+/// The reference's account-switcher header, in the one shape that is
+/// actually true here: this app is one operator, one company, cookie-signed
+/// in as `rv_admin` — there is no workspace to switch and no per-user avatar
+/// to show, so copying that chrome would be furniture, not information.
+///
+/// What IS real and belongs in the same slot: how many jobs are open, and
+/// whether anything measured off-grid is still sitting on this phone. The
+/// second one is the honest version of the reference's cloud glyph — not a
+/// decoration, but `ScanQueue`'s own count of scans a basement's missing
+/// signal left unsent, which already drives the banner on every project's
+/// own screen. A phone fully synced says so as plainly as one still catching
+/// up.
+struct WorkspaceInfoRow: View {
+    let projectCount: Int
+    let pendingUploads: Int
+
+    var body: some View {
+        HStack {
+            Text("\(projectCount) project\(projectCount == 1 ? "" : "s")")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Brand.Plan.labelSoft)
+
+            Spacer()
+
+            if pendingUploads > 0 {
+                Label("\(pendingUploads) waiting to send", systemImage: "arrow.up.circle")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.orange)
+            } else {
+                Image(systemName: "checkmark.icloud")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.Plan.labelSoft.opacity(0.7))
+            }
+        }
+    }
+}
+
+/// The reference's small round "…" in a card's corner. The one action behind
+/// it right now is Archive — this app has no per-project rename, duplicate or
+/// share yet, and a menu item that does nothing is worse than a menu one item
+/// shorter than the reference's own.
+private struct ProjectCardMenu: View {
+    let onArchive: () -> Void
+
+    var body: some View {
+        Menu {
+            Button(role: .destructive, action: onArchive) {
+                Label("Archive", systemImage: "archivebox")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Brand.Plan.label)
+                .frame(width: 24, height: 24)
+                .background(.regularMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Brand.Plan.dimension.opacity(0.15), lineWidth: 0.5))
         }
     }
 }

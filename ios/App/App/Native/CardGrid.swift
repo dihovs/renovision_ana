@@ -27,6 +27,12 @@ struct CardGrid<Item: Identifiable, Thumbnail: View>: View {
     /// Name, secondary, tertiary. Empty strings are simply not drawn.
     var caption: (Item) -> (String, String?, String?)
     @ViewBuilder var thumbnail: (Item) -> Thumbnail
+    /// The reference's "…" in the card's bottom-right corner. Optional and
+    /// type-erased rather than a second generic: most callers (rooms, floor
+    /// plans) have no per-item action yet, and forcing them to name a menu
+    /// type just to pass `nil` is a worse API than one closure that some
+    /// callers skip.
+    var menu: ((Item) -> AnyView)?
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
@@ -60,19 +66,35 @@ struct CardGrid<Item: Identifiable, Thumbnail: View>: View {
 
             ForEach(items) { item in
                 let text = caption(item)
-                Button { onOpen(item) } label: {
-                    VStack(spacing: 8) {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Brand.Plan.paper)
-                            .aspectRatio(1.16, contentMode: .fit)
-                            .overlay(
-                                thumbnail(item)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12)))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(Brand.Plan.dimension.opacity(0.18), lineWidth: 0.5))
-                            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+                VStack(spacing: 8) {
+                    // The menu is a SIBLING overlay on top of the card's own
+                    // Button, not content nested inside its label — an
+                    // interactive control nested inside another control's
+                    // label fights it for the tap rather than winning its
+                    // own corner outright, which a native `Menu` needs to
+                    // open reliably rather than just triggering `onOpen`.
+                    ZStack(alignment: .bottomTrailing) {
+                        Button { onOpen(item) } label: {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Brand.Plan.paper)
+                                .aspectRatio(1.16, contentMode: .fit)
+                                .overlay(
+                                    thumbnail(item)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12)))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(Brand.Plan.dimension.opacity(0.18), lineWidth: 0.5))
+                                .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+                        }
+                        .buttonStyle(.plain)
 
+                        if let menu {
+                            menu(item)
+                                .padding(6)
+                        }
+                    }
+
+                    Button { onOpen(item) } label: {
                         VStack(spacing: 1) {
                             Text(text.0)
                                 .font(.system(size: 13, weight: .semibold))
@@ -93,8 +115,8 @@ struct CardGrid<Item: Identifiable, Thumbnail: View>: View {
                         }
                         .multilineTextAlignment(.center)
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
     }
