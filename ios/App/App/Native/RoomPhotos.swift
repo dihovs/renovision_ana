@@ -12,6 +12,10 @@ import UIKit
 struct RoomPhotosSection: View {
     let projectId: String
     let roomScanId: String
+    /// When set, this is a WALL's own photos (object-model §2b) rather than
+    /// the room's general pile — a different tab, filtered on both read and
+    /// write so the two never mix.
+    var wallIndex: Int? = nil
 
     @State private var photos: [RoomPhoto]?
     @State private var takingPhoto = false
@@ -98,7 +102,7 @@ struct RoomPhotosSection: View {
     }
 
     private func load() async {
-        photos = (try? await API.shared.photos(roomScanId: roomScanId)) ?? []
+        photos = (try? await API.shared.photos(roomScanId: roomScanId, wallIndex: wallIndex)) ?? []
     }
 
     private func upload(_ image: UIImage) async {
@@ -119,7 +123,7 @@ struct RoomPhotosSection: View {
         do {
             _ = try await API.shared.uploadPhoto(
                 projectId: projectId, roomScanId: roomScanId, affectedAreaId: nil,
-                jpeg: jpeg, note: nil)
+                wallIndex: wallIndex, jpeg: jpeg, note: nil)
             await load()
         } catch {
             self.error = error.localizedDescription

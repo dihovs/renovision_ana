@@ -7,6 +7,7 @@ import { isConfigured } from "@/lib/crm/db";
 import { getProject, listRoomFiles, signProjectFileUrls } from "@/lib/crm/projects";
 import { listRoomScans } from "@/lib/crm/roomScans";
 import { listAffectedAreas } from "@/lib/crm/affectedAreas";
+import { listRoomWalls } from "@/lib/crm/roomWalls";
 import { listEquipment, listMoistureReadings } from "@/lib/crm/dryingLog";
 import { CLAIM_FIELD_TEMPLATE, getCompany, getCustomFields } from "@/lib/crm/settings";
 import type { ScanGeometry } from "@/lib/roomScan";
@@ -69,10 +70,11 @@ export default async function ReportPage({
 
   const rooms: ReportRoom[] = await Promise.all(
     scans.map(async (scan) => {
-      const [areas, readings, files] = await Promise.all([
+      const [areas, readings, files, walls] = await Promise.all([
         listAffectedAreas(scan.id).catch(() => []),
         listMoistureReadings(scan.id).catch(() => []),
         listRoomFiles(scan.id).catch(() => []),
+        listRoomWalls(scan.id).catch(() => []),
       ]);
       const urls = await signProjectFileUrls(files.map((file) => file.storage_path)).catch(
         () => ({}) as Record<string, string>,
@@ -97,6 +99,7 @@ export default async function ReportPage({
           url: urls[file.storage_path] ?? null,
           note: file.note,
         })),
+        wallDisplayElevation: new Map(walls.map((w) => [w.wall_index, w.display_elevation])),
       };
     }),
   );

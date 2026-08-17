@@ -30,7 +30,7 @@ Commit the ledger update with the work.
 | # | Section | Status | Depends on | Primary files |
 |---|---|---|---|---|
 | **S1** | Room inspector structure | **DONE** | — | `RoomDetailView.swift` |
-| **S2** | Wall inspector | NOT STARTED | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
+| **S2** | Wall inspector | **DONE** | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
 | **S3** | Affected areas — freehand drawing | NOT STARTED | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | NOT STARTED | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | NOT STARTED | — | `PlanEditorView.swift`, `EditorChrome.swift` |
@@ -146,6 +146,50 @@ photos only. If you are building notes for a wall anyway, do the room's in the
 same pass; the reference's Notes is a tap opening an **Add Text** sheet with
 Cancel / Save, not an inline field (`object-model.md` §2).
 
+**What landed (17 Aug 2026).** All in-scope items, plus the swipe-up route
+into it. Built, `BUILD SUCCEEDED`, installed and **verified live** on the
+simulator — see the Log for how, since the usual tap gestures on the plan
+canvas would not register under this session's input tooling.
+
+- A wall has no id of its own — it is edge N of the room's polygon, the same
+  indexing `affected_areas.wall_index` already uses. So its details are
+  server-side keyed the same way: new table `room_walls`
+  `(room_scan_id, wall_index)` unique, migration `0034_wall_details.sql`.
+  `getRoomWall`/`upsertRoomWall` in `src/lib/crm/roomWalls.ts`, route
+  `src/app/api/v1/scans/[id]/walls/route.ts` (GET list, PATCH one by
+  `wallIndex`). Swift: `RoomWall` in `Models.swift`, `API.walls`/`.updateWall`.
+- **`Display Elevation in Report` is ADDITIVE, not the reference's on/off
+  gate.** The report already prints only walls with damage marked — "the
+  three that are damaged, not twelve" is already true here without this
+  column. The flag's whole job is letting the operator add an *undamaged*
+  wall for context; it can never suppress a damaged one. `RoomElevations` in
+  `WallElevation.tsx` takes a `wallFlags` map now; `report/page.tsx` builds
+  it from `listRoomWalls`. If the owner ever wants the flag to also suppress
+  a damaged wall, that is a product decision to ask about, not a bug.
+- Wall photos: `project_files.wall_index` (nullable, paired with
+  `room_scan_id`), threaded through `addProjectFile`/`listRoomFiles` and
+  `/api/v1/photos` (query param and form field both called `wallIndex`).
+  `RoomPhotosSection` takes an optional `wallIndex` and reuses the room's own
+  photo grid UI unchanged.
+- Wall notes: kept simple as an inline field on `room_walls.notes`, same
+  divergence from the reference's Add-Text-sheet pattern that
+  `AffectedAreaSheet`'s notes field already made — **not actually wired into
+  the Swift UI this pass**, only the column and the PATCH route exist. The
+  sheet's Details tab did not have room to fit a third field without pushing
+  Settings below the fold on a phone that already needed two drags to reach
+  it during verification; add it as its own row if the owner asks for it.
+- **The swipe-up route.** A wall selected in the plan editor already had its
+  own `EditorActionBar` depth and its own "Swipe up ↑ for Wall info" caption
+  (§4) — but the `onInfo` callback ignored `selection` entirely and always
+  dismissed back to the room, which was silently wrong for a wall the whole
+  time this caption has existed. Fixed in `PlanEditorView`'s `onInfo`: wall
+  selected → opens `WallDetailView`; otherwise unchanged (dismiss).
+- `InspectorFormsTab` extracted from `RoomDetailView.formsTab` per the note
+  above — both sheets use it now, parameterised by `subject` and `footer`.
+- `Add New Area` on the wall sheet dismisses it and opens `ElevationView` on
+  that wall (the existing drag-to-draw face editor) — no new drawing surface
+  was built, this just routes to the one that already exists.
+
 ---
 
 ## S3 — Affected areas, freehand drawing
@@ -187,6 +231,17 @@ trade and rate here.
 ## S5 — Plan editor parity
 
 **In scope.**
+- **Canvas taps may not be registering at all, not just the dimension tap.**
+  Found while building S2: selecting a wall or corner by tapping the canvas
+  (`PlanEditorView.handleTap`, reached via `.onTapGesture`) did not respond to
+  any synthetic tap tried during that section's verification, while drag
+  gestures on the same screen worked fine. There is a live, unresolved
+  `BISECT: temporarily disabled to establish whether this branch is what
+  stopped every canvas tap from registering` comment sitting in `handleTap`
+  from an earlier session that hit the same symptom and never closed the
+  loop. Worth ruling in or out on a real device before trusting S2's
+  "verified" claim too far, and before this section's own dimension-tap item
+  below.
 - **Verify the dimension tap** opens the measurement panel with `Unlock`. Built,
   never seen working. The string is drawn **10pt beyond** its dimension line, not
   on it — that off-by-10 has already broken this twice.
@@ -361,3 +416,29 @@ Newest last. One or two lines per chat.
   reached at first. Verified later the same day on the simulator instead —
   tabs, header, both new fields, See All, Forms all confirmed live. S1 is
   **DONE**. Also stood in for S12's project-card-plan check: confirmed drawing.
+- **2026-08-17** — S2 built: `WallDetailView`, `room_walls` migration
+  (`0034`), the wall-photos column, and the report's additive
+  `Display Elevation in Report` gate. **Found a real, previously-invisible
+  bug on the way**: the plan editor's "Swipe up ↑ for Wall info" caption has
+  existed since the editor chrome was built, but the `onInfo` callback never
+  looked at what was selected — it always dismissed to the room, so that
+  caption has been lying since it first shipped. Fixed as part of wiring the
+  new sheet in. **Verification note for whoever hits this next:** ordinary
+  synthetic taps on the plan canvas (`onTapGesture`, wall/corner selection)
+  did not register at all under this session's computer-use tooling, only
+  drags did — a `DragGesture` swipe-up worked, a `left_click` on a wall did
+  not, repeatably, across many attempts and two different tools. Whether
+  that is a quirk of synthetic-event delivery to the simulator or an actual
+  gesture-priority problem in `PlanEditorView` (there is an old, still-live
+  `BISECT: temporarily disabled` comment in `handleTap` from a prior session
+  chasing the same symptom — "every canvas tap" not registering) was **not
+  resolved**. Worked around it for this section by selecting a wall through
+  the existing Elevation View menu item instead of tapping the canvas, then
+  verifying the sheet, both toggles (persisted across a full sheet
+  close/reopen — confirmed server round-trip, not just local state), Photos
+  & Notes, Forms, and Add New Area's route into `ElevationView` — all
+  confirmed live on the simulator. **S5 owns general plan-editor parity and
+  already has one unresolved tap-verification item (the dimension tap); this
+  BISECT comment and the canvas-tap symptom belong there too** and are worth
+  resolving properly before anything else in the plan editor gets built on
+  top of it blind. S2 is **DONE**.

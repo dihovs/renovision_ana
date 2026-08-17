@@ -52,6 +52,9 @@ export type ReportRoom = {
   areas: AffectedArea[];
   readings: MoistureReading[];
   photos: { id: string; url: string | null; note: string | null }[];
+  /** Wall index → "Display Elevation in Report", for the walls that have it
+      set at all. Additive on top of the damaged-walls-only default. */
+  wallDisplayElevation?: Map<number, boolean>;
 };
 
 export type ReportData = {
@@ -348,6 +351,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             corners={planCorners(toFloorPlan(room.geometry))}
             ceilingHeightM={room.ceilingHeightM}
             areas={wallAreas(room.areas)}
+            wallFlags={room.wallDisplayElevation}
           />
 
           {room.readings.length > 0 && (

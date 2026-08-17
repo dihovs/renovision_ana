@@ -69,6 +69,11 @@ struct PlanEditorView: View {
     @State private var showDimensions = true
     @State private var showOpenings = true
 
+    /// The wall whose inspector is open — set by the swipe-up on a selected
+    /// wall (object-model §2b), the same gesture that reaches the room's own
+    /// sheet from the storey canvas.
+    @State private var inspectingWall: Int?
+
     /// The wall the elevation view is looking at, when one is open.
     ///
     /// ORD-19's `ElevationView` is being built in parallel and does not exist
@@ -216,6 +221,17 @@ struct PlanEditorView: View {
                         }
                         addingOpening = false
                     }
+                }
+            }
+            .sheet(
+                isPresented: Binding(
+                    get: { inspectingWall != nil }, set: { if !$0 { inspectingWall = nil } })
+            ) {
+                if let index = inspectingWall {
+                    WallDetailView(
+                        room: room, wallIndex: index,
+                        lengthM: PlanEditing.edgeLength(corners, index),
+                        onAddArea: { openElevation(atSelectedWall: true) })
                 }
             }
             // ORD-19's elevation view, full screen over the plan. The state,
@@ -967,10 +983,19 @@ struct PlanEditorView: View {
                 mode: mode,
                 supported: supportedActions,
                 onAction: perform,
-                // The swipe-up leads back to this room's inspector — which
-                // is the very sheet that presented this editor, so the
-                // gesture is a dismissal rather than a second presentation.
-                onInfo: { if isDirty { showDiscard = true } else { dismiss() } })
+                // A wall selected swipes up into ITS OWN inspector
+                // (object-model §2b) rather than the room's — the room's own
+                // swipe-up is a dismissal because this editor IS the sheet
+                // that opened over it, but a wall has no such sheet yet.
+                onInfo: {
+                    if case .wall(let index) = selection {
+                        inspectingWall = index
+                    } else if isDirty {
+                        showDiscard = true
+                    } else {
+                        dismiss()
+                    }
+                })
         }
         .padding(.top, Brand.Space.small)
         .background(Brand.Plan.sheet)

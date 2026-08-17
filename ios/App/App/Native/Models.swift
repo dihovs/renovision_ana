@@ -781,6 +781,29 @@ struct AffectedArea: Decodable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Wall details
+
+struct WallListResponse: Decodable { let walls: [RoomWall] }
+
+/// A wall's own fields — object-model §2b. A wall has no id of its own; it
+/// is edge N of the room's polygon, the same indexing `AffectedArea
+/// .wallIndex` uses, so a wall nobody has touched simply has no row and this
+/// never arrives for it. Callers default to `false`/`nil` for that case,
+/// same as the server does.
+struct RoomWall: Decodable, Hashable {
+    let wallIndex: Int
+    let loadBearing: Bool
+    let displayElevation: Bool
+    let notes: String?
+
+    enum CodingKeys: String, CodingKey {
+        case wallIndex = "wall_index"
+        case loadBearing = "load_bearing"
+        case displayElevation = "display_elevation"
+        case notes
+    }
+}
+
 // MARK: - Drying log
 
 struct MoistureListResponse: Decodable { let readings: [MoistureReading] }

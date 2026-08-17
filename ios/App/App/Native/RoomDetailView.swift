@@ -661,26 +661,9 @@ struct RoomDetailView: View {
     /// says plainly that nothing is set up, and points at the record this
     /// trade actually files instead.
     @ViewBuilder private var formsTab: some View {
-        Section {
-            VStack(alignment: .leading, spacing: Brand.Space.small) {
-                Image(systemName: "list.bullet.rectangle.portrait")
-                    .font(.system(size: 28))
-                    .foregroundStyle(Brand.inkFaint)
-                Text("No forms yet.")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.ink)
-                Text("Forms are the checklists and sign-off sheets a job is closed with. None are set up for this room.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Brand.inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, Brand.Space.small)
-        } footer: {
-            Text("The damage marking and the drying log, under Details, are the record an adjuster reads today.")
-                .font(.system(size: 11))
-                .foregroundStyle(Brand.inkFaint)
-        }
+        InspectorFormsTab(
+            subject: "this room",
+            footer: "The damage marking and the drying log, under Details, are the record an adjuster reads today.")
     }
 
     // MARK: - Derived
@@ -1093,6 +1076,42 @@ struct AffectedAreaSheet: View {
             self.error = error.localizedDescription
         }
         saving = false
+    }
+}
+
+/// The reference's third tab, with the reference's empty state — which is
+/// all it has ever shown us: forms there are authored in their cloud and
+/// attached per object, and none was observed in use (object-model §2).
+/// Shared by every inspector sheet (room, wall, …) rather than written once
+/// per sheet — the tab set is fixed and the empty state says the same thing
+/// everywhere except which record it points at instead.
+struct InspectorFormsTab: View {
+    /// What "this room" / "this wall" reads as in the empty-state copy.
+    let subject: String
+    /// Where the real record for this subject actually lives.
+    let footer: String
+
+    var body: some View {
+        Section {
+            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                Image(systemName: "list.bullet.rectangle.portrait")
+                    .font(.system(size: 28))
+                    .foregroundStyle(Brand.inkFaint)
+                Text("No forms yet.")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.ink)
+                Text("Forms are the checklists and sign-off sheets a job is closed with. None are set up for \(subject).")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, Brand.Space.small)
+        } footer: {
+            Text(footer)
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
+        }
     }
 }
 

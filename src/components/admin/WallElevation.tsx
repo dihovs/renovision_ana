@@ -109,24 +109,31 @@ export default function WallElevation({
 }
 
 /**
- * Every wall of one room that has damage on it, in wall order.
+ * Every wall of one room that has damage on it, in wall order — plus any
+ * wall the operator has explicitly flagged in, undamaged or not.
  *
  * Walls with nothing marked are left out rather than printed empty: a report
  * page of blank rectangles buries the one wall that matters, and an adjuster
  * reading it has to check each in turn to find out that three of them say
- * nothing.
+ * nothing. `wallFlags`'s `displayElevation` is ADDITIVE on top of that, not
+ * a replacement for it — it never suppresses a wall that has damage, only
+ * adds one that does not, for the rare case a claim needs an undamaged wall
+ * shown for context.
  */
 export function RoomElevations({
   corners,
   ceilingHeightM,
   areas,
+  wallFlags,
 }: {
   corners: AreaPoint[];
   ceilingHeightM: number;
   /** Wall areas for the whole room — grouped by wall here. */
   areas: AffectedArea[];
+  /** Wall index → whether "Display Elevation in Report" is on for it. */
+  wallFlags?: Map<number, boolean>;
 }) {
-  if (corners.length < 3 || areas.length === 0) return null;
+  if (corners.length < 3) return null;
 
   const walls = new Map<number, AffectedArea[]>();
   for (const area of areas) {
@@ -137,6 +144,13 @@ export function RoomElevations({
     if (index === null || index < 0 || index >= corners.length) continue;
     if (area.polygon.length < 3) continue;
     walls.set(index, [...(walls.get(index) ?? []), area]);
+  }
+  // Add in any wall flagged on by hand that has no damage of its own — the
+  // flag's whole purpose is to reach the walls this loop would otherwise skip.
+  for (const [index, on] of wallFlags ?? []) {
+    if (on && index >= 0 && index < corners.length && !walls.has(index)) {
+      walls.set(index, []);
+    }
   }
   if (walls.size === 0) return null;
 
@@ -158,8 +172,11 @@ export function RoomElevations({
               <figcaption>
                 <strong>Wall {index + 1}</strong>
                 <span>
-                  {Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA")} sq ft ·{" "}
-                  {onWall.map((area) => DAMAGE_LABEL[area.damage_type]).join(", ")}
+                  {onWall.length > 0
+                    ? `${Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA")} sq ft · ${onWall
+                        .map((area) => DAMAGE_LABEL[area.damage_type])
+                        .join(", ")}`
+                    : "Shown for context — no damage marked"}
                 </span>
               </figcaption>
             </figure>

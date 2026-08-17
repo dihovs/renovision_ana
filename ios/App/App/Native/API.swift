@@ -359,6 +359,36 @@ actor API {
         _ = try await request("/api/v1/areas/\(id)", method: "DELETE", body: Optional<String>.none)
     }
 
+    // MARK: - Wall details
+
+    /// Every wall of this room that has a detail set on it — object-model
+    /// §2b. A wall not in the list is unset: Load-Bearing and Display
+    /// Elevation both read as off, and it has no notes.
+    func walls(roomScanId: String) async throws -> [RoomWall] {
+        try await get("/api/v1/scans/\(roomScanId)/walls", as: WallListResponse.self).walls
+    }
+
+    private struct WallPatch: Encodable {
+        let wallIndex: Int
+        var loadBearing: Bool?
+        var displayElevation: Bool?
+        var notes: String?
+    }
+
+    /// Set one wall's Load-Bearing flag, its Display Elevation in Report
+    /// flag, or its notes. `wallIndex` says which — a wall has no id of its
+    /// own, only its position in the room's polygon.
+    func updateWall(
+        roomScanId: String, wallIndex: Int,
+        loadBearing: Bool? = nil, displayElevation: Bool? = nil, notes: String? = nil
+    ) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomScanId)/walls", method: "PATCH",
+            body: WallPatch(
+                wallIndex: wallIndex, loadBearing: loadBearing,
+                displayElevation: displayElevation, notes: notes))
+    }
+
     private struct NewReading: Encodable {
         let roomScanId: String
         let location: String
@@ -625,15 +655,22 @@ actor API {
 
     // MARK: - Photos
 
-    func photos(roomScanId: String) async throws -> [RoomPhoto] {
+    /// `wallIndex` narrows to one wall's own photos — the reference's wall
+    /// sheet, which carries its own Photos & Notes tab, separate from the
+    /// room's general grid. Omitted, every photo filed against the room
+    /// comes back, wall ones included, exactly as before.
+    func photos(roomScanId: String, wallIndex: Int? = nil) async throws -> [RoomPhoto] {
         let encoded = roomScanId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? roomScanId
-        return try await get("/api/v1/photos?roomScanId=\(encoded)", as: PhotoListResponse.self).photos
+        var path = "/api/v1/photos?roomScanId=\(encoded)"
+        if let wallIndex { path += "&wallIndex=\(wallIndex)" }
+        return try await get(path, as: PhotoListResponse.self).photos
     }
 
     /// Upload one photo, multipart. Base64 JSON would inflate a 3 MB phone
     /// photo by a third on the connection that is already the bottleneck.
     func uploadPhoto(
-        projectId: String, roomScanId: String?, affectedAreaId: String?, jpeg: Data, note: String?
+        projectId: String, roomScanId: String?, affectedAreaId: String?, wallIndex: Int? = nil,
+        jpeg: Data, note: String?
     ) async throws -> String {
         guard let url = URL(string: "/api/v1/photos", relativeTo: Self.baseURL) else {
             throw APIError.server("Bad path.")
@@ -654,6 +691,7 @@ actor API {
         field("projectId", projectId)
         if let roomScanId { field("roomScanId", roomScanId) }
         if let affectedAreaId { field("affectedAreaId", affectedAreaId) }
+        if let wallIndex { field("wallIndex", "\(wallIndex)") }
         if let note, !note.isEmpty { field("note", note) }
 
         body.append("--\(boundary)\r\n".data(using: .utf8)!)

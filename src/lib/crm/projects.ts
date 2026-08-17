@@ -492,6 +492,9 @@ export async function addProjectFile(
         receipt — which is what every existing row is. */
     roomScanId?: string | null;
     affectedAreaId?: string | null;
+    /** Pin a room photo to one wall of it as well — the wall's own photos,
+        not the room's general pile. Nullable, like the rest of these. */
+    wallIndex?: number | null;
   },
 ): Promise<string> {
   const client = requireDb();
@@ -518,6 +521,7 @@ export async function addProjectFile(
       note: orNull(input.note),
       room_scan_id: input.roomScanId ?? null,
       affected_area_id: input.affectedAreaId ?? null,
+      wall_index: input.wallIndex ?? null,
     })
     .select("id")
     .single();
@@ -540,14 +544,18 @@ export async function addProjectFile(
   return data.id as string;
 }
 
-/** One room's photos, newest first — what a report page is built from. */
-export async function listRoomFiles(roomScanId: string): Promise<ProjectFile[]> {
+/** One room's photos, newest first — what a report page is built from.
+    `wallIndex` narrows to one wall's own photos; omitted, every photo filed
+    against the room comes back, wall ones included, which is what the
+    report and the room's own grid have always wanted. */
+export async function listRoomFiles(
+  roomScanId: string,
+  wallIndex?: number,
+): Promise<ProjectFile[]> {
   const client = requireDb();
-  const { data, error } = await client
-    .from("project_files")
-    .select("*")
-    .eq("room_scan_id", roomScanId)
-    .order("uploaded_at", { ascending: false });
+  let query = client.from("project_files").select("*").eq("room_scan_id", roomScanId);
+  if (wallIndex !== undefined) query = query.eq("wall_index", wallIndex);
+  const { data, error } = await query.order("uploaded_at", { ascending: false });
   if (error) {
     if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);
     throw new Error(`Could not load the photos: ${error.message}`);

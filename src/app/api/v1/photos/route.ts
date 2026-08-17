@@ -19,13 +19,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const roomScanId = new URL(request.url).searchParams.get("roomScanId");
+  const params = new URL(request.url).searchParams;
+  const roomScanId = params.get("roomScanId");
   if (!roomScanId) {
     return NextResponse.json({ error: "roomScanId is required." }, { status: 400 });
   }
+  const wallIndexParam = params.get("wallIndex");
+  const wallIndex =
+    wallIndexParam !== null && Number.isInteger(Number(wallIndexParam))
+      ? Number(wallIndexParam)
+      : undefined;
 
   return guarded(async () => {
-    const files = await listRoomFiles(roomScanId);
+    const files = await listRoomFiles(roomScanId, wallIndex);
     // Signed per request and never persisted — a stored URL outlives its own
     // expiry and starts serving 403s to a report nobody can regenerate.
     const urls = await signProjectFileUrls(files.map((file) => file.storage_path));
@@ -57,6 +63,11 @@ export async function POST(request: Request) {
   const projectId = String(form.get("projectId") ?? "");
   const roomScanId = String(form.get("roomScanId") ?? "");
   const affectedAreaId = String(form.get("affectedAreaId") ?? "");
+  const wallIndexField = form.get("wallIndex");
+  const wallIndex =
+    typeof wallIndexField === "string" && Number.isInteger(Number(wallIndexField))
+      ? Number(wallIndexField)
+      : null;
   const note = String(form.get("note") ?? "");
   const file = form.get("file");
 
@@ -84,6 +95,7 @@ export async function POST(request: Request) {
       note: note || null,
       roomScanId: roomScanId || null,
       affectedAreaId: affectedAreaId || null,
+      wallIndex,
     }),
   }));
 }
