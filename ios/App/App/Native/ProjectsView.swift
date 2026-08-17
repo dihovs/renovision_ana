@@ -26,6 +26,11 @@ struct ProjectsView: View {
     /// is one distracted thumb away from a real job disappearing off the
     /// list, and there is no undo surfaced anywhere yet.
     @State private var archiving: ProjectSummary?
+    /// The project whose `Move` sheet is open, and the names to offer in it.
+    @State private var assigning: ProjectSummary?
+    @State private var assignees: [String] = []
+    /// Guards Duplicate against a double tap making two copies of a job.
+    @State private var duplicating = false
 
     /// The reference filters All / Favorites / Archived. Neither of those is
     /// a thing this trade has; what an operator actually sorts by is whether
@@ -120,11 +125,15 @@ struct ProjectsView: View {
                                 onAdd: { Task { await createNow() } },
                                 onOpen: { opened = $0 },
                                 caption: { project in
+                                    // Who it is on takes the third line when
+                                    // set: on a list of jobs, "Marc" answers
+                                    // a question the room count does not.
                                     (project.name,
                                      project.clientName ?? "No client",
-                                     project.roomCount > 0
-                                        ? "\(project.roomCount) room\(project.roomCount == 1 ? "" : "s")"
-                                        : "Not measured")
+                                     project.assignedTo
+                                        ?? (project.roomCount > 0
+                                            ? "\(project.roomCount) room\(project.roomCount == 1 ? "" : "s")"
+                                            : "Not measured"))
                                 }
                             ) { project in
                                 // The floor plan itself, drawn from the
@@ -142,7 +151,13 @@ struct ProjectsView: View {
                                         .foregroundStyle(Brand.Plan.dimension.opacity(0.45))
                                 }
                             } menu: { project in
-                                AnyView(ProjectCardMenu(onArchive: { archiving = project }))
+                                AnyView(
+                                    ProjectCardMenu(
+                                        isFavorite: project.favorite,
+                                        onFavorite: { Task { await toggleFavorite(project) } },
+                                        onMove: { assigning = project },
+                                        onDuplicate: { Task { await duplicate(project) } },
+                                        onArchive: { archiving = project }))
                             }
                         }
                     }
@@ -177,6 +192,15 @@ struct ProjectsView: View {
             .sheet(isPresented: $showMore) { MoreView() }
             .sheet(isPresented: $creating) {
                 NewProjectSheet { _ in Task { await load() } }
+            }
+            .sheet(item: $assigning) { project in
+                AssignProjectSheet(
+                    projectName: project.name,
+                    current: project.assignedTo,
+                    suggestions: assignees
+                ) { person in
+                    Task { await assign(project, to: person) }
+                }
             }
             .confirmationDialog(
                 archiving.map { "Archive “\($0.name)”?" } ?? "",
@@ -245,9 +269,46 @@ struct ProjectsView: View {
         }
     }
 
+    private func toggleFavorite(_ project: ProjectSummary) async {
+        do {
+            try await API.shared.setProjectFavorite(id: project.id, favorite: !project.favorite)
+            await load()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func assign(_ project: ProjectSummary, to person: String?) async {
+        do {
+            try await API.shared.assignProject(id: project.id, to: person)
+            await load()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Copies the LAYOUT and opens the copy. Photos, moisture readings and
+    /// equipment days are deliberately left behind — see `duplicateProject`
+    /// server-side; they are evidence about one address and copying them
+    /// into another job would fabricate a record rather than duplicate one.
+    private func duplicate(_ project: ProjectSummary) async {
+        guard !duplicating else { return }
+        duplicating = true
+        defer { duplicating = false }
+        do {
+            let id = try await API.shared.duplicateProject(id: project.id)
+            await load()
+            if let made = (projects ?? []).first(where: { $0.id == id }) { opened = made }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     private func load() async {
         do {
-            projects = try await API.shared.projects()
+            let (list, people) = try await API.shared.projectsWithAssignees()
+            projects = list
+            assignees = people
             error = nil
         } catch APIError.notSignedIn {
             onSignedOut()
@@ -300,12 +361,28 @@ struct WorkspaceInfoRow: View {
 /// share yet, and a menu item that does nothing is worse than a menu one item
 /// shorter than the reference's own.
 private struct ProjectCardMenu: View {
+    let isFavorite: Bool
+    let onFavorite: () -> Void
+    let onMove: () -> Void
+    let onDuplicate: () -> Void
     let onArchive: () -> Void
 
     var body: some View {
         Menu {
+            // The reference's own order (INT-P03): Favorite · Move ·
+            // Duplicate, then Archive separated below in red. Only the
+            // destructive one carries an ellipsis, because only it asks a
+            // second question.
+            Button(action: onFavorite) {
+                Label(
+                    isFavorite ? "Remove from favourites" : "Favourite",
+                    systemImage: isFavorite ? "star.slash" : "star")
+            }
+            Button(action: onMove) { Label("Move", systemImage: "person.crop.circle") }
+            Button(action: onDuplicate) { Label("Duplicate", systemImage: "doc.on.doc") }
+            Divider()
             Button(role: .destructive, action: onArchive) {
-                Label("Archive", systemImage: "archivebox")
+                Label("Archive…", systemImage: "archivebox")
             }
         } label: {
             // The visible circle stays 24pt — matching the reference's own
@@ -323,6 +400,114 @@ private struct ProjectCardMenu: View {
             }
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
+        }
+    }
+}
+
+/// `Move` — hand a job to somebody.
+///
+/// A name, typed or tapped, NOT a picker over an employee list: this app has
+/// no staff table and migration 0035 explains why that is deliberate rather
+/// than missing. The crew is a handful of names the owner knows, and the
+/// suggestions here are simply the names already used on other jobs — so the
+/// roster maintains itself and cannot list somebody who has never been given
+/// any work.
+struct AssignProjectSheet: View {
+    let projectName: String
+    let current: String?
+    let suggestions: [String]
+    let onAssign: (String?) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+
+    private var trimmed: String { name.trimmed }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Brand.Space.base) {
+                        Card {
+                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                                Text("WHO IS ON IT")
+                                    .font(.system(size: 10, weight: .heavy))
+                                    .foregroundStyle(Brand.inkFaint)
+                                TextField("Name", text: $name)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .textInputAutocapitalization(.words)
+                                    .autocorrectionDisabled()
+                            }
+                        }
+
+                        if !suggestions.isEmpty {
+                            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                                SectionHeading(title: "ALREADY ON OTHER JOBS")
+                                LazyVGrid(
+                                    columns: [
+                                        GridItem(.adaptive(minimum: 110), spacing: Brand.Space.tight)
+                                    ],
+                                    alignment: .leading, spacing: Brand.Space.tight
+                                ) {
+                                    ForEach(suggestions, id: \.self) { person in
+                                        Button {
+                                            name = person
+                                        } label: {
+                                            Text(person)
+                                                .font(.system(size: 13, weight: .bold))
+                                                .lineLimit(1)
+                                                .foregroundStyle(
+                                                    trimmed == person ? .white : Brand.inkSoft
+                                                )
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 9)
+                                                .background(
+                                                    trimmed == person
+                                                        ? Brand.charcoalDark : Brand.surfaceRaised,
+                                                    in: .rect(cornerRadius: Brand.Radius.pill))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+
+                        Button("Assign") {
+                            onAssign(trimmed.isEmpty ? nil : trimmed)
+                            dismiss()
+                        }
+                        .buttonStyle(PrimaryButtonStyle(enabled: trimmed != (current ?? "")))
+                        .disabled(trimmed == (current ?? ""))
+
+                        // Clearing is its own act, not an empty Save: a job
+                        // handed back to nobody is a real state, and making
+                        // it reachable only by deleting text is how it gets
+                        // done by accident.
+                        if current != nil {
+                            Button(role: .destructive) {
+                                onAssign(nil)
+                                dismiss()
+                            } label: {
+                                Label("Unassign", systemImage: "person.crop.circle.badge.xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                        }
+
+                        Text("A name, not an account — there is nobody to set up first. Whoever you type here is offered back on the next job.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                    .padding(Brand.Space.base)
+                }
+            }
+            .navigationTitle(projectName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+            .onAppear { name = current ?? "" }
         }
     }
 }

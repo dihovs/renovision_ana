@@ -272,6 +272,41 @@ actor API {
         try await get("/api/v1/projects", as: ProjectListResponse.self).projects
     }
 
+    /// The list plus the names already assigned to something — one request,
+    /// because the assign sheet needs both and the phone may be on one bar.
+    func projectsWithAssignees() async throws -> ([ProjectSummary], [String]) {
+        let response = try await get("/api/v1/projects", as: ProjectListResponse.self)
+        return (response.projects, response.assignees)
+    }
+
+    /// `Move` — hand the job to somebody by name. Nil unassigns.
+    ///
+    /// `NullablePatch` rather than a plain optional: Swift synthesises
+    /// `encodeIfPresent`, so a nil would DROP the key and the server would
+    /// read that as "not mentioned" and leave the old name in place. That
+    /// exact bug cost this project weeks on room colour — see HANDOFF §8.
+    func assignProject(id: String, to person: String?) async throws {
+        _ = try await request(
+            "/api/v1/projects/\(id)", method: "PATCH",
+            body: NullablePatch(key: "assignedTo", value: person))
+    }
+
+    func setProjectFavorite(id: String, favorite: Bool) async throws {
+        struct Star: Encodable { let favorite: Bool }
+        _ = try await request(
+            "/api/v1/projects/\(id)", method: "PATCH", body: Star(favorite: favorite))
+    }
+
+    /// `Duplicate` — copies the LAYOUT onto a new job and returns its id.
+    /// Photos, moisture readings and equipment days are deliberately not
+    /// copied; see `duplicateProject` server-side for why copying evidence
+    /// into another address would be fabricating a record.
+    func duplicateProject(id: String) async throws -> String {
+        struct Created: Decodable { let id: String }
+        let data = try await request("/api/v1/projects/\(id)/duplicate", method: "POST")
+        return try decode(Created.self, from: data).id
+    }
+
     // MARK: - Scans
 
     func scans(projectId: String) async throws -> [RoomScan] {
