@@ -158,6 +158,8 @@ struct ProjectsView: View {
                                         onMove: { assigning = project },
                                         onDuplicate: { Task { await duplicate(project) } },
                                         onArchive: { archiving = project }))
+                            } isFavorite: { project in
+                                project.favorite
                             }
                         }
                     }

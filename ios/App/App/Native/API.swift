@@ -63,6 +63,16 @@ actor API {
         // holding a spinner over a screen the operator needs.
         config.timeoutIntervalForRequest = 20
         config.waitsForConnectivity = false
+        // Nothing this app reads is ever safe to serve stale: a job's state
+        // changes from a second phone, a second tab, a second visit to the
+        // same job an hour later. `.useProtocolCachePolicy` (the platform
+        // default) will reuse a cached GET response whenever the server's
+        // headers merely fail to forbid it — silent staleness on exactly the
+        // requests this app needs freshest. Favouriting a project and having
+        // its own menu still call it unfavourited a second later, on the
+        // very next GET, was this bug.
+        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        config.urlCache = nil
         self.session = URLSession(configuration: config)
     }
 

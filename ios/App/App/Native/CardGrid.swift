@@ -33,6 +33,12 @@ struct CardGrid<Item: Identifiable, Thumbnail: View>: View {
     /// type just to pass `nil` is a worse API than one closure that some
     /// callers skip.
     var menu: ((Item) -> AnyView)?
+    /// The reference's star badge, top-trailing on the card — its own colour
+    /// here rather than the reference's yellow, since the glyph and its
+    /// colour are exactly the part of the reference this project draws its
+    /// own rather than traces (`HANDOFF.md` §2). Optional for the same
+    /// reason `menu` is: most callers have nothing to star yet.
+    var isFavorite: ((Item) -> Bool)?
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
@@ -91,6 +97,18 @@ struct CardGrid<Item: Identifiable, Thumbnail: View>: View {
                         if let menu {
                             menu(item)
                                 .padding(6)
+                        }
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        if isFavorite?(item) == true {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 22, height: 22)
+                                .background(Brand.blue, in: Circle())
+                                .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                                .padding(6)
+                                .allowsHitTesting(false)
                         }
                     }
 
