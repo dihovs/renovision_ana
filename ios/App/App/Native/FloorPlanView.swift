@@ -342,11 +342,18 @@ struct FloorPlanView: View {
 
 /// Mark the damaged part of a room, on its plan.
 ///
-/// REDUCTIVE, like the web editor and like the tools an estimator already
-/// uses: a new area opens covering the whole floor and gets pulled in to the
-/// wet part. Drawing from nothing would mean tracing a shape freehand on a
-/// phone while standing in a basement, which is slower and less accurate than
-/// dragging four corners.
+/// REDUCTIVE by default, like the web editor and like the tools an estimator
+/// already uses: a new area opens covering the whole floor and gets pulled in
+/// to the wet part, by dragging corners.
+///
+/// **Freehand is additive, not a replacement.** magicplan has no such tool —
+/// its editor is tap-a-point-then-drag only — and the owner asked for one
+/// anyway: *"I want a function to draw it manually, not square, not any
+/// shape — just take my finger and draw the damaged space."* So the corner
+/// editor stays exactly as it was, because that is what the owner tests
+/// parity against, and freehand is a second way to arrive at the same
+/// `corners` array: draw a loop, it gets simplified down to a polygon, and
+/// that polygon lands right back in the corner editor for adjustment.
 struct AreaEditor: View {
     let plan: FloorPlanGeometry.Plan
     let existing: [(polygon: [CGPoint], colour: Color)]
@@ -366,6 +373,12 @@ struct AreaEditor: View {
     @State private var saving = false
     @State private var confirmingDiscard = false
 
+    private enum Mode: Hashable { case points, freehand }
+    @State private var mode: Mode = .points
+    /// The loop being dragged right now, in canvas points — plan metres only
+    /// exist once the gesture ends and `finishFreehand` converts it.
+    @State private var freehandStroke: [CGPoint] = []
+
     private var colour: Color { cause.color }
 
     private var areaSqm: Double { FloorPlanGeometry.polygonArea(corners) }
@@ -373,6 +386,17 @@ struct AreaEditor: View {
     /// Nothing has been pulled in yet — the shape is still the whole room it
     /// opened as. Used to keep Save honest rather than to block a gesture.
     private var isDirty: Bool { !history.isEmpty }
+
+    private var instructions: String {
+        switch mode {
+        case .points where selected == nil:
+            return "Tap to adjust points. Tap a midpoint to add one."
+        case .points:
+            return "Drag to move it. Tap the plan to deselect."
+        case .freehand:
+            return "Drag a finger around the damaged area. Lift to finish — it becomes points you can then adjust."
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -389,16 +413,22 @@ struct AreaEditor: View {
                                 draft: (corners, colour))
 
                             if let transform {
-                                edgeHandles(transform)
-                                cornerHandles(transform)
-                                liveDimensions(transform)
+                                if mode == .points {
+                                    edgeHandles(transform)
+                                    cornerHandles(transform)
+                                    liveDimensions(transform)
+                                } else {
+                                    freehandCaptureLayer(transform)
+                                }
                             }
                         }
                         // A tap on bare canvas clears the selection, so the
                         // four-way handle and its Delete cannot linger over a
-                        // point the operator has moved on from.
+                        // point the operator has moved on from. Freehand
+                        // handles its own touches below, on its own gesture,
+                        // at a higher priority than this one.
                         .contentShape(.rect)
-                        .onTapGesture { selected = nil }
+                        .onTapGesture { if mode == .points { selected = nil } }
                     }
                     .frame(maxHeight: 360)
                     .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
@@ -416,11 +446,13 @@ struct AreaEditor: View {
 
                         DamageCausePicker(cause: $cause)
 
+                        modePicker
+
                         // Delete belongs to the SELECTED point and appears
                         // with it, which is where the reference puts it —
                         // not a permanent control for a target that may not
                         // exist.
-                        if let selected, corners.count > 3 {
+                        if mode == .points, let selected, corners.count > 3 {
                             Button(role: .destructive) {
                                 push()
                                 corners = PlanEditing.removeCorner(corners, index: selected)
@@ -431,10 +463,7 @@ struct AreaEditor: View {
                             }
                         }
 
-                        Text(
-                            selected == nil
-                                ? "Tap to adjust points. Tap a midpoint to add one."
-                                : "Drag to move it. Tap the plan to deselect.")
+                        Text(instructions)
                             .font(.system(size: 11))
                             .foregroundStyle(Brand.inkFaint)
                     }
@@ -477,6 +506,101 @@ struct AreaEditor: View {
             }
             .onAppear(perform: seed)
         }
+    }
+
+    // MARK: - Mode
+
+    /// Corners vs. freehand — two ways to arrive at the same `corners`
+    /// array, styled like `DamageCausePicker`'s chips so the two pickers
+    /// read as one family rather than two different controls stacked up.
+    private var modePicker: some View {
+        HStack(spacing: Brand.Space.tight) {
+            ForEach([Mode.points, .freehand], id: \.self) { option in
+                Button {
+                    mode = option
+                    freehandStroke = []
+                } label: {
+                    Label(
+                        option == .points ? "Points" : "Freehand",
+                        systemImage: option == .points ? "hand.point.up.left" : "scribble")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(mode == option ? .white : Brand.inkSoft)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 7)
+                        .background(
+                            mode == option ? Brand.charcoalDark : Brand.surfaceRaised,
+                            in: .rect(cornerRadius: Brand.Radius.pill))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// The freehand drag surface: draws the loop live as the finger moves,
+    /// and on release hands `finishFreehand` a closed path in canvas points.
+    ///
+    /// A `highPriorityGesture` because the canvas underneath already has its
+    /// own tap-to-deselect recogniser (`onTapGesture`) — without priority a
+    /// touch-down here can be claimed by that one instead, and a freehand
+    /// mode that sometimes just deselects nothing is worse than one that
+    /// never fires by accident.
+    private func freehandCaptureLayer(_ transform: PlanTransform) -> some View {
+        ZStack {
+            Path { path in
+                guard let first = freehandStroke.first else { return }
+                path.move(to: first)
+                for p in freehandStroke.dropFirst() { path.addLine(to: p) }
+            }
+            .stroke(colour, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+            Rectangle()
+                .fill(Color.white.opacity(0.001))
+                .contentShape(Rectangle())
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let p = value.location
+                            // A sample every touch frame is more than the
+                            // simplifier needs and just grows the array —
+                            // keep a point only once the finger has actually
+                            // moved.
+                            if let last = freehandStroke.last,
+                                hypot(p.x - last.x, p.y - last.y) < 3
+                            {
+                                return
+                            }
+                            freehandStroke.append(p)
+                        }
+                        .onEnded { _ in finishFreehand(transform) }
+                )
+        }
+    }
+
+    /// Turn the raw drag into a polygon and hand it to the corner editor.
+    ///
+    /// Too short a drag (a tap that landed in freehand mode by mistake, or a
+    /// gesture that barely moved) is discarded rather than replacing
+    /// whatever shape was already there — freehand is additive to a session,
+    /// not a trap that can wipe out corner work with one stray touch.
+    private func finishFreehand(_ transform: PlanTransform) {
+        defer {
+            freehandStroke = []
+            mode = .points
+        }
+        guard freehandStroke.count >= 3 else { return }
+
+        // A screen-space tolerance so the simplification feels the same at
+        // every zoom level, converted to plan metres the way every other
+        // capture radius in this editor already is.
+        let toleranceMetres = 6.0 / transform.scale
+        let simplified = PlanEditing.simplifyClosed(
+            freehandStroke.map(transform.model), tolerance: toleranceMetres
+        ).map(PlanEditing.quantise)
+        guard simplified.count >= 3, PlanEditing.area(simplified) > 0.01 else { return }
+
+        push()
+        corners = simplified
+        selected = nil
     }
 
     // MARK: - Handles

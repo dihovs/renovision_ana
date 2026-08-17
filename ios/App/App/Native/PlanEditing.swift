@@ -289,6 +289,68 @@ enum PlanEditing {
         return false
     }
 
+    // MARK: - Freehand capture
+
+    /// Ramer–Douglas–Peucker on an open path: keep only the points a
+    /// straight line between two others could not stand in for, within
+    /// `tolerance` (same units as the points — plan metres, here).
+    ///
+    /// A finger's drag comes back as dozens of samples a frame apart; stored
+    /// as-is that is not a polygon a corner editor can select and drag, it
+    /// is a point cloud. This is the standard reduction, kept here rather
+    /// than inline so `simplifyClosed` below can share it.
+    static func simplify(_ points: [CGPoint], tolerance: Double) -> [CGPoint] {
+        guard points.count > 2 else { return points }
+
+        func perpendicularDistance(_ p: CGPoint, _ a: CGPoint, _ b: CGPoint) -> Double {
+            let d = sub(b, a)
+            let len = length(d)
+            guard len > 1e-9 else { return length(sub(p, a)) }
+            let t = dot(sub(p, a), d) / (len * len)
+            let proj = CGPoint(x: a.x + d.x * t, y: a.y + d.y * t)
+            return length(sub(p, proj))
+        }
+
+        func reduce(_ pts: [CGPoint]) -> [CGPoint] {
+            guard pts.count > 2, let first = pts.first, let last = pts.last else { return pts }
+            var maxDistance = 0.0
+            var splitIndex = 0
+            for i in 1..<(pts.count - 1) {
+                let d = perpendicularDistance(pts[i], first, last)
+                if d > maxDistance {
+                    maxDistance = d
+                    splitIndex = i
+                }
+            }
+            guard maxDistance > tolerance else { return [first, last] }
+            let left = reduce(Array(pts[0...splitIndex]))
+            let right = reduce(Array(pts[splitIndex...]))
+            return left.dropLast() + right
+        }
+
+        return reduce(points)
+    }
+
+    /// The same reduction for a CLOSED loop — what a finger actually draws.
+    ///
+    /// `simplify` needs two distinct endpoints to measure every other point
+    /// against; a loop has none. The standard trick is to close it first —
+    /// append the start point back onto the end — and simplify that as an
+    /// open path: every point's distance is then measured from the anchor
+    /// where the finger both started and lifted, which is the one point a
+    /// freehand loop is guaranteed to pass near twice. Fed straight back
+    /// into `simplify`, the anchor survives as both ends of the result, so
+    /// the duplicate is dropped once reduction is done.
+    static func simplifyClosed(_ points: [CGPoint], tolerance: Double) -> [CGPoint] {
+        guard let first = points.first, points.count > 2 else { return points }
+        var simplified = simplify(points + [first], tolerance: tolerance)
+        if simplified.count > 1, length(sub(simplified[0], simplified[simplified.count - 1])) < 1e-9
+        {
+            simplified.removeLast()
+        }
+        return simplified
+    }
+
     /// The shoelace area, absolute — a room drawn clockwise measures the same
     /// as one drawn the other way.
     static func area(_ polygon: [CGPoint]) -> Double {

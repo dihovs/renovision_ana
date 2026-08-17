@@ -31,7 +31,7 @@ Commit the ledger update with the work.
 |---|---|---|---|---|
 | **S1** | Room inspector structure | **DONE** | — | `RoomDetailView.swift` |
 | **S2** | Wall inspector | **DONE** | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
-| **S3** | Affected areas — freehand drawing | NOT STARTED | — | `FloorPlanView.swift`, `PlanEditing.swift` |
+| **S3** | Affected areas — freehand drawing | DONE | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | NOT STARTED | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | NOT STARTED | — | `PlanEditorView.swift`, `EditorChrome.swift` |
 | **S6** | Photo editor — blur first | NOT STARTED | — | new `PhotoEditor*.swift` |
@@ -212,6 +212,55 @@ editor for adjustment. Area from the same shoelace everything else uses.
 
 **Done when.** A finger-drawn blob saves, measures correctly, draws on the plan
 and in the report, and its corners can still be nudged afterwards.
+
+**What landed (17 Aug 2026).** A `Points | Freehand` chip picker in
+`AreaEditor` (styled like `DamageCausePicker`, right below it), additive to
+the existing corner editor exactly as scoped:
+
+- `PlanEditing.simplify` — standard Ramer–Douglas–Peucker on an open path,
+  new, pure, no view in sight. `PlanEditing.simplifyClosed` wraps it for a
+  LOOP (what a finger draws, not what `simplify` alone handles): it appends
+  the loop's own start point to its end and simplifies that as an open path,
+  so every captured point is measured against the one point the gesture is
+  guaranteed to pass near twice — where it started and lifted — then drops
+  the duplicate the reduction leaves at both ends.
+- Freehand mode swaps the corner handles for a single `DragGesture
+  (minimumDistance: 0)` capture layer, drawn live as the finger moves,
+  throttled to a new sample only every 3pt of movement so the array does not
+  grow once a frame for nothing — `simplify` throws away the redundant
+  points anyway. `.highPriorityGesture` because the canvas underneath
+  already claims taps for corner-deselect; without priority a touch-down in
+  freehand mode could be swallowed by that instead.
+- On release: canvas points → plan metres via `PlanTransform.model` (the
+  one place that conversion lives, per the transform's own header comment),
+  simplified with a **screen-space** tolerance (6pt, converted through the
+  transform's scale so it feels the same at every zoom) rather than a fixed
+  metric one, then quantised. A stroke under 3 points, or one that simplifies
+  to fewer than 3 or to ~zero area, is discarded silently — it does not
+  overwrite whatever `corners` already held, so an accidental tap in
+  freehand mode cannot wipe out corner-editor work.
+- The result is written straight into `corners` — the same array the corner
+  editor already reads and writes — `push()`ed onto the same undo/redo
+  history first, and mode flips back to `.points` automatically. That is
+  the whole of "hand it to the existing corner editor for adjustment": there
+  is no second code path, freehand is just a second way to arrive at the
+  first one's input.
+- Area, save, name, damage cause, undo/redo, Cancel's discard confirmation —
+  none of it changed; a freehand-drawn shape is, the instant the finger
+  lifts, an ordinary `corners` array like any dragged one.
+
+**Not verified on device.** `BUILD SUCCEEDED`, installed fresh on the
+simulator (dylib timestamp matched the build), app launches straight to Home
+with no password wall this time. But this chat's `xcode-select` is not
+pointed at Xcode (`sudo xcode-select -s /Applications/Xcode.app/Contents/
+Developer` needed, needs the owner's password), so the simulator MCP tool's
+tap/drag actions errored, and the owner denied the computer-use fallback's
+access request to the Simulator app when offered — reasonably, that is a
+broader grant than one verification needed. **Whoever picks this up next
+should fix `xcode-select` first** (one command, needs a password only the
+owner has) and then actually drag a freehand shape before trusting this
+section's geometry claims — everything above is verified by build and by
+reading the code, not by a thumb on a screen.
 
 ---
 
@@ -444,3 +493,14 @@ Newest last. One or two lines per chat.
   BISECT comment and the canvas-tap symptom belong there too** and are worth
   resolving properly before anything else in the plan editor gets built on
   top of it blind. S2 is **DONE**.
+- **2026-08-17** — S3 built: freehand drawing in `AreaEditor`, additive
+  beside the corner editor as scoped. New pure geometry in `PlanEditing`
+  (`simplify`, `simplifyClosed` — RDP on an open path and on a loop) and a
+  new capture-and-hand-off mode in `FloorPlanView`'s `AreaEditor`, both
+  documented in S3 above. `BUILD SUCCEEDED`, installed fresh (dylib
+  timestamp confirmed). **Not verified on device**: this chat's
+  `xcode-select` was not pointed at Xcode, so the simulator MCP tool
+  couldn't tap or drag; the owner denied a computer-use fallback request to
+  control the Simulator app. Whoever continues should run `sudo
+  xcode-select -s /Applications/Xcode.app/Contents/Developer` first, then
+  actually draw a freehand shape before trusting the geometry claims above.
