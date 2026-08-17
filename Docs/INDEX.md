@@ -1,7 +1,13 @@
 # Start here
 
-One door into everything. If you are an agent opened in this repo, read this file first, then
-`ORDERS.md`.
+> **Read `HANDOFF.md` before this file.** Work is split one chat per task, and
+> `HANDOFF.md` carries the state each new chat needs: what is done, what is next
+> (specified), the owner's standing instruction to match magicplan exactly, and
+> the divergences that are deliberate rather than bugs. This file is the map of
+> the reference material underneath it.
+
+One door into everything. If you are an agent opened in this repo, read `HANDOFF.md`, then this
+file, then `ORDERS.md`.
 
 **What to do:** `../ORDERS.md` — twelve sequenced work orders. One at a time. Commit per
 order, prefixed with the id. If an order's premise turns out to be wrong, stop and report;

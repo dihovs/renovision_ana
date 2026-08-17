@@ -7,7 +7,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 <!-- BEGIN:renovision-reference -->
 # Start here
 
-**Read `Docs/INDEX.md` first.** It is the single door to everything: what to build next, what
+**Read `Docs/HANDOFF.md` first** — it is the per-chat state file: what is built,
+what to do next, and the owner's standing instruction that this app must match
+magicplan's interface exactly so he can test function without relearning it.
+
+Then `Docs/INDEX.md`. It is the single door to everything: what to build next, what
 is already built, all reference material, and — importantly — which document wins when two
 disagree. There are two generations of magicplan research in this repo and they overlap.
 
