@@ -103,10 +103,29 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
         favorite = (try? c.decodeIfPresent(Bool.self, forKey: .favorite)) as? Bool ?? false
     }
 
-    // Identity is the id. Synthesised conformance would have to hash the
-    // geometry too, which is both expensive and wrong: the same project with a
-    // redrawn plan is still the same project, and navigation compares these.
-    static func == (a: ProjectSummary, b: ProjectSummary) -> Bool { a.id == b.id }
+    // IDENTITY is the id — that is what `hash` carries, and what navigation
+    // and `ForEach` track a card by across a reload.
+    //
+    // EQUALITY is not identity, and conflating them broke this screen. `==`
+    // compared ids alone, so a project whose star had just been toggled was,
+    // by this type's own definition, unchanged — and SwiftUI, being told the
+    // value had not changed, correctly declined to redraw the card. The write
+    // reached the database every time; the star and its menu label simply
+    // could never show it. Favourite looked permanently stuck.
+    //
+    // So `==` compares what the card actually DRAWS. The geometry stays out
+    // of it: comparing a room outline on every diff is expensive, a redrawn
+    // plan does not change any of the text or badges here, and `roomCount`
+    // already moves whenever rooms are added or removed. Hashing only the id
+    // is still correct — equal values must hash equally, and these do.
+    static func == (a: ProjectSummary, b: ProjectSummary) -> Bool {
+        a.id == b.id
+            && a.name == b.name
+            && a.clientName == b.clientName
+            && a.roomCount == b.roomCount
+            && a.assignedTo == b.assignedTo
+            && a.favorite == b.favorite
+    }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
