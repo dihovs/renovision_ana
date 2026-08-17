@@ -54,7 +54,21 @@ struct Health: Decodable {
 
 // MARK: - Projects
 
-struct ProjectListResponse: Decodable { let projects: [ProjectSummary] }
+struct ProjectListResponse: Decodable {
+    let projects: [ProjectSummary]
+    /// Names already assigned to something, for the assign sheet's
+    /// suggestions. Sent with the list so opening that sheet needs no second
+    /// request from a phone that may be standing in a basement.
+    let assignees: [String]
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        projects = try c.decode([ProjectSummary].self, forKey: .projects)
+        assignees = (try? c.decodeIfPresent([String].self, forKey: .assignees)) as? [String] ?? []
+    }
+
+    enum CodingKeys: String, CodingKey { case projects, assignees }
+}
 
 struct ProjectSummary: Decodable, Identifiable, Hashable {
     let id: String
@@ -66,9 +80,13 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
     /// because an older server does not send it at all, which must degrade
     /// to a placeholder rather than a failed decode of the whole list.
     let largestRoom: ScanGeometry?
+    /// Who the job was handed to, by name. There is no staff table by
+    /// design — see migration 0035 — so this is the whole of the answer.
+    let assignedTo: String?
+    let favorite: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, name, clientName, roomCount, largestRoom
+        case id, name, clientName, roomCount, largestRoom, assignedTo, favorite
     }
 
     init(from decoder: Decoder) throws {
@@ -79,6 +97,10 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
         roomCount = try c.decodeIfPresent(Int.self, forKey: .roomCount) ?? 0
         // A malformed geometry costs this card its thumbnail, never the list.
         largestRoom = try? c.decodeIfPresent(ScanGeometry.self, forKey: .largestRoom)
+        // Both absent on a server older than migration 0035, which must read
+        // as "unassigned, not starred" rather than failing the whole list.
+        assignedTo = try? c.decodeIfPresent(String.self, forKey: .assignedTo)
+        favorite = (try? c.decodeIfPresent(Bool.self, forKey: .favorite)) as? Bool ?? false
     }
 
     // Identity is the id. Synthesised conformance would have to hash the

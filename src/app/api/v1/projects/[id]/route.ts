@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { guarded } from "../../guard";
-import { PROJECT_STATUSES, updateProjectStatus, type ProjectStatus } from "@/lib/crm/projects";
+import {
+  PROJECT_STATUSES,
+  assignProject,
+  setProjectFavorite,
+  updateProjectStatus,
+  type ProjectStatus,
+} from "@/lib/crm/projects";
 
 /**
  * Archive a project — the phone's cleanup path.
@@ -13,8 +19,14 @@ import { PROJECT_STATUSES, updateProjectStatus, type ProjectStatus } from "@/lib
  * so a phone that archives gets the same result a delete would have shown on
  * this screen, reversibly.
  *
- * Only `status` is accepted here; a full project edit is a bigger surface
- * than a phone picker needs and belongs to `updateProjectCustom` instead.
+ * The same route carries the rest of the card's overflow menu, because they
+ * are all one-field edits to the same row: `assignedTo` is `Move` (a name —
+ * see migration 0035 for why there is no staff id to send), and `favorite`
+ * is the star. Each key is optional and only what is PRESENT is written, so
+ * starring a project cannot silently clear who it belongs to.
+ *
+ * A full project edit is a bigger surface than a phone picker needs and
+ * belongs to `updateProjectCustom` instead.
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,16 +38,38 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
   }
 
-  const status = typeof body.status === "string" ? body.status : "";
-  if (!PROJECT_STATUSES.includes(status as ProjectStatus)) {
+  const hasStatus = "status" in body;
+  const hasAssignee = "assignedTo" in body;
+  const hasFavorite = "favorite" in body;
+
+  if (!hasStatus && !hasAssignee && !hasFavorite) {
+    return NextResponse.json(
+      { error: "Send status, assignedTo or favorite." },
+      { status: 400 },
+    );
+  }
+
+  if (hasStatus && !PROJECT_STATUSES.includes(body.status as ProjectStatus)) {
     return NextResponse.json(
       { error: `status must be one of: ${PROJECT_STATUSES.join(", ")}` },
       { status: 400 },
     );
   }
+  // null is meaningful here — it unassigns — so only a wrong TYPE is refused.
+  if (hasAssignee && body.assignedTo !== null && typeof body.assignedTo !== "string") {
+    return NextResponse.json(
+      { error: "assignedTo must be a name or null." },
+      { status: 400 },
+    );
+  }
+  if (hasFavorite && typeof body.favorite !== "boolean") {
+    return NextResponse.json({ error: "favorite must be true or false." }, { status: 400 });
+  }
 
   return guarded(async () => {
-    await updateProjectStatus(id, status as ProjectStatus);
+    if (hasStatus) await updateProjectStatus(id, body.status as ProjectStatus);
+    if (hasAssignee) await assignProject(id, body.assignedTo as string | null);
+    if (hasFavorite) await setProjectFavorite(id, body.favorite as boolean);
     return { ok: true };
   });
 }

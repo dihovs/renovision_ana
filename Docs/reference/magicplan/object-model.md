@@ -11,6 +11,78 @@ were about to build.
 
 ---
 
+## The findings that change what we build
+
+Read this page and you have the review. Each line says where to go for the rest.
+
+**Model**
+
+1. **One object model, not many.** Width · Height · **Distance to Floor**. A door
+   is an object whose sill is zero. Doors, windows and a sofa come from the same
+   catalogue by the same path. — §1, §2
+2. **Affected areas are first class, on floors *and* walls, and may overlap** —
+   which is exactly why totals must stay per cause and per surface rather than
+   summing to one figure. — §2b
+3. **They have no damage type.** An area gets a name and a fill colour, nothing
+   more. Ours carries cause because cause decides trade and rate. Keep it. — §2b
+4. **Wall thickness lives on the *floor*** — interior and exterior kept apart
+   (0.120 m / 0.250 m observed). Every footprint figure is arithmetic on those
+   two numbers, which is what turned ours from a guess into a measurement. — §2c
+
+**Numbers that will bite**
+
+5. **"Walls with openings" is the GROSS figure.** "Without openings" is the net.
+   Backwards from every reading instinct, and a 4 m² error on a small room.
+   Never adopt their naming; ours stays `{gross, net}`. — §2c
+6. **Ground perimeter is baseboard length** — interior perimeter minus every door
+   width. Their own definition. A door has no baseboard across it, and it is the
+   number an estimator actually wants. — §2c
+7. **Their product contradicts itself.** The app's room sheet reads
+   `PERIMETER 9.15 m`; the report prints `9.82 m` for the same room. The gap is
+   one door width — ground vs ceiling perimeter, both labelled just "perimeter".
+   This is the whole argument for labelling every figure with its definition.
+   — §2c, §6
+8. **Two kinds of dimension, not one:** each wall's own length, *and* an overall
+   bounding extent on an outer line. Without the second, a non-rectangular room
+   cannot answer "how deep is it". — §5
+
+**Behaviour**
+
+9. **The padlock is a constraint, not a marker.** Apply always locks — even
+   re-applying the same value. A locked wall will not follow: pin the top at
+   2.500, set the bottom to 4.000, and the room becomes a **trapezoid**. Every
+   structural action asks first. — §6, §3a
+10. **Two render modes of one plan.** Floor level is the thumbnail look — poché
+    walls, grey floors, name and area, no dimensions or handles. Room level goes
+    live. Ours drew the live version small, which is why cards read as noise.
+    — §7
+11. **The grid splits.** Floor tile grid is model space at a fixed 0.25 m; the
+    background dots are screen space. Confirmed by changing a wall and watching
+    both. — §8
+12. **Insert is mostly navigation.** Note, Photo and Form just jump to a tab of
+    whatever is selected. Only Room and Object create anything. — §3b
+
+**What a real job proved**
+
+13. **Room type is optional, so nobody sets it.** On the owner's own condo the
+    Bathroom's type was `Other`, so the report cover printed **"Bathroom 0"** for
+    a flat that plainly has one — the cover counts by *type*, not by name. The
+    error reaches the client. This is why we ask the type **before** the camera:
+    type-after is type-never. — §2e
+14. **Videos print.** The annotated report captions them `<room> Video n`, and
+    photos and videos share one grid with a duration badge. **Move** re-files an
+    attachment to a different room or object — the fix for a misfiled photo on a
+    39-photo job. — §2e
+15. **The report is a numbered key.** Badges on the plan cross-referenced to an
+    itemised legend with thumbnails, a locator thumbnail showing where the room
+    sits, photos deferred to their own pages, a scale bar and ratio on every
+    plan. — §3c
+16. **Their commercial room list is an office fit-out vocabulary** — Private
+    Office, Photocopy Room, Archives. Take the Residential/Commercial *split*;
+    the *types* must come from this trade's own jobs. — §2d
+
+---
+
 ## 1. The catalogue
 
 `Insert` at either room or wall depth opens the same menu:

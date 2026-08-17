@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { guarded } from "../guard";
-import { createProject, listProjects } from "@/lib/crm/projects";
+import { createProject, listAssignees, listProjects } from "@/lib/crm/projects";
 
 /**
  * Projects the phone can scan into.
@@ -21,7 +21,14 @@ export async function GET() {
       // rather than a grey box. `listProjects` already reads it for the web
       // list; forwarding it costs one embed that is already being made.
       largestRoom: project.largest_room?.geometry ?? null,
+      assignedTo: project.assigned_to ?? null,
+      favorite: project.is_favorite ?? false,
     })),
+    // Names already used, for the assign sheet's suggestions — sent with the
+    // list so opening that sheet costs no second round trip on a phone that
+    // may be standing in a basement. See migration 0035: there is no staff
+    // table, so this IS the roster.
+    assignees: await listAssignees(),
   }));
 }
 

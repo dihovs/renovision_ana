@@ -32,6 +32,11 @@ export type Project = {
   description: string | null;
   started_on: string | null;
   archived_at: string | null;
+  /** Who the job was handed to. Free text by design — see migration 0035;
+      there is no staff table and deliberately so. Null means nobody yet,
+      which is not the same as an empty name. */
+  assigned_to: string | null;
+  is_favorite: boolean;
   /** Answers to the project-level custom fields — the claim details, when
       the claim template has been applied. { fieldId: value }. */
   custom: Record<string, string>;
@@ -428,6 +433,202 @@ export async function updateProjectCustom(
     if (isMissingTable(error)) throw new MigrationPendingError("projects.custom", error.message);
     throw new Error(`Could not save the claim details: ${error.message}`);
   }
+}
+
+/**
+ * Hand the job to somebody — the phone's `Move`.
+ *
+ * A name, not an id: there is no staff table and 0035 explains why. An empty
+ * or whitespace-only name clears the assignment rather than storing a blank,
+ * so "unassign" needs no separate call.
+ */
+export async function assignProject(id: string, person: string | null): Promise<void> {
+  const client = requireDb();
+  const trimmed = person?.trim();
+  const { error } = await client
+    .from("projects")
+    .update({ assigned_to: trimmed ? trimmed : null, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) {
+    if (isMissingTable(error)) {
+      throw new MigrationPendingError("projects.assigned_to", error.message);
+    }
+    throw new Error(`Could not assign the project: ${error.message}`);
+  }
+}
+
+/**
+ * Names already used, newest first — what the assign picker offers.
+ *
+ * DISTINCT over the column itself rather than a second table: the list of
+ * people cannot then drift out of step with who has actually been assigned,
+ * and nobody has to maintain a roster to make the picker useful.
+ */
+export async function listAssignees(): Promise<string[]> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("projects")
+    .select("assigned_to, updated_at")
+    .not("assigned_to", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  // A picker that cannot offer suggestions is still a picker you can type
+  // into, so this degrades to empty rather than taking the sheet down.
+  if (error) return [];
+  const seen = new Set<string>();
+  for (const row of (data ?? []) as { assigned_to: string | null }[]) {
+    const name = row.assigned_to?.trim();
+    if (name) seen.add(name);
+  }
+  return [...seen];
+}
+
+export async function setProjectFavorite(id: string, favorite: boolean): Promise<void> {
+  const client = requireDb();
+  const { error } = await client
+    .from("projects")
+    .update({ is_favorite: favorite })
+    .eq("id", id);
+  if (error) {
+    if (isMissingTable(error)) {
+      throw new MigrationPendingError("projects.is_favorite", error.message);
+    }
+    throw new Error(`Could not star the project: ${error.message}`);
+  }
+}
+
+/**
+ * Copy a project's LAYOUT onto a new job — the phone's `Duplicate`.
+ *
+ * # What is copied, and the one rule behind it
+ *
+ * Rooms, their geometry, their plan positions and their per-wall details
+ * (load-bearing, elevation flags, thickness). In other words: the drawing.
+ * The case this exists for is a second unit in the same building, or the
+ * same layout re-measured for a new claim — the shape is the expensive part
+ * to capture and the part worth reusing.
+ *
+ * # What is deliberately NOT copied, and why that is not a shortcut
+ *
+ * Moisture readings, equipment placements, photos and files, affected areas,
+ * and any attached job.
+ *
+ * These are EVIDENCE. A drying log is a dated record that somebody stood in
+ * that building and read those numbers off an instrument; equipment
+ * placements are unit-days that get billed; photos are what an adjuster looks
+ * at. Copying any of them into a different job would put readings, charges
+ * and pictures into a claim file for a property where they never happened.
+ * That is not a duplicate, it is a fabricated record — so the copy starts
+ * with an empty drying log and no photos, which is the honest state of a job
+ * nobody has visited yet.
+ *
+ * Affected areas go with the evidence rather than with the layout for the
+ * same reason: where the water reached is a fact about one incident, not a
+ * property of the building's shape.
+ *
+ * Returns the new project's id.
+ */
+export async function duplicateProject(id: string): Promise<string> {
+  const client = requireDb();
+
+  const { data: source, error: readError } = await client
+    .from("projects")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError) throw new Error(`Could not read the project: ${readError.message}`);
+  if (!source) throw new Error("That project no longer exists.");
+
+  const original = source as Project;
+  const { data: made, error: createError } = await client
+    .from("projects")
+    .insert({
+      name: `${original.name} copy`,
+      client_id: original.client_id,
+      description: original.description,
+      custom: original.custom ?? {},
+      assigned_to: original.assigned_to ?? null,
+      // A copy is a job nobody has started: it is active, not archived, and
+      // not starred just because its source was.
+      status: "active",
+      is_favorite: false,
+    })
+    .select("id")
+    .single();
+  if (createError) throw new Error(`Could not create the copy: ${createError.message}`);
+  const newId = (made as { id: string }).id;
+
+  const { data: scans, error: scanError } = await client
+    .from("room_scans")
+    .select("*")
+    .eq("project_id", id);
+  // The project itself exists by now; a room read that fails leaves an empty
+  // copy rather than a half-built one, and says so.
+  if (scanError) throw new Error(`The project was copied, but its rooms were not: ${scanError.message}`);
+
+  const rooms = (scans ?? []) as (Record<string, unknown> & { id: string })[];
+  if (rooms.length === 0) return newId;
+
+  const { data: insertedRooms, error: roomError } = await client
+    .from("room_scans")
+    .insert(
+      rooms.map((room) => ({
+        project_id: newId,
+        name: room.name,
+        level: room.level,
+        position: room.position,
+        floor_area_sqm: room.floor_area_sqm,
+        wall_length_m: room.wall_length_m,
+        ceiling_height_m: room.ceiling_height_m,
+        door_count: room.door_count,
+        window_count: room.window_count,
+        stair_count: room.stair_count,
+        geometry: room.geometry,
+        notes: room.notes,
+        plan_x: room.plan_x,
+        plan_y: room.plan_y,
+        room_type: room.room_type,
+        living_percent: room.living_percent,
+        room_color: room.room_color,
+      })),
+    )
+    .select("id");
+  if (roomError) throw new Error(`The project was copied, but its rooms were not: ${roomError.message}`);
+
+  // Wall details ride along with the walls they describe. Rows come back in
+  // insert order, which is what pairs each new room with the one it came
+  // from; anything else would attach a load-bearing flag to the wrong wall.
+  const newRoomIds = ((insertedRooms ?? []) as { id: string }[]).map((r) => r.id);
+  if (newRoomIds.length !== rooms.length) return newId;
+
+  const { data: walls } = await client
+    .from("room_walls")
+    .select("*")
+    .in("room_scan_id", rooms.map((r) => r.id));
+
+  const wallRows = (walls ?? []) as (Record<string, unknown> & { room_scan_id: string })[];
+  if (wallRows.length > 0) {
+    const remap = new Map(rooms.map((room, index) => [room.id, newRoomIds[index]]));
+    const copies = wallRows
+      .map((wall) => {
+        const target = remap.get(wall.room_scan_id);
+        return target
+          ? {
+              room_scan_id: target,
+              wall_index: wall.wall_index,
+              load_bearing: wall.load_bearing,
+              display_elevation: wall.display_elevation,
+              notes: wall.notes,
+            }
+          : null;
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
+    // Wall flags are a convenience, not the drawing — losing them must not
+    // fail a copy whose rooms already landed.
+    if (copies.length > 0) await client.from("room_walls").insert(copies);
+  }
+
+  return newId;
 }
 
 export async function updateProjectStatus(id: string, status: ProjectStatus): Promise<void> {
