@@ -249,18 +249,39 @@ the existing corner editor exactly as scoped:
   none of it changed; a freehand-drawn shape is, the instant the finger
   lifts, an ordinary `corners` array like any dragged one.
 
-**Not verified on device.** `BUILD SUCCEEDED`, installed fresh on the
-simulator (dylib timestamp matched the build), app launches straight to Home
-with no password wall this time. But this chat's `xcode-select` is not
-pointed at Xcode (`sudo xcode-select -s /Applications/Xcode.app/Contents/
-Developer` needed, needs the owner's password), so the simulator MCP tool's
-tap/drag actions errored, and the owner denied the computer-use fallback's
-access request to the Simulator app when offered — reasonably, that is a
-broader grant than one verification needed. **Whoever picks this up next
-should fix `xcode-select` first** (one command, needs a password only the
-owner has) and then actually drag a freehand shape before trusting this
-section's geometry claims — everything above is verified by build and by
-reading the code, not by a thumb on a screen.
+**Verified live on the simulator, 17 Aug 2026, on "My Condo → Living room".**
+This chat's `xcode-select` was not pointed at Xcode, so the dedicated
+simulator tool couldn't tap or drag; the owner declined a first
+computer-use fallback offer (reasonably — a broad Simulator grant for one
+check), then approved it on a second ask, scoped to this verification. With
+that, the whole path was driven for real: opened Add New Area on a genuinely
+L-shaped room, switched to Freehand (the stray dots below disappeared — see
+the bug note below), dragged a rough closed loop with the mouse, released,
+and watched it become an 8-ish-point polygon with `Points` re-selected
+automatically, area recalculated (451→368 sq ft), and correctly-placed
+corner/edge handles on the new shape. Selected a corner: red four-way
+handle, live edge dimensions, Delete point, all present. Dragged it: numbers
+updated live, area recalculated again (→416 sq ft). Saved: the sheet closed
+back to the room, and `Affected Areas` now lists "Affected area · Floor ·
+Water · 416 sq ft" — a full round trip through the real API, not local
+state. Every claim in "What landed" above is now confirmed, not just built.
+
+**Found a real, pre-existing bug on the way — not S3's, but worth knowing
+before S4 touches this screen.** Before freehand was ever used, `Points`
+mode on this room's *original* seeded shape (`corners` from
+`plan.polygon.dropLast()` — a genuine L-shape, alcove for the door) drew two
+correct corner dots on the shape and then a scatter of extra filled and
+hollow dots well below the canvas, inside the card but nowhere near the
+drawn room. Switching to `Freehand` confirmed the handles themselves are
+fine — the stray dots vanished with `edgeHandles`/`cornerHandles` — so this
+is either the L-shaped room's specific `plan.polygon` carrying extra or
+degenerate points, or something in how `seed()` reads it for a non-rectangle,
+not a general handle-rendering bug. It went away entirely once freehand
+replaced `corners` with its own simplified polygon, which is why nobody
+building rectangles here would ever have seen it. **S4 owns this screen
+next** (`object-model.md` §2b, the area inspector table) — worth reproducing
+on an untouched L-shaped or non-rectangular room's corner editor before
+building further on top of it.
 
 ---
 
@@ -274,6 +295,16 @@ area's own row layout — swatch · name / *surface* · area · expand glyph.
 
 **Keep.** Our damage-cause chips. magicplan has only name + colour; cause decides
 trade and rate here.
+
+**From S3 — a corner-editor bug to reproduce before building on this
+screen.** On a genuinely L-shaped room ("My Condo → Living room"), opening
+`AreaEditor` in `Points` mode on the room's own seeded shape drew two
+correct corner dots and then a scatter of extra handles well below the
+canvas, unrelated to the drawn room. It cleared up the moment the shape was
+replaced (freehand draw, in S3's testing) — so this is specific to that
+room's `plan.polygon` or to how `seed()` reads a non-rectangle, not a
+general fault in `cornerHandles`/`edgeHandles`. Confirm on a fresh
+non-rectangular room before trusting this screen's corner editor.
 
 ---
 
@@ -493,14 +524,19 @@ Newest last. One or two lines per chat.
   BISECT comment and the canvas-tap symptom belong there too** and are worth
   resolving properly before anything else in the plan editor gets built on
   top of it blind. S2 is **DONE**.
-- **2026-08-17** — S3 built: freehand drawing in `AreaEditor`, additive
-  beside the corner editor as scoped. New pure geometry in `PlanEditing`
-  (`simplify`, `simplifyClosed` — RDP on an open path and on a loop) and a
-  new capture-and-hand-off mode in `FloorPlanView`'s `AreaEditor`, both
-  documented in S3 above. `BUILD SUCCEEDED`, installed fresh (dylib
-  timestamp confirmed). **Not verified on device**: this chat's
-  `xcode-select` was not pointed at Xcode, so the simulator MCP tool
-  couldn't tap or drag; the owner denied a computer-use fallback request to
-  control the Simulator app. Whoever continues should run `sudo
-  xcode-select -s /Applications/Xcode.app/Contents/Developer` first, then
-  actually draw a freehand shape before trusting the geometry claims above.
+- **2026-08-17** — S3 built and **verified live**: freehand drawing in
+  `AreaEditor`, additive beside the corner editor as scoped. New pure
+  geometry in `PlanEditing` (`simplify`, `simplifyClosed` — RDP on an open
+  path and on a loop) and a new capture-and-hand-off mode in
+  `FloorPlanView`'s `AreaEditor`, both documented in S3 above. This chat's
+  `xcode-select` was not pointed at Xcode (no admin rights on this Mac to
+  fix it — `sudo` refused outright), so the dedicated simulator tool
+  couldn't drive taps/drags; drove the Simulator app directly with
+  computer-use instead, on the owner's second approval. Drew a real
+  freehand loop on "My Condo → Living room", watched it simplify, hand off
+  to the corner editor with correctly-placed handles, adjusted a corner by
+  drag, and saved — confirmed server round-trip via the room sheet's
+  Affected Areas list afterward. **Found a pre-existing bug while there,
+  not S3's**: `Points` mode on that room's original L-shaped seed showed
+  scattered corner/edge handles well off the drawn shape; gone once
+  freehand replaced the polygon. Noted in S4, which owns this screen next.
