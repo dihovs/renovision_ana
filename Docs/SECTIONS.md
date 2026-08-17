@@ -437,7 +437,9 @@ Newest last. One or two lines per chat.
   verifying the sheet, both toggles (persisted across a full sheet
   close/reopen — confirmed server round-trip, not just local state), Photos
   & Notes, Forms, and Add New Area's route into `ElevationView` — all
-  confirmed live on the simulator. **S5 owns general plan-editor parity and
+  confirmed live on the simulator. Migration `0034` applied to production via
+  the Supabase SQL editor same day; `room_walls` confirmed present with all
+  8 columns. **S5 owns general plan-editor parity and
   already has one unresolved tap-verification item (the dimension tap); this
   BISECT comment and the canvas-tap symptom belong there too** and are worth
   resolving properly before anything else in the plan editor gets built on
