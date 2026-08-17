@@ -332,6 +332,30 @@ non-rectangular room before trusting this screen's corner editor.
 - Set Size should **hide** on a non-rectangular room, not grey — the reference
   removes it and restores it when the room is a rectangle again.
 
+**Landed out of order (17 Aug 2026) — two-finger pan and pinch-zoom fixed.**
+Not part of this section's original scope, but same file, same family of
+gesture bug, done live in a later chat because the owner hit it directly and
+asked for it before anything else. `PlanEditorView`'s own header rule —
+"Two fingers navigate. One finger selects. One finger only EDITS what is
+already selected" — was never actually true: the pan drag's `.updating`
+closure was `{ _, _, _ in }`, silently doing nothing since the editor was
+built, and zoom was tangled into the same dead `SimultaneousGesture` and
+didn't work either. New `PlanNavigationGesture.swift` installs real
+`UIPanGestureRecognizer(minimumNumberOfTouches: 2)` /
+`UIPinchGestureRecognizer` via UIKit — SwiftUI's `DragGesture` cannot be
+restricted to a finger count, which is almost certainly why the original
+attempt was left disabled rather than ripped out, the same shape as the
+`BISECT` comment above. **Verified live on the simulator**, including the
+regression check that matters most here: single-finger corner drag still
+edits (area recalculates, "Adjusted by hand" appears, undo works) and does
+not also pan the camera. Two-finger pan/pinch themselves were verified with
+a temporary one-finger-enabled build (the Simulator has no way to fake a
+genuine second touch from a mouse) and reverted before committing — worth a
+real two-finger check on an actual device before fully trusting it. **The
+canvas-tap / `BISECT` item above is still open and is a different bug** —
+that one is about single-finger taps not selecting a wall/corner at all,
+untouched by this fix.
+
 ---
 
 ## S6 — Photo editor, blur first
@@ -540,3 +564,15 @@ Newest last. One or two lines per chat.
   not S3's**: `Points` mode on that room's original L-shaped seed showed
   scattered corner/edge handles well off the drawn shape; gone once
   freehand replaced the polygon. Noted in S4, which owns this screen next.
+- **2026-08-17** — Out-of-order fix, same chat as S3: the plan editor's
+  two-finger pan and pinch-zoom were dead code (`.updating { _, _, _ in }`
+  for pan; zoom tangled into the same broken gesture combo) since the
+  editor was built — the owner hit it directly and asked for it fixed
+  before anything else. New `PlanNavigationGesture.swift` bridges in real
+  UIKit `UIPanGestureRecognizer`/`UIPinchGestureRecognizer` restricted to
+  two fingers, which plain SwiftUI cannot express. Verified live: pan and
+  zoom-about-the-pinch-point both work, and — the regression that mattered
+  most — single-finger corner/wall editing is untouched. Full detail and
+  what still needs a real-device check written into S5, which owns this
+  file's other known gesture bug (the `BISECT` canvas-tap issue, still
+  separate and still open).
