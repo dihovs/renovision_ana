@@ -56,6 +56,18 @@ authority — observed on the owner's own device, values read off screen, gaps
 marked as gaps. `editor-chrome-design.md` covers the plan-editor chrome.
 `Docs/INDEX.md` says which document wins when two disagree.
 
+**Read the text, not the pictures.** `Docs/reference/CAPTURE-PROTOCOL.md` explains
+why: an image costs far more than the fact it carries, and it is re-sent with
+every later message until the history compacts. `spec.md` §9 indexes all 106
+screenshots by description, so you can usually get what you need without opening
+one. `gallery.html` lays them all out **for the owner** — a human reads pictures
+better than prose; an agent reads prose far cheaper than pictures.
+
+If you must capture something new, read the protocol first. It has the cheap
+routes: the app's own PDF exports read as text with PDFKit, their public help
+centre, and the database — each of which beat screenshots on both cost and
+clarity during the review.
+
 ## 3. Deliberate divergences — keep these, they are not bugs
 
 | What | Why |

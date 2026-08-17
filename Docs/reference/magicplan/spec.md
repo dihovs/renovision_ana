@@ -632,8 +632,8 @@ All files live in `screens/`. Open only what you need.
 | `83-app-preferences.jpg` | App Preferences — units, AR mode, sync, cache |
 | `84-ar-scan-mode-options.jpg` | **Detect Walls (LiDAR) vs Detect Corners (legacy)** |
 | `85-privacy.jpg` | Privacy — analytics toggle, policy links |
-| `86-company-profile.jpg` | Company Profile (contains real business details — do not ship) |
-| `87-watermark-preview.jpg` | Export watermark preview |
+| `86-company-profile.jpg` | *(not captured — held real business details, deliberately not kept)* |
+| `87-watermark-preview.jpg` | *(not captured)* |
 
 ### Scan flow (incomplete)
 | File | Screen |
@@ -641,3 +641,28 @@ All files live in `screens/`. Open only what you need.
 | `88-camera-blocked-alert.jpg` | iOS blocking camera over iPhone Mirroring |
 | `89-scanner-shell.jpg` | Pre-scan shell — "Move iPhone to start" |
 | `90-scanner-exit-confirm.jpg` | Two-step exit confirm |
+
+### Scan flow — the owner's walkthrough
+Captured on the owner's device while he narrated the flow. This is the
+authority for anything scan-related; `interactions-scan.md` predates it.
+
+| File | Screen |
+|---|---|
+| `scan-11-room-type-residential.jpg` | **Select Room Type — Residential.** Asked BEFORE the camera opens |
+| `scan-12-room-type-commercial.jpg` | Select Room Type — Commercial tab (office vocabulary; see ORD-22) |
+| `scan-01-best-results-tips.jpg` | Pre-scan briefing — shown **every time**, big red record button to begin |
+| `scan-02-calibrate-point-at-wall.jpg` | Calibration — point at a wall before capture starts |
+| `scan-03-scanning-planes.jpg` | Mid-scan — detected planes drawn over the camera feed |
+| `scan-04-scanning-minimap.jpg` | Mid-scan minimap — **walls only**, no doors or windows |
+| `scan-05-scanning-minimap-2d.jpg` | Minimap in 2D |
+| `scan-07-scanning-3d-pill.jpg` | The 2D/3D toggle pill during a scan |
+| `scan-06-opening-detected-door.jpg` | Object classification mid-scan — a door recognised, non-blocking |
+| `scan-08-incomplete-finish-anyway.jpg` | Incomplete capture — offers to finish anyway |
+| `scan-09-review-scan.jpg` | Review — **shape plus Confirm/Discard only**, nothing else |
+| `scan-10-scan-another-room.jpg` | The loop — scan another room, or Done |
+| `scan-13-calibrate-second-room.jpg` | Calibration again for the next room |
+| `scan-14-configure-floor-plan.jpg` | Configure Floor Plan — once, after Done |
+| `scan-15-save-videos-consent.jpg` | Consent to keep the scan videos |
+| `scan-16-result-2d.jpg` | **Lands on the drawn 2D plan** — the answer to "where is my scan" |
+| `scan-17-result-3d.jpg` | The 3D view of the same capture |
+| `scan-18-wall-elevation.jpg` | Elevation mode on a wall |

@@ -160,7 +160,10 @@ struct ProjectStatisticsSheet: View {
     }
 }
 
-private struct StatisticRowView: View {
+/// One figure and its ⓘ. Shared with the room-level sheet — the definition
+/// popover must read identically wherever a number is shown, which is the
+/// whole point of having definitions.
+struct StatisticRowView: View {
     let row: ProjectStats.Row
     @State private var showing = false
 

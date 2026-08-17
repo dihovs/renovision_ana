@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>magicplan reference — screen gallery</title>
+<style>
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body { margin:0; padding:2rem clamp(1rem,4vw,3rem); background:#f6f6f8; color:#16181d;
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+h1 { font-size:1.6rem; margin:0 0 .3rem; }
+h2 { font-size:1.15rem; margin:2.5rem 0 .9rem; padding-bottom:.4rem;
+  border-bottom:2px solid #2B5C9E; color:#2B5C9E; }
+.lede { color:#5c626d; max-width:62ch; margin:0 0 1.6rem; }
+.audit { background:#fff; border:1px solid #e3e5ea; border-left:4px solid #d97706;
+  border-radius:8px; padding:.9rem 1.1rem; margin:0 0 1.6rem; }
+.audit.ok { border-left-color:#16a34a; }
+.audit h3 { margin:0 0 .35rem; font-size:.95rem; }
+.audit ul { margin:.35rem 0 0; padding-left:1.2rem; }
+.audit code { font-size:.85em; }
+.grid { display:grid; gap:1.4rem;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); }
+figure { margin:0; background:#fff; border:1px solid #e3e5ea; border-radius:10px;
+  overflow:hidden; display:flex; flex-direction:column; }
+figure img { width:100%; height:auto; display:block; background:#eceef1; }
+figcaption { padding:.65rem .8rem .75rem; font-size:.85rem; }
+figcaption .file { display:block; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.72rem; color:#8a8f99; margin-bottom:.25rem; word-break:break-all; }
+@media (prefers-color-scheme: dark) {
+  body { background:#111316; color:#e9ebf0; }
+  h2 { color:#7ea9e8; border-bottom-color:#7ea9e8; }
+  .lede { color:#9aa1ad; }
+  figure, .audit { background:#1b1e23; border-color:#2c3039; }
+  figure img { background:#22262c; }
+}
+@media print {
+  body { background:#fff; padding:0; }
+  .grid { grid-template-columns:repeat(2,1fr); }
+  figure { break-inside:avoid; border-color:#ccc; }
+  .audit { break-inside:avoid; }
+  h2 { break-after:avoid; }
+}
+</style></head><body>
+<h1>magicplan reference — screen gallery</h1>
+<p class="lede">Every reference screenshot with its description, in the order the app was walked. Built from <code>spec.md</code> §9 — regenerate with <code>python3 Docs/reference/magicplan/build-gallery.py</code>. Print to PDF from the browser if you want one.</p>
+<div class="audit"><h3>Described but missing from disk</h3><ul>
+<li><code>86-company-profile.jpg</code></li>
+<li><code>87-watermark-preview.jpg</code></li>
+</ul></div>
+<h2>Workspace &amp; projects</h2>
+<div class="grid">
+<figure><img src="screens/01-projects-list.jpg" alt="Projects list — header, search, filter chips, card grid" loading="lazy"><figcaption><span class="file">01-projects-list.jpg</span>Projects list — header, search, filter chips, card grid</figcaption></figure>
+<figure><img src="screens/02-projects-list-header-detail.jpg" alt="Close-up: workspace header, search field, chips, dashed create tile" loading="lazy"><figcaption><span class="file">02-projects-list-header-detail.jpg</span>Close-up: workspace header, search field, chips, dashed create tile</figcaption></figure>
+<figure><img src="screens/03-project-cards-detail.jpg" alt="Close-up: project card anatomy, avatar chip, `···`" loading="lazy"><figcaption><span class="file">03-project-cards-detail.jpg</span>Close-up: project card anatomy, avatar chip, `···`</figcaption></figure>
+<figure><img src="screens/04-tab-bar-detail.jpg" alt="Close-up: two-item tab bar, active/inactive treatment" loading="lazy"><figcaption><span class="file">04-tab-bar-detail.jpg</span>Close-up: two-item tab bar, active/inactive treatment</figcaption></figure>
+<figure><img src="screens/05-project-card-overflow-menu.jpg" alt="Card `···` menu — Favorite / Move / Duplicate / Archive" loading="lazy"><figcaption><span class="file">05-project-card-overflow-menu.jpg</span>Card `···` menu — Favorite / Move / Duplicate / Archive</figcaption></figure>
+<figure><img src="screens/06-switch-workspace.jpg" alt="Workspace switcher modal, `Current` chip" loading="lazy"><figcaption><span class="file">06-switch-workspace.jpg</span>Workspace switcher modal, `Current` chip</figcaption></figure>
+<figure><img src="screens/07-favorites-empty-state.jpg" alt="Favorites empty state (offline-access explainer)" loading="lazy"><figcaption><span class="file">07-favorites-empty-state.jpg</span>Favorites empty state (offline-access explainer)</figcaption></figure>
+<figure><img src="screens/08-archived-empty-state.jpg" alt="Archived empty state (indefinite retention explainer)" loading="lazy"><figcaption><span class="file">08-archived-empty-state.jpg</span>Archived empty state (indefinite retention explainer)</figcaption></figure>
+<figure><img src="screens/09-new-project-created-empty.jpg" alt="Result of tapping New Project — no wizard" loading="lazy"><figcaption><span class="file">09-new-project-created-empty.jpg</span>Result of tapping New Project — no wizard</figcaption></figure>
+<figure><img src="screens/10-empty-project-sections.jpg" alt="Empty-section value-proposition captions" loading="lazy"><figcaption><span class="file">10-empty-project-sections.jpg</span>Empty-section value-proposition captions</figcaption></figure>
+</div>
+<h2>Project</h2>
+<div class="grid">
+<figure><img src="screens/11-project-detail-populated.jpg" alt="Project detail — sync banner, address, statistics tiles" loading="lazy"><figcaption><span class="file">11-project-detail-populated.jpg</span>Project detail — sync banner, address, statistics tiles</figcaption></figure>
+<figure><img src="screens/12-project-detail-floorplans-photos.jpg" alt="Floor Plans and Photos collection rails" loading="lazy"><figcaption><span class="file">12-project-detail-floorplans-photos.jpg</span>Floor Plans and Photos collection rails</figcaption></figure>
+<figure><img src="screens/13-project-detail-files.jpg" alt="Files section with generated report PDF" loading="lazy"><figcaption><span class="file">13-project-detail-files.jpg</span>Files section with generated report PDF</figcaption></figure>
+<figure><img src="screens/14-project-detail-sandbox.jpg" alt="Project detail after adding one floor/room" loading="lazy"><figcaption><span class="file">14-project-detail-sandbox.jpg</span>Project detail after adding one floor/room</figcaption></figure>
+<figure><img src="screens/15-project-title-menu.jpg" alt="Title `⌄` menu" loading="lazy"><figcaption><span class="file">15-project-title-menu.jpg</span>Title `⌄` menu</figcaption></figure>
+<figure><img src="screens/16-project-info-claim-details.jpg" alt="Project Info — general + Claim Details field group" loading="lazy"><figcaption><span class="file">16-project-info-claim-details.jpg</span>Project Info — general + Claim Details field group</figcaption></figure>
+<figure><img src="screens/17-living-area-calculation.jpg" alt="Living Area Calculation rules engine" loading="lazy"><figcaption><span class="file">17-living-area-calculation.jpg</span>Living Area Calculation rules engine</figcaption></figure>
+<figure><img src="screens/18-claim-details-fields.jpg" alt="Full Claim Details field list" loading="lazy"><figcaption><span class="file">18-claim-details-fields.jpg</span>Full Claim Details field list</figcaption></figure>
+</div>
+<h2>Editor — chrome &amp; views</h2>
+<div class="grid">
+<figure><img src="screens/19-floorplan-editor-2d.jpg" alt="2D editor, full plan" loading="lazy"><figcaption><span class="file">19-floorplan-editor-2d.jpg</span>2D editor, full plan</figcaption></figure>
+<figure><img src="screens/20-floorplan-editor-2d-detail.jpg" alt="Close-up: wall rendering, room labels, door swings" loading="lazy"><figcaption><span class="file">20-floorplan-editor-2d-detail.jpg</span>Close-up: wall rendering, room labels, door swings</figcaption></figure>
+<figure><img src="screens/21-view-mode-menu.jpg" alt="View mode menu, Elevation disabled with reason" loading="lazy"><figcaption><span class="file">21-view-mode-menu.jpg</span>View mode menu, Elevation disabled with reason</figcaption></figure>
+<figure><img src="screens/22-view-mode-menu-elevation-enabled.jpg" alt="Same menu with Elevation enabled inside a room" loading="lazy"><figcaption><span class="file">22-view-mode-menu-elevation-enabled.jpg</span>Same menu with Elevation enabled inside a room</figcaption></figure>
+<figure><img src="screens/23-3d-view.jpg" alt="3D read-only view" loading="lazy"><figcaption><span class="file">23-3d-view.jpg</span>3D read-only view</figcaption></figure>
+<figure><img src="screens/24-floor-switcher.jpg" alt="All Floor Plans grid" loading="lazy"><figcaption><span class="file">24-floor-switcher.jpg</span>All Floor Plans grid</figcaption></figure>
+<figure><img src="screens/25-add-floor-sheet.jpg" alt="Add Floor — &quot;Most common&quot; / &quot;Other floors&quot; split" loading="lazy"><figcaption><span class="file">25-add-floor-sheet.jpg</span>Add Floor — &quot;Most common&quot; / &quot;Other floors&quot; split</figcaption></figure>
+<figure><img src="screens/26-empty-floor-editor.jpg" alt="Empty floor, Insert-only action bar" loading="lazy"><figcaption><span class="file">26-empty-floor-editor.jpg</span>Empty floor, Insert-only action bar</figcaption></figure>
+<figure><img src="screens/63-elevation-view.jpg" alt="Elevation view of a wall" loading="lazy"><figcaption><span class="file">63-elevation-view.jpg</span>Elevation view of a wall</figcaption></figure>
+<figure><img src="screens/64-elevation-view-detail.jpg" alt="Close-up: opening drawn architecturally, dimension chain" loading="lazy"><figcaption><span class="file">64-elevation-view-detail.jpg</span>Close-up: opening drawn architecturally, dimension chain</figcaption></figure>
+</div>
+<h2>Editor — room creation &amp; measurement</h2>
+<div class="grid">
+<figure><img src="screens/27-insert-menu.jpg" alt="Insert popover — Room / Object / Note / Photo / Form" loading="lazy"><figcaption><span class="file">27-insert-menu.jpg</span>Insert popover — Room / Object / Note / Photo / Form</figcaption></figure>
+<figure><img src="screens/28-add-room-method-chooser.jpg" alt="Add Room method chooser" loading="lazy"><figcaption><span class="file">28-add-room-method-chooser.jpg</span>Add Room method chooser</figcaption></figure>
+<figure><img src="screens/29-add-room-method-chooser-detail.jpg" alt="Close-up of the same" loading="lazy"><figcaption><span class="file">29-add-room-method-chooser-detail.jpg</span>Close-up of the same</figcaption></figure>
+<figure><img src="screens/30-select-room-type.jpg" alt="Select Room Type, collapsed common list" loading="lazy"><figcaption><span class="file">30-select-room-type.jpg</span>Select Room Type, collapsed common list</figcaption></figure>
+<figure><img src="screens/31-room-types-residential.jpg" alt="Residential room types expanded" loading="lazy"><figcaption><span class="file">31-room-types-residential.jpg</span>Residential room types expanded</figcaption></figure>
+<figure><img src="screens/32-room-types-commercial.jpg" alt="Commercial room types" loading="lazy"><figcaption><span class="file">32-room-types-commercial.jpg</span>Commercial room types</figcaption></figure>
+<figure><img src="screens/33-draw-room-canvas.jpg" alt="Draw Room canvas with ghosted context" loading="lazy"><figcaption><span class="file">33-draw-room-canvas.jpg</span>Draw Room canvas with ghosted context</figcaption></figure>
+<figure><img src="screens/34-draw-room-handles-detail.jpg" alt="Close-up: corner placement handles" loading="lazy"><figcaption><span class="file">34-draw-room-handles-detail.jpg</span>Close-up: corner placement handles</figcaption></figure>
+<figure><img src="screens/35-discard-changes-confirm.jpg" alt="Destructive confirm pattern" loading="lazy"><figcaption><span class="file">35-discard-changes-confirm.jpg</span>Destructive confirm pattern</figcaption></figure>
+<figure><img src="screens/36-square-room-created.jpg" alt="Add Square Room result, 5-item action bar" loading="lazy"><figcaption><span class="file">36-square-room-created.jpg</span>Add Square Room result, 5-item action bar</figcaption></figure>
+<figure><img src="screens/37-square-room-detail.jpg" alt="Close-up: corner handles, dimension styling" loading="lazy"><figcaption><span class="file">37-square-room-detail.jpg</span>Close-up: corner handles, dimension styling</figcaption></figure>
+<figure><img src="screens/38-change-measurement-panel.jpg" alt="**Change Measurement** — custom keypad, Laser, Next" loading="lazy"><figcaption><span class="file">38-change-measurement-panel.jpg</span>**Change Measurement** — custom keypad, Laser, Next</figcaption></figure>
+<figure><img src="screens/39-change-units-metric.jpg" alt="Change Units — metric precision wheel" loading="lazy"><figcaption><span class="file">39-change-units-metric.jpg</span>Change Units — metric precision wheel</figcaption></figure>
+<figure><img src="screens/40-change-units-feet.jpg" alt="Feet with fractional precision" loading="lazy"><figcaption><span class="file">40-change-units-feet.jpg</span>Feet with fractional precision</figcaption></figure>
+<figure><img src="screens/41-change-units-inches.jpg" alt="Inches with fractional precision" loading="lazy"><figcaption><span class="file">41-change-units-inches.jpg</span>Inches with fractional precision</figcaption></figure>
+<figure><img src="screens/42-measurement-next-live-resize.jpg" alt="Live geometry update, button becomes Apply" loading="lazy"><figcaption><span class="file">42-measurement-next-live-resize.jpg</span>Live geometry update, button becomes Apply</figcaption></figure>
+<figure><img src="screens/43-room-resized.jpg" alt="Committed 4.000 × 2.500 room" loading="lazy"><figcaption><span class="file">43-room-resized.jpg</span>Committed 4.000 × 2.500 room</figcaption></figure>
+<figure><img src="screens/44-manually-set-dimension-padlock.jpg" alt="**Padlock on manually-set dimensions**" loading="lazy"><figcaption><span class="file">44-manually-set-dimension-padlock.jpg</span>**Padlock on manually-set dimensions**</figcaption></figure>
+<figure><img src="screens/45-edit-layout-mode.jpg" alt="Edit Layout mode" loading="lazy"><figcaption><span class="file">45-edit-layout-mode.jpg</span>Edit Layout mode</figcaption></figure>
+<figure><img src="screens/46-edit-layout-handles-detail.jpg" alt="Close-up: move + rotate manipulators" loading="lazy"><figcaption><span class="file">46-edit-layout-handles-detail.jpg</span>Close-up: move + rotate manipulators</figcaption></figure>
+</div>
+<h2>Editor — selection &amp; inspectors</h2>
+<div class="grid">
+<figure><img src="screens/47-room-selected.jpg" alt="Room selected, siblings greyed" loading="lazy"><figcaption><span class="file">47-room-selected.jpg</span>Room selected, siblings greyed</figcaption></figure>
+<figure><img src="screens/48-room-selected-dimensions-detail.jpg" alt="Close-up: full dimension strings" loading="lazy"><figcaption><span class="file">48-room-selected-dimensions-detail.jpg</span>Close-up: full dimension strings</figcaption></figure>
+<figure><img src="screens/49-room-inspector-details.jpg" alt="Room inspector — statistics, dimensions, affected areas" loading="lazy"><figcaption><span class="file">49-room-inspector-details.jpg</span>Room inspector — statistics, dimensions, affected areas</figcaption></figure>
+<figure><img src="screens/50-room-inspector-photos-notes.jpg" alt="Photos &amp; Notes tab" loading="lazy"><figcaption><span class="file">50-room-inspector-photos-notes.jpg</span>Photos &amp; Notes tab</figcaption></figure>
+<figure><img src="screens/51-forms-empty-state.jpg" alt="Forms tab empty state" loading="lazy"><figcaption><span class="file">51-forms-empty-state.jpg</span>Forms tab empty state</figcaption></figure>
+<figure><img src="screens/52-floor-inspector-wall-thickness.jpg" alt="Floor inspector — interior/exterior wall thickness" loading="lazy"><figcaption><span class="file">52-floor-inspector-wall-thickness.jpg</span>Floor inspector — interior/exterior wall thickness</figcaption></figure>
+<figure><img src="screens/61-object-inspector-details.jpg" alt="Object inspector — W/H/distance, Include in PDF" loading="lazy"><figcaption><span class="file">61-object-inspector-details.jpg</span>Object inspector — W/H/distance, Include in PDF</figcaption></figure>
+<figure><img src="screens/62-display-label-options.jpg" alt="Display Label radio + micro-diagram pattern" loading="lazy"><figcaption><span class="file">62-display-label-options.jpg</span>Display Label radio + micro-diagram pattern</figcaption></figure>
+</div>
+<h2>Editor — objects</h2>
+<div class="grid">
+<figure><img src="screens/53-object-library-all-objects.jpg" alt="All Objects sheet, recently used rail" loading="lazy"><figcaption><span class="file">53-object-library-all-objects.jpg</span>All Objects sheet, recently used rail</figcaption></figure>
+<figure><img src="screens/54-object-library-categories.jpg" alt="Full category list with counts" loading="lazy"><figcaption><span class="file">54-object-library-categories.jpg</span>Full category list with counts</figcaption></figure>
+<figure><img src="screens/55-object-category-doors-gated.jpg" alt="Doors grid, gated" loading="lazy"><figcaption><span class="file">55-object-category-doors-gated.jpg</span>Doors grid, gated</figcaption></figure>
+<figure><img src="screens/56-object-gating-detail.jpg" alt="Close-up: &quot;Only available in rooms&quot;" loading="lazy"><figcaption><span class="file">56-object-gating-detail.jpg</span>Close-up: &quot;Only available in rooms&quot;</figcaption></figure>
+<figure><img src="screens/57-object-library-enabled-in-room.jpg" alt="Same library enabled with a room active" loading="lazy"><figcaption><span class="file">57-object-library-enabled-in-room.jpg</span>Same library enabled with a room active</figcaption></figure>
+<figure><img src="screens/58-replace-with-prefiltered.jpg" alt="Replace with… pre-filtered to category" loading="lazy"><figcaption><span class="file">58-replace-with-prefiltered.jpg</span>Replace with… pre-filtered to category</figcaption></figure>
+<figure><img src="screens/59-object-inserted-arch-door.jpg" alt="Door auto-snapped into wall" loading="lazy"><figcaption><span class="file">59-object-inserted-arch-door.jpg</span>Door auto-snapped into wall</figcaption></figure>
+<figure><img src="screens/60-object-dimension-chain-detail.jpg" alt="Close-up: offset / width / offset chain" loading="lazy"><figcaption><span class="file">60-object-dimension-chain-detail.jpg</span>Close-up: offset / width / offset chain</figcaption></figure>
+<figure><img src="screens/65-add-note-modal.jpg" alt="Add Text modal (note attaches to selection)" loading="lazy"><figcaption><span class="file">65-add-note-modal.jpg</span>Add Text modal (note attaches to selection)</figcaption></figure>
+<figure><img src="screens/66-photo-source-menu.jpg" alt="Camera (Photo/360/Video) vs Photo Library" loading="lazy"><figcaption><span class="file">66-photo-source-menu.jpg</span>Camera (Photo/360/Video) vs Photo Library</figcaption></figure>
+</div>
+<h2>Statistics</h2>
+<div class="grid">
+<figure><img src="screens/67-statistics-rooms.jpg" alt="Statistics — Rooms tab, full metric list" loading="lazy"><figcaption><span class="file">67-statistics-rooms.jpg</span>Statistics — Rooms tab, full metric list</figcaption></figure>
+<figure><img src="screens/68-statistic-definition-popup.jpg" alt="`(i)` formal definition popup" loading="lazy"><figcaption><span class="file">68-statistic-definition-popup.jpg</span>`(i)` formal definition popup</figcaption></figure>
+<figure><img src="screens/69-statistics-objects.jpg" alt="Objects tab — bill of materials" loading="lazy"><figcaption><span class="file">69-statistics-objects.jpg</span>Objects tab — bill of materials</figcaption></figure>
+</div>
+<h2>Export</h2>
+<div class="grid">
+<figure><img src="screens/70-export-hub.jpg" alt="Export Floor Plans hub" loading="lazy"><figcaption><span class="file">70-export-hub.jpg</span>Export Floor Plans hub</figcaption></figure>
+<figure><img src="screens/71-integrations-empty.jpg" alt="Integrations empty state" loading="lazy"><figcaption><span class="file">71-integrations-empty.jpg</span>Integrations empty state</figcaption></figure>
+<figure><img src="screens/72-select-page-layout.jpg" alt="Shared Select Page Layout component" loading="lazy"><figcaption><span class="file">72-select-page-layout.jpg</span>Shared Select Page Layout component</figcaption></figure>
+<figure><img src="screens/73-report-pdf-settings-1.jpg" alt="Report PDF — layout, page size, scale" loading="lazy"><figcaption><span class="file">73-report-pdf-settings-1.jpg</span>Report PDF — layout, page size, scale</figcaption></figure>
+<figure><img src="screens/74-report-pdf-settings-2.jpg" alt="Report PDF — dimension toggles" loading="lazy"><figcaption><span class="file">74-report-pdf-settings-2.jpg</span>Report PDF — dimension toggles</figcaption></figure>
+<figure><img src="screens/75-report-pdf-settings-attachments.jpg" alt="Include Attachments group" loading="lazy"><figcaption><span class="file">75-report-pdf-settings-attachments.jpg</span>Include Attachments group</figcaption></figure>
+<figure><img src="screens/76-report-pdf-settings-pictures.jpg" alt="Pictures group + disclaimer" loading="lazy"><figcaption><span class="file">76-report-pdf-settings-pictures.jpg</span>Pictures group + disclaimer</figcaption></figure>
+<figure><img src="screens/77-sketch-pdf-settings-1.jpg" alt="Sketch PDF — adds Hide annotation objects" loading="lazy"><figcaption><span class="file">77-sketch-pdf-settings-1.jpg</span>Sketch PDF — adds Hide annotation objects</figcaption></figure>
+<figure><img src="screens/78-sketch-pdf-title-block.jpg" alt="Title Block group" loading="lazy"><figcaption><span class="file">78-sketch-pdf-title-block.jpg</span>Title Block group</figcaption></figure>
+<figure><img src="screens/79-sketch-files-formats.jpg" alt="JPG / PNG / DXF / SVG with descriptions" loading="lazy"><figcaption><span class="file">79-sketch-files-formats.jpg</span>JPG / PNG / DXF / SVG with descriptions</figcaption></figure>
+<figure><img src="screens/80-3d-model-formats.jpg" alt="OBJ / IFC / USDZ" loading="lazy"><figcaption><span class="file">80-3d-model-formats.jpg</span>OBJ / IFC / USDZ</figcaption></figure>
+<figure><img src="screens/81-statistics-export-settings.jpg" alt="PDF + CSV, Include Furniture / Wall Objects" loading="lazy"><figcaption><span class="file">81-statistics-export-settings.jpg</span>PDF + CSV, Include Furniture / Wall Objects</figcaption></figure>
+</div>
+<h2>Account &amp; settings</h2>
+<div class="grid">
+<figure><img src="screens/82-my-account.jpg" alt="My Account root" loading="lazy"><figcaption><span class="file">82-my-account.jpg</span>My Account root</figcaption></figure>
+<figure><img src="screens/83-app-preferences.jpg" alt="App Preferences — units, AR mode, sync, cache" loading="lazy"><figcaption><span class="file">83-app-preferences.jpg</span>App Preferences — units, AR mode, sync, cache</figcaption></figure>
+<figure><img src="screens/84-ar-scan-mode-options.jpg" alt="**Detect Walls (LiDAR) vs Detect Corners (legacy)**" loading="lazy"><figcaption><span class="file">84-ar-scan-mode-options.jpg</span>**Detect Walls (LiDAR) vs Detect Corners (legacy)**</figcaption></figure>
+<figure><img src="screens/85-privacy.jpg" alt="Privacy — analytics toggle, policy links" loading="lazy"><figcaption><span class="file">85-privacy.jpg</span>Privacy — analytics toggle, policy links</figcaption></figure>
+</div>
+<h2>Scan flow (incomplete)</h2>
+<div class="grid">
+<figure><img src="screens/88-camera-blocked-alert.jpg" alt="iOS blocking camera over iPhone Mirroring" loading="lazy"><figcaption><span class="file">88-camera-blocked-alert.jpg</span>iOS blocking camera over iPhone Mirroring</figcaption></figure>
+<figure><img src="screens/89-scanner-shell.jpg" alt="Pre-scan shell — &quot;Move iPhone to start&quot;" loading="lazy"><figcaption><span class="file">89-scanner-shell.jpg</span>Pre-scan shell — &quot;Move iPhone to start&quot;</figcaption></figure>
+<figure><img src="screens/90-scanner-exit-confirm.jpg" alt="Two-step exit confirm" loading="lazy"><figcaption><span class="file">90-scanner-exit-confirm.jpg</span>Two-step exit confirm</figcaption></figure>
+</div>
+<h2>Scan flow — the owner&#x27;s walkthrough</h2>
+<div class="grid">
+<figure><img src="screens/scan-11-room-type-residential.jpg" alt="**Select Room Type — Residential.** Asked BEFORE the camera opens" loading="lazy"><figcaption><span class="file">scan-11-room-type-residential.jpg</span>**Select Room Type — Residential.** Asked BEFORE the camera opens</figcaption></figure>
+<figure><img src="screens/scan-12-room-type-commercial.jpg" alt="Select Room Type — Commercial tab (office vocabulary; see ORD-22)" loading="lazy"><figcaption><span class="file">scan-12-room-type-commercial.jpg</span>Select Room Type — Commercial tab (office vocabulary; see ORD-22)</figcaption></figure>
+<figure><img src="screens/scan-01-best-results-tips.jpg" alt="Pre-scan briefing — shown **every time**, big red record button to begin" loading="lazy"><figcaption><span class="file">scan-01-best-results-tips.jpg</span>Pre-scan briefing — shown **every time**, big red record button to begin</figcaption></figure>
+<figure><img src="screens/scan-02-calibrate-point-at-wall.jpg" alt="Calibration — point at a wall before capture starts" loading="lazy"><figcaption><span class="file">scan-02-calibrate-point-at-wall.jpg</span>Calibration — point at a wall before capture starts</figcaption></figure>
+<figure><img src="screens/scan-03-scanning-planes.jpg" alt="Mid-scan — detected planes drawn over the camera feed" loading="lazy"><figcaption><span class="file">scan-03-scanning-planes.jpg</span>Mid-scan — detected planes drawn over the camera feed</figcaption></figure>
+<figure><img src="screens/scan-04-scanning-minimap.jpg" alt="Mid-scan minimap — **walls only**, no doors or windows" loading="lazy"><figcaption><span class="file">scan-04-scanning-minimap.jpg</span>Mid-scan minimap — **walls only**, no doors or windows</figcaption></figure>
+<figure><img src="screens/scan-05-scanning-minimap-2d.jpg" alt="Minimap in 2D" loading="lazy"><figcaption><span class="file">scan-05-scanning-minimap-2d.jpg</span>Minimap in 2D</figcaption></figure>
+<figure><img src="screens/scan-07-scanning-3d-pill.jpg" alt="The 2D/3D toggle pill during a scan" loading="lazy"><figcaption><span class="file">scan-07-scanning-3d-pill.jpg</span>The 2D/3D toggle pill during a scan</figcaption></figure>
+<figure><img src="screens/scan-06-opening-detected-door.jpg" alt="Object classification mid-scan — a door recognised, non-blocking" loading="lazy"><figcaption><span class="file">scan-06-opening-detected-door.jpg</span>Object classification mid-scan — a door recognised, non-blocking</figcaption></figure>
+<figure><img src="screens/scan-08-incomplete-finish-anyway.jpg" alt="Incomplete capture — offers to finish anyway" loading="lazy"><figcaption><span class="file">scan-08-incomplete-finish-anyway.jpg</span>Incomplete capture — offers to finish anyway</figcaption></figure>
+<figure><img src="screens/scan-09-review-scan.jpg" alt="Review — **shape plus Confirm/Discard only**, nothing else" loading="lazy"><figcaption><span class="file">scan-09-review-scan.jpg</span>Review — **shape plus Confirm/Discard only**, nothing else</figcaption></figure>
+<figure><img src="screens/scan-10-scan-another-room.jpg" alt="The loop — scan another room, or Done" loading="lazy"><figcaption><span class="file">scan-10-scan-another-room.jpg</span>The loop — scan another room, or Done</figcaption></figure>
+<figure><img src="screens/scan-13-calibrate-second-room.jpg" alt="Calibration again for the next room" loading="lazy"><figcaption><span class="file">scan-13-calibrate-second-room.jpg</span>Calibration again for the next room</figcaption></figure>
+<figure><img src="screens/scan-14-configure-floor-plan.jpg" alt="Configure Floor Plan — once, after Done" loading="lazy"><figcaption><span class="file">scan-14-configure-floor-plan.jpg</span>Configure Floor Plan — once, after Done</figcaption></figure>
+<figure><img src="screens/scan-15-save-videos-consent.jpg" alt="Consent to keep the scan videos" loading="lazy"><figcaption><span class="file">scan-15-save-videos-consent.jpg</span>Consent to keep the scan videos</figcaption></figure>
+<figure><img src="screens/scan-16-result-2d.jpg" alt="**Lands on the drawn 2D plan** — the answer to &quot;where is my scan&quot;" loading="lazy"><figcaption><span class="file">scan-16-result-2d.jpg</span>**Lands on the drawn 2D plan** — the answer to &quot;where is my scan&quot;</figcaption></figure>
+<figure><img src="screens/scan-17-result-3d.jpg" alt="The 3D view of the same capture" loading="lazy"><figcaption><span class="file">scan-17-result-3d.jpg</span>The 3D view of the same capture</figcaption></figure>
+<figure><img src="screens/scan-18-wall-elevation.jpg" alt="Elevation mode on a wall" loading="lazy"><figcaption><span class="file">scan-18-wall-elevation.jpg</span>Elevation mode on a wall</figcaption></figure>
+</div>
+</body></html>

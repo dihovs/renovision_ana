@@ -11,17 +11,30 @@ import SwiftUI
 /// sibling room on it swaps the inspector rather than stacking a screen.
 ///
 /// Three tabs, fixed order, the same for every room — an inspector whose
-/// tabs move around is one the thumb cannot learn. Where magicplan's third
-/// tab is "Forms", ours is "Damage & Drying": this trade's forms ARE the
-/// damage record, and the adjuster who reads it is the reason it exists.
+/// tabs move around is one the thumb cannot learn.
+///
+/// The set is the reference's: `Details · Photos & Notes · Forms`
+/// (object-model §2, §2d). Damage used to be a tab of its own here, and the
+/// owner's correction was specific: *"Damage and drying shouldn't be here. It
+/// should appear when we push up more, and there we have to have add areas."*
+/// So affected areas sit **inside Details**, reached by scrolling, exactly
+/// where the reference puts them — and the drying log, which the reference has
+/// no equivalent for at all, follows them rather than opening a fourth tab.
 struct RoomDetailView: View {
     let room: RoomScan
+
+    init(room: RoomScan) {
+        self.room = room
+        // The header and the General field both read a name the operator can
+        // change, and `room` is a snapshot that will not hear about it.
+        _roomName = State(initialValue: room.name)
+    }
 
     /// The fixed tab set. Raw values are the segment labels.
     private enum Tab: String, CaseIterable, Identifiable {
         case details = "Details"
-        case damage = "Damage & Drying"
         case photos = "Photos & Notes"
+        case forms = "Forms"
         var id: String { rawValue }
     }
 
@@ -45,6 +58,21 @@ struct RoomDetailView: View {
     @State private var chosenLevel = ""
     @State private var chosenColor: String?
     @State private var savingRoomField = false
+    /// The room's name, editable in General. Seeded from `room` once, then
+    /// owned here — a reload cannot be allowed to overwrite it with the stale
+    /// snapshot this view was constructed from.
+    @State private var roomName: String
+    @FocusState private var nameFocused: Bool
+    /// Living area, 0–100. `livingOverridden` is the difference between a
+    /// hand-set 100% and a 100% that came from the room type — `nil` in the
+    /// database means "follow the type", which is not the same statement.
+    @State private var livingDraft: Double = 100
+    @State private var livingOverridden = false
+    @State private var livingLoaded = false
+    @State private var showingStatistics = false
+    /// The detent the sheet is at, so the header chevron can collapse it the
+    /// way the reference's does.
+    @State private var detent: PresentationDetent = .medium
 
     /// Floor and wall damage, kept apart all the way to the screen.
     ///
@@ -91,8 +119,8 @@ struct RoomDetailView: View {
             List {
                 switch tab {
                 case .details: detailsTab
-                case .damage: damageTab
                 case .photos: photosTab
+                case .forms: formsTab
                 }
 
                 if let error {
@@ -111,7 +139,7 @@ struct RoomDetailView: View {
         // storey canvas behind stays visible AND live: background interaction
         // is what lets a tap on a sibling room swap this inspector in place
         // instead of forcing close-then-reopen.
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .sheet(isPresented: $drawing) {
@@ -146,6 +174,9 @@ struct RoomDetailView: View {
         .sheet(item: $editingArea) { area in
             AffectedAreaSheet(area: area) { Task { await load() } }
         }
+        .sheet(isPresented: $showingStatistics) {
+            RoomStatisticsSheet(room: room)
+        }
         .sheet(isPresented: $pickingFloor) {
             FloorPicker(selected: chosenLevel) { picked in
                 chosenLevel = picked
@@ -156,14 +187,23 @@ struct RoomDetailView: View {
         .task { await load() }
     }
 
-    /// Name, where it is, how big it is, and a way out. The room name used to
-    /// be a navigation title; a sheet has no bar, so the identity moves here —
-    /// and the level joins it, because with the push gone there is no parent
-    /// screen on view to say which storey this room belongs to at large detent.
+    /// `ⓘ name`, with a chevron to collapse — the reference's own header
+    /// (object-model §2). The room name used to be a navigation title; a
+    /// sheet has no bar, so the identity moves here — and the level joins it,
+    /// because with the push gone there is no parent screen on view to say
+    /// which storey this room belongs to at large detent.
     private var header: some View {
         HStack(spacing: Brand.Space.small) {
+            // The badge that marks this as an inspected thing, not a control:
+            // the ⓘ that opens a definition is the one ON A FIGURE, and two
+            // ⓘs meaning different things in one sheet is worse than none.
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 17))
+                .foregroundStyle(Brand.blue)
+                .accessibilityHidden(true)
+
             VStack(alignment: .leading, spacing: 1) {
-                Text(room.name)
+                Text(roomName)
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(Brand.ink)
                     .lineLimit(1)
@@ -172,18 +212,19 @@ struct RoomDetailView: View {
                     .foregroundStyle(Brand.inkFaint)
             }
             Spacer()
-            // The grabber already dismisses; the button is for the thumb that
-            // is at the bottom of a large-detent sheet and not going to drag.
+            // One control, two steps, like theirs: pulled up it comes back
+            // down to the canvas; already down, it closes. The thumb at the
+            // bottom of a large sheet is not going to drag it.
             Button {
-                dismiss()
+                if detent == .large { detent = .medium } else { dismiss() }
             } label: {
-                Image(systemName: "xmark.circle.fill")
+                Image(systemName: "chevron.down.circle.fill")
                     .font(.system(size: 24))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Brand.inkFaint)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Close")
+            .accessibilityLabel(detent == .large ? "Collapse" : "Close")
         }
         .padding(.horizontal, Brand.Space.base)
         .padding(.top, Brand.Space.base)
@@ -192,8 +233,23 @@ struct RoomDetailView: View {
 
     // MARK: - Details
 
-    /// What the room IS: its drawing, its figures, its classification.
+    /// Everything the room IS, in the reference's order (object-model §2d):
+    /// Statistics → Dimensions → Affected Areas → General. The drawing leads,
+    /// which they have no need of — their sheet sits over the plan it
+    /// describes and ours is opened from a list as often as from the canvas.
+    /// The drying log is ours alone and goes after the damage it belongs to,
+    /// so General still ends the tab.
     @ViewBuilder private var detailsTab: some View {
+        planSection
+        statisticsSection
+        dimensionsSection
+        affectedAreasSection
+        moistureSection
+        generalSection
+    }
+
+    /// The room, drawn.
+    @ViewBuilder private var planSection: some View {
         if let plan, !plan.isEmpty {
             Section {
                 FloorPlanView(
@@ -222,11 +278,20 @@ struct RoomDetailView: View {
             }
         }
 
+    }
+
+    /// Four figures and a way to the rest, as the reference leads its room
+    /// sheet (object-model §2d: `Floor · Wall · Perimeter · Volume`).
+    ///
+    /// Every figure states what it means — an adjuster who cannot tell which
+    /// definition a number used is an adjuster who can discount it. The
+    /// figures that used to make this a six-up — ceiling height and baseboard
+    /// length — are not lost: ceiling height is a Dimensions field now, and
+    /// baseboard is in `See All`, which is where their own list puts it
+    /// (as "Ground perimeter").
+    @ViewBuilder private var statisticsSection: some View {
         Section {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                // Every figure states what it means — an adjuster who
-                // cannot tell which definition a number used is an
-                // adjuster who can discount it.
                 DefinedFigure(
                     value: Measure.sqftLabel(room.floorAreaSqm), unit: nil,
                     meaning: .floorArea)
@@ -236,51 +301,89 @@ struct RoomDetailView: View {
                 DefinedFigure(
                     value: Measure.ftLabel(room.wallLengthM), unit: nil, meaning: .perimeter)
                 DefinedFigure(
-                    value: String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
-                    unit: nil, meaning: .ceiling)
-                // Baseboard beside the perimeter it is derived from, so the
-                // shorter number is obviously the trim one rather than looking
-                // like a contradiction. Falls back to the perimeter when there
-                // is no geometry to read doorways out of — equal, not absent,
-                // because a room with no detected doors genuinely has no
-                // deduction.
-                DefinedFigure(
-                    value: Measure.ftLabel(room.geometry?.baseboardLengthM ?? room.wallLengthM),
-                    unit: nil, meaning: .baseboard)
-                DefinedFigure(
                     value: Measure.cuftLabel(room.floorAreaSqm * room.ceilingHeightM),
                     unit: nil, meaning: .volume)
             }
             .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
-        }
 
-        Section {
             Button {
-                pickingType = true
+                showingStatistics = true
             } label: {
                 HStack {
-                    Text("Room type")
-                        .foregroundStyle(Brand.ink)
+                    Text("See all")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.blue)
                     Spacer()
-                    Text(typeLabel)
-                        .foregroundStyle(chosenType == nil ? Brand.inkFaint : Brand.blue)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(Brand.inkFaint)
                 }
-                .font(.system(size: 15))
+                .contentShape(.rect)
             }
             .buttonStyle(.plain)
-        } footer: {
-            if let note = roomTypes.first(where: { $0.id == chosenType })?.note {
-                Text(note).font(.system(size: 11)).foregroundStyle(Brand.inkSoft)
-            } else {
-                Text("Decides how much of this room counts as living area — the figure coverage is quoted against.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Brand.inkFaint)
-            }
+        } header: {
+            Text("Statistics")
         }
+    }
 
+    /// Ceiling Height and Living Area (%), the reference's two Dimensions
+    /// fields for a room.
+    ///
+    /// Ceiling height is **read-only here**: it is a measurement the scan
+    /// took, and the PATCH route says so in as many words. Living area is the
+    /// opposite kind of number — a judgement about what counts, which is why
+    /// `living_percent` exists to be overridden at all.
+    @ViewBuilder private var dimensionsSection: some View {
+        Section {
+            StatisticRowView(
+                row: .init(
+                    id: "ceiling", label: "Ceiling height",
+                    value: String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
+                    meaning: .ceiling))
+
+            Stepper(value: $livingDraft, in: 0...100, step: 5) {
+                HStack {
+                    Text("Living area")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Brand.ink)
+                    Spacer()
+                    Text("\(Int(livingDraft.rounded()))%")
+                        .font(.system(size: 15, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(livingOverridden ? Brand.blue : Brand.inkFaint)
+                }
+            } onEditingChanged: { editing in
+                // Fires on press and again on release. Saving on release
+                // means one write per adjustment rather than one per 5%.
+                guard !editing else { return }
+                Task { await saveLivingPercent(livingDraft) }
+            }
+            .disabled(savingRoomField)
+
+            if livingOverridden {
+                Button("Use the room type's \(Int(typeDefaultPercent.rounded()))%") {
+                    Task { await saveLivingPercent(nil) }
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Brand.blue)
+            }
+        } header: {
+            Text("Dimensions")
+        } footer: {
+            Text(
+                livingOverridden
+                    ? "Set by hand for this room. Clearing it returns to whatever the room type says."
+                    : "From the room type. Adjust it and this room stops following the type."
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(Brand.inkFaint)
+        }
+    }
+
+    // MARK: - General
+
+    /// Floor, Room Type, Room Name, Room Color — the reference's General
+    /// block, in its order (object-model §2d), and last on the tab.
+    @ViewBuilder private var generalSection: some View {
         Section {
             Button {
                 pickingFloor = true
@@ -300,13 +403,47 @@ struct RoomDetailView: View {
             .buttonStyle(.plain)
             .disabled(savingRoomField)
 
+            Button {
+                pickingType = true
+            } label: {
+                HStack {
+                    Text("Room type")
+                        .foregroundStyle(Brand.ink)
+                    Spacer()
+                    Text(typeLabel)
+                        .foregroundStyle(chosenType == nil ? Brand.inkFaint : Brand.blue)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+                .font(.system(size: 15))
+            }
+            .buttonStyle(.plain)
+
+            // Committed on Return or when the field is left — not on every
+            // keystroke, which would be a PATCH per letter.
+            HStack {
+                Text("Room name")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.ink)
+                TextField("Room", text: $roomName)
+                    .font(.system(size: 15))
+                    .multilineTextAlignment(.trailing)
+                    .focused($nameFocused)
+                    .submitLabel(.done)
+                    .onSubmit { Task { await saveRoomName() } }
+            }
+            .onChange(of: nameFocused) { _, focused in
+                if !focused { Task { await saveRoomName() } }
+            }
+
             // The plan's ordinary grey by default; a swatch says "this room,
             // deliberately" the way a highlighter does on a paper drawing.
             // The circle with a slash is the way back to no colour at all —
             // clearing a choice needs its own target, not just picking
             // nothing.
             VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                Text("Colour on the plan")
+                Text("Room colour")
                     .font(.system(size: 15))
                     .foregroundStyle(Brand.ink)
                 HStack(spacing: 10) {
@@ -317,31 +454,28 @@ struct RoomDetailView: View {
                 }
             }
             .padding(.vertical, 2)
+        } header: {
+            Text("General")
         } footer: {
-            Text("Separate from damage colouring — this is the room itself, on the floor sheet.")
-                .font(.system(size: 11))
-                .foregroundStyle(Brand.inkFaint)
-        }
-
-        Section {
-            LabeledContent("Doors", value: "\(room.doorCount)")
-            LabeledContent("Windows", value: "\(room.windowCount)")
-            if room.stairCount > 0 {
-                LabeledContent("Staircases", value: "\(room.stairCount)")
-                Text("Treads and risers are not in the floor area above — price them separately.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: Brand.Space.hair) {
+                if let note = roomTypes.first(where: { $0.id == chosenType })?.note {
+                    Text(note)
+                } else {
+                    Text("The room type decides how much of this room counts as living area — the figure coverage is quoted against.")
+                }
+                Text("Room colour is separate from damage colouring — this is the room itself, on the floor sheet.")
             }
+            .font(.system(size: 11))
+            .foregroundStyle(Brand.inkFaint)
         }
     }
 
-    // MARK: - Damage & Drying
+    // MARK: - Damage and drying
 
-    /// What is WRONG with the room and the proof it is being fixed. The order
-    /// is the order the work happens in: the damage is marked first because
-    /// the estimate is priced from it, then the drying record — the part
-    /// magicplan's own report has no room for at all.
-    @ViewBuilder private var damageTab: some View {
+    /// The damage, inside Details and reached by scrolling — where the owner
+    /// asked for it and where the reference has it (object-model §2d). Areas
+    /// may overlap, and may sit on a floor or on a wall.
+    @ViewBuilder private var affectedAreasSection: some View {
         Section {
             if loading {
                 ProgressView()
@@ -364,14 +498,14 @@ struct RoomDetailView: View {
                 Button {
                     drawing = true
                 } label: {
-                    Label("Add a floor area", systemImage: "plus.circle.fill")
+                    Label("Add New Area", systemImage: "plus.circle.fill")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Brand.blue)
                 }
             }
         } header: {
             HStack {
-                Text("Affected areas")
+                Text("Affected Areas")
                 Spacer()
                 if !areas.isEmpty {
                     // Two figures, never one. Which surface a square foot is
@@ -380,13 +514,23 @@ struct RoomDetailView: View {
                 }
             }
         } footer: {
-            if wallAreas.isEmpty {
-                Text("Wall damage is marked in elevation — open the plan, face a wall, and outline it there.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Brand.inkFaint)
-            }
+            // Their own note says as much — one or more areas, overlapping
+            // allowed, on a room or a wall, and they travel into the exports.
+            // The second sentence is ours: this button draws on the floor
+            // plan, and a wall area is outlined on the wall's own face.
+            Text(
+                "One or more areas, overlapping allowed, on the floor or on a wall — all of them print. "
+                    + "This adds a floor area; wall damage is outlined in elevation, by opening the plan and facing the wall."
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(Brand.inkFaint)
         }
+    }
 
+    /// The drying record — moisture readings and their trend. magicplan has
+    /// no equivalent; it goes after the damage it belongs to, so General
+    /// still ends the tab.
+    @ViewBuilder private var moistureSection: some View {
         Section {
             if readings.isEmpty && !loading {
                 Text("No readings. One per visit, trending down, is what proves the drying was needed and when it could stop.")
@@ -500,11 +644,51 @@ struct RoomDetailView: View {
         }
     }
 
+    // MARK: - Forms
+
+    /// The reference's third tab, with the reference's empty state — which is
+    /// all it has ever shown us: forms there are authored in their cloud and
+    /// attached per object, and none was observed in use (object-model §2).
+    ///
+    /// It is here because the tab set is fixed and the thumb learns three
+    /// positions, not two. What it must not do is claim a feature: the tab
+    /// says plainly that nothing is set up, and points at the record this
+    /// trade actually files instead.
+    @ViewBuilder private var formsTab: some View {
+        Section {
+            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                Image(systemName: "list.bullet.rectangle.portrait")
+                    .font(.system(size: 28))
+                    .foregroundStyle(Brand.inkFaint)
+                Text("No forms yet.")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.ink)
+                Text("Forms are the checklists and sign-off sheets a job is closed with. None are set up for this room.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Brand.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, Brand.Space.small)
+        } footer: {
+            Text("The damage marking and the drying log, under Details, are the record an adjuster reads today.")
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
+        }
+    }
+
     // MARK: - Derived
 
     private var typeLabel: String {
         guard let chosenType else { return "Not set" }
         return roomTypes.first { $0.id == chosenType }?.label ?? chosenType
+    }
+
+    /// What the room type says counts as living area, before any override.
+    /// 100 when nobody has said — an unclassified room is not silently
+    /// discounted.
+    private var typeDefaultPercent: Double {
+        roomTypes.first { $0.id == chosenType }?.percent ?? 100
     }
 
     /// Distinct from `DamageCause`'s palette on purpose: a room highlighted
@@ -582,6 +766,18 @@ struct RoomDetailView: View {
         if roomTypes.isEmpty, let projectId = room.projectId {
             roomTypes = (try? await API.shared.livingArea(projectId: projectId).roomTypes) ?? []
         }
+
+        // Read from the room once, then owned here — `room` is the snapshot
+        // this view was built with and will keep reporting the old value
+        // after a save. An unoverridden room follows its type, including
+        // when the type changes underneath it.
+        if !livingLoaded {
+            livingLoaded = true
+            livingOverridden = room.livingPercent != nil
+            livingDraft = room.livingPercent ?? typeDefaultPercent
+        } else if !livingOverridden {
+            livingDraft = typeDefaultPercent
+        }
         loading = false
     }
 
@@ -610,6 +806,134 @@ struct RoomDetailView: View {
             self.error = error.localizedDescription
         }
         savingRoomField = false
+    }
+
+    /// Renaming is a no-op unless the text actually changed, so leaving the
+    /// field — which happens on every scroll past it — does not write.
+    private func saveRoomName() async {
+        let trimmed = roomName.trimmed
+        guard !trimmed.isEmpty else {
+            roomName = room.name
+            return
+        }
+        guard trimmed != roomName || trimmed != room.name else { return }
+        roomName = trimmed
+        savingRoomField = true
+        do {
+            try await API.shared.renameRoom(roomId: room.id, name: trimmed)
+        } catch {
+            roomName = room.name
+            self.error = error.localizedDescription
+        }
+        savingRoomField = false
+    }
+
+    /// `nil` clears the override and hands the room back to its type — which
+    /// is a different statement from 0%, and the database keeps them apart.
+    private func saveLivingPercent(_ percent: Double?) async {
+        savingRoomField = true
+        do {
+            try await API.shared.setLivingPercent(
+                roomId: room.id, percent: percent.map { $0.rounded() })
+            livingOverridden = percent != nil
+            if percent == nil { livingDraft = typeDefaultPercent }
+        } catch {
+            livingDraft = room.livingPercent ?? typeDefaultPercent
+            livingOverridden = room.livingPercent != nil
+            self.error = error.localizedDescription
+        }
+        savingRoomField = false
+    }
+}
+
+/// Every figure this room reports, with its definition behind it — the
+/// reference's `See All` from the room sheet's Statistics block.
+///
+/// Deliberately room-scoped rather than reusing `ProjectStatisticsSheet`:
+/// "Floors 1, Rooms 1" is noise on one room, and baseboard length — their
+/// "Ground perimeter", the figure trim is priced on — belongs here where the
+/// four-up has no space for it. The reference's fuller list (the three
+/// ground-surface variants, the living-area rows, the Objects tab) is S9.
+struct RoomStatisticsSheet: View {
+    let room: RoomScan
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var measurements: [ProjectStats.Row] {
+        [
+            .init(
+                id: "floorArea", label: "Floor area",
+                value: Measure.sqftLabel(room.floorAreaSqm), meaning: .floorArea),
+            .init(
+                id: "wallArea", label: "Wall area (gross)",
+                value: Measure.sqftLabel(room.wallLengthM * room.ceilingHeightM),
+                meaning: .wallArea),
+            .init(
+                id: "perimeter", label: "Perimeter",
+                value: Measure.ftLabel(room.wallLengthM), meaning: .perimeter),
+            // Falls back to the perimeter when there is no geometry to read
+            // doorways out of — equal, not absent, because a room with no
+            // detected doors genuinely has no deduction.
+            .init(
+                id: "baseboard", label: "Baseboard length",
+                value: Measure.ftLabel(room.geometry?.baseboardLengthM ?? room.wallLengthM),
+                meaning: .baseboard),
+            .init(
+                id: "ceiling", label: "Ceiling height",
+                value: String(format: "%.1f ft", Measure.feet(room.ceilingHeightM)),
+                meaning: .ceiling),
+            .init(
+                id: "volume", label: "Volume",
+                value: Measure.cuftLabel(room.floorAreaSqm * room.ceilingHeightM),
+                meaning: .volume),
+        ]
+    }
+
+    private var counts: [ProjectStats.Row] {
+        var rows: [ProjectStats.Row] = [
+            .init(id: "doors", label: "Doors", value: "\(room.doorCount)", meaning: nil),
+            .init(id: "windows", label: "Windows", value: "\(room.windowCount)", meaning: nil),
+        ]
+        if room.stairCount > 0 {
+            rows.append(
+                .init(id: "stairs", label: "Staircases", value: "\(room.stairCount)", meaning: nil))
+        }
+        return rows
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Measurements") {
+                    ForEach(measurements) { StatisticRowView(row: $0) }
+                }
+                Section {
+                    ForEach(counts) { StatisticRowView(row: $0) }
+                } header: {
+                    Text("Objects")
+                } footer: {
+                    if room.stairCount > 0 {
+                        Text("Treads and risers are not in the floor area — price them separately.")
+                    }
+                }
+                Section {
+                    Text("""
+                        Every measurement here is taken to the wall faces the scan detected. \
+                        Where an outline was corrected by hand, the corrected outline is what \
+                        was measured.
+                        """)
+                        .font(.footnote)
+                        .foregroundStyle(Brand.inkFaint)
+                }
+            }
+            .navigationTitle("Statistics")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

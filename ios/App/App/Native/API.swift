@@ -389,13 +389,36 @@ actor API {
         return try await get("/api/v1/living-area?projectId=\(encoded)", as: LivingAreaResponse.self)
     }
 
-    private struct RoomTypePatch: Encodable {
-        let roomType: String?
+    /// One nullable field, encoded so that `nil` reaches the server as JSON
+    /// `null` rather than as an absent key.
+    ///
+    /// This matters more than it looks. Swift's synthesized `Encodable` uses
+    /// `encodeIfPresent` for optionals, so `nil` OMITS the key — and every
+    /// PATCH route in this app reads an absent key as "say nothing about this
+    /// field". Clearing a room's colour or its type therefore silently did
+    /// nothing. `null` is the statement; absence is the silence.
+    private struct NullablePatch<Value: Encodable>: Encodable {
+        let key: String
+        let value: Value?
+
+        private struct Key: CodingKey {
+            let stringValue: String
+            init(_ stringValue: String) { self.stringValue = stringValue }
+            init?(stringValue: String) { self.stringValue = stringValue }
+            var intValue: Int? { nil }
+            init?(intValue: Int) { nil }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: Key.self)
+            try c.encode(value, forKey: Key(key))
+        }
     }
 
     func setRoomType(roomId: String, type: String?) async throws {
         _ = try await request(
-            "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomTypePatch(roomType: type))
+            "/api/v1/scans/\(roomId)", method: "PATCH",
+            body: NullablePatch(key: "roomType", value: type))
     }
 
     private struct RoomFloorPatch: Encodable {
@@ -410,15 +433,32 @@ actor API {
             "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomFloorPatch(level: level))
     }
 
-    private struct RoomColorPatch: Encodable {
-        let roomColor: String?
+    private struct RoomNamePatch: Encodable {
+        let name: String
+    }
+
+    /// Rename a room. What was measured does not change — only what the room
+    /// is called on the plan, in the list and in the report.
+    func renameRoom(roomId: String, name: String) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomNamePatch(name: name))
+    }
+
+    /// How much of this room counts as living area, 0–100, or `nil` to follow
+    /// the room type. `nil` must travel as `null` — see `NullablePatch`; it
+    /// clears the override, which is a different statement from 0%.
+    func setLivingPercent(roomId: String, percent: Double?) async throws {
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH",
+            body: NullablePatch(key: "livingPercent", value: percent))
     }
 
     /// A room's own colour on the floor plan — separate from any damage
     /// colouring inside it. `nil` clears it back to the plan's ordinary grey.
     func setRoomColor(roomId: String, hex: String?) async throws {
         _ = try await request(
-            "/api/v1/scans/\(roomId)", method: "PATCH", body: RoomColorPatch(roomColor: hex))
+            "/api/v1/scans/\(roomId)", method: "PATCH",
+            body: NullablePatch(key: "roomColor", value: hex))
     }
 
     private struct PlacementPatch: Encodable {
