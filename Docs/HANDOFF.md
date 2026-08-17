@@ -8,6 +8,15 @@ cheaper. So each chat starts here.
 **Branch: `mobile-app`.** Everything below is committed and pushed. Working tree
 was clean at handoff.
 
+**Which task is yours: `Docs/SECTIONS.md`.** That is the ledger — every section,
+its scope, what "done" means, and a copy-paste prompt. It also carries the rule
+that matters most for keeping chats joined up:
+
+> **Before your chat stops, update `SECTIONS.md`** — set your section's status,
+> add a dated line to its Log, and write anything you learned into the later
+> sections it affects. Commit that with the work. A chat that finishes without
+> updating the ledger has cost the next chat the time it just saved.
+
 ---
 
 ## 1. What this app is
@@ -86,46 +95,18 @@ reports a column that exists as missing.
 **Tests: 1120 passing** (`npx vitest run`). Swift has no test target, so
 geometry is tested on the TypeScript side and mirrored into Swift by hand.
 
-## 5. Next task — specified, ready to start in a fresh chat
+## 5. Next task
 
-**Restructure the room inspector to the reference.** This was in progress at
-handoff; nothing was written.
+**See `Docs/SECTIONS.md`.** Sections are listed with status, dependencies, and the
+files each one owns — that last column matters, because two chats editing the same
+Swift file will collide.
 
-Ours (`ios/App/App/Native/RoomDetailView.swift`) has tabs
-`Details | Damage & Drying | Photos & Notes`. The reference has
-`Details | Photos & Notes | Forms`, with **damage as a section inside Details**,
-found by scrolling — not promoted to a tab.
-
-The owner's words: *"Damage and drying shouldn't be here. It should appear when
-we push up more, and there we have to have add areas."*
-
-**Target, observed on device 15 Aug:**
-
-- Nav bar: `‹▣` pill · **Room name** bold / *Floor name* grey · `?` · share icon
-- Sheet: grabber → **ⓘ Room name** + collapse chevron → tabs
-- Tabs: **`Details` | `Photos & Notes` | `Forms`**
-- Details content, in this order:
-  1. **Statistics** + `See All` — one card, 4-up, value bold over label:
-     Floor Area · Wall Area · Perimeter · Volume
-  2. **Dimensions** — card of rows: `Ceiling Height` (with stepper),
-     `Living Area (%)`
-  3. **Affected Areas** + `?` — rows of: colour swatch · name / *surface* ·
-     area · expand glyph. Then `+ Add New Area` and the note *"Define one or
-     more affected areas (overlapping allowed) within a room or a wall.
-     Affected areas can be included in your exports."*
-  4. **General** — `Floor ›` · `Room Type ›` · `Room Name` · `Room Color`
-- **Forms** tab: empty state — *"No forms yet. Reduce paperwork by creating
-  report templates, forms, questionnaires, checklists, and so much more!"* +
-  Learn more
-
-**Our drying log has no reference equivalent.** Put it as its own section in
-Details after Affected Areas, so General stays last as in the reference.
-
-Current code: `Tab` enum at ~line 20, dispatch at ~line 92, `detailsTab` at
-~196, `damageTab` at 344–440 (two Sections: affected areas, then moisture),
-`photosTab` after it. The move is: delete the `damage` tab case, splice those two
-Sections into `detailsTab` after the figures grid and before the Room-type
-section, add a `forms` case.
+At handoff the next one was **S1 — room inspector structure**: our tabs are
+`Details | Damage & Drying | Photos & Notes`, the reference is
+`Details | Photos & Notes | Forms` with damage as a section inside Details. The
+owner's words: *"Damage and drying shouldn't be here. It should appear when we push
+up more, and there we have to have add areas."* Full spec and observed layout are
+in that section.
 
 ## 6. Two things never verified on device
 
