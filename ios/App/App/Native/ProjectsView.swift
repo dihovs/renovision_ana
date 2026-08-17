@@ -308,12 +308,21 @@ private struct ProjectCardMenu: View {
                 Label("Archive", systemImage: "archivebox")
             }
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Brand.Plan.label)
-                .frame(width: 24, height: 24)
-                .background(.regularMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Brand.Plan.dimension.opacity(0.15), lineWidth: 0.5))
+            // The visible circle stays 24pt — matching the reference's own
+            // scale — but the tappable area is the full 44pt HIG minimum,
+            // anchored to the same corner so the extra hit area extends
+            // inward rather than shifting the glyph off its drawn position.
+            ZStack(alignment: .bottomTrailing) {
+                Color.clear
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Brand.Plan.label)
+                    .frame(width: 24, height: 24)
+                    .background(.regularMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(Brand.Plan.dimension.opacity(0.15), lineWidth: 0.5))
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
     }
 }
