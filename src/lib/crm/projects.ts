@@ -487,7 +487,7 @@ export async function setProjectFavorite(id: string, favorite: boolean): Promise
   const client = requireDb();
   const { error } = await client
     .from("projects")
-    .update({ is_favorite: favorite })
+    .update({ is_favorite: favorite, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) {
     if (isMissingTable(error)) {
