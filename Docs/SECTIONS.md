@@ -576,3 +576,28 @@ Newest last. One or two lines per chat.
   what still needs a real-device check written into S5, which owns this
   file's other known gesture bug (the `BISECT` canvas-tap issue, still
   separate and still open).
+- **2026-08-17** — Out-of-order, same chat: the project grid's card menu
+  built out to match the reference's INT-P03 (Favorite · Move · Duplicate ·
+  Archive), triggered by the owner hitting three junk "New project" entries
+  this chat's own testing had created, with no way to clean them up (no
+  delete/archive endpoint existed at all before today). Archive lands as a
+  status change (reversible, matches how the reference's own Archived
+  filter behaves), not a hard delete. Move assigns a project to a name —
+  deliberately not an employee picker; there is no staff table, and
+  migration 0035 explains why that echoes 0012's reasoning for time
+  entries rather than reversing it. Duplicate deep-copies room geometry and
+  wall details, never photos/moisture readings/equipment days — those are
+  evidence about one address and copying them into another job's file
+  would fabricate a record. **Migration 0035 needs running in the Supabase
+  SQL editor before any of this writes** — the code degrades gracefully
+  until then (existing `MigrationPendingError` pattern), so it was pushed
+  ahead of that step rather than blocked on it. **Also found**: a second,
+  concurrent Claude Code session was running against this same repo mid-way
+  through this chat, working on `Docs/reference/magicplan/object-model.md`
+  — its commit `d8a6839` swept up six files of this work-in-progress
+  alongside its own unrelated change, under a commit message that
+  describes neither. Content was verified intact (tsc clean, 1120 tests
+  passing) before continuing; left as-is rather than rewriting already-
+  pushed shared history. **This owns S12's territory** (project screens)
+  though not done through a dedicated S12 chat — whoever picks up S12
+  should know the card menu is now built, not just planned.
