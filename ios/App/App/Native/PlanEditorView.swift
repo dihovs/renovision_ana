@@ -88,11 +88,14 @@ struct PlanEditorView: View {
         var locked: Set<Int>
     }
 
-    /// Viewport, in the plan's own metres.
+    /// Viewport. `zoom` multiplies the fit scale; `pan` slides the camera in
+    /// screen points. Both are driven by `PlanNavigationGesture`, which is
+    /// UIKit because two-finger-only is not something SwiftUI can say.
     @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
-    @GestureState private var pinch: CGFloat = 1
-    @GestureState private var twoFingerPan: CGSize = .zero
+    /// The canvas's own size, needed to zoom about the fingers rather than
+    /// the middle of the screen — the pinch callback has no geometry proxy.
+    @State private var canvasSize: CGSize = .zero
 
     enum Selection: Equatable {
         case none
@@ -274,10 +277,10 @@ struct PlanEditorView: View {
     private var canvas: some View {
         GeometryReader { proxy in
             let fit = fitScale(in: proxy.size)
-            let scale = fit * zoom * pinch
+            let scale = fit * zoom
             let centre = CGPoint(
-                x: proxy.size.width / 2 + pan.width + twoFingerPan.width,
-                y: proxy.size.height / 2 + pan.height + twoFingerPan.height)
+                x: proxy.size.width / 2 + pan.width,
+                y: proxy.size.height / 2 + pan.height)
 
             let toScreen = { (p: CGPoint) in
                 self.screenPoint(p, centre: centre, scale: scale)
@@ -439,17 +442,20 @@ struct PlanEditorView: View {
                 }
             }
             .contentShape(.rect)
-            // Two fingers navigate — always, whatever is selected.
-            .gesture(
-                SimultaneousGesture(
-                    MagnificationGesture().updating($pinch) { value, state, _ in state = value }
-                        .onEnded { value in
-                            zoom = min(max(zoom * value, 0.5), 6)
-                        },
-                    DragGesture(minimumDistance: 0)
-                        .updating($twoFingerPan) { _, _, _ in }
-                )
+            // Two fingers navigate — always, whatever is selected. UIKit,
+            // because "two fingers only" is the whole point and SwiftUI's
+            // DragGesture fires on one finger just the same; see
+            // PlanNavigationGesture for why the previous attempt was inert.
+            .background(
+                PlanNavigationGesture(
+                    onZoom: { factor, focus in zoomBy(factor, about: focus) },
+                    onPan: { delta in
+                        pan.width += delta.width
+                        pan.height += delta.height
+                    })
             )
+            .onAppear { canvasSize = proxy.size }
+            .onChange(of: proxy.size) { canvasSize = $0 }
             .gesture(
                 // One finger: edit what is selected, else select.
                 DragGesture(minimumDistance: 4)
@@ -644,6 +650,30 @@ struct PlanEditorView: View {
         }
 
         select(.none)
+    }
+
+    /// Zoom about the fingers, not about the middle of the screen.
+    ///
+    /// Pinching on a corner should magnify THAT corner — zooming about the
+    /// centre instead slides whatever you were looking at off the edge, which
+    /// on a long room means chasing the thing you were trying to inspect.
+    ///
+    /// The camera is `centre = size/2 + pan`, so holding the point under the
+    /// fingers still means moving `centre` to `focus - (focus - centre) ·
+    /// factor` — a pan delta of `(focus - centre) · (1 - factor)`. Clamping
+    /// zoom first means a pinch past either stop stops panning too, rather
+    /// than sliding the plan while the scale refuses to change.
+    private func zoomBy(_ factor: CGFloat, about focus: CGPoint) {
+        let clamped = min(max(zoom * factor, 0.5), 6)
+        let applied = clamped / zoom
+        guard applied != 1 else { return }
+        zoom = clamped
+
+        let centre = CGPoint(
+            x: canvasSize.width / 2 + pan.width,
+            y: canvasSize.height / 2 + pan.height)
+        pan.width += (focus.x - centre.x) * (1 - applied)
+        pan.height += (focus.y - centre.y) * (1 - applied)
     }
 
     /// Model metres → screen points, about the plan's own middle so zooming
