@@ -29,7 +29,7 @@ Commit the ledger update with the work.
 
 | # | Section | Status | Depends on | Primary files |
 |---|---|---|---|---|
-| **S1** | Room inspector structure | **NEXT** | — | `RoomDetailView.swift` |
+| **S1** | Room inspector structure | **BUILT — NOT SEEN** | — | `RoomDetailView.swift` |
 | **S2** | Wall inspector | NOT STARTED | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
 | **S3** | Affected areas — freehand drawing | NOT STARTED | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | NOT STARTED | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
@@ -74,6 +74,39 @@ Forms exists; drying log still reachable; installed and looked at on device.
 **Prompt.**
 > Read Docs/HANDOFF.md then Docs/SECTIONS.md, and do S1.
 
+**What landed (17 Aug 2026).** All of the above except the last clause. Built,
+`BUILD SUCCEEDED`, installed and launched on the simulator — **the room sheet
+itself has not been looked at by anybody**, because the app opens on the admin
+password wall and the phone was `unavailable` to `devicectl` at the time.
+
+- Tabs: `Details · Photos & Notes · Forms`. `Damage & Drying` is gone as a tab.
+- Details order: plan drawing → Statistics (4-up + See All) → Dimensions →
+  Affected Areas → Moisture → General. The drawing leads because ours is
+  opened from a list as often as from the canvas the sheet sits over.
+- Statistics is a 4-up (`Floor · Wall · Perimeter · Volume`, their order) with
+  `See All` → `RoomStatisticsSheet`, new, at the bottom of `RoomDetailView.swift`.
+  Ceiling height moved into Dimensions; baseboard length and the door / window
+  / staircase counts moved into See All. Nothing was dropped.
+- Dimensions: Ceiling Height **read-only**, Living Area (%) editable — a 5%
+  stepper writing on release, plus "Use the room type's n%" to clear the
+  override. `nil` and `0` stay distinct all the way to the column.
+- General, in their order: Floor · Room Type · Room Name (new, editable) ·
+  Room Color.
+- Header is `ⓘ name` with a chevron: collapses large → medium, dismisses at
+  medium. The ⓘ is a badge, not a control — the ⓘ that opens a definition is
+  the one on a figure.
+- New in `API.swift`: `renameRoom`, `setLivingPercent`, and `NullablePatch`.
+
+**Ceiling Height is read-only and the reference's is not.** Editing it means
+letting the phone rewrite a measurement, which `/api/v1/scans/[id]` refuses on
+purpose — and the number feeds wall area, volume, the elevations and the
+report. That is an owner decision, not a structural one, so it was left alone.
+See the note in **S12**, which owns the floor sheet where the same field lives.
+
+**Still to look at, on a real room:** the Living Area stepper actually writing;
+the rename committing on Return and on leaving the field; the header chevron's
+two steps; that the drying log still reads correctly in its new place.
+
 ---
 
 ## S2 — Wall inspector
@@ -92,6 +125,19 @@ the plan editor and swiping up, as the room sheet is.
 
 **Done when.** Selecting a wall and swiping up gives the sheet; both toggles
 persist; `Display Elevation in Report` actually governs the report.
+
+**From S1.** The tab set and the header are built and can be copied wholesale:
+`Details · Photos & Notes · Forms`, header `ⓘ name` + collapse chevron,
+`.presentationDetents([.medium, .large], selection:)` so the chevron has
+something to collapse. The Forms empty state is `RoomDetailView.formsTab` —
+lift it rather than writing a second one.
+
+**Room notes are still missing and are cheap.** `/api/v1/scans/[id]` already
+accepts `notes` (string or null) and `room_scans.notes` exists — but `RoomScan`
+in `Models.swift` does not decode the column, and the Photos & Notes tab has
+photos only. If you are building notes for a wall anyway, do the room's in the
+same pass; the reference's Notes is a tap opening an **Add Text** sheet with
+Cancel / Save, not an inline field (`object-model.md` §2).
 
 ---
 
@@ -202,6 +248,18 @@ every figure: the app's room sheet shows `9.15 m` perimeter and the report print
 `9.82 m` for the same room. The difference is exactly one door width — ground
 perimeter versus ceiling perimeter, both labelled just "perimeter".
 
+**From S1.** The room-level `See All` now exists as `RoomStatisticsSheet`, at
+the bottom of `RoomDetailView.swift` — measurements (floor, wall gross,
+perimeter, baseboard, ceiling height, volume) and an Objects block of counts.
+It is deliberately a stub of the reference's list: extend or replace it here,
+and add the Objects **tab** (ORD-36) rather than the plain count rows it has.
+Note that their room-sheet `Perimeter` is the GROUND perimeter — our baseboard
+length — while ours is the wall run. Both are in the sheet, both labelled; do
+not quietly swap which one the 4-up leads with.
+
+`ProjectStatistics.swift`'s `StatisticRowView` is no longer private — it is the
+shared ⓘ row, used by both statistics sheets.
+
 ---
 
 ## S10 — Report parity
@@ -244,6 +302,17 @@ on a 39-photo job is the difference between finding a photo and scrolling. Floor
 sheet parity, including the per-level wall-thickness override that the data model
 already supports but no screen can set.
 
+**From S1 — a question for the owner, before this section builds Dimensions.**
+The floor sheet's Dimensions block is `Ceiling Height · Interior Wall Thickness
+· Exterior Wall Thickness` (`object-model.md` §2c), and the room sheet has
+Ceiling Height too. In the reference all of them are **editable**. Ours are
+not, and deliberately: `/api/v1/scans/[id]` refuses to rewrite what was
+scanned — *"the measurements themselves are a record of what was scanned and
+are deliberately not editable"*. Ceiling height is not a label, it is the
+multiplier under wall area, volume, every elevation and the report, so making
+it typeable is a product decision. S1 left it read-only rather than decide it.
+Ask, then do it in one place for both sheets.
+
 ---
 
 ## S13 — Icon set
@@ -270,3 +339,16 @@ Newest last. One or two lines per chat.
   moves, and the affected-area editor rebuilt to the reference interaction. DB at
   migration 0031. 1120 tests. **Unverified:** dimension-tap unlock (S5),
   project-card plan (S12). Sections split out into this file; next is S1.
+- **2026-08-17** — S1 built. Tabs are now `Details · Photos & Notes · Forms`;
+  affected areas and the drying log moved inside Details, in the reference's
+  order, with Statistics 4-up + See All and a Dimensions block above them and
+  General last. Room Name and Living Area (%) are editable for the first time;
+  Ceiling Height stayed read-only on purpose (owner question, noted in S12).
+  Found and fixed a live bug on the way: Swift synthesises `Encodable` with
+  `encodeIfPresent`, so every `nil` in a PATCH body **dropped the key** — the
+  no-colour swatch and clearing a room type had been writing `{}` and doing
+  nothing. `API.NullablePatch` now sends real `null`. **Not verified by eye:**
+  nothing in this section has been seen running. `BUILD SUCCEEDED`, installed
+  and launched on the simulator, but the app opens on the admin password wall
+  and the phone was `unavailable` to `devicectl`, so the room sheet was never
+  reached. Everything under S1's "Still to look at" is outstanding.

@@ -163,6 +163,11 @@ Filed as orders in `ORDERS.md` (**ORD-22 … ORD-37**). The ones that matter:
   shows nothing and proves nothing.
 - **Never claim something works because it compiled.** Two features shipped
   "done" this session and did nothing when tapped.
+- **A `nil` in a Swift PATCH body does not reach the server.** Synthesised
+  `Encodable` uses `encodeIfPresent`, so an optional that is nil OMITS its key
+  — and every `/api/v1` route here reads an absent key as "this field was not
+  mentioned". Clearing a room's colour or its type silently did nothing for
+  weeks because of it. Use `API.NullablePatch`, which encodes real `null`.
 - **iPhone Mirroring and `devicectl` cannot hold the device at once.** Quit
   mirroring to install, reopen it to look.
 - **The office Wi-Fi breaks AirDrop, mirroring and wireless debugging** — they

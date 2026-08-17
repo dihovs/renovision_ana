@@ -28,6 +28,7 @@ struct RoomDetailView: View {
         // The header and the General field both read a name the operator can
         // change, and `room` is a snapshot that will not hear about it.
         _roomName = State(initialValue: room.name)
+        _savedName = State(initialValue: room.name)
     }
 
     /// The fixed tab set. Raw values are the segment labels.
@@ -62,6 +63,9 @@ struct RoomDetailView: View {
     /// owned here — a reload cannot be allowed to overwrite it with the stale
     /// snapshot this view was constructed from.
     @State private var roomName: String
+    /// The name the server has. What `roomName` is compared against, because
+    /// `room` keeps reporting the name this view was constructed with.
+    @State private var savedName: String
     @FocusState private var nameFocused: Bool
     /// Living area, 0–100. `livingOverridden` is the difference between a
     /// hand-set 100% and a 100% that came from the room type — `nil` in the
@@ -69,6 +73,8 @@ struct RoomDetailView: View {
     @State private var livingDraft: Double = 100
     @State private var livingOverridden = false
     @State private var livingLoaded = false
+    /// The override the server holds — `nil` for "follows the room type".
+    @State private var savedLiving: Double?
     @State private var showingStatistics = false
     /// The detent the sheet is at, so the header chevron can collapse it the
     /// way the reference's does.
@@ -254,7 +260,7 @@ struct RoomDetailView: View {
             Section {
                 FloorPlanView(
                     plan: plan, areas: drawnAreas,
-                    label: (room.name, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
+                    label: (roomName, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
                 )
                 .frame(height: 240)
                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
@@ -773,6 +779,7 @@ struct RoomDetailView: View {
         // when the type changes underneath it.
         if !livingLoaded {
             livingLoaded = true
+            savedLiving = room.livingPercent
             livingOverridden = room.livingPercent != nil
             livingDraft = room.livingPercent ?? typeDefaultPercent
         } else if !livingOverridden {
@@ -808,21 +815,24 @@ struct RoomDetailView: View {
         savingRoomField = false
     }
 
-    /// Renaming is a no-op unless the text actually changed, so leaving the
-    /// field — which happens on every scroll past it — does not write.
+    /// Renaming writes only when the text actually changed. The field is left
+    /// on every scroll past it, and a PATCH per scroll is a PATCH per scroll.
+    /// An empty name is not a rename — a room with no name cannot be found on
+    /// a list — so the field goes back rather than clearing it.
     private func saveRoomName() async {
         let trimmed = roomName.trimmed
         guard !trimmed.isEmpty else {
-            roomName = room.name
+            roomName = savedName
             return
         }
-        guard trimmed != roomName || trimmed != room.name else { return }
         roomName = trimmed
+        guard trimmed != savedName else { return }
         savingRoomField = true
         do {
             try await API.shared.renameRoom(roomId: room.id, name: trimmed)
+            savedName = trimmed
         } catch {
-            roomName = room.name
+            roomName = savedName
             self.error = error.localizedDescription
         }
         savingRoomField = false
@@ -830,16 +840,23 @@ struct RoomDetailView: View {
 
     /// `nil` clears the override and hands the room back to its type — which
     /// is a different statement from 0%, and the database keeps them apart.
+    ///
+    /// Writes nothing when nothing changed. The stepper reports the end of an
+    /// edit even when the value was already at 0 or 100 and did not move, and
+    /// saving that would silently convert "follows its type" into a hand-set
+    /// figure the operator never chose.
     private func saveLivingPercent(_ percent: Double?) async {
+        let rounded = percent.map { $0.rounded() }
+        guard rounded != savedLiving else { return }
         savingRoomField = true
         do {
-            try await API.shared.setLivingPercent(
-                roomId: room.id, percent: percent.map { $0.rounded() })
-            livingOverridden = percent != nil
-            if percent == nil { livingDraft = typeDefaultPercent }
+            try await API.shared.setLivingPercent(roomId: room.id, percent: rounded)
+            savedLiving = rounded
+            livingOverridden = rounded != nil
+            if rounded == nil { livingDraft = typeDefaultPercent }
         } catch {
-            livingDraft = room.livingPercent ?? typeDefaultPercent
-            livingOverridden = room.livingPercent != nil
+            livingDraft = savedLiving ?? typeDefaultPercent
+            livingOverridden = savedLiving != nil
             self.error = error.localizedDescription
         }
         savingRoomField = false
