@@ -29,7 +29,7 @@ Commit the ledger update with the work.
 
 | # | Section | Status | Depends on | Primary files |
 |---|---|---|---|---|
-| **S1** | Room inspector structure | **BUILT — NOT SEEN** | — | `RoomDetailView.swift` |
+| **S1** | Room inspector structure | **DONE** | — | `RoomDetailView.swift` |
 | **S2** | Wall inspector | NOT STARTED | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
 | **S3** | Affected areas — freehand drawing | NOT STARTED | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | NOT STARTED | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
@@ -43,9 +43,10 @@ Commit the ledger update with the work.
 | **S12** | Project and floor screens | NOT STARTED | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
 
-**Two verifications** are folded into the sections that own them: the
-dimension-tap unlock into **S5**, the project-card plan into **S12**. Neither has
-ever been confirmed by eye.
+**Two verifications** were folded into the sections that own them: the
+dimension-tap unlock into **S5**, the project-card plan into **S12**. The
+project-card plan was confirmed 17 Aug 2026, incidentally, while checking S1 —
+"My Condo"'s card draws correctly. The dimension-tap unlock is still open.
 
 ---
 
@@ -103,9 +104,15 @@ purpose — and the number feeds wall area, volume, the elevations and the
 report. That is an owner decision, not a structural one, so it was left alone.
 See the note in **S12**, which owns the floor sheet where the same field lives.
 
-**Still to look at, on a real room:** the Living Area stepper actually writing;
-the rename committing on Return and on leaving the field; the header chevron's
-two steps; that the drying log still reads correctly in its new place.
+**Verified on the simulator, 17 Aug 2026, on "My Condo → Living room":** tabs,
+header, and both new fields all confirmed live — Living Area stepper writes
+and its reset link works, Room Name live-updates the header and its
+empty-name guard reverts cleanly rather than saving blank, See All opens the
+new `RoomStatisticsSheet` with the ⓘ popovers working, Forms shows its empty
+state, the chevron collapses large→medium then dismisses. Photos & Notes and
+the drying log both still render. This also stood in for the **S12
+project-card-plan verification** — "My Condo"'s card drew its plan correctly.
+S1 is done.
 
 ---
 
@@ -351,4 +358,6 @@ Newest last. One or two lines per chat.
   nothing in this section has been seen running. `BUILD SUCCEEDED`, installed
   and launched on the simulator, but the app opens on the admin password wall
   and the phone was `unavailable` to `devicectl`, so the room sheet was never
-  reached. Everything under S1's "Still to look at" is outstanding.
+  reached at first. Verified later the same day on the simulator instead —
+  tabs, header, both new fields, See All, Forms all confirmed live. S1 is
+  **DONE**. Also stood in for S12's project-card-plan check: confirmed drawing.
