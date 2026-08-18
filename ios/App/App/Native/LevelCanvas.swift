@@ -489,6 +489,8 @@ struct StoreyPlanView: View {
     @State private var openRoom: RoomScan?
     @State private var capturing = false
     @State private var showingHelp = false
+    @State private var insertOpen = false
+    @State private var addingPhoto = false
     @State private var showingFloorInfo = false
     @State private var error: String?
 
@@ -962,6 +964,16 @@ struct FloorCanvasView: View {
     @State private var switchingFloor = false
     @State private var sharing = false
     @State private var showingHelp = false
+    @State private var insertOpen = false
+    @State private var addingPhoto = false
+    /// Viewport. One finger pans and a pinch zooms, because nothing on this
+    /// screen is selectable — the room editor needs two fingers to keep a
+    /// stray thumb from moving a wall, but here a drag can only ever mean
+    /// "move the paper".
+    @State private var zoom: CGFloat = 1
+    @State private var pan: CGSize = .zero
+    @GestureState private var pinch: CGFloat = 1
+    @GestureState private var drag: CGSize = .zero
 
     /// Which storey is on screen: the one navigated to, until the floors
     /// stepper picks another.
@@ -985,19 +997,42 @@ struct FloorCanvasView: View {
             }
             .ignoresSafeArea()
 
-            if rooms.isEmpty {
-                VStack(spacing: 6) {
-                    Text("Nothing on this floor yet")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Brand.inkSoft)
-                    Text("Insert a room to start drawing it.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Brand.inkFaint)
+            // The drawing rides the viewport; the grid does not. Screen
+            // pitch is the paper and paper does not magnify when the sheet
+            // on top of it is scaled — the same rule `drawGrid` states.
+            Group {
+                if rooms.isEmpty {
+                    VStack(spacing: 6) {
+                        Text("Nothing on this floor yet")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Brand.inkSoft)
+                        Text("Insert a room to start drawing it.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                } else {
+                    LevelCanvas(rooms: rooms) { room in openRoom = room }
+                        .padding(Brand.Space.base)
                 }
-            } else {
-                LevelCanvas(rooms: rooms) { room in openRoom = room }
-                    .padding(Brand.Space.base)
             }
+            .scaleEffect(zoom * pinch)
+            .offset(x: pan.width + drag.width, y: pan.height + drag.height)
+            // Applied to the whole plate, under the chrome, so the bar and
+            // the steppers keep their own taps.
+            .contentShape(Rectangle())
+            .gesture(
+                SimultaneousGesture(
+                    MagnificationGesture()
+                        .updating($pinch) { value, state, _ in state = value }
+                        .onEnded { value in zoom = min(max(zoom * value, 0.4), 6) },
+                    DragGesture()
+                        .updating($drag) { value, state, _ in state = value.translation }
+                        .onEnded { value in
+                            pan.width += value.translation.width
+                            pan.height += value.translation.height
+                        }
+                )
+            )
 
             // The editor chrome, at floor depth. Undo/redo is drawn and
             // greyed rather than hidden: §3 of editor-chrome-design says the
@@ -1014,6 +1049,18 @@ struct FloorCanvasView: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Brand.ink)
                         }
+                        if zoom != 1 || pan != .zero {
+                            Button {
+                                withAnimation(.snappy) { zoom = 1; pan = .zero }
+                            } label: {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Brand.ink)
+                                    .frame(width: 34, height: 34)
+                                    .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.tile))
+                            }
+                            .buttonStyle(.plain)
+                        }
                         EditorStepperPill(action: {}) {
                             Text("2D")
                                 .font(.system(size: 14, weight: .bold))
@@ -1023,17 +1070,37 @@ struct FloorCanvasView: View {
                 }
                 .padding(Brand.Space.base)
                 Spacer()
-                EditorActionBar(
-                    depth: .floor(name: label),
-                    supported: [.insert],
-                    onAction: { action in
-                        if action == .insert { inserting = true }
-                    })
+                // The reference's Insert menu rises from the bar rather
+                // than replacing the screen: what you are inserting INTO
+                // stays visible behind it, which is the whole reason it is a
+                // popover and not a push.
+                VStack(spacing: 0) {
+                    if insertOpen {
+                        insertMenu
+                            .padding(.horizontal, Brand.Space.base)
+                            .padding(.bottom, Brand.Space.small)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
+                    EditorActionBar(
+                        depth: .floor(name: label),
+                        supported: [.insert],
+                        onAction: { action in
+                            if action == .insert {
+                                withAnimation(.snappy(duration: 0.18)) { insertOpen.toggle() }
+                            }
+                        })
+                }
             }
             .ignoresSafeArea(edges: .bottom)
         }
         .navigationTitle(label)
         .navigationBarTitleDisplayMode(.inline)
+        // The tab bar goes away here. This screen is a drawing surface with
+        // its own action bar at the foot, and two bars stacked on each other
+        // meant the tabs sat over Insert — the one control the screen exists
+        // to offer. A canvas is somewhere you are working, not somewhere you
+        // switch away from.
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button { showingHelp = true } label: {
@@ -1060,6 +1127,9 @@ struct FloorCanvasView: View {
         } message: {
             Text("This is the floor itself. Insert adds a room to it — start from a rectangle and pull it into shape. Tap a room once it is drawn to open its details.")
         }
+        .sheet(isPresented: $addingPhoto, onDismiss: { Task { await load() } }) {
+            ProjectFileUploader(projectId: projectId) { Task { await load() } }
+        }
         .sheet(isPresented: $inserting, onDismiss: { Task { await load() } }) {
             CaptureFlow(
                 projectId: projectId,
@@ -1077,6 +1147,69 @@ struct FloorCanvasView: View {
             RoomDetailView(room: room).id(room.id)
         }
         .task { await load() }
+    }
+
+    /// The reference's five, in its order. Two of them work here; three do
+    /// not, and are drawn dimmed with the reason rather than left out — the
+    /// owner tests this app by muscle memory, and a row that has moved is
+    /// worse than a row that says "not yet".
+    ///
+    /// **Object** is doors and windows, which are placed against a WALL —
+    /// there are no walls at floor depth, only rooms that have them. It
+    /// belongs to the room editor, and S8 owns it.
+    /// **Note** would be a note pinned on the plan; nothing stores one.
+    /// **Form** needs the template builder that S-level work has not reached.
+    @ViewBuilder private var insertMenu: some View {
+        VStack(spacing: 0) {
+            insertRow("Room", icon: "square.dashed", enabled: true) {
+                inserting = true
+            }
+            Divider()
+            insertRow("Object", icon: "bed.double", enabled: false, note: "In a room, on a wall") {}
+            Divider()
+            insertRow("Note", icon: "note.text", enabled: false, note: "Not stored yet") {}
+            Divider()
+            insertRow("Photo", icon: "camera", enabled: true) {
+                addingPhoto = true
+            }
+            Divider()
+            insertRow("Form", icon: "list.clipboard", enabled: false, note: "No templates yet") {}
+        }
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
+    }
+
+    private func insertRow(
+        _ title: String, icon: String, enabled: Bool, note: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            guard enabled else { return }
+            withAnimation(.snappy(duration: 0.15)) { insertOpen = false }
+            action()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 17))
+                        .foregroundStyle(enabled ? Brand.ink : Brand.inkFaint)
+                    if let note {
+                        Text(note)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                }
+                Spacer()
+                Image(systemName: icon)
+                    .font(.system(size: 17))
+                    .foregroundStyle(enabled ? Brand.ink : Brand.inkFaint)
+            }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 
     private func load() async {
