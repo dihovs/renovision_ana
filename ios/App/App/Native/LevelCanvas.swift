@@ -968,8 +968,11 @@ struct FloorCanvasView: View {
     @State private var switched: String?
     @State private var scans: [RoomScan]?
     @State private var inserting = false
-    /// The room whose plan is being adjusted — what a tap on the canvas
-    /// opens now. Its inspector is a swipe up from in there.
+    /// The room being edited, when one is. Its presence IS the depth: nil
+    /// draws the storey, set draws that room's own editor in the SAME
+    /// screen — no sheet, no push. See `body` and `RoomEditorCore`'s header
+    /// for why a modal was never going to satisfy the owner's own
+    /// instruction here.
     @State private var editingRoom: RoomScan?
     @State private var switchingFloor = false
     @State private var sharing = false
@@ -1000,6 +1003,34 @@ struct FloorCanvasView: View {
     }
 
     var body: some View {
+        // The whole screen is one of two things, never both: the storey, or
+        // the one room being edited. A plain `if/else` rather than a
+        // `.sheet` — a sheet always slides up as a new screen, however it
+        // is dressed, and tapping a room must NOT read as a new screen. The
+        // owner, after showing what magicplan does: *"it activates the
+        // editing mode. It doesn't pull up anything for anything. It just
+        // activates on that main canvas."*
+        //
+        // `RoomEditorCore` owns its OWN toolbar (leading back-pill, title,
+        // help/save) and its OWN bottom action bar — nothing here duplicates
+        // them. Its `.toolbar{}` reaches this screen's real nav bar exactly
+        // as `floorContent`'s does below, because neither wraps itself in a
+        // NavigationStack of its own; the app's own push already provides
+        // one. `backContext: .floor` is the one thing that has to differ
+        // from the standalone sheet's `.room`: back from here goes to the
+        // FLOOR, not to a room inspector behind it.
+        if let room = editingRoom {
+            RoomEditorCore(
+                room: room, onExit: { editingRoom = nil }, backContext: .floor,
+                onSaved: { Task { await load() } })
+                .id(room.id)
+                .environment(\.colorScheme, .light)
+        } else {
+            floorContent
+        }
+    }
+
+    private var floorContent: some View {
         ZStack {
             Brand.Plan.paper.ignoresSafeArea()
 
@@ -1198,12 +1229,6 @@ struct FloorCanvasView: View {
                 initialMode: method,
                 onSaved: { Task { await load() } },
                 onFinished: { _, _ in })
-        }
-        .sheet(item: $editingRoom, onDismiss: { Task { await load() } }) { room in
-            // Nothing is behind this, so the editor's swipe-up presents the
-            // room's inspector rather than dismissing into it.
-            PlanEditorView(room: room) { Task { await load() } }
-                .id(room.id)
         }
         .task { await load() }
     }

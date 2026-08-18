@@ -466,6 +466,25 @@ will tell you what a plan view actually occupies. `FloorPlanView` is the
 only plan renderer with an internal `.aspectRatio` (checked 18 Aug), so if
 `PlanEditorView`'s canvas gains one, its overlays need this treatment too.
 
+**Landed out of order (18 Aug 2026) — the canvas merge.** Also not this
+section's original scope, also done live because the owner hit it directly.
+`PlanEditorView` was a `.sheet` — tapping a room on the storey canvas always
+presented it as a new screen, however fast or quiet the animation. The
+owner showed four screenshots of magicplan doing the opposite: tap on the
+storey canvas activates editing IN PLACE, no new screen, and the room
+inspector is a swipe-up from THERE. Fixed by splitting `PlanEditorView`'s
+editing internals into `RoomEditorCore` — no `NavigationStack`, no toolbar
+of its own — and giving `FloorCanvasView` a plain `if editingRoom { core }
+else { floorContent }` instead of a sheet. Full account in the Log.
+
+**This does NOT touch the `BISECT` canvas-tap bug below.** That bug is
+about `handleTap` not registering a single-finger tap on a wall or corner
+AT ALL, inside the editor once you are already there. The canvas merge only
+changed how you ARRIVE at the editor. Rule the BISECT bug in or out
+separately — it may now be easier to reproduce, since a merged canvas means
+fewer moving parts between "I tapped" and "did anything happen", but it has
+not been touched.
+
 **In scope.**
 - **Canvas taps may not be registering at all, not just the dimension tap.**
   Found while building S2: selecting a wall or corner by tapping the canvas
@@ -1060,4 +1079,61 @@ Newest last. One or two lines per chat.
 
   **Unverified:** build 99 installed, none of the three looked at by anyone
   but the owner's own testing.
+- **2026-08-18** — The canvas merge, build 100. Prompted by the owner
+  showing four screenshots of magicplan's ACTUAL behaviour and stating it
+  plainly: *"it activates the editing mode. It doesn't pull up anything for
+  anything. It just activates on that main canvas."* Build 99's fix (tap →
+  `.sheet(item:)` presenting `PlanEditorView`) still failed this — a sheet
+  always slides up as a new screen, however it is dressed. The real fix
+  needed the storey view and the room editor to become ONE screen whose
+  content swaps, which is this session's version of what S5 was filed to do.
+  Told the size of it (two ~1500-line files, real gesture/undo state) before
+  starting; he said do it.
+
+  **What changed.** `PlanEditorView.swift`'s editing internals — canvas,
+  gestures, undo/redo, action bar, elevation, every sheet the room or its
+  walls open — split out into `RoomEditorCore`, which owns no
+  `NavigationStack` and no toolbar of its own. Two hosts now put chrome
+  around it: `PlanEditorView` (unchanged call sites — `RoomDetailView`'s
+  "Adjust the plan" still works exactly as before, `onExit` still dismisses
+  its sheet) wraps it in one; `FloorCanvasView` does not wrap it at all —
+  its `body` is now `if let room = editingRoom { RoomEditorCore(...) } else
+  { floorContent }`, a plain branch inside the SAME screen the app already
+  pushed. `RoomEditorCore`'s own `.toolbar{}` reaches that screen's real nav
+  bar because nothing sits between it and the app's own `NavigationStack` —
+  confirmed by testing on the device, not assumed.
+
+  A new `backContext` on `RoomEditorCore` (`.room` default vs. `.floor` for
+  the embedded case) is the one thing that had to differ between the two
+  hosts: back from a sheet goes to the room's own inspector behind it, back
+  from the storey canvas goes to the storey, and `EditorBackPill` already
+  had an unused `.floor` case sized exactly for this (`editor-chrome-
+  design.md` §1's table anticipated it before anything used it).
+
+  **What this fixes beyond the literal complaint.** Zoom and pan on the
+  storey now survive a trip into a room and back — they live on
+  `FloorCanvasView`, untouched by the branch — which a `.sheet` could never
+  have given for free. Undo/redo, the layers stepper and the 2D/elevation
+  stepper are `RoomEditorCore`'s own floating controls now, at room depth,
+  where they were always meant to read; the floor keeps its own separate
+  set at floor depth. Nothing about wall/corner/opening editing, the
+  measurement walk, locked edges, or Save changed — that logic moved
+  verbatim.
+
+  **Two smaller things from the same round of testing, both shipped in
+  build 100 too:**
+  - `labelAnchor`'s off-centre bug (see the earlier log entry this same day)
+    — confirmed as arithmetic, not taste, and fixed.
+  - Room colours: he questioned them, was told the reference has the field
+    and a migration sits behind it, chose to keep them. Recorded so a later
+    chat does not remove them on the strength of the first remark.
+
+  **Unverified — build 100 is on the phone, none of the merge has been
+  tapped by anyone but the owner's own testing to follow.** What to watch
+  for specifically: the back-pill at room depth should say "back to the
+  floor" (rectangle-split glyph) and land on the storey, not the project;
+  swipe-up at room depth should present the room inspector as the same
+  medium/large sheet `RoomDetailView` already used; a SELECTED WALL's
+  swipe-up should still reach the wall's own inspector, not the room's.
+  These three are the seams a merge like this would break first.
 

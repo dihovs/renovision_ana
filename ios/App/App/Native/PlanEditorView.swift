@@ -12,24 +12,51 @@ import SwiftUI
 /// is committed until Save, and the scan's own measurements are never
 /// overwritten — an edited room keeps both, so "what did the laser say" is
 /// always answerable.
-struct PlanEditorView: View {
+///
+/// The canvas, the handles, the gestures, the action bar, the sheets one
+/// room's own inspector and its walls open into — everything a plan editor
+/// draws and answers to, MINUS the chrome that says whose screen it is.
+///
+/// Split out from `PlanEditorView` on 18 Aug 2026, the day tapping a room on
+/// the storey canvas stopped presenting this as a new screen. The owner, in
+/// his own words, after watching magicplan do it: *"it activates the editing
+/// mode. It doesn't pull up anything for anything. It just activates on that
+/// main canvas."* A `.sheet` always slides up as a screen, however it is
+/// dressed — the only way to "just activate" is for the SAME view that was
+/// already on screen to start drawing this instead, which means this content
+/// cannot own its own `NavigationStack` or toolbar, because whoever hosts it
+/// (a sheet, or the storey canvas in place) owns those.
+///
+/// Two hosts, both below:
+/// - `PlanEditorView` — a `NavigationStack` around this, presented as a
+///   sheet from `RoomDetailView`'s "Adjust the plan". `onExit` dismisses it.
+/// - `FloorCanvasView` — no `NavigationStack` of its own; this is swapped in
+///   for its storey view directly, inside the SAME screen the app already
+///   pushed. `onExit` steps back to the floor instead.
+struct RoomEditorCore: View {
     let room: RoomScan
+    /// What leaving this room (nothing selected, back pressed, or dirty
+    /// discarded) actually does. A sheet host dismisses; the storey canvas
+    /// steps back to floor depth. Either way this view's own `@State` — the
+    /// whole in-progress edit — goes with it, which is what makes Discard
+    /// correct by construction rather than something to reset by hand.
+    let onExit: () -> Void
     /// True when the room's own inspector is the screen this editor opened
-    /// OVER — `RoomDetailView`'s "Adjust the plan". Then the swipe-up is a
-    /// dismissal, because the inspector is already behind and raising a
+    /// OVER — `RoomDetailView`'s "Adjust the plan". Then the swipe-up is
+    /// `onExit`, because the inspector is already behind and raising a
     /// second copy of it on top of itself would be nonsense.
     ///
-    /// False when the editor was entered directly by tapping the room on the
-    /// storey canvas, which is what a tap does since 18 Aug 2026 at the
-    /// owner's instruction: *"when I click, it automatically should go to
-    /// the adjustment mode."* Nothing is behind then, so the swipe-up has to
-    /// PRESENT the inspector — that is the route he chose to keep it
-    /// reachable, and it is the gesture the reference uses for every
-    /// inspector anyway.
+    /// False when entered from the storey canvas, where nothing is behind —
+    /// so the swipe-up has to PRESENT the inspector, which is the gesture
+    /// the reference uses for every inspector.
     var inspectorIsBehind: Bool = false
+    /// The back pill's glyph: which kind of "back" this is. `.room` says
+    /// "back to this room's inspector" (the standalone sheet's own case);
+    /// `.floor` says "back to the storey" (the embedded case). Both read
+    /// correctly against `EditorBackPill`'s own table.
+    var backContext: EditorBackPill.Context = .room
     let onSaved: () -> Void
 
-    @Environment(\.dismiss) private var dismiss
     /// Observed so changing the unit redraws every dimension on the
     /// canvas, not just the keypad's own readout.
     @ObservedObject private var units = UnitSettings.shared
@@ -148,146 +175,140 @@ struct PlanEditorView: View {
         return geometry.doors.isEmpty && geometry.windows.isEmpty && geometry.openings.isEmpty
     }
 
+    /// **Every host must pin this to `.environment(\.colorScheme, .light)`.**
+    /// A drawing is ink on paper and paper does not invert; fixing only the
+    /// canvas would leave the chrome's ink inverting to near-white on top of
+    /// white paper — trading an invisible drawing for invisible labels. It
+    /// is also what the operator hands an adjuster: a plan that looks
+    /// different on two phones is a plan whose measurements get questioned.
+    /// Not applied here, deliberately — this content has no wrapper of its
+    /// own to hang it on, so `PlanEditorView` and `FloorCanvasView` each
+    /// apply it themselves, at their own call site.
     var body: some View {
-        editor.environment(\.colorScheme, .light)
-    }
+        ZStack {
+            Brand.Plan.sheet.ignoresSafeArea()
 
-    /// The editor, as a light document.
-    ///
-    /// Pinned to the light appearance because a drawing is ink on paper
-    /// and paper does not invert. Fixing only the canvas would leave the
-    /// chrome's ink inverting to near-white on top of white paper --
-    /// trading an invisible drawing for invisible labels. It is also
-    /// what the operator hands an adjuster: a plan that looks different
-    /// on two phones is a plan whose measurements get questioned.
-    private var editor: some View {
-        NavigationStack {
-            ZStack {
-                Brand.Plan.sheet.ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    canvas
-                    // While a measurement walk runs, the panel takes the
-                    // controls' place — the canvas stays above, live, with
-                    // the active wall highlighted.
-                    if let run = measuring {
-                        MeasurementPanel(
-                            step: run.position,
-                            total: run.queue.count,
-                            current: PlanEditing.edgeLength(corners, run.active),
-                            locked: locked.contains(run.active),
-                            onCommit: { commitMeasurement($0) },
-                            onUnlock: { locked.remove(run.active) },
-                            onClose: { endMeasuring() })
-                    } else {
-                        controls
-                    }
+            VStack(spacing: 0) {
+                canvas
+                // While a measurement walk runs, the panel takes the
+                // controls' place — the canvas stays above, live, with
+                // the active wall highlighted.
+                if let run = measuring {
+                    MeasurementPanel(
+                        step: run.position,
+                        total: run.queue.count,
+                        current: PlanEditing.edgeLength(corners, run.active),
+                        locked: locked.contains(run.active),
+                        onCommit: { commitMeasurement($0) },
+                        onUnlock: { locked.remove(run.active) },
+                        onClose: { endMeasuring() })
+                } else {
+                    controls
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // §1. Leading is the pill — a back chevron beside a context
-                // glyph saying what you would go back TO. From here that is
-                // the room's own inspector, so the glyph is the room one.
-                ToolbarItem(placement: .topBarLeading) {
-                    EditorBackPill(context: .room) {
-                        if isDirty { showDiscard = true } else { dismiss() }
-                    }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // §1. Leading is the pill — a back chevron beside a context
+            // glyph saying what you would go back TO.
+            ToolbarItem(placement: .topBarLeading) {
+                EditorBackPill(context: backContext) {
+                    if isDirty { showDiscard = true } else { onExit() }
                 }
-                // Centre: bold title, grey subtitle, both changing with
-                // depth — `Wall` / `Ground Floor`, `Window` / `Ground Floor`.
-                ToolbarItem(placement: .principal) {
-                    EditorNavTitle(title: navTitle, subtitle: navSubtitle)
+            }
+            // Centre: bold title, grey subtitle, both changing with
+            // depth — `Wall` / `Ground Floor`, `Window` / `Ground Floor`.
+            ToolbarItem(placement: .principal) {
+                EditorNavTitle(title: navTitle, subtitle: navSubtitle)
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    showingHelp = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 17))
                 }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        showingHelp = true
-                    } label: {
-                        Image(systemName: "questionmark.circle")
-                            .font(.system(size: 17))
-                    }
+                .tint(Brand.blue)
+
+                // Save is ours, not the reference's: magicplan saves
+                // continuously and has no such button, but this editor
+                // posts a corrected polygon to the API and the operator
+                // has to be able to say when. It takes the slot §1 gives
+                // the share glyph, which would have nothing to share
+                // from a room whose edits are not committed yet.
+                Button("Save") { Task { await save() } }
+                    .fontWeight(.bold)
                     .tint(Brand.blue)
-
-                    // Save is ours, not the reference's: magicplan saves
-                    // continuously and has no such button, but this editor
-                    // posts a corrected polygon to the API and the operator
-                    // has to be able to say when. It takes the slot §1 gives
-                    // the share glyph, which would have nothing to share
-                    // from a room whose edits are not committed yet.
-                    Button("Save") { Task { await save() } }
-                        .fontWeight(.bold)
-                        .tint(Brand.blue)
-                        .disabled(saving || invalid || !isDirty)
-                }
+                    .disabled(saving || invalid || !isDirty)
             }
-            .popover(isPresented: $showingHelp) { helpCard }
-            .task { load() }
-            .sheet(isPresented: $addingOpening) {
-                if case .wall(let edge) = selection {
-                    OpeningPicker(
-                        edgeLength: PlanEditing.edgeLength(corners, edge),
-                        fits: { kind in
-                            PlanEditing.placeOpening(
-                                kind, onEdge: edge, of: corners, avoiding: openings) != nil
-                        }
-                    ) { kind in
-                        if let placed = PlanEditing.placeOpening(
-                            kind, onEdge: edge, of: corners, avoiding: openings)
-                        {
-                            push()
-                            openings.append(placed)
-                            selection = .opening(openings.count - 1)
-                        }
-                        addingOpening = false
+        }
+        .popover(isPresented: $showingHelp) { helpCard }
+        .task { load() }
+        .sheet(isPresented: $addingOpening) {
+            if case .wall(let edge) = selection {
+                OpeningPicker(
+                    edgeLength: PlanEditing.edgeLength(corners, edge),
+                    fits: { kind in
+                        PlanEditing.placeOpening(
+                            kind, onEdge: edge, of: corners, avoiding: openings) != nil
                     }
-                }
-            }
-            .sheet(isPresented: $inspectingRoom) {
-                RoomDetailView(room: room)
-            }
-            .sheet(
-                isPresented: Binding(
-                    get: { inspectingWall != nil }, set: { if !$0 { inspectingWall = nil } })
-            ) {
-                if let index = inspectingWall {
-                    WallDetailView(
-                        room: room, wallIndex: index,
-                        lengthM: PlanEditing.edgeLength(corners, index),
-                        onAddArea: { openElevation(atSelectedWall: true) })
-                }
-            }
-            // ORD-19's elevation view, full screen over the plan. The state,
-            // the double-tap and the view-mode row are all live; only what
-            // gets presented is stubbed — see `elevationPresentation`.
-            .fullScreenCover(
-                isPresented: Binding(
-                    get: { elevationWall != nil },
-                    set: { if !$0 { closeElevation() } })
-            ) {
-                elevationPresentation
-            }
-            .confirmationDialog(
-                "Discard your changes?", isPresented: $showDiscard, titleVisibility: .visible
-            ) {
-                Button("Discard", role: .destructive) { dismiss() }
-                Button("Keep editing", role: .cancel) {}
-            }
-            .confirmationDialog(
-                "A wall next to this one was measured by hand. Moving this wall changes it.",
-                isPresented: Binding(
-                    get: { lockedWarning != nil }, set: { if !$0 { lockedWarning = nil } }),
-                titleVisibility: .visible
-            ) {
-                Button("Unlock and move it") {
-                    if let index = lockedWarning {
-                        let n = corners.count
-                        locked.remove((index - 1 + n) % n)
-                        locked.remove((index + 1) % n)
+                ) { kind in
+                    if let placed = PlanEditing.placeOpening(
+                        kind, onEdge: edge, of: corners, avoiding: openings)
+                    {
+                        push()
+                        openings.append(placed)
+                        selection = .opening(openings.count - 1)
                     }
-                    lockedWarning = nil
+                    addingOpening = false
                 }
-                Button("Leave it alone", role: .cancel) { lockedWarning = nil }
             }
+        }
+        .sheet(isPresented: $inspectingRoom) {
+            RoomDetailView(room: room)
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { inspectingWall != nil }, set: { if !$0 { inspectingWall = nil } })
+        ) {
+            if let index = inspectingWall {
+                WallDetailView(
+                    room: room, wallIndex: index,
+                    lengthM: PlanEditing.edgeLength(corners, index),
+                    onAddArea: { openElevation(atSelectedWall: true) })
+            }
+        }
+        // ORD-19's elevation view, full screen over the plan. The state,
+        // the double-tap and the view-mode row are all live; only what
+        // gets presented is stubbed — see `elevationPresentation`.
+        .fullScreenCover(
+            isPresented: Binding(
+                get: { elevationWall != nil },
+                set: { if !$0 { closeElevation() } })
+        ) {
+            elevationPresentation
+        }
+        .confirmationDialog(
+            "Discard your changes?", isPresented: $showDiscard, titleVisibility: .visible
+        ) {
+            Button("Discard", role: .destructive) { onExit() }
+            Button("Keep editing", role: .cancel) {}
+        }
+        .confirmationDialog(
+            "A wall next to this one was measured by hand. Moving this wall changes it.",
+            isPresented: Binding(
+                get: { lockedWarning != nil }, set: { if !$0 { lockedWarning = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Unlock and move it") {
+                if let index = lockedWarning {
+                    let n = corners.count
+                    locked.remove((index - 1 + n) % n)
+                    locked.remove((index + 1) % n)
+                }
+                lockedWarning = nil
+            }
+            Button("Leave it alone", role: .cancel) { lockedWarning = nil }
         }
     }
 
@@ -890,7 +911,7 @@ struct PlanEditorView: View {
                 geometry: geometry,
                 roomType: room.roomType))
             onSaved()
-            dismiss()
+            onExit()
         } catch {
             self.error = error.localizedDescription
         }
@@ -900,7 +921,7 @@ struct PlanEditorView: View {
         do {
             try await API.shared.deleteScan(id: room.id)
             onSaved()
-            dismiss()
+            onExit()
         } catch {
             self.error = error.localizedDescription
         }
@@ -1049,7 +1070,7 @@ struct PlanEditorView: View {
                     if case .wall(let index) = selection {
                         inspectingWall = index
                     } else if inspectorIsBehind {
-                        if isDirty { showDiscard = true } else { dismiss() }
+                        if isDirty { showDiscard = true } else { onExit() }
                     } else {
                         inspectingRoom = true
                     }
@@ -1356,11 +1377,32 @@ struct PlanEditorView: View {
                 openings: canAuthorOpenings ? openings : nil,
                 ceilingHeight: room.ceilingHeightM)
             onSaved()
-            dismiss()
+            onExit()
         } catch {
             self.error = error.localizedDescription
         }
         saving = false
+    }
+}
+
+/// The standalone entry point: `RoomEditorCore` inside its own
+/// `NavigationStack`, presented as a sheet from `RoomDetailView`'s "Adjust
+/// the plan". Call sites are unchanged from before the 18 Aug 2026 split —
+/// this exists so they do not have to know the core was ever extracted.
+struct PlanEditorView: View {
+    let room: RoomScan
+    var inspectorIsBehind: Bool = false
+    let onSaved: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            RoomEditorCore(
+                room: room, onExit: { dismiss() }, inspectorIsBehind: inspectorIsBehind,
+                onSaved: onSaved)
+        }
+        .environment(\.colorScheme, .light)
     }
 }
 
