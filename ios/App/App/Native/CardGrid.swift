@@ -1,3 +1,5 @@
+import CoreLocation
+import MapKit
 import SwiftUI
 
 /// The card grid the reference uses everywhere it lists things — projects,
@@ -304,20 +306,103 @@ struct MiniPlan: View {
     }
 }
 
-/// The property address, as the reference's card draws it: a map-ish plate on
-/// the left, the lines beside it, a chevron to edit.
+/// The property address, with a real map of it.
 ///
-/// The plate is drawn rather than a real map. A live map tile per project
-/// costs an API key, a network round trip and a quota, and answers a question
-/// nobody asked — the operator knows the city, they need the street. When an
-/// address is worth routing to, that belongs behind a "Directions" action
-/// that hands the address to Maps, not behind a thumbnail.
+/// MapKit renders and geocodes free on device — no key, no quota — so the
+/// plate is the actual place rather than a drawn stand-in. Two targets, and
+/// they are deliberately different actions: the MAP opens Apple Maps with
+/// driving directions, because a crew looking at an address wants to leave;
+/// the TEXT opens the editor, because anybody else looking at it wants to
+/// correct a typo.
+///
+/// Geocoding is best-effort. It needs signal, it can fail on a half-typed
+/// address, and a basement has neither — so a failure falls back to the
+/// plain plate and the card keeps working. The address text is never gated
+/// behind the lookup succeeding.
 struct ProjectAddressCard: View {
     let lines: [String]
+    /// The full one-line address to look up. Kept separate from `lines`
+    /// because a geocoder wants "123 Rue X, Laval, H7N 1A1" in one string,
+    /// while the card draws it in three.
+    let query: String
+    let onEdit: () -> Void
+
+    @State private var coordinate: CLLocationCoordinate2D?
 
     var body: some View {
         Card(padding: Brand.Space.small) {
             HStack(spacing: Brand.Space.small) {
+                mapPlate
+                Button(action: onEdit) {
+                    HStack(spacing: Brand.Space.small) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if lines.isEmpty {
+                                Text("Address Line #1")
+                                    .font(.system(size: 15))
+                                    .foregroundStyle(Brand.inkFaint)
+                                Text("City, State")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Brand.inkFaint)
+                                Text("Postal Code")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Brand.inkFaint)
+                            } else {
+                                ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                                    Text(line)
+                                        .font(.system(size: index == 0 ? 15 : 13,
+                                                      weight: index == 0 ? .semibold : .regular))
+                                        .foregroundStyle(index == 0 ? Brand.ink : Brand.inkSoft)
+                                        .multilineTextAlignment(.leading)
+                                }
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .task(id: query) { await locate() }
+    }
+
+    @ViewBuilder private var mapPlate: some View {
+        Group {
+            if let coordinate {
+                Button {
+                    let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+                    item.name = lines.first ?? "Property"
+                    item.openInMaps(
+                        launchOptions: [
+                            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+                        ])
+                } label: {
+                    Map(
+                        initialPosition: .region(
+                            MKCoordinateRegion(
+                                center: coordinate,
+                                latitudinalMeters: 350, longitudinalMeters: 350)),
+                        interactionModes: []
+                    ) {
+                        Marker("", coordinate: coordinate).tint(Brand.blue)
+                    }
+                    .frame(width: 62, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(alignment: .bottomTrailing) {
+                        // Says the plate is a way out of the app, not just a
+                        // picture — otherwise nobody discovers the tap.
+                        Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.blue)
+                            .background(Circle().fill(.white))
+                            .padding(2)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8).fill(Brand.Plan.floorMuted)
                     Image(systemName: "map")
@@ -325,32 +410,16 @@ struct ProjectAddressCard: View {
                         .foregroundStyle(Brand.Plan.dimension.opacity(0.7))
                 }
                 .frame(width: 62, height: 52)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    if lines.isEmpty {
-                        Text("Address Line #1")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Brand.inkFaint)
-                        Text("City, State")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Brand.inkFaint)
-                        Text("Postal Code")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Brand.inkFaint)
-                    } else {
-                        ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                            Text(line)
-                                .font(.system(size: index == 0 ? 15 : 13,
-                                              weight: index == 0 ? .semibold : .regular))
-                                .foregroundStyle(index == 0 ? Brand.ink : Brand.inkSoft)
-                        }
-                    }
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Brand.inkFaint)
             }
         }
+    }
+
+    private func locate() async {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            coordinate = nil
+            return
+        }
+        let found = try? await CLGeocoder().geocodeAddressString(query)
+        coordinate = found?.first?.location?.coordinate
     }
 }

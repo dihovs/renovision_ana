@@ -682,12 +682,17 @@ struct ProjectDetailView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button {
-                        editingDetails = true
-                    } label: {
-                        ProjectAddressCard(lines: record?.addressLines ?? [])
-                    }
-                    .buttonStyle(.plain)
+                    // Not wrapped in a Button: the card has two targets of
+                    // its own — the map goes to Apple Maps, the text comes
+                    // here to be edited — and an outer button would swallow
+                    // both.
+                    ProjectAddressCard(
+                        lines: record?.addressLines ?? [],
+                        query: [record?.addressLine1, record?.addressCity, record?.addressPostal]
+                            .compactMap { $0 }
+                            .filter { !$0.isEmpty }
+                            .joined(separator: ", "),
+                        onEdit: { editingDetails = true })
 
                     // Forms, where the reference puts it: above Statistics,
                     // its own card with a chevron. Empty for now — the
