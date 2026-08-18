@@ -442,6 +442,62 @@ header with the company block and page numbers.
 AirDrop the PDF to the Mac and read it with PDFKit — far cheaper and clearer than
 screenshotting the in-app viewer, which does not scroll under mirroring anyway.
 
+### The reference report, read page by page (17 Aug 2026)
+
+The owner supplied a real 19-page export of his own job ("My New Project",
+4489 Rue de Palerme). Read with PDFKit per the protocol above — the whole
+structure below came out as text, no screenshots. **This is the target.**
+
+**Page 1 — cover, and nothing else on it.** Project name; `CREATED ON` +
+date; `LOCATION` as four lines (street / postal + city / province / country);
+then four figures — `Total area`, `Floors`, `Rooms`, `Bathroom`. The company
+block sits at the foot: name, email, street address, website, phone. Note
+**Bathroom is its own headline count** beside rooms, which means a room
+TYPE is being counted separately on the cover — we have `room_type` and can
+do the same.
+
+**Page 2 — the storey, whole.** Every room drawn together, each labelled
+`name`, `area m²`, and `(width × length)` beneath it. Wall dimension chains
+run outside the outline. Bottom-left carries a **scale bar with ticks**
+(`0 1 2 3m`) and the **ratio** (`1:70`) — and the ratio CHANGES per page,
+computed from what that page had to fit: 1:70 here, 1:54, 1:64, 1:49, 1:45
+on later room pages. So the scale is derived per drawing, not a constant.
+
+**Pages 3–18 — one room at a time, photos interleaved behind it.** Per room,
+in this order:
+
+1. A plan page: `▼ <Room name>` then the storey name under it; a first
+   figure line `WIDTH: … • LENGTH: … • CEILING HEIGHT: …`; a second
+   `AREA: … • PERIMETER: …`; the room drawn alone with its own chains and
+   its own scale bar + ratio; then `▼ <Room>/<Floor>` and a `Photos —
+   N Photos (see photos page)` pointer.
+2. Its photo pages: header `▼ Photos/<Room>`, **six tiles per page** in two
+   columns, each captioned `<Room> Photo n`. Overflow starts a new page
+   with the same header (2nd bedroom ran 7 items onto a second page for
+   one tile).
+
+**Videos are captioned in the same sequence as photos** — `2nd bedroom
+Video 1`, `Video 2` — numbered in their own series, not merged with the
+photo numbering. This confirms §2e and is a live constraint on **S7**.
+
+**Page 19 — signature.** Four labelled blanks: `Signature`, `Signature
+Date`, `Printed Full Name`, `Phone`. Nothing else.
+
+**Running header, every page from 2 on:** project name; the full address on
+one line; then `TOTAL AREA: … • LIVING AREA: … • FLOORS: … • ROOMS: …`.
+Note both areas are printed on every page — ours must be able to, which
+means the living-area figure has to be available to the report and not only
+to the phone.
+
+**Running footer, every page:** the disclaimer in caps, and `Page n/19`.
+
+**What this adds that was not already written down:** the cover page's
+existence and layout, the signature page, the per-page scale RATIO being
+derived rather than fixed, `Bathroom` as a headline count, and the video
+caption series. The extracted text is at
+`Docs/reference/magicplan/report-19-page.txt` if it is worth re-reading;
+the PDF itself stays out of the repo.
+
 ---
 
 ## S11 — Commercial room types (BLOCKED)
@@ -548,6 +604,32 @@ Newest last. One or two lines per chat.
   BISECT comment and the canvas-tap symptom belong there too** and are worth
   resolving properly before anything else in the plan editor gets built on
   top of it blind. S2 is **DONE**.
+- **2026-08-17** — Project screens rebuilt to the reference across many
+  small passes: All/Favorites/Archived chips with a real archived query and
+  Restore; per-card ⋯ menu (Favourite · Move · Duplicate · Archive) with
+  migration 0035 behind it; the project page's own order (description,
+  address, Forms, Statistics 4-up, Floor Plans, Photos, Files, Created/Last
+  modified); a map-based Project Location picker with Apple search and
+  reverse geocoding (migration 0036); Project Info behind the pencil; and
+  the Export Floor Plans sheet. Scanning lost its tab and floating button —
+  it is now the + in Floor Plans, per the owner. **Three real bugs found
+  and fixed on the way, all of the same family — a screen that could not
+  show what the database already held**: `ProjectSummary.==` compared ids
+  only, so SwiftUI correctly refused to redraw a card whose star had just
+  changed (favourite looked permanently stuck); `URLSession` was left on
+  the default cache policy, which can serve a stale GET; and the New
+  Project tile was drawn with `strokeBorder`, which fills nothing, so only
+  its 1.5pt outline took a tap. Also: + no longer creates a project on tap
+  (it opened the form instead, after empty "New project N" rows piled up),
+  and favouriting no longer bumps `updated_at`, which was shuffling starred
+  jobs to the top of the grid.
+- **2026-08-17** — The owner supplied a real 19-page report export. Read
+  with PDFKit and written up page by page into **S10**, with the extracted
+  text kept at `Docs/reference/magicplan/report-19-page.txt`. It adds five
+  things the section did not have: the cover page, the signature page, the
+  per-page scale ratio being derived rather than fixed, `Bathroom` as a
+  headline count on the cover, and videos captioned in their own numbered
+  series (which constrains **S7**). Nothing was built from it yet.
 - **2026-08-17** — S3 built and **verified live**: freehand drawing in
   `AreaEditor`, additive beside the corner editor as scoped. New pure
   geometry in `PlanEditing` (`simplify`, `simplifyClosed` — RDP on an open
