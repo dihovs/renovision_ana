@@ -963,8 +963,11 @@ struct ProjectDetailView: View {
                 Button { sharing = true } label: { Image(systemName: "square.and.arrow.up") }
             }
         }
-        .navigationDestination(isPresented: $sharing) {
-            ReportShareView(projectId: project.id, projectName: project.name)
+        .sheet(isPresented: $sharing) {
+            ProjectExportSheet(
+                projectId: project.id,
+                projectName: project.name,
+                onShowFiles: {})
         }
         .sheet(isPresented: $pickingLocation) {
             ProjectLocationPicker(
@@ -1984,4 +1987,184 @@ extension ISO8601DateFormatter {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
+}
+
+/// The reference's `Export Floor Plans` sheet, behind the share button.
+///
+/// Laid out exactly as the reference so the hand finds each row where it
+/// expects to, but honest about which ones do something. Three of the
+/// reference's five exports are not built here, and one of them — the 3D
+/// model — cannot be: this editor is 2D by design (`threeDBlocked`), so
+/// there is no model to hand anybody. A row that opened a spinner and
+/// produced nothing would be worse than a row that says so.
+///
+/// `Integrations` is the reference's second tab: cloud services a plan gets
+/// pushed to. There are none here, and inventing the tab to hold an empty
+/// state would be furniture, so it is a single honest row rather than a
+/// segmented control with nothing behind it.
+struct ProjectExportSheet: View {
+    let projectId: String
+    let projectName: String
+    /// Called when the operator picks "Previously Generated Files", so the
+    /// project page can take them to the Files rail rather than this sheet
+    /// pretending to hold a second copy of it.
+    let onShowFiles: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var makingReport = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: Brand.Space.base) {
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            NavigationLink {
+                                ReportShareView(projectId: projectId, projectName: projectName)
+                            } label: {
+                                ExportRow(
+                                    icon: "list.clipboard",
+                                    title: "Report PDF",
+                                    caption: "Get your project report in PDF format",
+                                    ready: true)
+                            }
+                            .buttonStyle(.plain)
+
+                            Divider().padding(.leading, 58)
+                            ExportRow(
+                                icon: "doc.richtext",
+                                title: "Sketch PDF",
+                                caption: "The plan on its own, without the report around it",
+                                ready: false)
+                            Divider().padding(.leading, 58)
+                            ExportRow(
+                                icon: "photo.on.rectangle",
+                                title: "Sketch Files",
+                                caption: "The plan as an image — PNG, SVG",
+                                ready: false)
+                            Divider().padding(.leading, 58)
+                            ExportRow(
+                                icon: "cube",
+                                title: "3D Model",
+                                caption: "This editor is 2D by design, so there is no model to export",
+                                ready: false)
+                            Divider().padding(.leading, 58)
+                            ExportRow(
+                                icon: "ruler",
+                                title: "Statistics",
+                                caption: "Areas and perimeters of every room, as a file",
+                                ready: false)
+                        }
+                    }
+
+                    Button {
+                        dismiss()
+                        onShowFiles()
+                    } label: {
+                        Card(padding: Brand.Space.small) {
+                            HStack(spacing: Brand.Space.small) {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(Brand.blue)
+                                    .frame(width: 30)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Previously Generated Files")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(Brand.blue)
+                                    Text("Everything already made for this job, in its Files section")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Brand.inkSoft)
+                                }
+                                Spacer()
+                                Image(systemName: "arrow.up.left")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Brand.blue)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    VStack(alignment: .leading, spacing: Brand.Space.small) {
+                        SectionHeading(title: "SHARE LINKS")
+                        Card(padding: 0) {
+                            VStack(spacing: 0) {
+                                NavigationLink {
+                                    ReportShareView(projectId: projectId, projectName: projectName)
+                                } label: {
+                                    ExportRow(
+                                        icon: "envelope",
+                                        title: "Send a copy",
+                                        caption: "Make the PDF and hand it to Mail, Messages or anything else",
+                                        ready: true)
+                                }
+                                .buttonStyle(.plain)
+                                Divider().padding(.leading, 58)
+                                ExportRow(
+                                    icon: "link",
+                                    title: "Get Shareable Link",
+                                    caption: "Crew links exist per job, not per project — not wired here yet",
+                                    ready: false)
+                            }
+                        }
+                    }
+
+                    Text("Rows without an arrow are not built yet. They are listed so this sheet stays the shape you know, not to suggest they work.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.inkFaint)
+                        .padding(.top, Brand.Space.tight)
+                }
+                .padding(Brand.Space.base)
+            }
+            .background(Brand.canvas)
+            .navigationTitle("Export Floor Plans")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Brand.inkSoft)
+                            .frame(width: 30, height: 30)
+                            .background(Brand.surfaceRaised, in: Circle())
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// One row of the export sheet. `ready` is the whole of the honesty: a row
+/// that works carries a chevron and full-strength ink; one that does not is
+/// dimmed and carries nothing to tap.
+private struct ExportRow: View {
+    let icon: String
+    let title: String
+    let caption: String
+    let ready: Bool
+
+    var body: some View {
+        HStack(spacing: Brand.Space.small) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundStyle(ready ? Brand.ink : Brand.inkFaint)
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(ready ? Brand.ink : Brand.inkFaint)
+                Text(caption)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            if ready {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
+            }
+        }
+        .padding(Brand.Space.small)
+        .contentShape(Rectangle())
+    }
 }
