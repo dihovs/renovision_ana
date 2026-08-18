@@ -1006,24 +1006,34 @@ struct FloorCanvasView: View {
             // Oversized deliberately. At the widest zoom-out a screen-sized
             // grid would show its own edges as the pan ran past them, and an
             // edge is the one thing paper must not appear to have.
-            ZStack {
-                Canvas { context, size in
-                    EditorChrome.drawGrid(context: context, size: size)
-                }
-                .frame(width: 2400, height: 2400)
+            // Color.clear is the layout, the plate is only an overlay on
+            // it. That is the whole reason this is not a plain ZStack: an
+            // overlay does not size its host, whereas a 2400pt sibling made
+            // the surrounding stack 2400pt tall and pushed the action bar
+            // and the steppers clean off the screen — the canvas was all
+            // that was left visible.
+            //
+            // Color.clear also fills whatever space it is offered, so the
+            // gesture area is the screen rather than the drawing: sized to
+            // the drawing, an empty floor left almost nothing to grab and
+            // the canvas appeared inert.
+            Color.clear
+                .overlay {
+                    ZStack {
+                        Canvas { context, size in
+                            EditorChrome.drawGrid(context: context, size: size)
+                        }
+                        .frame(width: 2400, height: 2400)
 
-                if !rooms.isEmpty {
-                    LevelCanvas(rooms: rooms) { room in openRoom = room }
-                        .padding(Brand.Space.base)
+                        if !rooms.isEmpty {
+                            LevelCanvas(rooms: rooms) { room in openRoom = room }
+                                .padding(Brand.Space.base)
+                        }
+                    }
+                    .scaleEffect(zoom * pinch)
+                    .offset(x: pan.width + drag.width, y: pan.height + drag.height)
                 }
-            }
-            .scaleEffect(zoom * pinch)
-            .offset(x: pan.width + drag.width, y: pan.height + drag.height)
-            // The gesture layer has to FILL the screen, not hug its content:
-            // sized to the drawing, an empty floor left almost nothing to
-            // grab and the canvas appeared inert.
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
+                .clipped()
             .contentShape(Rectangle())
             .gesture(
                 SimultaneousGesture(
