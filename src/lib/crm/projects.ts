@@ -483,11 +483,35 @@ export async function listAssignees(): Promise<string[]> {
   return [...seen];
 }
 
+/**
+ * Star or unstar a project.
+ *
+ * `updated_at` is deliberately PRESERVED across this write. The list is
+ * ordered by it — "what has been worked on lately" — and a star is a
+ * bookmark the operator puts on a job, not work done to it. Bumping the
+ * stamp shuffled a starred job to the top of the grid as though somebody had
+ * just measured it: a lie about the job, and a card moving out from under
+ * the thumb that was aiming at it.
+ *
+ * The value has to be written back explicitly rather than simply left alone,
+ * because `projects_touch_updated_at` (migration 0015) fires BEFORE UPDATE on
+ * every row and would otherwise stamp it regardless.
+ */
 export async function setProjectFavorite(id: string, favorite: boolean): Promise<void> {
   const client = requireDb();
+
+  const { data: before } = await client
+    .from("projects")
+    .select("updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  const stamp = (before as { updated_at?: string } | null)?.updated_at;
+
   const { error } = await client
     .from("projects")
-    .update({ is_favorite: favorite, updated_at: new Date().toISOString() })
+    // Falling back to no stamp at all if the read failed is right: losing the
+    // ordering on one card is a smaller fault than refusing to star it.
+    .update(stamp ? { is_favorite: favorite, updated_at: stamp } : { is_favorite: favorite })
     .eq("id", id);
   if (error) {
     if (isMissingTable(error)) {
