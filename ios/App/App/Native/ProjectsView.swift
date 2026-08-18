@@ -1,3 +1,4 @@
+import MapKit
 import PhotosUI
 import SwiftUI
 
@@ -1105,6 +1106,7 @@ struct ProjectDetailsSheet: View {
     @State private var line1 = ""
     @State private var city = ""
     @State private var postal = ""
+    @StateObject private var search = AddressSearch()
 
     var body: some View {
         NavigationStack {
@@ -1114,6 +1116,36 @@ struct ProjectDetailsSheet: View {
                         .lineLimit(2...6)
                 }
                 Section("PROPERTY ADDRESS") {
+                    // Search first, type second. An address typed blind into
+                    // three boxes is the one that fails to geocode later and
+                    // sends somebody to the wrong street; picking a real one
+                    // Apple already knows about cannot. The fields below stay
+                    // editable because a flooded triplex sometimes has a unit
+                    // number no map knows.
+                    TextField("Search an address", text: $search.query)
+                        .textContentType(.fullStreetAddress)
+                        .autocorrectionDisabled()
+
+                    ForEach(search.results, id: \.self) { completion in
+                        Button {
+                            Task { await choose(completion) }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(completion.title)
+                                    .font(.system(size: 15))
+                                    .foregroundStyle(Brand.ink)
+                                if !completion.subtitle.isEmpty {
+                                    Text(completion.subtitle)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(Brand.inkSoft)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Section {
                     TextField("Street", text: $line1)
                         .textContentType(.streetAddressLine1)
                     TextField("City", text: $city)
@@ -1122,6 +1154,7 @@ struct ProjectDetailsSheet: View {
                         .textContentType(.postalCode)
                         .textInputAutocapitalization(.characters)
                 }
+
                 Section {
                     Text("The address of the property being worked on — not the client's billing address. They are often different, and this is the one the crew drives to.")
                         .font(.system(size: 12))
@@ -1152,6 +1185,62 @@ struct ProjectDetailsSheet: View {
                 postal = record?.addressPostal ?? ""
             }
         }
+    }
+
+    /// Turn a chosen suggestion into the three stored fields.
+    ///
+    /// `MKLocalSearchCompletion` carries only display text; the structured
+    /// parts come from resolving it, which is one more round trip and the
+    /// reason this is not done for every suggestion as it appears.
+    private func choose(_ completion: MKLocalSearchCompletion) async {
+        let response = try? await MKLocalSearch(
+            request: MKLocalSearch.Request(completion: completion)).start()
+        guard let placemark = response?.mapItems.first?.placemark else {
+            // Better a title in the street box than nothing: the operator can
+            // correct it, and Save must never depend on a lookup succeeding.
+            line1 = completion.title
+            return
+        }
+        line1 = [placemark.subThoroughfare, placemark.thoroughfare]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        if line1.isEmpty { line1 = completion.title }
+        city = placemark.locality ?? placemark.subAdministrativeArea ?? ""
+        postal = placemark.postalCode ?? ""
+        search.query = ""
+    }
+}
+
+/// Apple's own address suggestions, as you type.
+///
+/// `MKLocalSearchCompleter` needs no key, no quota and no location
+/// permission — it is asking Apple to complete a string, not asking where
+/// the phone is. Restricted to addresses so a search for "Rue Saint" offers
+/// streets rather than restaurants named after one.
+@MainActor
+final class AddressSearch: NSObject, ObservableObject, MKLocalSearchCompleterDelegate {
+    @Published var results: [MKLocalSearchCompletion] = []
+    @Published var query: String = "" {
+        didSet { completer.queryFragment = query }
+    }
+
+    private let completer = MKLocalSearchCompleter()
+
+    override init() {
+        super.init()
+        completer.resultTypes = .address
+        completer.delegate = self
+    }
+
+    nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        let found = completer.results
+        Task { @MainActor in self.results = found }
+    }
+
+    nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        // No signal, or a fragment Apple cannot complete. The typed fields
+        // below are the fallback and still work, so this stays silent.
+        Task { @MainActor in self.results = [] }
     }
 }
 
