@@ -769,9 +769,22 @@ struct RoomEditorCore: View {
         // typed that length, and until now un-typing it meant re-running the
         // whole Set Size walk; the panel this opens carries Unlock for the
         // wall you actually pointed at.
-        // BISECT: temporarily disabled to establish whether this branch is
-        // what stopped every canvas tap from registering.
-        if false, measuring == nil,
+        // Re-enabled 18 Aug 2026. This was switched off behind `if false`
+        // during a bisect — "temporarily", to find what was swallowing
+        // canvas taps — and never switched back on, which is why tapping a
+        // dimension did nothing for as long as anyone can remember. It is
+        // also why SECTIONS lists "the dimension-tap unlock" as one of the
+        // two things still unverified on device: it could not have worked.
+        //
+        // The owner hit the consequence directly, 18 Aug 2026: *"the length
+        // is 3.64 m. If I click on it, I wanna be able to open that
+        // calculator thing... right now when I'm clicking on it, it detects
+        // it as I'm clicking outside of the room and goes to the storey
+        // mode."* Exactly so — dimensions are drawn OUTBOARD of the walls,
+        // so with this branch dead every dimension tap fell through to the
+        // tap-outside-to-leave branch at the bottom of this function.
+        // Position in the order matters as much as being enabled at all.
+        if measuring == nil,
             let edge = EditorChrome.dimensionHit(at: point, polygon: corners, scale: scale)
         {
             startMeasuring(at: edge)

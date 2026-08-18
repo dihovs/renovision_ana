@@ -796,18 +796,24 @@ enum PlanEditing {
     /// square by eye is not, and a room that is 89.4° reads as square on a
     /// plan while being wrong in every figure derived from it.
     ///
-    /// Both walls that meet at this corner are considered, and the nearer
-    /// of the two candidate positions wins:
+    /// **Thales' circle.** The set of points at which the angle subtended by
+    /// the two neighbours is exactly 90° is the circle whose DIAMETER is the
+    /// segment joining them — that is the whole locus, not an approximation
+    /// of it, so snapping to the nearest point on that circle is exactly
+    /// "make this corner square" and nothing else.
     ///
-    /// - **Foot of the perpendicular from the PREVIOUS corner** — makes the
-    ///   incoming wall square to the outgoing one.
-    /// - **Foot of the perpendicular from the NEXT corner** — the same, the
-    ///   other way round.
+    /// The first attempt at this (build 111) got the geometry wrong in a way
+    /// worth recording, because it looked plausible: it took the
+    /// perpendicular foot from each NEIGHBOUR, which squares the angle at
+    /// the neighbour rather than at the corner under the finger. The owner
+    /// reported it simply as "not working", and it genuinely never fired for
+    /// the case he was doing — pulling one corner of a rectangle back into
+    /// square.
     ///
-    /// Returns the unchanged point when neither is within `capture`, so a
-    /// deliberately angled wall is never fought. `capture` is metres, the
-    /// caller converting from a screen radius exactly as `snapOffset`'s is,
-    /// so the pull feels identical at every zoom.
+    /// Returns the point unchanged when the circle is further than `capture`,
+    /// so a deliberately angled wall is never fought. `capture` is metres,
+    /// the caller converting from a screen radius exactly as `snapOffset`'s
+    /// is, so the pull feels identical at every zoom.
     static func snapCornerSquare(
         _ polygon: [CGPoint], index: Int, to proposed: CGPoint, capture: Double,
         alreadyEngaged: Bool
@@ -823,34 +829,25 @@ enum PlanEditing {
         let prev = polygon[(index - 1 + n) % n]
         let next = polygon[(index + 1) % n]
 
-        /// Where `proposed` lands if the corner must sit square at `pivot`,
-        /// with `far` the other end of the arm being squared against: the
-        /// perpendicular foot from `pivot` along the direction normal to
-        /// (`far` → `pivot`).
-        func square(pivot: CGPoint, far: CGPoint) -> CGPoint? {
-            let arm = sub(pivot, far)
-            let len = length(arm)
-            guard len > 0.05 else { return nil }
-            let unit = CGPoint(x: arm.x / len, y: arm.y / len)
-            let perp = normal(unit)
-            let reach = dot(sub(proposed, pivot), perp)
-            return CGPoint(x: pivot.x + perp.x * reach, y: pivot.y + perp.y * reach)
-        }
+        let centre = CGPoint(x: (prev.x + next.x) / 2, y: (prev.y + next.y) / 2)
+        let circleR = length(sub(next, prev)) / 2
+        guard circleR > 0.05 else { return Snap2(point: proposed, engaged: false) }
 
-        var best: CGPoint?
-        var bestDistance = radius
-        for candidate in [square(pivot: prev, far: next), square(pivot: next, far: prev)] {
-            guard let candidate else { continue }
-            let d = length(sub(proposed, candidate))
-            if d < bestDistance {
-                bestDistance = d
-                best = candidate
-            }
-        }
+        let out = sub(proposed, centre)
+        let d = length(out)
+        // Dead centre: every direction is equally square, so there is no
+        // one nearest point and nothing sensible to snap to.
+        guard d > 1e-6 else { return Snap2(point: proposed, engaged: false) }
 
-        guard let best else { return Snap2(point: proposed, engaged: false) }
+        // How far the finger is from the circle itself, not from its centre.
+        let gap = abs(d - circleR)
+        guard gap < radius else { return Snap2(point: proposed, engaged: false) }
+
+        let onCircle = CGPoint(
+            x: centre.x + out.x / d * circleR,
+            y: centre.y + out.y / d * circleR)
         return Snap2(
-            point: CGPoint(x: quantise(best.x), y: quantise(best.y)), engaged: true)
+            point: CGPoint(x: quantise(onCircle.x), y: quantise(onCircle.y)), engaged: true)
     }
 
     /// A snapped POINT and whether a magnet caught it — the two-dimensional

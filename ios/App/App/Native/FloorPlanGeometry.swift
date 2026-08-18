@@ -22,6 +22,17 @@ enum FloorPlanGeometry {
     struct Opening {
         var segment: Segment
         var kind: Kind
+        /// The SPECIFIC kind, when this opening was authored by hand rather
+        /// than detected — a single vs double vs sliding door, not just
+        /// "a door". `kind` above is the coarse category every renderer has
+        /// always switched on; this is what lets one draw two leaves for a
+        /// double instead of one leaf for all three.
+        ///
+        /// Nil for a RoomPlan detection, which genuinely does not know: the
+        /// sensor reports a door-shaped hole, not its hardware. A renderer
+        /// falls back to the single-leaf convention there, which is what it
+        /// drew for everything before this existed.
+        var detail: PlanEditing.OpeningKind? = nil
 
         enum Kind { case door, window, opening }
     }
@@ -82,7 +93,11 @@ enum FloorPlanGeometry {
                     Opening(
                         segment: Segment(
                             x1: a.x - minX, y1: a.y - minY, x2: b.x - minX, y2: b.y - minY),
-                        kind: drawn))
+                        kind: drawn,
+                        // Authored by hand, so the SPECIFIC kind is known —
+                        // a renderer can draw two leaves for a double
+                        // rather than the single-leaf fallback.
+                        detail: kind))
             }
 
             // The outline repeats its first point, matching what

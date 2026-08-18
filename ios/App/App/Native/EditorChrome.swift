@@ -684,10 +684,23 @@ enum EditorChrome {
         let mid = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
         let side: CGFloat = ((centre.x - mid.x) * nx + (centre.y - mid.y) * ny) >= 0 ? 1 : -1
 
-        // A door's swing reaches a full leaf-width in; a window has no
-        // swing and only needs to clear its own frame lines.
+        // How far the swing actually reaches, which is NOT the opening's
+        // width for every kind — the owner caught the box being "too big"
+        // on a double door, and he was right: a double's two leaves are
+        // each HALF the width, so the arc reaches half as far as a single
+        // of the same overall size. A slider's panels do not swing out at
+        // all. Sizing the box off `w` alone made all three the widest case.
         let band = OpeningGlyphs.bandT * scale
-        let inward: CGFloat = opening.kind.category == .door ? max(16, w * 1.06) : band
+        let swing: CGFloat
+        switch opening.kind {
+        case .doorSingle, .doorCased: swing = w
+        case .doorDouble: swing = w / 2
+        // Bypass panels stay in the wall; the box only has to clear the
+        // track marks either side of the centreline.
+        case .doorSliding: swing = band
+        case .windowStandard, .windowWide, .windowSmall: swing = band
+        }
+        let inward = opening.kind.category == .door ? max(12, swing * 1.06) : band
         let outward = max(4, band * 0.6)
 
         var box = Path()

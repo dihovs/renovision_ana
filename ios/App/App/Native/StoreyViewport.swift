@@ -354,35 +354,83 @@ struct StoreyBaseLayer: View {
                         func jointDistance(_ x: Double, _ y: Double) -> Double {
                             joints.map { hypot($0.x - x, $0.y - y) }.min() ?? 9
                         }
-                        let hingeAtStart =
-                            jointDistance(seg.x1, seg.y1) <= jointDistance(seg.x2, seg.y2)
-                        let (hx, hy, lx, ly) =
-                            hingeAtStart
-                            ? (seg.x1, seg.y1, seg.x2, seg.y2) : (seg.x2, seg.y2, seg.x1, seg.y1)
                         let sideSign: Double =
-                            ((centreX - hx) * nx + (centreY - hy) * ny) >= 0 ? 1 : -1
+                            ((centreX - (seg.x1 + seg.x2) / 2) * nx
+                                + (centreY - (seg.y1 + seg.y2) / 2) * ny) >= 0 ? 1 : -1
 
-                        let H = pt(hx + sideSign * nx * halfT, hy + sideSign * ny * halfT)
-                        let latch = pt(lx + sideSign * nx * halfT, ly + sideSign * ny * halfT)
-                        let tip = pt(
-                            hx + sideSign * nx * (halfT + w), hy + sideSign * ny * (halfT + w))
+                        /// One leaf hinged at `h`, latching at `l`, swinging
+                        /// into the room. Extracted so a double door can
+                        /// call it twice — drawing one leaf for every door
+                        /// regardless of kind is exactly what made a double
+                        /// read as a single on the storey sheet.
+                        func leafAndArc(hx: Double, hy: Double, lx: Double, ly: Double) {
+                            let span = hypot(lx - hx, ly - hy)
+                            guard span > 0.01 else { return }
+                            let H = pt(hx + sideSign * nx * halfT, hy + sideSign * ny * halfT)
+                            let latch = pt(lx + sideSign * nx * halfT, ly + sideSign * ny * halfT)
+                            let tip = pt(
+                                hx + sideSign * nx * (halfT + span),
+                                hy + sideSign * ny * (halfT + span))
 
-                        var leaf = Path()
-                        leaf.move(to: H)
-                        leaf.addLine(to: tip)
-                        context.stroke(leaf, with: .color(ink), lineWidth: 0.9)
+                            var leaf = Path()
+                            leaf.move(to: H)
+                            leaf.addLine(to: tip)
+                            context.stroke(leaf, with: .color(ink), lineWidth: 0.9)
 
-                        let r = hypot(tip.x - H.x, tip.y - H.y)
-                        let a0 = Angle(radians: atan2(tip.y - H.y, tip.x - H.x))
-                        let a1 = Angle(radians: atan2(latch.y - H.y, latch.x - H.x))
-                        var delta = a1.radians - a0.radians
-                        while delta > .pi { delta -= 2 * .pi }
-                        while delta < -.pi { delta += 2 * .pi }
-                        var arc = Path()
-                        arc.addArc(
-                            center: H, radius: r, startAngle: a0, endAngle: a1,
-                            clockwise: delta < 0)
-                        context.stroke(arc, with: .color(ink.opacity(0.75)), lineWidth: 0.6)
+                            let r = hypot(tip.x - H.x, tip.y - H.y)
+                            let a0 = Angle(radians: atan2(tip.y - H.y, tip.x - H.x))
+                            let a1 = Angle(radians: atan2(latch.y - H.y, latch.x - H.x))
+                            var delta = a1.radians - a0.radians
+                            while delta > .pi { delta -= 2 * .pi }
+                            while delta < -.pi { delta += 2 * .pi }
+                            var arc = Path()
+                            arc.addArc(
+                                center: H, radius: r, startAngle: a0, endAngle: a1,
+                                clockwise: delta < 0)
+                            context.stroke(arc, with: .color(ink.opacity(0.75)), lineWidth: 0.6)
+                        }
+
+                        // The SPECIFIC kind decides the symbol. Nil means a
+                        // RoomPlan detection, which cannot know — falls back
+                        // to the single-leaf convention, which is what this
+                        // drew for every door before `detail` existed.
+                        switch opening.detail {
+                        case .doorDouble:
+                            // Two leaves, each hinged at its own jamb,
+                            // meeting in the middle — so the pair of arcs
+                            // reads as a double at a glance.
+                            let mx = (seg.x1 + seg.x2) / 2
+                            let my = (seg.y1 + seg.y2) / 2
+                            leafAndArc(hx: seg.x1, hy: seg.y1, lx: mx, ly: my)
+                            leafAndArc(hx: seg.x2, hy: seg.y2, lx: mx, ly: my)
+
+                        case .doorSliding:
+                            // Bypass panels, no swing: two bars just over
+                            // half the width, offset either side of the
+                            // centreline so their overlap reads.
+                            let panel = 0.55
+                            let off = halfT * 0.5
+                            for (fromX, fromY, sign) in [
+                                (seg.x1, seg.y1, 1.0), (seg.x2, seg.y2, -1.0),
+                            ] {
+                                let sx = fromX - sign * nx * off
+                                let sy = fromY - sign * ny * off
+                                var track = Path()
+                                track.move(to: pt(sx, sy))
+                                track.addLine(
+                                    to: pt(sx + sign * ux * w * panel, sy + sign * uy * w * panel))
+                                context.stroke(track, with: .color(ink), lineWidth: 1)
+                            }
+
+                        default:
+                            let hingeAtStart =
+                                jointDistance(seg.x1, seg.y1) <= jointDistance(seg.x2, seg.y2)
+                            let (hx, hy, lx, ly) =
+                                hingeAtStart
+                                ? (seg.x1, seg.y1, seg.x2, seg.y2)
+                                : (seg.x2, seg.y2, seg.x1, seg.y1)
+                            leafAndArc(hx: hx, hy: hy, lx: lx, ly: ly)
+                        }
 
                     default:
                         break
