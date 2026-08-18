@@ -1030,3 +1030,34 @@ Newest last. One or two lines per chat.
   predecessor was seen by anyone. The floor-plan rail, the Fill Color row
   and picker, the New Field row and the zooming grid are all
   compiled-and-installed, not looked at.
+- **2026-08-18** — Same chat, from the owner testing build 98. Test 2 (the
+  Floor Plans rail) passed. Three more things, shipped as build 99.
+  1. **The room label on a plan was off centre — a real bug, not taste.**
+     `labelAnchor` scans for the point deepest inside the outline and took
+     the FIRST point achieving the maximum clearance. On any non-square
+     room the deepest points are a whole segment, so the label landed at
+     its left/top END. Measured against the real scan: a 4.0 × 3.0 kitchen
+     0.54 m off, a 6.0 × 3.6 living room 1.18 m, an 8.0 × 1.4 corridor
+     **3.26 m** — its label sat near one end of the room. A square came out
+     0.06 m off, which is exactly why nobody caught it. Now it averages
+     every point within 2 cm of the best clearance, which is the middle of
+     the medial segment on a rectangle and the middle of the fat part on an
+     L. Label type also went up (storey 11/9 → 14/11, room plan 12/9 →
+     15/11) with the plate growing to match.
+  2. **A tap on the storey canvas goes straight into the plan editor**, at
+     his instruction — *"when I click, it automatically should go to the
+     adjustment mode"*, no intervening room sheet. He was asked where the
+     room inspector should then live and chose **swipe up from inside the
+     editor**, which is the gesture the reference uses for every inspector.
+     `PlanEditorView.inspectorIsBehind` keeps the old route honest: entered
+     from `RoomDetailView`'s "Adjust the plan" the swipe-up still dismisses
+     back to the sheet underneath, rather than stacking a second copy of it.
+  3. **Room colours stay.** He said he did not think they were needed; told
+     that magicplan has the field (their General is Floor · Room Type ·
+     Room Name · Room Color) and that a column and migration 0033 sit behind
+     it, he chose to keep it and revisit after parity testing. Recorded so
+     it is not removed on the strength of the first remark.
+
+  **Unverified:** build 99 installed, none of the three looked at by anyone
+  but the owner's own testing.
+

@@ -172,7 +172,7 @@ struct RoomDetailView: View {
             }
         }
         .sheet(isPresented: $editingPlan) {
-            PlanEditorView(room: room) { Task { await load() } }
+            PlanEditorView(room: room, inspectorIsBehind: true) { Task { await load() } }
         }
         .sheet(isPresented: $logging) {
             ReadingSheet(roomId: room.id) { Task { await load() } }

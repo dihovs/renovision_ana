@@ -449,23 +449,26 @@ struct FloorPlanView: View {
                 let anchor = FloorPlanGeometry.labelAnchor(
                     plan.polygon, width: plan.width, height: plan.height)
                 let at = pt(anchor)
+                // Sized up with the storey drawing's label, same reason.
                 let name = context.resolve(
                     Text(label.name.uppercased())
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Brand.Plan.label))
                 let area = context.resolve(
                     Text("\(label.sqft) SQFT")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Brand.Plan.labelSoft))
                 let nameSize = name.measure(in: size)
-                let pad: CGFloat = 4
+                let areaSize = area.measure(in: size)
+                let pad: CGFloat = 5
+                let plateWidth = max(nameSize.width, areaSize.width) + pad * 2
                 let box = CGRect(
-                    x: at.x - nameSize.width / 2 - pad, y: at.y - 11 - pad,
-                    width: nameSize.width + pad * 2, height: 26 + pad * 2)
+                    x: at.x - plateWidth / 2, y: at.y - 15 - pad,
+                    width: plateWidth, height: 32 + pad * 2)
                 context.fill(
-                    Path(roundedRect: box, cornerRadius: 3), with: .color(bg.opacity(0.82)))
-                context.draw(name, at: CGPoint(x: at.x, y: at.y - 3), anchor: .center)
-                context.draw(area, at: CGPoint(x: at.x, y: at.y + 11), anchor: .center)
+                    Path(roundedRect: box, cornerRadius: 4), with: .color(bg.opacity(0.82)))
+                context.draw(name, at: CGPoint(x: at.x, y: at.y - 5), anchor: .center)
+                context.draw(area, at: CGPoint(x: at.x, y: at.y + 12), anchor: .center)
             }
         }
         .aspectRatio(aspect, contentMode: .fit)

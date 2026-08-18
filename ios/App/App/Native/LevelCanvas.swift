@@ -240,24 +240,31 @@ struct LevelCanvas: View {
                             let anchor = FloorPlanGeometry.labelAnchor(
                                 slot.plan.polygon, width: slot.plan.width, height: slot.plan.height)
                             let centre = pt(anchor.x, anchor.y)
+                            // Sized up on the owner's word, 18 Aug 2026 —
+                            // 11/9 was legible on a desk and not on a job
+                            // site. The plate grows with the type rather
+                            // than staying at the old 28pt, or the second
+                            // line would hang off the bottom of it.
                             let name = context.resolve(
                                 Text(slot.piece.name)
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(Brand.Plan.label))
                             let sqft = context.resolve(
                                 Text(Measure.sqftLabel(slot.piece.areaSqm))
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(Brand.Plan.labelSoft))
                             let box = name.measure(in: proxy.size)
+                            let sqftBox = sqft.measure(in: proxy.size)
+                            let plateWidth = max(box.width, sqftBox.width) + 10
                             context.fill(
                                 Path(
                                     roundedRect: CGRect(
-                                        x: centre.x - box.width / 2 - 3, y: centre.y - 14,
-                                        width: box.width + 6, height: 28),
-                                    cornerRadius: 3),
+                                        x: centre.x - plateWidth / 2, y: centre.y - 18,
+                                        width: plateWidth, height: 36),
+                                    cornerRadius: 4),
                                 with: .color(bg.opacity(0.8)))
-                            context.draw(name, at: CGPoint(x: centre.x, y: centre.y - 5), anchor: .center)
-                            context.draw(sqft, at: CGPoint(x: centre.x, y: centre.y + 8), anchor: .center)
+                            context.draw(name, at: CGPoint(x: centre.x, y: centre.y - 7), anchor: .center)
+                            context.draw(sqft, at: CGPoint(x: centre.x, y: centre.y + 9), anchor: .center)
                         }
                     }
                 }
@@ -961,7 +968,9 @@ struct FloorCanvasView: View {
     @State private var switched: String?
     @State private var scans: [RoomScan]?
     @State private var inserting = false
-    @State private var openRoom: RoomScan?
+    /// The room whose plan is being adjusted — what a tap on the canvas
+    /// opens now. Its inspector is a swipe up from in there.
+    @State private var editingRoom: RoomScan?
     @State private var switchingFloor = false
     @State private var sharing = false
     @State private var showingHelp = false
@@ -1026,7 +1035,16 @@ struct FloorCanvasView: View {
                         .frame(width: 2400, height: 2400)
 
                         if !rooms.isEmpty {
-                            LevelCanvas(rooms: rooms) { room in openRoom = room }
+                            // Straight into the editor, on the owner's
+                            // instruction 18 Aug 2026: *"when I click on it,
+                            // I don't want to have this pop up menu that
+                            // says adjust or whatever. When I click, it
+                            // automatically should go to the adjustment
+                            // mode."* The room's inspector is a swipe up
+                            // from inside the editor — his choice of where
+                            // it should live, and the gesture the reference
+                            // uses for every inspector.
+                            LevelCanvas(rooms: rooms) { room in editingRoom = room }
                                 .padding(Brand.Space.base)
                         }
                     }
@@ -1181,8 +1199,11 @@ struct FloorCanvasView: View {
                 onSaved: { Task { await load() } },
                 onFinished: { _, _ in })
         }
-        .sheet(item: $openRoom, onDismiss: { Task { await load() } }) { room in
-            RoomDetailView(room: room).id(room.id)
+        .sheet(item: $editingRoom, onDismiss: { Task { await load() } }) { room in
+            // Nothing is behind this, so the editor's swipe-up presents the
+            // room's inspector rather than dismissing into it.
+            PlanEditorView(room: room) { Task { await load() } }
+                .id(room.id)
         }
         .task { await load() }
     }

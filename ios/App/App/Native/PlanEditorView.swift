@@ -14,6 +14,19 @@ import SwiftUI
 /// always answerable.
 struct PlanEditorView: View {
     let room: RoomScan
+    /// True when the room's own inspector is the screen this editor opened
+    /// OVER — `RoomDetailView`'s "Adjust the plan". Then the swipe-up is a
+    /// dismissal, because the inspector is already behind and raising a
+    /// second copy of it on top of itself would be nonsense.
+    ///
+    /// False when the editor was entered directly by tapping the room on the
+    /// storey canvas, which is what a tap does since 18 Aug 2026 at the
+    /// owner's instruction: *"when I click, it automatically should go to
+    /// the adjustment mode."* Nothing is behind then, so the swipe-up has to
+    /// PRESENT the inspector — that is the route he chose to keep it
+    /// reachable, and it is the gesture the reference uses for every
+    /// inspector anyway.
+    var inspectorIsBehind: Bool = false
     let onSaved: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -69,6 +82,9 @@ struct PlanEditorView: View {
     @State private var showDimensions = true
     @State private var showOpenings = true
 
+    /// The room's own inspector, raised by the swipe-up when this editor was
+    /// entered straight from the storey canvas rather than from the sheet.
+    @State private var inspectingRoom = false
     /// The wall whose inspector is open — set by the swipe-up on a selected
     /// wall (object-model §2b), the same gesture that reaches the room's own
     /// sheet from the storey canvas.
@@ -225,6 +241,9 @@ struct PlanEditorView: View {
                         addingOpening = false
                     }
                 }
+            }
+            .sheet(isPresented: $inspectingRoom) {
+                RoomDetailView(room: room)
             }
             .sheet(
                 isPresented: Binding(
@@ -1022,16 +1041,17 @@ struct PlanEditorView: View {
                 supported: supportedActions,
                 onAction: perform,
                 // A wall selected swipes up into ITS OWN inspector
-                // (object-model §2b) rather than the room's — the room's own
-                // swipe-up is a dismissal because this editor IS the sheet
-                // that opened over it, but a wall has no such sheet yet.
+                // (object-model §2b) rather than the room's. With nothing
+                // selected it is the ROOM's inspector — presented here when
+                // the editor was entered from the canvas, or a dismissal
+                // back to it when the inspector is the screen underneath.
                 onInfo: {
                     if case .wall(let index) = selection {
                         inspectingWall = index
-                    } else if isDirty {
-                        showDiscard = true
+                    } else if inspectorIsBehind {
+                        if isDirty { showDiscard = true } else { dismiss() }
                     } else {
-                        dismiss()
+                        inspectingRoom = true
                     }
                 })
         }

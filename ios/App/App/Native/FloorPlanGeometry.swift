@@ -634,23 +634,49 @@ extension FloorPlanGeometry {
             return best
         }
 
-        var bestPoint = CGPoint(x: width / 2, y: height / 2)
+        // The deepest point is rarely a POINT. On a rectangle every point on
+        // the middle line is equally far from the walls, so "the deepest
+        // one" is a segment, and taking the first one the scan meets puts
+        // the label at the END of that segment — the left or top of the
+        // room, not its middle.
+        //
+        // The owner caught it on a kitchen, 18 Aug 2026: *"the writing of
+        // the kitchen with the square feet under is very small, and it's not
+        // in the center."* Measured against the real scan: a 4.0 × 3.0
+        // kitchen was 0.54 m off centre, a 6.0 × 3.6 living room 1.18 m, and
+        // an 8.0 × 1.4 corridor 3.26 m — its label sat near one end. A
+        // square room came out 0.06 m off, which is why this survived: the
+        // one shape where the deepest set really is a single point is the
+        // one shape it was checked on.
+        //
+        // So: take every point within a couple of centimetres of the best
+        // clearance and average them. On a rectangle that is the middle of
+        // the middle line, which is the centre. On an L it is the middle of
+        // the fat part, which is where a label belongs and where the
+        // bounding-box centre would not be.
+        let tolerance = 0.02
         var bestDistance = -1.0
+        var deepest: [CGPoint] = []
         var gy = 0.2
         while gy < height {
             var gx = 0.2
             while gx < width {
                 if inside(gx, gy) {
                     let d = edgeDistance(gx, gy)
-                    if d > bestDistance {
+                    if d > bestDistance + tolerance {
                         bestDistance = d
-                        bestPoint = CGPoint(x: gx, y: gy)
+                        deepest = [CGPoint(x: gx, y: gy)]
+                    } else if d >= bestDistance - tolerance {
+                        bestDistance = max(bestDistance, d)
+                        deepest.append(CGPoint(x: gx, y: gy))
                     }
                 }
                 gx += 0.18
             }
             gy += 0.18
         }
-        return bestPoint
+        guard !deepest.isEmpty else { return CGPoint(x: width / 2, y: height / 2) }
+        let sum = deepest.reduce(CGPoint.zero) { CGPoint(x: $0.x + $1.x, y: $0.y + $1.y) }
+        return CGPoint(x: sum.x / Double(deepest.count), y: sum.y / Double(deepest.count))
     }
 }
