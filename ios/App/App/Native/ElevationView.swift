@@ -364,7 +364,23 @@ struct ElevationView: View {
                     drawDimensions(context: context, face: face, size: size)
                 }
                 .contentShape(.rect)
-                .gesture(drawing ? drawGesture(face: face) : nil)
+                // TWO gestures, one at a time, and which one is attached is
+                // the whole of the mode.
+                //
+                // `drawing` (the Insert button) means "mark damage", and a
+                // drag then draws a rectangle exactly as it always has.
+                // Otherwise a drag MOVES the opening it started on — the
+                // owner's ask. This used to be `drawing ? … : nil`, so with
+                // Insert off the face had no gesture at all, which is why
+                // the first attempt at dragging openings did nothing
+                // whatever: the code was correct and simply never attached.
+                //
+                // ONE `DragGesture` branching internally, rather than two
+                // functions in a ternary: `some Gesture` is an opaque type
+                // and two of them are two DIFFERENT types, which a ternary
+                // will not unify. Branching inside the handlers keeps both
+                // behaviours exactly as written without an eraser.
+                .gesture(faceGesture(face: face))
 
                 // The steppers (G4). Overlaid rather than in the bar so they
                 // sit where the wall they lead to is — left button, left wall.
@@ -426,46 +442,33 @@ struct ElevationView: View {
         return nil
     }
 
-    /// One gesture, two jobs, decided by where the finger STARTS.
+    /// The face's one drag, doing whichever of two jobs the mode calls for.
     ///
-    /// Starting on a door or window drags it along the wall; starting
-    /// anywhere else draws a damage region, exactly as before. That split is
-    /// what lets the owner's ask — *"in elevation mode I should be able to
-    /// move things around... left, right"* — coexist with the drag-to-mark
-    /// gesture this view was built for, without a mode switch to remember.
+    /// `drawing` (the Insert button) means "mark damage" and a drag draws a
+    /// rectangle, exactly as it always has. Otherwise a drag MOVES the
+    /// opening it started on, and does nothing at all if it did not start
+    /// on one — so the face stays inert everywhere else rather than moving
+    /// whichever opening happens to be nearest.
     ///
-    /// Deliberately horizontal only. `PlanEditing.slideOpening` already
-    /// enforces the jamb margins and refuses to overlap a neighbour on the
-    /// same wall, so sliding is safe by construction; vertical position is
-    /// `sill`, which the owner explicitly wanted left to the properties
-    /// sheet and which has no collision rule to lean on.
-    private func drawGesture(face: Face?) -> some Gesture {
+    /// This was `drawing ? drawGesture(…) : nil` before, which is why the
+    /// first attempt at dragging openings did nothing whatever: with Insert
+    /// off the face had no gesture attached at all, so correct code was
+    /// simply never reached.
+    private func faceGesture(face: Face?) -> some Gesture {
         DragGesture(minimumDistance: 3)
             .onChanged { value in
                 guard let face else { return }
                 let start = face.clampedFace(value.startLocation)
                 let now = face.clampedFace(value.location)
 
-                if draggingOpening == nil, draft == nil,
-                    let hit = openingHit(at: start)
-                {
-                    draggingOpening = (hit, openings[hit].offset)
-                }
-
-                if let dragging = draggingOpening {
-                    guard openings.indices.contains(dragging.index) else { return }
-                    let delta = Double(now.x - start.x)
-                    var moved = openings[dragging.index]
-                    moved.offset = dragging.startOffset
-                    openings[dragging.index] = PlanEditing.slideOpening(
-                        moved, along: corners, by: delta, avoiding: openings)
+                if drawing {
+                    draft = FaceRect(a: start, b: now)
                     return
                 }
-
-                draft = FaceRect(a: start, b: now)
+                moveOpening(startingAt: start, to: now)
             }
             .onEnded { _ in
-                if draggingOpening != nil {
+                if !drawing {
                     draggingOpening = nil
                     return
                 }
@@ -477,6 +480,37 @@ struct ElevationView: View {
                 }
                 naming = true
             }
+    }
+
+    /// Slide the door or window the finger started on, along its own wall.
+    ///
+    /// The owner's ask: *"in elevation mode I should be able to move things
+    /// around... left, right."* A drag that does not start ON an opening
+    /// does nothing at all, so the face stays inert everywhere else rather
+    /// than moving whichever opening happens to be nearest.
+    ///
+    /// Deliberately horizontal only. `PlanEditing.slideOpening` already
+    /// enforces the jamb margins and refuses to overlap a neighbour on the
+    /// same wall, so sliding is safe by construction; vertical position is
+    /// `sill`, which he explicitly wanted left to the properties sheet
+    /// (*"the height from the floor, maybe I should be able to do it in the
+    /// properties"*) and which has no collision rule to lean on.
+    ///
+    /// The offset is re-derived from the START offset every frame rather
+    /// than accumulated, so a slow drag cannot creep from rounding.
+    private func moveOpening(startingAt start: CGPoint, to now: CGPoint) {
+        if draggingOpening == nil, let hit = openingHit(at: start) {
+            draggingOpening = (hit, openings[hit].offset)
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+        guard let dragging = draggingOpening,
+            openings.indices.contains(dragging.index)
+        else { return }
+
+        var moved = openings[dragging.index]
+        moved.offset = dragging.startOffset
+        openings[dragging.index] = PlanEditing.slideOpening(
+            moved, along: corners, by: Double(now.x - start.x), avoiding: openings)
     }
 
     // MARK: - Damage, saved and reloaded
