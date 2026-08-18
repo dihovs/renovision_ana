@@ -364,6 +364,30 @@ enum PlanEditing {
         return abs(sum) / 2
     }
 
+    /// Standard ray-casting point-in-polygon, same shape as
+    /// `FloorPlanGeometry.labelAnchor`'s private `inside()` — kept here,
+    /// shared, rather than reinvented a third time. A tap that is not near
+    /// any corner, opening or wall band and lands outside the room entirely
+    /// is what tells `RoomEditorCore` the operator is done with this room —
+    /// the reference's own gesture (§ interactions-editor.md, "no frame
+    /// shows how selection is cleared" — the owner filled that gap from
+    /// memory, 18 Aug 2026: tap the canvas outside the room, it goes back).
+    static func contains(_ polygon: [CGPoint], point: CGPoint) -> Bool {
+        guard polygon.count >= 3 else { return false }
+        var inside = false
+        var j = polygon.count - 1
+        for i in polygon.indices {
+            let a = polygon[i], b = polygon[j]
+            if (a.y > point.y) != (b.y > point.y),
+                point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+            {
+                inside.toggle()
+            }
+            j = i
+        }
+        return inside
+    }
+
     // MARK: - Openings
 
     /// A door or window authored onto a wall by hand.

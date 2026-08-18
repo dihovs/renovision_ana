@@ -136,7 +136,14 @@ struct LevelCanvas: View {
             EmptyView()
         } else {
             GeometryReader { proxy in
-                let pad: CGFloat = 10
+                // Proportional, not flat. A flat 10pt border reads fine on
+                // the 320pt-tall card this was built for, but the SAME 10pt
+                // on a tight 62pt tile (`FloorPlanTile`, added 18 Aug) is
+                // most of nothing — the room fills the tile edge to edge,
+                // no paper visible around it. The owner's word for it:
+                // "too zoomed in." 12% keeps a small tile breathing and
+                // barely moves the 320pt case (10pt → ~38pt there).
+                let pad = max(8, min(proxy.size.width, proxy.size.height) * 0.12)
                 let scale = min(
                     (proxy.size.width - pad * 2) / layout.width,
                     (proxy.size.height - pad * 2) / layout.height)
@@ -987,7 +994,17 @@ struct FloorCanvasView: View {
     /// screen is selectable — the room editor needs two fingers to keep a
     /// stray thumb from moving a wall, but here a drag can only ever mean
     /// "move the paper".
-    @State private var zoom: CGFloat = 1
+    ///
+    /// `defaultZoom` is not 1. `LevelCanvas` itself fit-scales a room to
+    /// fill the ~320pt-tall box its own default caps it at, which lands
+    /// close to the phone's own screen width — so at `zoom = 1` a single
+    /// room already filled nearly the whole viewport, walls almost touching
+    /// the edges, no paper margin visible anywhere. The owner's word for it,
+    /// 18 Aug 2026: "too zoomed in." Starting zoomed OUT a little leaves the
+    /// grid visibly around the room, which is the whole point of drawing it
+    /// oversized in the first place; a pinch still reaches full size.
+    private static let defaultZoom: CGFloat = 0.6
+    @State private var zoom: CGFloat = defaultZoom
     @State private var pan: CGSize = .zero
     @GestureState private var pinch: CGFloat = 1
     @GestureState private var drag: CGSize = .zero
@@ -1113,9 +1130,9 @@ struct FloorCanvasView: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Brand.ink)
                         }
-                        if zoom != 1 || pan != .zero {
+                        if zoom != Self.defaultZoom || pan != .zero {
                             Button {
-                                withAnimation(.snappy) { zoom = 1; pan = .zero }
+                                withAnimation(.snappy) { zoom = Self.defaultZoom; pan = .zero }
                             } label: {
                                 Image(systemName: "arrow.counterclockwise")
                                     .font(.system(size: 14, weight: .semibold))

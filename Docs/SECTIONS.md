@@ -1136,4 +1136,40 @@ Newest last. One or two lines per chat.
   medium/large sheet `RoomDetailView` already used; a SELECTED WALL's
   swipe-up should still reach the wall's own inspector, not the room's.
   These three are the seams a merge like this would break first.
+- **2026-08-18** — Build 101, from the owner testing build 100. Three more.
+  1. **No back chevron at room depth when reached from the storey.** He
+     described magicplan's real behaviour from memory: tap the canvas
+     OUTSIDE the room, it goes back — no button. `EditorBackPill` removed
+     from `RoomEditorCore`'s toolbar when `backContext == .floor`
+     (`.navigationBarBackButtonHidden` too, so the system's own auto-back
+     does not silently reappear in the pill's place and skip floor depth).
+     New `PlanEditing.contains(_:point:)` (ray-casting point-in-polygon,
+     shared rather than reinvented a third time) backs a new branch in
+     `handleTap`: a tap that misses every corner/opening/wall AND lands
+     outside the room's own shape calls `onExit()` (through the same
+     dirty-discard check the old pill used), gated on `measuring == nil` so
+     it cannot abandon a walk mid-stride. Standalone `PlanEditorView`
+     (`backContext == .room`, from "Adjust the plan") is untouched — a
+     sheet has its own dismiss and very little "outside" to tap anyway.
+     Recorded into `interactions-editor.md`'s own open-questions list as an
+     owner-observed fact, not a screenshot, since the reference research had
+     explicitly flagged deselection/back-chevron behaviour as unobserved.
+  2. **"Adjust the plan" removed from the room sheet.** Redundant once
+     tapping the drawing itself opens the editor — his words, "it is now
+     activated by clicking on the floor plan instead." The `FloorPlanView`
+     thumbnail in `RoomDetailView`'s Details tab is the button now; a small
+     pencil badge in its corner is the only thing left saying so.
+  3. **Too zoomed in, on the storey and the thumbnail.** `LevelCanvas`
+     fit-scales a room to fill essentially 100% of whatever box it is
+     given, minus a flat 10pt border — fine on the original 320pt-tall card
+     it was sized for, but that flat 10pt is nearly nothing once the box is
+     small (`FloorPlanTile`'s 62pt) or the box is what a whole phone screen
+     resolves to (`FloorCanvasView`, which caps at the SAME 320pt default,
+     landing close to the screen's own width). Two changes: `pad` is now
+     `max(8, min(w,h) * 0.12)` — barely moves the 62pt tile, roughly
+     quadruples the margin at 320pt (10 → ~38). And `FloorCanvasView` now
+     opens at `zoom = 0.6`, not `1` — the "reset zoom" button targets the
+     same 0.6, kept as one named constant so the two cannot drift apart.
+
+  **Unverified — build 101 installed, none of these three tapped yet.**
 

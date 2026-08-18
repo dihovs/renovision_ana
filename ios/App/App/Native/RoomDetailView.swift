@@ -254,25 +254,41 @@ struct RoomDetailView: View {
         generalSection
     }
 
-    /// The room, drawn.
+    /// The room, drawn — and the way into editing it.
+    ///
+    /// A separate "Adjust the plan" button used to sit under this drawing.
+    /// It is gone: tapping the drawing itself is the affordance now, on the
+    /// owner's own instruction, 18 Aug 2026 — the same rule that makes a
+    /// room's OWN tap on the storey canvas activate editing, applied here
+    /// too, so there is one gesture for "edit this plan" everywhere the
+    /// plan is drawn, not a picture plus a separate button beside it.
     @ViewBuilder private var planSection: some View {
         if let plan, !plan.isEmpty {
             Section {
-                FloorPlanView(
-                    plan: plan, areas: drawnAreas,
-                    label: (roomName, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
-                )
-                .frame(height: 240)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-                    .listRowBackground(Brand.surface)
-
                 Button {
                     editingPlan = true
                 } label: {
-                    Label("Adjust the plan", systemImage: "pencil.and.ruler")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.blue)
+                    ZStack(alignment: .bottomTrailing) {
+                        FloorPlanView(
+                            plan: plan, areas: drawnAreas,
+                            label: (roomName, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
+                        )
+                        // The only signal left that this drawing is a
+                        // button now that the row under it is gone — a
+                        // pencil, the way `pencil.and.ruler` on the old
+                        // button already said "adjust".
+                        Image(systemName: "pencil.circle.fill")
+                            .font(.system(size: 24))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(Brand.blue, Brand.surface)
+                            .padding(6)
+                    }
+                    .frame(height: 240)
+                    .contentShape(.rect)
                 }
+                .buttonStyle(.plain)
+                .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+                .listRowBackground(Brand.surface)
             } footer: {
                 if room.geometry?.editedPolygon != nil {
                     Label(

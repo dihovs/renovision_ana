@@ -437,6 +437,12 @@ The screenshots do not answer these; none should be guessed at during implementa
 9. **Tap-and-hold drag placement.** The library tip advertises drag-and-drop onto the canvas; no frame shows the drag, the drop target feedback, or what happens when dropped outside a room.
 10. **Replace-with completion.** No frame after choosing a replacement. Whether position, width and custom fields survive the swap is unknown.
 11. **Deselection.** No frame shows how selection is cleared (tap empty canvas? back chevron?), nor what the back chevron does at ROOM/OBJECT depth — pop one selection level or leave the editor.
+    **Partly filled, 18 Aug 2026, from the owner's own use of the app rather
+    than a captured frame:** tapping the canvas OUTSIDE the room's own shape
+    is what leaves ROOM depth for FLOOR depth — there is no back chevron for
+    this step at all. Take as an owner-observed fact, not a screenshot; still
+    unknown whether it also clears a lesser selection (a selected wall/corner)
+    in the same tap or needs one tap to deselect and a second to leave.
 12. **Double-tap-on-wall.** Advertised in `screens/22-view-mode-menu-elevation-enabled.jpg` but never performed; unverified whether it works from floor level with no selection.
 13. **Elevation wall stepper.** The `←/→` wall navigation is described in spec §4.6a from a recording but appears in none of these frames.
 14. **3D interaction beyond panning.** Only a static 3D frame exists; rotate/orbit/zoom gestures and whether tapping a room in 3D selects it are unknown.

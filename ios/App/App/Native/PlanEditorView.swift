@@ -208,12 +208,26 @@ struct RoomEditorCore: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        // Only the standalone sheet gets a hidden system back button to
+        // suppress — the embedded case has none to begin with, since
+        // `editingRoom` is state on the SAME screen, not a stack push.
+        // Hiding it there anyway is what stops the system's own auto-back
+        // from reappearing once the custom pill below is omitted, and
+        // popping past floor depth straight to the project by accident.
+        .navigationBarBackButtonHidden(backContext == .floor)
         .toolbar {
-            // §1. Leading is the pill — a back chevron beside a context
-            // glyph saying what you would go back TO.
-            ToolbarItem(placement: .topBarLeading) {
-                EditorBackPill(context: backContext) {
-                    if isDirty { showDiscard = true } else { onExit() }
+            // §1's pill exists for the STANDALONE sheet only. Embedded in
+            // the storey canvas there is nothing to chevron back to in the
+            // top bar — the owner's own instruction, 18 Aug 2026, after
+            // showing what magicplan actually does: tapping the canvas
+            // OUTSIDE the room is what leaves it, no button for it. See
+            // `handleTap`'s outside-the-room branch, which carries the same
+            // discard check this pill used to.
+            if backContext == .room {
+                ToolbarItem(placement: .topBarLeading) {
+                    EditorBackPill(context: backContext) {
+                        if isDirty { showDiscard = true } else { onExit() }
+                    }
                 }
             }
             // Centre: bold title, grey subtitle, both changing with
@@ -694,6 +708,18 @@ struct RoomEditorCore: View {
             } else {
                 select(.wall(best))
             }
+            return
+        }
+
+        // Genuinely outside the room, not just a miss on a handle — every
+        // hit test above already had its own generous tolerance, so
+        // reaching here means the tap landed on open grid. Embedded in the
+        // storey canvas, that is what leaves the room (the owner's own
+        // instruction, 18 Aug 2026 — see the toolbar's own note on
+        // `backContext`); mid-measurement-walk it is left alone rather than
+        // abandoning a walk the operator did not ask to leave.
+        if backContext == .floor, measuring == nil, !PlanEditing.contains(corners, point: point) {
+            if isDirty { showDiscard = true } else { onExit() }
             return
         }
 
