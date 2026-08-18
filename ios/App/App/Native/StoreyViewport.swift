@@ -291,12 +291,102 @@ struct StoreyBaseLayer: View {
                         style: StrokeStyle(lineWidth: band, lineCap: .round))
                 }
 
+                // Openings: knock the band out, then draw the SYMBOL — a
+                // door's leaf and quarter-swing arc, a window's frame lines.
+                // This layer used to knock the gap out and stop there, so
+                // every door and window on the storey read as an identical
+                // blank notch. The owner, 18 Aug 2026: *"I want to see the
+                // door and the opening direction and the windows, I would
+                // like to see window."* Same conventions `FloorPlanView`
+                // draws at room scale (hinge at the jamb nearer a joint,
+                // swing toward the room's own middle — conventions, not
+                // measurements, since the scan records neither), scaled
+                // down and thinned for a storey sheet.
+                let joints = FloorPlanGeometry.joints(plan.segments)
+                var centreX = plan.width / 2
+                var centreY = plan.height / 2
+                if plan.polygon.count >= 3 {
+                    centreX = plan.polygon.reduce(0) { $0 + $1.x } / Double(plan.polygon.count)
+                    centreY = plan.polygon.reduce(0) { $0 + $1.y } / Double(plan.polygon.count)
+                }
+
                 for opening in plan.openings {
+                    let seg = opening.segment
+                    let w = seg.length
+                    guard w > 0.05 else { continue }
+                    let ux = (seg.x2 - seg.x1) / w
+                    let uy = (seg.y2 - seg.y1) / w
+                    let nx = -uy
+                    let ny = ux
+
                     var cut = Path()
-                    cut.move(to: pt(opening.segment.x1, opening.segment.y1))
-                    cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
+                    cut.move(to: pt(seg.x1, seg.y1))
+                    cut.addLine(to: pt(seg.x2, seg.y2))
                     context.stroke(
                         cut, with: .color(bg), style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
+
+                    // Below roughly this size the symbol is finer than the
+                    // eye separates and only muddies the gap it sits in —
+                    // the same level-of-detail rule `FloorPlanView` applies
+                    // at its own thumbnail tier.
+                    guard w * viewport.scale >= 14 else { continue }
+
+                    // Jamb caps, so the gap reads as a framed opening
+                    // rather than a break in the wall.
+                    let halfT = wallThicknessM / 2
+                    for (jx, jy) in [(seg.x1, seg.y1), (seg.x2, seg.y2)] {
+                        var jamb = Path()
+                        jamb.move(to: pt(jx - nx * halfT, jy - ny * halfT))
+                        jamb.addLine(to: pt(jx + nx * halfT, jy + ny * halfT))
+                        context.stroke(jamb, with: .color(ink), lineWidth: 0.9)
+                    }
+
+                    switch opening.kind {
+                    case .window:
+                        for side in [1.0, -1.0] {
+                            var frame = Path()
+                            frame.move(to: pt(seg.x1 + side * nx * halfT, seg.y1 + side * ny * halfT))
+                            frame.addLine(to: pt(seg.x2 + side * nx * halfT, seg.y2 + side * ny * halfT))
+                            context.stroke(frame, with: .color(ink), lineWidth: 0.8)
+                        }
+
+                    case .door where w >= 0.45:
+                        func jointDistance(_ x: Double, _ y: Double) -> Double {
+                            joints.map { hypot($0.x - x, $0.y - y) }.min() ?? 9
+                        }
+                        let hingeAtStart =
+                            jointDistance(seg.x1, seg.y1) <= jointDistance(seg.x2, seg.y2)
+                        let (hx, hy, lx, ly) =
+                            hingeAtStart
+                            ? (seg.x1, seg.y1, seg.x2, seg.y2) : (seg.x2, seg.y2, seg.x1, seg.y1)
+                        let sideSign: Double =
+                            ((centreX - hx) * nx + (centreY - hy) * ny) >= 0 ? 1 : -1
+
+                        let H = pt(hx + sideSign * nx * halfT, hy + sideSign * ny * halfT)
+                        let latch = pt(lx + sideSign * nx * halfT, ly + sideSign * ny * halfT)
+                        let tip = pt(
+                            hx + sideSign * nx * (halfT + w), hy + sideSign * ny * (halfT + w))
+
+                        var leaf = Path()
+                        leaf.move(to: H)
+                        leaf.addLine(to: tip)
+                        context.stroke(leaf, with: .color(ink), lineWidth: 0.9)
+
+                        let r = hypot(tip.x - H.x, tip.y - H.y)
+                        let a0 = Angle(radians: atan2(tip.y - H.y, tip.x - H.x))
+                        let a1 = Angle(radians: atan2(latch.y - H.y, latch.x - H.x))
+                        var delta = a1.radians - a0.radians
+                        while delta > .pi { delta -= 2 * .pi }
+                        while delta < -.pi { delta += 2 * .pi }
+                        var arc = Path()
+                        arc.addArc(
+                            center: H, radius: r, startAngle: a0, endAngle: a1,
+                            clockwise: delta < 0)
+                        context.stroke(arc, with: .color(ink.opacity(0.75)), lineWidth: 0.6)
+
+                    default:
+                        break
+                    }
                 }
 
                 if flagged.contains(storeyRoom.id), plan.width * viewport.scale >= 40 {

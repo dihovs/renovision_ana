@@ -787,6 +787,79 @@ enum PlanEditing {
         return Snap(value: quantise(offset), engaged: false)
     }
 
+    /// Pull a dragged CORNER so its two walls meet square.
+    ///
+    /// The owner asked for it in exactly those terms, 18 Aug 2026: *"when we
+    /// change the wall, let's say we drop from an angle, and then we wanna
+    /// bring it back — when it's exactly ninety degree, I want it to be
+    /// magnetic."* Dragging a corner off square is easy; landing back ON
+    /// square by eye is not, and a room that is 89.4° reads as square on a
+    /// plan while being wrong in every figure derived from it.
+    ///
+    /// Both walls that meet at this corner are considered, and the nearer
+    /// of the two candidate positions wins:
+    ///
+    /// - **Foot of the perpendicular from the PREVIOUS corner** — makes the
+    ///   incoming wall square to the outgoing one.
+    /// - **Foot of the perpendicular from the NEXT corner** — the same, the
+    ///   other way round.
+    ///
+    /// Returns the unchanged point when neither is within `capture`, so a
+    /// deliberately angled wall is never fought. `capture` is metres, the
+    /// caller converting from a screen radius exactly as `snapOffset`'s is,
+    /// so the pull feels identical at every zoom.
+    static func snapCornerSquare(
+        _ polygon: [CGPoint], index: Int, to proposed: CGPoint, capture: Double,
+        alreadyEngaged: Bool
+    ) -> Snap2 {
+        let n = polygon.count
+        guard n >= 3, index >= 0, index < n else {
+            return Snap2(point: proposed, engaged: false)
+        }
+        // Same hysteresis rule `snapOffset` uses: harder to leave a detent
+        // than to fall into one, so a hovering finger does not flutter.
+        let radius = alreadyEngaged ? capture * 1.5 : capture
+
+        let prev = polygon[(index - 1 + n) % n]
+        let next = polygon[(index + 1) % n]
+
+        /// Where `proposed` lands if the corner must sit square at `pivot`,
+        /// with `far` the other end of the arm being squared against: the
+        /// perpendicular foot from `pivot` along the direction normal to
+        /// (`far` → `pivot`).
+        func square(pivot: CGPoint, far: CGPoint) -> CGPoint? {
+            let arm = sub(pivot, far)
+            let len = length(arm)
+            guard len > 0.05 else { return nil }
+            let unit = CGPoint(x: arm.x / len, y: arm.y / len)
+            let perp = normal(unit)
+            let reach = dot(sub(proposed, pivot), perp)
+            return CGPoint(x: pivot.x + perp.x * reach, y: pivot.y + perp.y * reach)
+        }
+
+        var best: CGPoint?
+        var bestDistance = radius
+        for candidate in [square(pivot: prev, far: next), square(pivot: next, far: prev)] {
+            guard let candidate else { continue }
+            let d = length(sub(proposed, candidate))
+            if d < bestDistance {
+                bestDistance = d
+                best = candidate
+            }
+        }
+
+        guard let best else { return Snap2(point: proposed, engaged: false) }
+        return Snap2(
+            point: CGPoint(x: quantise(best.x), y: quantise(best.y)), engaged: true)
+    }
+
+    /// A snapped POINT and whether a magnet caught it — the two-dimensional
+    /// counterpart to `Snap`, which carries a single offset.
+    struct Snap2 {
+        let point: CGPoint
+        let engaged: Bool
+    }
+
     /// Perpendicular distances at which the dragged wall would line up with
     /// each other wall running the same way — the "flush with that wall"
     /// magnets.

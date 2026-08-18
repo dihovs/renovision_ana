@@ -653,3 +653,94 @@ not a catalogue of everything that exists.
 **Glyphs are ours to draw**, per the standing exception: their artwork is
 substituted with equivalents in the identical position and role.
 
+---
+
+## ORD-40 — An illustrated object library: doors, windows, fixtures
+
+**Asked for by the owner, 18 Aug 2026**, after seeing the elevation
+illustration in `OpeningDetailView` and wanting it everywhere:
+
+> *"I think it's a good idea to make this kind of illustrations for all kind
+> of items, like cabinets, toilets, different types of doors, sliding door,
+> whatever kind of door and things exist here in North America. So I want you
+> to go do research, and I want you to draw illustrations. So when we click
+> insert button and we choose a door, I want to see illustrations and
+> preferably colored illustrations. Even if it says the section 'doors', I
+> want it to show one door that opens the door section. And when you click on
+> it, it shows all the different doors with illustrations. And I also wanna
+> have a tab that shows my favorite and most commonly used ones to start
+> with... And also we need the search bar there to search."*
+
+**Four distinct pieces, and only the first is small:**
+
+1. **Replace `OpeningPicker`'s text rows with illustrated tiles.** Seven
+   kinds exist today (`OpeningKind`); each needs a drawn tile rather than a
+   label + width. The elevation drawing built for `OpeningDetailView` on 18
+   Aug is the starting point and already covers doors/windows/passages.
+2. **A category → detail hierarchy.** A "Doors" tile that opens a doors
+   screen, per his description — the reference does the same
+   (object-model §2's object library: *Annotations 25, Doors 17, Windows 15,
+   Structural 27, Plumbing 57, Appliances 29, Kitchen Cabinets 37, Furniture
+   126, Electrical 69*). Note the counts: theirs is a 300+ object catalogue.
+3. **Favourites / recently-used tab.** The reference has `Recently used` as
+   its own rail. Needs a store — `UserDefaults` is enough; nothing here is
+   worth a table.
+4. **Search.** Trivial once the catalogue is a real list rather than an enum.
+
+**The hard part is NOT the UI — it is that a real catalogue is not an enum.**
+`OpeningKind` is seven cases with hard-coded widths, heights and sills, and
+every one of them is load-bearing: `width` sizes the wall knock-out, `height`
+and `sill` drive net wall area and the elevation. A cabinet or a toilet is a
+different KIND of thing entirely — it sits ON the floor, deducts no wall
+area, and has no host edge. That is **ORD-36's objects takeoff**, which this
+order overlaps and should be sequenced against rather than duplicated.
+
+**Do the research first, as he asked**: North American stock sizes for the
+door and window types this trade actually meets. `OpeningKind`'s existing
+comments are the precedent — every figure there is a builder's stock size
+with its inch derivation stated, never a bare metric number.
+
+**Colour is a deliberate change of direction and worth confirming.** Every
+drawing in this app is currently ink-on-paper monochrome, on purpose
+(`Brand.Plan`), and the plan/report are meant to read as drafting. Coloured
+illustrations in a PICKER are consistent with that — the reference's own
+library is coloured while its plan is not — but the line between the two
+should be explicit before drawing 50 of them.
+
+---
+
+## ORD-41 — Animated illustrations for the capture-method chooser
+
+**Asked for by the owner, 18 Aug 2026**, about `AddRoomMethodSheet`'s two
+cards:
+
+> *"These illustrations I don't like... I want you to be more creative and
+> make nice illustrations, maybe some animations. For the LiDAR, basically
+> how it works is a person takes the phone and goes corner, and scans. For
+> the manual mode, it goes corner to corner, draws the corners. I don't want
+> it photorealistic, but I want a nice illustration, maybe animated. For this
+> point it's better to have animated, so a person who's using it understands
+> what does what."*
+
+The two cards are `ScanMethodArt` (`LevelCanvas.swift`), drawn 15 Aug as
+"our own isometric illustrations, drawn not traced". He is not rejecting
+that they are ours — he is saying they do not TEACH the difference, which is
+the one job a method chooser has.
+
+**What each animation has to convey:**
+- **Auto-Scan (LiDAR):** a person walking the perimeter holding a phone, the
+  room filling in behind them. The point is "you walk it".
+- **Draw manually:** taps landing corner to corner, edges snapping in between.
+  The point is "you tap the corners".
+
+**Practical notes for whoever builds it.** SwiftUI `TimelineView` +
+`Canvas` is the right tool — no asset pipeline, no new dependency, and it
+matches how every other drawing in this app is made. Keep them SHORT and
+looping, and pause when off-screen. `Docs/reference/CAPTURE-PROTOCOL.md`'s
+argument applies: an animation is a teaching aid, not decoration, so if it
+does not make the choice obvious in one loop it has failed.
+
+Also relevant: the same chooser is reached from two places (Insert → Room on
+the floor canvas, and the project's own Add Floor Plan), so this is one
+component, not two.
+

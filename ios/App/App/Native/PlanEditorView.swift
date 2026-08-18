@@ -955,7 +955,17 @@ struct RoomEditorCore: View {
             let moved = CGPoint(
                 x: start[index].x + value.translation.width / scale,
                 y: start[index].y + value.translation.height / scale)
-            corners = PlanEditing.moveCorner(start, index: index, to: moved)
+            // Magnetic at square — his own word for it. See
+            // `PlanEditing.snapCornerSquare`. Same haptic tick the wall
+            // drag's own snap fires, so both magnets feel like one feature.
+            let squared = PlanEditing.snapCornerSquare(
+                start, index: index, to: moved,
+                capture: captureRadius / scale, alreadyEngaged: snapEngaged)
+            if squared.engaged && !snapEngaged {
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
+            snapEngaged = squared.engaged
+            corners = PlanEditing.moveCorner(start, index: index, to: squared.point)
             let before = (index - 1 + corners.count) % corners.count
             liveLabel = "\(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, before)))  ·  \(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index)))"
 
@@ -993,6 +1003,31 @@ struct RoomEditorCore: View {
     /// an arbitrary elevation.
     private func openElevation(at point: CGPoint, scale: CGFloat) {
         let tolerance = wallBand / scale
+
+        // Openings first, same as `handleTap` — a door's own drawn glyph
+        // (the leaf, the swing arc) reaches well off the wall's own
+        // centreline into the room, so a double-tap that lands ON the
+        // glyph — the natural place to tap a door — could sit outside
+        // `distanceToEdge`'s tolerance for the wall underneath it even
+        // though `OpeningGlyphs.distance` (below) still finds it. The
+        // owner caught exactly this gap, 18 Aug 2026: elevation opened
+        // fine double-tapping a bare wall, never double-tapping a door.
+        var bestOpeningDistance = tolerance
+        var openingEdge = -1
+        for opening in openings {
+            let d = OpeningGlyphs.distance(to: opening, polygon: corners, from: point)
+            if d < bestOpeningDistance {
+                bestOpeningDistance = d
+                openingEdge = opening.edge
+            }
+        }
+        if openingEdge >= 0 {
+            select(.wall(openingEdge))
+            elevationWall = openingEdge
+            mode = .elevation
+            return
+        }
+
         var best = -1
         var bestDistance = tolerance
         for i in corners.indices {
@@ -1791,70 +1826,108 @@ struct OpeningDetailView: View {
         .padding(.bottom, Brand.Space.small)
     }
 
-    /// A plain, standalone glyph — the same conventions `OpeningGlyphs`
-    /// draws into a wall (leaf, quarter-swing arc, three-line window), but
-    /// freestanding rather than knocked into a wall band, since this sheet
-    /// has no wall or polygon to knock one out of. Our own drafting, drawn
-    /// not traced, per the standing rule on borrowing the reference's
-    /// layout without its icon set.
+    /// The opening drawn as it appears IN ELEVATION — straight on, standing
+    /// on the floor at its own sill height, at its own real proportions.
+    ///
+    /// The owner asked for exactly this, 18 Aug 2026: *"when we click on the
+    /// door and we swipe up, do you think it's a good idea to see the actual
+    /// illustration of the door, the way that it looks on the elevation
+    /// view?"* It is, and for a reason beyond looks: the two fields directly
+    /// below this drawing are Height and Distance to Floor, and an elevation
+    /// is the ONE view in which both are visible at once. A plan symbol
+    /// shows neither. Stepping the sill up now visibly lifts the drawing off
+    /// the floor line, so the number and the picture check each other.
+    ///
+    /// Proportional, not to scale with anything else on screen: the widest
+    /// dimension fills the box, so a 2'-wide hopper and a 6'-wide slider
+    /// both read clearly at 120pt tall. Conventions follow
+    /// `ElevationView`'s own — floor line heavy, opening outlined, glazing
+    /// bars for a window, a leaf-and-handle for a door.
     private var illustration: some View {
         Canvas { context, size in
             let ink = Brand.Plan.ink
-            let midY = size.height * 0.62
-            let inset: CGFloat = 20
-            let x0 = inset, x1 = size.width - inset
+            let floorY = size.height - 18
+            let headroom = floorY - 14
 
-            var sill = Path()
-            sill.move(to: CGPoint(x: x0, y: midY))
-            sill.addLine(to: CGPoint(x: x1, y: midY))
-            context.stroke(sill, with: .color(ink), style: StrokeStyle(lineWidth: 3, lineCap: .square))
+            // Fit the tallest thing being drawn (sill + height) into the
+            // available headroom, so a high-silled window still lands
+            // inside the box rather than off the top of it.
+            let total = max(sill + height, 0.3)
+            let ppm = headroom / total
+            let openingH = height * ppm
+            let sillH = sill * ppm
+            let openingW = min(size.width - 56, max(40, opening.width * ppm))
+            let x0 = (size.width - openingW) / 2
+            let topY = floorY - sillH - openingH
+
+            // The floor, and the wall either side — the context that makes
+            // "distance to floor" mean something.
+            var floor = Path()
+            floor.move(to: CGPoint(x: 12, y: floorY))
+            floor.addLine(to: CGPoint(x: size.width - 12, y: floorY))
+            context.stroke(
+                floor, with: .color(ink), style: StrokeStyle(lineWidth: 2.5, lineCap: .square))
+
+            let rect = CGRect(x: x0, y: topY, width: openingW, height: openingH)
 
             switch kind.category {
-            case .door:
-                let hinge = CGPoint(x: x0, y: midY)
-                let r = x1 - x0
-                let tip = CGPoint(x: hinge.x, y: hinge.y - r)
-                var leaf = Path()
-                leaf.move(to: hinge)
-                leaf.addLine(to: tip)
-                context.stroke(leaf, with: .color(ink), lineWidth: 1.6)
-                var arc = Path()
-                arc.addArc(
-                    center: hinge, radius: r, startAngle: .degrees(-90), endAngle: .degrees(0),
-                    clockwise: false)
-                context.stroke(arc, with: .color(ink), lineWidth: 0.9)
-                if kind == .doorDouble {
-                    let hinge2 = CGPoint(x: x1, y: midY)
-                    let tip2 = CGPoint(x: hinge2.x, y: hinge2.y - r)
-                    var leaf2 = Path()
-                    leaf2.move(to: hinge2)
-                    leaf2.addLine(to: tip2)
-                    context.stroke(leaf2, with: .color(ink), lineWidth: 1.6)
-                    var arc2 = Path()
-                    arc2.addArc(
-                        center: hinge2, radius: r, startAngle: .degrees(-90),
-                        endAngle: .degrees(-180), clockwise: true)
-                    context.stroke(arc2, with: .color(ink), lineWidth: 0.9)
-                }
             case .window:
-                for fraction: CGFloat in [0.25, 0.5, 0.75] {
-                    var line = Path()
-                    line.move(to: CGPoint(x: x0, y: midY - (midY - 20) * fraction))
-                    line.addLine(to: CGPoint(x: x1, y: midY - (midY - 20) * fraction))
-                    context.stroke(line, with: .color(ink.opacity(0.7)), lineWidth: 1)
+                context.fill(Path(rect), with: .color(Brand.blue.opacity(0.07)))
+                context.stroke(Path(rect), with: .color(ink), lineWidth: 1.6)
+                // Glazing bars, the elevation convention: one vertical, one
+                // horizontal, so it reads as a window and not a panel.
+                var bars = Path()
+                bars.move(to: CGPoint(x: rect.midX, y: rect.minY))
+                bars.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+                bars.move(to: CGPoint(x: rect.minX, y: rect.midY))
+                bars.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+                context.stroke(bars, with: .color(ink.opacity(0.55)), lineWidth: 0.9)
+                // The sill itself, drawn heavier — it is the field being
+                // edited two rows below.
+                if sillH > 2 {
+                    var sillLine = Path()
+                    sillLine.move(to: CGPoint(x: rect.minX - 4, y: rect.maxY))
+                    sillLine.addLine(to: CGPoint(x: rect.maxX + 4, y: rect.maxY))
+                    context.stroke(sillLine, with: .color(ink), lineWidth: 2)
                 }
-                var frame = Path(
-                    roundedRect: CGRect(x: x0, y: 20, width: x1 - x0, height: midY - 20),
-                    cornerRadius: 0)
-                context.stroke(frame, with: .color(ink), lineWidth: 1.6)
+
+            case .door:
+                context.fill(Path(rect), with: .color(Brand.blue.opacity(0.07)))
+                context.stroke(Path(rect), with: .color(ink), lineWidth: 1.6)
+                if kind == .doorDouble {
+                    var meeting = Path()
+                    meeting.move(to: CGPoint(x: rect.midX, y: rect.minY))
+                    meeting.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+                    context.stroke(meeting, with: .color(ink.opacity(0.7)), lineWidth: 1.1)
+                } else if kind == .doorSliding {
+                    // Two panels, bypassing — the elevation reading of the
+                    // same convention the plan glyph draws in section.
+                    var split = Path()
+                    split.move(to: CGPoint(x: rect.midX, y: rect.minY))
+                    split.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+                    context.stroke(
+                        split, with: .color(ink.opacity(0.7)),
+                        style: StrokeStyle(lineWidth: 1.1, dash: [4, 3]))
+                } else {
+                    // A handle, on the latch side — the one mark that makes
+                    // a rectangle read as a door at a glance.
+                    let knobY = rect.midY
+                    let knobX = rect.maxX - max(8, openingW * 0.14)
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: knobX - 2.5, y: knobY - 2.5, width: 5, height: 5)),
+                        with: .color(ink))
+                }
+
             case .passage:
+                // No leaf and no sill — a cased opening is a hole with
+                // jambs and a head, so that is exactly what is drawn.
                 var frame = Path()
-                frame.move(to: CGPoint(x: x0, y: 24))
-                frame.addLine(to: CGPoint(x: x0, y: midY))
-                frame.move(to: CGPoint(x: x1, y: 24))
-                frame.addLine(to: CGPoint(x: x1, y: midY))
+                frame.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+                frame.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+                frame.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+                frame.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
                 context.stroke(
-                    frame, with: .color(ink), style: StrokeStyle(lineWidth: 1.6, dash: [4, 3]))
+                    frame, with: .color(ink), style: StrokeStyle(lineWidth: 1.6, dash: [5, 3]))
             }
         }
     }

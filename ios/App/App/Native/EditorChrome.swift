@@ -657,17 +657,44 @@ enum EditorChrome {
         guard w > 2 else { return }
         let ux = (B.x - A.x) / w
         let uy = (B.y - A.y) / w
-        // Deep enough to enclose the leaf and its swing, so the outline reads
-        // as "this object" rather than "this slice of wall".
-        let depth = max(14, OpeningGlyphs.bandT * scale * 0.5 + w * 0.55)
         let nx = -uy
         let ny = ux
 
+        // ASYMMETRIC, and that is the whole point. This box was centred on
+        // the wall — half its depth either side — which put most of it
+        // OUTSIDE the room while the leaf and swing arc it was meant to
+        // enclose go entirely INSIDE. The owner, 18 Aug 2026: *"I don't
+        // wanna see just the door as a small rectangular. I want that
+        // rectangular square to include also the opening thing... the thing
+        // that shows what direction the door opens."*
+        //
+        // Which way is in: toward the outline's own middle, the same test
+        // `OpeningGlyphs.draw` uses to decide which way to swing the leaf,
+        // so the box and the arc can never disagree about which side they
+        // are on.
+        var cx = 0.0
+        var cy = 0.0
+        for p in polygon {
+            cx += p.x
+            cy += p.y
+        }
+        cx /= Double(max(polygon.count, 1))
+        cy /= Double(max(polygon.count, 1))
+        let centre = toScreen(CGPoint(x: cx, y: cy))
+        let mid = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
+        let side: CGFloat = ((centre.x - mid.x) * nx + (centre.y - mid.y) * ny) >= 0 ? 1 : -1
+
+        // A door's swing reaches a full leaf-width in; a window has no
+        // swing and only needs to clear its own frame lines.
+        let band = OpeningGlyphs.bandT * scale
+        let inward: CGFloat = opening.kind.category == .door ? max(16, w * 1.06) : band
+        let outward = max(4, band * 0.6)
+
         var box = Path()
-        box.move(to: CGPoint(x: A.x - nx * depth / 2, y: A.y - ny * depth / 2))
-        box.addLine(to: CGPoint(x: B.x - nx * depth / 2, y: B.y - ny * depth / 2))
-        box.addLine(to: CGPoint(x: B.x + nx * depth / 2, y: B.y + ny * depth / 2))
-        box.addLine(to: CGPoint(x: A.x + nx * depth / 2, y: A.y + ny * depth / 2))
+        box.move(to: CGPoint(x: A.x - nx * side * outward, y: A.y - ny * side * outward))
+        box.addLine(to: CGPoint(x: B.x - nx * side * outward, y: B.y - ny * side * outward))
+        box.addLine(to: CGPoint(x: B.x + nx * side * inward, y: B.y + ny * side * inward))
+        box.addLine(to: CGPoint(x: A.x + nx * side * inward, y: A.y + ny * side * inward))
         box.closeSubpath()
         context.stroke(box, with: .color(Brand.blue), lineWidth: 1.2)
     }

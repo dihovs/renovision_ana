@@ -1556,4 +1556,58 @@ Newest last. One or two lines per chat.
   evidence" AGENTS.md warns against.
 
   Build 110 confirmed on the device. Nothing in this batch looked at yet.
+- **2026-08-18** — Build 111. Four fixes from testing build 110, plus two
+  large new requests filed rather than rushed (see ORD-40/41 below).
+
+  1. **Elevation would not open by double-tapping a DOOR**, only a bare
+     wall — his own report, and the cause was a genuine hit-test mismatch.
+     `openElevation(at:)` only measured distance to each wall's own
+     CENTRELINE, while `handleTap` (which selects) checks openings first
+     via `OpeningGlyphs.distance`. A door's drawn glyph — leaf and swing
+     arc — reaches a full leaf-width off that centreline into the room, so
+     a double-tap landing on the glyph, the natural place to tap a door,
+     could fall outside the wall's own tolerance while still being
+     unambiguously "on" the door. `openElevation` now checks openings
+     first, exactly as `handleTap` does, and opens the wall the opening
+     belongs to.
+  2. **90° magnetic snap on a dragged corner** — his words: *"when it's
+     exactly ninety degree, I want it to be magnetic."* New
+     `PlanEditing.snapCornerSquare`: considers BOTH walls meeting at the
+     dragged corner, offers the perpendicular foot from each neighbour,
+     takes the nearer if within capture. Same hysteresis (1.5× to escape a
+     detent) and the same `UISelectionFeedbackGenerator` tick the wall
+     drag's own snap already used, so the two magnets feel like one
+     feature. Returns the point untouched when neither is close, so a
+     deliberately angled wall is never fought.
+  3. **Storey view now draws real door and window SYMBOLS**, not blank
+     notches — *"I want to see the door and the opening direction and the
+     windows."* `StoreyBaseLayer` knocked the gap out and stopped;
+     it now draws leaf + quarter-swing arc for a door and frame lines for
+     a window, same conventions `FloorPlanView` uses at room scale (hinge
+     at the jamb nearer a joint, swing toward the room's own centroid),
+     thinned for a storey sheet and suppressed below ~14pt of drawn width.
+  4. **A selected opening's blue box now encloses its swing arc.** It was
+     CENTRED on the wall — half its depth either side — so most of it sat
+     outside the room while the arc it was meant to contain goes entirely
+     inside. Now asymmetric: a thin margin outside, a full leaf-width in
+     (doors only; a window has no swing and keeps a tight box). Which way
+     is "in" comes from the same centroid test `OpeningGlyphs.draw` uses
+     to swing the leaf, so box and arc can never disagree.
+  5. **`OpeningDetailView`'s illustration is now a real ELEVATION** — his
+     own suggestion, and a good one for a concrete reason: the two fields
+     directly under it are Height and Distance to Floor, and an elevation
+     is the one view showing both at once. Stepping the sill now visibly
+     lifts the drawing off the floor line, so the number and the picture
+     check each other. A plan symbol showed neither.
+
+  **Rotate at floor depth is still dimmed, deliberately.** He reported it
+  as not working and he is right — `supported: [.insert]`. But
+  `interactions-editor.md`'s own open-questions list, item 4, records that
+  the reference's floor-level Rotate *"exists in
+  screens/19-floorplan-editor-2d.jpg but was never tapped — unknown
+  whether it rotates the whole floor by fixed increments or opens a
+  control."* Implementing it means mutating every room's stored geometry
+  and position on that floor, N saves, and its own undo semantics — real
+  scope, on top of a behaviour nobody has actually observed. Flagged, not
+  guessed at. **Worth simply asking him what he expects it to do.**
 
