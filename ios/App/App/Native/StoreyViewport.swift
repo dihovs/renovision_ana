@@ -273,7 +273,15 @@ struct StoreyBaseLayer: View {
                     walls.addLine(to: pt(s.x2 + ux * e2, s.y2 + uy * e2))
                 }
                 context.opacity = opacity
-                context.stroke(walls, with: .color(ink), style: StrokeStyle(lineWidth: band, lineCap: .square))
+                // `.butt`, NOT `.square` — and this pairing is the whole
+                // point. `.square` extends every end by ANOTHER half the
+                // line width on top of the joint extension just applied,
+                // so the two stack and the wall overshoots its own corner:
+                // exactly the sticking-out the extension was added to fix,
+                // which is why build 105 improved it without curing it.
+                // `FloorPlanView` has always used `.butt` alongside the
+                // same extension; this now matches it.
+                context.stroke(walls, with: .color(ink), style: StrokeStyle(lineWidth: band, lineCap: .butt))
 
                 for opening in plan.openings {
                     var cut = Path()

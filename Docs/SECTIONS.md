@@ -1353,4 +1353,53 @@ Newest last. One or two lines per chat.
   **Unverified — device was unreachable (AWDL / office Wi-Fi, per HANDOFF
   §8) at the moment these were ready to ship**, so neither fix has reached
   his phone yet as of this write. Both compile clean.
+- **2026-08-18** — Build 106. Four from the owner testing 105.
+  1. **Walls STILL sticking out at angled corners — my own fix was half
+     wrong.** Build 105 added the joint extension but kept `.square` line
+     caps. `.square` extends every end by ANOTHER half line-width on top of
+     the extension, so the two stacked and the wall overshot its corner —
+     which is why 105 improved it without curing it. `FloorPlanView` has
+     always paired that extension with `.butt`; `StoreyBaseLayer` now does
+     too. **Lesson: copying half a technique is worse than copying none —
+     the extension and the cap style are one decision, not two.**
+  2. **The two depths were vertically misaligned** — "the story mode is
+     located lower... when I click in the room, it kind of jumps up." Real
+     bug, and the shared viewport was not enough on its own to prevent it:
+     `StoreyBaseLayer` fills the whole screen, but `RoomEditorCore`'s
+     canvas sits in a `VStack` ABOVE its action bar, so its own local
+     centre is higher up the screen than the viewport's full-screen centre
+     by half the bar's height. Same scale, different centre. Fixed by
+     giving `FloorCanvasView` a named `.coordinateSpace` and having the
+     editor's canvas read `proxy.frame(in:)` against it — `centre` is now
+     the shared viewport's full-screen centre expressed in the canvas's own
+     local space. Exact, not a fudge factor.
+  3. **One finger pans, two fingers zoom.** At FLOOR depth this was simply
+     restored — the shared-canvas rewrite had dropped it, and it is flagged
+     in that entry as a known trade-off; it is now folded into the camera
+     properly (panning moves `cameraBounds`, zooming shrinks it, both in
+     floor metres, both surviving a trip into a room and back). INSIDE a
+     room the one-finger drag now pans **only when nothing is selected** —
+     which is not a weakening of this file's "two fingers navigate, one
+     finger selects" rule but a filling-in of the gap it left: that case
+     previously did NOTHING at all. A stray thumb still cannot move a wall;
+     that needs the wall selected first, and then the same drag edits it.
+  4. **2D/3D stepper at floor depth**, his reason quoted in the code:
+     *"this is when we click 3D and we wanna see the entire house without
+     going inside of a room."* Replaces the decorative no-op stepper the
+     old floor chrome had. Opens the real menu; 3D says "Not built yet",
+     and Elevation is blocked for a permanent reason worth keeping straight
+     — an elevation is one WALL seen straight on, and a floor has no walls
+     of its own, only rooms that have them.
+
+  **A process note worth keeping.** The first attempt at shipping this
+  built while the phone was disconnected: `xcodebuild` failed with "unable
+  to find a destination", but the install step then "succeeded" — pushing
+  the STALE 105 binary still sitting in DerivedData. Caught only by
+  checking `devicectl device info apps` afterwards, which still said 105.
+  **Always verify the built `.app`'s own `CFBundleVersion` before
+  installing, and the device's after** — a green install line means the
+  install worked, not that it installed what you just built.
+
+  Unverified: build 106 installed and confirmed on the device, none of the
+  four looked at yet.
 

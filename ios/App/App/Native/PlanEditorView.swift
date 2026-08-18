@@ -69,6 +69,10 @@ struct RoomEditorCore: View {
     /// `bounds` becomes this viewport's own `bounds` when it is set, and
     /// `screenPoint`/`modelPoint` do not change at all.
     var externalViewport: StoreyViewport? = nil
+    /// The coordinate space `FloorCanvasView` tags its shared-viewport
+    /// content with, so this editor's own canvas can work out where it
+    /// sits inside it. See `canvas`'s `centre` for why that matters.
+    static let storeySpace = "RoomEditorCore.storeySpace"
     /// Where THIS room's own local corner space sits inside the floor —
     /// `StoreyRoom.origin`. Zero for the standalone sheet, where local and
     /// floor space are the same thing because there is no floor. `corners`
@@ -94,6 +98,10 @@ struct RoomEditorCore: View {
 
     @State private var selection: Selection = .none
     @State private var dragStart: Snapshot?
+    /// Cumulative-to-incremental bookkeeping for the one-finger pan —
+    /// `DragGesture` reports the total since the gesture began, this holds
+    /// the last total so each frame applies only its own delta.
+    @State private var lastPanDrag: CGSize = .zero
     @State private var snapEngaged = false
     @State private var liveLabel: String?
     /// The wall-by-wall measurement walk, when one is running. The queue is
@@ -361,9 +369,32 @@ struct RoomEditorCore: View {
             // camera is underneath it.
             let fit = externalViewport?.scale ?? fitScale(in: proxy.size)
             let scale = fit * zoom
-            let centre = CGPoint(
-                x: proxy.size.width / 2 + pan.width,
-                y: proxy.size.height / 2 + pan.height)
+            // `centre` is where floor-space `bounds.mid` lands, in THIS
+            // canvas's own local coordinates.
+            //
+            // Standalone, that is simply the middle of the canvas. Embedded
+            // it is NOT, and assuming it was is what the owner saw: "the
+            // story mode is located lower... when I click in the room, it
+            // kind of jumps up." `StoreyBaseLayer` fills the whole screen,
+            // so its viewport centres on the FULL height — but this canvas
+            // is in a `VStack` above the action bar, so its own middle sits
+            // higher up the screen than that. Same scale, different centre,
+            // and the drawing jumped by exactly half the action bar.
+            //
+            // So: take the shared viewport's own full-screen centre and
+            // express it in this canvas's local space by subtracting where
+            // this canvas starts. `pan` still rides on top, unchanged.
+            let storeyFrame = proxy.frame(in: .named(Self.storeySpace))
+            let centre: CGPoint = {
+                guard let externalViewport else {
+                    return CGPoint(
+                        x: proxy.size.width / 2 + pan.width,
+                        y: proxy.size.height / 2 + pan.height)
+                }
+                return CGPoint(
+                    x: externalViewport.canvasSize.width / 2 - storeyFrame.minX + pan.width,
+                    y: externalViewport.canvasSize.height / 2 - storeyFrame.minY + pan.height)
+            }()
 
             // `roomOrigin` shifts a LOCAL point (what `corners` always is,
             // save file and all) into FLOOR space before it meets `bounds`,
@@ -574,6 +605,7 @@ struct RoomEditorCore: View {
                         dragStart = nil
                         liveLabel = nil
                         snapEngaged = false
+                        lastPanDrag = .zero
                     }
             )
             // Double-tap a wall to open it in elevation (G1). Declared
@@ -804,7 +836,24 @@ struct RoomEditorCore: View {
     }
 
     private func handleDrag(_ value: DragGesture.Value, scale: CGFloat) {
-        guard selection != .none else { return }
+        // Nothing selected: ONE finger moves the paper.
+        //
+        // This does not weaken the rule at the top of this file — it fills
+        // the gap the rule left. "One finger only EDITS what is already
+        // selected" was enforced by returning here and doing NOTHING, so
+        // a one-finger drag on empty canvas was simply a dead gesture. It
+        // now pans, which is what the owner asked for ("for moving, it
+        // needs to be one finger operation") and what magicplan does. A
+        // stray thumb still cannot move a wall: that needs the wall
+        // selected first, and then this same drag edits it instead.
+        guard selection != .none else {
+            let dx = value.translation.width - lastPanDrag.width
+            let dy = value.translation.height - lastPanDrag.height
+            lastPanDrag = value.translation
+            pan.width += dx
+            pan.height += dy
+            return
+        }
 
         if dragStart == nil {
             dragStart = Snapshot(corners: corners, openings: openings, locked: locked)

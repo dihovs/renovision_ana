@@ -1029,6 +1029,25 @@ struct FloorCanvasView: View {
     /// `AnimatedStoreyViewport` also animates alongside `cameraBounds`, so
     /// the base layer's fade and the camera's zoom move on the same frame.
     @State private var focusProgress: CGFloat = 0
+    /// Floor-depth's own pan and zoom, folded into the shared camera rather
+    /// than layered on top of it as a second transform — panning IS moving
+    /// the framed rectangle, zooming IS shrinking it. Restored 18 Aug 2026
+    /// on the owner's word ("for moving, it needs to be one finger
+    /// operation, and to zoom, it needs to be two finger operation") after
+    /// the shared-canvas rewrite dropped them.
+    ///
+    /// `floorPanM` is in floor METRES, not screen points, so it stays
+    /// meaningful across zoom levels. Both survive a trip into a room and
+    /// back — `cameraBounds` simply ignores them while focused — so
+    /// leaving a room returns to the framing you left, not to a reset one.
+    @State private var floorZoom: CGFloat = 1
+    @State private var floorPanM: CGSize = .zero
+    /// Cumulative-to-incremental bookkeeping. `DragGesture`/
+    /// `MagnificationGesture` both report totals since the gesture began;
+    /// these hold the last total so each frame applies only its own delta.
+    @State private var lastFloorDrag: CGSize = .zero
+    @State private var lastFloorPinch: CGFloat = 1
+    @State private var showingFloorViewModes = false
     @State private var switchingFloor = false
     @State private var sharing = false
     @State private var showingHelp = false
@@ -1083,9 +1102,23 @@ struct FloorCanvasView: View {
     /// different clocks.
     private var cameraBounds: CGRect {
         guard let cameraFocusID, let storeyRoom = cachedLayout.room(id: cameraFocusID) else {
-            return cachedLayout.wholeFloorBounds
+            return adjustedFloorBounds
         }
         return storeyRoom.floorBounds
+    }
+
+    /// The whole floor, moved and scaled by whatever the fingers have done
+    /// at floor depth. Zooming IN frames a SMALLER rectangle, which is why
+    /// this divides rather than multiplies.
+    private var adjustedFloorBounds: CGRect {
+        let base = cachedLayout.wholeFloorBounds
+        let z = max(floorZoom, 0.01)
+        let w = base.width / z
+        let h = base.height / z
+        return CGRect(
+            x: base.midX + floorPanM.width - w / 2,
+            y: base.midY + floorPanM.height - h / 2,
+            width: w, height: h)
     }
 
     private static let roomTransitionDuration: Double = 0.3
@@ -1150,6 +1183,41 @@ struct FloorCanvasView: View {
                         focusProgress: progress, grid: true,
                         onTapRoom: { room in enterRoom(room) }
                     )
+                    // ONE finger moves the paper, TWO fingers zoom it —
+                    // the owner's own instruction, and safe HERE in a way
+                    // it is not inside a room: nothing on the floor is
+                    // draggable, so a one-finger drag can only ever mean
+                    // "move the sheet". (Inside a room the same gesture has
+                    // to stay reserved for editing whatever is selected —
+                    // see `RoomEditorCore.handleDrag`, which pans only when
+                    // nothing is.)
+                    //
+                    // Deliberately NOT wrapped in `withAnimation`: these
+                    // track the finger frame by frame and must land exactly
+                    // where it is, not ease toward it. `minimumDistance: 8`
+                    // leaves the base layer's own tap-to-enter intact.
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 8)
+                            .onChanged { value in
+                                guard focusedRoomID == nil, viewport.scale > 0 else { return }
+                                let dx = value.translation.width - lastFloorDrag.width
+                                let dy = value.translation.height - lastFloorDrag.height
+                                lastFloorDrag = value.translation
+                                floorPanM.width -= dx / viewport.scale
+                                floorPanM.height -= dy / viewport.scale
+                            }
+                            .onEnded { _ in lastFloorDrag = .zero }
+                    )
+                    .simultaneousGesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                guard focusedRoomID == nil, lastFloorPinch > 0 else { return }
+                                let delta = value / lastFloorPinch
+                                lastFloorPinch = value
+                                floorZoom = min(max(floorZoom * delta, 0.4), 6)
+                            }
+                            .onEnded { _ in lastFloorPinch = 1 }
+                    )
                     // Own gesture and own buttons both go quiet together —
                     // a tap meant for the canvas underneath must not also
                     // land on a floor-depth control mid-fade.
@@ -1179,6 +1247,12 @@ struct FloorCanvasView: View {
                         .opacity(1 - progress)
                         .allowsHitTesting(focusedRoomID == nil)
                 }
+                // What `RoomEditorCore`'s canvas measures itself against to
+                // find its own offset inside this screen — without it, its
+                // drawing sits half an action bar higher than the base
+                // layer's and the two visibly jump apart. See that view's
+                // own `centre`.
+                .coordinateSpace(name: RoomEditorCore.storeySpace)
             }
         }
         // Pinned once, here, for the whole screen — `RoomEditorCore`'s own
@@ -1286,10 +1360,39 @@ struct FloorCanvasView: View {
                 EditorUndoRedoPill(
                     canUndo: false, canRedo: false, onUndo: {}, onRedo: {})
                 Spacer()
-                EditorStepperPill(action: { switchingFloor = true }) {
-                    Image(systemName: "square.3.layers.3d")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.ink)
+                HStack(spacing: Brand.Space.tight) {
+                    EditorStepperPill(action: { switchingFloor = true }) {
+                        Image(systemName: "square.3.layers.3d")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+                    }
+
+                    // The 2D/3D stepper belongs at FLOOR depth too, not
+                    // only inside a room — the owner's own reason, 18 Aug
+                    // 2026: *"this is when we click 3D and we wanna see the
+                    // entire house without going inside of a room."* That
+                    // is the whole point of a storey-level 3D, and it is
+                    // where the reference puts the control as well.
+                    //
+                    // It opens the real menu and says plainly that 3D is
+                    // not built, rather than being the decorative no-op
+                    // stepper that used to sit here. Elevation is blocked
+                    // for a different and permanent reason: an elevation is
+                    // a WALL seen straight on, and a floor has no walls of
+                    // its own — only rooms that have them.
+                    EditorStepperPill(action: { showingFloorViewModes = true }) {
+                        Text("2D")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Brand.ink)
+                    }
+                    .popover(isPresented: $showingFloorViewModes) {
+                        EditorViewModeMenu(
+                            current: .plan,
+                            elevationBlocked: "Open a room — an elevation is one wall, seen straight on",
+                            threeDBlocked: "Not built yet",
+                            onPick: { _ in showingFloorViewModes = false })
+                            .presentationCompactAdaptation(.popover)
+                    }
                 }
             }
             .padding(Brand.Space.base)
