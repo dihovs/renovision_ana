@@ -574,11 +574,27 @@ caption `Swipe up ↑ for Ground Floor info`. That is `PlanEditorView`'s
 chrome at FLOOR depth — `editor-chrome-design.md` §4 already lists it
 (`Floor level | Insert · Rotate`). What exists today is `StoreyPlanView`,
 which DRAWS a storey's rooms but has none of that chrome and cannot insert.
-Building it means either lifting the chrome out of `PlanEditorView` so both
-depths share it, or giving `StoreyPlanView` its own — worth deciding
-deliberately, because two copies of that chrome is exactly the kind of
-drift `PlanTransform` was written to end. **S5 owns the chrome; this
-section owns the screen.**
+**The drawing canvas already exists — do not build a second one.** The
+owner's words: *"it is the same thing when we manually create a room, we
+have that function already, just the placement is wrong."* He is right.
+`RoomSketchView` is that canvas, reached today through `CaptureFlow` in
+`.draw` mode (`stage == .drawing`). So the floor screen's `+ Insert` should
+open the flow that already exists, not a new surface. What is genuinely
+missing is only the SHELL around it: the floor-depth chrome and an empty
+canvas to land on.
+
+Building that shell means either lifting the chrome out of
+`PlanEditorView` so both depths share it, or giving `StoreyPlanView` its
+own — worth deciding deliberately, because two copies of that chrome is
+exactly the kind of drift `PlanTransform` was written to end. **S5 owns the
+chrome; this section owns the screen; neither owns a new canvas, because
+there does not need to be one.**
+
+Note also that `CaptureFlow`'s mode choice is documented as one-way and as
+living in the floor chooser (A1). Reaching the draw canvas directly from a
+floor pick means either an `initialMode` on `CaptureFlow` or `Insert`
+offering the choice itself — the second is closer to the reference, where
+`Insert` is the branch point.
 
 **From S1 — a question for the owner, before this section builds Dimensions.**
 The floor sheet's Dimensions block is `Ceiling Height · Interior Wall Thickness
