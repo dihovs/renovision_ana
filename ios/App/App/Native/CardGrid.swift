@@ -66,6 +66,15 @@ struct CardGrid<Item: Identifiable, Thumbnail: View>: View {
                         // carrying two caption lines, so row one sits straight.
                         Color.clear.frame(height: 1)
                     }
+                    // The tile is drawn with `strokeBorder`, which fills
+                    // NOTHING — only the 1.5pt dashed outline is a shape, and
+                    // only a shape takes a tap. Without this the middle of
+                    // the tile, which is the whole target a thumb aims at,
+                    // was inert: the button could only be hit on the dashed
+                    // line itself, on the small plus glyph, or on the label
+                    // underneath. It read as "New Project does nothing",
+                    // while the occasional lucky tap did create one.
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
