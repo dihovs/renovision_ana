@@ -705,15 +705,6 @@ struct ProjectDetailView: View {
 
                     if scans == nil {
                         ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
-                    } else if levels.isEmpty {
-                        Card {
-                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                                Text("Nothing measured yet").font(.headline).foregroundStyle(Brand.ink)
-                                Text("Scan a room and it lands here, on the floor you scanned it on.")
-                                    .font(.callout)
-                                    .foregroundStyle(Brand.inkSoft)
-                            }
-                        }
                     }
 
                     // Floor Plans, the reference's own heading for the
@@ -722,6 +713,31 @@ struct ProjectDetailView: View {
                     Text("Create, edit and share floor plans.")
                         .font(.system(size: 12))
                         .foregroundStyle(Brand.inkSoft)
+
+                    // The + that starts a floor plan, and the ONLY way into
+                    // the scanner from a project now that the floating Scan
+                    // button and the Scan tab are gone. The reference puts it
+                    // exactly here, leading the rail; a measurement is a step
+                    // inside a job rather than a destination beside it.
+                    //
+                    // It leads a rail even when there is nothing beside it
+                    // yet, which is what the reference's empty state IS — a
+                    // dashed tile inviting the first one, not a paragraph
+                    // explaining the absence.
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: Brand.Space.small) {
+                            AddTile(label: "Add floor plan") {
+                                openRoom = nil
+                                capturing = true
+                            }
+                            if scans != nil && levels.isEmpty {
+                                // One ghost tile beside the +, so the row
+                                // reads as a place things go rather than as a
+                                // lone button.
+                                GhostTile()
+                            }
+                        }
+                    }
 
                     // Each storey through the collection shell (ORD-15): the
                     // rooms as a rail led by the dashed + tile, the storey
@@ -813,16 +829,6 @@ struct ProjectDetailView: View {
 
             // A camera rather than a plus, the way Jobber's turns into one on
             // a visit: on a property, the thing you add is a measured room.
-            FloatingAction(icon: "camera.viewfinder", label: "Scan") {
-                // Reachable while the room inspector sits at its medium
-                // detent (background interaction is on). One view cannot
-                // present two sheets, so close the inspector first and let
-                // SwiftUI sequence the swap.
-                openRoom = nil
-                capturing = true
-            }
-            .padding(.trailing, Brand.Space.large)
-            .padding(.bottom, Brand.Space.large)
         }
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.large)

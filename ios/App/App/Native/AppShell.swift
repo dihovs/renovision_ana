@@ -77,12 +77,13 @@ struct MainTabs: View {
             EstimatesView()
                 .tabItem { Label("Estimates", systemImage: "doc.text.fill") }
 
-            // Kept while the scanner is being tested daily. It asks which
-            // property first — a measurement with no job attached is a record
-            // of work nobody can bill. Once scanning is trusted this comes out
-            // and the Scan button on each project is the only way in.
-            ScanEntryView()
-                .tabItem { Label("Scan", systemImage: "camera.viewfinder") }
+            // The Scan tab is gone deliberately, and so is the floating Scan
+            // button that used to sit on a project. Scanning is a step inside
+            // a job, not a destination beside it — the reference starts a
+            // floor plan from the + in a project's Floor Plans rail, and so
+            // does this now. `ScanEntryView` still exists and is still
+            // reachable from Home's "Scan a room" for a measurement taken
+            // before anybody has made the job.
         }
         .tint(Brand.blue)
     }

@@ -149,6 +149,54 @@ struct CardGrid<Item: Identifiable, Thumbnail: View>: View {
     }
 }
 
+/// The reference's dashed `+` tile at the head of a rail.
+///
+/// Solid-filled behind the dashes on purpose: a tile drawn only with
+/// `strokeBorder` fills nothing, so only the 1.5pt outline takes a tap and
+/// the middle of the tile — the whole target a thumb aims at — is inert.
+/// That exact mistake made `New Project` look broken for a day.
+struct AddTile: View {
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundStyle(Brand.Plan.dimension)
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Brand.Plan.labelSoft)
+                    .lineLimit(1)
+            }
+            .frame(width: 132, height: 114)
+            .background(Brand.Plan.paper.opacity(0.6), in: .rect(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        Brand.Plan.dimension.opacity(0.5),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// An empty dashed outline beside the `+`. Draws nothing and does nothing —
+/// it is the reference's way of saying "things go along here", which a lone
+/// button on its own does not say.
+struct GhostTile: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 12)
+            .strokeBorder(
+                Brand.Plan.dimension.opacity(0.28),
+                style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            .frame(width: 132, height: 114)
+            .allowsHitTesting(false)
+    }
+}
+
 /// The filter chips above a grid — `All` as a filled pill, the rest outlined.
 ///
 /// The selected chip is SOLID and the others are not, which is the whole of
