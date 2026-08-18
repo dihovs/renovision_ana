@@ -39,7 +39,7 @@ Commit the ledger update with the work.
 | **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
 | **S10** | Report parity | NOT STARTED | S9 | `ReportDocument.tsx` |
-| **S11** | Commercial room types | **BLOCKED** | owner input | `livingArea.ts`, `CaptureFlow.swift` |
+| **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
 | **S12** | Project and floor screens | **PROJECT DONE · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
 
@@ -511,6 +511,28 @@ floor, a warehouse bay, a loading dock.
 **Take the split, not the list.** Two questions only the owner can answer: which
 commercial types his jobs actually meet, and whether living area applies to them
 at all — ANSI Z765 is residential and means nothing in a warehouse.
+
+**Answered and built (18 Aug 2026).** The owner chose *theirs plus ours*, so
+`COMMERCIAL_ROOM_TYPES` carries the reference's sixteen first — a hand that
+knows magicplan finds what it expects — then the ten a flooded commercial
+building actually needs and their list cannot name: mechanical room,
+electrical room, server room, retail floor, warehouse bay, loading dock,
+storage room, washroom, stairwell, other. Two carry notes because they
+change what the operator does: the mechanical room is where the burst
+usually starts, and water in an electrical room is a safety call before it
+is a drying one.
+
+**The second question answered itself.** Every commercial type is
+`band: "excluded"`, so living area is not reported for any of them. ANSI
+Z765 measures the finished living space of a DWELLING; quoting a "living
+area" for a loading dock would put a figure with no standard behind it in a
+document an adjuster reads. Floor area is still measured and still totalled
+— only the living-area line stays silent, and the picker says so.
+
+`RoomTypeRule` gained `category`, absent meaning residential, so every type
+predating the split needed no edit. `roomTypeRule()` now looks up
+`ALL_ROOM_TYPES` — without that a commercial room's type would have
+resolved to the fallback and silently mispriced its living area.
 
 ---
 

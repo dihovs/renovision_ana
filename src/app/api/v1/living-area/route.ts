@@ -5,7 +5,7 @@ import {
   calculateLivingArea,
   DEFAULT_LIVING_AREA_CONFIG,
   LIVING_AREA_DEFINITION,
-  ROOM_TYPES,
+  ALL_ROOM_TYPES,
   type LivingAreaConfig,
 } from "@/lib/crm/livingArea";
 import { db } from "@/lib/crm/db";
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       config,
     );
 
-    return { config, totals, definition: LIVING_AREA_DEFINITION, roomTypes: ROOM_TYPES };
+    return { config, totals, definition: LIVING_AREA_DEFINITION, roomTypes: ALL_ROOM_TYPES };
   });
 }
 

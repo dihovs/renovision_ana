@@ -383,6 +383,12 @@ struct LivingRoomType: Decodable, Identifiable, Hashable {
     let percent: Double
     let band: String
     let note: String?
+    /// "residential" or "commercial". Absent on every type that predates
+    /// the split, and every one of those IS residential — so the default is
+    /// the answer rather than a guess.
+    let category: String?
+
+    var isCommercial: Bool { category == "commercial" }
 }
 
 // MARK: - Schedule

@@ -958,7 +958,7 @@ private struct FullRoomTypeSheet: View {
             }
             .padding(Brand.Space.large)
         } else {
-            RoomTypePicker(types: types, selected: selected) { picked in
+            SelectRoomTypeView(types: types, selected: selected) { picked in
                 onPick(picked, types.first { $0.id == picked }?.label ?? picked)
             }
             .task { await load() }
@@ -1178,4 +1178,113 @@ private struct ReviewPlanPreview: View {
 
 extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}
+
+/// The reference's `Select Room Type`: a Residential / Commercial segmented
+/// control over a grouped list.
+///
+/// **The split is the reference's and is worth having. The commercial LIST
+/// is half ours.** Theirs is an office fit-out vocabulary — Private Office,
+/// Shared Office, Cafeteria — and a water-damage call in a commercial
+/// building is in a mechanical room, an electrical room, a warehouse bay.
+/// Both are offered: theirs first so a hand that knows magicplan finds what
+/// it expects, ours after so the job has somewhere to file. See
+/// `COMMERCIAL_ROOM_TYPES` for why every commercial type excludes living
+/// area — ANSI Z765 measures a dwelling and means nothing in a warehouse.
+struct SelectRoomTypeView: View {
+    let types: [LivingRoomType]
+    let selected: String?
+    let onPick: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var commercial = false
+    @State private var expanded = false
+
+    /// The six the reference leads with, in its order. Everything else is
+    /// one tap behind `See more` — a list of twenty on the screen you reach
+    /// most often is a list nobody reads.
+    private static let common = [
+        "kitchen", "dining_room", "living_room", "bedroom", "bathroom", "balcony",
+    ]
+
+    private var shown: [LivingRoomType] {
+        let pool = types.filter { $0.isCommercial == commercial }
+        // Commercial has no "common six" to lead with — the reference shows
+        // its whole list, and so does this.
+        guard !commercial, !expanded else { return pool }
+        let lead = Self.common.compactMap { id in pool.first { $0.id == id } }
+        // A type chosen from behind See more stays visible rather than
+        // silently vanishing from the short list that is on screen.
+        if let selected, !lead.contains(where: { $0.id == selected }),
+            let picked = pool.first(where: { $0.id == selected }) {
+            return lead + [picked]
+        }
+        return lead
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(shown) { type in
+                        Button {
+                            onPick(type.id)
+                            dismiss()
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(type.label)
+                                        .font(.system(size: 17))
+                                        .foregroundStyle(Brand.ink)
+                                    if let note = type.note, !note.isEmpty {
+                                        Text(note)
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(Brand.inkFaint)
+                                    }
+                                }
+                                Spacer()
+                                if type.id == selected {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(Brand.blue)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if !commercial && !expanded {
+                        Button("See more") { expanded = true }
+                            .font(.system(size: 17))
+                            .foregroundStyle(Brand.blue)
+                    }
+                } header: {
+                    Text("Room Type")
+                } footer: {
+                    if commercial {
+                        Text("Living area is not reported for commercial space: ANSI Z765 measures a dwelling. Floor area is still measured and still totalled.")
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .safeAreaInset(edge: .top) {
+                Picker("", selection: $commercial) {
+                    Text("Residential").tag(false)
+                    Text("Commercial").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, Brand.Space.base)
+                .padding(.bottom, Brand.Space.small)
+                .background(Brand.canvas)
+            }
+            .navigationTitle("Select Room Type")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "chevron.left") }
+                }
+            }
+        }
+    }
 }

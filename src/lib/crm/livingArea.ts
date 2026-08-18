@@ -46,6 +46,17 @@ export type RoomTypeRule = {
   band: GradeBand;
   /** Why it is what it is, shown in the UI so nobody has to guess. */
   note?: string;
+  /**
+   * Which tab of the picker this belongs to. Absent means residential,
+   * which is what every type predating the split is.
+   *
+   * The split itself is the reference's and is worth having. Its LIST is
+   * not: theirs is an office fit-out vocabulary (Private Office, Shared
+   * Office, Cafeteria) and a flooded commercial building is a mechanical
+   * room, a server room, a warehouse bay. Both are here — theirs so the
+   * hand finds what it expects, ours so the job has somewhere to file.
+   */
+  category?: "residential" | "commercial";
 };
 
 /**
@@ -121,8 +132,67 @@ export const ROOM_TYPES: RoomTypeRule[] = [
   { id: "other", label: "Other", percent: 100, band: "above" },
 ];
 
+
+/**
+ * Commercial spaces, for the picker's second tab.
+ *
+ * **Living area is `excluded` for every one of them, deliberately.** ANSI
+ * Z765 measures the finished living space of a DWELLING; it has no meaning
+ * in a warehouse, and reporting a "living area" for a loading dock would be
+ * a figure with no standard behind it in a document an adjuster reads. The
+ * floor area is still measured and still totalled — only the living-area
+ * line stays silent.
+ *
+ * The first block is the reference's own list, kept so a hand that knows
+ * magicplan finds what it expects. The second is this trade's, because a
+ * flooded commercial building is mostly rooms their list has no name for.
+ */
+export const COMMERCIAL_ROOM_TYPES: RoomTypeRule[] = [
+  // Theirs.
+  { id: "private_office", label: "Private Office", percent: 0, band: "excluded", category: "commercial" },
+  { id: "shared_office", label: "Shared Office", percent: 0, band: "excluded", category: "commercial" },
+  { id: "open_space", label: "Open Space", percent: 0, band: "excluded", category: "commercial" },
+  { id: "meeting_room", label: "Meeting Room", percent: 0, band: "excluded", category: "commercial" },
+  { id: "conference_room", label: "Conference Room", percent: 0, band: "excluded", category: "commercial" },
+  { id: "reception", label: "Reception", percent: 0, band: "excluded", category: "commercial" },
+  { id: "kitchenette", label: "Kitchenette", percent: 0, band: "excluded", category: "commercial" },
+  { id: "cafeteria", label: "Cafeteria", percent: 0, band: "excluded", category: "commercial" },
+  { id: "commercial_hall", label: "Hall", percent: 0, band: "excluded", category: "commercial" },
+  { id: "commercial_closet", label: "Closet", percent: 0, band: "excluded", category: "commercial" },
+  { id: "commercial_balcony", label: "Balcony", percent: 0, band: "excluded", category: "commercial" },
+  { id: "commercial_garage", label: "Garage", percent: 0, band: "excluded", category: "commercial" },
+  { id: "commercial_hallway", label: "Hallway", percent: 0, band: "excluded", category: "commercial" },
+  { id: "lounge", label: "Lounge", percent: 0, band: "excluded", category: "commercial" },
+  { id: "waiting_room", label: "Waiting Room", percent: 0, band: "excluded", category: "commercial" },
+  { id: "workshop", label: "Workshop", percent: 0, band: "excluded", category: "commercial" },
+
+  // Ours — the rooms a water-damage call in a commercial building is
+  // actually in, and which their list cannot name.
+  {
+    id: "mechanical_room",
+    label: "Mechanical Room",
+    percent: 0,
+    band: "excluded",
+    category: "commercial",
+    note: "Where the burst usually starts. Boilers, pumps, risers.",
+  },
+  { id: "electrical_room", label: "Electrical Room", percent: 0, band: "excluded", category: "commercial",
+    note: "Water here is a safety call before it is a drying one." },
+  { id: "server_room", label: "Server Room", percent: 0, band: "excluded", category: "commercial" },
+  { id: "retail_floor", label: "Retail Floor", percent: 0, band: "excluded", category: "commercial" },
+  { id: "warehouse_bay", label: "Warehouse Bay", percent: 0, band: "excluded", category: "commercial" },
+  { id: "loading_dock", label: "Loading Dock", percent: 0, band: "excluded", category: "commercial" },
+  { id: "storage_room", label: "Storage Room", percent: 0, band: "excluded", category: "commercial" },
+  { id: "commercial_washroom", label: "Washroom", percent: 0, band: "excluded", category: "commercial" },
+  { id: "stairwell", label: "Stairwell", percent: 0, band: "excluded", category: "commercial" },
+  { id: "commercial_other", label: "Other", percent: 0, band: "excluded", category: "commercial" },
+];
+
+/** Every type the picker can offer, both tabs. */
+export const ALL_ROOM_TYPES: RoomTypeRule[] = [...ROOM_TYPES, ...COMMERCIAL_ROOM_TYPES];
+
 export function roomTypeRule(id: string | null | undefined): RoomTypeRule {
-  return ROOM_TYPES.find((type) => type.id === id) ?? ROOM_TYPES[ROOM_TYPES.length - 1];
+  return ALL_ROOM_TYPES.find((type) => type.id === id) ?? ROOM_TYPES[ROOM_TYPES.length - 1];
 }
 
 /** The project-level switches. */
