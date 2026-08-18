@@ -930,3 +930,156 @@ private struct StoreyInfoSheet: View {
         .presentationDetents([.medium])
     }
 }
+
+/// A storey, as its own editing surface — the screen `Add Floor` lands on.
+///
+/// The reference opens a chosen floor onto an empty drafting canvas with a
+/// single `+ Insert` at the foot, NOT straight into a room. That distinction
+/// matters: the floor is a place things go, and until something is on it the
+/// screen's whole job is to say so and offer the one verb that changes it.
+///
+/// Nothing here draws a new canvas. The grid is `EditorChrome.drawGrid`, the
+/// bar is `EditorActionBar` at `.floor` depth (which §4 of
+/// `editor-chrome-design.md` already defines as `Insert · Rotate`), the
+/// rooms are `LevelCanvas`, and `Insert` opens the drawing flow that already
+/// exists — `CaptureFlow` in `.draw` mode. The owner's correction, kept
+/// here because it is the point: *"it is the same thing when we manually
+/// create a room, we have that function already, just the placement is
+/// wrong."*
+struct FloorCanvasView: View {
+    let projectId: String
+    let projectName: String
+    let level: String
+
+    @Environment(\.dismiss) private var dismiss
+    /// The storey chosen from the floors stepper. Held rather than pushed:
+    /// switching floors REPLACES what this screen shows, so a stack of
+    /// half-seen floors never builds up behind the back button.
+    @State private var switched: String?
+    @State private var scans: [RoomScan]?
+    @State private var inserting = false
+    @State private var openRoom: RoomScan?
+    @State private var switchingFloor = false
+    @State private var sharing = false
+    @State private var showingHelp = false
+
+    /// Which storey is on screen: the one navigated to, until the floors
+    /// stepper picks another.
+    private var showing: String { switched ?? level }
+
+    private var rooms: [RoomScan] { (scans ?? []).filter { $0.level == showing } }
+
+    private var label: String {
+        FloorVocabulary.levels.first { $0.id == showing }?.label ?? showing
+    }
+
+    var body: some View {
+        ZStack {
+            Brand.Plan.paper.ignoresSafeArea()
+
+            // The paper. Drawn whether or not anything sits on it — an empty
+            // floor is still a sheet you are about to draw on, and a blank
+            // white screen would not say that.
+            Canvas { context, size in
+                EditorChrome.drawGrid(context: context, size: size)
+            }
+            .ignoresSafeArea()
+
+            if rooms.isEmpty {
+                VStack(spacing: 6) {
+                    Text("Nothing on this floor yet")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Brand.inkSoft)
+                    Text("Insert a room to start drawing it.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+            } else {
+                LevelCanvas(rooms: rooms) { room in openRoom = room }
+                    .padding(Brand.Space.base)
+            }
+
+            // The editor chrome, at floor depth. Undo/redo is drawn and
+            // greyed rather than hidden: §3 of editor-chrome-design says the
+            // pill never disappears, and a control that vanishes teaches the
+            // hand a different screen each time.
+            VStack {
+                HStack(alignment: .top) {
+                    EditorUndoRedoPill(
+                        canUndo: false, canRedo: false, onUndo: {}, onRedo: {})
+                    Spacer()
+                    HStack(spacing: Brand.Space.small) {
+                        EditorStepperPill(action: { switchingFloor = true }) {
+                            Image(systemName: "square.3.layers.3d")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Brand.ink)
+                        }
+                        EditorStepperPill(action: {}) {
+                            Text("2D")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Brand.ink)
+                        }
+                    }
+                }
+                .padding(Brand.Space.base)
+                Spacer()
+                EditorActionBar(
+                    depth: .floor(name: label),
+                    supported: [.insert],
+                    onAction: { action in
+                        if action == .insert { inserting = true }
+                    })
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
+        .navigationTitle(label)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button { showingHelp = true } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                Button { sharing = true } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
+        }
+        .sheet(isPresented: $sharing) {
+            // The same export sheet the project carries — one screen, two
+            // ways in, rather than a second copy that drifts from it.
+            ProjectExportSheet(
+                projectId: projectId, projectName: projectName, onShowFiles: {})
+        }
+        .sheet(isPresented: $switchingFloor) {
+            AddFloorSheet(existing: Set((scans ?? []).map(\.level))) { picked in
+                switched = picked
+            }
+        }
+        .alert("Floor plan", isPresented: $showingHelp) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("This is the floor itself. Insert adds a room to it — start from a rectangle and pull it into shape. Tap a room once it is drawn to open its details.")
+        }
+        .sheet(isPresented: $inserting, onDismiss: { Task { await load() } }) {
+            CaptureFlow(
+                projectId: projectId,
+                projectName: projectName,
+                existingCount: (scans ?? []).count,
+                existingNames: (scans ?? []).map(\.name),
+                initialLevel: level,
+                // Insert IS the mode choice on this screen, so the chooser
+                // has nothing left to ask.
+                initialMode: .draw,
+                onSaved: { Task { await load() } },
+                onFinished: { _, _ in })
+        }
+        .sheet(item: $openRoom, onDismiss: { Task { await load() } }) { room in
+            RoomDetailView(room: room).id(room.id)
+        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        scans = (try? await API.shared.scans(projectId: projectId)) ?? []
+    }
+}

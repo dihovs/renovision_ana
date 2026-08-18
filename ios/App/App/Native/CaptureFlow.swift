@@ -41,6 +41,14 @@ struct CaptureFlow: View {
     /// floor plan rather than from the project. The floor chooser still shows,
     /// because the MODE choice lives there and is one-way once made (A1).
     var initialLevel: String? = nil
+    /// Skip the mode chooser and go straight to this mode.
+    ///
+    /// Set by `Add Floor`: picking a storey there has already answered both
+    /// questions the chooser asks — which floor, and how it is being
+    /// measured — so showing it again is a screen with nothing left to
+    /// decide on it. The A1 note that the mode choice is one-way still
+    /// holds; this only moves WHERE it is made, not how often.
+    var initialMode: CaptureMode? = nil
     let onSaved: () -> Void
     /// The visit is over: the storey it was on, and everything it filed.
     /// ORD-16 — the operator lands on that storey's drawn plan, not on a list.
@@ -236,6 +244,11 @@ struct CaptureFlow: View {
             // answer, so the chooser opens on it rather than on Ground.
             if let initialLevel, FloorVocabulary.ids.contains(initialLevel) {
                 level = initialLevel
+            }
+            // A mode chosen before the flow opened means the chooser has
+            // nothing left to ask: begin the room on that storey directly.
+            if let initialMode, stage == .chooseFloor {
+                startRoom(initialMode)
             }
         }
         .sheet(isPresented: $pickingMoreTypes) {

@@ -635,6 +635,7 @@ struct ProjectDetailView: View {
     /// the chooser's own dismissal.
     @State private var addingFloor = false
     @State private var pendingLevel: String?
+    @State private var openFloor: String?
     @State private var projectFiles: [RoomPhoto] = []
     @State private var sharing = false
     @StateObject private var queue = ScanQueue.shared
@@ -917,9 +918,12 @@ struct ProjectDetailView: View {
             isPresented: $addingFloor,
             onDismiss: {
                 // Opened here rather than from the row's action: SwiftUI
-                // will not raise a second sheet while the first is still
-                // dismissing, and the scan would simply never appear.
-                if pendingLevel != nil { capturing = true }
+                // will not raise a second view while the first is still
+                // dismissing, and the floor would simply never appear.
+                if let chosen = pendingLevel {
+                    openFloor = chosen
+                    pendingLevel = nil
+                }
             }
         ) {
             AddFloorSheet(existing: Set(levels)) { level in pendingLevel = level }
@@ -976,6 +980,10 @@ struct ProjectDetailView: View {
                 existingCount: (scans ?? []).count,
                 existingNames: (scans ?? []).map(\.name),
                 initialLevel: pendingLevel,
+                // Add Floor lands on the drawing canvas: the reference's
+                // floor screen IS that canvas, and picking a storey there
+                // has already said how the room is being measured.
+                initialMode: pendingLevel == nil ? nil : .draw,
                 onSaved: { Task { await load() } },
                 onFinished: { level, filed in
                     landingIntent = PlanLanding(level: level, filed: filed)
@@ -983,6 +991,10 @@ struct ProjectDetailView: View {
         }
         // The one navigation hook ORD-16 asks of this screen: a finished
         // capture pushes the storey it was on, drawn.
+        .navigationDestination(item: $openFloor) { level in
+            FloorCanvasView(
+                projectId: project.id, projectName: project.name, level: level)
+        }
         .navigationDestination(item: $landing) { destination in
             StoreyPlanView(
                 projectId: project.id,
