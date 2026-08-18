@@ -590,6 +590,19 @@ exactly the kind of drift `PlanTransform` was written to end. **S5 owns the
 chrome; this section owns the screen; neither owns a new canvas, because
 there does not need to be one.**
 
+**A `floors` table is the next real blocker on this section.** The floor
+inspector (swipe up from the Insert bar) is built and matches §2c's shell —
+tabs, header, Statistics 4-up — but every figure on it is DERIVED and
+read-only, because a storey is a string on `room_scans.level` rather than a
+row. There is nowhere to put the three things the reference's floor sheet
+edits: the floor's name, its interior wall thickness and its exterior wall
+thickness. Ceiling height is shown as the tallest room's, not an average —
+averaging two rooms that disagree invents a height neither has. Making any
+of it settable means a `floors` table keyed by (project, level), which is a
+migration, not a screen. **That table would also give floor-level photos
+somewhere to live**, which is why the inspector's Photos tab currently
+explains itself instead of listing anything.
+
 Note also that `CaptureFlow`'s mode choice is documented as one-way and as
 living in the floor chooser (A1). Reaching the draw canvas directly from a
 floor pick means either an `initialMode` on `CaptureFlow` or `Insert`

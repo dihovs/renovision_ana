@@ -967,6 +967,7 @@ struct FloorCanvasView: View {
     @State private var showingHelp = false
     @State private var insertOpen = false
     @State private var addingPhoto = false
+    @State private var floorInfo = false
     @State private var choosingMethod = false
     @State private var picked = false
     @State private var method: CaptureFlow.CaptureMode = .draw
@@ -1092,7 +1093,13 @@ struct FloorCanvasView: View {
                             if action == .insert {
                                 withAnimation(.snappy(duration: 0.18)) { insertOpen.toggle() }
                             }
-                        })
+                        },
+                        // Passing this is what draws the
+                        // "Swipe up ↑ for … info" caption AND its gesture —
+                        // the bar refuses to promise a swipe it cannot
+                        // deliver, so the caption only appears with a
+                        // handler behind it.
+                        onInfo: { floorInfo = true })
                 }
             }
             .ignoresSafeArea(edges: .bottom)
@@ -1144,6 +1151,9 @@ struct FloorCanvasView: View {
                 method = chosen
                 picked = true
             }
+        }
+        .sheet(isPresented: $floorInfo) {
+            FloorDetailView(level: showing, label: label, rooms: rooms)
         }
         .sheet(isPresented: $addingPhoto, onDismiss: { Task { await load() } }) {
             ProjectFileUploader(projectId: projectId) { Task { await load() } }
@@ -1413,5 +1423,131 @@ struct AddRoomMethodSheet: View {
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
+    }
+}
+
+/// The floor's own inspector — the swipe-up from the Insert bar.
+///
+/// Same shell as the room's and the wall's: `Details · Photos & Notes ·
+/// Forms`, header with a collapse chevron, two detents. `object-model.md`
+/// §2c is the layout.
+///
+/// **Everything here is read-only, and that is a data fact rather than a
+/// choice about screens.** The reference's floor sheet edits three things —
+/// ceiling height, interior wall thickness, exterior wall thickness — and
+/// names the floor. This app stores none of them PER FLOOR: a storey is a
+/// string on `room_scans.level`, not a row, so there is nowhere to put a
+/// floor's name or its own thickness override. The figures shown are
+/// therefore derived from the rooms on the storey, and every one of them
+/// says where it came from rather than pretending to be settable.
+///
+/// Making them editable is a migration (a `floors` table keyed by project +
+/// level), not a screen — written up in S12.
+struct FloorDetailView: View {
+    let level: String
+    let label: String
+    let rooms: [RoomScan]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var detent: PresentationDetent = .medium
+    @State private var tab = 0
+
+    private var floorAreaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqm } }
+    private var wallAreaSqm: Double {
+        rooms.reduce(0) { $0 + $1.wallLengthM * $1.ceilingHeightM }
+    }
+    private var volumeCuM: Double {
+        rooms.reduce(0) { $0 + $1.floorAreaSqm * $1.ceilingHeightM }
+    }
+    /// The tallest room's, not an average: a storey's ceiling height is a
+    /// property of the building, and averaging two rooms that disagree
+    /// invents a height neither of them has.
+    private var ceiling: Double { rooms.map(\.ceilingHeightM).max() ?? 0 }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                HStack(spacing: Brand.Space.small) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Brand.blue)
+                    Text(label)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Brand.ink)
+                    Spacer()
+                    Button {
+                        if detent == .large { detent = .medium } else { dismiss() }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Brand.inkSoft)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(Brand.Space.base)
+
+                Picker("", selection: $tab) {
+                    Text("Details").tag(0)
+                    Text("Photos & Notes").tag(1)
+                    Text("Forms").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, Brand.Space.base)
+
+                Form {
+                    switch tab {
+                    case 0: detailsTab
+                    case 1:
+                        Section {
+                            Text("A photo belongs to a room or to the job. A storey is not a row here, so there is nowhere to file one against.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Brand.inkSoft)
+                        }
+                    default:
+                        InspectorFormsTab(
+                            subject: "this floor",
+                            footer: "Claim details live on the project; measurements live on each room.")
+                    }
+                }
+            }
+            .background(Brand.canvas)
+            .navigationBarHidden(true)
+        }
+        .presentationDetents([.medium, .large], selection: $detent)
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+    }
+
+    @ViewBuilder private var detailsTab: some View {
+        Section("STATISTICS") {
+            StatBand(items: [
+                .init(
+                    label: "Floor Area",
+                    value: "\(Int(Measure.squareFeet(floorAreaSqm).rounded()))", unit: "sq ft"),
+                .init(
+                    label: "Wall Area",
+                    value: "\(Int(Measure.squareFeet(wallAreaSqm).rounded()))", unit: "sq ft"),
+                .init(
+                    label: "Volume",
+                    value: "\(Int(Measure.cubicFeet(volumeCuM).rounded()))", unit: "cu ft"),
+                .init(label: "# Rooms", value: "\(rooms.count)"),
+            ])
+            .listRowInsets(EdgeInsets())
+        }
+
+        Section {
+            LabeledContent("Ceiling Height", value: Measure.ftLabel(ceiling))
+        } header: {
+            Text("DIMENSIONS")
+        } footer: {
+            Text("Measured, not set — the tallest room on this floor. Wall thickness is a project-wide setting; a per-floor override needs a floors table that does not exist yet.")
+        }
+
+        Section {
+            LabeledContent("Floor", value: label)
+        } header: {
+            Text("GENERAL")
+        } footer: {
+            Text("A storey is a label on each room rather than a record of its own, so it has no name to give it and nothing else to carry.")
+        }
     }
 }
