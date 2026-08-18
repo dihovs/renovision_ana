@@ -320,66 +320,157 @@ struct FilterChips<Value: Hashable>: View {
 /// in a grid. Drawn from the same `FloorPlanGeometry` the storey canvas uses,
 /// so the card and the plan behind it cannot disagree about the outline.
 struct MiniPlan: View {
+    /// The largest room — the fallback, and all an older server sends.
     let geometry: ScanGeometry
+    /// Every room on the busiest storey. When this has more than one, the
+    /// card draws the FLOOR: the owner's own ask, pointing at a nine-room
+    /// condo card in magicplan — *"you see how nice it is displayed. I
+    /// would like to have a look like this... and also you can see the
+    /// doors, how the door opening arches."*
+    var floorRooms: [ProjectSummary.PlacedRoom] = []
 
     var body: some View {
         Canvas { context, size in
-            let plan = FloorPlanGeometry.plan(from: geometry)
-            guard !plan.segments.isEmpty else { return }
+            let plans = resolvedPlans
+            guard !plans.isEmpty else { return }
 
-            // Bounds come from the SEGMENTS, not the polygon. `plan.polygon`
-            // is empty whenever the walls do not close — deliberately, since
-            // inventing an outline would draw a fill that is not the room —
-            // and a scan that failed to close is exactly the one whose
-            // thumbnail matters most, because its shape is how you notice.
-            let xs = plan.segments.flatMap { [$0.x1, $0.x2] }
-            let ys = plan.segments.flatMap { [$0.y1, $0.y2] }
-            guard let minX = xs.min(), let maxX = xs.max(),
-                  let minY = ys.min(), let maxY = ys.max() else { return }
+            // Placement through the SAME shelf-packer the storey canvas
+            // uses, so a card and the floor behind it lay their rooms out
+            // identically rather than by two rules that can drift.
+            let packed = StoreyPacking.pack(
+                plans.enumerated().map { index, item in
+                    StoreyPacking.Item(
+                        id: "\(index)", width: item.plan.width, height: item.plan.height,
+                        planX: item.planX, planY: item.planY)
+                })
+            let placedByID = Dictionary(
+                uniqueKeysWithValues: packed.placed.map { ($0.id, $0) })
 
-            let w = max(maxX - minX, 0.001), h = max(maxY - minY, 0.001)
-            let scale = min(size.width / w, size.height / h) * 0.86
-            let ox = (size.width - w * scale) / 2 - minX * scale
-            let oy = (size.height - h * scale) / 2 - minY * scale
-            let pt = { (x: Double, y: Double) in
-                CGPoint(x: x * scale + ox, y: y * scale + oy)
-            }
+            let w = max(packed.width, 0.001)
+            let h = max(packed.height, 0.001)
+            // 0.78, not 0.86 — "zoom a bit out to demonstrate... there's
+            // like a white frame going around." The margin IS the frame:
+            // paper visible on all four sides rather than walls running to
+            // the tile's own edge.
+            let scale = min(size.width / w, size.height / h) * 0.78
+            let ox = (size.width - w * scale) / 2
+            let oy = (size.height - h * scale) / 2
 
-            // The floor, only when there is a real outline to fill.
-            if plan.polygon.count >= 3 {
-                var floor = Path()
-                for (i, p) in plan.polygon.enumerated() {
-                    let q = pt(p.x, p.y)
-                    if i == 0 { floor.move(to: q) } else { floor.addLine(to: q) }
+            for (index, item) in plans.enumerated() {
+                let origin = placedByID["\(index)"]
+                let dx = (origin?.x ?? 0) * scale + ox
+                let dy = (origin?.y ?? 0) * scale + oy
+                let plan = item.plan
+                func pt(_ x: Double, _ y: Double) -> CGPoint {
+                    CGPoint(x: x * scale + dx, y: y * scale + dy)
                 }
-                floor.closeSubpath()
-                context.fill(floor, with: .color(Brand.Plan.floorMuted))
-            }
 
-            var walls = Path()
-            for s in plan.segments {
-                walls.move(to: pt(s.x1, s.y1))
-                walls.addLine(to: pt(s.x2, s.y2))
-            }
-            context.stroke(
-                walls, with: .color(Brand.Plan.ink),
-                style: StrokeStyle(lineWidth: 2.2, lineCap: .square))
+                if plan.polygon.count >= 3 {
+                    var floor = Path()
+                    for (i, p) in plan.polygon.enumerated() {
+                        let q = pt(p.x, p.y)
+                        if i == 0 { floor.move(to: q) } else { floor.addLine(to: q) }
+                    }
+                    floor.closeSubpath()
+                    context.fill(floor, with: .color(Brand.Plan.floorMuted))
+                }
 
-            // A door or window is a gap in the wall, cut back to the paper
-            // colour, the same convention `LevelCanvas` draws with. Without
-            // this a card's own walls were unconditionally solid, so a room
-            // with a door on it looked identical to one with none — the
-            // thing this card exists to show at a glance was the one thing
-            // it could not show.
-            for opening in plan.openings {
-                var cut = Path()
-                cut.move(to: pt(opening.segment.x1, opening.segment.y1))
-                cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
-                context.stroke(
-                    cut, with: .color(Brand.Plan.paper),
-                    style: StrokeStyle(lineWidth: 3.7, lineCap: .butt))
+                // Mitred at the corners by stroking the closed outline as
+                // ONE path — the same fix `StoreyBaseLayer` needed, for the
+                // same reason: separate per-segment subpaths never join, so
+                // any corner that is not square-on gapped or spurred.
+                let band = max(1.4, 0.114 * scale)
+                if plan.polygon.count >= 3 {
+                    var outline = Path()
+                    outline.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
+                    for p in plan.polygon.dropFirst() { outline.addLine(to: pt(p.x, p.y)) }
+                    outline.closeSubpath()
+                    context.stroke(
+                        outline, with: .color(Brand.Plan.ink),
+                        style: StrokeStyle(lineWidth: band, lineCap: .butt, lineJoin: .miter))
+                } else {
+                    var walls = Path()
+                    for s in plan.segments {
+                        walls.move(to: pt(s.x1, s.y1))
+                        walls.addLine(to: pt(s.x2, s.y2))
+                    }
+                    context.stroke(
+                        walls, with: .color(Brand.Plan.ink),
+                        style: StrokeStyle(lineWidth: band, lineCap: .round))
+                }
+
+                for opening in plan.openings {
+                    let seg = opening.segment
+                    let length = hypot(seg.x2 - seg.x1, seg.y2 - seg.y1)
+                    guard length > 0.01 else { continue }
+
+                    // Knock the gap out of the wall band first — a door is a
+                    // hole, whatever is drawn in it afterwards.
+                    var cut = Path()
+                    cut.move(to: pt(seg.x1, seg.y1))
+                    cut.addLine(to: pt(seg.x2, seg.y2))
+                    context.stroke(
+                        cut, with: .color(Brand.Plan.paper),
+                        style: StrokeStyle(lineWidth: band + 1.2, lineCap: .butt))
+
+                    // The swing arc, which is what makes a plan read as a
+                    // plan. Skipped below a few points of width, where it
+                    // would be a smudge rather than a symbol.
+                    guard opening.kind == .door, length * scale >= 9 else { continue }
+                    let ux = (seg.x2 - seg.x1) / length
+                    let uy = (seg.y2 - seg.y1) / length
+                    let nx = -uy, ny = ux
+                    // Swing toward the room's own middle, so the leaf opens
+                    // inward the way a draughtsman would draw it.
+                    var cx = 0.0, cy = 0.0
+                    for p in plan.polygon { cx += p.x; cy += p.y }
+                    let count = Double(max(plan.polygon.count, 1))
+                    cx /= count
+                    cy /= count
+                    let midX = (seg.x1 + seg.x2) / 2, midY = (seg.y1 + seg.y2) / 2
+                    let side: Double = ((cx - midX) * nx + (cy - midY) * ny) >= 0 ? 1 : -1
+
+                    let hinge = pt(seg.x1, seg.y1)
+                    let tip = pt(seg.x1 + side * nx * length, seg.y1 + side * ny * length)
+                    let latch = pt(seg.x2, seg.y2)
+
+                    var leaf = Path()
+                    leaf.move(to: hinge)
+                    leaf.addLine(to: tip)
+                    context.stroke(leaf, with: .color(Brand.Plan.ink), lineWidth: 0.8)
+
+                    let r = hypot(tip.x - hinge.x, tip.y - hinge.y)
+                    let a0 = Angle(radians: atan2(tip.y - hinge.y, tip.x - hinge.x))
+                    let a1 = Angle(radians: atan2(latch.y - hinge.y, latch.x - hinge.x))
+                    var delta = a1.radians - a0.radians
+                    while delta > .pi { delta -= 2 * .pi }
+                    while delta < -.pi { delta += 2 * .pi }
+                    var arc = Path()
+                    arc.addArc(
+                        center: hinge, radius: r, startAngle: a0, endAngle: a1,
+                        clockwise: delta < 0)
+                    context.stroke(arc, with: .color(Brand.Plan.ink.opacity(0.7)), lineWidth: 0.6)
+                }
             }
         }
+    }
+
+    /// The rooms to draw, with their placements — the whole storey when the
+    /// server sent one, otherwise the single largest room, which is what
+    /// this card drew before and what an older server still returns.
+    private var resolvedPlans: [(plan: FloorPlanGeometry.Plan, planX: Double?, planY: Double?)] {
+        if !floorRooms.isEmpty {
+            let built = floorRooms.compactMap {
+                room -> (plan: FloorPlanGeometry.Plan, planX: Double?, planY: Double?)? in
+                let plan = FloorPlanGeometry.plan(from: room.geometry)
+                guard !plan.segments.isEmpty else { return nil }
+                return (plan, room.planX, room.planY)
+            }
+            if !built.isEmpty { return built }
+        }
+        let plan = FloorPlanGeometry.plan(from: geometry)
+        guard !plan.segments.isEmpty else { return [] }
+        return [(plan, nil, nil)]
     }
 }
 

@@ -69,6 +69,14 @@ export type ProjectListItem = Project & {
       scan-less project simply has null here. */
   room_count: number;
   largest_room: { name: string; geometry: Record<string, unknown> } | null;
+  /** Every room on the property's busiest storey, capped, so a card can draw
+      the floor rather than one room of it. Positions where they exist; the
+      client shelf-packs whatever has none, exactly as the storey canvas does. */
+  floor_rooms: {
+    geometry: Record<string, unknown>;
+    plan_x: number | null;
+    plan_y: number | null;
+  }[];
   floor_area_sqm: number;
 };
 
@@ -211,7 +219,7 @@ export async function listProjects(
 
   const RICH =
     "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
-    "room_scans(name, floor_area_sqm, geometry)";
+    "room_scans(name, floor_area_sqm, geometry, level, plan_x, plan_y)";
 
   let { data, error } = await build(RICH);
 
@@ -230,7 +238,16 @@ export async function listProjects(
   return ((data ?? []) as unknown as (Project & {
     clients: Parameters<typeof clientDisplayName>[0] | null;
     project_files: { uploaded_at: string }[];
-    room_scans: { name: string; floor_area_sqm: number; geometry: Record<string, unknown> }[] | null;
+    room_scans:
+      | {
+          name: string;
+          floor_area_sqm: number;
+          geometry: Record<string, unknown>;
+          level: string | null;
+          plan_x: number | null;
+          plan_y: number | null;
+        }[]
+      | null;
   })[]).map(({ clients, project_files, room_scans, ...project }) => {
     const uploads = (project_files ?? []).map((f) => f.uploaded_at);
     // ISO timestamps sort lexicographically, so a plain sort finds the newest.
@@ -244,6 +261,27 @@ export async function listProjects(
       null,
     );
 
+    // The BUSIEST storey, for a card that shows the property rather than one
+    // room of it. The owner, 18 Aug 2026, pointing at magicplan's own grid:
+    // *"you see that the house that has multiple rooms — you see how nice it
+    // is displayed. I would like to have a look like this."* A single room
+    // is what `largest_room` gives, and on a nine-room condo it is the least
+    // recognisable thing on the card.
+    //
+    // Grouped by level and the fullest one wins, because a thumbnail showing
+    // a ground floor and a basement packed side by side is not a floor plan
+    // of anything. `largest_room` stays for older builds of the app, which
+    // decode it and know nothing of this.
+    const byLevel = new Map<string, typeof scans>();
+    for (const scan of scans) {
+      const key = scan.level ?? "";
+      byLevel.set(key, [...(byLevel.get(key) ?? []), scan]);
+    }
+    const busiest = [...byLevel.values()].reduce<typeof scans>(
+      (best, group) => (group.length > best.length ? group : best),
+      [],
+    );
+
     return {
       ...project,
       client_name: clients ? clientDisplayName(clients) : null,
@@ -251,6 +289,15 @@ export async function listProjects(
       last_activity: last,
       room_count: scans.length,
       largest_room: largest ? { name: largest.name, geometry: largest.geometry } : null,
+      // Capped: a thumbnail is ~130pt across and a room past the first dozen
+      // is a few pixels, but every geometry blob travels over a job-site
+      // connection for EVERY card in the list. Twelve is the point past
+      // which payload costs more than the picture is worth.
+      floor_rooms: busiest.slice(0, 12).map((scan) => ({
+        geometry: scan.geometry,
+        plan_x: scan.plan_x,
+        plan_y: scan.plan_y,
+      })),
       floor_area_sqm: scans.reduce((sum, scan) => sum + Number(scan.floor_area_sqm), 0),
     };
   });

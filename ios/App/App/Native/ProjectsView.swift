@@ -264,7 +264,7 @@ struct ProjectsView: View {
             // with nothing measured has nothing to draw
             // and says so instead of faking a room.
             if let geometry = project.largestRoom {
-                MiniPlan(geometry: geometry)
+                MiniPlan(geometry: geometry, floorRooms: project.floorRooms)
                     .padding(6)
             } else {
                 Image(systemName: "doc")

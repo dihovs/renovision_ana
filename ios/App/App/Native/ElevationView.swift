@@ -75,13 +75,29 @@ struct ElevationView: View {
     /// `RoomEditorCore.handleDrag` uses, so a drag is one undoable move
     /// rather than a running accumulation of rounding error.
     @State private var draggingOpening: (index: Int, startOffset: Double)?
-    /// The Insert menu, and the opening picker it can raise.
+    /// The Insert menu.
     @State private var insertOpen = false
-    @State private var addingOpening = false
+
+    /// **ONE** sheet for this view, chosen by an enum.
+    ///
+    /// Two separate `.sheet` modifiers were stacked on the same view here —
+    /// one for naming a damage region, one for the opening picker — and on
+    /// the same view SwiftUI does not reliably honour both: the later
+    /// modifier can win and the earlier simply never presents. That is the
+    /// likeliest reason the owner reported adding a door from the elevation
+    /// showing nothing at all, and it is the same family of fault as the
+    /// gesture that was never attached: the code ran, the presentation did
+    /// not. An enum makes the two mutually exclusive by construction, which
+    /// they always were in fact.
+    private enum ActiveSheet: Identifiable {
+        case naming
+        case addingOpening
+        var id: Int { self == .naming ? 0 : 1 }
+    }
+    @State private var activeSheet: ActiveSheet?
     /// Every area filed against this room. Held whole rather than
     /// pre-filtered so stepping to the next wall costs no round trip.
     @State private var areas: [AffectedArea] = []
-    @State private var naming = false
     @State private var error: String?
 
     // MARK: - Geometry
@@ -200,39 +216,41 @@ struct ElevationView: View {
             .padding(.horizontal, Brand.Space.small)
             .padding(.bottom, Brand.Space.small)
         }
-        .sheet(isPresented: $naming) {
-            if let draft {
+        .sheet(item: $activeSheet) { which in
+            switch which {
+            case .addingOpening:
+                // The SAME picker the plan editor raises from a selected
+                // wall — one list of kinds, one fit test, rather than a
+                // second copy that can drift from it. Placement runs
+                // through `PlanEditing.placeOpening` too, so a new opening
+                // lands in the largest free gap on this wall and cannot
+                // overlap one already there.
+                OpeningPicker(
+                    edgeLength: wallLength,
+                    fits: { kind in
+                        PlanEditing.placeOpening(
+                            kind, onEdge: edge, of: corners, avoiding: openings) != nil
+                    }
+                ) { kind in
+                    if let placed = PlanEditing.placeOpening(
+                        kind, onEdge: edge, of: corners, avoiding: openings)
+                    {
+                        openings.append(placed)
+                    }
+                    activeSheet = nil
+                }
+            case .naming:
+                if let draft {
                 WallDamageSheet(
                     widthM: draft.width, heightM: draft.height, areaSqm: draft.areaSqm,
                     wallNumber: edge + 1
                 ) { name, cause in
                     Task { await save(draft, name: name, cause: cause) }
-                } onCancel: {
-                    naming = false
-                    self.draft = nil
+                    } onCancel: {
+                        activeSheet = nil
+                        self.draft = nil
+                    }
                 }
-            }
-        }
-        .sheet(isPresented: $addingOpening) {
-            // The SAME picker the plan editor raises from a selected wall —
-            // one list of kinds, one fit test, rather than a second copy
-            // that can drift from it. Placement runs through
-            // `PlanEditing.placeOpening` too, so a new opening lands in the
-            // largest free gap on this wall and cannot overlap one already
-            // there.
-            OpeningPicker(
-                edgeLength: wallLength,
-                fits: { kind in
-                    PlanEditing.placeOpening(
-                        kind, onEdge: edge, of: corners, avoiding: openings) != nil
-                }
-            ) { kind in
-                if let placed = PlanEditing.placeOpening(
-                    kind, onEdge: edge, of: corners, avoiding: openings)
-                {
-                    openings.append(placed)
-                }
-                addingOpening = false
             }
         }
         .task { await load() }
@@ -374,7 +392,7 @@ struct ElevationView: View {
                 "Door or window", icon: "door.left.hand.closed", enabled: true,
                 note: "Placed on this wall, then draggable"
             ) {
-                addingOpening = true
+                activeSheet = .addingOpening
             }
             Divider()
             insertRow("Object", icon: "bed.double", enabled: false, note: "Not built yet") {}
@@ -578,7 +596,7 @@ struct ElevationView: View {
                     self.draft = nil
                     return
                 }
-                naming = true
+                activeSheet = .naming
             }
     }
 
@@ -651,14 +669,14 @@ struct ElevationView: View {
                 wallIndex: edge,
                 polygon: region.polygon)
             error = nil
-            naming = false
+            activeSheet = nil
             draft = nil
             drawing = false
             await load()
         } catch {
             // The drawing survives the failure: it took a drag to make and
             // the operator is standing in front of the wall it describes.
-            naming = false
+            activeSheet = nil
             self.error = "That did not save. \(error.localizedDescription)"
         }
     }

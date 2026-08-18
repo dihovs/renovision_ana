@@ -25,7 +25,11 @@ export const DAMAGE_LABEL: Record<DamageType, string> = {
  * actually drawn — a thumbnail, over a floor, under a dimension line.
  */
 export const DAMAGE_COLOR: Record<DamageType, string> = {
-  water: "#2b7fd4",
+  // Lightened 18 Aug 2026 with its Swift twin in `Models.swift` —
+  // `DamageCause.hex`. These two tables ARE one table; a colour that differs
+  // between the phone and the printed report is the same damage described
+  // twice, and an adjuster reading both will ask which is real.
+  water: "#6fb0e8",
   fire: "#e2673a",
   mould: "#4f9d3a",
   impact: "#8a63d2",

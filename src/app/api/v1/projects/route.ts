@@ -30,6 +30,14 @@ export async function GET(request: Request) {
       // rather than a grey box. `listProjects` already reads it for the web
       // list; forwarding it costs one embed that is already being made.
       largestRoom: project.largest_room?.geometry ?? null,
+      // Every room on the busiest storey, so the card can draw the property
+      // rather than one room of it. `largestRoom` above stays for builds
+      // that predate this and decode only that.
+      floorRooms: project.floor_rooms.map((room) => ({
+        geometry: room.geometry,
+        planX: room.plan_x,
+        planY: room.plan_y,
+      })),
       assignedTo: project.assigned_to ?? null,
       favorite: project.is_favorite ?? false,
     })),

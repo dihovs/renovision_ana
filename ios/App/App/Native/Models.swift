@@ -84,9 +84,32 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
     /// design — see migration 0035 — so this is the whole of the answer.
     let assignedTo: String?
     let favorite: Bool
+    /// Every room on the property's busiest storey, so the card can draw the
+    /// FLOOR rather than one room of it — the owner's own ask, 18 Aug 2026,
+    /// pointing at a nine-room condo card in magicplan: *"you see how nice
+    /// it is displayed. I would like to have a look like this."*
+    ///
+    /// Empty on a server older than this, which is exactly what
+    /// `largestRoom` above is still there for: the card falls back to the
+    /// single-room drawing rather than showing nothing.
+    let floorRooms: [PlacedRoom]
+
+    /// One room's geometry and where it sits, if anywhere. `planX`/`planY`
+    /// are nil for rooms measured on separate visits, which carry no true
+    /// relative position — the client shelf-packs those, exactly as the
+    /// storey canvas already does.
+    /// `Decodable` only — `ScanGeometry` is not `Hashable`, and
+    /// `ProjectSummary`'s own `==`/`hash` are hand-written anyway (see
+    /// below: comparing every field EXCEPT geometry is what makes a card
+    /// redraw when its star changes without diffing a scan blob per frame).
+    struct PlacedRoom: Decodable {
+        let geometry: ScanGeometry
+        let planX: Double?
+        let planY: Double?
+    }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, clientName, roomCount, largestRoom, assignedTo, favorite
+        case id, name, clientName, roomCount, largestRoom, assignedTo, favorite, floorRooms
     }
 
     init(from decoder: Decoder) throws {
@@ -101,6 +124,9 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
         // as "unassigned, not starred" rather than failing the whole list.
         assignedTo = try? c.decodeIfPresent(String.self, forKey: .assignedTo)
         favorite = (try? c.decodeIfPresent(Bool.self, forKey: .favorite)) as? Bool ?? false
+        // A malformed room costs the card its multi-room drawing, never the
+        // list — same rule `largestRoom` above already follows.
+        floorRooms = (try? c.decodeIfPresent([PlacedRoom].self, forKey: .floorRooms)) ?? []
     }
 
     // IDENTITY is the id — that is what `hash` carries, and what navigation
@@ -760,7 +786,12 @@ enum DamageCause: String, CaseIterable, Identifiable {
     /// `DAMAGE_COLOR`, the same six digits.
     var hex: UInt32 {
         switch self {
-        case .water: return 0x2B7FD4
+        // Lightened from 0x2B7FD4 on the owner's word, 18 Aug 2026: *"colour
+        // of affected area by default needs to be... just lighter blue."*
+        // This exact value is the light-blue swatch `AreaFillColorPicker`
+        // already offers, so the default is one of the choices rather than a
+        // sixth colour that only appears when nobody has picked.
+        case .water: return 0x6FB0E8
         case .fire: return 0xE2673A
         case .mould: return 0x4F9D3A
         case .impact: return 0x8A63D2
