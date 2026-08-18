@@ -66,6 +66,7 @@
 		AD67D7D17C991A121B28428D /* WallThickness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D3D641FDEDBA6BB88264119 /* WallThickness.swift */; };
 		3ADE51E16CBD26D919F04A0F /* WallDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67032B5BC403F2AE8111CE71 /* WallDetailView.swift */; };
 		4AD82D75B76CB41D5C01E4B3 /* PlanNavigationGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC43E6725CD8B78774541DD /* PlanNavigationGesture.swift */; };
+		AD656B11A5856E2F155930D0 /* DrawRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EBB8DD8CA83FD333FC3CB5 /* DrawRoomView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -129,6 +130,7 @@
 		0D3D641FDEDBA6BB88264119 /* WallThickness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/WallThickness.swift; sourceTree = "<group>"; };
 		67032B5BC403F2AE8111CE71 /* WallDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/WallDetailView.swift; sourceTree = "<group>"; };
 		6BC43E6725CD8B78774541DD /* PlanNavigationGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanNavigationGesture.swift; sourceTree = "<group>"; };
+		F1EBB8DD8CA83FD333FC3CB5 /* DrawRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DrawRoomView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -172,6 +174,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				F1EBB8DD8CA83FD333FC3CB5 /* DrawRoomView.swift */,
 				6BC43E6725CD8B78774541DD /* PlanNavigationGesture.swift */,
 				67032B5BC403F2AE8111CE71 /* WallDetailView.swift */,
 				0D3D641FDEDBA6BB88264119 /* WallThickness.swift */,
@@ -309,6 +312,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AD656B11A5856E2F155930D0 /* DrawRoomView.swift in Sources */,
 				4AD82D75B76CB41D5C01E4B3 /* PlanNavigationGesture.swift in Sources */,
 				3ADE51E16CBD26D919F04A0F /* WallDetailView.swift in Sources */,
 				AD67D7D17C991A121B28428D /* WallThickness.swift in Sources */,

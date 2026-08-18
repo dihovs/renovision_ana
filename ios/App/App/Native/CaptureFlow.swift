@@ -109,7 +109,13 @@ struct CaptureFlow: View {
 
     enum CaptureMode {
         case scan
+        /// Start from a rectangle and pull it into shape.
         case draw
+        /// Place each corner where the wall actually turns. The reference's
+        /// `Draw Room`; sibling of `.draw`, not a replacement — a bedroom is
+        /// fastest pulled from a rectangle, an L-shaped basement with a
+        /// bulkhead has no rectangle to start from.
+        case drawCorners
     }
 
     private enum Stage {
@@ -123,6 +129,8 @@ struct CaptureFlow: View {
         case capturing
         /// Drawing a room by hand, on the plan editor's canvas.
         case drawing
+        /// Corner-by-corner drawing, `DrawRoomView`.
+        case drawingCorners
         case review
         /// Filed. Offer the next room while the AR session still tracks.
         case saved
@@ -152,7 +160,7 @@ struct CaptureFlow: View {
                 case .chooseFloor: floorChooser
                 case .chooseType: typeChooser
                 case .briefing: briefing
-                case .capturing, .drawing: Color.clear
+                case .capturing, .drawing, .drawingCorners: Color.clear
                 case .review: review
                 case .saved: savedStage
                 }
@@ -179,6 +187,15 @@ struct CaptureFlow: View {
                     }
                 }
             }
+        }
+        .fullScreenCover(
+            isPresented: .init(get: { stage == .drawingCorners }, set: { _ in })
+        ) {
+            DrawRoomView(
+                onCancel: { stage = .briefing },
+                onDone: { polygon, ceiling, openings in
+                    finishDrawn(polygon: polygon, ceiling: ceiling, openings: openings)
+                })
         }
         .fullScreenCover(isPresented: .init(get: { stage == .drawing }, set: { _ in })) {
             RoomSketchView(
@@ -298,6 +315,27 @@ struct CaptureFlow: View {
         analysis = nil
         error = nil
         stage = .chooseType
+    }
+
+    /// Both drawing canvases land here, so a drawn room reaches `review`
+    /// the same way whichever produced it — one save path, not two.
+    private func finishDrawn(
+        polygon: [CGPoint], ceiling: Double, openings: [PlanEditing.WallOpening]
+    ) {
+        geometry = ScanGeometry(polygon: polygon, ceilingHeight: ceiling, authored: openings)
+        analysis = nil
+        lastWasScan = false
+        stage = .review
+    }
+
+    /// Which canvas a mode ends on. `.scan` goes by way of the briefing;
+    /// both drawing modes have their own instructions on the canvas itself.
+    private var canvasStage: Stage {
+        switch mode {
+        case .scan: return .capturing
+        case .draw: return .drawing
+        case .drawCorners: return .drawingCorners
+        }
     }
 
     /// The eight common chips — plus the chosen type when it came from the
@@ -579,9 +617,9 @@ struct CaptureFlow: View {
                     .disabled(name.trimmed.isEmpty)
                     .opacity(name.trimmed.isEmpty ? 0.5 : 1)
                 } else {
-                    Button("Start drawing") {
+                    Button(mode == .drawCorners ? "Start placing corners" : "Start drawing") {
                         error = nil
-                        stage = .drawing
+                        stage = canvasStage
                     }
                     .buttonStyle(PrimaryButtonStyle(enabled: !name.trimmed.isEmpty))
                     .disabled(name.trimmed.isEmpty)

@@ -1287,8 +1287,8 @@ struct AddRoomMethodSheet: View {
                     HStack(spacing: Brand.Space.small) {
                         methodCard(
                             title: "Auto-Scan",
-                            caption: "Walk the room with the phone. Objects found for you.",
-                            glyph: "arkit",
+                            caption: "Walk the rooms with the phone. Objects found for you.",
+                            art: .auto,
                             enabled: lidar
                         ) {
                             onPick(.scan)
@@ -1297,7 +1297,7 @@ struct AddRoomMethodSheet: View {
                         methodCard(
                             title: "Manual-Scan",
                             caption: "RoomPlan detects objects itself — there is no manual variant.",
-                            glyph: "viewfinder",
+                            art: .manual,
                             enabled: false
                         ) {}
                     }
@@ -1320,8 +1320,11 @@ struct AddRoomMethodSheet: View {
                                 title: "Draw Room",
                                 caption: "Add corner points to build the room shape.",
                                 glyph: "hand.draw",
-                                enabled: false
-                            ) {}
+                                enabled: true
+                            ) {
+                                onPick(.drawCorners)
+                                dismiss()
+                            }
                             Divider().padding(.leading, 62)
                             methodRow(
                                 title: "Import & Draw",
@@ -1358,7 +1361,7 @@ struct AddRoomMethodSheet: View {
     }
 
     private func methodCard(
-        title: String, caption: String, glyph: String, enabled: Bool,
+        title: String, caption: String, art: ScanMethodArt.Kind, enabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: { if enabled { action() } }) {
@@ -1367,10 +1370,7 @@ struct AddRoomMethodSheet: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Brand.Plan.floorMuted)
                         .frame(height: 92)
-                        .overlay(
-                            Image(systemName: glyph)
-                                .font(.system(size: 30, weight: .light))
-                                .foregroundStyle(enabled ? Brand.blue : Brand.inkFaint))
+                        .overlay(ScanMethodArt(kind: art, enabled: enabled).padding(6))
                     Label("LiDAR", systemImage: "cube.transparent")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.white)
@@ -1558,6 +1558,101 @@ struct FloorDetailView: View {
             Text("GENERAL")
         } footer: {
             Text("A storey is a label on each room rather than a record of its own, so it has no name to give it and nothing else to carry.")
+        }
+    }
+}
+
+/// The Add Room cards' artwork, drawn rather than traced.
+///
+/// `AGENTS.md` is explicit: reuse the reference's workflow and IA, draw our
+/// own icons and illustrations. So these are built from the same isometric
+/// projection the plan drawings use, not copies of theirs — and they carry
+/// the one distinction the two cards exist to make.
+///
+/// **Auto-Scan** shows SEVERAL rooms with a path threading through them:
+/// you walk the building and it keeps up. **Manual-Scan** shows ONE room
+/// with a cone from a fixed standpoint: you stand still and aim at each
+/// surface. That difference is the whole of the choice, and a generic
+/// camera glyph on both would have said none of it.
+struct ScanMethodArt: View {
+    enum Kind { case auto, manual }
+    let kind: Kind
+    var enabled: Bool = true
+
+    var body: some View {
+        Canvas { context, size in
+            let ink = enabled ? Brand.Plan.ink : Brand.inkFaint
+            let accent = enabled ? Brand.blue : Brand.inkFaint
+            // Isometric: x goes right-and-down, y goes left-and-down, the
+            // same 2:1 projection an architectural axo uses.
+            let unit = min(size.width, size.height) / (kind == .auto ? 7.0 : 5.2)
+            let origin = CGPoint(x: size.width / 2, y: size.height / 2 + unit * 0.6)
+            func iso(_ x: Double, _ y: Double) -> CGPoint {
+                CGPoint(
+                    x: origin.x + (x - y) * unit * 0.86,
+                    y: origin.y + (x + y) * unit * 0.5)
+            }
+
+            func room(_ x: Double, _ y: Double, _ w: Double, _ h: Double, fill: Bool) {
+                var path = Path()
+                path.move(to: iso(x, y))
+                path.addLine(to: iso(x + w, y))
+                path.addLine(to: iso(x + w, y + h))
+                path.addLine(to: iso(x, y + h))
+                path.closeSubpath()
+                if fill {
+                    context.fill(path, with: .color(accent.opacity(0.16)))
+                }
+                context.stroke(path, with: .color(ink), lineWidth: 1.4)
+            }
+
+            switch kind {
+            case .auto:
+                // Three rooms sharing walls — a floor, not a box.
+                room(-2.2, -1.4, 2.2, 1.5, fill: true)
+                room(0, -1.4, 1.8, 1.5, fill: false)
+                room(-2.2, 0.1, 4.0, 1.4, fill: false)
+
+                // The walk: a dashed path threading all three.
+                var walk = Path()
+                walk.move(to: iso(-1.1, -0.6))
+                walk.addLine(to: iso(0.9, -0.6))
+                walk.addLine(to: iso(0.9, 0.8))
+                walk.addLine(to: iso(-1.1, 0.8))
+                context.stroke(
+                    walk, with: .color(accent),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 4]))
+                // Where the walk ends, so it reads as a direction.
+                let tip = iso(-1.1, 0.8)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: tip.x - 4, y: tip.y - 4, width: 8, height: 8)),
+                    with: .color(accent))
+
+            case .manual:
+                // One room, and a cone from a standpoint inside it: aimed,
+                // not walked.
+                room(-1.6, -1.2, 3.2, 2.4, fill: false)
+
+                let stand = iso(-0.9, 0.7)
+                var cone = Path()
+                cone.move(to: stand)
+                cone.addLine(to: iso(1.6, -1.2))
+                cone.addLine(to: iso(1.6, 0.4))
+                cone.closeSubpath()
+                context.fill(cone, with: .color(accent.opacity(0.22)))
+                context.stroke(cone, with: .color(accent), lineWidth: 1.2)
+
+                // The far wall it is aimed at, drawn heavier — the surface
+                // being measured right now.
+                var target = Path()
+                target.move(to: iso(1.6, -1.2))
+                target.addLine(to: iso(1.6, 1.2))
+                context.stroke(target, with: .color(accent), lineWidth: 3)
+
+                context.fill(
+                    Path(ellipseIn: CGRect(x: stand.x - 5, y: stand.y - 5, width: 10, height: 10)),
+                    with: .color(ink))
+            }
         }
     }
 }
