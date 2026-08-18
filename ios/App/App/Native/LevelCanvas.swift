@@ -1154,6 +1154,22 @@ struct FloorCanvasView: View {
         withAnimation(Self.roomTransitionAnimation) {
             cameraFocusID = nil
             focusProgress = 0
+            // Zoom out to the WHOLE floor, centred — not back to whatever
+            // pan and zoom the floor happened to be left at before the room
+            // was opened. The owner, 18 Aug 2026: *"when I zoom in and I
+            // move it, and then when I zoom out, it kind of jumps to the
+            // previous position that story remembered. It doesn't really
+            // zoom out and smoothly bring it to the center."*
+            //
+            // It was animating the whole way even then — but it was
+            // animating toward a stale off-centre framing, so the END of an
+            // otherwise smooth zoom landed somewhere unrelated to the room
+            // just left, which reads as a jump however smoothly it got
+            // there. Resetting INSIDE the same `withAnimation` means the
+            // framing interpolates too, so the whole thing is one
+            // continuous pull-back to the centred floor.
+            floorPanM = .zero
+            floorZoom = 1
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.roomTransitionDuration) {
             focusedRoomID = nil

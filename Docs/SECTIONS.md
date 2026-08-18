@@ -1402,4 +1402,42 @@ Newest last. One or two lines per chat.
 
   Unverified: build 106 installed and confirmed on the device, none of the
   four looked at yet.
+- **2026-08-18** — Build 107. Two from his zoomed-in screenshot.
+  1. **The corner was still wrong, and both of the last two fixes had been
+     treating a symptom.** His screenshot, zoomed into the actual corner,
+     showed a notch AND a spur at once — not fixable by tuning an
+     extension amount or a cap style, because the REAL cause was
+     structural: each wall was `move`/`addLine`'d as its OWN subpath, and
+     a stroke's `lineJoin` only applies WITHIN one subpath. Between two
+     walls there was never any join at all — just two disjoint rectangles
+     overlapping near a point, each one's own end (extended or not, square
+     or butt) poking past the true mitre at any angle that isn't 90°.
+     Fixed properly this time: stroke the room's own CLOSED OUTLINE as one
+     path with `lineJoin: .miter`, which mitres every corner correctly by
+     construction, at any angle, with no endpoint arithmetic to tune.
+     Falls back to loose round-capped segments only when the walls never
+     chained into a closed outline in the first place (a scan that did not
+     close) — those genuinely do not meet, so there is nothing to mitre.
+     **Two builds spent adjusting numbers before asking whether the
+     approach itself was right — worth remembering next time something
+     "improves but doesn't cure."**
+  2. **Zoom-out "jumped to a remembered position" instead of centring.**
+     Real bug, not a description of the animation curve — the ANIMATION
+     itself was already smooth; it was smoothly animating TOWARD THE WRONG
+     TARGET. Floor-depth's own pan/zoom (`floorPanM`/`floorZoom`, added
+     this same build cycle) were never reset on exit, so leaving a room
+     animated the camera not to "the whole floor, centred" but to
+     whatever floor framing happened to be left over from BEFORE the room
+     was entered — a stale, unrelated position, which is exactly what
+     reads as a jump even though the interpolation itself never snapped.
+     Owner's own words offered two acceptable fixes — "smoothly bring it
+     to the center or maybe stay in the same position" — took the first:
+     `exitFocusedRoom` now resets `floorPanM`/`floorZoom` to neutral
+     INSIDE the same `withAnimation` block that clears `cameraFocusID`, so
+     the reset itself animates smoothly rather than snapping before or
+     after the zoom.
+
+  Build 107 installed and confirmed on the device (checked the built
+  `.app`'s own `CFBundleVersion` before installing this time, per the
+  process note two entries up). Neither fix looked at yet.
 

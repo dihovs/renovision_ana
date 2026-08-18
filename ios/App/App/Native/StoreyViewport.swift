@@ -243,45 +243,53 @@ struct StoreyBaseLayer: View {
                     context.opacity = 1
                 }
 
-                // Extended half a thickness at shared joints, same technique
-                // as `FloorPlanView`'s own two-pass stroke — `.square` caps
-                // alone butt each segment at its own bare endpoint, and at
-                // any joint that is not square-on, that leaves either a gap
-                // or a notch sticking out past the corner. The owner caught
-                // it on a genuinely angled kitchen, 18 Aug 2026: this floor
-                // was always drawing rooms small enough that it went
-                // unnoticed, not because it was ever fixed.
-                //
                 // Real interior wall, 2×4 partition + drywall — the same
                 // figure `FloorPlanView` uses, so the two never draw a
                 // different thickness for what is the same wall.
                 let wallThicknessM = 0.114
-                let joints = FloorPlanGeometry.joints(plan.segments)
-                func nearJoint(_ x: Double, _ y: Double) -> Bool {
-                    joints.contains { hypot($0.x - x, $0.y - y) < 0.06 }
-                }
                 let band = max(2, wallThicknessM * viewport.scale)
-                var walls = Path()
-                for s in plan.segments {
-                    let length = hypot(s.x2 - s.x1, s.y2 - s.y1)
-                    guard length > 0 else { continue }
-                    let ux = (s.x2 - s.x1) / length
-                    let uy = (s.y2 - s.y1) / length
-                    let e1 = nearJoint(s.x1, s.y1) ? wallThicknessM / 2 : 0
-                    let e2 = nearJoint(s.x2, s.y2) ? wallThicknessM / 2 : 0
-                    walls.move(to: pt(s.x1 - ux * e1, s.y1 - uy * e1))
-                    walls.addLine(to: pt(s.x2 + ux * e2, s.y2 + uy * e2))
-                }
                 context.opacity = opacity
-                // `.butt`, NOT `.square` — and this pairing is the whole
-                // point. `.square` extends every end by ANOTHER half the
-                // line width on top of the joint extension just applied,
-                // so the two stack and the wall overshoots its own corner:
-                // exactly the sticking-out the extension was added to fix,
-                // which is why build 105 improved it without curing it.
-                // `FloorPlanView` has always used `.butt` alongside the
-                // same extension; this now matches it.
-                context.stroke(walls, with: .color(ink), style: StrokeStyle(lineWidth: band, lineCap: .butt))
+
+                // ONE closed path with a MITRE join, not one subpath per
+                // wall segment. Two earlier attempts got this wrong in the
+                // same way, and it is worth naming why: a separate
+                // `move`/`addLine` per segment means the segments are
+                // separate SUBPATHS, and a stroke applies `lineJoin` only
+                // WITHIN a subpath — so between two walls there was never
+                // any join at all, whatever the caps did. Nudging endpoints
+                // outward (build 105) and then changing the cap style
+                // (build 106) were both treating a symptom: two disjoint
+                // rectangles overlapping near a corner, their own square
+                // ends poking out past the true mitre at any angle that is
+                // not 90°. The owner's zoomed screenshot showed exactly
+                // that — a notch and a spur at the junction.
+                //
+                // Stroking the room's own closed outline instead lets the
+                // renderer mitre each corner properly, by construction, at
+                // any angle. No endpoint arithmetic, nothing to tune.
+                if plan.polygon.count >= 3 {
+                    var outline = Path()
+                    outline.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
+                    for p in plan.polygon.dropFirst() { outline.addLine(to: pt(p.x, p.y)) }
+                    outline.closeSubpath()
+                    context.stroke(
+                        outline, with: .color(ink),
+                        style: StrokeStyle(lineWidth: band, lineCap: .butt, lineJoin: .miter))
+                } else {
+                    // No closed outline — a scan whose walls never chained.
+                    // Falls back to loose segments, which cannot mitre
+                    // because they genuinely do not meet. `.round` keeps
+                    // the loose ends from reading as deliberate square
+                    // corners they are not.
+                    var walls = Path()
+                    for s in plan.segments {
+                        walls.move(to: pt(s.x1, s.y1))
+                        walls.addLine(to: pt(s.x2, s.y2))
+                    }
+                    context.stroke(
+                        walls, with: .color(ink),
+                        style: StrokeStyle(lineWidth: band, lineCap: .round))
+                }
 
                 for opening in plan.openings {
                     var cut = Path()
