@@ -1440,4 +1440,39 @@ Newest last. One or two lines per chat.
   Build 107 installed and confirmed on the device (checked the built
   `.app`'s own `CFBundleVersion` before installing this time, per the
   process note two entries up). Neither fix looked at yet.
+- **2026-08-18** — Build 108. A three-depth tap model, from the owner's own
+  account of using it: *"following from selecting the window by clicking
+  on it, and then I wanna deselect it. When I'm clicking on the canvas,
+  it's going back to the story mode, which I don't want. When some item...
+  is selected, when I click outside, I want it to go back to the
+  inspection editing mode. But when the inspection editing mode, the
+  entire room is selected and no... one item is selected, I click on the
+  canvas. It should go back to [the storey]. And if their changes are
+  done, it needs to ask me if I wanna save it or discard."*
+
+  `handleTap`'s outside-the-room branch (added build 101, the day tap-to-
+  leave was built) never checked `selection` first — ANY tap that missed
+  every handle and landed outside the room exited straight to the storey,
+  even with a wall or opening already selected. It needed to be TWO STEPS,
+  not one: a selected item deselects on the first outside tap (steps IN,
+  to "room focused, nothing chosen" — his "inspection editing mode"); only
+  a SECOND tap, with nothing left selected, steps OUT to the storey. Fixed
+  by checking `selection != .none` before the exit branch at all — that
+  case now just deselects, from anywhere on the canvas, inside the room's
+  own shape or out.
+
+  The discard confirmation gained a real **Save** button alongside Discard
+  and Keep editing — it was Discard-or-stay only before, and he asked for
+  the third, ordinary option by name. Same `save()` the toolbar's own
+  button already calls; disabled when the shape is self-intersecting,
+  matching that button's own guard, so this cannot post an invalid
+  polygon.
+
+  Also asked, mid-session: whether to build the 3D view next. Answered as
+  the exploratory question it was — a real, separate rendering engine
+  (SceneKit/RealityKit), nothing like today's 2D Canvas work, not started
+  without his own go-ahead first.
+
+  Build 108 installed and confirmed on the device (built `.app`'s own
+  `CFBundleVersion` checked before installing). Not yet looked at.
 

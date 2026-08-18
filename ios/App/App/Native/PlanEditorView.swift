@@ -336,6 +336,14 @@ struct RoomEditorCore: View {
         .confirmationDialog(
             "Discard your changes?", isPresented: $showDiscard, titleVisibility: .visible
         ) {
+            // Save belongs here now, not just Discard/Keep editing — the
+            // owner's own words, 18 Aug 2026: "if their changes are done,
+            // it needs to ask me if I wanna save it or discard." Leaving
+            // with unsaved edits used to offer only the destructive choice
+            // or staying; this is the third, ordinary one, same `save()`
+            // the toolbar's own button already calls.
+            Button("Save") { Task { await save() } }
+                .disabled(invalid)
             Button("Discard", role: .destructive) { onExit() }
             Button("Keep editing", role: .cancel) {}
         }
@@ -782,13 +790,25 @@ struct RoomEditorCore: View {
             return
         }
 
-        // Genuinely outside the room, not just a miss on a handle — every
-        // hit test above already had its own generous tolerance, so
-        // reaching here means the tap landed on open grid. Embedded in the
-        // storey canvas, that is what leaves the room (the owner's own
-        // instruction, 18 Aug 2026 — see the toolbar's own note on
-        // `backContext`); mid-measurement-walk it is left alone rather than
-        // abandoning a walk the operator did not ask to leave.
+        // Nothing hit — every test above already had its own generous
+        // tolerance, so this tap landed on open canvas. Two different
+        // things that can mean, and the owner drew the line between them
+        // precisely, 18 Aug 2026: *"when some item is selected, when I
+        // click outside, I want it to go back to the inspection editing
+        // mode"* — not all the way out. So a SELECTED wall, corner or
+        // opening just deselects here, however far outside the room the
+        // tap landed — this is a step IN, not a step OUT.
+        if selection != .none {
+            select(.none)
+            return
+        }
+
+        // Only with NOTHING already selected — "the entire room" itself is
+        // what is focused, his words — does a tap OUTSIDE the room's own
+        // shape step out one level further, to the storey. Same dirty
+        // check the back-pill always ran; mid-measurement-walk it is left
+        // alone rather than abandoning a walk the operator did not ask to
+        // leave.
         if backContext == .floor, measuring == nil, !PlanEditing.contains(corners, point: point) {
             if isDirty { showDiscard = true } else { onExit() }
             return
