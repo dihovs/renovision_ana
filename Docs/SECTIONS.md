@@ -31,8 +31,8 @@ Commit the ledger update with the work.
 |---|---|---|---|---|
 | **S1** | Room inspector structure | **DONE** | — | `RoomDetailView.swift` |
 | **S2** | Wall inspector | **DONE** | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
-| **S3** | Affected areas — freehand drawing | DONE | — | `FloorPlanView.swift`, `PlanEditing.swift` |
-| **S4** | Affected areas — remaining parity | NOT STARTED | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
+| **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
+| **S4** | Affected areas — remaining parity | **NEXT** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | NOT STARTED | — | `PlanEditorView.swift`, `EditorChrome.swift` |
 | **S6** | Photo editor — blur first | NOT STARTED | — | new `PhotoEditor*.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
@@ -47,6 +47,19 @@ Commit the ledger update with the work.
 dimension-tap unlock into **S5**, the project-card plan into **S12**. The
 project-card plan was confirmed 17 Aug 2026, incidentally, while checking S1 —
 "My Condo"'s card draws correctly. The dimension-tap unlock is still open.
+
+**How to know what is on the phone.** Every install is stamped:
+`CURRENT_PROJECT_VERSION=NN` on the build, then
+`xcrun devicectl device info apps --device <udid> --bundle-id ca.renovisionana.crm`
+prints the number actually installed. **Build 95** is on it as of 18 Aug 2026.
+Use this before debugging anything that "did not change" — a long stretch of
+one session went into chasing a change that had already shipped and simply
+had not been force-quit into.
+
+**Everything below S4 in this table was reached through S12's work rather
+than in its own pass** — the floor canvas, Add Floor, Add Room and Select
+Room Type all landed while building the project and floor screens. Read
+S12's "What landed" before assuming a section is untouched.
 
 ---
 
@@ -295,6 +308,25 @@ area's own row layout — swatch · name / *surface* · area · expand glyph.
 
 **Keep.** Our damage-cause chips. magicplan has only name + colour; cause decides
 trade and rate here.
+
+**Before starting, two things from 17–18 Aug that land directly on this
+section.**
+
+**The corner-editor bug is still open and this section owns the screen.** On a
+genuinely L-shaped room ("My Condo → Living room"), opening `AreaEditor` in
+`Points` mode on the room's own seeded shape drew two correct corner dots and
+then a scatter of extra handles well below the canvas, unrelated to the drawn
+room. It cleared the moment the shape was replaced, so it is specific to that
+room's `plan.polygon` or to how `seed()` reads a non-rectangle — not a general
+fault in `cornerHandles`/`edgeHandles`. Reproduce it before building on top of
+that screen.
+
+**Look at sizing before logic when something "does nothing".** Five separate
+reports of a dead control this session were all the same family — a view sized
+or compared as something other than it appears. `strokeBorder` fills nothing,
+so only the outline takes a tap; a gesture layer sized to its content has
+almost nothing to grab on an empty screen; `==` that compares only an id tells
+SwiftUI a changed value is unchanged. `HANDOFF.md` §4 lists all five.
 
 **From S3 — a corner-editor bug to reproduce before building on this
 screen.** On a genuinely L-shaped room ("My Condo → Living room"), opening
@@ -730,6 +762,22 @@ Newest last. One or two lines per chat.
   (it opened the form instead, after empty "New project N" rows piled up),
   and favouriting no longer bumps `updated_at`, which was shuffling starred
   jobs to the top of the grid.
+- **2026-08-18** — S11 closed and S12's project half finished. Commercial
+  room types built on the owner's call — the reference's sixteen plus the ten
+  a flooded commercial building needs — with every commercial type excluding
+  living area, which answers the second question S11 was blocked on. Floor
+  screens landed as a chain: `Add Floor` (floors to 50 + Roof, still no
+  European "1st"), the floor canvas itself (grid, chrome, `+ Insert`,
+  swipe-up inspector, pan and zoom), `Add Room` with our own drawn
+  illustrations, `Draw Room` as a new corner-by-corner canvas sharing
+  `RoomSketchView`'s save path, and `Select Room Type`. **Build 95 on the
+  phone.** Everything in this entry was verified by the owner on the device
+  as it was built, one screen at a time. **Still not built and now precisely
+  described in S12: the floors table.** A storey is a string on
+  `room_scans.level`, not a row, so the floor inspector is entirely derived
+  and read-only — there is nowhere to put a floor's name, its wall-thickness
+  overrides, or a floor-level photo. That migration is the next real blocker
+  on S12, and S4 is next in the ledger.
 - **2026-08-17** — The owner supplied a real 19-page report export. Read
   with PDFKit and written up page by page into **S10**, with the extracted
   text kept at `Docs/reference/magicplan/report-19-page.txt`. It adds five
