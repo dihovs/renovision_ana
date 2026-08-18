@@ -81,31 +81,98 @@ clarity during the review.
 
 ## 4. State of the work
 
-**Done and on the device** (see `git log`):
+**Last updated 18 Aug 2026.** Build **95** is installed on the owner's phone.
+The build number is stamped per install (`CURRENT_PROJECT_VERSION=NN`) and
+`xcrun devicectl device info apps --device <udid> --bundle-id ca.renovisionana.crm`
+prints what is actually on the device — use it. A whole session was once spent
+arguing about a change that had shipped, because "installed" was assumed rather
+than checked.
 
-- Wall-closing fix — scanned walls that do not meet are cleaned, merged and
-  welded before chaining, and a room that still cannot close says so instead of
-  silently drawing its bounding box
-- One fixed paper palette for every plan surface (a drawing does not invert in
-  dark mode)
-- Frozen editor viewport — the camera no longer chases an edit
-- Sill height (`ORD-24`), baseboard length + measure definitions (`ORD-34/35`),
-  room cards drawing the room (`ORD-26`), wall thickness + footprint figures
-  (`ORD-33`), affected-area dimensions + room colour + floor moves
-  (`ORD-32/37`)
-- Affected-area editor rebuilt to the reference interaction: tap a point to
-  select, red four-way handle, live edge dimensions, midpoint dots add corners,
-  Delete-point appears with the selection, undo/redo, Cancel asks to discard
-- `PlanTransform` — plan metres → canvas points in ONE place (it was written
-  twice with different insets, which is why handles sat off their corners)
+### Sections closed
 
-**Database:** migrations through **0031** are applied to production. Adding one
-means writing it, then running it in the Supabase SQL editor — always ending
-`notify pgrst, 'reload schema';`, or PostgREST serves a stale schema and the app
-reports a column that exists as missing.
+**S1 room inspector · S2 wall inspector · S3 freehand affected areas ·
+S11 commercial room types · S12's project half.** `Docs/SECTIONS.md` is the
+ledger and carries the detail; this is only the shape of it.
+
+- **Project grid**: the reference's `All / Favorites / Archived` chips
+  (Archived is its own server query, and the only way back from an accidental
+  archive), per-card ⋯ menu `Favourite · Move · Duplicate · Archive…`, star
+  badge, and a workspace row showing real pending-upload state.
+- **Project page** in the reference's order: description → address → Forms →
+  Statistics 4-up + See All → Floor Plans → Photos → Files → Created / Last
+  modified. Plus `Project Info` behind the pencil, the title-bar menu, and the
+  `Export Floor Plans` sheet behind share.
+- **Project Location**: a real map picker — Apple's address search, a fixed
+  centre pin the map slides under, reverse geocoding to read the address off
+  the map. MapKit needs no key and no quota.
+- **Floor canvas**: choosing a floor opens the storey itself — drafting grid,
+  undo/redo, floors and 2D steppers, `+ Insert`, swipe-up for the floor
+  inspector. Insert offers Room · Object · Note · Photo · Form.
+- **Add Room**: Auto-Scan, Add Square Room and **Draw Room** (place corners one
+  tap at a time, new `DrawRoomView.swift`). The two scan cards carry our own
+  isometric illustrations, drawn not traced.
+- **Select Room Type**: Residential / Commercial, with their sixteen commercial
+  types plus the ten this trade needs (mechanical room, warehouse bay, loading
+  dock…). Commercial reports no living area — Z765 measures a dwelling.
+
+**Scanning is no longer a destination.** The Scan tab and the floating Scan
+button are gone at the owner's instruction; a scan starts from the + in a
+project's Floor Plans rail, which is where the reference starts one.
+
+### Earlier work, still standing
+
+Wall-closing fix; one fixed paper palette; frozen editor viewport; sill height
+(`ORD-24`), baseboard length + measure definitions (`ORD-34/35`), room cards
+drawing the room (`ORD-26`), wall thickness + footprint (`ORD-33`),
+affected-area dimensions + room colour + floor moves (`ORD-32/37`); the
+affected-area editor rebuilt to the reference interaction; `PlanTransform` —
+plan metres → canvas points in ONE place.
+
+### The bug family this session kept finding
+
+Five separate reports of "it does nothing" were all **a screen unable to show
+or receive what was already true**. Worth recognising on sight, because none of
+them look like bugs in the code that owns the feature:
+
+1. `ProjectSummary.==` compared ids only, so SwiftUI correctly refused to
+   redraw a card whose star had changed. Every write had succeeded.
+2. `URLSession` sat on the default cache policy, which will serve a stale GET.
+3. The New Project tile was drawn with `strokeBorder`, which fills nothing —
+   only its 1.5pt outline took a tap.
+4. The floor canvas's pan was attached to a layer sized to its content, so an
+   empty floor had almost nothing to grab.
+5. An oversized grid plate as a ZStack sibling made the stack 2400pt tall and
+   pushed the action bar off-screen.
+
+**When a control "does nothing", check what it is SIZED as and what it is
+COMPARED by before reading the handler.**
+
+### Database
+
+Migrations through **0036** are applied to production — 0035 (`assigned_to`,
+`is_favorite`) and 0036 (`address_line1/city/postal`) landed this session.
+Adding one means writing it, then running it in the Supabase SQL editor —
+always ending `notify pgrst, 'reload schema';`, or PostgREST serves a stale
+schema and the app reports a column that exists as missing.
+
+**The SQL editor can be driven from here.** The owner is signed into Supabase
+in Chrome, so a migration can be applied with the browser tools rather than
+handed over as a chore: project `renovision-ana`, SQL Editor, paste, Run. Wait
+for the editor to finish loading before typing — clicking too early lands
+keystrokes on the page and navigates away.
 
 **Tests: 1120 passing** (`npx vitest run`). Swift has no test target, so
 geometry is tested on the TypeScript side and mirrored into Swift by hand.
+
+### Two traps that cost time this session
+
+- **Type-checker timeouts.** Four generic closures on `CardGrid`, or
+  `CollectionShell`'s three trailing closures inside a `ForEach` inside a
+  `ScrollView`, put the expression past what Swift will solve. The fix is to
+  name the sub-expression — `projectGrid`, `storeySection`, `openingsCaption`
+  are all extractions for exactly this.
+- **A new Swift file must be registered**: `python3 ios/App/add-sources.py
+  Native/YourFile.swift`, then `check-project.py`. It is not automatic.
 
 ## 5. Next task
 
