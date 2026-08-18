@@ -55,6 +55,25 @@ struct RoomEditorCore: View {
     /// `.floor` says "back to the storey" (the embedded case). Both read
     /// correctly against `EditorBackPill`'s own table.
     var backContext: EditorBackPill.Context = .room
+    /// The storey's own shared, animated camera — nil for the standalone
+    /// sheet, which has no floor to zoom out to and frames itself exactly
+    /// as it always has. Set by `FloorCanvasView`, which reads the SAME
+    /// `StoreyViewport` on the SAME frame for its own always-present
+    /// `StoreyBaseLayer` — that agreement, not any transition code, is what
+    /// makes entering and leaving a room read as one continuous zoom rather
+    /// than two views swapping. Full account on `StoreyViewport` itself.
+    ///
+    /// `zoom`/`pan` still apply on top of it, unchanged in role: the SAME
+    /// fine adjustment they already give the standalone editor's own frozen
+    /// bounds. Nothing below needed to learn a second transform for this —
+    /// `bounds` becomes this viewport's own `bounds` when it is set, and
+    /// `screenPoint`/`modelPoint` do not change at all.
+    var externalViewport: StoreyViewport? = nil
+    /// Where THIS room's own local corner space sits inside the floor —
+    /// `StoreyRoom.origin`. Zero for the standalone sheet, where local and
+    /// floor space are the same thing because there is no floor. `corners`
+    /// itself is never touched by this; only the screen projection is.
+    var roomOrigin: CGPoint = .zero
     let onSaved: () -> Void
 
     /// Observed so changing the unit redraws every dimension on the
@@ -186,7 +205,11 @@ struct RoomEditorCore: View {
     /// apply it themselves, at their own call site.
     var body: some View {
         ZStack {
-            Brand.Plan.sheet.ignoresSafeArea()
+            // `.paper`, not `.sheet` — the owner's word for it, 18 Aug 2026,
+            // comparing the two side by side: "I like the look of the story
+            // canvas better. It's more lighter... The editor is more dark."
+            // One background for both now, not two.
+            Brand.Plan.paper.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 canvas
@@ -330,17 +353,33 @@ struct RoomEditorCore: View {
 
     private var canvas: some View {
         GeometryReader { proxy in
-            let fit = fitScale(in: proxy.size)
+            // `externalViewport.scale` already IS a fit-to-canvas scale —
+            // computed the identical way `fitScale` computes its own, just
+            // over `bounds` in floor space instead of the room's local
+            // extent. Composing `* zoom` on top either way is what keeps a
+            // live pinch working exactly the same regardless of which
+            // camera is underneath it.
+            let fit = externalViewport?.scale ?? fitScale(in: proxy.size)
             let scale = fit * zoom
             let centre = CGPoint(
                 x: proxy.size.width / 2 + pan.width,
                 y: proxy.size.height / 2 + pan.height)
 
+            // `roomOrigin` shifts a LOCAL point (what `corners` always is,
+            // save file and all) into FLOOR space before it meets `bounds`,
+            // which is in floor space whenever `externalViewport` is set.
+            // Zero when it is not, so this is a no-op for the standalone
+            // sheet and `screenPoint`/`modelPoint` themselves never had to
+            // learn there are two coordinate spaces now.
             let toScreen = { (p: CGPoint) in
-                self.screenPoint(p, centre: centre, scale: scale)
+                self.screenPoint(
+                    CGPoint(x: p.x + self.roomOrigin.x, y: p.y + self.roomOrigin.y),
+                    centre: centre, scale: scale)
             }
             let toModel = { (p: CGPoint) in
-                self.modelPoint(p, centre: centre, scale: scale)
+                let floorPoint = self.modelPoint(p, centre: centre, scale: scale)
+                return CGPoint(
+                    x: floorPoint.x - self.roomOrigin.x, y: floorPoint.y - self.roomOrigin.y)
             }
 
             ZStack {
@@ -548,7 +587,7 @@ struct RoomEditorCore: View {
                 handleTap(toModel(location), scale: scale)
             }
         }
-        .background(Brand.Plan.sheet)
+        .background(Brand.Plan.paper)
         // §3's floating controls, over the canvas rather than in the bar:
         // undo/redo top-left, the layers and view-mode steppers top-right.
         .overlay(alignment: .top) { floatingControls }
@@ -1103,7 +1142,7 @@ struct RoomEditorCore: View {
                 })
         }
         .padding(.top, Brand.Space.small)
-        .background(Brand.Plan.sheet)
+        .background(Brand.Plan.paper)
         .confirmationDialog(
             "Delete \(room.name)?",
             isPresented: $confirmingRoomDelete, titleVisibility: .visible
@@ -1300,7 +1339,13 @@ struct RoomEditorCore: View {
     /// re-framing.
     @State private var frozenBounds: CGRect?
 
-    private var bounds: CGRect { frozenBounds ?? measuredBounds }
+    /// The externally-driven viewport's OWN bounds double as the frozen
+    /// camera when embedded — `StoreyRoom.floorBounds` is built from the
+    /// room's geometry once, at focus, and does not track live edits any
+    /// more than `frozenBounds` below does for the standalone case. Both
+    /// exist for the same reason; only where each one gets computed
+    /// differs.
+    private var bounds: CGRect { externalViewport?.bounds ?? (frozenBounds ?? measuredBounds) }
 
     /// The corners' actual extent — what the frame is set FROM, at open, and
     /// what a deliberate re-fit would read again.

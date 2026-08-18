@@ -1239,4 +1239,81 @@ Newest last. One or two lines per chat.
   applied regardless of how many rooms are on the floor.
 
   Build 103 installed, not yet looked at.
+- **2026-08-18** — Build 104. The real rewrite, not another tuning pass.
+  He rejected build 103 flatly ("No. I don't like it. Change the structure,
+  make it like magic plan.") and, separately, said the room editor's darker
+  background should match the storey's lighter one. Both landed.
+
+  **The core change.** New `StoreyViewport.swift`: `StoreyViewport` (floor
+  metres → screen points, one formula), `AnimatedStoreyViewport` (makes
+  `withAnimation` actually interpolate a `Canvas` draw frame by frame — a
+  `Canvas` closure is not `Animatable` on its own, which is the real reason
+  build 102's fade still looked wrong even after 103 matched the two
+  views' scales), `StoreyLayout`/`StoreyRoom` (every room placed in floor
+  space, wrapping the packing algorithm — now factored out as
+  `StoreyPacking.pack`, shared with `LevelCanvas` rather than duplicated),
+  and `StoreyBaseLayer` (every room drawn quietly through that shared
+  viewport, adapted from `LevelCanvas`'s own drawing).
+
+  `RoomEditorCore` gained two parameters — `externalViewport:
+  StoreyViewport?` and `roomOrigin: CGPoint` — and NOTHING ELSE in its
+  ~1000 lines of gesture/undo/opening/elevation/measurement logic changed.
+  The composition turned out clean: `externalViewport.point(bounds.center)`
+  reduces algebraically to `canvasSize/2`, which is EXACTLY what
+  `RoomEditorCore`'s own `centre` already was — so `zoom`/`pan` (the
+  editor's existing pinch/pan) compose on top of the shared viewport
+  exactly as they already composed on top of `frozenBounds`, with no
+  branch needed in `screenPoint`/`modelPoint` themselves. Both are zero
+  when standalone (`PlanEditorView`, from "Adjust the plan"), which is
+  untouched and still works exactly as before.
+
+  `FloorCanvasView` now mounts ONE `GeometryReader` → `AnimatedStoreyViewport`
+  for the whole time it is on a floor. `StoreyBaseLayer` never unmounts.
+  `RoomEditorCore` mounts over it only once `focusedRoomID` is set, and
+  fades in via `.opacity(progress)` — both layers read the SAME
+  `StoreyViewport` on the SAME frame, which is the one thing that makes
+  this an actual continuous zoom rather than two drawings trading places.
+
+  **Two clocks, not one**, for entering/leaving a room — `enterRoom`/
+  `exitFocusedRoom`. `cameraFocusID` (drives the animated bounds) clears
+  the INSTANT the owner asks to leave, so the zoom-out starts immediately.
+  `focusedRoomID` (keeps `RoomEditorCore` mounted, and tells the base layer
+  which room to keep fading) clears only after `roomTransitionDuration` —
+  unmounting it immediately would cut its own fade-out to nothing, same
+  failure the plain `if/else` already had.
+
+  **Backgrounds unified**, all of `RoomEditorCore`'s three root
+  `Brand.Plan.sheet` (a light grey) → `Brand.Plan.paper` (white, what the
+  storey already used) — his words, comparing them side by side: *"I like
+  the look of the story canvas better... The editor is more dark."*
+
+  **A real, deliberate trade-off, not a silent regression.** Floor-depth's
+  free one-finger-pan / pinch-zoom (real in the old `if/else`-swap version)
+  is GONE. The camera is now wholly the shared, animated one, aimed at
+  either the whole floor or one room; giving floor depth its OWN
+  additional pan/zoom on top would mean composing a SECOND adjustment
+  layer into `StoreyViewport`, on top of the one `RoomEditorCore`'s
+  `zoom`/`pan` already compose in — real, separate scope, not attempted
+  blind in the same pass. If a crowded floor needs it, that is the next
+  piece, not a bug in this one. Also trimmed: the OLD floor chrome's
+  decorative "2D" stepper (`action: {}`, already a no-op) and the
+  "reset zoom" button (nothing to reset now) are gone from `floorChrome`.
+
+  **Known, accepted seam.** The toolbar (back-pill, title, help/save) is
+  NOT animated — `RoomEditorCore`'s own toolbar simply IS the toolbar for
+  as long as it stays mounted, which is through its own fade-out too. The
+  title can linger for the last fraction of a second of an exit. SwiftUI
+  toolbar items do not fade with the view that declares them; decoupling
+  that timing from the mount lifecycle is a separate piece of work, not
+  attempted here.
+
+  **Unverified.** Build 104 installed, confirmed on the device. Compiles
+  clean, 1120 TS tests still pass (untouched by this — Swift only), and
+  the geometry was checked on paper (the `centre` reduction above) rather
+  than assumed. Nobody has watched it move yet. This is the highest-risk
+  change of the whole day — it touches the transform every room drawing in
+  the app goes through — so the FIRST ten minutes on the device matter more
+  than usual: does a tapped room still land correctly under a finger
+  during a corner drag, does Save still work, does a wall's own inspector
+  still open correctly mid-focus.
 

@@ -1,6 +1,73 @@
 import RoomPlan
 import SwiftUI
 
+/// Where every room on a storey sits, in floor metres — shelf-packed for
+/// whatever has no dragged position, honouring `planX`/`planY` for whatever
+/// does.
+///
+/// Factored out of `LevelCanvas.layout` on 18 Aug 2026 so `StoreyCanvas`
+/// (which needs the SAME placement to draw the floor a room is being
+/// zoomed out of) calls the same function rather than a second copy that
+/// can drift from this one. `internal`, not `private` — both live in this
+/// module but different files.
+enum StoreyPacking {
+    struct Item {
+        let id: String
+        let width: Double
+        let height: Double
+        let planX: Double?
+        let planY: Double?
+    }
+    struct Placed {
+        let id: String
+        var x: Double
+        var y: Double
+    }
+
+    static func pack(_ items: [Item]) -> (placed: [Placed], width: Double, height: Double) {
+        guard !items.isEmpty else { return ([], 0, 0) }
+
+        let gap = 1.2
+        var placed = items.map { Placed(id: $0.id, x: 0, y: 0) }
+
+        // Pack the unplaced into rows aiming at a squarish sheet.
+        let totalArea = items.reduce(0.0) { $0 + $1.width * $1.height }
+        let widest = items.map(\.width).max() ?? 1
+        let target = max(totalArea.squareRoot() * 1.4, widest)
+
+        var x = 0.0
+        var y = 0.0
+        var rowHeight = 0.0
+        for i in items.indices {
+            if let px = items[i].planX, let py = items[i].planY {
+                placed[i].x = px
+                placed[i].y = py
+                continue
+            }
+            if x > 0, x + items[i].width > target {
+                x = 0
+                y += rowHeight + gap
+                rowHeight = 0
+            }
+            placed[i].x = x
+            placed[i].y = y
+            x += items[i].width + gap
+            rowHeight = max(rowHeight, items[i].height)
+        }
+
+        // Re-base so dragged-negative rooms stay on the sheet.
+        let minX = placed.map(\.x).min() ?? 0
+        let minY = placed.map(\.y).min() ?? 0
+        for i in placed.indices {
+            placed[i].x -= minX
+            placed[i].y -= minY
+        }
+        let width = zip(placed, items).map { $0.x + $1.width }.max() ?? 1
+        let height = zip(placed, items).map { $0.y + $1.height }.max() ?? 1
+        return (placed, width, height)
+    }
+}
+
 /// A whole storey on one sheet — every room drawn to scale, tappable.
 ///
 /// Placement comes from `plan_x`/`plan_y` where it exists: rooms scanned in
@@ -66,68 +133,39 @@ struct LevelCanvas: View {
 
     /// Shelf-packed slots, honouring dragged positions where they exist.
     private var layout: (slots: [Slot], width: Double, height: Double) {
-        let gap = 1.2
-        var slots: [Slot] = []
+        var pieces: [Piece] = []
         for room in rooms {
             guard let geometry = room.geometry else { continue }
             let plan = FloorPlanGeometry.plan(from: geometry)
             guard !plan.isEmpty else { continue }
-            slots.append(
-                Slot(
-                    piece: Piece(
-                        id: room.id, name: room.name, areaSqm: room.floorAreaSqm, plan: plan,
-                        planX: room.planX, planY: room.planY, room: room, filed: nil),
-                    x: 0, y: 0))
+            pieces.append(
+                Piece(
+                    id: room.id, name: room.name, areaSqm: room.floorAreaSqm, plan: plan,
+                    planX: room.planX, planY: room.planY, room: room, filed: nil))
         }
         // A held room that has since landed arrives twice — once from the API,
         // once from the flow's own copy. The row wins; it is the same room.
         for item in pending where !rooms.contains(where: { $0.id == item.id }) {
             let plan = FloorPlanGeometry.plan(from: item.geometry)
             guard !plan.isEmpty else { continue }
-            slots.append(
-                Slot(
-                    piece: Piece(
-                        id: item.id, name: item.name, areaSqm: item.floorAreaSqm, plan: plan,
-                        planX: nil, planY: nil, room: nil, filed: item),
-                    x: 0, y: 0))
+            pieces.append(
+                Piece(
+                    id: item.id, name: item.name, areaSqm: item.floorAreaSqm, plan: plan,
+                    planX: nil, planY: nil, room: nil, filed: item))
         }
-        guard !slots.isEmpty else { return ([], 0, 0) }
+        guard !pieces.isEmpty else { return ([], 0, 0) }
 
-        // Pack the unplaced into rows aiming at a squarish sheet.
-        let totalArea = slots.reduce(0.0) { $0 + $1.plan.width * $1.plan.height }
-        let widest = slots.map(\.plan.width).max() ?? 1
-        let target = max((totalArea).squareRoot() * 1.4, widest)
-
-        var x = 0.0
-        var y = 0.0
-        var rowHeight = 0.0
-        for i in slots.indices {
-            if let px = slots[i].piece.planX, let py = slots[i].piece.planY {
-                slots[i].x = px
-                slots[i].y = py
-                continue
-            }
-            if x > 0, x + slots[i].plan.width > target {
-                x = 0
-                y += rowHeight + gap
-                rowHeight = 0
-            }
-            slots[i].x = x
-            slots[i].y = y
-            x += slots[i].plan.width + gap
-            rowHeight = max(rowHeight, slots[i].plan.height)
+        let packed = StoreyPacking.pack(
+            pieces.map {
+                StoreyPacking.Item(
+                    id: $0.id, width: $0.plan.width, height: $0.plan.height, planX: $0.planX,
+                    planY: $0.planY)
+            })
+        let byID = Dictionary(uniqueKeysWithValues: packed.placed.map { ($0.id, $0) })
+        let slots = pieces.map { piece in
+            Slot(piece: piece, x: byID[piece.id]?.x ?? 0, y: byID[piece.id]?.y ?? 0)
         }
-
-        // Re-base so dragged-negative rooms stay on the sheet.
-        let minX = slots.map(\.x).min() ?? 0
-        let minY = slots.map(\.y).min() ?? 0
-        for i in slots.indices {
-            slots[i].x -= minX
-            slots[i].y -= minY
-        }
-        let width = slots.map { $0.x + $0.plan.width }.max() ?? 1
-        let height = slots.map { $0.y + $0.plan.height }.max() ?? 1
-        return (slots, width, height)
+        return (slots, packed.width, packed.height)
     }
 
     var body: some View {
@@ -975,12 +1013,22 @@ struct FloorCanvasView: View {
     @State private var switched: String?
     @State private var scans: [RoomScan]?
     @State private var inserting = false
-    /// The room being edited, when one is. Its presence IS the depth: nil
-    /// draws the storey, set draws that room's own editor in the SAME
-    /// screen — no sheet, no push. See `body` and `RoomEditorCore`'s header
-    /// for why a modal was never going to satisfy the owner's own
-    /// instruction here.
-    @State private var editingRoom: RoomScan?
+    /// Which room's editor is MOUNTED — its whole lifecycle, entry fade-in
+    /// through exit fade-out. Stays set a little past the moment the owner
+    /// asks to leave, on purpose: see `exitFocusedRoom`.
+    @State private var focusedRoomID: String?
+    /// What the shared CAMERA is currently aimed at — nil for the whole
+    /// floor. Set together with `focusedRoomID` on entry; cleared
+    /// IMMEDIATELY on exit, which is what starts the zoom-out the instant
+    /// the owner asks to leave, rather than waiting for the fade to finish
+    /// first. Two states, not one, because the camera and the overlay's
+    /// own mount lifecycle need to move on different clocks — full account
+    /// on `exitFocusedRoom`.
+    @State private var cameraFocusID: String?
+    /// 0 at floor depth, 1 focused on `focusedRoomID` — the ONE thing
+    /// `AnimatedStoreyViewport` also animates alongside `cameraBounds`, so
+    /// the base layer's fade and the camera's zoom move on the same frame.
+    @State private var focusProgress: CGFloat = 0
     @State private var switchingFloor = false
     @State private var sharing = false
     @State private var showingHelp = false
@@ -990,34 +1038,6 @@ struct FloorCanvasView: View {
     @State private var choosingMethod = false
     @State private var picked = false
     @State private var method: CaptureFlow.CaptureMode = .draw
-    /// Viewport. One finger pans and a pinch zooms, because nothing on this
-    /// screen is selectable — the room editor needs two fingers to keep a
-    /// stray thumb from moving a wall, but here a drag can only ever mean
-    /// "move the paper".
-    ///
-    /// `defaultZoom == 1`, deliberately, and it was NOT always this. Build
-    /// 101 shipped two fixes for "too zoomed in" at once: `LevelCanvas`'s
-    /// own margin went from a flat 10pt to a proportional ~12% (real fix,
-    /// still in place, see its own comment), and THIS constant went from 1
-    /// to 0.6 (a second, unnecessary shrink stacked on top of the first).
-    ///
-    /// The stack is what broke the next thing he asked for — a transition
-    /// that reads as one continuous zoom rather than a jump. Worked out on
-    /// paper for his own 6×5m kitchen: `RoomEditorCore`'s own fit (48pt
-    /// inset in a canvas near the screen's full size) lands around 49pt/m,
-    /// width-limited. `LevelCanvas`'s fit alone, WITH the 101 margin fix
-    /// and at `zoom = 1`, lands around 49pt/m too — the two already agree,
-    /// because the margin fix was already doing the real work. The extra
-    /// 0.6 pushed the storey's scale down to roughly 29pt/m for no reason
-    /// beyond a guess made without this arithmetic, and THAT gap — not the
-    /// animation curve — is what read as a jump. Removed; watch for a
-    /// crowded floor needing headroom `LevelCanvas`'s own fit does not
-    /// already give it, which is a real case this constant may need to
-    /// come back for, but scaled to the room count next time, not flat.
-    @State private var zoom: CGFloat = 1
-    @State private var pan: CGSize = .zero
-    @GestureState private var pinch: CGFloat = 1
-    @GestureState private var drag: CGSize = .zero
 
     /// Which storey is on screen: the one navigated to, until the floors
     /// stepper picks another.
@@ -1029,223 +1049,148 @@ struct FloorCanvasView: View {
         FloorVocabulary.levels.first { $0.id == showing }?.label ?? showing
     }
 
-    var body: some View {
-        // The whole screen is one of two things, never both: the storey, or
-        // the one room being edited. A plain `if/else` rather than a
-        // `.sheet` — a sheet always slides up as a new screen, however it
-        // is dressed, and tapping a room must NOT read as a new screen. The
-        // owner, after showing what magicplan does: *"it activates the
-        // editing mode. It doesn't pull up anything for anything. It just
-        // activates on that main canvas."*
-        //
-        // `RoomEditorCore` owns its OWN toolbar (leading back-pill, title,
-        // help/save) and its OWN bottom action bar — nothing here duplicates
-        // them. Its `.toolbar{}` reaches this screen's real nav bar exactly
-        // as `floorContent`'s does below, because neither wraps itself in a
-        // NavigationStack of its own; the app's own push already provides
-        // one. `backContext: .floor` is the one thing that has to differ
-        // from the standalone sheet's `.room`: back from here goes to the
-        // FLOOR, not to a room inspector behind it.
-        if let room = editingRoom {
-            RoomEditorCore(
-                room: room,
-                // Wrapped here, not at each call site inside the core — one
-                // closure, every path that leaves a room (tap outside, the
-                // discard-confirm, Save, Duplicate, Delete) animates alike
-                // without RoomEditorCore having to know this exists.
-                onExit: { withAnimation(Self.roomTransitionAnimation) { editingRoom = nil } },
-                backContext: .floor,
-                onSaved: { Task { await load() } })
-                .id(room.id)
-                .environment(\.colorScheme, .light)
-                // A small settle rather than a hard cut — "it jumps," 18 Aug
-                // 2026. Kept SMALL on purpose, now that `zoom`'s own doc
-                // comment above has the arithmetic: this room's real scale
-                // in `RoomEditorCore` and its real scale in `LevelCanvas`
-                // already land within a few percent of each other once the
-                // redundant 0.6 shrink is gone, so a big scale jump here
-                // would fight that agreement rather than complete it. This
-                // is chrome fading (handles, dimensions, the white fill) over
-                // a room that is ALREADY close to the right size, not a
-                // shape trying to travel across the screen.
-                //
-                // Still not a true morph — the room's position lives inside
-                // a `Canvas` draw with no view geometry a
-                // `matchedGeometryEffect` could target — but with the scales
-                // agreeing, a plain fade may read as "the same canvas" close
-                // enough without one. If it still doesn't, that IS the
-                // bigger, separate rewrite: one shared canvas for both
-                // depths, not a nearer-matched transition between two.
-                .transition(
-                    .scale(scale: 0.97, anchor: .center).combined(with: .opacity))
-        } else {
-            floorContent
-                .transition(
-                    .scale(scale: 1.03, anchor: .center).combined(with: .opacity))
+    /// Every room on this storey, placed in floor space — the SAME layout
+    /// both the base layer and the camera's own floor-wide target read.
+    private var layout: StoreyLayout { StoreyLayout(rooms) }
+
+    private var focusedRoom: RoomScan? {
+        guard let focusedRoomID else { return nil }
+        return rooms.first { $0.id == focusedRoomID }
+    }
+
+    /// What the shared camera is CURRENTLY aimed at, in floor metres — the
+    /// value `AnimatedStoreyViewport` animates. Driven by `cameraFocusID`,
+    /// not `focusedRoomID`: see `exitFocusedRoom` for why the two clear on
+    /// different clocks.
+    private var cameraBounds: CGRect {
+        guard let cameraFocusID, let storeyRoom = layout.room(id: cameraFocusID) else {
+            return layout.wholeFloorBounds
+        }
+        return storeyRoom.floorBounds
+    }
+
+    private static let roomTransitionDuration: Double = 0.3
+    private static let roomTransitionAnimation: Animation = .easeInOut(duration: roomTransitionDuration)
+
+    /// Tap a room on the floor — everything about entering it moves
+    /// together, in one animated transaction: the camera zooms toward its
+    /// bounds, the base layer's own grey rendering of it fades, and
+    /// `RoomEditorCore` (mounted the instant `focusedRoomID` is set) fades
+    /// its white, handled version in over the top.
+    private func enterRoom(_ room: RoomScan) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        focusedRoomID = room.id
+        withAnimation(Self.roomTransitionAnimation) {
+            cameraFocusID = room.id
+            focusProgress = 1
         }
     }
 
-    /// One constant so entering and leaving a room animate identically —
-    /// nothing here decides speed twice.
-    private static let roomTransitionAnimation: Animation = .easeInOut(duration: 0.3)
+    /// Leave the focused room — tap outside it, discard, Save, Duplicate,
+    /// Delete, all funnel here through `RoomEditorCore`'s own `onExit`.
+    ///
+    /// Two clocks, not one, and the split is deliberate. `cameraFocusID`
+    /// clears NOW, so the shared viewport starts zooming back out to the
+    /// whole floor the instant the owner asks to leave — waiting for
+    /// anything else first would be exactly the lag that read as a jump
+    /// before. `focusedRoomID` — which keeps `RoomEditorCore` MOUNTED, and
+    /// tells the base layer which room to keep fading back in — clears
+    /// only once the animation has actually finished: unmounting it
+    /// immediately would cut its own fade-out to nothing, the same failure
+    /// a plain `if/else` branch swap already had.
+    private func exitFocusedRoom() {
+        withAnimation(Self.roomTransitionAnimation) {
+            cameraFocusID = nil
+            focusProgress = 0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.roomTransitionDuration) {
+            focusedRoomID = nil
+        }
+    }
 
-    private var floorContent: some View {
-        ZStack {
-            Brand.Plan.paper.ignoresSafeArea()
+    var body: some View {
+        // ONE screen, ALWAYS. `StoreyBaseLayer` never unmounts once a floor
+        // has rooms — it draws every room, at whatever the shared,
+        // ANIMATED camera currently frames, from the whole storey down to
+        // one room's own extent. `RoomEditorCore` mounts over the top only
+        // once a room is focused, and fades in through the SAME camera —
+        // both read `viewport` on the same frame, which is the one thing
+        // that makes this a continuous zoom rather than two drawings
+        // trading places. Full account on `StoreyViewport.swift`, written
+        // the day the owner rejected a fade-based swap twice and said
+        // plainly: "change the structure, make it like magic plan."
+        GeometryReader { proxy in
+            AnimatedStoreyViewport(
+                bounds: cameraBounds, progress: focusProgress, canvasSize: proxy.size, inset: 28
+            ) { viewport, progress in
+                ZStack {
+                    Brand.Plan.paper.ignoresSafeArea()
 
-            // The paper AND what is on it, moving together.
-            //
-            // The grid was fixed at first, on the reasoning that screen
-            // pitch is the paper and paper does not magnify. That is right
-            // for a room editor whose drawing fills the frame, and wrong
-            // here: with an empty floor the only thing that moved was a
-            // label, so the canvas read as broken. A floor plan surface has
-            // to feel like a sheet you are sliding under glass.
-            //
-            // Oversized deliberately. At the widest zoom-out a screen-sized
-            // grid would show its own edges as the pan ran past them, and an
-            // edge is the one thing paper must not appear to have.
-            // Color.clear is the layout, the plate is only an overlay on
-            // it. That is the whole reason this is not a plain ZStack: an
-            // overlay does not size its host, whereas a 2400pt sibling made
-            // the surrounding stack 2400pt tall and pushed the action bar
-            // and the steppers clean off the screen — the canvas was all
-            // that was left visible.
-            //
-            // Color.clear also fills whatever space it is offered, so the
-            // gesture area is the screen rather than the drawing: sized to
-            // the drawing, an empty floor left almost nothing to grab and
-            // the canvas appeared inert.
-            Color.clear
-                .overlay {
-                    ZStack {
-                        Canvas { context, size in
-                            EditorChrome.drawGrid(context: context, size: size)
-                        }
-                        .frame(width: 2400, height: 2400)
+                    StoreyBaseLayer(
+                        layout: layout, viewport: viewport, focusedRoomID: focusedRoomID,
+                        focusProgress: progress, grid: true,
+                        onTapRoom: { room in enterRoom(room) }
+                    )
+                    // Own gesture and own buttons both go quiet together —
+                    // a tap meant for the canvas underneath must not also
+                    // land on a floor-depth control mid-fade.
+                    .allowsHitTesting(focusedRoomID == nil)
 
-                        if !rooms.isEmpty {
-                            // Straight into the editor, on the owner's
-                            // instruction 18 Aug 2026: *"when I click on it,
-                            // I don't want to have this pop up menu that
-                            // says adjust or whatever. When I click, it
-                            // automatically should go to the adjustment
-                            // mode."* The room's inspector is a swipe up
-                            // from inside the editor — his choice of where
-                            // it should live, and the gesture the reference
-                            // uses for every inspector.
-                            LevelCanvas(rooms: rooms) { room in
-                                // Same animation, same duration as leaving —
-                                // see `body`'s `.transition` — so entering
-                                // and exiting a room read as one continuous
-                                // gesture rather than a smooth exit bolted
-                                // onto an instant entry.
-                                withAnimation(Self.roomTransitionAnimation) {
-                                    editingRoom = room
-                                }
-                            }
-                            .padding(Brand.Space.base)
-                        }
+                    if let room = focusedRoom {
+                        RoomEditorCore(
+                            room: room,
+                            onExit: { exitFocusedRoom() },
+                            backContext: .floor,
+                            externalViewport: viewport,
+                            roomOrigin: layout.room(id: room.id)?.origin ?? .zero,
+                            onSaved: { Task { await load() } }
+                        )
+                        .id(room.id)
+                        .opacity(progress)
                     }
-                    .scaleEffect(zoom * pinch)
-                    .offset(x: pan.width + drag.width, y: pan.height + drag.height)
-                }
-                .clipped()
-            .contentShape(Rectangle())
-            .gesture(
-                SimultaneousGesture(
-                    MagnificationGesture()
-                        .updating($pinch) { value, state, _ in state = value }
-                        .onEnded { value in zoom = min(max(zoom * value, 0.4), 6) },
-                    DragGesture()
-                        .updating($drag) { value, state, _ in state = value.translation }
-                        .onEnded { value in
-                            pan.width += value.translation.width
-                            pan.height += value.translation.height
-                        }
-                )
-            )
 
-            // The editor chrome, at floor depth. Undo/redo is drawn and
-            // greyed rather than hidden: §3 of editor-chrome-design says the
-            // pill never disappears, and a control that vanishes teaches the
-            // hand a different screen each time.
-            VStack {
-                HStack(alignment: .top) {
-                    EditorUndoRedoPill(
-                        canUndo: false, canRedo: false, onUndo: {}, onRedo: {})
-                    Spacer()
-                    HStack(spacing: Brand.Space.small) {
-                        EditorStepperPill(action: { switchingFloor = true }) {
-                            Image(systemName: "square.3.layers.3d")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Brand.ink)
-                        }
-                        if zoom != 1 || pan != .zero {
-                            Button {
-                                withAnimation(.snappy) { zoom = 1; pan = .zero }
-                            } label: {
-                                Image(systemName: "arrow.counterclockwise")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Brand.ink)
-                                    .frame(width: 34, height: 34)
-                                    .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.tile))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        EditorStepperPill(action: {}) {
-                            Text("2D")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(Brand.ink)
-                        }
-                    }
-                }
-                .padding(Brand.Space.base)
-                Spacer()
-                // The reference's Insert menu rises from the bar rather
-                // than replacing the screen: what you are inserting INTO
-                // stays visible behind it, which is the whole reason it is a
-                // popover and not a push.
-                VStack(spacing: 0) {
-                    if insertOpen {
-                        insertMenu
-                            .padding(.horizontal, Brand.Space.base)
-                            .padding(.bottom, Brand.Space.small)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    }
-                    EditorActionBar(
-                        depth: .floor(name: label),
-                        supported: [.insert],
-                        onAction: { action in
-                            if action == .insert {
-                                withAnimation(.snappy(duration: 0.18)) { insertOpen.toggle() }
-                            }
-                        },
-                        // Passing this is what draws the
-                        // "Swipe up ↑ for … info" caption AND its gesture —
-                        // the bar refuses to promise a swipe it cannot
-                        // deliver, so the caption only appears with a
-                        // handler behind it.
-                        onInfo: { floorInfo = true })
+                    // Floor-depth's own chrome — undo/redo (always
+                    // disabled here; nothing to undo before a room is
+                    // open), the floor stepper, Insert · Rotate. Stays
+                    // MOUNTED through the whole transition so `1 - progress`
+                    // can fade it, rather than an `if` popping it away on
+                    // frame one while `RoomEditorCore`'s own chrome is
+                    // still arriving.
+                    floorChrome(label: label)
+                        .opacity(1 - progress)
+                        .allowsHitTesting(focusedRoomID == nil)
                 }
             }
-            .ignoresSafeArea(edges: .bottom)
         }
-        .navigationTitle(label)
+        // Pinned once, here, for the whole screen — `RoomEditorCore`'s own
+        // header says every host must do this ("a drawing is ink on paper
+        // and paper does not invert"), and this IS its host now whenever a
+        // room is focused. `Brand.Plan.*` is fixed hex either way, so this
+        // is really about the CHROME around the drawing — the back-pill,
+        // Save button, action bar labels — reading correctly if the phone
+        // itself is in Dark Mode.
+        .environment(\.colorScheme, .light)
+        // The nav bar itself is NOT animated — `RoomEditorCore`'s own
+        // toolbar (back-pill, title, help/save) simply IS the toolbar
+        // once it is mounted, for as long as it is mounted, which lasts
+        // through its own fade-out too. A lingering "Kitchen / 1st Floor"
+        // title for the last fraction of a second of the exit animation
+        // is the one seam this pass accepted rather than chasing further —
+        // SwiftUI toolbar items do not fade with the view that declares
+        // them, and splitting that timing from the mount lifecycle is a
+        // second, separate piece of work.
+        .navigationTitle(focusedRoomID == nil ? label : "")
         .navigationBarTitleDisplayMode(.inline)
-        // The tab bar goes away here. This screen is a drawing surface with
-        // its own action bar at the foot, and two bars stacked on each other
-        // meant the tabs sat over Insert — the one control the screen exists
-        // to offer. A canvas is somewhere you are working, not somewhere you
-        // switch away from.
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button { showingHelp = true } label: {
-                    Image(systemName: "questionmark.circle")
-                }
-                Button { sharing = true } label: {
-                    Image(systemName: "square.and.arrow.up")
+            if focusedRoomID == nil {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button { showingHelp = true } label: {
+                        Image(systemName: "questionmark.circle")
+                    }
+                    Button { sharing = true } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
                 }
             }
         }
@@ -1299,6 +1244,64 @@ struct FloorCanvasView: View {
                 onFinished: { _, _ in })
         }
         .task { await load() }
+    }
+
+    /// Floor-depth's own controls — extracted unchanged from what used to
+    /// be `floorContent`'s VStack, so `body` can fade the WHOLE thing with
+    /// one `.opacity` rather than fading each piece separately.
+    ///
+    /// Free one-finger pan and pinch-zoom AT floor depth — real in the
+    /// `if/else`-swap version this replaced — are gone for this pass. The
+    /// camera is wholly the shared, animated one now, aimed at either the
+    /// whole floor or one room; giving floor depth its OWN additional
+    /// pan/zoom on top would mean composing a SECOND adjustment layer into
+    /// `StoreyViewport`, on top of the one `RoomEditorCore`'s `zoom`/`pan`
+    /// already compose in in `RoomEditorCore`, which is exactly the kind of
+    /// scope this pass deliberately did not take on blind. A real,
+    /// separate follow-up if a crowded floor needs it — flagged, not
+    /// silently dropped.
+    private func floorChrome(label: String) -> some View {
+        VStack {
+            HStack(alignment: .top) {
+                EditorUndoRedoPill(
+                    canUndo: false, canRedo: false, onUndo: {}, onRedo: {})
+                Spacer()
+                EditorStepperPill(action: { switchingFloor = true }) {
+                    Image(systemName: "square.3.layers.3d")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.ink)
+                }
+            }
+            .padding(Brand.Space.base)
+            Spacer()
+            // The reference's Insert menu rises from the bar rather
+            // than replacing the screen: what you are inserting INTO
+            // stays visible behind it, which is the whole reason it is a
+            // popover and not a push.
+            VStack(spacing: 0) {
+                if insertOpen {
+                    insertMenu
+                        .padding(.horizontal, Brand.Space.base)
+                        .padding(.bottom, Brand.Space.small)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+                EditorActionBar(
+                    depth: .floor(name: label),
+                    supported: [.insert],
+                    onAction: { action in
+                        if action == .insert {
+                            withAnimation(.snappy(duration: 0.18)) { insertOpen.toggle() }
+                        }
+                    },
+                    // Passing this is what draws the
+                    // "Swipe up ↑ for … info" caption AND its gesture —
+                    // the bar refuses to promise a swipe it cannot
+                    // deliver, so the caption only appears with a
+                    // handler behind it.
+                    onInfo: { floorInfo = true })
+            }
+        }
+        .ignoresSafeArea(edges: .bottom)
     }
 
     /// The reference's five, in its order. Two of them work here; three do
