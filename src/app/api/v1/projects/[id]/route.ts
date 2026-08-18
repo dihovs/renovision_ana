@@ -3,10 +3,40 @@ import { guarded } from "../../guard";
 import {
   PROJECT_STATUSES,
   assignProject,
+  getProject,
   setProjectFavorite,
+  updateProjectDetails,
   updateProjectStatus,
   type ProjectStatus,
 } from "@/lib/crm/projects";
+
+/**
+ * One project, with the fields the phone's detail screen shows that the list
+ * payload deliberately omits — the description and the property address.
+ *
+ * Separate from the list because a list of 200 projects has no business
+ * carrying 200 descriptions, and because this screen needs to re-read after
+ * an edit without refetching everything.
+ */
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return guarded(async () => {
+    const project = await getProject(id);
+    if (!project) return { project: null };
+    return {
+      project: {
+        id: project.id,
+        name: project.name,
+        description: project.description ?? null,
+        addressLine1: project.address_line1 ?? null,
+        addressCity: project.address_city ?? null,
+        addressPostal: project.address_postal ?? null,
+        assignedTo: project.assigned_to ?? null,
+        favorite: project.is_favorite ?? false,
+      },
+    };
+  });
+}
 
 /**
  * Archive a project — the phone's cleanup path.
@@ -41,12 +71,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const hasStatus = "status" in body;
   const hasAssignee = "assignedTo" in body;
   const hasFavorite = "favorite" in body;
+  const DETAIL_KEYS = ["description", "addressLine1", "addressCity", "addressPostal"] as const;
+  const details = DETAIL_KEYS.filter((key) => key in body);
 
-  if (!hasStatus && !hasAssignee && !hasFavorite) {
+  if (!hasStatus && !hasAssignee && !hasFavorite && details.length === 0) {
     return NextResponse.json(
-      { error: "Send status, assignedTo or favorite." },
+      { error: "Send status, assignedTo, favorite, description or an address field." },
       { status: 400 },
     );
+  }
+
+  for (const key of details) {
+    if (body[key] !== null && typeof body[key] !== "string") {
+      return NextResponse.json({ error: `${key} must be text or null.` }, { status: 400 });
+    }
   }
 
   if (hasStatus && !PROJECT_STATUSES.includes(body.status as ProjectStatus)) {
@@ -70,6 +108,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (hasStatus) await updateProjectStatus(id, body.status as ProjectStatus);
     if (hasAssignee) await assignProject(id, body.assignedTo as string | null);
     if (hasFavorite) await setProjectFavorite(id, body.favorite as boolean);
+    if (details.length > 0) {
+      await updateProjectDetails(
+        id,
+        Object.fromEntries(details.map((key) => [key, body[key] as string | null])),
+      );
+    }
     return { ok: true };
   });
 }

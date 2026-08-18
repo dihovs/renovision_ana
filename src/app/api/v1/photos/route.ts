@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { guarded } from "../guard";
 import {
   addProjectFile,
-  listRoomFiles,
+  listProjectFiles, listRoomFiles,
   signProjectFileUrls,
   MAX_PROJECT_FILE_BYTES,
 } from "@/lib/crm/projects";
@@ -21,8 +21,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const roomScanId = params.get("roomScanId");
-  if (!roomScanId) {
-    return NextResponse.json({ error: "roomScanId is required." }, { status: 400 });
+  const projectId = params.get("projectId");
+  if (!roomScanId && !projectId) {
+    return NextResponse.json(
+      { error: "Send roomScanId for a room's photos, or projectId for the job's own." },
+      { status: 400 },
+    );
   }
   const wallIndexParam = params.get("wallIndex");
   const wallIndex =
@@ -31,7 +35,11 @@ export async function GET(request: Request) {
       : undefined;
 
   return guarded(async () => {
-    const files = await listRoomFiles(roomScanId, wallIndex);
+    // A room's photos, or the job's own — the second are exactly the ones
+    // attached to no room, which `listProjectFiles` is the whole definition of.
+    const files = roomScanId
+      ? await listRoomFiles(roomScanId, wallIndex)
+      : await listProjectFiles(projectId!);
     // Signed per request and never persisted — a stored URL outlives its own
     // expiry and starts serving 403s to a report nobody can regenerate.
     const urls = await signProjectFileUrls(files.map((file) => file.storage_path));

@@ -37,6 +37,12 @@ export type Project = {
       which is not the same as an empty name. */
   assigned_to: string | null;
   is_favorite: boolean;
+  /** The property being worked on — NOT the client's billing address. See
+      migration 0036: the two are routinely different and the crew needs
+      this one. */
+  address_line1: string | null;
+  address_city: string | null;
+  address_postal: string | null;
   /** Answers to the project-level custom fields — the claim details, when
       the claim template has been applied. { fieldId: value }. */
   custom: Record<string, string>;
@@ -786,6 +792,68 @@ export async function listRoomFiles(
     throw new Error(`Could not load the photos: ${error.message}`);
   }
   return (data ?? []) as ProjectFile[];
+}
+
+/**
+ * A project's OWN files — the ones not attached to any room.
+ *
+ * `room_scan_id is null` is the whole of the distinction. A photo taken
+ * inside a room belongs to that room and shows on its sheet; a file attached
+ * to the job — the adjuster's letter, the policy page, a photo of the
+ * building from the street — belongs to the project and would be misfiled
+ * under any one room.
+ */
+export async function listProjectFiles(projectId: string): Promise<ProjectFile[]> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("project_files")
+    .select("*")
+    .eq("project_id", projectId)
+    .is("room_scan_id", null)
+    .order("uploaded_at", { ascending: false });
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);
+    throw new Error(`Could not load the files: ${error.message}`);
+  }
+  return (data ?? []) as ProjectFile[];
+}
+
+/**
+ * The project's own description and the address of the property.
+ *
+ * Only the keys PRESENT are written, so saving an address cannot silently
+ * blank a description somebody typed on another screen. Empty strings clear
+ * the field — a description erased to nothing is a real edit, not a no-op.
+ */
+export async function updateProjectDetails(
+  id: string,
+  patch: {
+    description?: string | null;
+    addressLine1?: string | null;
+    addressCity?: string | null;
+    addressPostal?: string | null;
+  },
+): Promise<void> {
+  const client = requireDb();
+  const clean = (value: string | null | undefined) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  };
+
+  const update: Record<string, string | null> = {};
+  if ("description" in patch) update.description = clean(patch.description);
+  if ("addressLine1" in patch) update.address_line1 = clean(patch.addressLine1);
+  if ("addressCity" in patch) update.address_city = clean(patch.addressCity);
+  if ("addressPostal" in patch) update.address_postal = clean(patch.addressPostal);
+  if (Object.keys(update).length === 0) return;
+
+  const { error } = await client.from("projects").update(update).eq("id", id);
+  if (error) {
+    if (isMissingTable(error)) {
+      throw new MigrationPendingError("projects.address_line1", error.message);
+    }
+    throw new Error(`Could not save the project details: ${error.message}`);
+  }
 }
 
 /**
