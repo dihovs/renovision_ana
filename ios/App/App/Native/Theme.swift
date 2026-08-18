@@ -292,6 +292,47 @@ struct FloatingAction: View {
 
 // MARK: - Section heading
 
+/// The reference's section heading: a title in ordinary sentence case with a
+/// small chevron, and an optional blue action on the right (`See All`).
+///
+/// Distinct from `SectionHeading` below, which is the ALL-CAPS tracked label
+/// this app uses inside cards. The reference's own page headings are neither
+/// capitalised nor tracked — they are titles, and the eye reads down a
+/// column of them rather than across.
+struct SectionHeadingRow: View {
+    let title: String
+    var action: String?
+    var onAction: (() -> Void)?
+
+    init(title: String, action: String? = nil, onAction: (() -> Void)? = nil) {
+        self.title = title
+        self.action = action
+        self.onAction = onAction
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
+            }
+            Spacer()
+            if let action, let onAction {
+                Button(action: onAction) {
+                    Text(action)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Brand.blue)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
 struct SectionHeading: View {
     let title: String
     var trailing: String?

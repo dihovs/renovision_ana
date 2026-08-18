@@ -570,15 +570,36 @@ struct AssignProjectSheet: View {
     }
 }
 
-/// One property: its survey, its rooms, its equipment.
+/// The project's Forms tab, reached from the card above Statistics.
+///
+/// Empty by design for now, and honest about it: the reference's forms are a
+/// template system (checklists, questionnaires, report templates) that has
+/// not been built here. The row exists because the reference puts one there
+/// and a hand looking for it should find it, not because it does anything
+/// yet. `InspectorFormsTab` is the same empty state the room and wall
+/// sheets already show — one copy, three places.
+struct ProjectFormsView: View {
+    let projectName: String
+
+    var body: some View {
+        Form {
+            InspectorFormsTab(
+                subject: "this project",
+                footer:
+                    "Claim details for the job live on the project itself; the drying record and the measurements live on each room.")
+        }
+        .navigationTitle("Forms")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// One property: its survey and its rooms.
 struct ProjectDetailView: View {
     let project: ProjectSummary
 
     @State private var scans: [RoomScan]?
-    @State private var equipment: [EquipmentPlacement] = []
     @State private var error: String?
     @State private var capturing = false
-    @State private var addingEquipment = false
     @State private var showingStatistics = false
     @State private var openRoom: RoomScan?
     /// ORD-16 — where a finished capture lands: the drawn plan for the storey
@@ -602,7 +623,6 @@ struct ProjectDetailView: View {
     private var wallAreaSqm: Double {
         (scans ?? []).reduce(0) { $0 + $1.wallLengthM * $1.ceilingHeightM }
     }
-    private var runningUnits: Int { equipment.filter(\.isRunning).count }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -610,22 +630,43 @@ struct ProjectDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Brand.Space.base) {
+                    // Forms, where the reference puts it: above Statistics,
+                    // its own card with a chevron. Empty for now — the
+                    // template machinery is S-level work — but the row is
+                    // where the hand expects to find it.
+                    NavigationLink {
+                        ProjectFormsView(projectName: project.name)
+                    } label: {
+                        Card(padding: Brand.Space.small) {
+                            CardRow {
+                                Label("Forms", systemImage: "list.clipboard")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Brand.ink)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    // Statistics, in the reference's own four: Floor Area ·
+                    // Wall Area · # Floors · # Rooms, with See All beside the
+                    // heading. Living area is NOT one of them — it belongs to
+                    // the See All sheet, which is where a figure that needs a
+                    // definition beside it can have one.
+                    SectionHeadingRow(title: "Statistics", action: "See All") {
+                        showingStatistics = true
+                    }
                     StatBand(items: [
                         .init(
-                            label: "Floor",
+                            label: "Floor Area",
                             value: "\(Int(Measure.squareFeet(floorAreaSqm).rounded()))",
                             unit: "sq ft"),
                         .init(
-                            label: "Walls",
+                            label: "Wall Area",
                             value: "\(Int(Measure.squareFeet(wallAreaSqm).rounded()))",
                             unit: "sq ft"),
-                        .init(label: "Rooms", value: "\((scans ?? []).count)"),
+                        .init(label: "# Floors", value: "\(levels.count)"),
+                        .init(label: "# Rooms", value: "\((scans ?? []).count)"),
                     ])
-
-                    // Living area sits directly under the raw floor figure,
-                    // because the difference between the two is the point:
-                    // coverage is quoted against this one, not that one.
-                    LivingAreaCard(projectId: project.id)
 
                     if let error {
                         Card {
@@ -675,13 +716,12 @@ struct ProjectDetailView: View {
                         }
                     }
 
-                    // The whole property in four numbers, above the storeys —
-                    // the reference puts its statistics band here too, and it
-                    // is the right place: it answers "how big is this job"
-                    // before you have scrolled into any one room.
-                    if let scans, !scans.isEmpty {
-                        ProjectStatisticsBand(rooms: scans) { showingStatistics = true }
-                    }
+                    // Floor Plans, the reference's own heading for the
+                    // storeys and their rooms, with its explanatory caption.
+                    SectionHeadingRow(title: "Floor Plans")
+                    Text("Create, edit and share floor plans.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkSoft)
 
                     // Each storey through the collection shell (ORD-15): the
                     // rooms as a rail led by the dashed + tile, the storey
@@ -750,77 +790,6 @@ struct ProjectDetailView: View {
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: Brand.Space.small) {
-                        HStack {
-                            SectionHeading(
-                                title: "EQUIPMENT",
-                                trailing: runningUnits > 0 ? "\(runningUnits) running" : nil)
-                            Spacer()
-                            Button {
-                                // Same one-sheet rule as the Scan button:
-                                // the inspector may be up at medium detent.
-                                openRoom = nil
-                                addingEquipment = true
-                            } label: {
-                                Label("Add", systemImage: "plus.circle.fill")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(Brand.blue)
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        if equipment.isEmpty {
-                            Card(padding: Brand.Space.small) {
-                                Text("Air movers and dehumidifiers bill per unit per day. Logged when they land, they bill themselves.")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Brand.inkSoft)
-                            }
-                        }
-
-                        ForEach(equipment) { item in
-                            Card(padding: Brand.Space.small) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(
-                                            item.quantity > 1
-                                                ? "\(item.quantity)× \(item.kind)" : item.kind
-                                        )
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(Brand.ink)
-                                        StatusBadge(
-                                            text: item.isRunning ? "On site" : "Collected",
-                                            tone: item.isRunning ? .active : .neutral)
-                                    }
-                                    Spacer()
-                                    VStack(alignment: .trailing, spacing: 1) {
-                                        Text("\(item.unitDays())")
-                                            .font(.system(size: 17, weight: .bold))
-                                            .monospacedDigit()
-                                            .foregroundStyle(Brand.ink)
-                                        Text("unit-days")
-                                            .font(.system(size: 10, weight: .semibold))
-                                            .foregroundStyle(Brand.inkFaint)
-                                    }
-                                    if item.isRunning {
-                                        Button {
-                                            Task {
-                                                try? await API.shared.collectEquipment(id: item.id)
-                                                await load()
-                                            }
-                                        } label: {
-                                            Text("Collected")
-                                                .font(.system(size: 12, weight: .bold))
-                                                .foregroundStyle(Brand.inkSoft)
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 7)
-                                                .background(Brand.surfaceRaised, in: .capsule)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-                    }
 
                     // The report, one tap from the job it describes.
                     NavigationLink {
@@ -870,9 +839,6 @@ struct ProjectDetailView: View {
             RoomDetailView(room: room)
                 .id(room.id)
         }
-        .sheet(isPresented: $addingEquipment) {
-            AddEquipmentSheet(projectId: project.id) { Task { await load() } }
-        }
         .sheet(isPresented: $showingStatistics) {
             ProjectStatisticsSheet(rooms: scans ?? [])
         }
@@ -912,12 +878,7 @@ struct ProjectDetailView: View {
 
     private func load() async {
         do {
-            async let s = API.shared.scans(projectId: project.id)
-            async let e = API.shared.equipment(projectId: project.id)
-            scans = try await s
-            // Equipment failing is not a reason to hide the survey — the two
-            // are independent, and a job may simply have no drying on it.
-            equipment = (try? await e) ?? []
+            scans = try await API.shared.scans(projectId: project.id)
             error = nil
         } catch {
             self.error = error.localizedDescription
