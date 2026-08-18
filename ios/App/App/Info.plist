@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Site photos for a project's file library are taken with the camera and attached directly to the job.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Shows where you are on the map when setting a project address, so you can drop the pin on the property you are standing at.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>The in-app phone places calls from the business number and needs the microphone to carry your voice.</string>
 	<key>UIApplicationSceneManifest</key>

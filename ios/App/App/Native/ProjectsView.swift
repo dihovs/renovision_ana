@@ -629,6 +629,7 @@ struct ProjectDetailView: View {
     /// The description and address, read separately from the list payload.
     @State private var record: ProjectRecord?
     @State private var editingDetails = false
+    @State private var pickingLocation = false
     @State private var projectFiles: [RoomPhoto] = []
     @State private var sharing = false
     @StateObject private var queue = ScanQueue.shared
@@ -693,7 +694,7 @@ struct ProjectDetailView: View {
                             .compactMap { $0 }
                             .filter { !$0.isEmpty }
                             .joined(separator: ", "),
-                        onEdit: { editingDetails = true })
+                        onEdit: { pickingLocation = true })
 
                     // Forms, where the reference puts it: above Statistics,
                     // its own card with a chevron. Empty for now — the
@@ -929,6 +930,19 @@ struct ProjectDetailView: View {
         }
         .navigationDestination(isPresented: $sharing) {
             ReportShareView(projectId: project.id, projectName: project.name)
+        }
+        .sheet(isPresented: $pickingLocation) {
+            ProjectLocationPicker(
+                projectName: project.name,
+                initial: nil
+            ) { line1, city, postal in
+                Task {
+                    await saveDetails(
+                        ProjectDetailsSheet.Patch(
+                            description: record?.description,
+                            line1: line1, city: city, postal: postal))
+                }
+            }
         }
         .sheet(isPresented: $editingDetails) {
             ProjectDetailsSheet(projectName: project.name, record: record) { patch in
@@ -1398,5 +1412,300 @@ struct ProjectFileUploader: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+}
+
+/// Pick the property on a map.
+///
+/// The address is the thing this app is least able to get right by typing:
+/// a triplex on a corner has two street names, a Québec postal code is six
+/// characters nobody remembers, and half these jobs are recorded standing in
+/// the driveway. So the map is the input, not a picture of the answer — drag
+/// the pin, or search, and the address is READ OFF the map by reverse
+/// geocoding rather than typed into it.
+///
+/// The pin is a fixed overlay at the centre of the screen rather than an
+/// annotation on the map. That is what makes "drag the map, not the pin"
+/// work: the map moves under a pin that never does, which is how every map
+/// picker worth using behaves and is far easier with a thumb than dragging a
+/// 30pt target around.
+struct ProjectLocationPicker: View {
+    let projectName: String
+    let initial: CLLocationCoordinate2D?
+    let onUse: (_ line1: String, _ city: String, _ postal: String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var search = AddressSearch()
+    @StateObject private var here = HereLocator()
+
+    @State private var camera: MapCameraPosition = .automatic
+    @State private var centre: CLLocationCoordinate2D?
+    @State private var line1 = ""
+    @State private var city = ""
+    @State private var postal = ""
+    @State private var hybrid = false
+    @State private var looking = false
+
+    private var readable: String {
+        let tail = [city, postal].filter { !$0.isEmpty }.joined(separator: " ")
+        return [line1, tail].filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            ZStack(alignment: .bottom) {
+                map
+                if !search.results.isEmpty { suggestions } else { footer }
+            }
+        }
+        .onAppear {
+            if let initial {
+                camera = .region(
+                    MKCoordinateRegion(
+                        center: initial, latitudinalMeters: 400, longitudinalMeters: 400))
+                centre = initial
+                Task { await readOff(initial) }
+            } else {
+                here.request()
+            }
+        }
+        .onChange(of: here.coordinate) { _, found in
+            // Only jumps when the operator has not already chosen somewhere:
+            // a picker that yanks the map to the van every time a location
+            // fix arrives is unusable.
+            guard let found, centre == nil, initial == nil else { return }
+            camera = .region(
+                MKCoordinateRegion(
+                    center: found, latitudinalMeters: 400, longitudinalMeters: 400))
+            centre = found
+            Task { await readOff(found) }
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: Brand.Space.small) {
+            HStack(spacing: Brand.Space.small) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Brand.ink)
+                    .frame(width: 38, height: 38)
+                    .background(Brand.surfaceRaised, in: .rect(cornerRadius: 10))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Project Location")
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(Brand.ink)
+                    Text(projectName)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Brand.inkSoft)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Brand.inkSoft)
+                        .frame(width: 32, height: 32)
+                        .background(Brand.surfaceRaised, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Brand.inkFaint)
+                TextField("Search or Enter Address", text: $search.query)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.words)
+                if !search.query.isEmpty {
+                    Button { search.query = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Brand.surfaceRaised, in: .rect(cornerRadius: 11))
+        }
+        .padding(Brand.Space.base)
+        .background(Brand.canvas)
+    }
+
+    private var map: some View {
+        Map(position: $camera, interactionModes: [.pan, .zoom])
+            .mapStyle(hybrid ? .hybrid : .standard)
+            .onMapCameraChange(frequency: .onEnd) { context in
+                let middle = context.region.center
+                centre = middle
+                Task { await readOff(middle) }
+            }
+            // The pin sits ON the screen, not on the map, so the map slides
+            // beneath it. Slightly above centre because the point of a pin is
+            // its tip, not its middle.
+            .overlay {
+                Image(systemName: "mappin")
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundStyle(Brand.ink)
+                    .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+                    .offset(y: -15)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .topTrailing) {
+                VStack(spacing: 0) {
+                    Button { hybrid.toggle() } label: {
+                        Image(systemName: hybrid ? "map.fill" : "map")
+                            .frame(width: 42, height: 42)
+                    }
+                    Divider()
+                    Button {
+                        here.request()
+                        if let found = here.coordinate {
+                            camera = .region(
+                                MKCoordinateRegion(
+                                    center: found,
+                                    latitudinalMeters: 400, longitudinalMeters: 400))
+                        }
+                    } label: {
+                        Image(systemName: "location")
+                            .frame(width: 42, height: 42)
+                    }
+                }
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Brand.ink)
+                .background(Brand.surface, in: .rect(cornerRadius: 10))
+                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+                .padding(Brand.Space.base)
+            }
+    }
+
+    private var suggestions: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(search.results, id: \.self) { completion in
+                    Button {
+                        Task { await jump(to: completion) }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(completion.title)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Brand.ink)
+                            if !completion.subtitle.isEmpty {
+                                Text(completion.subtitle)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Brand.inkSoft)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 11)
+                        .padding(.horizontal, Brand.Space.base)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, Brand.Space.base)
+                }
+            }
+        }
+        .frame(maxHeight: 280)
+        .background(Brand.surface)
+    }
+
+    private var footer: some View {
+        VStack(spacing: Brand.Space.small) {
+            Text(looking ? "Finding the address…" : (readable.isEmpty ? "Drag the map to the property" : readable))
+                .font(.system(size: 15))
+                .foregroundStyle(readable.isEmpty ? Brand.inkSoft : Brand.ink)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+
+            Button {
+                onUse(line1, city, postal)
+                dismiss()
+            } label: {
+                Label("Use This Location", systemImage: "mappin.and.ellipse")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(readable.isEmpty ? Brand.inkFaint : Brand.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Brand.surfaceRaised, in: .rect(cornerRadius: 11))
+            }
+            .buttonStyle(.plain)
+            .disabled(readable.isEmpty)
+        }
+        .padding(Brand.Space.base)
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .padding(Brand.Space.base)
+    }
+
+    /// Reverse geocode: the map's centre → an address. This is the whole
+    /// point of the screen — the operator positions a place and the app works
+    /// out what it is called, rather than the other way round.
+    private func readOff(_ coordinate: CLLocationCoordinate2D) async {
+        looking = true
+        defer { looking = false }
+        let marks = try? await CLGeocoder().reverseGeocodeLocation(
+            CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+        guard let mark = marks?.first else { return }
+        line1 = [mark.subThoroughfare, mark.thoroughfare]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        city = mark.locality ?? mark.subAdministrativeArea ?? ""
+        postal = mark.postalCode ?? ""
+    }
+
+    private func jump(to completion: MKLocalSearchCompletion) async {
+        let response = try? await MKLocalSearch(
+            request: MKLocalSearch.Request(completion: completion)).start()
+        guard let placemark = response?.mapItems.first?.placemark else { return }
+        let found = placemark.coordinate
+        camera = .region(
+            MKCoordinateRegion(center: found, latitudinalMeters: 300, longitudinalMeters: 300))
+        centre = found
+        search.query = ""
+        await readOff(found)
+    }
+}
+
+/// Where the phone is, asked once and only when a picker wants it.
+///
+/// Deliberately not a shared singleton watching location all day: this app
+/// needs a fix at exactly one moment — "I am standing at the property" — and
+/// a background location subscription would cost battery to answer a question
+/// nobody is asking the rest of the time.
+@MainActor
+final class HereLocator: NSObject, ObservableObject, CLLocationManagerDelegate {
+    @Published var coordinate: CLLocationCoordinate2D?
+
+    private let manager = CLLocationManager()
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
+
+    func request() {
+        manager.requestWhenInUseAuthorization()
+        manager.requestLocation()
+    }
+
+    nonisolated func locationManager(
+        _ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]
+    ) {
+        guard let found = locations.last?.coordinate else { return }
+        Task { @MainActor in self.coordinate = found }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // Denied, or no fix indoors. The map still works; it just opens where
+        // it opens, and searching is the way in.
+    }
+}
+
+extension CLLocationCoordinate2D: @retroactive Equatable {
+    public static func == (a: CLLocationCoordinate2D, b: CLLocationCoordinate2D) -> Bool {
+        a.latitude == b.latitude && a.longitude == b.longitude
     }
 }
