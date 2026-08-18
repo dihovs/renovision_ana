@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// Every property being worked on.
@@ -145,57 +146,7 @@ struct ProjectsView: View {
                                 }
                             }
                         } else {
-                            // The reference's grid, measured off the device:
-                            // two columns, the dashed add tile first, the
-                            // label BELOW the card rather than inside it.
-                            CardGrid(
-                                items: shown,
-                                addLabel: "New Project",
-                                // No create tile among the archived: making a
-                                // new job from the drawer of put-away ones
-                                // would file it somewhere it cannot be seen.
-                                onAdd: filter == .archived
-                                    ? nil : { Task { await createNow() } },
-                                onOpen: { opened = $0 },
-                                caption: { project in
-                                    // Who it is on takes the third line when
-                                    // set: on a list of jobs, "Marc" answers
-                                    // a question the room count does not.
-                                    (project.name,
-                                     project.clientName ?? "No client",
-                                     project.assignedTo
-                                        ?? (project.roomCount > 0
-                                            ? "\(project.roomCount) room\(project.roomCount == 1 ? "" : "s")"
-                                            : "Not measured"))
-                                }
-                            ) { project in
-                                // The floor plan itself, drawn from the
-                                // largest room's geometry — the same renderer
-                                // the storey canvas uses, so a card and the
-                                // plan behind it cannot disagree. A project
-                                // with nothing measured has nothing to draw
-                                // and says so instead of faking a room.
-                                if let geometry = project.largestRoom {
-                                    MiniPlan(geometry: geometry)
-                                        .padding(6)
-                                } else {
-                                    Image(systemName: "doc")
-                                        .font(.system(size: 26, weight: .light))
-                                        .foregroundStyle(Brand.Plan.dimension.opacity(0.45))
-                                }
-                            } menu: { project in
-                                AnyView(
-                                    ProjectCardMenu(
-                                        isFavorite: project.favorite,
-                                        isArchived: filter == .archived,
-                                        onFavorite: { Task { await toggleFavorite(project) } },
-                                        onMove: { assigning = project },
-                                        onDuplicate: { Task { await duplicate(project) } },
-                                        onArchive: { archiving = project },
-                                        onRestore: { Task { await restore(project) } }))
-                            } isFavorite: { project in
-                                project.favorite
-                            }
+                            projectGrid
                         }
                     }
                     .padding(.horizontal, Brand.Space.base)
@@ -268,6 +219,72 @@ struct ProjectsView: View {
     ///
     /// The old form is still there under the menu, for a job booked at a desk
     /// with the client and address already in hand.
+
+    /// Extracted from `list`'s body on purpose. Inlined, the grid's closures
+    /// (caption, thumbnail, menu, isFavorite — four of them, each generic
+    /// over Item) pushed the whole ScrollView past what the Swift type
+    /// checker will solve in reasonable time, and the build failed with
+    /// exactly that message. Naming the sub-expression gives the solver a
+    /// boundary to stop at.
+    @ViewBuilder private var projectGrid: some View {
+        // The reference's grid, measured off the device:
+        // two columns, the dashed add tile first, the
+        // label BELOW the card rather than inside it.
+        CardGrid(
+            items: shown,
+            addLabel: "New Project",
+            // No create tile among the archived: making a
+            // new job from the drawer of put-away ones
+            // would file it somewhere it cannot be seen.
+            // Opens the form; the project is created by
+            // Save inside it. Tapping + used to create on
+            // the spot (the reference does), and that
+            // filled the grid with empty "New project N"
+            // rows every time somebody looked and came
+            // back. A job with nothing in it is not a job.
+            onAdd: filter == .archived ? nil : { creating = true },
+            onOpen: { opened = $0 },
+            caption: { project in
+                // Who it is on takes the third line when
+                // set: on a list of jobs, "Marc" answers
+                // a question the room count does not.
+                (project.name,
+                 project.clientName ?? "No client",
+                 project.assignedTo
+                    ?? (project.roomCount > 0
+                        ? "\(project.roomCount) room\(project.roomCount == 1 ? "" : "s")"
+                        : "Not measured"))
+            }
+        ) { project in
+            // The floor plan itself, drawn from the
+            // largest room's geometry — the same renderer
+            // the storey canvas uses, so a card and the
+            // plan behind it cannot disagree. A project
+            // with nothing measured has nothing to draw
+            // and says so instead of faking a room.
+            if let geometry = project.largestRoom {
+                MiniPlan(geometry: geometry)
+                    .padding(6)
+            } else {
+                Image(systemName: "doc")
+                    .font(.system(size: 26, weight: .light))
+                    .foregroundStyle(Brand.Plan.dimension.opacity(0.45))
+            }
+        } menu: { project in
+            AnyView(
+                ProjectCardMenu(
+                    isFavorite: project.favorite,
+                    isArchived: filter == .archived,
+                    onFavorite: { Task { await toggleFavorite(project) } },
+                    onMove: { assigning = project },
+                    onDuplicate: { Task { await duplicate(project) } },
+                    onArchive: { archiving = project },
+                    onRestore: { Task { await restore(project) } }))
+        } isFavorite: { project in
+            project.favorite
+        }
+    }
+
     private func createNow() async {
         guard !creatingNow else { return }
         creatingNow = true
@@ -608,6 +625,11 @@ struct ProjectDetailView: View {
     /// intent here, and the sheet's own dismissal performs it.
     @State private var landingIntent: PlanLanding?
     @State private var landing: PlanLanding?
+    /// The description and address, read separately from the list payload.
+    @State private var record: ProjectRecord?
+    @State private var editingDetails = false
+    @State private var projectFiles: [RoomPhoto] = []
+    @State private var sharing = false
     @StateObject private var queue = ScanQueue.shared
 
     /// Storeys in building order, not the order they happened to be scanned —
@@ -630,6 +652,43 @@ struct ProjectDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: Brand.Space.base) {
+                    // Description, then the property address, then Forms —
+                    // the reference's own order. All three are about WHICH
+                    // job this is, and they sit above the numbers because
+                    // that is the question you answer first on opening a
+                    // job you have not seen for a week.
+                    Button {
+                        editingDetails = true
+                    } label: {
+                        Card(padding: Brand.Space.small) {
+                            HStack(alignment: .top, spacing: Brand.Space.small) {
+                                Image(systemName: "text.alignleft")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(Brand.inkFaint)
+                                Text(
+                                    record?.description?.isEmpty == false
+                                        ? (record?.description ?? "")
+                                        : "Add project description…")
+                                    .font(.system(size: 15))
+                                    .foregroundStyle(
+                                        record?.description?.isEmpty == false
+                                            ? Brand.ink : Brand.inkFaint)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Image(systemName: "square.and.pencil")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Brand.blue)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        editingDetails = true
+                    } label: {
+                        ProjectAddressCard(lines: record?.addressLines ?? [])
+                    }
+                    .buttonStyle(.plain)
+
                     // Forms, where the reference puts it: above Statistics,
                     // its own card with a chevron. Empty for now — the
                     // template machinery is S-level work — but the row is
@@ -739,6 +798,31 @@ struct ProjectDetailView: View {
                         }
                     }
 
+                    // Photos and Files, the reference's own two rails below
+                    // the plans. Both are the JOB's own — a photo of the
+                    // building from the street, the adjuster's letter —
+                    // which is what "attached to no room" means. A room's
+                    // photos stay on the room's own sheet.
+                    SectionHeadingRow(title: "Photos")
+                    Text("Add photos and share reports.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkSoft)
+                    ProjectFileRail(
+                        projectId: project.id,
+                        files: projectFiles.filter { $0.isImage },
+                        addLabel: "Add photo",
+                        onChanged: { Task { await loadFiles() } })
+
+                    SectionHeadingRow(title: "Files")
+                    Text("Scan or upload documents from your device.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkSoft)
+                    ProjectFileRail(
+                        projectId: project.id,
+                        files: projectFiles.filter { !$0.isImage },
+                        addLabel: "Add file",
+                        onChanged: { Task { await loadFiles() } })
+
                     // Each storey through the collection shell (ORD-15): the
                     // rooms as a rail led by the dashed + tile, the storey
                     // drawing above it, the full-width rows behind `See all`.
@@ -832,6 +916,19 @@ struct ProjectDetailView: View {
         }
         .navigationTitle(project.name)
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { sharing = true } label: { Image(systemName: "square.and.arrow.up") }
+            }
+        }
+        .navigationDestination(isPresented: $sharing) {
+            ReportShareView(projectId: project.id, projectName: project.name)
+        }
+        .sheet(isPresented: $editingDetails) {
+            ProjectDetailsSheet(projectName: project.name, record: record) { patch in
+                Task { await saveDetails(patch) }
+            }
+        }
         // The room detail is a sheet, not a push (ORD-13): at its medium
         // detent the storey canvas stays visible behind it, and tapping a
         // sibling room there re-targets this binding, which swaps the sheet's
@@ -882,9 +979,31 @@ struct ProjectDetailView: View {
         }
     }
 
+    private func loadFiles() async {
+        projectFiles = (try? await API.shared.projectFiles(projectId: project.id)) ?? []
+    }
+
+    private func saveDetails(_ patch: ProjectDetailsSheet.Patch) async {
+        do {
+            try await API.shared.updateProjectDetails(
+                id: project.id,
+                description: .some(patch.description),
+                addressLine1: .some(patch.line1),
+                addressCity: .some(patch.city),
+                addressPostal: .some(patch.postal))
+            record = try? await API.shared.project(id: project.id)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     private func load() async {
         do {
             scans = try await API.shared.scans(projectId: project.id)
+            // The description and address come from their own endpoint; a
+            // failure there costs those two fields, never the survey.
+            record = try? await API.shared.project(id: project.id)
+            await loadFiles()
             error = nil
         } catch {
             self.error = error.localizedDescription
@@ -954,5 +1073,236 @@ private struct RoomGlyph: View {
                 .foregroundStyle(Brand.blue)
         }
         .frame(width: 36, height: 36)
+    }
+}
+
+/// Edit the job's description and the address of the property.
+///
+/// One sheet for both because they are the same question asked twice —
+/// WHICH job is this — and because the reference reaches both from the same
+/// two rows at the top of the page. Saving writes all four fields together,
+/// which is safe: the server writes only the keys it is sent, and this sheet
+/// is the only screen that sends any of them.
+struct ProjectDetailsSheet: View {
+    struct Patch {
+        let description: String?
+        let line1: String?
+        let city: String?
+        let postal: String?
+    }
+
+    let projectName: String
+    let record: ProjectRecord?
+    let onSave: (Patch) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var description = ""
+    @State private var line1 = ""
+    @State private var city = ""
+    @State private var postal = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("DESCRIPTION") {
+                    TextField("What happened, in a line or two", text: $description, axis: .vertical)
+                        .lineLimit(2...6)
+                }
+                Section("PROPERTY ADDRESS") {
+                    TextField("Street", text: $line1)
+                        .textContentType(.streetAddressLine1)
+                    TextField("City", text: $city)
+                        .textContentType(.addressCity)
+                    TextField("Postal code", text: $postal)
+                        .textContentType(.postalCode)
+                        .textInputAutocapitalization(.characters)
+                }
+                Section {
+                    Text("The address of the property being worked on — not the client's billing address. They are often different, and this is the one the crew drives to.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+            }
+            .navigationTitle(projectName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        onSave(
+                            Patch(
+                                description: description.trimmed,
+                                line1: line1.trimmed,
+                                city: city.trimmed,
+                                postal: postal.trimmed))
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+            .onAppear {
+                description = record?.description ?? ""
+                line1 = record?.addressLine1 ?? ""
+                city = record?.addressCity ?? ""
+                postal = record?.addressPostal ?? ""
+            }
+        }
+    }
+}
+
+/// A horizontal rail of the job's own photos or files, led by the dashed +.
+///
+/// Reuses `RoomPhotosSection`'s upload path through the same `/api/v1/photos`
+/// POST, which already accepts a project with no room — that is exactly what
+/// a job-level attachment is.
+struct ProjectFileRail: View {
+    let projectId: String
+    let files: [RoomPhoto]
+    let addLabel: String
+    let onChanged: () -> Void
+
+    @State private var picking = false
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Brand.Space.small) {
+                AddTile(label: addLabel) { picking = true }
+                ForEach(files) { file in
+                    ProjectFileTile(file: file)
+                }
+                if files.isEmpty { GhostTile() }
+            }
+        }
+        .sheet(isPresented: $picking) {
+            ProjectFileUploader(projectId: projectId, onDone: onChanged)
+        }
+    }
+}
+
+/// One attachment: the image itself when it is one, a document glyph when it
+/// is not. A PDF drawn as a grey rectangle tells you nothing; its NAME does.
+private struct ProjectFileTile: View {
+    let file: RoomPhoto
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if file.isImage, let url = file.url.flatMap(URL.init(string:)) {
+                AsyncImage(url: url) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    ProgressView()
+                }
+                .frame(width: 132, height: 114)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                VStack(spacing: 6) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 22))
+                        .foregroundStyle(Brand.inkSoft)
+                    Text(file.filename)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Brand.inkSoft)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 8)
+                }
+                .frame(width: 132, height: 114)
+                .background(Brand.surface, in: .rect(cornerRadius: 12))
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Brand.hairline, lineWidth: 0.5))
+    }
+}
+
+/// Attach a photo to the job itself rather than to a room.
+///
+/// The camera and the library both, because the two cases are different: a
+/// picture of the building taken on arrival, and the adjuster's letter that
+/// is already in Photos or Files. Uploads through the same `/api/v1/photos`
+/// POST every room photo uses, with no `roomScanId` — which IS the definition
+/// of a job-level attachment.
+struct ProjectFileUploader: View {
+    let projectId: String
+    let onDone: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var picked: PhotosPickerItem?
+    @State private var takingPhoto = false
+    @State private var busy = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+                VStack(spacing: Brand.Space.base) {
+                    if busy {
+                        ProgressView("Uploading…")
+                    } else {
+                        Button { takingPhoto = true } label: {
+                            Label("Take a photo", systemImage: "camera")
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                        }
+                        .buttonStyle(.plain)
+
+                        PhotosPicker(selection: $picked, matching: .images) {
+                            Label("Choose from library", systemImage: "photo.on.rectangle")
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if let error {
+                        Text(error).font(.footnote).foregroundStyle(.red)
+                    }
+                    Spacer()
+                }
+                .padding(Brand.Space.base)
+            }
+            .navigationTitle("Add to this job")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+            .fullScreenCover(isPresented: $takingPhoto) {
+                CameraCapture { image in
+                    takingPhoto = false
+                    if let image { Task { await upload(image) } }
+                }
+                .ignoresSafeArea()
+            }
+            .onChange(of: picked) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                        let image = UIImage(data: data) {
+                        await upload(image)
+                    }
+                }
+            }
+        }
+    }
+
+    private func upload(_ image: UIImage) async {
+        guard let jpeg = image.jpegData(compressionQuality: 0.8) else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            _ = try await API.shared.uploadPhoto(
+                projectId: projectId, roomScanId: nil, affectedAreaId: nil,
+                jpeg: jpeg, note: nil)
+            onDone()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }

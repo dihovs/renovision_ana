@@ -303,3 +303,54 @@ struct MiniPlan: View {
         }
     }
 }
+
+/// The property address, as the reference's card draws it: a map-ish plate on
+/// the left, the lines beside it, a chevron to edit.
+///
+/// The plate is drawn rather than a real map. A live map tile per project
+/// costs an API key, a network round trip and a quota, and answers a question
+/// nobody asked — the operator knows the city, they need the street. When an
+/// address is worth routing to, that belongs behind a "Directions" action
+/// that hands the address to Maps, not behind a thumbnail.
+struct ProjectAddressCard: View {
+    let lines: [String]
+
+    var body: some View {
+        Card(padding: Brand.Space.small) {
+            HStack(spacing: Brand.Space.small) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8).fill(Brand.Plan.floorMuted)
+                    Image(systemName: "map")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Brand.Plan.dimension.opacity(0.7))
+                }
+                .frame(width: 62, height: 52)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if lines.isEmpty {
+                        Text("Address Line #1")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Brand.inkFaint)
+                        Text("City, State")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.inkFaint)
+                        Text("Postal Code")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.inkFaint)
+                    } else {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                            Text(line)
+                                .font(.system(size: index == 0 ? 15 : 13,
+                                              weight: index == 0 ? .semibold : .regular))
+                                .foregroundStyle(index == 0 ? Brand.ink : Brand.inkSoft)
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
+            }
+        }
+    }
+}

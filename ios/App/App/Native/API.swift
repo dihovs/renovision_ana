@@ -296,6 +296,40 @@ actor API {
         return (response.projects, response.assignees)
     }
 
+    /// One project's description and address — the fields the detail screen
+    /// edits, which the list payload does not carry.
+    func project(id: String) async throws -> ProjectRecord? {
+        try await get("/api/v1/projects/\(id)", as: ProjectDetailResponse.self).project
+    }
+
+    /// Save the description and/or the property address. Only the keys given
+    /// are sent, so saving one cannot blank the other — and each is a real
+    /// `null` when cleared rather than an absent key the server would read as
+    /// "not mentioned".
+    func updateProjectDetails(
+        id: String,
+        description: String?? = nil,
+        addressLine1: String?? = nil,
+        addressCity: String?? = nil,
+        addressPostal: String?? = nil
+    ) async throws {
+        var body: [String: String?] = [:]
+        if let description { body["description"] = description }
+        if let addressLine1 { body["addressLine1"] = addressLine1 }
+        if let addressCity { body["addressCity"] = addressCity }
+        if let addressPostal { body["addressPostal"] = addressPostal }
+        guard !body.isEmpty else { return }
+        _ = try await request("/api/v1/projects/\(id)", method: "PATCH", body: body)
+    }
+
+    /// The job's OWN photos and files — the ones attached to no room.
+    func projectFiles(projectId: String) async throws -> [RoomPhoto] {
+        let encoded =
+            projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        return try await get(
+            "/api/v1/photos?projectId=\(encoded)", as: PhotoListResponse.self).photos
+    }
+
     /// Put an archived project back on the list.
     func restoreProject(id: String) async throws {
         struct Status: Encodable { let status = "active" }

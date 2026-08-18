@@ -129,6 +129,33 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
+/// One project's editable detail — what the list payload deliberately omits.
+///
+/// Separate from `ProjectSummary` because a list of 200 projects has no
+/// business carrying 200 descriptions, and because the detail screen has to
+/// re-read after an edit without refetching the whole grid.
+struct ProjectDetailResponse: Decodable { let project: ProjectRecord? }
+
+struct ProjectRecord: Decodable, Equatable {
+    let id: String
+    let name: String
+    let description: String?
+    let addressLine1: String?
+    let addressCity: String?
+    let addressPostal: String?
+    let assignedTo: String?
+
+    /// The address as the card draws it — the lines that exist, in order.
+    /// Empty when nothing has been entered, which is the caller's cue to
+    /// show the placeholder rather than a blank card.
+    var addressLines: [String] {
+        [addressLine1, [addressCity, addressPostal].compactMap { $0 }.joined(separator: "  ")]
+            .compactMap { $0 }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+}
+
 // MARK: - Clients
 
 struct ClientListResponse: Decodable { let clients: [ClientSummary] }
@@ -542,6 +569,15 @@ struct RoomPhoto: Decodable, Identifiable, Hashable {
     let note: String?
     /// Signed per request and short-lived — never cache this across launches.
     let url: String?
+
+    /// Whether this is a picture or a document, decided by the filename's
+    /// extension. The API sends the stored content type nowhere in this
+    /// payload, and the extension is what the operator named it by anyway —
+    /// a PDF drawn as a broken image tile tells them less than its name does.
+    var isImage: Bool {
+        let ext = (filename as NSString).pathExtension.lowercased()
+        return ["jpg", "jpeg", "png", "heic", "heif", "gif", "webp"].contains(ext)
+    }
 }
 
 // MARK: - Calls
