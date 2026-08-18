@@ -995,16 +995,26 @@ struct FloorCanvasView: View {
     /// stray thumb from moving a wall, but here a drag can only ever mean
     /// "move the paper".
     ///
-    /// `defaultZoom` is not 1. `LevelCanvas` itself fit-scales a room to
-    /// fill the ~320pt-tall box its own default caps it at, which lands
-    /// close to the phone's own screen width — so at `zoom = 1` a single
-    /// room already filled nearly the whole viewport, walls almost touching
-    /// the edges, no paper margin visible anywhere. The owner's word for it,
-    /// 18 Aug 2026: "too zoomed in." Starting zoomed OUT a little leaves the
-    /// grid visibly around the room, which is the whole point of drawing it
-    /// oversized in the first place; a pinch still reaches full size.
-    private static let defaultZoom: CGFloat = 0.6
-    @State private var zoom: CGFloat = defaultZoom
+    /// `defaultZoom == 1`, deliberately, and it was NOT always this. Build
+    /// 101 shipped two fixes for "too zoomed in" at once: `LevelCanvas`'s
+    /// own margin went from a flat 10pt to a proportional ~12% (real fix,
+    /// still in place, see its own comment), and THIS constant went from 1
+    /// to 0.6 (a second, unnecessary shrink stacked on top of the first).
+    ///
+    /// The stack is what broke the next thing he asked for — a transition
+    /// that reads as one continuous zoom rather than a jump. Worked out on
+    /// paper for his own 6×5m kitchen: `RoomEditorCore`'s own fit (48pt
+    /// inset in a canvas near the screen's full size) lands around 49pt/m,
+    /// width-limited. `LevelCanvas`'s fit alone, WITH the 101 margin fix
+    /// and at `zoom = 1`, lands around 49pt/m too — the two already agree,
+    /// because the margin fix was already doing the real work. The extra
+    /// 0.6 pushed the storey's scale down to roughly 29pt/m for no reason
+    /// beyond a guess made without this arithmetic, and THAT gap — not the
+    /// animation curve — is what read as a jump. Removed; watch for a
+    /// crowded floor needing headroom `LevelCanvas`'s own fit does not
+    /// already give it, which is a real case this constant may need to
+    /// come back for, but scaled to the room count next time, not flat.
+    @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
     @GestureState private var pinch: CGFloat = 1
     @GestureState private var drag: CGSize = .zero
@@ -1048,24 +1058,30 @@ struct FloorCanvasView: View {
                 onSaved: { Task { await load() } })
                 .id(room.id)
                 .environment(\.colorScheme, .light)
-                // Shrinks toward the middle of the screen and fades as it
-                // goes, rather than the hard cut a plain `if/else` gives by
-                // default — "it jumps," 18 Aug 2026. Not a true morph: the
-                // room does not travel to its actual position on the
-                // storey, because that position lives inside `LevelCanvas`'s
-                // `Canvas` draw, which has no real view geometry a
-                // `matchedGeometryEffect` could target. This reads as a
-                // camera pulling back, which is what he asked for by name,
-                // without pretending to be more than that.
+                // A small settle rather than a hard cut — "it jumps," 18 Aug
+                // 2026. Kept SMALL on purpose, now that `zoom`'s own doc
+                // comment above has the arithmetic: this room's real scale
+                // in `RoomEditorCore` and its real scale in `LevelCanvas`
+                // already land within a few percent of each other once the
+                // redundant 0.6 shrink is gone, so a big scale jump here
+                // would fight that agreement rather than complete it. This
+                // is chrome fading (handles, dimensions, the white fill) over
+                // a room that is ALREADY close to the right size, not a
+                // shape trying to travel across the screen.
+                //
+                // Still not a true morph — the room's position lives inside
+                // a `Canvas` draw with no view geometry a
+                // `matchedGeometryEffect` could target — but with the scales
+                // agreeing, a plain fade may read as "the same canvas" close
+                // enough without one. If it still doesn't, that IS the
+                // bigger, separate rewrite: one shared canvas for both
+                // depths, not a nearer-matched transition between two.
                 .transition(
-                    .scale(scale: 0.85, anchor: .center).combined(with: .opacity))
+                    .scale(scale: 0.97, anchor: .center).combined(with: .opacity))
         } else {
             floorContent
-                // The counterpart: grows in from slightly small as the room
-                // shrinks away, so the two feel like one continuous pull-back
-                // rather than a cut mid-way between two unrelated animations.
                 .transition(
-                    .scale(scale: 1.08, anchor: .center).combined(with: .opacity))
+                    .scale(scale: 1.03, anchor: .center).combined(with: .opacity))
         }
     }
 
@@ -1165,9 +1181,9 @@ struct FloorCanvasView: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Brand.ink)
                         }
-                        if zoom != Self.defaultZoom || pan != .zero {
+                        if zoom != 1 || pan != .zero {
                             Button {
-                                withAnimation(.snappy) { zoom = Self.defaultZoom; pan = .zero }
+                                withAnimation(.snappy) { zoom = 1; pan = .zero }
                             } label: {
                                 Image(systemName: "arrow.counterclockwise")
                                     .font(.system(size: 14, weight: .semibold))

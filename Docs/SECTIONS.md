@@ -1197,4 +1197,46 @@ Newest last. One or two lines per chat.
   — the true-morph version is a separate, much larger piece of work.
 
   Unverified — build 102 installed, not yet looked at.
+- **2026-08-18** — Build 103. He sent two magicplan screenshots side by
+  side — room depth and floor depth on the SAME single-room floor — and
+  the point was visible in them, not just stated: the room is drawn at
+  nearly the SAME apparent size in both. *"it is like the same canvas,
+  just zooms in and out."* That reframed build 102's fix: the problem was
+  never the animation curve, it was that the two views' underlying scales
+  did not agree, so ANY transition between them was going to read as a
+  jump.
+
+  Worked the arithmetic for his own 6×5m kitchen. `RoomEditorCore`'s own
+  fit (48pt inset, canvas near the full screen) lands ≈49pt/m,
+  width-limited. `LevelCanvas`'s fit, WITH build 101's margin fix and
+  WITHOUT build 101's OTHER change (`FloorCanvasView`'s `zoom` default of
+  0.6), lands at ≈49pt/m too — the two already agreed once the margin fix
+  alone is counted. The 0.6 was a second, unnecessary shrink stacked on the
+  first, pushing the storey down to ≈29pt/m for no reason beyond a guess
+  made without doing this arithmetic — and THAT gap, not the transition
+  code, is what read as a jump.
+
+  **Fixed:** `defaultZoom` removed, back to a plain `zoom = 1`; the
+  proportional-pad fix from build 101 is the one still doing the real
+  work. The transition's own scale factors came down from 0.85/1.08 to
+  0.97/1.03 — now mostly a chrome fade (handles, dimensions, white fill)
+  over a room that is already close to the right size, rather than a shape
+  trying to visibly travel across the screen.
+
+  **Said plainly, again, because it matters for what comes next:** this is
+  STILL not a true morph. `RoomEditorCore` and `LevelCanvas` both draw with
+  `Canvas` — immediate-mode paths, no view geometry a `matchedGeometryEffect`
+  could hang onto. Scale-matching the two fits narrows the gap a naive
+  crossfade has to paper over; it does not close it structurally. If this
+  build still doesn't read as "the same canvas," the real fix is a shared
+  canvas used at both depths — genuinely larger, and worth scoping as its
+  own piece of S5 rather than another transition-tuning pass.
+
+  A note for whoever next touches `FloorCanvasView.zoom`: a CROWDED floor
+  (many rooms) may still want to start more zoomed out than `LevelCanvas`'s
+  own fit gives it — that's a real, different case from the one this build
+  fixed, and it should scale with room count, not be a flat constant
+  applied regardless of how many rooms are on the floor.
+
+  Build 103 installed, not yet looked at.
 
