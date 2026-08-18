@@ -28,6 +28,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         id: project.id,
         name: project.name,
         description: project.description ?? null,
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
         addressLine1: project.address_line1 ?? null,
         addressCity: project.address_city ?? null,
         addressPostal: project.address_postal ?? null,
@@ -71,7 +73,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const hasStatus = "status" in body;
   const hasAssignee = "assignedTo" in body;
   const hasFavorite = "favorite" in body;
-  const DETAIL_KEYS = ["description", "addressLine1", "addressCity", "addressPostal"] as const;
+  const DETAIL_KEYS = [
+    "name", "description", "addressLine1", "addressCity", "addressPostal",
+  ] as const;
   const details = DETAIL_KEYS.filter((key) => key in body);
 
   if (!hasStatus && !hasAssignee && !hasFavorite && details.length === 0) {

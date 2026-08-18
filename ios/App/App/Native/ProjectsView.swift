@@ -659,8 +659,10 @@ struct ProjectDetailView: View {
                     // job this is, and they sit above the numbers because
                     // that is the question you answer first on opening a
                     // job you have not seen for a week.
-                    Button {
-                        editingDetails = true
+                    NavigationLink {
+                        ProjectInfoView(projectId: project.id, record: record) {
+                            Task { await load() }
+                        }
                     } label: {
                         Card(padding: Brand.Space.small) {
                             HStack(alignment: .top, spacing: Brand.Space.small) {
@@ -830,6 +832,11 @@ struct ProjectDetailView: View {
                         addLabel: "Add file",
                         onChanged: { Task { await loadFiles() } })
 
+                    ProjectAuthorshipBlock(
+                        assignedTo: record?.assignedTo,
+                        createdAt: record?.createdAt,
+                        updatedAt: record?.updatedAt)
+
                     // Each storey through the collection shell (ORD-15): the
                     // rooms as a rail led by the dashed + tile, the storey
                     // drawing above it, the full-width rows behind `See all`.
@@ -922,8 +929,36 @@ struct ProjectDetailView: View {
             // a visit: on a property, the thing you add is a measured room.
         }
         .navigationTitle(project.name)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // The reference hangs the project's own actions off its title,
+            // which keeps the toolbar free for share. Same set as the card's
+            // ⋯ menu, plus the two that only make sense once you are inside.
+            ToolbarItem(placement: .principal) {
+                Menu {
+                    Button { sharing = true } label: {
+                        Label("Export…", systemImage: "square.and.arrow.up")
+                    }
+                    Divider()
+                    NavigationLink {
+                        ProjectInfoView(projectId: project.id, record: record) {
+                            Task { await load() }
+                        }
+                    } label: {
+                        Label("Edit Project Details", systemImage: "pencil")
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(project.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Brand.inkSoft)
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { sharing = true } label: { Image(systemName: "square.and.arrow.up") }
             }
@@ -934,7 +969,11 @@ struct ProjectDetailView: View {
         .sheet(isPresented: $pickingLocation) {
             ProjectLocationPicker(
                 projectName: project.name,
-                initial: nil
+                initial: nil,
+                initialQuery: [record?.addressLine1, record?.addressCity, record?.addressPostal]
+                    .compactMap { $0 }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: ", ")
             ) { line1, city, postal in
                 Task {
                     await saveDetails(
@@ -1432,13 +1471,30 @@ struct ProjectFileUploader: View {
 struct ProjectLocationPicker: View {
     let projectName: String
     let initial: CLLocationCoordinate2D?
+    /// The address already on the job, if any. Opening the picker on a
+    /// project that HAS an address at world zoom over North America — which
+    /// is where an unseeded map lands — is useless; this geocodes it so the
+    /// map opens on the property it is about.
+    var initialQuery: String = ""
+
     let onUse: (_ line1: String, _ city: String, _ postal: String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var search = AddressSearch()
     @StateObject private var here = HereLocator()
 
-    @State private var camera: MapCameraPosition = .automatic
+    /// Opens over the service area at street zoom, never `.automatic`.
+    ///
+    /// `.automatic` with nothing to frame lands on the whole western
+    /// hemisphere, which is not a map anybody can drop a pin on — and the
+    /// first reverse geocode off it named a road in northern Manitoba. Laval
+    /// is where this business works; a saved address or a location fix
+    /// replaces this within a second of opening, and until then a wrong
+    /// street is far more useful than a right continent.
+    @State private var camera: MapCameraPosition = .region(
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 45.5717, longitude: -73.7073),
+            latitudinalMeters: 2500, longitudinalMeters: 2500))
     @State private var centre: CLLocationCoordinate2D?
     @State private var line1 = ""
     @State private var city = ""
@@ -1466,6 +1522,19 @@ struct ProjectLocationPicker: View {
                         center: initial, latitudinalMeters: 400, longitudinalMeters: 400))
                 centre = initial
                 Task { await readOff(initial) }
+            } else if !initialQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                Task {
+                    if let found = try? await CLGeocoder().geocodeAddressString(initialQuery),
+                        let spot = found.first?.location?.coordinate {
+                        camera = .region(
+                            MKCoordinateRegion(
+                                center: spot, latitudinalMeters: 400, longitudinalMeters: 400))
+                        centre = spot
+                        await readOff(spot)
+                    } else {
+                        here.request()
+                    }
+                }
             } else {
                 here.request()
             }
@@ -1554,12 +1623,21 @@ struct ProjectLocationPicker: View {
                     .allowsHitTesting(false)
             }
             .overlay(alignment: .topTrailing) {
+                // .buttonStyle(.plain) and a fixed width on BOTH the stack
+                // and each label: without them the default button style
+                // stretched these to the full width of the overlay, so two
+                // 42pt glyphs sat in the middle of two full-width white
+                // bars across the top of the map.
                 VStack(spacing: 0) {
                     Button { hybrid.toggle() } label: {
                         Image(systemName: hybrid ? "map.fill" : "map")
-                            .frame(width: 42, height: 42)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
-                    Divider()
+                    .buttonStyle(.plain)
+
+                    Divider().frame(width: 44)
+
                     Button {
                         here.request()
                         if let found = here.coordinate {
@@ -1570,9 +1648,12 @@ struct ProjectLocationPicker: View {
                         }
                     } label: {
                         Image(systemName: "location")
-                            .frame(width: 42, height: 42)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
+                .frame(width: 44)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(Brand.ink)
                 .background(Brand.surface, in: .rect(cornerRadius: 10))
@@ -1708,4 +1789,199 @@ extension CLLocationCoordinate2D: @retroactive Equatable {
     public static func == (a: CLLocationCoordinate2D, b: CLLocationCoordinate2D) -> Bool {
         a.latitude == b.latitude && a.longitude == b.longitude
     }
+}
+
+/// The reference's `Project Info` screen, behind the description pencil.
+///
+/// Name and description are the two things about a job that get corrected
+/// most — a project made from the van is called "New project" until somebody
+/// types what it actually is. The rest of the screen is read-only fact:
+/// when it was created, and what its living-area rule is.
+///
+/// `New Field` is the reference's custom-field builder. The column exists
+/// (`projects.custom`, migration 0026) and the claim template already writes
+/// it, but a field BUILDER is its own screen and is not built here — the row
+/// says so rather than pretending.
+struct ProjectInfoView: View {
+    let projectId: String
+    let record: ProjectRecord?
+    let onSaved: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var description = ""
+    @State private var saving = false
+    @State private var error: String?
+
+    private var created: String {
+        guard let raw = record?.createdAt,
+            let date = ISO8601DateFormatter.flexible.date(from: raw)
+        else { return "—" }
+        return date.formatted(.dateTime.month(.wide).day().year())
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Project Name") {
+                    TextField("Name", text: $name)
+                        .multilineTextAlignment(.trailing)
+                        .textInputAutocapitalization(.words)
+                }
+                LabeledContent("Project Description") {
+                    TextField("Add Text", text: $description, axis: .vertical)
+                        .multilineTextAlignment(.trailing)
+                        .lineLimit(1...4)
+                }
+            }
+
+            Section("GENERAL") {
+                LabeledContent("Project creation date", value: created)
+                NavigationLink {
+                    LivingAreaDetailView(projectId: projectId)
+                } label: {
+                    Text("Living Area Calculation")
+                }
+            }
+
+            Section {
+                HStack {
+                    Label("New Field", systemImage: "plus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Brand.inkFaint)
+                    Spacer()
+                }
+            } footer: {
+                Text("Custom fields are recorded on a project already — the claim template writes them — but building your own from the phone is not here yet.")
+            }
+
+            if let error {
+                Section { Text(error).font(.footnote).foregroundStyle(.red) }
+            }
+        }
+        .navigationTitle("Project Info")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(saving ? "Saving…" : "Save") { Task { await save() } }
+                    .fontWeight(.semibold)
+                    .disabled(saving || name.trimmed.isEmpty)
+            }
+        }
+        .onAppear {
+            name = record?.name ?? ""
+            description = record?.description ?? ""
+        }
+    }
+
+    private func save() async {
+        saving = true
+        defer { saving = false }
+        do {
+            try await API.shared.updateProjectDetails(
+                id: projectId,
+                name: .some(name.trimmed),
+                description: .some(description.trimmed))
+            onSaved()
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+/// Living area, on its own screen because the figure needs its rule beside
+/// it: ANSI Z765 counts finished space above grade, which is why a basement
+/// full of measured floor does not raise it.
+struct LivingAreaDetailView: View {
+    let projectId: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Brand.Space.base) {
+                LivingAreaCard(projectId: projectId)
+            }
+            .padding(Brand.Space.base)
+        }
+        .background(Brand.canvas)
+        .navigationTitle("Living Area")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// When the job was made and when it was last touched.
+///
+/// The reference shows a person against each. This app has no user accounts
+/// — one operator, signed in as admin — so naming one would be inventing an
+/// identity nothing tracks. What IS true is who the job is assigned to, and
+/// when it moved; that is what this shows, and the avatar carries their
+/// initials when somebody is on it.
+struct ProjectAuthorshipBlock: View {
+    let assignedTo: String?
+    let createdAt: String?
+    let updatedAt: String?
+
+    var body: some View {
+        Card(padding: 0) {
+            VStack(spacing: 0) {
+                row(title: "Created", stamp: createdAt)
+                Divider().padding(.leading, 62)
+                row(title: "Last modified", stamp: updatedAt)
+            }
+        }
+    }
+
+    private func row(title: String, stamp: String?) -> some View {
+        HStack(spacing: Brand.Space.small) {
+            ZStack {
+                Circle().fill(assignedTo == nil ? Brand.surfaceRaised : Brand.blue)
+                if let initials {
+                    Text(initials)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                } else {
+                    Image(systemName: "person")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+            }
+            .frame(width: 38, height: 38)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
+                Text(assignedTo ?? "Unassigned")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Brand.ink)
+                Text(readable(stamp))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.inkSoft)
+            }
+            Spacer()
+        }
+        .padding(Brand.Space.small)
+    }
+
+    private var initials: String? {
+        guard let assignedTo, !assignedTo.isEmpty else { return nil }
+        let parts = assignedTo.split(separator: " ")
+        let letters = parts.prefix(2).compactMap { $0.first }
+        return letters.isEmpty ? nil : String(letters).uppercased()
+    }
+
+    private func readable(_ raw: String?) -> String {
+        guard let raw, let date = ISO8601DateFormatter.flexible.date(from: raw) else { return "—" }
+        return date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+    }
+}
+
+extension ISO8601DateFormatter {
+    /// Postgres sends fractional seconds; the default formatter refuses them
+    /// and returns nil, which showed every date on this screen as a dash.
+    static let flexible: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 }

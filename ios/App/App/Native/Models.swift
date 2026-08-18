@@ -144,6 +144,8 @@ struct ProjectRecord: Decodable, Equatable {
     let addressCity: String?
     let addressPostal: String?
     let assignedTo: String?
+    let createdAt: String?
+    let updatedAt: String?
 
     /// The address as the card draws it — the lines that exist, in order.
     /// Empty when nothing has been entered, which is the caller's cue to

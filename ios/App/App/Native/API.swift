@@ -308,12 +308,14 @@ actor API {
     /// "not mentioned".
     func updateProjectDetails(
         id: String,
+        name: String?? = nil,
         description: String?? = nil,
         addressLine1: String?? = nil,
         addressCity: String?? = nil,
         addressPostal: String?? = nil
     ) async throws {
         var body: [String: String?] = [:]
+        if let name { body["name"] = name }
         if let description { body["description"] = description }
         if let addressLine1 { body["addressLine1"] = addressLine1 }
         if let addressCity { body["addressCity"] = addressCity }

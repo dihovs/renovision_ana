@@ -828,6 +828,7 @@ export async function listProjectFiles(projectId: string): Promise<ProjectFile[]
 export async function updateProjectDetails(
   id: string,
   patch: {
+    name?: string | null;
     description?: string | null;
     addressLine1?: string | null;
     addressCity?: string | null;
@@ -841,6 +842,9 @@ export async function updateProjectDetails(
   };
 
   const update: Record<string, string | null> = {};
+  // A project must keep a name — clearing it would leave an untitled card
+  // nobody can pick out of a grid — so a blank one is simply not written.
+  if ("name" in patch && clean(patch.name)) update.name = clean(patch.name);
   if ("description" in patch) update.description = clean(patch.description);
   if ("addressLine1" in patch) update.address_line1 = clean(patch.addressLine1);
   if ("addressCity" in patch) update.address_city = clean(patch.addressCity);
