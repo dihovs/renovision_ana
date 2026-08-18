@@ -81,8 +81,11 @@ clarity during the review.
 
 ## 4. State of the work
 
-**Last updated 18 Aug 2026.** Build **95** is installed on the owner's phone.
-S4's work is NOT in build 95 — it is committed and pushed, not yet installed.
+**Last updated 18 Aug 2026, end of a long live-testing session.** Build
+**118** is installed on the owner's phone and confirmed off the device.
+Builds 96 → 118 all shipped in that one session, each one installed and
+most of them reported back on within minutes — the ledger's Log carries
+them in order and is the real record.
 The build number is stamped per install (`CURRENT_PROJECT_VERSION=NN`) and
 `xcrun devicectl device info apps --device <udid> --bundle-id ca.renovisionana.crm`
 prints what is actually on the device — use it. A whole session was once spent
@@ -194,12 +197,28 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
 files each one owns — that last column matters, because two chats editing the same
 Swift file will collide.
 
-At handoff the next one was **S1 — room inspector structure**: our tabs are
-`Details | Damage & Drying | Photos & Notes`, the reference is
-`Details | Photos & Notes | Forms` with damage as a section inside Details. The
-owner's words: *"Damage and drying shouldn't be here. It should appear when we push
-up more, and there we have to have add areas."* Full spec and observed layout are
-in that section.
+**The next one is S5 — plan editor parity**, and most of 18 Aug was already
+spent inside it without the section being formally opened: the canvas merge,
+one-finger pan, the corner snap, the opening inspector, elevation dragging
+and the unit fix all belong to it. Read S5's own **"State at handoff"**
+block first — it lists what is genuinely left, checked against the code
+rather than remembered, and it is short.
+
+**Four items remain**, in the order they are worth doing:
+
+1. **Verify the dimension tap** — ten seconds, and it is the one thing here
+   already built but never seen working. It was disabled behind `if false`
+   from an old bisect and re-enabled in build 112; nobody has confirmed the
+   keypad opens.
+2. **Set Size should HIDE on a non-rectangular room**, not grey. There is no
+   rectangularity test in the source at all — checked 18 Aug.
+3. **ORD-31** live edge dimensions while dragging in the plan editor. The
+   AREA editor draws them on the two adjoining edges; the plan editor has
+   only a single floating `liveLabel`.
+4. **ORD-23** overall bounding dimension line, outboard of the per-wall ones.
+
+Anything the owner reports live outranks this list — that is how the whole
+of 18 Aug went, and it worked.
 
 ## 6. Never verified on device
 
@@ -207,26 +226,53 @@ Both built and installed; neither confirmed by eye. Worth ten seconds each.
 
 1. **Tapping a dimension number in the plan editor** should open the measurement
    panel with `Unlock`. The hit target was wrong twice — the string is drawn
-   10pt beyond its dimension line, not on it — so this needs a real look.
+   10pt beyond its dimension line, not on it. **Root cause found 18 Aug and
+   it was neither of those:** the whole branch sat behind `if false` from an
+   old bisect that was never closed, so it could not have worked. Re-enabled
+   in build 112. Still unconfirmed by eye — and because dimensions are drawn
+   OUTBOARD of the walls, a dimension tap that misses now falls through to
+   "tap outside the room to leave", which is a visible, easy tell.
 2. **Blank plan on the project card** — was a stale PostgREST schema cache and a
    `largest_room` embed falling back. Confirmed drawing 17 Aug — closed.
-3. **Everything S4 built** (18 Aug): the fill-colour matrix and its `Reset`
-   writing through the API, floor-area dimensions drawing on the plan, area
-   photos uploading and coming back filtered, the area sheet's three tabs.
-   Built, installed, launched — not tapped.
+3. **Everything shipped in builds 113 → 118** and reported on only partly:
+   detached-room Rotate, dragging an opening along its wall in elevation,
+   Insert → Door or window from the elevation face, whole-floor project-card
+   thumbnails with door arcs, the lighter default affected-area blue, and
+   units following the operator's own setting everywhere.
+
+**The device, not the simulator, is the test rig now.** The owner tests on
+his own iPhone within a minute or two of each install, so build-and-install
+is the loop: `CURRENT_PROJECT_VERSION=NN`, build, `xcrun devicectl device
+install app`, then **read `CFBundleVersion` off the installed app before
+claiming anything landed**. The phone drops to `unavailable` on his office
+Wi-Fi for a minute or two at a time (AWDL — see §8); polling
+`xcrun devicectl list devices` until it returns and retrying the install is
+normally all that is needed, and `error 60` / `error 12040` on the first
+attempt usually succeeds on the second.
 
 **The simulator tool was unusable all of 18 Aug**: it reports "Xcode is
 installed but not selected" although `xcode-select -p` prints
-`/Applications/Xcode.app/Contents/Developer` and two simulators were booted.
-`/var/db/xcode_select_link` does not exist, so that path is being inferred
-rather than recorded. The fix is `sudo xcode-select -s /Applications/
-Xcode.app/Contents/Developer` and it needs the owner's password. `xcrun
-simctl` itself works — install, launch and screenshot are all available
-without it; only tapping and dragging are not.
+`/Applications/Xcode.app/Contents/Developer`. The fix is `sudo xcode-select
+-s /Applications/Xcode.app/Contents/Developer` and it needs the owner's
+password. It did not matter, because the device loop above is faster and
+tests the real thing.
 
 ## 7. Open backlog
 
-Filed as orders in `ORDERS.md` (**ORD-22 … ORD-37**). The ones that matter:
+Filed as orders in `ORDERS.md` (**ORD-22 … ORD-42**). The ones that matter:
+
+- **ORD-40** the illustrated object library, and **ORD-36** the objects model
+  under it. This is now the single biggest visible gap against the reference:
+  cabinets, toilets, mirrors, furniture. The obstacle is not the UI — it is
+  that an object is not an opening. An opening lives IN a wall and deducts
+  wall area; a cabinet sits ON the floor and deducts nothing, and the owner
+  was explicit that a cabinet keeps its own height and stands on the floor.
+  Nothing in the schema models that yet.
+- **ORD-42** tap-and-hold Edit Layout — move and rotate a room in place. His
+  own screenshot shows the mode. Note the gesture risk: the storey canvas
+  already uses tap, one-finger drag and pinch, and one-finger pan was asked
+  for by name, so a long-press must not steal from it.
+- **ORD-41** animated capture-method illustrations.
 
 - **Freehand affected areas** — the owner asked for finger-drawn shapes, any
   outline, not just dragged corners. magicplan has no such tool, so this is an

@@ -33,7 +33,7 @@ Commit the ledger update with the work.
 | **S2** | Wall inspector | **DONE** | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
 | **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
-| **S5** | Plan editor parity | **NEXT** | — | `PlanEditorView.swift`, `EditorChrome.swift` |
+| **S5** | Plan editor parity | **IN PROGRESS — 4 items left, see its own handoff block** | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
 | **S6** | Photo editor — blur first | NOT STARTED | — | new `PhotoEditor*.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
@@ -452,6 +452,79 @@ sits beside it.
 ---
 
 ## S5 — Plan editor parity
+
+**Prompt.**
+> Read Docs/HANDOFF.md then Docs/SECTIONS.md, and do S5.
+
+---
+
+### State at handoff (18 Aug 2026, build 118)
+
+Most of 18 Aug was spent inside this section without it being formally
+opened — the owner tested live on his own phone through builds 96 → 118 and
+what he hit next set the order. Everything below was checked against the
+source on the day rather than remembered.
+
+**Done, and verified by the owner on his device:**
+
+- The canvas merge — one shared, animated `StoreyViewport` drives the
+  storey layer and the room editor on the same frame, so entering and
+  leaving a room is a continuous zoom rather than two views swapping. Third
+  attempt; the first two were rejected. `StoreyViewport.swift` carries the
+  full account of why a fade could never have worked.
+- Tap a room on the storey → editing activates in place. Tap outside the
+  room → leave. A selected wall/opening/corner deselects on the FIRST
+  outside tap and only the second leaves.
+- One-finger pan, two-finger zoom, at his explicit instruction.
+- The dotted background grid zooms with the plan — a **deliberate
+  divergence** from object-model §8, which measured the opposite on his own
+  device. He was told and chose it. Do not "fix" it back.
+- Openings: their own inspector (kind, width, height, Distance to Floor,
+  elevation illustration, delete), `Replace with…`, dragging along the wall
+  in BOTH the plan and the elevation face, and `Insert → Door or window`
+  from the elevation.
+- 90° corner snap, via Thales' circle.
+- Room label centred and enlarged; wall joints mitred; units follow the
+  operator's own setting everywhere.
+
+**Left to do, in the order worth doing it:**
+
+1. **Verify the dimension tap.** Built long ago, never once seen working,
+   and 18 Aug found why: the whole branch sat behind `if false` from an old
+   bisect nobody closed. Re-enabled in build 112, still unconfirmed. Ten
+   seconds — tap a wall's length figure and the keypad should open with
+   `Unlock`. Because dimensions draw OUTBOARD of the walls, a miss now
+   falls through to "tap outside to leave", which is an obvious tell.
+2. **Set Size should HIDE on a non-rectangular room**, not grey — the
+   reference removes it and restores it when the room is a rectangle again.
+   There is no rectangularity test in the source at all (checked 18 Aug).
+3. **ORD-31 — live edge dimensions while dragging.** `AreaEditor` draws
+   them on the two edges adjoining the dragged corner;
+   `RoomEditorCore` has only a single floating `liveLabel`. Port the
+   former's `liveDimensions`.
+4. **ORD-23 — overall bounding dimension line**, outboard of the per-wall
+   ones. Without it a non-rectangular room cannot answer "how deep is the
+   whole thing".
+
+**Closed, do not go looking for them:**
+
+- The `BISECT` "canvas taps may not register at all" item. The owner spent
+  a whole session selecting walls, corners and doors by tapping; it is
+  ruled out. The `if false` that comment sat next to was the DIMENSION hit
+  test only, and it is item 1 above.
+- Two-finger-pan-doesn't-work. Replaced by one-finger pan at his request.
+
+**The one rule this section keeps proving.** Five separate "it does
+nothing" reports on 18 Aug were all presentation, not logic: a gesture
+attached only in the wrong mode, two `.sheet` modifiers on one view where
+SwiftUI honours one, a branch behind `if false`, an overlay positioned in
+the offered size rather than the drawn one, and an opening clamped against
+itself because an obstacle list was filtered by value instead of index.
+**Check what is attached, sized, compared and presented before reading the
+handler.** HANDOFF §4 lists the earlier five of the same family.
+
+---
+
 
 **From S4, and it applies directly here.** A view that constrains its own
 size does not occupy the space it was offered, and an overlay positioned in
