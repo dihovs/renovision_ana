@@ -99,10 +99,43 @@ struct ScanGeometry: Codable {
         /// Metres from the edge's start corner to the near jamb.
         let offset: Double
         let width: Double
+        /// Floor to head / floor to sill, metres — independently editable
+        /// per opening since 18 Aug 2026 (`PlanEditing.WallOpening`'s own
+        /// header explains why). BOTH are `Decodable` as OPTIONAL, on their
+        /// own `CodingKeys`, and defaulted from `kind`'s own catalog figure
+        /// when absent — every room saved before this date has neither key
+        /// in its stored JSON, and a synthesized `Decodable` would fail
+        /// those rooms outright rather than degrade gracefully.
+        let height: Double
+        let sill: Double
         /// `PlanEditing.OpeningKind` rawValue, stored as text so the blob
         /// stays readable and an unknown future kind degrades to nothing
         /// rather than to a decoding failure.
         let kind: String
+
+        enum CodingKeys: String, CodingKey {
+            case edge, offset, width, height, sill, kind
+        }
+
+        init(edge: Int, offset: Double, width: Double, height: Double, sill: Double, kind: String) {
+            self.edge = edge
+            self.offset = offset
+            self.width = width
+            self.height = height
+            self.sill = sill
+            self.kind = kind
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            edge = try c.decode(Int.self, forKey: .edge)
+            offset = try c.decode(Double.self, forKey: .offset)
+            width = try c.decode(Double.self, forKey: .width)
+            kind = try c.decode(String.self, forKey: .kind)
+            let fallback = PlanEditing.OpeningKind(rawValue: kind)
+            height = try c.decodeIfPresent(Double.self, forKey: .height) ?? fallback?.height ?? 0
+            sill = try c.decodeIfPresent(Double.self, forKey: .sill) ?? fallback?.sill ?? 0
+        }
     }
 
     struct EditedPoint: Codable, Hashable {
@@ -172,7 +205,8 @@ struct ScanGeometry: Codable {
         self.lockedEdges = Array(0..<madeWalls.count)
         self.authoredOpenings = authored.map {
             AuthoredOpening(
-                edge: $0.edge, offset: $0.offset, width: $0.width, kind: $0.kind.rawValue)
+                edge: $0.edge, offset: $0.offset, width: $0.width, height: $0.height,
+                sill: $0.sill, kind: $0.kind.rawValue)
         }
     }
 
@@ -196,7 +230,8 @@ struct ScanGeometry: Codable {
             // survives untouched.
             guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { continue }
             let opening = PlanEditing.WallOpening(
-                edge: record.edge, offset: record.offset, width: record.width, kind: kind)
+                edge: record.edge, offset: record.offset, width: record.width,
+                height: record.height, sill: record.sill, kind: kind)
             guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { continue }
             let dx = b.x - a.x
             let dy = b.y - a.y
@@ -205,7 +240,11 @@ struct ScanGeometry: Codable {
             let surface = Surface(
                 lengthMeters: width,
                 widthMeters: width,
-                heightMeters: min(kind.height, ceilingHeight),
+                // The opening's OWN height now, not the kind's catalog
+                // figure — independently editable since 18 Aug 2026, and
+                // net wall area has to deduct what was actually declared,
+                // not what a kind starts at by default.
+                heightMeters: min(opening.height, ceilingHeight),
                 centerX: (a.x + b.x) / 2,
                 centerZ: (a.y + b.y) / 2,
                 axisX: dx / width,
@@ -225,7 +264,8 @@ struct ScanGeometry: Codable {
         surfaces(
             for: authored.map {
                 AuthoredOpening(
-                    edge: $0.edge, offset: $0.offset, width: $0.width, kind: $0.kind.rawValue)
+                    edge: $0.edge, offset: $0.offset, width: $0.width, height: $0.height,
+                    sill: $0.sill, kind: $0.kind.rawValue)
             },
             polygon: polygon, ceilingHeight: ceilingHeight)
     }

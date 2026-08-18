@@ -1507,4 +1507,53 @@ Newest last. One or two lines per chat.
   **Unverified — device has been unreachable for several minutes as this
   is written**, longer than the usual short reconnect blips this project
   has hit before. Compiles clean; not yet installed.
+- **2026-08-18** — Build 110. Two more of the reference's own screenshots,
+  sent directly for a door: its property sheet (Width/Height/Distance to
+  Floor, each its own stepper — "i want this") and its selected action
+  bar (Insert · Replace with... · Rotate · Duplicate · Delete...,
+  "pay attention to the lower panel").
+
+  **A real data-model gap, not a UI one.** `PlanEditing.WallOpening` had
+  `width` as its own field (set from `kind.width` at placement, editable
+  from that point on) but `height` and sill height came from `kind`'s
+  catalog EVERY time — an enum lookup, not a stored fact. Distance to
+  Floor was not missing by omission; `OpeningKind.sill` already existed
+  (ORD-24) as exactly that catalog DEFAULT, just never promoted to a
+  per-instance override. Fixed by giving `WallOpening` its own `height`
+  and `sill`, following `width`'s own precedent exactly — default from
+  the kind at placement, independently stored and editable after.
+  Threaded through the FOUR places a `WallOpening` gets reconstructed from
+  a saved record, `ScanPayload.AuthoredOpening`'s own Codable (a custom
+  decoder, since two NEW required keys would otherwise fail every room
+  saved before today — falls back to the kind's own catalog figure when
+  either key is absent), the actual save payload in `API.saveEditedPlan`
+  (which had been dropping BOTH fields silently, the one call site that
+  actually reaches the server), and `ElevationView`'s own two sill/head
+  reads, which were still computing off `opening.kind.sill` even after the
+  field existed elsewhere — would have kept showing the CATALOG figure on
+  the wall face no matter what a later edit set.
+
+  **`OpeningDetailView` gained real stepper rows for Height and Distance to
+  Floor.** Width stays read-only, deliberately — it is the one dimension
+  that is GEOMETRICALLY load-bearing (jamb spacing, can collide with a
+  neighbouring opening on the same wall), and validating a free-typed
+  width safely needs the wall's own length and its other openings, neither
+  of which this isolated sheet has. `slideOpening` already does that
+  arithmetic for a drag; doing it blind from a stepper risked silently
+  producing a door too wide for its own wall. Height and sill have no such
+  constraint — nothing on the 2D plan reads either one.
+
+  **The action bar's own reference table had a real gap.** `EditorAction
+  .bar(depth:mode:)`'s `.opening` case returned four verbs
+  (Insert/Replace-with/Duplicate/Delete); his screenshot showed five, with
+  Rotate among them. Whatever the table was built from the first time
+  missed it — corrected against his own screen, which is the freshest
+  evidence there is. `Replace with…` is now genuinely wired (opens the
+  same sheet's Kind picker, which already existed); `Insert`, `Rotate`
+  and `Duplicate` stay dimmed with the reason on record — none of the
+  three has ever been observed doing anything to an OPENING specifically,
+  and guessing would be exactly the "improvising a substitute for
+  evidence" AGENTS.md warns against.
+
+  Build 110 confirmed on the device. Nothing in this batch looked at yet.
 

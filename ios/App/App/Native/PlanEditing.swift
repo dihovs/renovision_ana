@@ -401,6 +401,23 @@ enum PlanEditing {
         /// Metres from the edge's start corner to the near jamb.
         var offset: Double
         var width: Double
+        /// Floor to head, metres. Starts as `kind.height` when placed — same
+        /// precedent as `width`, which has always started as `kind.width`
+        /// and been its own field from that point on — but is independently
+        /// editable from `OpeningDetailView`, 18 Aug 2026: the owner's own
+        /// reference screenshot showed Width, Height and Distance to Floor
+        /// as three separate stepper fields, none of them tied back to a
+        /// catalog entry once an opening exists.
+        var height: Double
+        /// Floor to the BOTTOM of the opening, metres — the reference's
+        /// "Distance to Floor" (object-model §2), and the one field this
+        /// app never had anywhere to hang until now. `OpeningKind.sill`
+        /// already existed as the catalog DEFAULT (ORD-24: zero for every
+        /// door, a real figure for each window); this is that default, now
+        /// promoted to a per-instance field the same way `width`/`height`
+        /// are, so lowering one particular window's sill does not touch
+        /// the catalog every other window of that kind still starts from.
+        var sill: Double
         var kind: OpeningKind
     }
 
@@ -553,6 +570,8 @@ enum PlanEditing {
             edge: edge,
             offset: quantise(bestStart + (bestRun - kind.width) / 2),
             width: kind.width,
+            height: kind.height,
+            sill: kind.sill,
             kind: kind)
     }
 

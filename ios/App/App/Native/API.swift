@@ -785,8 +785,8 @@ actor API {
                 authoredOpenings: placed.map {
                     $0.map {
                         ScanGeometry.AuthoredOpening(
-                            edge: $0.edge, offset: $0.offset, width: $0.width,
-                            kind: $0.kind.rawValue)
+                            edge: $0.edge, offset: $0.offset, width: $0.width, height: $0.height,
+                            sill: $0.sill, kind: $0.kind.rawValue)
                     }
                 },
                 doors: synthesized?.doors,

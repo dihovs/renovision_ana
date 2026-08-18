@@ -841,7 +841,12 @@ enum EditorAction: Hashable {
         case .corner:
             return [.insert, .delete]
         case .opening:
-            return [.insert, .replaceWith, .duplicate, .delete]
+            // Corrected 18 Aug 2026 against the owner's own screenshot of a
+            // selected door — five verbs, `Rotate` among them, where this
+            // table had four. Whatever this table was built from the first
+            // time missed it; his own screen is the freshest, most direct
+            // evidence available and wins over what shipped before it.
+            return [.insert, .replaceWith, .rotate, .duplicate, .delete]
         }
     }
 }

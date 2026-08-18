@@ -827,8 +827,11 @@ struct ElevationView: View {
     private func openingRect(_ opening: PlanEditing.WallOpening, in face: Face) -> CGRect? {
         let offset = PlanEditing.clampedOffset(
             offset: opening.offset, width: opening.width, edgeLength: wallLength)
-        let sill = min(opening.kind.sill, wallHeight)
-        let head = min(opening.kind.head, wallHeight)
+        // The opening's OWN sill and height now, not the kind's catalog
+        // figure — independently editable since 18 Aug 2026, and this face
+        // has to draw what was actually declared for THIS opening.
+        let sill = min(opening.sill, wallHeight)
+        let head = min(opening.sill + opening.height, wallHeight)
         guard head > sill else { return nil }
         let a = face.point(offset, head)
         let b = face.point(offset + opening.width, sill)
@@ -958,9 +961,11 @@ struct ElevationView: View {
         for opening in wallOpenings {
             guard let box = openingRect(opening, in: face) else { continue }
             // The same clamped sill and head the rectangle was drawn from, so
-            // the figures cannot disagree with the shape they annotate.
-            let sill = min(opening.kind.sill, wallHeight)
-            let head = min(opening.kind.head, wallHeight)
+            // the figures cannot disagree with the shape they annotate — the
+            // opening's OWN, independently-editable values now, not the
+            // kind's catalog figure.
+            let sill = min(opening.sill, wallHeight)
+            let head = min(opening.sill + opening.height, wallHeight)
 
             // Right of the opening by default; left when the right would run
             // off the face.

@@ -69,7 +69,8 @@ enum FloorPlanGeometry {
             for record in geometry.authoredOpenings ?? [] {
                 guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { continue }
                 let placed = PlanEditing.WallOpening(
-                    edge: record.edge, offset: record.offset, width: record.width, kind: kind)
+                    edge: record.edge, offset: record.offset, width: record.width,
+                    height: record.height, sill: record.sill, kind: kind)
                 guard let (a, b) = PlanEditing.openingEndpoints(points, placed) else { continue }
                 let drawn: Opening.Kind
                 switch kind.category {

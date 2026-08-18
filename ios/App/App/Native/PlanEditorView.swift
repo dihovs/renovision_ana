@@ -337,7 +337,22 @@ struct RoomEditorCore: View {
                     opening: openings[index],
                     onKindChanged: { newKind in
                         push()
+                        // Width resets to the new kind's own catalog figure
+                        // too — the sheet's own picker already resets its
+                        // LOCAL height/sill state the same way; this is the
+                        // STORED side of that same decision. Not run through
+                        // `placeOpening`'s own fit search, since the opening
+                        // already has a slot on this wall and is only
+                        // changing what fills it, not where.
                         openings[index].kind = newKind
+                        openings[index].width = newKind.width
+                        openings[index].height = newKind.height
+                        openings[index].sill = newKind.sill
+                    },
+                    onDimensionsChanged: { newHeight, newSill in
+                        push()
+                        openings[index].height = newHeight
+                        openings[index].sill = newSill
                     },
                     onDelete: { deleteOpening(index) })
             }
@@ -1309,7 +1324,16 @@ struct RoomEditorCore: View {
         case .corner:
             return corners.count > 3 ? [.delete] : []
         case .opening:
-            return [.delete]
+            // `Insert` and `Duplicate` stay greyed for the same reason
+            // Insert-at-room-depth does above: never observed doing
+            // anything, not guessed at. `Rotate` joins them 18 Aug 2026 —
+            // present in the reference's own bar (his screenshot corrected
+            // the table above to include it), but what it rotates on a
+            // DOOR — the leaf's swing? the whole opening 90°? — was never
+            // captured either. `Replace with…` and `Delete` are enabled
+            // because both are actually built: the first opens this same
+            // sheet's own Kind picker, the second removes it outright.
+            return [.replaceWith, .delete]
         }
     }
 
@@ -1332,6 +1356,12 @@ struct RoomEditorCore: View {
             deleteCorner(index)
         case (.delete, .opening(let index)):
             deleteOpening(index)
+        case (.replaceWith, .opening(let index)):
+            // Opens the SAME sheet the swipe-up already reaches — its Kind
+            // section, at the top, is what "Replace with…" means for
+            // something with no catalogue of its own to browse: swap this
+            // door or window for a different one of the same family.
+            inspectingOpening = index
         default:
             break
         }
@@ -1491,7 +1521,8 @@ struct RoomEditorCore: View {
         openings = (room.geometry?.authoredOpenings ?? []).compactMap { record in
             guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
             return PlanEditing.WallOpening(
-                edge: record.edge, offset: record.offset, width: record.width, kind: kind)
+                edge: record.edge, offset: record.offset, width: record.width,
+                height: record.height, sill: record.sill, kind: kind)
         }
 
         // Freeze the viewport to the room's extent AS OPENED. `measuredBounds`
@@ -1598,21 +1629,40 @@ struct PlanEditorView: View {
 struct OpeningDetailView: View {
     let opening: PlanEditing.WallOpening
     let onKindChanged: (PlanEditing.OpeningKind) -> Void
+    /// Height, then distance-to-floor — the reference has three editable
+    /// fields (object-model §2), this sheet ships two. Width sits back
+    /// with the catalog on purpose: it is the one dimension that is
+    /// GEOMETRICALLY load-bearing — it decides jamb spacing on the wall
+    /// and can collide with a neighbouring opening — and validating that
+    /// safely needs the wall's own length and its other openings, neither
+    /// of which this isolated sheet has. `slideOpening` already does that
+    /// arithmetic for a DRAG; a free-typed width doing it blind risked
+    /// silently producing a door too wide for the wall it sits in. Height
+    /// and sill have no such constraint — nothing on the 2D plan reads
+    /// either one, both are already `min(_, ceiling)` clamped wherever
+    /// they land — so there was nothing unsafe about shipping them today.
+    let onDimensionsChanged: (Double, Double) -> Void
     let onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var kind: PlanEditing.OpeningKind
+    @State private var height: Double
+    @State private var sill: Double
     @State private var confirmingDelete = false
     @State private var detent: PresentationDetent = .medium
 
     init(
         opening: PlanEditing.WallOpening, onKindChanged: @escaping (PlanEditing.OpeningKind) -> Void,
+        onDimensionsChanged: @escaping (Double, Double) -> Void,
         onDelete: @escaping () -> Void
     ) {
         self.opening = opening
         self.onKindChanged = onKindChanged
+        self.onDimensionsChanged = onDimensionsChanged
         self.onDelete = onDelete
         _kind = State(initialValue: opening.kind)
+        _height = State(initialValue: opening.height)
+        _sill = State(initialValue: opening.sill)
     }
 
     var body: some View {
@@ -1634,7 +1684,15 @@ struct OpeningDetailView: View {
                         id: \.self
                     ) { option in
                         Button {
+                            // Height and sill reset to the NEW kind's own
+                            // catalog figures — a standard window switched
+                            // to wide should read as a wide window's own
+                            // typical size, not keep the old one's numbers
+                            // stamped on a different kind. Width does the
+                            // same on the PARENT side, in `onKindChanged`.
                             kind = option
+                            height = option.height
+                            sill = option.sill
                             onKindChanged(option)
                         } label: {
                             HStack {
@@ -1660,15 +1718,17 @@ struct OpeningDetailView: View {
                     StatisticRowView(
                         row: .init(
                             id: "width", label: "Width",
-                            value: UnitSettings.shared.format.format(kind.width), meaning: nil))
-                    StatisticRowView(
-                        row: .init(
-                            id: "height", label: "Height",
-                            value: UnitSettings.shared.format.format(kind.height), meaning: nil))
+                            value: UnitSettings.shared.format.format(opening.width), meaning: nil))
+                    OpeningDimensionStepper(label: "Height", value: $height) {
+                        onDimensionsChanged(height, sill)
+                    }
+                    OpeningDimensionStepper(label: "Distance to Floor", value: $sill) {
+                        onDimensionsChanged(height, sill)
+                    }
                 } header: {
                     Text("Dimensions")
                 } footer: {
-                    Text("Set by the kind above — the builder's-stock size this trade frames to, not an independent measurement.")
+                    Text("Width follows the kind above, sized to fit the wall. Height and Distance to Floor are this opening's own — the reference's own third field, for the sill height this app never had anywhere to store until now.")
                         .font(.system(size: 11))
                         .foregroundStyle(Brand.inkFaint)
                 }
@@ -1796,6 +1856,42 @@ struct OpeningDetailView: View {
                 context.stroke(
                     frame, with: .color(ink), style: StrokeStyle(lineWidth: 1.6, dash: [4, 3]))
             }
+        }
+    }
+}
+
+/// One editable length row for `OpeningDetailView` — the formatted value on
+/// the right with native stepper chevrons, echoing the reference's own
+/// `0.900 m ⌃⌄` control (object-model §2) without reproducing its exact
+/// widget, which this platform does not have a stock equivalent for.
+///
+/// Steps a fixed inch (`0.0254 m`) regardless of the operator's own display
+/// unit — the same builder's-stock granularity every catalog width in this
+/// app is already defined in, so a step never lands on an number that reads
+/// as oddly precise in feet-and-inches.
+private struct OpeningDimensionStepper: View {
+    let label: String
+    @Binding var value: Double
+    let onCommit: () -> Void
+
+    private static let step = 0.0254
+    private static let maxMetres = 6.0
+
+    var body: some View {
+        Stepper {
+            HStack {
+                Text(label).foregroundStyle(Brand.ink)
+                Spacer()
+                Text(UnitSettings.shared.format.format(value))
+                    .foregroundStyle(Brand.inkFaint)
+                    .monospacedDigit()
+            }
+        } onIncrement: {
+            value = min(Self.maxMetres, value + Self.step)
+            onCommit()
+        } onDecrement: {
+            value = max(0, value - Self.step)
+            onCommit()
         }
     }
 }
