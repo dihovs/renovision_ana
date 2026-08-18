@@ -51,7 +51,15 @@ struct ElevationView: View {
     /// The room polygon, in the plan's own metres.
     let corners: [CGPoint]
     /// Authored openings, keyed to the polygon's edges.
-    let openings: [PlanEditing.WallOpening]
+    ///
+    /// A BINDING since 18 Aug 2026, so a door or window can be dragged
+    /// along its wall from the face itself — the owner's own ask: *"in
+    /// elevation mode I should be able to move things around... left,
+    /// right."* Vertical stays out of the drag deliberately, on his own
+    /// instruction in the same breath (*"the height from the floor, maybe I
+    /// should be able to do it in the properties"*) — which is already
+    /// built, as `OpeningDetailView`'s Distance to Floor stepper.
+    @Binding var openings: [PlanEditing.WallOpening]
     let ceilingHeight: Double
     let roomScanId: String
     /// The wall being faced. The arrows mutate this, so the caller's
@@ -62,6 +70,11 @@ struct ElevationView: View {
     /// An outline being dragged on the face right now, in wall-face metres.
     @State private var draft: FaceRect?
     @State private var drawing = false
+    /// Index into `openings` of the one being dragged, and what its offset
+    /// was when the drag began — the same snapshot-then-apply-delta shape
+    /// `RoomEditorCore.handleDrag` uses, so a drag is one undoable move
+    /// rather than a running accumulation of rounding error.
+    @State private var draggingOpening: (index: Int, startOffset: Double)?
     /// Every area filed against this room. Held whole rather than
     /// pre-filtered so stepping to the next wall costs no round trip.
     @State private var areas: [AffectedArea] = []
@@ -393,15 +406,69 @@ struct ElevationView: View {
         draft = nil
     }
 
+    /// The opening under a face-space point, if any — searched newest-first
+    /// so a later opening placed over an earlier one wins the touch, which
+    /// is the order they are drawn in.
+    private func openingHit(at facePoint: CGPoint) -> Int? {
+        for index in openings.indices.reversed() {
+            let opening = openings[index]
+            guard opening.edge == edge else { continue }
+            let start = PlanEditing.clampedOffset(
+                offset: opening.offset, width: opening.width, edgeLength: wallLength)
+            let sill = min(opening.sill, ceilingHeight)
+            let head = min(opening.sill + opening.height, ceilingHeight)
+            if facePoint.x >= start, facePoint.x <= start + opening.width,
+                facePoint.y >= sill, facePoint.y <= head
+            {
+                return index
+            }
+        }
+        return nil
+    }
+
+    /// One gesture, two jobs, decided by where the finger STARTS.
+    ///
+    /// Starting on a door or window drags it along the wall; starting
+    /// anywhere else draws a damage region, exactly as before. That split is
+    /// what lets the owner's ask — *"in elevation mode I should be able to
+    /// move things around... left, right"* — coexist with the drag-to-mark
+    /// gesture this view was built for, without a mode switch to remember.
+    ///
+    /// Deliberately horizontal only. `PlanEditing.slideOpening` already
+    /// enforces the jamb margins and refuses to overlap a neighbour on the
+    /// same wall, so sliding is safe by construction; vertical position is
+    /// `sill`, which the owner explicitly wanted left to the properties
+    /// sheet and which has no collision rule to lean on.
     private func drawGesture(face: Face?) -> some Gesture {
         DragGesture(minimumDistance: 3)
             .onChanged { value in
                 guard let face else { return }
                 let start = face.clampedFace(value.startLocation)
                 let now = face.clampedFace(value.location)
+
+                if draggingOpening == nil, draft == nil,
+                    let hit = openingHit(at: start)
+                {
+                    draggingOpening = (hit, openings[hit].offset)
+                }
+
+                if let dragging = draggingOpening {
+                    guard openings.indices.contains(dragging.index) else { return }
+                    let delta = Double(now.x - start.x)
+                    var moved = openings[dragging.index]
+                    moved.offset = dragging.startOffset
+                    openings[dragging.index] = PlanEditing.slideOpening(
+                        moved, along: corners, by: delta, avoiding: openings)
+                    return
+                }
+
                 draft = FaceRect(a: start, b: now)
             }
             .onEnded { _ in
+                if draggingOpening != nil {
+                    draggingOpening = nil
+                    return
+                }
                 // A shape with no area is a tap, not a region. It clears
                 // rather than opening a sheet that has nothing to name.
                 guard let draft, draft.areaSqm > 0.01 else {

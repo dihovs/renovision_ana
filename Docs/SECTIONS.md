@@ -1633,4 +1633,41 @@ Newest last. One or two lines per chat.
   on-room move and rotate handles) and noted it permits this on attached
   rooms too, adding *"but I don't see a point."* Filed as **ORD-42** with
   his detachment rule recorded as a deliberate divergence to keep.
+- **2026-08-18** — Builds 114–115. Two more.
+
+  **Openings drag along their wall in elevation** (114) — *"in elevation
+  mode I should be able to move things around... left, right."*
+  `ElevationView.openings` became a `@Binding`, and its drag gesture now
+  does one of two things depending on where the finger STARTS: on a door or
+  window it slides that opening; anywhere else it draws a damage region
+  exactly as before. No mode switch to remember. Horizontal only, and
+  deliberately: `PlanEditing.slideOpening` already enforces jamb margins
+  and refuses to overlap a neighbour, so sliding is safe by construction —
+  where vertical position is `sill`, which he explicitly wanted left to the
+  properties sheet (*"the height from the floor, maybe I should be able to
+  do it in the properties"*) and which has no collision rule to lean on.
+
+  **Units now agree across a drawing** (115). One plan was printing
+  `3.67 m` on its overall dimensions and `4'-6 1/2"` on the chain directly
+  beneath, and `101 sq ft` under both. Cause: overall dimensions read
+  `UnitSettings`, while `FloorPlanGeometry.planDimensions` was a hard-coded
+  `LengthFormat(system: .feet, …)` and `Measure`'s three labels were
+  hard-coded imperial arithmetic. The old reasoning — that the plan's
+  convention is a DECISION rather than a preference — holds for the STYLE
+  (`.drafting`, `17'-1"`) and does not hold for the SYSTEM. Now the
+  operator's system and denominator win and only `style` is forced.
+
+  **New `UnitSettings.current`, a nonisolated snapshot.** `shared` is
+  main-actor isolated (it is an `ObservableObject`), but `Measure`'s labels
+  and `feetInches` are called from report code and `Canvas` closures alike;
+  marking them all `@MainActor` would have cascaded through unrelated
+  call sites. `current` reads the same `UserDefaults` key `persist()`
+  writes, so it cannot disagree with `shared.format`, and views that
+  observe `shared` still redraw on change. The 28 existing
+  `UnitSettings.shared.format` call sites are all view code and were left
+  alone.
+
+  Metric area/volume keep one decimal where imperial keeps none — 1 m² is
+  nearly 11 sq ft, so rounding to a whole m² discards about ten times as
+  much, which shows on a small bathroom.
 

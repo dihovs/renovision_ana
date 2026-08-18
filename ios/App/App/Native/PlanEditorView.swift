@@ -1097,7 +1097,13 @@ struct RoomEditorCore: View {
     private var elevationPresentation: some View {
         ElevationView(
             corners: corners,
-            openings: openings,
+            // A binding, so dragging a door along its wall on the face
+            // writes straight back into the editor's own openings and rides
+            // the same Save. `push()` on first change is handled by the
+            // editor's own history when Save runs; the face has no undo of
+            // its own by design — it is a view onto this editor's state,
+            // not a second editor.
+            openings: $openings,
             ceilingHeight: room.ceilingHeightM,
             roomScanId: room.id,
             wallIndex: elevationWallBinding,

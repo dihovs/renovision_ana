@@ -1020,21 +1020,45 @@ enum Measure {
     static func squareFeet(_ squareMetres: Double) -> Double { squareMetres * 10.763_910_4 }
     static func feet(_ metres: Double) -> Double { metres / 0.3048 }
 
+    /// Whether the operator is working in metric — the one question every
+    /// label below asks. `.inches` is an IMPERIAL setting, not a metric one,
+    /// so this tests for metric explicitly rather than "not feet".
+    private static var isMetric: Bool { UnitSettings.current.system == .metric }
+
+    /// Floor area, in the operator's own system.
+    ///
+    /// These three were hard-coded imperial, which put `101 sq ft` under a
+    /// plan whose dimensions read `3.67 m` — the owner's own complaint, 18
+    /// Aug 2026: *"Keep the measurement units same across the page."*
+    ///
+    /// Square metres get one decimal where square feet get none: 1 m² is
+    /// nearly 11 sq ft, so rounding a room to a whole m² throws away about
+    /// ten times as much as rounding it to a whole sq ft, and on a small
+    /// bathroom that is visible in the total.
     static func sqftLabel(_ squareMetres: Double) -> String {
-        "\(Int(squareFeet(squareMetres).rounded())) sq ft"
+        if isMetric {
+            return String(format: "%.1f m²", squareMetres)
+        }
+        return "\(Int(squareFeet(squareMetres).rounded())) sq ft"
     }
 
     static func ftLabel(_ metres: Double) -> String {
-        "\(Int(feet(metres).rounded())) ft"
+        if isMetric {
+            return String(format: "%.2f m", metres)
+        }
+        return "\(Int(feet(metres).rounded())) ft"
     }
 
     static func cubicFeet(_ cubicMetres: Double) -> Double { cubicMetres * 35.314_666_7 }
 
-    /// Cubic feet, for the volume a dehumidifier is sized from. Rounded to a
-    /// whole foot like the others — S500 sizing works in hundreds of cubic
-    /// feet, so a decimal here would imply a precision the ceiling height
-    /// does not have.
+    /// The volume a dehumidifier is sized from. Rounded to a whole foot like
+    /// the others — S500 sizing works in hundreds of cubic feet, so a
+    /// decimal there would imply a precision the ceiling height does not
+    /// have. Cubic metres keep one decimal, same argument as `sqftLabel`.
     static func cuftLabel(_ cubicMetres: Double) -> String {
-        "\(Int(cubicFeet(cubicMetres).rounded())) cu ft"
+        if isMetric {
+            return String(format: "%.1f m³", cubicMetres)
+        }
+        return "\(Int(cubicFeet(cubicMetres).rounded())) cu ft"
     }
 }

@@ -560,18 +560,37 @@ extension FloorPlanGeometry {
         return out
     }
 
-    /// What a dimension line says: 17'-1" to the half inch. Whole feet keep
-    /// their -0"; under a foot drops the zero-feet prefix.
+    /// What a dimension line says, in whatever unit the operator chose.
     ///
-    /// The formatting itself lives in `LengthFormat` now, which is checked
-    /// against its TypeScript twin. This spelling is kept because every call
-    /// site says it, and because the plan's convention is a decision — half
-    /// inches, drafting style — rather than whatever the operator last picked
-    /// in settings. Output is byte-identical to the implementation that was
-    /// here before; that was checked across every half-millimetre from 0 to
-    /// 30 m before the substitution was made.
-    static let planDimensions = LengthFormat(system: .feet, denominator: 2, style: .drafting)
+    /// This was a hard-coded `LengthFormat(system: .feet, …)` — on the
+    /// reasoning that the plan's convention is a DECISION (half inches,
+    /// drafting style) rather than a preference. That reasoning holds for
+    /// the *style* and does not hold for the *system*, and the difference
+    /// was visible on one drawing: overall dimensions read `3.67 m` from
+    /// `UnitSettings` while the chain right beneath them read `4'-6 1/2"`
+    /// from this constant. The owner, 18 Aug 2026: *"Keep the measurement
+    /// units same across the page. If I choose metric, I don't wanna see
+    /// the measurement of the door in inches or feet."*
+    ///
+    /// So the operator's own system and denominator now win, and only
+    /// `style` is forced: `.drafting` is the architectural spelling
+    /// (`17'-1"`, whole feet keeping their `-0"`) that belongs on a
+    /// dimension line and nowhere else. On a metric setting `style` is
+    /// inert — `writeBody` never consults it — so this is exactly "their
+    /// unit, drafted".
+    /// Reads `UnitSettings.current` rather than `.shared` — the same
+    /// nonisolated snapshot `Measure` uses, and for the same reason: these
+    /// are called from `Canvas` draw closures and from report code alike,
+    /// and a dimension line must not print feet to an operator working in
+    /// metres because of which actor it happened to be drawn from.
+    static var planDimensions: LengthFormat {
+        var format = UnitSettings.current
+        format.style = .drafting
+        return format
+    }
 
+    /// Kept as a name because every call site says it, though it is no
+    /// longer necessarily feet and inches.
     static func feetInches(_ metres: Double) -> String {
         planDimensions.format(metres)
     }

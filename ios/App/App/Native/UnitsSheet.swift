@@ -39,6 +39,22 @@ final class UnitSettings: ObservableObject {
         guard let data = try? JSONEncoder().encode(format) else { return }
         UserDefaults.standard.set(data, forKey: Self.key)
     }
+
+    /// The chosen format, readable from ANY actor.
+    ///
+    /// `shared` is main-actor isolated because it is an `ObservableObject`,
+    /// which is right for the views that observe it — but `Measure`'s
+    /// labels are called from report generation and other non-isolated
+    /// code, and those must not print feet to an operator working in
+    /// metres just because of where they were called from. Reads the same
+    /// `UserDefaults` key `persist()` writes, so the two cannot disagree;
+    /// a view that observes `shared` still redraws on change as before.
+    nonisolated static var current: LengthFormat {
+        guard let data = UserDefaults.standard.data(forKey: key),
+            let stored = try? JSONDecoder().decode(LengthFormat.self, from: data)
+        else { return .default }
+        return stored
+    }
 }
 
 // MARK: - The sheet
