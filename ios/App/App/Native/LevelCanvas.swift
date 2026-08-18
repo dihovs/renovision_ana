@@ -1051,7 +1051,26 @@ struct FloorCanvasView: View {
 
     /// Every room on this storey, placed in floor space — the SAME layout
     /// both the base layer and the camera's own floor-wide target read.
-    private var layout: StoreyLayout { StoreyLayout(rooms) }
+    ///
+    /// CACHED, not computed. It was a plain `{ StoreyLayout(rooms) }`
+    /// computed property at first, read three separate times in `body` —
+    /// each read re-runs `FloorPlanGeometry.plan(from:)` for every room on
+    /// the floor, from the raw scan geometry, including its own wall
+    /// squaring and collinear alignment. Harmless at a glance, and wrong
+    /// the instant `AnimatedStoreyViewport` is mid-transition: its
+    /// `Animatable` conformance re-invokes `body` on every interpolated
+    /// frame — some 18 of them across a 0.3s animation — so three fresh
+    /// re-computations per frame is over fifty full re-derivations of the
+    /// floor's geometry during ONE zoom. That is exactly what a dropped,
+    /// stuttering frame rate looks like, and the owner's own word for the
+    /// result was "jerky" — a real bug, not a description of what a
+    /// correctly-timed animation looks like. Refreshed explicitly, on data
+    /// changes only, via `refreshLayout()`.
+    @State private var cachedLayout = StoreyLayout([])
+
+    private func refreshLayout() {
+        cachedLayout = StoreyLayout(rooms)
+    }
 
     private var focusedRoom: RoomScan? {
         guard let focusedRoomID else { return nil }
@@ -1063,8 +1082,8 @@ struct FloorCanvasView: View {
     /// not `focusedRoomID`: see `exitFocusedRoom` for why the two clear on
     /// different clocks.
     private var cameraBounds: CGRect {
-        guard let cameraFocusID, let storeyRoom = layout.room(id: cameraFocusID) else {
-            return layout.wholeFloorBounds
+        guard let cameraFocusID, let storeyRoom = cachedLayout.room(id: cameraFocusID) else {
+            return cachedLayout.wholeFloorBounds
         }
         return storeyRoom.floorBounds
     }
@@ -1127,7 +1146,7 @@ struct FloorCanvasView: View {
                     Brand.Plan.paper.ignoresSafeArea()
 
                     StoreyBaseLayer(
-                        layout: layout, viewport: viewport, focusedRoomID: focusedRoomID,
+                        layout: cachedLayout, viewport: viewport, focusedRoomID: focusedRoomID,
                         focusProgress: progress, grid: true,
                         onTapRoom: { room in enterRoom(room) }
                     )
@@ -1142,7 +1161,7 @@ struct FloorCanvasView: View {
                             onExit: { exitFocusedRoom() },
                             backContext: .floor,
                             externalViewport: viewport,
-                            roomOrigin: layout.room(id: room.id)?.origin ?? .zero,
+                            roomOrigin: cachedLayout.room(id: room.id)?.origin ?? .zero,
                             onSaved: { Task { await load() } }
                         )
                         .id(room.id)
@@ -1203,6 +1222,7 @@ struct FloorCanvasView: View {
         .sheet(isPresented: $switchingFloor) {
             AddFloorSheet(existing: Set((scans ?? []).map(\.level))) { picked in
                 switched = picked
+                refreshLayout()
             }
         }
         .alert("Floor plan", isPresented: $showingHelp) {
@@ -1369,6 +1389,7 @@ struct FloorCanvasView: View {
 
     private func load() async {
         scans = (try? await API.shared.scans(projectId: projectId)) ?? []
+        refreshLayout()
     }
 }
 

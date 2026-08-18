@@ -1316,4 +1316,41 @@ Newest last. One or two lines per chat.
   than usual: does a tapped room still land correctly under a finger
   during a corner drag, does Save still work, does a wall's own inspector
   still open correctly mid-focus.
+- **2026-08-18** — Two fixes on top of build 104, from the owner's first
+  real look at it. Both real bugs, not further tuning.
+  1. **Wall joints not meeting at angled corners** — his screenshot showed
+     it plainly: at any corner that is not square-on, the black wall band
+     either gaps or sticks out past the joint. `StoreyBaseLayer`'s wall
+     stroke was copied verbatim from `LevelCanvas`'s own — plain `.square`
+     caps, no joint handling — which is a PRE-EXISTING gap in the
+     "thumbnail level of detail" renderer, not something today introduced.
+     It went unnoticed before because floor depth used to fit several small
+     rooms rather than fill the screen with one large one, where the
+     artifact is far more visible. Ported `FloorPlanView`'s own proven
+     fix — extend each wall segment's endpoint outward by half the wall's
+     real thickness at any shared joint (`FloorPlanGeometry.joints`),
+     before stroking. Same `0.114` wall-thickness figure `FloorPlanView`
+     uses, named once so the two can't draw a different thickness for the
+     same wall.
+  2. **Still jerky despite the real shared-canvas rewrite — a genuine
+     performance bug, not a leftover architecture problem.** `layout:
+     StoreyLayout` was a plain COMPUTED property, `{ StoreyLayout(rooms) }`,
+     read three separate times in `body`. Each read re-runs
+     `FloorPlanGeometry.plan(from:)` — wall squaring, collinear alignment,
+     polygon chaining — for EVERY room on the floor, from raw scan
+     geometry, from scratch. Harmless as a one-off; wrong the instant
+     `AnimatedStoreyViewport` is mid-transition, since its own `Animatable`
+     conformance re-invokes `body` on every interpolated frame — roughly 18
+     of them across the 0.3s animation. Three re-derivations of the whole
+     floor's geometry, ~18 times, is over fifty full re-computations during
+     ONE zoom. That is exactly what a dropped, stuttering frame rate looks
+     like — not a description of a correctly-timed animation, which is
+     what made this a real bug and not more tuning. Now `@State private var
+     cachedLayout`, computed once in `refreshLayout()` — called from
+     `load()` and from the floor-switcher's callback, the only two places
+     `rooms` can actually change — never from inside `body`.
+
+  **Unverified — device was unreachable (AWDL / office Wi-Fi, per HANDOFF
+  §8) at the moment these were ready to ship**, so neither fix has reached
+  his phone yet as of this write. Both compile clean.
 

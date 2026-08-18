@@ -243,11 +243,34 @@ struct StoreyBaseLayer: View {
                     context.opacity = 1
                 }
 
-                let band = max(2, 0.114 * viewport.scale)
+                // Extended half a thickness at shared joints, same technique
+                // as `FloorPlanView`'s own two-pass stroke — `.square` caps
+                // alone butt each segment at its own bare endpoint, and at
+                // any joint that is not square-on, that leaves either a gap
+                // or a notch sticking out past the corner. The owner caught
+                // it on a genuinely angled kitchen, 18 Aug 2026: this floor
+                // was always drawing rooms small enough that it went
+                // unnoticed, not because it was ever fixed.
+                //
+                // Real interior wall, 2×4 partition + drywall — the same
+                // figure `FloorPlanView` uses, so the two never draw a
+                // different thickness for what is the same wall.
+                let wallThicknessM = 0.114
+                let joints = FloorPlanGeometry.joints(plan.segments)
+                func nearJoint(_ x: Double, _ y: Double) -> Bool {
+                    joints.contains { hypot($0.x - x, $0.y - y) < 0.06 }
+                }
+                let band = max(2, wallThicknessM * viewport.scale)
                 var walls = Path()
                 for s in plan.segments {
-                    walls.move(to: pt(s.x1, s.y1))
-                    walls.addLine(to: pt(s.x2, s.y2))
+                    let length = hypot(s.x2 - s.x1, s.y2 - s.y1)
+                    guard length > 0 else { continue }
+                    let ux = (s.x2 - s.x1) / length
+                    let uy = (s.y2 - s.y1) / length
+                    let e1 = nearJoint(s.x1, s.y1) ? wallThicknessM / 2 : 0
+                    let e2 = nearJoint(s.x2, s.y2) ? wallThicknessM / 2 : 0
+                    walls.move(to: pt(s.x1 - ux * e1, s.y1 - uy * e1))
+                    walls.addLine(to: pt(s.x2 + ux * e2, s.y2 + uy * e2))
                 }
                 context.opacity = opacity
                 context.stroke(walls, with: .color(ink), style: StrokeStyle(lineWidth: band, lineCap: .square))
