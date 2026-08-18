@@ -1017,8 +1017,13 @@ struct FloorCanvasView: View {
             }
             .scaleEffect(zoom * pinch)
             .offset(x: pan.width + drag.width, y: pan.height + drag.height)
-            // Applied to the whole plate, under the chrome, so the bar and
-            // the steppers keep their own taps.
+            // The gesture layer has to FILL the screen, not hug its content.
+            // Without this the plate is only as big as what is on it — on an
+            // empty floor, a two-line label in the middle — so there was
+            // almost nothing to grab and the canvas appeared not to move at
+            // all. The frame goes on before contentShape so the shape is the
+            // whole area rather than the text's box.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(
                 SimultaneousGesture(
