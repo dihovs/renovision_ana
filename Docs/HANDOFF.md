@@ -82,6 +82,7 @@ clarity during the review.
 ## 4. State of the work
 
 **Last updated 18 Aug 2026.** Build **95** is installed on the owner's phone.
+S4's work is NOT in build 95 — it is committed and pushed, not yet installed.
 The build number is stamped per install (`CURRENT_PROJECT_VERSION=NN`) and
 `xcrun devicectl device info apps --device <udid> --bundle-id ca.renovisionana.crm`
 prints what is actually on the device — use it. A whole session was once spent
@@ -91,8 +92,9 @@ than checked.
 ### Sections closed
 
 **S1 room inspector · S2 wall inspector · S3 freehand affected areas ·
-S11 commercial room types · S12's project half.** `Docs/SECTIONS.md` is the
-ledger and carries the detail; this is only the shape of it.
+S4 affected-area parity · S11 commercial room types · S12's project half.**
+`Docs/SECTIONS.md` is the ledger and carries the detail; this is only the
+shape of it.
 
 - **Project grid**: the reference's `All / Favorites / Archived` chips
   (Archived is its own server query, and the only way back from an accidental
@@ -114,6 +116,11 @@ ledger and carries the detail; this is only the shape of it.
 - **Select Room Type**: Residential / Commercial, with their sixteen commercial
   types plus the ten this trade needs (mechanical room, warehouse bay, loading
   dock…). Commercial reports no living area — Z765 measures a dwelling.
+- **Affected areas**: the area inspector is the reference's three-tab sheet
+  now, with Fill Color as a full matrix + `Reset`, `Show Dimensions` working
+  on floor areas as well as walls, and photos and notes attached to the AREA
+  rather than only its room. One shared row, `AffectedAreaRow`. **All of it
+  compiled-only — nothing was tapped**; see S4's Verification note.
 
 **Scanning is no longer a destination.** The Scan tab and the floating Scan
 button are gone at the owner's instruction; a scan starts from the + in a
@@ -143,9 +150,16 @@ them look like bugs in the code that owns the feature:
    empty floor had almost nothing to grab.
 5. An oversized grid plate as a ZStack sibling made the stack 2400pt tall and
    pushed the action bar off-screen.
+6. (18 Aug, S4) `FloorPlanView` aspect-fits its own Canvas, so it never
+   occupies the space it is offered — and `AreaEditor` positioned its drag
+   handles in the OFFER. Every handle sat a uniform 30–139pt off the corner
+   it belonged to, worst when the plan's proportions differ most from its
+   container's. Reported as an L-shape bug; a rectangle was worse.
 
 **When a control "does nothing", check what it is SIZED as and what it is
-COMPARED by before reading the handler.**
+COMPARED by before reading the handler.** Number 6 adds the corollary: **a
+view that constrains its own size does not fill what it was offered, and an
+overlay placed in the offer will not line up with it.**
 
 ### Database
 
@@ -187,7 +201,7 @@ owner's words: *"Damage and drying shouldn't be here. It should appear when we p
 up more, and there we have to have add areas."* Full spec and observed layout are
 in that section.
 
-## 6. Two things never verified on device
+## 6. Never verified on device
 
 Both built and installed; neither confirmed by eye. Worth ten seconds each.
 
@@ -195,7 +209,20 @@ Both built and installed; neither confirmed by eye. Worth ten seconds each.
    panel with `Unlock`. The hit target was wrong twice — the string is drawn
    10pt beyond its dimension line, not on it — so this needs a real look.
 2. **Blank plan on the project card** — was a stale PostgREST schema cache and a
-   `largest_room` embed falling back. Should be fixed; confirm a card draws.
+   `largest_room` embed falling back. Confirmed drawing 17 Aug — closed.
+3. **Everything S4 built** (18 Aug): the fill-colour matrix and its `Reset`
+   writing through the API, floor-area dimensions drawing on the plan, area
+   photos uploading and coming back filtered, the area sheet's three tabs.
+   Built, installed, launched — not tapped.
+
+**The simulator tool was unusable all of 18 Aug**: it reports "Xcode is
+installed but not selected" although `xcode-select -p` prints
+`/Applications/Xcode.app/Contents/Developer` and two simulators were booted.
+`/var/db/xcode_select_link` does not exist, so that path is being inferred
+rather than recorded. The fix is `sudo xcode-select -s /Applications/
+Xcode.app/Contents/Developer` and it needs the owner's password. `xcrun
+simctl` itself works — install, launch and screenshot are all available
+without it; only tapping and dragging are not.
 
 ## 7. Open backlog
 

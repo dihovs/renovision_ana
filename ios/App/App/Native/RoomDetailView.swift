@@ -178,7 +178,7 @@ struct RoomDetailView: View {
             ReadingSheet(roomId: room.id) { Task { await load() } }
         }
         .sheet(item: $editingArea) { area in
-            AffectedAreaSheet(area: area) { Task { await load() } }
+            AffectedAreaSheet(area: area, room: room) { Task { await load() } }
         }
         .sheet(isPresented: $showingStatistics) {
             RoomStatisticsSheet(room: room)
@@ -589,38 +589,8 @@ struct RoomDetailView: View {
         }
     }
 
-    /// One marked region: its cause's colour, its name, and where it is.
-    /// The surface is stated on the row rather than implied by a grouping
-    /// header, because these rows end up read one at a time.
     private func areaRow(_ area: AffectedArea, where place: String) -> some View {
-        Button {
-            editingArea = area
-        } label: {
-            HStack {
-                Circle()
-                    .fill(area.displayColor)
-                    .frame(width: 10, height: 10)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(area.name)
-                        .foregroundStyle(Brand.ink)
-                    Text("\(place) · \(area.label)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text(Measure.sqftLabel(area.areaSqm))
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                // A tappable row that does not look tappable is a row nobody
-                // taps. The chevron is the only signal; the row itself still
-                // reads exactly as it did before.
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Brand.inkFaint)
-            }
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
+        AffectedAreaRow(area: area, place: place) { editingArea = area }
     }
 
     private var damageTotals: String {
@@ -730,10 +700,13 @@ struct RoomDetailView: View {
     /// floor — so drawing one on the plan would put a rectangle somewhere in
     /// the room bearing no relation to the damage. Wall areas are drawn where
     /// they were measured, in `ElevationView`.
-    private var drawnAreas: [(polygon: [CGPoint], colour: Color)] {
+    private var drawnAreas: [DrawnArea] {
         floorAreas.compactMap { area in
             guard area.polygon.count >= 3 else { return nil }
-            return (area.polygon.map { CGPoint(x: $0.x, y: $0.y) }, area.displayColor)
+            return DrawnArea(
+                polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                colour: area.displayColor,
+                dimensioned: area.showDimensions)
         }
     }
 
@@ -937,129 +910,497 @@ struct RoomStatisticsSheet: View {
     }
 }
 
-/// One affected area's inspector — its name, a note about it, and whether it
-/// gets dimensioned on the wall elevation. Reshaping and recolouring stay
-/// where they already work well: the drag on the elevation face, and the web
-/// editor. This sheet is the surface for the fields that have no home yet.
+
+
+/// One marked region, laid out as the reference lays its row (object-model
+/// §2b): swatch · name over its surface · area · the glyph that opens it.
+///
+/// One view rather than one per sheet. The room's list and the wall's list
+/// were showing the same object two different ways — the wall's row had no
+/// subtitle at all — and a row that changes shape depending on which screen
+/// reached it is a row that has to be re-read every time.
+///
+/// The subtitle carries the cause as well as the surface, which theirs
+/// cannot: they have no causes. It is stated on the row rather than left to
+/// a grouping header because these rows end up read one at a time, in a
+/// report and over a phone.
+struct AffectedAreaRow: View {
+    let area: AffectedArea
+    /// Where it is, in words — `Floor`, or `Wall 3`.
+    let place: String
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: Brand.Space.small) {
+                Circle()
+                    .fill(area.displayColor)
+                    .frame(width: 10, height: 10)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(area.name)
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(1)
+                    Text("\(place) · \(area.label)")
+                        .font(.caption2)
+                        .italic()
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: Brand.Space.tight)
+
+                // A dimensioned area says so here, because the toggle that
+                // set it lives two taps away and its effect is on a drawing
+                // this row is not.
+                if area.showDimensions {
+                    Image(systemName: "ruler")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Brand.inkFaint)
+                        .accessibilityLabel("Dimensions shown")
+                }
+
+                Text(Measure.sqftLabel(area.areaSqm))
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.secondary)
+
+                // A tappable row that does not look tappable is a row nobody
+                // taps. The glyph is the only signal it opens anything.
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// One affected area's inspector — object-model §2b.
+///
+/// The reference gives an area the same three-tab shell as any other
+/// object: `Details · Photos & Notes · Forms`, with `Dimensions → Area`
+/// read-only, `General → Name` and `Fill Color` (a full matrix with
+/// `Reset`), and `Settings → Show Dimensions`. That shell is lifted from
+/// `WallDetailView` rather than rewritten, per S1's note — the tab set is
+/// fixed and a thumb learns three positions once.
+///
+/// **What is ours and stays ours:** the damage cause. magicplan's areas
+/// carry a name and a colour and nothing else; here the cause decides the
+/// trade and the rate, an adjuster asks for it, and the database constrains
+/// it. It sits in General with the name, because it is also what the fill
+/// colour defaults to.
+///
+/// Every field commits on its own, as the room and wall sheets do. There is
+/// no Save: an inspector that can be closed with unsaved edits in it is an
+/// inspector that loses them.
 struct AffectedAreaSheet: View {
     let area: AffectedArea
+    /// The room this area was marked in — needed to file a photo, which
+    /// belongs to a project through its room.
+    let room: RoomScan
     let onChanged: () -> Void
 
+    private enum Tab: String, CaseIterable, Identifiable {
+        case details = "Details"
+        case photos = "Photos & Notes"
+        case forms = "Forms"
+        var id: String { rawValue }
+    }
+
     @Environment(\.dismiss) private var dismiss
+
+    @State private var tab = Tab.details
     @State private var name: String
     @State private var notes: String
     @State private var showDimensions: Bool
+    @State private var cause: DamageCause
+    /// The override, `#rrggbb` or nil. Nil is not "no colour" — it is
+    /// "follow the cause", which is why `Reset` and a swatch are different
+    /// controls rather than one being the absence of the other.
+    @State private var colorOverride: String?
     @State private var saving = false
     @State private var confirmingDelete = false
     @State private var error: String?
+    @State private var detent: PresentationDetent = .medium
+    @FocusState private var nameFocused: Bool
+    @FocusState private var notesFocused: Bool
 
-    init(area: AffectedArea, onChanged: @escaping () -> Void) {
+    init(area: AffectedArea, room: RoomScan, onChanged: @escaping () -> Void) {
         self.area = area
+        self.room = room
         self.onChanged = onChanged
         _name = State(initialValue: area.name)
         _notes = State(initialValue: area.notes ?? "")
         _showDimensions = State(initialValue: area.showDimensions)
+        _cause = State(initialValue: area.cause)
+        _colorOverride = State(initialValue: area.color?.trimmed.lowercased())
+    }
+
+    /// What this area draws in right now, from LOCAL state — the row that
+    /// opened this sheet holds the value as it was fetched, and a swatch
+    /// that does not recolour the header the instant it is tapped reads as
+    /// a control that did nothing.
+    private var displayColor: Color {
+        if let hex = colorOverride, hex.hasPrefix("#"), hex.count == 7,
+            let value = UInt32(hex.dropFirst(), radix: 16)
+        {
+            return Color(hex: value)
+        }
+        return cause.color
+    }
+
+    private var place: String {
+        area.isWall ? "Wall \((area.wallIndex ?? 0) + 1)" : "Floor"
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Brand.canvas.ignoresSafeArea()
+        VStack(spacing: 0) {
+            header
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Brand.Space.base) {
-                        HStack {
-                            Circle()
-                                .fill(area.displayColor)
-                                .frame(width: 12, height: 12)
-                            Text(area.isWall ? "On the wall" : "On the floor")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Brand.inkSoft)
-                            Spacer()
-                            Text(Measure.sqftLabel(area.areaSqm))
-                                .font(.system(size: 13, weight: .bold).monospacedDigit())
-                                .foregroundStyle(Brand.inkFaint)
-                        }
+            Picker("Section", selection: $tab) {
+                ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.bottom, Brand.Space.tight)
 
-                        Field(label: "NAME", text: $name, placeholder: "Affected area")
+            List {
+                switch tab {
+                case .details: detailsTab
+                case .photos: photosTab
+                case .forms: formsTab
+                }
 
-                        VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                            Text("NOTES")
-                                .font(.system(size: 10, weight: .heavy))
-                                .foregroundStyle(Brand.inkFaint)
-                            TextField(
-                                "What's here, what was already cut back — whatever the next visit needs to know.",
-                                text: $notes, axis: .vertical
-                            )
-                            .lineLimit(3...6)
-                            .padding(Brand.Space.small)
-                            .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
-                        }
-
-                        // Only meaningful on a wall — a floor area has no
-                        // elevation to print its dimensions on.
-                        if area.isWall {
-                            Toggle(isOn: $showDimensions) {
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text("Show dimensions")
-                                        .foregroundStyle(Brand.ink)
-                                    Text("Print this area's width and height on the wall elevation.")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(Brand.inkFaint)
-                                }
-                            }
-                            .tint(Brand.blue)
-                        }
-
-                        if let error {
-                            Text(error).font(.footnote).foregroundStyle(.red)
-                        }
-
-                        Button(saving ? "Saving…" : "Save") {
-                            Task { await save() }
-                        }
-                        .buttonStyle(PrimaryButtonStyle(enabled: !saving))
-                        .disabled(saving)
-
-                        Button("Delete this area", role: .destructive) {
-                            confirmingDelete = true
-                        }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity)
+                if let error {
+                    Section {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
                     }
-                    .padding(Brand.Space.base)
                 }
             }
-            .navigationTitle(area.label)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
-            }
-            .confirmationDialog(
-                "Delete \(area.name)?",
-                isPresented: $confirmingDelete, titleVisibility: .visible
-            ) {
-                Button("Delete area", role: .destructive) { Task { await delete() } }
-                Button("Keep it", role: .cancel) {}
-            } message: {
-                Text("Its measurement, note and dimension setting go with it. This cannot be undone.")
-            }
+            .scrollContentBackground(.hidden)
+        }
+        .background(Brand.canvas)
+        .presentationDetents([.medium, .large], selection: $detent)
+        .presentationDragIndicator(.visible)
+        .confirmationDialog(
+            "Delete \(name.trimmed.isEmpty ? area.name : name.trimmed)?",
+            isPresented: $confirmingDelete, titleVisibility: .visible
+        ) {
+            Button("Delete area", role: .destructive) { Task { await delete() } }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text("Its measurement, its note, its photos and its dimension setting go with it. This cannot be undone.")
         }
     }
 
-    private func save() async {
+    /// `ⓘ name`, with the same collapse chevron as the room and wall sheets.
+    /// The swatch is here because colour is this object's identity on the
+    /// plan — it is the first thing the row that opened this sheet showed.
+    private var header: some View {
+        HStack(spacing: Brand.Space.small) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 17))
+                .foregroundStyle(Brand.blue)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name.trimmed.isEmpty ? area.name : name.trimmed)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(displayColor)
+                        .frame(width: 8, height: 8)
+                    Text("\(place) · \(cause.label) · \(Measure.sqftLabel(area.areaSqm))")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+            }
+            Spacer()
+            Button {
+                if detent == .large { detent = .medium } else { dismiss() }
+            } label: {
+                Image(systemName: "chevron.down.circle.fill")
+                    .font(.system(size: 24))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Brand.inkFaint)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(detent == .large ? "Collapse" : "Close")
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.top, Brand.Space.base)
+        .padding(.bottom, Brand.Space.small)
+    }
+
+    // MARK: - Details
+
+    @ViewBuilder private var detailsTab: some View {
+        dimensionsSection
+        generalSection
+        settingsSection
+        deleteSection
+    }
+
+    /// Read-only, exactly as theirs is. The measurement follows the shape,
+    /// and the shape is edited on the plan — a typed area would be a figure
+    /// with no drawing behind it, which is the one thing a claim cannot use.
+    private var dimensionsSection: some View {
+        Section {
+            StatisticRowView(
+                row: .init(
+                    id: "area", label: "Area", value: Measure.sqftLabel(area.areaSqm),
+                    meaning: .damaged))
+        } header: {
+            Text("Dimensions")
+        } footer: {
+            Text("Computed from the marked shape. Redraw the area on the plan to change it.")
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
+        }
+    }
+
+    private var generalSection: some View {
+        Section {
+            // Committed on Return or when the field is left — not on every
+            // keystroke, which would be a PATCH per letter.
+            HStack {
+                Text("Name")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.ink)
+                TextField("Affected area", text: $name)
+                    .font(.system(size: 15))
+                    .multilineTextAlignment(.trailing)
+                    .focused($nameFocused)
+                    .submitLabel(.done)
+                    .onSubmit { Task { await saveName() } }
+            }
+            .onChange(of: nameFocused) { _, focused in
+                if !focused { Task { await saveName() } }
+            }
+
+            VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                Text("Damage cause")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.ink)
+                DamageCausePicker(cause: $cause)
+            }
+            .padding(.vertical, 2)
+            .onChange(of: cause) { _, picked in
+                Task { await save(damageType: picked.rawValue) }
+            }
+
+            fillColorRow
+        } header: {
+            Text("General")
+        } footer: {
+            Text("The cause decides the trade, the rate, and the colour this area draws in. A fill colour overrides that colour here only — it never changes what the area is.")
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
+        }
+    }
+
+    /// The reference's `Fill Color`: a full matrix, plus `Reset`.
+    ///
+    /// The matrix is built rather than collected — six hues across, three
+    /// values down — and its **middle row is the cause table itself**
+    /// (`DamageCause.hex`, in `DAMAGE_TYPES` order). So the row an area
+    /// already sits on is the row it starts from, and picking left or right
+    /// of its own colour keeps the drawing legible instead of introducing a
+    /// hue nothing else on the plan uses.
+    private var fillColorRow: some View {
+        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+            HStack {
+                Text("Fill colour")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.ink)
+                Spacer()
+                // Their `Reset`. Disabled when there is nothing to reset —
+                // a live control that does nothing teaches the operator to
+                // distrust the ones that do.
+                Button("Reset") {
+                    Task { await saveColor(.reset) }
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(colorOverride == nil ? Brand.inkFaint : Brand.blue)
+                .disabled(colorOverride == nil || saving)
+            }
+
+            LazyVGrid(
+                columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6),
+                spacing: 8
+            ) {
+                ForEach(Self.fillMatrix, id: \.self) { hex in
+                    fillSwatch(hex)
+                }
+            }
+            .padding(.vertical, 2)
+
+            Text(
+                colorOverride == nil
+                    ? "Following \(cause.label.lowercased()) — the cause's own colour."
+                    : "Overridden. Reset puts it back to the cause's colour."
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(Brand.inkFaint)
+        }
+        .padding(.vertical, 2)
+    }
+
+    /// Six hues by three values. The middle row is `DamageCause` in its own
+    /// order — water, fire, mould, impact, other — with a sixth slot for a
+    /// slate that no cause claims, so every column has three entries.
+    private static let fillMatrix: [String] = [
+        "#1f5fa8", "#a8431f", "#2f6f22", "#5f3f9e", "#5f5f63", "#8a1f3f",
+        "#2b7fd4", "#e2673a", "#4f9d3a", "#8a63d2", "#8a8a8e", "#d4437a",
+        "#6fb0e8", "#f0a184", "#8ecb7d", "#b79ce6", "#c2c6cc", "#f094ac",
+    ]
+
+    private func fillSwatch(_ hex: String) -> some View {
+        let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
+        let selected = colorOverride == hex
+        return Button {
+            guard !saving else { return }
+            Task { await saveColor(.set(hex)) }
+        } label: {
+            Circle()
+                .fill(Color(hex: value))
+                .frame(height: 30)
+                .overlay(
+                    Circle().strokeBorder(selected ? Brand.blue : .clear, lineWidth: 2.5)
+                        .padding(-3))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(selected ? "Fill colour \(hex), selected" : "Fill colour \(hex)")
+    }
+
+    /// Their `Settings` block. The toggle is theirs; what it drives is ours
+    /// on both surfaces — a wall area's figures print on the elevation
+    /// (`ElevationView`), a floor area's beside it on the plan
+    /// (`FloorPlanView` step 6).
+    private var settingsSection: some View {
+        Section {
+            Toggle(isOn: $showDimensions) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Show Dimensions")
+                        .foregroundStyle(Brand.ink)
+                    Text(
+                        area.isWall
+                            ? "Print this area's width and height on the wall elevation."
+                            : "Print this area's width and height beside it on the floor plan."
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(Brand.inkFaint)
+                }
+            }
+            .tint(Brand.blue)
+            .disabled(saving)
+            .onChange(of: showDimensions) { _, value in
+                Task { await save(showDimensions: value) }
+            }
+        } header: {
+            Text("Settings")
+        }
+    }
+
+    private var deleteSection: some View {
+        Section {
+            Button("Delete this area", role: .destructive) {
+                confirmingDelete = true
+            }
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.red)
+            .frame(maxWidth: .infinity)
+            .disabled(saving)
+        }
+    }
+
+    // MARK: - Photos & Notes
+
+    /// The reference's second tab, attached to the AREA and not merely to
+    /// its room — object-model §2b, and the whole point of the tab existing
+    /// here at all. A photo of the wet patch behind the vanity is evidence
+    /// about that patch; filed against the room it becomes one of forty
+    /// nobody can attribute a month later. It still shows in the room's own
+    /// grid, which reads everything filed against the room.
+    @ViewBuilder private var photosTab: some View {
+        if let projectId = room.projectId {
+            RoomPhotosSection(
+                projectId: projectId, roomScanId: room.id, affectedAreaId: area.id,
+                title: "Photos of this area")
+        } else {
+            Section {
+                Text("This room is not attached to a project yet, so photos have nowhere to file.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+
+        Section {
+            TextField(
+                "What's here, what was already cut back — whatever the next visit needs to know.",
+                text: $notes, axis: .vertical
+            )
+            .lineLimit(3...8)
+            .focused($notesFocused)
+            .onChange(of: notesFocused) { _, focused in
+                if !focused { Task { await save(notes: notes.trimmed) } }
+            }
+        } header: {
+            Text("Notes")
+        } footer: {
+            Text("Saved when you tap away. This note is about the area, not the room — the room keeps its own.")
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
+        }
+    }
+
+    // MARK: - Forms
+
+    @ViewBuilder private var formsTab: some View {
+        InspectorFormsTab(
+            subject: "this area",
+            footer: "The cause, the measurement and the photos above are what an adjuster reads for a marked region today.")
+    }
+
+    // MARK: - Persistence
+
+    private func saveName() async {
+        let trimmed = name.trimmed
+        guard trimmed != area.name, !trimmed.isEmpty else { return }
+        await save(name: trimmed)
+    }
+
+    private func saveColor(_ edit: API.ColorEdit) async {
+        // Optimistic: the swatch ring and the header dot move now, and go
+        // back if the write fails. A colour that lags a round trip reads as
+        // a tap that missed.
+        let previous = colorOverride
+        switch edit {
+        case .set(let hex): colorOverride = hex
+        case .reset: colorOverride = nil
+        case .leave: return
+        }
+        await save(color: edit, rollback: { colorOverride = previous })
+    }
+
+    private func save(
+        name: String? = nil, notes: String? = nil, showDimensions: Bool? = nil,
+        damageType: String? = nil, color: API.ColorEdit = .leave,
+        rollback: (() -> Void)? = nil
+    ) async {
         saving = true
         error = nil
         do {
             try await API.shared.updateArea(
-                id: area.id,
-                name: name.trimmed.isEmpty ? nil : name.trimmed,
-                notes: notes.trimmed,
-                showDimensions: showDimensions)
+                id: area.id, name: name, notes: notes, showDimensions: showDimensions,
+                damageType: damageType, color: color)
             onChanged()
-            dismiss()
         } catch {
+            rollback?()
             self.error = error.localizedDescription
         }
         saving = false
@@ -1078,6 +1419,7 @@ struct AffectedAreaSheet: View {
         saving = false
     }
 }
+
 
 /// The reference's third tab, with the reference's empty state — which is
 /// all it has ever shown us: forms there are authored in their cloud and

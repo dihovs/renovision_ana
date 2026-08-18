@@ -11,6 +11,24 @@ import SwiftUI
 /// grab. A handle that is not on its corner is not a handle.
 ///
 /// Both callers now derive from this, so they cannot disagree again.
+///
+/// That unification was only half the story, and the other half cost a
+/// second bug: sharing the formula is not enough while the two callers feed
+/// it **different sizes**. `FloorPlanView` ends in `.aspectRatio(plan.width
+/// / plan.height, contentMode: .fit)`, so its Canvas never occupies the size
+/// it was offered — it takes the largest rect of the plan's own proportions
+/// that fits, and sits at the top-leading corner of it. `AreaEditor` handed
+/// this its `GeometryReader`'s size, which is the OFFER, and got a transform
+/// for a canvas that does not exist: on a 361×360 card every handle landed
+/// 30pt below its corner for an L-shaped room, 36 for a rectangle, and 139
+/// for a tall corridor — that last because the narrowed canvas is under the
+/// 240pt `showDims` threshold, so the two disagreed about the insets as well
+/// as the origin.
+///
+/// So `fit` now performs the aspect fit itself. It is idempotent — a size
+/// that already has the plan's proportions comes back unchanged, which is
+/// exactly what `FloorPlanView`'s own call passes — and it means an overlay
+/// can hand over whatever space it was given and still land on the drawing.
 struct PlanTransform {
     let scale: CGFloat
     let ox: CGFloat
@@ -22,8 +40,13 @@ struct PlanTransform {
 
     /// Returns nil for a plan too small to draw, which is the caller's cue
     /// to render nothing rather than divide by a zero scale.
-    static func fit(_ plan: FloorPlanGeometry.Plan, in size: CGSize) -> PlanTransform? {
+    ///
+    /// `offered` may be either the space a `FloorPlanView` was given or the
+    /// space it ended up with; the aspect fit below reconciles them.
+    static func fit(_ plan: FloorPlanGeometry.Plan, in offered: CGSize) -> PlanTransform? {
         guard plan.width > 0.1, plan.height > 0.1 else { return nil }
+
+        let size = drawnSize(plan, in: offered)
 
         // Dimensions need margin to live in; a thumbnail-sized canvas drops
         // them entirely (the spec's smallest level), so the insets depend on
@@ -46,6 +69,22 @@ struct PlanTransform {
             showDims: showDims)
     }
 
+    /// The rect a `FloorPlanView` actually draws in, given the space it was
+    /// offered — SwiftUI's own `.aspectRatio(_:contentMode: .fit)` maths,
+    /// written out because an overlay has no other way to ask.
+    ///
+    /// An overlay that wants to line up with the drawing must ALSO pin
+    /// itself to this size, top-leading, or it will be centred in the offer
+    /// while the drawing is not.
+    static func drawnSize(_ plan: FloorPlanGeometry.Plan, in offered: CGSize) -> CGSize {
+        guard plan.width > 0, plan.height > 0, offered.width > 0, offered.height > 0
+        else { return offered }
+        let aspect = plan.width / plan.height
+        return offered.width / offered.height > aspect
+            ? CGSize(width: offered.height * aspect, height: offered.height)
+            : CGSize(width: offered.width, height: offered.width / aspect)
+    }
+
     func point(_ x: Double, _ y: Double) -> CGPoint {
         CGPoint(x: x * scale + ox, y: y * scale + oy)
     }
@@ -56,6 +95,22 @@ struct PlanTransform {
     func model(_ p: CGPoint) -> CGPoint {
         CGPoint(x: (p.x - ox) / scale, y: (p.y - oy) / scale)
     }
+}
+
+/// One damaged region, as the plan draws it.
+///
+/// A struct rather than the tuple this was, because the third member is a
+/// `Bool` and `(polygon, colour, true)` at a call site says nothing about
+/// what is true.
+struct DrawnArea {
+    /// In the plan's own metres — the same space the walls are drawn in.
+    let polygon: [CGPoint]
+    let colour: Color
+    /// Print this region's own width and height beside it — the reference's
+    /// per-area `Show Dimensions` (object-model §2b). Off by default: most
+    /// areas mark WHERE the damage is rather than being measured against,
+    /// and a plan carrying a figure for every patch is a plan nobody reads.
+    var dimensioned: Bool = false
 }
 
 /// A room drawn as an architect drafts one.
@@ -69,9 +124,9 @@ struct PlanTransform {
 struct FloorPlanView: View {
     let plan: FloorPlanGeometry.Plan
     /// Damaged regions over the floor, in the plan's own metres.
-    var areas: [(polygon: [CGPoint], colour: Color)] = []
+    var areas: [DrawnArea] = []
     /// A shape being dragged right now, above everything else.
-    var draft: (polygon: [CGPoint], colour: Color)?
+    var draft: DrawnArea?
     /// Room name + area, drawn on the plan itself at full sizes.
     var label: (name: String, sqft: Int)?
 
@@ -307,7 +362,89 @@ struct FloorPlanView: View {
                     text: UnitSettings.shared.format.format(plan.height), rotated: true)
             }
 
-            // 6. The room's own label, deepest inside its outline.
+            // 6. Width and height for the areas marked `Show Dimensions` —
+            // the reference's per-area toggle (object-model §2b), which
+            // until now only the wall elevation honoured. A floor area is
+            // the other half of the same field: an adjuster reading "how
+            // wide is the wet strip along the wall" gets it here or nowhere.
+            //
+            // Measured off the polygon's own metres rather than its screen
+            // box, so the figure is exact at any zoom, and drawn in the
+            // area's own colour — with two patches marked, a figure in the
+            // wrong colour is worse than no figure. Suppressed at thumbnail
+            // sizes with everything else `showDims` governs.
+            if showDims {
+                for area in areas where area.dimensioned && area.polygon.count >= 3 {
+                    let xs = area.polygon.map(\.x)
+                    let ys = area.polygon.map(\.y)
+                    guard let minX = xs.min(), let maxX = xs.max(),
+                        let minY = ys.min(), let maxY = ys.max(),
+                        maxX - minX > 0.02, maxY - minY > 0.02
+                    else { continue }
+
+                    let colour = area.colour
+                    let topLeft = pt(minX, minY)
+                    let bottomRight = pt(maxX, maxY)
+
+                    func witness(_ from: CGPoint, _ to: CGPoint, across: CGVector) {
+                        var line = Path()
+                        line.move(to: from)
+                        line.addLine(to: to)
+                        context.stroke(line, with: .color(colour.opacity(0.8)), lineWidth: 0.7)
+                        for p in [from, to] {
+                            var t = Path()
+                            t.move(to: CGPoint(x: p.x - across.dx * 3, y: p.y - across.dy * 3))
+                            t.addLine(to: CGPoint(x: p.x + across.dx * 3, y: p.y + across.dy * 3))
+                            context.stroke(t, with: .color(colour.opacity(0.8)), lineWidth: 1)
+                        }
+                    }
+
+                    // Takes the formatted string, not the metres: the unit
+                    // format is main-actor state and a nested function does
+                    // not inherit the closure's isolation to read it.
+                    func figure(_ string: String, at point: CGPoint, rotated degrees: Double) {
+                        let resolved = context.resolve(
+                            Text(string)
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(colour))
+                        let measured = resolved.measure(in: size)
+                        context.drawLayer { layer in
+                            layer.translateBy(x: point.x, y: point.y)
+                            if degrees != 0 { layer.rotate(by: .degrees(degrees)) }
+                            layer.fill(
+                                Path(
+                                    roundedRect: CGRect(
+                                        x: -measured.width / 2 - 3, y: -measured.height / 2 - 1,
+                                        width: measured.width + 6, height: measured.height + 2),
+                                    cornerRadius: 3),
+                                with: .color(bg.opacity(0.85)))
+                            layer.draw(resolved, at: .zero, anchor: .center)
+                        }
+                    }
+
+                    // Width below the region, height beside it — and the
+                    // height line goes to the RIGHT when the region starts
+                    // hard against the room's own left wall, or the figure
+                    // would be drawn outside the paper.
+                    let widthY = bottomRight.y + 12
+                    witness(
+                        CGPoint(x: topLeft.x, y: widthY), CGPoint(x: bottomRight.x, y: widthY),
+                        across: CGVector(dx: 0, dy: 1))
+                    figure(
+                        UnitSettings.shared.format.format(maxX - minX),
+                        at: CGPoint(x: (topLeft.x + bottomRight.x) / 2, y: widthY), rotated: 0)
+
+                    let heightX = minX < 0.3 ? bottomRight.x + 12 : topLeft.x - 12
+                    witness(
+                        CGPoint(x: heightX, y: topLeft.y), CGPoint(x: heightX, y: bottomRight.y),
+                        across: CGVector(dx: 1, dy: 0))
+                    figure(
+                        UnitSettings.shared.format.format(maxY - minY),
+                        at: CGPoint(x: heightX, y: (topLeft.y + bottomRight.y) / 2), rotated: -90)
+                }
+            }
+
+            // 7. The room's own label, deepest inside its outline.
             if let label, showDims, plan.polygon.count >= 3 {
                 let anchor = FloorPlanGeometry.labelAnchor(
                     plan.polygon, width: plan.width, height: plan.height)
@@ -356,7 +493,7 @@ struct FloorPlanView: View {
 /// that polygon lands right back in the corner editor for adjustment.
 struct AreaEditor: View {
     let plan: FloorPlanGeometry.Plan
-    let existing: [(polygon: [CGPoint], colour: Color)]
+    let existing: [DrawnArea]
     let onSave: (String, String, [CGPoint]) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -405,12 +542,20 @@ struct AreaEditor: View {
 
                 VStack(spacing: Brand.Space.base) {
                     GeometryReader { proxy in
+                        // `fit` folds in the aspect fit `FloorPlanView`
+                        // applies to itself, so this is the drawing's own
+                        // space and not the card's — see `PlanTransform`.
                         let transform = PlanTransform.fit(plan, in: proxy.size)
 
+                        // `.topLeading` is the other half of that: it is
+                        // what puts the drawing's origin on this stack's
+                        // origin, so a handle placed at the transform's
+                        // coordinates lands on the corner it belongs to.
+                        // Centre this stack and every handle moves again.
                         ZStack(alignment: .topLeading) {
                             FloorPlanView(
                                 plan: plan, areas: existing,
-                                draft: (corners, colour))
+                                draft: DrawnArea(polygon: corners, colour: colour))
 
                             if let transform {
                                 if mode == .points {

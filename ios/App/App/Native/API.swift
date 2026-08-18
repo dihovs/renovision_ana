@@ -440,22 +440,63 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    /// A colour field has THREE states, and only two of them are a value.
+    ///
+    /// `leave` says nothing about the column. `set` writes an override.
+    /// `reset` is the reference's own `Reset` next to its colour matrix: it
+    /// must reach the server as JSON `null`, because a nil colour is what
+    /// makes the area follow its cause again — and an override frozen into
+    /// the row is exactly what `NewArea.color` documents as the thing to
+    /// avoid. A plain `String?` cannot express this: Swift's synthesised
+    /// `Encodable` drops a nil key, which the route reads as `leave`.
+    enum ColorEdit {
+        case leave
+        case set(String)
+        case reset
+    }
+
     private struct AreaPatch: Encodable {
         var name: String?
         var notes: String?
         var showDimensions: Bool?
+        var damageType: String?
+        var color: ColorEdit = .leave
+
+        private struct Key: CodingKey {
+            let stringValue: String
+            init(_ stringValue: String) { self.stringValue = stringValue }
+            init?(stringValue: String) { self.stringValue = stringValue }
+            var intValue: Int? { nil }
+            init?(intValue: Int) { nil }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: Key.self)
+            try c.encodeIfPresent(name, forKey: Key("name"))
+            try c.encodeIfPresent(notes, forKey: Key("notes"))
+            try c.encodeIfPresent(showDimensions, forKey: Key("showDimensions"))
+            try c.encodeIfPresent(damageType, forKey: Key("damageType"))
+            switch color {
+            case .leave: break
+            case .set(let hex): try c.encode(hex, forKey: Key("color"))
+            case .reset: try c.encodeNil(forKey: Key("color"))
+            }
+        }
     }
 
-    /// Rename, annotate, or set whether an area's dimensions print on its
-    /// elevation. Reshaping and recolouring an area are not exposed from the
-    /// phone yet — those stay the wall-elevation drag and the web editor's
-    /// job — this is the inspector sheet's surface only.
-    func updateArea(id: String, name: String? = nil, notes: String? = nil, showDimensions: Bool? = nil)
-        async throws
-    {
+    /// Rename, annotate, reclassify, recolour, or set whether an area's
+    /// dimensions print. Reshaping stays where it works — the wall-elevation
+    /// drag and the floor plan's own corner editor — this is the inspector
+    /// sheet's surface only.
+    func updateArea(
+        id: String, name: String? = nil, notes: String? = nil, showDimensions: Bool? = nil,
+        damageType: String? = nil, color: ColorEdit = .leave
+    ) async throws {
         _ = try await request(
             "/api/v1/areas/\(id)", method: "PATCH",
-            body: AreaPatch(name: name, notes: notes, showDimensions: showDimensions))
+            body: AreaPatch(
+                name: name, notes: notes, showDimensions: showDimensions,
+                damageType: damageType, color: color))
     }
 
     func deleteArea(id: String) async throws {
@@ -762,10 +803,23 @@ actor API {
     /// sheet, which carries its own Photos & Notes tab, separate from the
     /// room's general grid. Omitted, every photo filed against the room
     /// comes back, wall ones included, exactly as before.
-    func photos(roomScanId: String, wallIndex: Int? = nil) async throws -> [RoomPhoto] {
+    /// One room's photos. `wallIndex` narrows to a wall's own, and
+    /// `affectedAreaId` to one damaged region's — object-model §2b gives an
+    /// area its own Photos & Notes tab, and a photo of the wet patch is
+    /// evidence about the patch, not about the room it happens to be in.
+    /// Both nil returns everything filed against the room, wall and area
+    /// photos included, which is what the room's grid and the report want.
+    func photos(roomScanId: String, wallIndex: Int? = nil, affectedAreaId: String? = nil)
+        async throws -> [RoomPhoto]
+    {
         let encoded = roomScanId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? roomScanId
         var path = "/api/v1/photos?roomScanId=\(encoded)"
         if let wallIndex { path += "&wallIndex=\(wallIndex)" }
+        if let affectedAreaId,
+            let area = affectedAreaId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        {
+            path += "&affectedAreaId=\(area)"
+        }
         return try await get(path, as: PhotoListResponse.self).photos
     }
 

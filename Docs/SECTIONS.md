@@ -32,8 +32,8 @@ Commit the ledger update with the work.
 | **S1** | Room inspector structure | **DONE** | — | `RoomDetailView.swift` |
 | **S2** | Wall inspector | **DONE** | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
 | **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
-| **S4** | Affected areas — remaining parity | **NEXT** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
-| **S5** | Plan editor parity | NOT STARTED | — | `PlanEditorView.swift`, `EditorChrome.swift` |
+| **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
+| **S5** | Plan editor parity | **NEXT** | — | `PlanEditorView.swift`, `EditorChrome.swift` |
 | **S6** | Photo editor — blur first | NOT STARTED | — | new `PhotoEditor*.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
@@ -315,14 +315,9 @@ trade and rate here.
 **Before starting, two things from 17–18 Aug that land directly on this
 section.**
 
-**The corner-editor bug is still open and this section owns the screen.** On a
-genuinely L-shaped room ("My Condo → Living room"), opening `AreaEditor` in
-`Points` mode on the room's own seeded shape drew two correct corner dots and
-then a scatter of extra handles well below the canvas, unrelated to the drawn
-room. It cleared the moment the shape was replaced, so it is specific to that
-room's `plan.polygon` or to how `seed()` reads a non-rectangle — not a general
-fault in `cornerHandles`/`edgeHandles`. Reproduce it before building on top of
-that screen.
+**The corner-editor bug — FIXED 18 Aug, and it was not what it looked
+like.** It had nothing to do with L-shapes, `plan.polygon` or `seed()`; a
+rectangle was worse. Full account below, under "That bug is fixed".
 
 **Look at sizing before logic when something "does nothing".** Five separate
 reports of a dead control this session were all the same family — a view sized
@@ -341,9 +336,135 @@ room's `plan.polygon` or to how `seed()` reads a non-rectangle, not a
 general fault in `cornerHandles`/`edgeHandles`. Confirm on a fresh
 non-rectangular room before trusting this screen's corner editor.
 
+**That bug is fixed, and S3's reading of it was wrong in a way worth
+recording.** It is nothing to do with L-shapes, `plan.polygon` or `seed()`.
+`FloorPlanView` ends in `.aspectRatio(plan.width / plan.height, contentMode:
+.fit)`, so its Canvas never occupies the space it is offered — it takes the
+largest rect of the plan's own proportions and sits at the top-leading
+corner of it. `AreaEditor` was computing its handle transform from the
+`GeometryReader`'s size, which is the OFFER. Two `PlanTransform.fit` calls,
+different sizes, so every handle sat a uniform distance below the corner it
+belonged to. Reproduced arithmetically before anything was touched, by
+running the real formula over a 361×360 card:
+
+| Room | Canvas actually drawn in | Worst handle offset |
+|---|---|---|
+| Rectangle 4.0 × 3.2 m | 361 × 289 | **36 pt** |
+| L-shape 6.0 × 5.0 m | 361 × 301 | **30 pt** |
+| Tall corridor 1.4 × 7.0 m | 72 × 360 | **139 pt** |
+
+The corridor is the extreme because its narrowed canvas falls under the
+240pt `showDims` threshold, so the two transforms disagreed about the insets
+as well as the origin. All three go to **0.0 pt** with the fix.
+
+Two things follow. **It was never L-shape-specific** — a rectangle was
+worse. What made it look that way is that a uniform downward shift still
+leaves handles inside a rectangle's own fill, where they read as roughly
+right; on an L the concave notch puts some of them in open paper. And
+**freehand did not fix it**, it hid it: freehand swaps the handles for a
+capture layer, and the loop it captures goes through the same offset
+transform, so stroke and handles agree with each other while both sit clear
+of the drawing. Anything that looked correct in S3's freehand testing was
+two wrongs cancelling.
+
+The fix is in `PlanTransform.fit`, which now performs the aspect fit itself
+and is idempotent — a size that already has the plan's proportions comes
+back unchanged, which is what `FloorPlanView`'s own call passes. The other
+half is `AreaEditor`'s `ZStack(alignment: .topLeading)`: that is what puts
+the drawing's origin on the overlay's origin. Centre that stack and every
+handle moves again.
+
+**The lesson generalises past this screen.** `HANDOFF.md` §4's bug family is
+"check what a control is SIZED as and what it is COMPARED by before reading
+the handler". This is its sibling: **a view that constrains its own size
+does not occupy the space it was offered, and an overlay positioned in the
+offer will not line up with it.** `FloorPlanView` is the only plan renderer
+with an internal `.aspectRatio` — checked — but S5 and S8 both put overlays
+over canvases, so it is worth knowing on sight.
+
+**What landed (18 Aug 2026).** All four scope items, plus the bug above.
+
+- **Fill Color** — the reference's full matrix with `Reset`, in `General`.
+  Six hues across by three values down, and the **middle row is the cause
+  table itself** (`DamageCause.hex` in `DAMAGE_TYPES` order), so the row an
+  area already sits on is the row it starts from and a recolour stays in the
+  palette the rest of the plan uses. `Reset` clears the override so the area
+  follows its cause again; it is disabled when there is nothing to reset.
+  Swatch and header dot move optimistically and roll back if the write
+  fails.
+- **`API.ColorEdit`** — a colour field has THREE states and Swift's
+  synthesised `Encodable` can only express two. `leave` says nothing,
+  `set` writes a hex, `reset` encodes real JSON `null`. This is the
+  `NullablePatch` trap from HANDOFF §8 in its multi-field form: that helper
+  is single-key, so `AreaPatch` encodes by hand. **Without this, Reset would
+  have silently done nothing** — exactly how room colour lost weeks.
+- **Show Dimensions** — was in the sheet already but wall-only, because only
+  `ElevationView` honoured it. A floor area now prints its own width and
+  height beside it on the plan too (`FloorPlanView` step 6): witness lines
+  with ticks and the figure in the area's own colour, measured off the
+  polygon's metres rather than its screen box so it is exact at any zoom,
+  and suppressed at thumbnail sizes with everything else `showDims` governs.
+  The height line goes to the RIGHT when the region starts hard against the
+  room's left wall, or the figure would be drawn off the paper.
+- **Photos and notes on the AREA** — the sheet is now the reference's
+  three-tab inspector (`Details · Photos & Notes · Forms`), matching the
+  room and wall sheets. `project_files.affected_area_id` already existed and
+  the upload path already sent it; what was missing was the read. Added
+  `affectedAreaId` to `listRoomFiles` and to `GET /api/v1/photos`, and gave
+  `RoomPhotosSection` the filter. **No migration needed.** The area's photos
+  still appear in the room's own grid, which reads everything filed against
+  the room — that is deliberate and matches how wall photos already behave.
+- **The row** — `AffectedAreaRow`, one view now instead of two. The room's
+  list and the wall's list were drawing the same object differently (the
+  wall's had no subtitle at all). Swatch · name over surface · area ·
+  chevron, with the subtitle italic as theirs is, and a small ruler glyph
+  when the area is dimensioned — the toggle that sets it is two taps away
+  and its effect is on a drawing the row is not.
+- **`DrawnArea`** replaces the `(polygon, colour)` tuple `FloorPlanView`
+  took, because the third member is a `Bool` and `(polygon, colour, true)`
+  says nothing at a call site.
+- Every field commits on its own; the Save button is gone. An inspector that
+  can be closed with unsaved edits in it is an inspector that loses them.
+
+**Not done, and deliberately.** Their `+ New Field` (custom fields on an
+area) is not built — it is the same mechanism as the project's custom
+fields and belongs with them, not here. Area **Forms** shows the shared
+empty state, as the room and wall tabs do.
+
+**Verification — read this before trusting the list above.** Build
+`BUILD SUCCEEDED`, `tsc` clean, 1120 tests passing, installed and launched
+on the simulator (already signed in, home screen renders). **Nothing on
+these screens was tapped.** The dedicated simulator tool refused all session
+with "Xcode is installed but not selected" even though `xcode-select -p`
+reports Xcode correctly and two simulators were booted — `/var/db/
+xcode_select_link` does not exist, so the path is being INFERRED rather than
+recorded, and `sudo xcode-select -s /Applications/Xcode.app/Contents/
+Developer` is the fix. It needs the owner's password.
+
+So: the handle fix is proved arithmetically against the real formula, not by
+eye. Everything else on this screen — the colour matrix writing and
+resetting through the API, floor-area dimensions actually drawing, area
+photos uploading and coming back filtered, the three tabs — **compiled and
+was not looked at.** HANDOFF §8 is explicit that this is not the same as
+working. First ten minutes of the next chat on this screen, or of S5 which
+sits beside it.
+
 ---
 
 ## S5 — Plan editor parity
+
+**From S4, and it applies directly here.** A view that constrains its own
+size does not occupy the space it was offered, and an overlay positioned in
+the offer will not line up with it. `FloorPlanView` aspect-fits its own
+Canvas; `AreaEditor` was placing drag handles in the `GeometryReader`'s
+size and every one of them sat up to 139pt off the corner it belonged to.
+`PlanTransform.fit` folds the aspect fit in now and is idempotent, so this
+particular pair is safe — but this file puts its own overlays over its own
+canvas, and this section already owns two live "a tap does nothing"
+reports. **Check the geometry before the handler**: `PlanTransform.drawnSize`
+will tell you what a plan view actually occupies. `FloorPlanView` is the
+only plan renderer with an internal `.aspectRatio` (checked 18 Aug), so if
+`PlanEditorView`'s canvas gains one, its overlays need this treatment too.
 
 **In scope.**
 - **Canvas taps may not be registering at all, not just the dimension tap.**
@@ -431,6 +552,11 @@ position and size; the catalogue itself with a recently-used rail and favourites
 
 **Note.** There is no door type and no window type — one object model, three
 dimensions, and a door is an object whose Distance to Floor is zero.
+
+**Note (from S4).** Placement puts controls over a plan canvas. Read S5's
+first note before positioning any of them — a view that aspect-fits itself
+does not occupy the space it was offered, and that cost this project a
+whole screen's worth of drag handles.
 
 ---
 
@@ -841,3 +967,27 @@ Newest last. One or two lines per chat.
   pushed shared history. **This owns S12's territory** (project screens)
   though not done through a dedicated S12 chat — whoever picks up S12
   should know the card menu is now built, not just planned.
+- **2026-08-18** — **S4 done.** Fill Color as the reference's full matrix
+  with `Reset` (middle row IS the cause table), `Show Dimensions` extended
+  from wall-only to floor areas (they now print width × height beside
+  themselves on the plan), photos and notes attached to the AREA — the
+  sheet is the reference's three-tab inspector now, and the read filter was
+  the only missing piece; `project_files.affected_area_id` already existed,
+  **no migration**. One shared `AffectedAreaRow` replaces the two divergent
+  rows. New `API.ColorEdit` because a colour has three states and Swift's
+  synthesised `Encodable` can only encode two — Reset would silently have
+  done nothing otherwise, the HANDOFF §8 trap again. **Also fixed the
+  corner-editor handle bug S3 reported, and S3's diagnosis was wrong**: not
+  L-shapes, not `seed()` — `FloorPlanView` aspect-fits its own Canvas, so
+  it never fills the space it is offered, and `AreaEditor` was computing
+  handle positions in the OFFER. Uniform 36pt off on a rectangle, 30 on an
+  L, 139 on a tall corridor; 0.0 on all three after. Reproduced
+  arithmetically against the real formula before touching anything.
+  **Unverified:** build succeeded, tsc clean, 1120 tests, installed and
+  launched — but **nothing on these screens was tapped**. The simulator
+  tool refused all session with "Xcode is installed but not selected"
+  though `xcode-select -p` reports Xcode and two sims were booted;
+  `/var/db/xcode_select_link` is missing, so `sudo xcode-select -s
+  /Applications/Xcode.app/Contents/Developer` is the fix and it needs the
+  owner's password. The colour matrix, the floor-area dimension drawing,
+  the area photo round-trip and the three tabs are all compiled-only.

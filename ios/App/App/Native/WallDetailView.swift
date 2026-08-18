@@ -80,7 +80,7 @@ struct WallDetailView: View {
         .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .sheet(item: $editingArea) { area in
-            AffectedAreaSheet(area: area) { Task { await load() } }
+            AffectedAreaSheet(area: area, room: room) { Task { await load() } }
         }
         .task { await load() }
     }
@@ -174,27 +174,9 @@ struct WallDetailView: View {
         }
     }
 
+    /// The same row the room's list draws — see `AffectedAreaRow`.
     private func areaRow(_ area: AffectedArea) -> some View {
-        Button {
-            editingArea = area
-        } label: {
-            HStack {
-                Circle()
-                    .fill(area.displayColor)
-                    .frame(width: 10, height: 10)
-                Text(area.name)
-                    .foregroundStyle(Brand.ink)
-                Spacer()
-                Text(Measure.sqftLabel(area.areaSqm))
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Brand.inkFaint)
-            }
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
+        AffectedAreaRow(area: area, place: "Wall \(wallIndex + 1)") { editingArea = area }
     }
 
     /// The reference's two wall-only flags (object-model §2b). Both persist

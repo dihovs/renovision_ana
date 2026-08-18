@@ -776,16 +776,19 @@ export async function addProjectFile(
 }
 
 /** One room's photos, newest first — what a report page is built from.
-    `wallIndex` narrows to one wall's own photos; omitted, every photo filed
-    against the room comes back, wall ones included, which is what the
-    report and the room's own grid have always wanted. */
+    `wallIndex` narrows to one wall's own photos and `affectedAreaId` to one
+    damaged region's; omitted, every photo filed against the room comes back,
+    wall and area ones included, which is what the report and the room's own
+    grid have always wanted. */
 export async function listRoomFiles(
   roomScanId: string,
   wallIndex?: number,
+  affectedAreaId?: string,
 ): Promise<ProjectFile[]> {
   const client = requireDb();
   let query = client.from("project_files").select("*").eq("room_scan_id", roomScanId);
   if (wallIndex !== undefined) query = query.eq("wall_index", wallIndex);
+  if (affectedAreaId !== undefined) query = query.eq("affected_area_id", affectedAreaId);
   const { data, error } = await query.order("uploaded_at", { ascending: false });
   if (error) {
     if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);

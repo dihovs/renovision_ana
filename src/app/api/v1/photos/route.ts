@@ -33,12 +33,16 @@ export async function GET(request: Request) {
     wallIndexParam !== null && Number.isInteger(Number(wallIndexParam))
       ? Number(wallIndexParam)
       : undefined;
+  // One damaged region's own photos — object-model §2b gives an area its own
+  // Photos & Notes tab. Narrows the room's pile; it never widens it, so a
+  // photo can still only be read through the room it was filed against.
+  const affectedAreaId = params.get("affectedAreaId") || undefined;
 
   return guarded(async () => {
     // A room's photos, or the job's own — the second are exactly the ones
     // attached to no room, which `listProjectFiles` is the whole definition of.
     const files = roomScanId
-      ? await listRoomFiles(roomScanId, wallIndex)
+      ? await listRoomFiles(roomScanId, wallIndex, affectedAreaId)
       : await listProjectFiles(projectId!);
     // Signed per request and never persisted — a stored URL outlives its own
     // expiry and starts serving 403s to a report nobody can regenerate.

@@ -16,6 +16,14 @@ struct RoomPhotosSection: View {
     /// the room's general pile — a different tab, filtered on both read and
     /// write so the two never mix.
     var wallIndex: Int? = nil
+    /// When set, this is one AFFECTED AREA's own photos — same idea one
+    /// level down. "The wet patch behind the vanity" is evidence about the
+    /// patch; filed only against the room it becomes one of forty photos
+    /// nobody can attribute a month later.
+    var affectedAreaId: String? = nil
+    /// What the section calls itself. The room's pile is just `Photos`; a
+    /// narrowed one says whose.
+    var title: String = "Photos"
 
     @State private var photos: [RoomPhoto]?
     @State private var takingPhoto = false
@@ -74,7 +82,7 @@ struct RoomPhotosSection: View {
             }
         } header: {
             HStack {
-                Text("Photos")
+                Text(title)
                 Spacer()
                 if let photos, !photos.isEmpty {
                     Text("\(photos.count)").font(.caption.monospacedDigit())
@@ -102,7 +110,10 @@ struct RoomPhotosSection: View {
     }
 
     private func load() async {
-        photos = (try? await API.shared.photos(roomScanId: roomScanId, wallIndex: wallIndex)) ?? []
+        photos =
+            (try? await API.shared.photos(
+                roomScanId: roomScanId, wallIndex: wallIndex,
+                affectedAreaId: affectedAreaId)) ?? []
     }
 
     private func upload(_ image: UIImage) async {
@@ -122,7 +133,7 @@ struct RoomPhotosSection: View {
 
         do {
             _ = try await API.shared.uploadPhoto(
-                projectId: projectId, roomScanId: roomScanId, affectedAreaId: nil,
+                projectId: projectId, roomScanId: roomScanId, affectedAreaId: affectedAreaId,
                 wallIndex: wallIndex, jpeg: jpeg, note: nil)
             await load()
         } catch {
