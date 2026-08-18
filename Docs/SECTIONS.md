@@ -1475,4 +1475,36 @@ Newest last. One or two lines per chat.
 
   Build 108 installed and confirmed on the device (built `.app`'s own
   `CFBundleVersion` checked before installing). Not yet looked at.
+- **2026-08-18** — A real gap closed: openings had no inspector of their
+  own. Owner's own words, selecting a window and swiping up: *"no matter
+  what I select, when I pull it up, it shows me the details of the room
+  itself. This is not how I want... I want us to see the properties of the
+  window and of the door and also to see the illustration."* Confirmed by
+  the code: `onInfo`'s routing only special-cased `.wall`; a selected
+  `.opening` fell through to the SAME branch as nothing selected at all.
+
+  New `OpeningDetailView` — a fourth object-model §2 property sheet
+  alongside the room's, the wall's and the affected area's. Deliberately
+  smaller than the reference's own (Width/Height/Distance-to-Floor all
+  independently editable, plus Include-in-PDF and Display Label): an
+  opening here has no id and no database row, living inside the room's
+  `geometry` JSON only, so width/height come from `OpeningKind`'s own
+  catalog rather than free fields, and there is nowhere yet to hang a sill
+  height or per-opening photos (`project_files` has no column for one).
+  **Kind CAN be changed** — swapping within the same family (door↔door,
+  window↔window; a cased passage stays cased) — routed through `push()`
+  like every other edit, so it is undoable. A full cross-family swap is
+  `ORD-25`'s own, separately-scoped "Replace with…", not attempted here.
+  The illustration is a small standalone glyph — leaf and swing arc for a
+  door, three lines for a window — drawn fresh rather than adapted from
+  `OpeningGlyphs.draw`, which needs a wall/polygon context this sheet does
+  not have.
+
+  Also asked, mid-session, whether to start the 3D view: answered as the
+  exploratory question it was (a real, separate rendering engine, nothing
+  like today's Canvas work) — not started without his own go-ahead.
+
+  **Unverified — device has been unreachable for several minutes as this
+  is written**, longer than the usual short reconnect blips this project
+  has hit before. Compiles clean; not yet installed.
 

@@ -143,6 +143,11 @@ struct RoomEditorCore: View {
     /// wall (object-model §2b), the same gesture that reaches the room's own
     /// sheet from the storey canvas.
     @State private var inspectingWall: Int?
+    /// Index into `openings` for the swipe-up's own third case — a door or
+    /// window's inspector. Before 18 Aug 2026 there was no such case: a
+    /// selected opening's swipe-up fell through to the room's own sheet,
+    /// same as nothing being selected at all.
+    @State private var inspectingOpening: Int?
 
     /// The wall the elevation view is looking at, when one is open.
     ///
@@ -321,6 +326,20 @@ struct RoomEditorCore: View {
                     room: room, wallIndex: index,
                     lengthM: PlanEditing.edgeLength(corners, index),
                     onAddArea: { openElevation(atSelectedWall: true) })
+            }
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { inspectingOpening != nil }, set: { if !$0 { inspectingOpening = nil } })
+        ) {
+            if let index = inspectingOpening, openings.indices.contains(index) {
+                OpeningDetailView(
+                    opening: openings[index],
+                    onKindChanged: { newKind in
+                        push()
+                        openings[index].kind = newKind
+                    },
+                    onDelete: { deleteOpening(index) })
             }
         }
         // ORD-19's elevation view, full screen over the plan. The state,
@@ -1195,14 +1214,21 @@ struct RoomEditorCore: View {
                 mode: mode,
                 supported: supportedActions,
                 onAction: perform,
-                // A wall selected swipes up into ITS OWN inspector
-                // (object-model §2b) rather than the room's. With nothing
-                // selected it is the ROOM's inspector — presented here when
-                // the editor was entered from the canvas, or a dismissal
-                // back to it when the inspector is the screen underneath.
+                // A wall or an opening selected swipes up into ITS OWN
+                // inspector (object-model §2b) rather than the room's — the
+                // owner's own complaint, 18 Aug 2026, about the opening
+                // case specifically: *"no matter what I select, when I
+                // pull it up, it shows me the details of the room
+                // itself... I want us to see the properties of the window
+                // and of the door."* With NOTHING selected it is still the
+                // ROOM's inspector — presented here when the editor was
+                // entered from the canvas, or a dismissal back to it when
+                // the inspector is the screen underneath.
                 onInfo: {
                     if case .wall(let index) = selection {
                         inspectingWall = index
+                    } else if case .opening(let index) = selection {
+                        inspectingOpening = index
                     } else if inspectorIsBehind {
                         if isDirty { showDiscard = true } else { onExit() }
                     } else {
@@ -1543,6 +1569,234 @@ struct PlanEditorView: View {
                 onSaved: onSaved)
         }
         .environment(\.colorScheme, .light)
+    }
+}
+
+/// One door or window's own inspector — object-model §2's property sheet,
+/// scoped to what this app actually stores about an opening today.
+///
+/// Reached by selecting one on the plan and swiping up. Before 18 Aug 2026
+/// that gesture fell through to the ROOM's inspector regardless of what was
+/// selected — the owner caught it directly: *"no matter what I select,
+/// when I pull it up, it shows me the details of the room itself... I want
+/// us to see the properties of the window and of the door and also to see
+/// the illustration."*
+///
+/// **Deliberately smaller than the reference's own sheet.** Theirs has
+/// Width, Height and Distance to Floor all independently editable, plus
+/// Include in PDF and Display Label (object-model §2). An opening here has
+/// no id and no database row of its own — it lives inside the room's
+/// `geometry` JSON, saved only when the room itself saves — so width and
+/// height come from `OpeningKind`'s own catalog (the builder's-stock sizes
+/// this trade already frames to) rather than free-form fields, and there
+/// is nowhere yet to hang a sill height, a PDF toggle, or photos filed
+/// against one opening specifically (`project_files` has no column for
+/// it). **Kind CAN be changed here** — the one edit that is genuinely
+/// useful and safe to build today, since it is only ever swapping one
+/// catalog entry for another, held in memory like every other edit until
+/// the room's own Save, and routed through the same undo history.
+struct OpeningDetailView: View {
+    let opening: PlanEditing.WallOpening
+    let onKindChanged: (PlanEditing.OpeningKind) -> Void
+    let onDelete: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var kind: PlanEditing.OpeningKind
+    @State private var confirmingDelete = false
+    @State private var detent: PresentationDetent = .medium
+
+    init(
+        opening: PlanEditing.WallOpening, onKindChanged: @escaping (PlanEditing.OpeningKind) -> Void,
+        onDelete: @escaping () -> Void
+    ) {
+        self.opening = opening
+        self.onKindChanged = onKindChanged
+        self.onDelete = onDelete
+        _kind = State(initialValue: opening.kind)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            List {
+                Section {
+                    illustration
+                        .frame(height: 120)
+                        .frame(maxWidth: .infinity)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Brand.surface)
+                }
+
+                Section {
+                    ForEach(
+                        kind.category == .passage
+                            ? [.doorCased] : (kind.category == .door ? Self.doors : Self.windows),
+                        id: \.self
+                    ) { option in
+                        Button {
+                            kind = option
+                            onKindChanged(option)
+                        } label: {
+                            HStack {
+                                Text(option.label).foregroundStyle(Brand.ink)
+                                Spacer()
+                                Text(UnitSettings.shared.format.format(option.width))
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Brand.inkFaint)
+                                if option == kind {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundStyle(Brand.blue)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text(kind.category == .passage ? "Kind" : "Kind — \(kind.category == .door ? "doors" : "windows")")
+                }
+
+                Section {
+                    StatisticRowView(
+                        row: .init(
+                            id: "width", label: "Width",
+                            value: UnitSettings.shared.format.format(kind.width), meaning: nil))
+                    StatisticRowView(
+                        row: .init(
+                            id: "height", label: "Height",
+                            value: UnitSettings.shared.format.format(kind.height), meaning: nil))
+                } header: {
+                    Text("Dimensions")
+                } footer: {
+                    Text("Set by the kind above — the builder's-stock size this trade frames to, not an independent measurement.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+
+                Section {
+                    Button(
+                        "Delete this \(kind.category == .window ? "window" : kind.category == .door ? "door" : "opening")",
+                        role: .destructive
+                    ) {
+                        confirmingDelete = true
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .scrollContentBackground(.hidden)
+        }
+        .background(Brand.Plan.paper)
+        .presentationDetents([.medium, .large], selection: $detent)
+        .presentationDragIndicator(.visible)
+        .confirmationDialog(
+            "Delete this \(kind.label.lowercased())?",
+            isPresented: $confirmingDelete, titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                onDelete()
+                dismiss()
+            }
+            Button("Keep it", role: .cancel) {}
+        }
+    }
+
+    private static let doors: [PlanEditing.OpeningKind] = [.doorSingle, .doorDouble, .doorSliding]
+    private static let windows: [PlanEditing.OpeningKind] = [
+        .windowStandard, .windowWide, .windowSmall,
+    ]
+
+    private var header: some View {
+        HStack(spacing: Brand.Space.small) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 17))
+                .foregroundStyle(Brand.blue)
+                .accessibilityHidden(true)
+            Text(kind.label)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Brand.ink)
+            Spacer()
+            Button {
+                if detent == .large { detent = .medium } else { dismiss() }
+            } label: {
+                Image(systemName: "chevron.down.circle.fill")
+                    .font(.system(size: 24))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Brand.inkFaint)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(detent == .large ? "Collapse" : "Close")
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.top, Brand.Space.base)
+        .padding(.bottom, Brand.Space.small)
+    }
+
+    /// A plain, standalone glyph — the same conventions `OpeningGlyphs`
+    /// draws into a wall (leaf, quarter-swing arc, three-line window), but
+    /// freestanding rather than knocked into a wall band, since this sheet
+    /// has no wall or polygon to knock one out of. Our own drafting, drawn
+    /// not traced, per the standing rule on borrowing the reference's
+    /// layout without its icon set.
+    private var illustration: some View {
+        Canvas { context, size in
+            let ink = Brand.Plan.ink
+            let midY = size.height * 0.62
+            let inset: CGFloat = 20
+            let x0 = inset, x1 = size.width - inset
+
+            var sill = Path()
+            sill.move(to: CGPoint(x: x0, y: midY))
+            sill.addLine(to: CGPoint(x: x1, y: midY))
+            context.stroke(sill, with: .color(ink), style: StrokeStyle(lineWidth: 3, lineCap: .square))
+
+            switch kind.category {
+            case .door:
+                let hinge = CGPoint(x: x0, y: midY)
+                let r = x1 - x0
+                let tip = CGPoint(x: hinge.x, y: hinge.y - r)
+                var leaf = Path()
+                leaf.move(to: hinge)
+                leaf.addLine(to: tip)
+                context.stroke(leaf, with: .color(ink), lineWidth: 1.6)
+                var arc = Path()
+                arc.addArc(
+                    center: hinge, radius: r, startAngle: .degrees(-90), endAngle: .degrees(0),
+                    clockwise: false)
+                context.stroke(arc, with: .color(ink), lineWidth: 0.9)
+                if kind == .doorDouble {
+                    let hinge2 = CGPoint(x: x1, y: midY)
+                    let tip2 = CGPoint(x: hinge2.x, y: hinge2.y - r)
+                    var leaf2 = Path()
+                    leaf2.move(to: hinge2)
+                    leaf2.addLine(to: tip2)
+                    context.stroke(leaf2, with: .color(ink), lineWidth: 1.6)
+                    var arc2 = Path()
+                    arc2.addArc(
+                        center: hinge2, radius: r, startAngle: .degrees(-90),
+                        endAngle: .degrees(-180), clockwise: true)
+                    context.stroke(arc2, with: .color(ink), lineWidth: 0.9)
+                }
+            case .window:
+                for fraction: CGFloat in [0.25, 0.5, 0.75] {
+                    var line = Path()
+                    line.move(to: CGPoint(x: x0, y: midY - (midY - 20) * fraction))
+                    line.addLine(to: CGPoint(x: x1, y: midY - (midY - 20) * fraction))
+                    context.stroke(line, with: .color(ink.opacity(0.7)), lineWidth: 1)
+                }
+                var frame = Path(
+                    roundedRect: CGRect(x: x0, y: 20, width: x1 - x0, height: midY - 20),
+                    cornerRadius: 0)
+                context.stroke(frame, with: .color(ink), lineWidth: 1.6)
+            case .passage:
+                var frame = Path()
+                frame.move(to: CGPoint(x: x0, y: 24))
+                frame.addLine(to: CGPoint(x: x0, y: midY))
+                frame.move(to: CGPoint(x: x1, y: 24))
+                frame.addLine(to: CGPoint(x: x1, y: midY))
+                context.stroke(
+                    frame, with: .color(ink), style: StrokeStyle(lineWidth: 1.6, dash: [4, 3]))
+            }
+        }
     }
 }
 
