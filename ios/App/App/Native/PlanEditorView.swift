@@ -598,11 +598,40 @@ struct RoomEditorCore: View {
                             }(),
                             lockedEdges: locked,
                             format: units.format)
+
+                        // ORD-23. The room's overall bounding extent, one
+                        // line further out than every per-wall figure —
+                        // the second of object-model §5's "two dimensions,
+                        // not one". On a slanted wall the two disagree on
+                        // purpose: the wall says what a tape reads along
+                        // it, this says how deep the room is.
+                        EditorChrome.drawOverallDimensions(
+                            context: context,
+                            polygon: corners,
+                            toScreen: pt,
+                            proxySize: proxy.size,
+                            format: units.format)
                     }
+
+                    // ORD-31. The two edges either side of the corner in
+                    // the hand, measured live, ON the edges — where the
+                    // area editor has had them since S3.
+                    EditorChrome.drawLiveEdgeDimensions(
+                        context: context,
+                        polygon: corners,
+                        edges: liveEdges,
+                        toScreen: pt,
+                        proxySize: proxy.size,
+                        format: units.format)
                 }
 
-                // The live figure during a drag, well above the finger.
-                if let liveLabel {
+                // The live figure during a drag, well above the finger —
+                // for the drags that have no natural edge to sit on. A
+                // corner drag DOES (ORD-31 draws it there, on both
+                // adjoining edges), and printing the same two numbers a
+                // second time in a floating capsule would be one reading
+                // too many.
+                if let liveLabel, liveEdges.isEmpty {
                     VStack {
                         Text(liveLabel)
                             .font(.system(size: 15, weight: .bold).monospacedDigit())
@@ -784,7 +813,11 @@ struct RoomEditorCore: View {
         // so with this branch dead every dimension tap fell through to the
         // tap-outside-to-leave branch at the bottom of this function.
         // Position in the order matters as much as being enabled at all.
-        if measuring == nil,
+        // `showDimensions` guards it because a hidden number is not a
+        // control: with the dimension layer off, this branch would claim
+        // taps on blank canvas outboard of the walls and open a keypad for
+        // a figure that is not on screen.
+        if showDimensions, measuring == nil,
             let edge = EditorChrome.dimensionHit(at: point, polygon: corners, scale: scale)
         {
             startMeasuring(at: edge)
@@ -1282,6 +1315,7 @@ struct RoomEditorCore: View {
                 depth: barDepth,
                 mode: mode,
                 supported: supportedActions,
+                hidden: hiddenActions,
                 onAction: perform,
                 // A wall or an opening selected swipes up into ITS OWN
                 // inspector (object-model §2b) rather than the room's — the
@@ -1389,6 +1423,36 @@ struct RoomEditorCore: View {
             // sheet's own Kind picker, the second removes it outright.
             return [.replaceWith, .delete]
         }
+    }
+
+    /// The verbs that do not apply to this shape at all, and are removed
+    /// from the bar rather than greyed.
+    ///
+    /// One entry so far. **`Set Size` on a room that is not a rectangle**:
+    /// the walk behind it types a width and a length, and a width and a
+    /// length do not describe an L. The reference removes the verb outright
+    /// and puts it back the moment the room is a rectangle again — so the
+    /// bar only ever offers what the shape can answer. Pull a corner out of
+    /// square and it goes; pull it back and it returns, because this is
+    /// recomputed from `corners` every render rather than latched.
+    private var hiddenActions: Set<EditorAction> {
+        PlanEditing.isRectangle(corners) ? [] : [.setSize]
+    }
+
+    /// Which edges carry a live figure right now — ORD-31.
+    ///
+    /// The two either side of the corner being dragged, and only while it is
+    /// being dragged. Empty otherwise, which is also what tells the floating
+    /// label to draw itself: exactly one of the two is ever on screen.
+    ///
+    /// Behind `showDimensions` with everything else the layer switch hides.
+    /// A drag still reports itself when dimensions are off — the floating
+    /// label takes over, because this returns empty and stands aside.
+    private var liveEdges: [Int] {
+        guard showDimensions, dragStart != nil, corners.count >= 3,
+            case .corner(let index) = selection
+        else { return [] }
+        return [(index - 1 + corners.count) % corners.count, index]
     }
 
     /// One bar tap. Only the verbs in `supportedActions` can arrive here —
@@ -1538,8 +1602,23 @@ struct RoomEditorCore: View {
             height: max(ys.max()! - ys.min()!, 0.1))
     }
 
+    /// Room metres → points, framed so the DIMENSIONS fit, not just the
+    /// walls.
+    ///
+    /// The inset was 48 while the outermost thing drawn was a per-wall
+    /// figure. ORD-23 put an overall line outboard of those, and a frame
+    /// that fits only the walls clips the number the operator opened the
+    /// room to read — so with the dimension layer on, the margin is the one
+    /// `EditorChrome.overallExtentRow` needs plus its own type. Turn
+    /// dimensions off and the room takes the space back.
+    ///
+    /// Standalone only. Entered from the storey canvas the camera is the
+    /// shared `StoreyViewport`, and `LevelCanvas.cameraBounds` leaves the
+    /// same margin there — in metres, so it interpolates with the zoom
+    /// rather than jumping at the start of it.
     private func fitScale(in size: CGSize) -> CGFloat {
-        let inset: CGFloat = 48
+        let inset: CGFloat =
+            showDimensions ? EditorChrome.overallExtentRow + EditorChrome.textLift + 12 : 48
         return min(
             (size.width - inset * 2) / bounds.width,
             (size.height - inset * 2) / bounds.height)

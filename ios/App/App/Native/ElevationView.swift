@@ -77,6 +77,10 @@ struct ElevationView: View {
     @State private var draggingOpening: (index: Int, startOffset: Double)?
     /// The Insert menu.
     @State private var insertOpen = false
+    /// Which way the last step went, so the turn animation below spins the
+    /// way the operator's thumb just pointed. `true` is the right-hand
+    /// arrow — the next wall clockwise round the room.
+    @State private var steppedForward = true
 
     /// **ONE** sheet for this view, chosen by an enum.
     ///
@@ -499,9 +503,17 @@ struct ElevationView: View {
                 // will not unify. Branching inside the handlers keeps both
                 // behaviours exactly as written without an eraser.
                 .gesture(faceGesture(face: face))
+                // Re-identified per wall, so stepping is a REPLACEMENT
+                // SwiftUI can transition rather than a redraw of the same
+                // view. Without the `.id` the canvas simply repaints and
+                // there is nothing to animate.
+                .id(edge)
+                .transition(Self.turn(forward: steppedForward))
 
                 // The steppers (G4). Overlaid rather than in the bar so they
                 // sit where the wall they lead to is — left button, left wall.
+                // OUTSIDE the transition above on purpose: the face turns,
+                // the controls that turn it stay put.
                 HStack {
                     stepper(system: "chevron.left") { step(-1) }
                     Spacer()
@@ -534,10 +546,62 @@ struct ElevationView: View {
     }
 
     /// Step to an adjoining wall, wrapping. A room is a loop; so is this.
+    ///
+    /// Animated as a TURN since 18 Aug 2026, at the owner's ask — *"when
+    /// clicking on arrows, I want an animation, like room turning."* Which
+    /// is the honest reading of what stepping means here: the four faces are
+    /// the inside of one room, and walking round to the next one is a pivot,
+    /// not a page change. `steppedForward` is set before the index so the
+    /// transition already knows which way to spin when SwiftUI evaluates it.
     private func step(_ delta: Int) {
         guard wallCount > 0 else { return }
-        wallIndex = ((edge + delta) % wallCount + wallCount) % wallCount
+        steppedForward = delta > 0
+        withAnimation(.easeInOut(duration: 0.35)) {
+            wallIndex = ((edge + delta) % wallCount + wallCount) % wallCount
+        }
         draft = nil
+        draggingOpening = nil
+    }
+
+    /// The wall face pivoting out of view while the next one pivots in —
+    /// one continuous rotation about the room's vertical axis.
+    ///
+    /// Both halves rotate the SAME way: going forward, the old face swings
+    /// off to the left and the new one arrives from the right, which is what
+    /// turning your head to the right actually looks like. Rotating them
+    /// oppositely would read as two doors closing, not one room turning.
+    ///
+    /// 62° rather than a full 90° because a face edge-on is a bare line —
+    /// the turn reads better stopping short of the degenerate angle, and it
+    /// keeps the drawing legible for more of the animation.
+    private static func turn(forward: Bool) -> AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: WallTurn(degrees: forward ? 62 : -62),
+                identity: WallTurn(degrees: 0)),
+            removal: .modifier(
+                active: WallTurn(degrees: forward ? -62 : 62),
+                identity: WallTurn(degrees: 0)))
+    }
+
+    /// One frame of the turn: a 3D rotation about the vertical axis, hinged
+    /// on the side the face is travelling toward, fading as it goes edge-on.
+    private struct WallTurn: ViewModifier {
+        let degrees: Double
+
+        func body(content: Content) -> some View {
+            content
+                .rotation3DEffect(
+                    .degrees(degrees),
+                    axis: (x: 0, y: 1, z: 0),
+                    anchor: degrees > 0 ? .leading : .trailing,
+                    // Shallow: a strong perspective on a flat architectural
+                    // drawing reads as a gimmick rather than a room.
+                    perspective: 0.45)
+                // Never fully transparent at the extremes — the face should
+                // look like it turned away, not like it was deleted.
+                .opacity(degrees == 0 ? 1 : 0.15)
+        }
     }
 
     /// The opening under a face-space point, if any — searched newest-first

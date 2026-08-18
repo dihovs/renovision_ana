@@ -558,6 +558,205 @@ enum EditorChrome {
         }
     }
 
+    // MARK: - The overall extent (ORD-23)
+
+    /// How far outboard of the room's bounding box the overall dimension
+    /// lines run. Past `overallRow` + `textLift` + half a line of type, so
+    /// the outer line clears the per-wall row beneath it whatever a wall
+    /// carries.
+    static let overallExtentRow: CGFloat = 56
+
+    /// The room's overall bounding extent — width along the bottom, depth up
+    /// the left — on their own outer lines, outboard of every per-wall one.
+    ///
+    /// **Two different quantities, not one** (object-model §5, and the owner
+    /// caught it himself on a trapezoid): a wall's own length is what a tape
+    /// reads along that wall — 2.610 on the slanted side — while the overall
+    /// vertical extent of the same room is 2.500. Their app draws both. With
+    /// only the first, a room that is not a rectangle cannot answer "how
+    /// deep is it", which is the question an estimator asks first.
+    ///
+    /// Orthogonal by definition, and independent of any wall being slanted:
+    /// this measures the bounding box, so it is the same figure however the
+    /// walls run inside it. On a true rectangle it agrees with the two wall
+    /// lengths it sits outside, and that is not redundancy worth suppressing
+    /// — the reference draws it there too, and a figure that appears only on
+    /// odd-shaped rooms is a figure nobody learns to look for.
+    ///
+    /// Drawn in the same hand as the per-wall lines — dotted witness lines,
+    /// fine opposed arrowheads, the figure along the run — because it is the
+    /// same kind of statement, one level further out.
+    ///
+    /// **It is dropped rather than drawn across the room** when there is no
+    /// room left outboard on screen: zoomed in far enough that a wall is
+    /// past the edge of the canvas, an "outer" line would have to be drawn
+    /// INSIDE the plan, and a dimension line lying across the thing it
+    /// measures reads as a wall. The camera is set up to leave the margin at
+    /// the framing both editors open at — see `RoomEditorCore.fitScale` and
+    /// `LevelCanvas.cameraBounds`.
+    static func drawOverallDimensions(
+        context: GraphicsContext,
+        polygon: [CGPoint],
+        toScreen: (CGPoint) -> CGPoint,
+        proxySize: CGSize,
+        format: LengthFormat
+    ) {
+        guard polygon.count >= 3 else { return }
+
+        let xs = polygon.map(\.x)
+        let ys = polygon.map(\.y)
+        let minX = xs.min()!, maxX = xs.max()!
+        let minY = ys.min()!, maxY = ys.max()!
+
+        // The box's own corners, taken through the SAME projection the walls
+        // use rather than assembled from screen extremes — one transform,
+        // one answer, and no second copy of the arithmetic to drift.
+        let topLeft = toScreen(CGPoint(x: minX, y: minY))
+        let bottomRight = toScreen(CGPoint(x: maxX, y: maxY))
+        let left = min(topLeft.x, bottomRight.x)
+        let right = max(topLeft.x, bottomRight.x)
+        let top = min(topLeft.y, bottomRight.y)
+        let bottom = max(topLeft.y, bottomRight.y)
+
+        // Nothing to measure: a room dragged down to a sliver gets no outer
+        // line, the same way a sliver wall gets no figure.
+        guard right - left > 1, bottom - top > 1 else { return }
+
+        // Width along the bottom.
+        if bottom + overallExtentRow + textLift + 12 < proxySize.height {
+            run(
+                context: context,
+                from: CGPoint(x: left, y: bottom), to: CGPoint(x: right, y: bottom),
+                normal: (0, 1), metres: maxX - minX, format: format, proxySize: proxySize)
+        }
+
+        // Depth up the left. The normal points AWAY from the room, so the
+        // line, its witness lines and its figure all step out together.
+        if left - (overallExtentRow + textLift + 12) > 0 {
+            run(
+                context: context,
+                from: CGPoint(x: left, y: top), to: CGPoint(x: left, y: bottom),
+                normal: (-1, 0), metres: maxY - minY, format: format, proxySize: proxySize)
+        }
+    }
+
+    /// One overall dimension run: witness lines, the line itself, arrowheads,
+    /// the figure. Shared by the two calls above so the horizontal and the
+    /// vertical cannot be drawn to two different conventions.
+    private static func run(
+        context: GraphicsContext,
+        from a: CGPoint, to b: CGPoint,
+        normal: (CGFloat, CGFloat),
+        metres: Double,
+        format: LengthFormat,
+        proxySize: CGSize
+    ) {
+        let length = hypot(b.x - a.x, b.y - a.y)
+        guard length > 1 else { return }
+        let ux = (b.x - a.x) / length
+        let uy = (b.y - a.y) / length
+        let (nx, ny) = normal
+        let off = overallExtentRow
+        let gap: CGFloat = 3
+        let overrun: CGFloat = 4
+
+        let da = CGPoint(x: a.x + nx * off, y: a.y + ny * off)
+        let db = CGPoint(x: b.x + nx * off, y: b.y + ny * off)
+
+        var witness = Path()
+        witness.move(to: CGPoint(x: a.x + nx * gap, y: a.y + ny * gap))
+        witness.addLine(to: CGPoint(x: da.x + nx * overrun, y: da.y + ny * overrun))
+        witness.move(to: CGPoint(x: b.x + nx * gap, y: b.y + ny * gap))
+        witness.addLine(to: CGPoint(x: db.x + nx * overrun, y: db.y + ny * overrun))
+        context.stroke(
+            witness, with: .color(dimensionGrey),
+            style: StrokeStyle(lineWidth: 0.6, dash: [1.5, 2.5]))
+
+        var line = Path()
+        line.move(to: da)
+        line.addLine(to: db)
+        context.stroke(line, with: .color(dimensionGrey), lineWidth: 0.7)
+
+        for p in [da, db] {
+            arrowheads(at: p, along: (ux, uy), context: context, color: dimensionGrey)
+        }
+
+        var angle = atan2(uy, ux)
+        if angle > .pi / 2 { angle -= .pi } else if angle < -.pi / 2 { angle += .pi }
+
+        let text = context.resolve(
+            Text(format.format(metres))
+                .foregroundStyle(Brand.blue)
+                .font(.system(size: 15, weight: .regular)))
+        let size = text.measure(in: proxySize)
+        let at = CGPoint(
+            x: (a.x + b.x) / 2 + nx * (off + textLift),
+            y: (a.y + b.y) / 2 + ny * (off + textLift))
+
+        context.drawLayer { layer in
+            layer.translateBy(x: at.x, y: at.y)
+            layer.rotate(by: Angle(radians: Double(angle)))
+            layer.fill(
+                Path(
+                    roundedRect: CGRect(
+                        x: -size.width / 2 - 3, y: -size.height / 2 - 1,
+                        width: size.width + 6, height: size.height + 2),
+                    cornerRadius: 3),
+                with: .color(Brand.surface.opacity(0.8)))
+            layer.draw(text, at: .zero, anchor: .center)
+        }
+    }
+
+    // MARK: - Live dimensions during a drag (ORD-31)
+
+    /// The lengths of the edges either side of the corner being dragged,
+    /// drawn ON those edges while the finger is down.
+    ///
+    /// object-model §2b, on editing a shape: *"Live dimensions appear on the
+    /// two edges adjoining the dragged point."* `AreaEditor` has had them
+    /// since S3 and they are the whole reason that gesture is usable — a
+    /// damaged patch is matched to a tape measure, not eyeballed, and the
+    /// same is true of a wall. This is that layer, ported, so the plan
+    /// editor and the area editor read the same.
+    ///
+    /// At the edge MIDPOINTS, which is what puts them clear of the finger:
+    /// the two edges adjoining a dragged corner run away from it, so their
+    /// middles are the furthest points on them from the hand.
+    ///
+    /// Red, like the area editor's — not the drafting grey of a settled
+    /// dimension. These are live and provisional; they disappear on lift,
+    /// and the drafted figure that replaces them is the one that counts.
+    static func drawLiveEdgeDimensions(
+        context: GraphicsContext,
+        polygon: [CGPoint],
+        edges: [Int],
+        toScreen: (CGPoint) -> CGPoint,
+        proxySize: CGSize,
+        format: LengthFormat
+    ) {
+        guard polygon.count >= 3 else { return }
+        for edge in edges where polygon.indices.contains(edge) {
+            let (ai, bi) = PlanEditing.edgeCorners(edge, count: polygon.count)
+            let A = toScreen(polygon[ai])
+            let B = toScreen(polygon[bi])
+            let at = CGPoint(x: (A.x + B.x) / 2, y: (A.y + B.y) / 2)
+
+            let text = context.resolve(
+                Text(format.format(PlanEditing.edgeLength(polygon, edge)))
+                    .foregroundStyle(.white)
+                    .font(.system(size: 12, weight: .bold).monospacedDigit()))
+            let size = text.measure(in: proxySize)
+            context.fill(
+                Path(
+                    roundedRect: CGRect(
+                        x: at.x - size.width / 2 - 5, y: at.y - size.height / 2 - 2,
+                        width: size.width + 10, height: size.height + 4),
+                    cornerRadius: (size.height + 4) / 2),
+                with: .color(.red.opacity(0.9)))
+            context.draw(text, at: at, anchor: .center)
+        }
+    }
+
     // MARK: - The selected wall's manipulators (§7)
 
     /// The indigo diamond drag handle at the wall's midpoint, and the small
@@ -919,13 +1118,26 @@ struct EditorActionBar: View {
     /// The verbs this editor can actually perform right now. Everything else
     /// in the row renders greyed.
     let supported: Set<EditorAction>
+    /// The verbs that are not merely unavailable but **do not apply to this
+    /// thing at all**, and are removed from the row rather than greyed.
+    ///
+    /// The distinction is the reference's own, seen on `Set Size`: on a room
+    /// that is not a rectangle the verb is GONE, and it comes back the
+    /// moment the shape is a rectangle again. Grey says "not now"; absent
+    /// says "not a question you can ask of this shape". Everything the
+    /// header above argues for greying — Add Wall, Split Room, the verbs
+    /// observed but never performed — is unchanged by this: those stay in
+    /// place, greyed, because they DO apply and we simply cannot do them.
+    var hidden: Set<EditorAction> = []
     let onAction: (EditorAction) -> Void
     /// The swipe-up gesture into the inspector. nil where there is no
     /// inspector to reach — and then the caption is not drawn either, because
     /// a caption promising a gesture that does nothing is worse than none.
     var onInfo: (() -> Void)?
 
-    private var actions: [EditorAction] { EditorAction.bar(depth: depth, mode: mode) }
+    private var actions: [EditorAction] {
+        EditorAction.bar(depth: depth, mode: mode).filter { !hidden.contains($0) }
+    }
 
     var body: some View {
         // 3D is read-only, and §4 gives it no bar at all.

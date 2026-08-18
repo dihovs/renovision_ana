@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { SITE_PHONE } from "@/lib/constants";
+import { formatDialed, sanitisePasted } from "@/lib/phone";
 
 /**
  * Call any number from the business line.
@@ -61,8 +62,13 @@ export default function Dialer({
       >
         <input
           type="tel"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
+          // Sanitised on the way in and formatted on the way out, the same as
+          // the softphone keypad and the new-text form. Pasting a number
+          // copied from an email — "+1 (514) 555-0188", "514.555.0188" — used
+          // to arrive here verbatim and reach the call handler unnormalised,
+          // because this was the one dial input that never got `lib/phone`.
+          value={formatDialed(phone)}
+          onChange={(event) => setPhone(sanitisePasted(event.target.value))}
           placeholder="(514) 555-0188"
           // inputMode so a phone keyboard opens on the number pad rather than
           // the alphabet — he is standing on a job site as often as at a desk.

@@ -5,6 +5,7 @@ import AdminNotice from "@/components/admin/AdminNotice";
 import SmsThread from "@/components/admin/SmsThread";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
 import { formatDialed } from "@/lib/phone";
+import SaveContactForm from "@/components/admin/SaveContactForm";
 import { findClientForPhone } from "@/lib/sms/attribution";
 import { listThread, type SmsThread as Thread } from "@/lib/sms/thread";
 
@@ -77,9 +78,13 @@ export default async function MessageThreadPage({
             Open client page
           </Link>
         ) : (
-          <span className="text-xs leading-relaxed text-charcoal/45">
-            Not in the CRM yet — texting works anyway.
-          </span>
+          // An unknown number is ordinary here, but it used to be a dead end:
+          // the page said so and offered nothing. The moment a stranger turns
+          // out to be a job, the number is already in hand and already E.164.
+          <SaveContactForm
+            phone={formatDialed(phone)}
+            action={saveAsClientAction.bind(null, phone)}
+          />
         )}
       </div>
 

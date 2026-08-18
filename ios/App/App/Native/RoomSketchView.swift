@@ -369,10 +369,31 @@ struct RoomSketchView: View {
                                 }(),
                                 lockedEdges: [],
                             format: units.format)
+
+                            // ORD-23, the same outer line the plan editor
+                            // draws — this canvas opens as a rectangle and
+                            // is pulled out of one, which is precisely the
+                            // shape that needs it.
+                            EditorChrome.drawOverallDimensions(
+                                context: context,
+                                polygon: corners,
+                                toScreen: pt,
+                                proxySize: size,
+                                format: units.format)
                         }
+
+                        // ORD-31, on the two edges adjoining the corner in
+                        // the hand.
+                        EditorChrome.drawLiveEdgeDimensions(
+                            context: context,
+                            polygon: corners,
+                            edges: liveEdges,
+                            toScreen: pt,
+                            proxySize: size,
+                            format: units.format)
                     }
 
-                    if let liveLabel {
+                    if let liveLabel, liveEdges.isEmpty {
                         VStack {
                             Text(liveLabel)
                                 .font(.system(size: 15, weight: .bold).monospacedDigit())
@@ -539,6 +560,7 @@ struct RoomSketchView: View {
             EditorActionBar(
                 depth: barDepth,
                 supported: supportedActions,
+                hidden: hiddenActions,
                 onAction: perform)
         }
         .padding(.top, Brand.Space.small)
@@ -588,6 +610,26 @@ struct RoomSketchView: View {
         case .opening:
             return [.delete]
         }
+    }
+
+    /// The edges carrying a live figure — ORD-31, and the same rule as
+    /// `PlanEditorView.liveEdges`: the two either side of the corner being
+    /// dragged, only while it is being dragged, and only with the dimension
+    /// layer on.
+    private var liveEdges: [Int] {
+        guard showDimensions, dragStart != nil, corners.count >= 3,
+            case .corner(let index) = selection
+        else { return [] }
+        return [(index - 1 + corners.count) % corners.count, index]
+    }
+
+    /// `Set Size` disappears once this room is no longer a rectangle, and
+    /// comes back if it is pulled square again — the same rule and the same
+    /// reasoning as `PlanEditorView.hiddenActions`. It matters more here
+    /// than there: this canvas OPENS as a typed rectangle, so the shape a
+    /// finger pulls it into is exactly the case the verb stops applying to.
+    private var hiddenActions: Set<EditorAction> {
+        PlanEditing.isRectangle(corners) ? [] : [.setSize]
     }
 
     private func perform(_ action: EditorAction) {

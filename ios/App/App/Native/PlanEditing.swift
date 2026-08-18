@@ -364,6 +364,46 @@ enum PlanEditing {
         return abs(sum) / 2
     }
 
+    /// Is this room a rectangle?
+    ///
+    /// Asked by the editors to decide whether `Set Size` is offered at all.
+    /// The reference REMOVES that verb from the bar on a room that is not a
+    /// rectangle and restores it when the shape becomes one again — because
+    /// the walk behind it types a width and a length, and a width and a
+    /// length do not describe an L. Greying it would say "not now"; the
+    /// reference says "not a thing you can do to this shape", and the bar
+    /// stays the one the owner learned by only ever offering verbs that
+    /// apply.
+    ///
+    /// Four corners, four square angles. Nothing is said about the SIDES:
+    /// a square is a rectangle, and the walk sets both dimensions anyway.
+    ///
+    /// **The tolerance is not fussiness.** Every corner this editor produces
+    /// is quantised to `quantum` — one centimetre — so a 1 m wall built by
+    /// dragging can sit 0.57° off square while being as square as this app
+    /// can represent. A hair over one degree keeps that case, and a shape a
+    /// hand deliberately pulled out of square is always far past it.
+    static func isRectangle(_ polygon: [CGPoint], tolerance: Double = 1.2 * .pi / 180) -> Bool {
+        guard polygon.count == 4 else { return false }
+        let limit = sin(tolerance)
+        // A collapsed edge has no direction, and `normalised` answers with a
+        // placeholder rather than nothing — so it is ruled out here instead
+        // of being allowed to pass as a right angle by accident.
+        let collapsed = polygon.indices.contains {
+            length(sub(polygon[($0 + 1) % 4], polygon[$0])) < 1e-6
+        }
+        guard !collapsed else { return false }
+        for i in polygon.indices {
+            let previous = normalised(sub(polygon[i], polygon[(i + 3) % 4]))
+            let next = normalised(sub(polygon[(i + 1) % 4], polygon[i]))
+            // Perpendicular means the DOT is zero; comparing it against the
+            // sine of the angle is what makes the tolerance an angle rather
+            // than a length, at any size of room.
+            guard abs(dot(previous, next)) < limit else { return false }
+        }
+        return true
+    }
+
     /// Standard ray-casting point-in-polygon, same shape as
     /// `FloorPlanGeometry.labelAnchor`'s private `inside()` — kept here,
     /// shared, rather than reinvented a third time. A tap that is not near

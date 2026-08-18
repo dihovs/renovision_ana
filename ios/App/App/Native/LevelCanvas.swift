@@ -1104,7 +1104,25 @@ struct FloorCanvasView: View {
         guard let cameraFocusID, let storeyRoom = cachedLayout.room(id: cameraFocusID) else {
             return adjustedFloorBounds
         }
-        return storeyRoom.floorBounds
+        // Framed with room outboard of the walls, because what the editor
+        // draws is wider than the room: per-wall dimension lines, and since
+        // ORD-23 an overall extent line outside those again. Fit the walls
+        // alone and the outermost figure is off the edge of the canvas.
+        //
+        // Expressed as a FRACTION of the room rather than as a viewport
+        // inset, and that is the whole point: `bounds` is the value
+        // `AnimatedStoreyViewport` interpolates, so a margin expressed here
+        // zooms continuously with everything else. An inset changed at the
+        // moment focus is taken would step the base layer's scale on the
+        // first frame of the transition — a pop, in the one animation this
+        // app has already had rejected twice for not reading as one
+        // continuous zoom.
+        //
+        // 0.22 each side is `EditorChrome.overallExtentRow` and its type
+        // against a room filling a phone canvas; being proportional it
+        // holds at any room size, since the scale adjusts with it.
+        let bounds = storeyRoom.floorBounds
+        return bounds.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22)
     }
 
     /// The whole floor, moved and scaled by whatever the fingers have done

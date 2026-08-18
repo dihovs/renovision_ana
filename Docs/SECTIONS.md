@@ -1743,4 +1743,25 @@ Newest last. One or two lines per chat.
   Metric area/volume keep one decimal where imperial keeps none — 1 m² is
   nearly 11 sq ft, so rounding to a whole m² discards about ten times as
   much, which shows on a small bathroom.
+- **2026-08-18** — Build 119. *"When clicking on arrows, I want an
+  animation, like room turning."* Stepping between wall faces now pivots:
+  the outgoing face rotates about the room's vertical axis while the
+  incoming one arrives from the other side, `.easeInOut` over 0.35s.
+
+  Both halves rotate the SAME way — going forward the old face swings off
+  left and the new arrives from the right, which is what turning your head
+  to the right looks like. Rotating them oppositely reads as two doors
+  closing, not one room turning. 62° rather than 90° because a face
+  edge-on is a bare line, and stopping short keeps the drawing legible for
+  more of the animation; opacity bottoms out at 0.15 rather than 0 so the
+  face looks turned away rather than deleted.
+
+  Two details worth keeping: the canvas needed `.id(edge)` before SwiftUI
+  would treat a step as a REPLACEMENT it can transition rather than a
+  repaint of the same view, and the steppers sit OUTSIDE the transition on
+  purpose — the face turns, the controls that turn it stay put.
+  `steppedForward` is set before the index so the transition already knows
+  its direction when SwiftUI evaluates it.
+
+  Build 119 confirmed on the device; not yet looked at.
 
