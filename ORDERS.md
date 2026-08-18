@@ -744,3 +744,50 @@ Also relevant: the same chooser is reached from two places (Insert → Room on
 the floor canvas, and the project's own Add Floor Plan), so this is one
 component, not two.
 
+---
+
+## ORD-42 — Edit Layout: tap-and-hold to move and rotate a room in place
+
+**Shown by the owner, 18 Aug 2026**, with a screenshot of magicplan's own
+mode — a selected `Bedroom` carrying a blue four-way move handle and a
+curved rotate arrow directly on the room, action bar reduced to
+`Insert · Duplicate · Delete…`:
+
+> *"You tap and hold in the storey mode, and it automatically brings the
+> screen, and you can move it around and turn. In magicplan you can do that
+> on separate rooms even if it's a part of a big floor plan and if it's
+> attached. But I don't see a point."*
+
+This is `EditorAction.editLayout` — a verb the bar has always drawn and
+never implemented, and one `interactions-editor.md`'s open-questions list
+item 3 flags as unobserved in its RESULTS (*"No post-drag frame. Snap
+increments, rotation pivot, and whether rooms snap wall-to-wall with
+adjacent rooms are all unknown"*). His screenshot now answers what the mode
+LOOKS like and how it is entered; what it does on release is still open.
+
+**Note the divergence he chose, and keep it.** magicplan allows this on any
+room, attached or not. He explicitly does not want that — his rule, from the
+same conversation, is that only a room touching nothing else may turn (built
+18 Aug as `StoreyLayout.detachedRooms`, wired to floor-depth `Rotate`).
+Moving a room that shares a wall tears it off its neighbour and invents a
+building that does not exist. **Whatever this order builds must honour the
+detachment rule for ROTATION**; free MOVEMENT of an attached room is a
+separate question worth putting back to him.
+
+**Scope.**
+1. Long-press a room on the storey canvas → layout mode for that room.
+2. The two on-room handles from his screenshot: four-way move, curved
+   rotate. Ours to draw, per the standing rule.
+3. Drag to move → writes `planX`/`planY` (`API.placeRoom` already exists).
+4. Rotate → `PlanEditing.rotatedQuarterTurn` exists and is already used by
+   floor-depth Rotate; a free-angle version would need a real decision about
+   snap increments, which the reference does not answer.
+5. Action bar reduces to `Insert · Duplicate · Delete…` while in the mode.
+
+**Sequencing.** `FloorCanvasView`'s long-press is currently unused, so the
+gesture is free — but note the canvas already carries tap (enter room),
+drag (pan) and pinch (zoom), and the owner asked specifically for one-finger
+pan. A long-press that steals from the pan gesture would be a regression;
+`.simultaneousGesture` and a minimum duration need testing on a real thumb,
+not just in principle.
+

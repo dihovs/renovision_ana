@@ -1426,10 +1426,21 @@ struct FloorCanvasView: View {
                 }
                 EditorActionBar(
                     depth: .floor(name: label),
-                    supported: [.insert],
+                    // Rotate earns its place only when there is something it
+                    // is ALLOWED to turn — see `StoreyLayout.detachedRooms`
+                    // and the owner's own rule recorded there. On a floor
+                    // whose rooms are all joined up it stays dimmed, which
+                    // is now a true statement about this floor rather than
+                    // an unimplemented button.
+                    supported: rotatableRooms.isEmpty ? [.insert] : [.insert, .rotate],
                     onAction: { action in
-                        if action == .insert {
+                        switch action {
+                        case .insert:
                             withAnimation(.snappy(duration: 0.18)) { insertOpen.toggle() }
+                        case .rotate:
+                            Task { await rotateDetachedRooms() }
+                        default:
+                            break
                         }
                     },
                     // Passing this is what draws the
@@ -1504,6 +1515,53 @@ struct FloorCanvasView: View {
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
+    }
+
+    /// Rooms a quarter-turn may move — detached ones only, per the owner's
+    /// own rule. Read from the cached layout, so this costs nothing per
+    /// frame the way recomputing the packing would.
+    private var rotatableRooms: [StoreyRoom] {
+        guard focusedRoomID == nil else { return [] }
+        return cachedLayout.detachedRooms
+    }
+
+    /// Turn every detached room on this floor a quarter-turn clockwise.
+    ///
+    /// One save each, sequentially rather than concurrently: these are PATCHes
+    /// against the same floor, and a half-applied rotation is far easier to
+    /// understand when the failure stops the run than when four of seven
+    /// rooms turned in parallel and the rest did not. A failure leaves the
+    /// rooms already turned actually turned — they are saved, not staged —
+    /// which is why `load()` runs regardless, so the canvas shows what is
+    /// really stored rather than what was intended.
+    private func rotateDetachedRooms() async {
+        let targets = rotatableRooms
+        guard !targets.isEmpty else { return }
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+
+        for target in targets {
+            // The room's own corners, in ITS local space — the same space
+            // `saveEditedPlan` reads and `RoomEditorCore` edits in, so this
+            // writes exactly what an edit by hand would have.
+            let polygon = target.plan.polygon
+            let corners = polygon.count >= 4 ? Array(polygon.dropLast()) : polygon
+            guard corners.count >= 3 else { continue }
+
+            let turned = PlanEditing.rotatedQuarterTurn(corners)
+            let openings = (target.room.geometry?.authoredOpenings ?? []).compactMap {
+                record -> PlanEditing.WallOpening? in
+                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
+                return PlanEditing.WallOpening(
+                    edge: record.edge, offset: record.offset, width: record.width,
+                    height: record.height, sill: record.sill, kind: kind)
+            }
+            try? await API.shared.saveEditedPlan(
+                roomId: target.id, corners: turned,
+                locked: target.room.geometry?.lockedEdges ?? [],
+                openings: openings,
+                ceilingHeight: target.room.ceilingHeightM)
+        }
+        await load()
     }
 
     private func load() async {

@@ -1610,4 +1610,27 @@ Newest last. One or two lines per chat.
   and position on that floor, N saves, and its own undo semantics — real
   scope, on top of a behaviour nobody has actually observed. Flagged, not
   guessed at. **Worth simply asking him what he expects it to do.**
+- **2026-08-18** — Build 113. **Rotate now does something, and the rule is
+  the owner's own.** Asked what it should do (the reference's own
+  open-questions list records that its floor-level Rotate was never
+  tapped), he answered: *"floorplan doesn't turn, separate rooms will, but
+  only when it is not a part of a floorplan and not attached."* So:
+  `StoreyLayout.detachedRooms` — bounding-box overlap with a wall's
+  thickness of slack, deliberately coarse in the safe direction (a false
+  ATTACHED is one room that will not spin; a false DETACHED is a plan torn
+  apart) — and floor-depth Rotate turns exactly those, a quarter-turn
+  clockwise, one save each, sequentially. On a floor whose rooms all touch,
+  the button stays dimmed, which is now a TRUE statement about that floor
+  rather than an unimplemented control.
+
+  `PlanEditing.rotatedQuarterTurn` is pure and needs no opening
+  bookkeeping at all: a `WallOpening` lives on an edge INDEX with an offset
+  along it, so rotating every corner leaves edge N still edge N, same
+  length, same opening the same distance along it — the payoff of storing
+  openings against edges rather than world coordinates.
+
+  He also sent magicplan's own **Edit Layout** mode (long-press a room →
+  on-room move and rotate handles) and noted it permits this on attached
+  rooms too, adding *"but I don't see a point."* Filed as **ORD-42** with
+  his detachment rule recorded as a deliberate divergence to keep.
 

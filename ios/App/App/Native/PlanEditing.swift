@@ -681,6 +681,36 @@ enum PlanEditing {
     /// the merged edge — the second edge's offsets pushed past the first.
     ///
     /// The merged edge is the straight chord, not the sum of the two old
+    /// Turn a room a quarter-turn about its own centre.
+    ///
+    /// Clockwise on screen, where y grows downward: `(x, y) → (-y, x)` about
+    /// the centroid. Openings need no adjustment at all — a `WallOpening`
+    /// lives on an EDGE INDEX with an offset along it, and rotating every
+    /// corner leaves edge N still edge N, the same length, with the same
+    /// opening the same distance along it. That is the whole benefit of
+    /// storing openings against edges rather than world coordinates.
+    ///
+    /// The centroid is the plain average of the corners, not the polygon's
+    /// area centroid: the two differ on an L, and the average is what keeps
+    /// a room visually where it was — which is the only thing this needs to
+    /// do, since nothing downstream depends on which point was pivoted about.
+    static func rotatedQuarterTurn(_ polygon: [CGPoint]) -> [CGPoint] {
+        guard polygon.count >= 3 else { return polygon }
+        var cx = 0.0
+        var cy = 0.0
+        for p in polygon {
+            cx += p.x
+            cy += p.y
+        }
+        cx /= Double(polygon.count)
+        cy /= Double(polygon.count)
+        return polygon.map { p in
+            let dx = p.x - cx
+            let dy = p.y - cy
+            return quantise(CGPoint(x: cx - dy, y: cy + dx))
+        }
+    }
+
     /// walls, so the offsets are approximate for a deep corner. The corner
     /// being deleted is almost always a near-collinear kink, where the chord
     /// and the sum agree; the clamp catches the rest.

@@ -167,6 +167,36 @@ struct StoreyLayout {
     }
 
     func room(id: String) -> StoreyRoom? { rooms.first { $0.id == id } }
+
+    /// Rooms that touch nothing else on this floor — the ones a quarter-turn
+    /// is allowed to move.
+    ///
+    /// The owner set this rule himself, 18 Aug 2026, asked what Rotate should
+    /// do: *"floorplan doesn't turn, separate rooms will, but only when it is
+    /// not a part of a floorplan and not attached — let's say create a
+    /// separate room, as long as it is not attached to the main floor, it can
+    /// turn."* Which is right, and for a reason beyond preference: rooms that
+    /// share a wall were positioned against each other, by the multi-room
+    /// scan merge or by hand on the web canvas. Spinning one of those in
+    /// isolation would tear it off its neighbour and silently invent a
+    /// building that does not exist.
+    ///
+    /// "Attached" is a bounding-box overlap test with a wall's thickness of
+    /// slack, so rooms drawn wall-to-wall — the boxes touching but not
+    /// overlapping — still count as attached. Deliberately coarse: the cost
+    /// of a false ATTACHED is one room that will not spin, which is
+    /// recoverable and obvious; the cost of a false DETACHED is a plan
+    /// quietly torn apart.
+    var detachedRooms: [StoreyRoom] {
+        guard rooms.count > 1 else { return rooms }
+        let slack = 0.15
+        return rooms.filter { candidate in
+            let a = candidate.floorBounds.insetBy(dx: -slack, dy: -slack)
+            return !rooms.contains { other in
+                other.id != candidate.id && a.intersects(other.floorBounds)
+            }
+        }
+    }
 }
 
 /// Every room on the floor, drawn quietly through the SHARED, animated
