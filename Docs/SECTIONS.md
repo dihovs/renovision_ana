@@ -40,7 +40,7 @@ Commit the ledger update with the work.
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
 | **S10** | Report parity | NOT STARTED | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **BLOCKED** | owner input | `livingArea.ts`, `CaptureFlow.swift` |
-| **S12** | Project and floor screens | NOT STARTED | — | `ProjectsView.swift`, `LevelCanvas.swift` |
+| **S12** | Project and floor screens | **PROJECT DONE · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
 
 **Two verifications** were folded into the sections that own them: the
@@ -523,6 +523,62 @@ their sort order** — "Sorted by floor level", "Sorted by last modified" — wh
 on a 39-photo job is the difference between finding a photo and scrolling. Floor
 sheet parity, including the per-level wall-thickness override that the data model
 already supports but no screen can set.
+
+**What landed (17 Aug 2026) — the PROJECT half of this section is done.**
+
+Grid: `All / Favorites / Archived` chips (the reference's own three,
+replacing measured / to-measure), archived served by its own
+`?status=archived` query with **Restore** in place of the ⋯ menu; per-card
+⋯ menu `Favourite · Move · Duplicate · Archive…` and a star badge;
+`WorkspaceInfoRow` carrying the project count and real pending-upload state
+from `ScanQueue`. Migration **0035** (`assigned_to`, `is_favorite`) and
+**0036** (`address_line1/city/postal`), both applied to production.
+
+Project page, in the reference's order: description row → address card →
+Forms → Statistics 4-up (`Floor Area · Wall Area · # Floors · # Rooms`) +
+See All → Floor Plans rail → Photos rail → Files rail → Created / Last
+modified. Plus `Project Info` behind the pencil, the title-bar menu, the
+`Export Floor Plans` sheet behind share, and an `Add Floor` sheet behind the
+Floor Plans +. Equipment and the living-area card came off the page at the
+owner's instruction; living area moved into Project Info rather than being
+deleted.
+
+**A map-based `Project Location` picker** replaced the three blind address
+boxes: Apple's own `MKLocalSearchCompleter` for search, a fixed centre pin
+the map slides under, and reverse geocoding to read the address OFF the
+map. MapKit needs no key and no quota — an earlier note here claiming it
+did was wrong.
+
+**Scanning left the tab bar and the floating button**, per the owner: it is
+now the + at the head of the Floor Plans rail, which is where the reference
+starts a floor plan. Home's "Scan a room" still covers a measurement taken
+before the job exists.
+
+**Three bugs found, all the same family — a screen unable to show what the
+database already held.** `ProjectSummary.==` compared ids only, so SwiftUI
+correctly declined to redraw a card whose star had changed (favourite
+looked permanently stuck, and every write had in fact succeeded).
+`URLSession` sat on the default cache policy, which will serve a stale GET.
+The New Project tile was drawn with `strokeBorder`, which fills nothing, so
+only its 1.5pt outline took a tap. Also fixed: + created a project on tap
+(empty "New project N" rows piled up — it opens the form now, Save
+creates), and favouriting bumped `updated_at`, shuffling starred jobs to
+the top of a grid ordered by it.
+
+**THE FLOOR HALF IS NOT BUILT, and here is exactly what it is.** Choosing a
+storey in `Add Floor` currently opens the SCANNER on that floor. The
+reference opens an empty **floor editor**: nav `‹ ⊞ Ground Floor ? ⇪`,
+undo/redo pill top-left, the layers and `2D` steppers top-right, a dotted
+drafting grid, a bottom action bar carrying a single `+ Insert`, and the
+caption `Swipe up ↑ for Ground Floor info`. That is `PlanEditorView`'s
+chrome at FLOOR depth — `editor-chrome-design.md` §4 already lists it
+(`Floor level | Insert · Rotate`). What exists today is `StoreyPlanView`,
+which DRAWS a storey's rooms but has none of that chrome and cannot insert.
+Building it means either lifting the chrome out of `PlanEditorView` so both
+depths share it, or giving `StoreyPlanView` its own — worth deciding
+deliberately, because two copies of that chrome is exactly the kind of
+drift `PlanTransform` was written to end. **S5 owns the chrome; this
+section owns the screen.**
 
 **From S1 — a question for the owner, before this section builds Dimensions.**
 The floor sheet's Dimensions block is `Ceiling Height · Interior Wall Thickness
