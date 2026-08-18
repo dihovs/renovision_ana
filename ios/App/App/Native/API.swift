@@ -284,9 +284,22 @@ actor API {
 
     /// The list plus the names already assigned to something — one request,
     /// because the assign sheet needs both and the phone may be on one bar.
-    func projectsWithAssignees() async throws -> ([ProjectSummary], [String]) {
-        let response = try await get("/api/v1/projects", as: ProjectListResponse.self)
+    ///
+    /// `archived` asks the server for the put-away projects instead of the
+    /// live ones. They are a different query rather than a client-side
+    /// filter because the ordinary list never carries them at all — which is
+    /// the point of archiving.
+    func projectsWithAssignees(archived: Bool = false) async throws -> ([ProjectSummary], [String]) {
+        let response = try await get(
+            archived ? "/api/v1/projects?status=archived" : "/api/v1/projects",
+            as: ProjectListResponse.self)
         return (response.projects, response.assignees)
+    }
+
+    /// Put an archived project back on the list.
+    func restoreProject(id: String) async throws {
+        struct Status: Encodable { let status = "active" }
+        _ = try await request("/api/v1/projects/\(id)", method: "PATCH", body: Status())
     }
 
     /// `Move` — hand the job to somebody by name. Nil unassigns.

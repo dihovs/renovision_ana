@@ -7,12 +7,21 @@ import { createProject, listAssignees, listProjects } from "@/lib/crm/projects";
  *
  * Trimmed to what a picker needs — a scanner standing in a doorway wants a
  * name and a client, not a file library. Archived projects are excluded by
- * `listProjects` already, which is right here: you do not measure a
- * property that has been put away.
+ * `listProjects` by default, which is right: you do not measure a property
+ * that has been put away.
+ *
+ * `?status=archived` asks for exactly those instead — what the grid's
+ * `Archived` chip reads, and the only way back to a project put away by
+ * mistake. Any other status value is ignored rather than refused: an
+ * unrecognised filter should show the ordinary list, not an error screen on
+ * a phone.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const archived = new URL(request.url).searchParams.get("status") === "archived";
   return guarded(async () => ({
-    projects: (await listProjects({ limit: 200 })).map((project) => ({
+    projects: (await listProjects(
+      archived ? { status: "archived", limit: 200 } : { limit: 200 },
+    )).map((project) => ({
       id: project.id,
       name: project.name,
       clientName: project.client_name,

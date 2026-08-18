@@ -32,21 +32,25 @@ struct ProjectsView: View {
     /// Guards Duplicate against a double tap making two copies of a job.
     @State private var duplicating = false
 
-    /// The reference filters All / Favorites / Archived. Neither of those is
-    /// a thing this trade has; what an operator actually sorts by is whether
-    /// the job has been measured yet, which is the one fact that decides
-    /// whether they need to drive there.
-    enum ProjectFilter: Hashable { case all, measured, unmeasured }
+    /// The reference's own three: All / Favorites / Archived.
+    ///
+    /// This screen used to filter by measured / to-measure instead, on the
+    /// reasoning that "has anybody been there yet" is what decides whether
+    /// you drive out. That reasoning was not wrong, but it was not the
+    /// owner's — and the standing instruction is that the interface matches
+    /// what his hands already know. Measured-ness is still visible on every
+    /// card's own caption, which is where it was doing its work anyway.
+    ///
+    /// `archived` is not a client-side filter like the other two: the
+    /// ordinary list never contains an archived project, so choosing it
+    /// re-queries the server.
+    enum ProjectFilter: Hashable { case all, favorites, archived }
 
     private var shown: [ProjectSummary] {
         guard let projects else { return [] }
-        let byFilter = projects.filter {
-            switch filter {
-            case .all: return true
-            case .measured: return $0.roomCount > 0
-            case .unmeasured: return $0.roomCount == 0
-            }
-        }
+        // .archived is already the whole of what was fetched; .all excludes
+        // nothing. Only favourites narrows what is in hand.
+        let byFilter = filter == .favorites ? projects.filter(\.favorite) : projects
         guard !query.isEmpty else { return byFilter }
         return byFilter.filter {
             $0.name.localizedCaseInsensitiveContains(query)
@@ -55,6 +59,27 @@ struct ProjectsView: View {
     }
 
     private var measured: Int { (projects ?? []).reduce(0) { $0 + $1.roomCount } }
+
+    private var emptyTitle: String {
+        if !query.isEmpty { return "No match" }
+        switch filter {
+        case .all: return "No projects yet"
+        case .favorites: return "Nothing starred yet"
+        case .archived: return "Nothing archived yet"
+        }
+    }
+
+    private var emptyBody: String {
+        if !query.isEmpty { return "Nothing matches “\(query)”." }
+        switch filter {
+        case .all:
+            return "A measurement belongs to a job. Create the project first and its floor plans live inside it."
+        case .favorites:
+            return "Star a job from its ⋯ menu and it collects here — the handful you are actually working this week."
+        case .archived:
+            return "Archived jobs are kept indefinitely. Nothing measured under them is deleted, and any of them can be restored."
+        }
+    }
 
     var body: some View {
         // Pinned light, like the reference and like every other
@@ -76,11 +101,19 @@ struct ProjectsView: View {
                             FilterChips(
                                 options: [
                                     (.all, "All", "briefcase"),
-                                    (.measured, "Measured", "ruler"),
-                                    (.unmeasured, "To measure", "tray"),
+                                    (.favorites, "Favorites", "star"),
+                                    (.archived, "Archived", "archivebox"),
                                 ],
                                 selection: $filter)
                             .padding(.bottom, 2)
+                            // Archived lives behind its own query, so moving
+                            // to or from it has to refetch rather than just
+                            // narrow what is already on screen.
+                            .onChange(of: filter) { previous, next in
+                                if previous == .archived || next == .archived {
+                                    Task { await load() }
+                                }
+                            }
                         }
 
                         if let error {
@@ -103,16 +136,12 @@ struct ProjectsView: View {
                         } else if shown.isEmpty {
                             Card {
                                 VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                                    Text(query.isEmpty ? "No projects yet" : "No match")
+                                    Text(emptyTitle)
                                         .font(.headline)
                                         .foregroundStyle(Brand.ink)
-                                    Text(
-                                        query.isEmpty
-                                            ? "A measurement belongs to a job. Create the project first and its floor plans live inside it."
-                                            : "Nothing matches “\(query)”."
-                                    )
-                                    .font(.callout)
-                                    .foregroundStyle(Brand.inkSoft)
+                                    Text(emptyBody)
+                                        .font(.callout)
+                                        .foregroundStyle(Brand.inkSoft)
                                 }
                             }
                         } else {
@@ -122,7 +151,11 @@ struct ProjectsView: View {
                             CardGrid(
                                 items: shown,
                                 addLabel: "New Project",
-                                onAdd: { Task { await createNow() } },
+                                // No create tile among the archived: making a
+                                // new job from the drawer of put-away ones
+                                // would file it somewhere it cannot be seen.
+                                onAdd: filter == .archived
+                                    ? nil : { Task { await createNow() } },
                                 onOpen: { opened = $0 },
                                 caption: { project in
                                     // Who it is on takes the third line when
@@ -154,10 +187,12 @@ struct ProjectsView: View {
                                 AnyView(
                                     ProjectCardMenu(
                                         isFavorite: project.favorite,
+                                        isArchived: filter == .archived,
                                         onFavorite: { Task { await toggleFavorite(project) } },
                                         onMove: { assigning = project },
                                         onDuplicate: { Task { await duplicate(project) } },
-                                        onArchive: { archiving = project }))
+                                        onArchive: { archiving = project },
+                                        onRestore: { Task { await restore(project) } }))
                             } isFavorite: { project in
                                 project.favorite
                             }
@@ -261,6 +296,15 @@ struct ProjectsView: View {
         }
     }
 
+    private func restore(_ project: ProjectSummary) async {
+        do {
+            try await API.shared.restoreProject(id: project.id)
+            await load()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     private func archive(_ project: ProjectSummary) async {
         archiving = nil
         do {
@@ -308,7 +352,8 @@ struct ProjectsView: View {
 
     private func load() async {
         do {
-            let (list, people) = try await API.shared.projectsWithAssignees()
+            let (list, people) = try await API.shared.projectsWithAssignees(
+                archived: filter == .archived)
             projects = list
             assignees = people
             error = nil
@@ -364,27 +409,38 @@ struct WorkspaceInfoRow: View {
 /// shorter than the reference's own.
 private struct ProjectCardMenu: View {
     let isFavorite: Bool
+    /// True when this card is being shown under the `Archived` chip. An
+    /// archived project's one useful action is coming back, and offering to
+    /// archive it again would be a no-op dressed as a choice.
+    let isArchived: Bool
     let onFavorite: () -> Void
     let onMove: () -> Void
     let onDuplicate: () -> Void
     let onArchive: () -> Void
+    let onRestore: () -> Void
 
     var body: some View {
         Menu {
-            // The reference's own order (INT-P03): Favorite · Move ·
-            // Duplicate, then Archive separated below in red. Only the
-            // destructive one carries an ellipsis, because only it asks a
-            // second question.
-            Button(action: onFavorite) {
-                Label(
-                    isFavorite ? "Remove from favourites" : "Favourite",
-                    systemImage: isFavorite ? "star.slash" : "star")
-            }
-            Button(action: onMove) { Label("Move", systemImage: "person.crop.circle") }
-            Button(action: onDuplicate) { Label("Duplicate", systemImage: "doc.on.doc") }
-            Divider()
-            Button(role: .destructive, action: onArchive) {
-                Label("Archive…", systemImage: "archivebox")
+            if isArchived {
+                Button(action: onRestore) {
+                    Label("Restore", systemImage: "arrow.uturn.backward")
+                }
+            } else {
+                // The reference's own order (INT-P03): Favorite · Move ·
+                // Duplicate, then Archive separated below in red. Only the
+                // destructive one carries an ellipsis, because only it asks a
+                // second question.
+                Button(action: onFavorite) {
+                    Label(
+                        isFavorite ? "Remove from favourites" : "Favourite",
+                        systemImage: isFavorite ? "star.slash" : "star")
+                }
+                Button(action: onMove) { Label("Move", systemImage: "person.crop.circle") }
+                Button(action: onDuplicate) { Label("Duplicate", systemImage: "doc.on.doc") }
+                Divider()
+                Button(role: .destructive, action: onArchive) {
+                    Label("Archive…", systemImage: "archivebox")
+                }
             }
         } label: {
             // The visible circle stays 24pt — matching the reference's own
