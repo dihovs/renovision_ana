@@ -75,6 +75,9 @@ struct ElevationView: View {
     /// `RoomEditorCore.handleDrag` uses, so a drag is one undoable move
     /// rather than a running accumulation of rounding error.
     @State private var draggingOpening: (index: Int, startOffset: Double)?
+    /// The Insert menu, and the opening picker it can raise.
+    @State private var insertOpen = false
+    @State private var addingOpening = false
     /// Every area filed against this room. Held whole rather than
     /// pre-filtered so stepping to the next wall costs no round trip.
     @State private var areas: [AffectedArea] = []
@@ -210,6 +213,28 @@ struct ElevationView: View {
                 }
             }
         }
+        .sheet(isPresented: $addingOpening) {
+            // The SAME picker the plan editor raises from a selected wall —
+            // one list of kinds, one fit test, rather than a second copy
+            // that can drift from it. Placement runs through
+            // `PlanEditing.placeOpening` too, so a new opening lands in the
+            // largest free gap on this wall and cannot overlap one already
+            // there.
+            OpeningPicker(
+                edgeLength: wallLength,
+                fits: { kind in
+                    PlanEditing.placeOpening(
+                        kind, onEdge: edge, of: corners, avoiding: openings) != nil
+                }
+            ) { kind in
+                if let placed = PlanEditing.placeOpening(
+                    kind, onEdge: edge, of: corners, avoiding: openings)
+                {
+                    openings.append(placed)
+                }
+                addingOpening = false
+            }
+        }
         .task { await load() }
     }
 
@@ -281,10 +306,18 @@ struct ElevationView: View {
 
             Button {
                 if drawing {
+                    // Mid-draw, the button is Cancel and only ever cancels.
                     drawing = false
                     draft = nil
                 } else {
-                    drawing = true
+                    // Otherwise it opens the menu. It used to flip straight
+                    // into damage-drawing mode, which the owner read — quite
+                    // fairly — as a dead end: *"the insert button is not
+                    // giving me anything. It needs to open the insert menu
+                    // so I can insert something."* Marking damage is ONE of
+                    // the things you insert onto a wall face, not the only
+                    // one, and a door or window is the other.
+                    withAnimation(.snappy(duration: 0.18)) { insertOpen.toggle() }
                 }
             } label: {
                 VStack(spacing: 3) {
@@ -302,6 +335,13 @@ struct ElevationView: View {
             .disabled(!canMark)
             .opacity(canMark ? 1 : 0.35)
 
+            if insertOpen {
+                insertMenu
+                    .padding(.horizontal, Brand.Space.base)
+                    .padding(.bottom, Brand.Space.tight)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             Text(error ?? caption)
                 .font(.system(size: 12))
                 .foregroundStyle(error == nil ? Brand.inkSoft : .orange)
@@ -314,6 +354,66 @@ struct ElevationView: View {
         .overlay(
             RoundedRectangle(cornerRadius: Brand.Radius.card)
                 .strokeBorder(Brand.hairline, lineWidth: 0.5))
+    }
+
+    /// What can go onto a wall FACE. Shorter than the floor's own Insert
+    /// menu on purpose: `Room` is meaningless here, and an Object needs the
+    /// objects model that does not exist yet (ORD-36), so it is drawn
+    /// greyed with the reason rather than left out — the same rule the
+    /// floor menu and the action bar already follow.
+    @ViewBuilder private var insertMenu: some View {
+        VStack(spacing: 0) {
+            insertRow(
+                "Affected area", icon: "square.dashed.inset.filled", enabled: canMark,
+                note: canMark ? "Drag a rectangle over the damage" : "This room is not filed yet"
+            ) {
+                drawing = true
+            }
+            Divider()
+            insertRow(
+                "Door or window", icon: "door.left.hand.closed", enabled: true,
+                note: "Placed on this wall, then draggable"
+            ) {
+                addingOpening = true
+            }
+            Divider()
+            insertRow("Object", icon: "bed.double", enabled: false, note: "Not built yet") {}
+        }
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
+    }
+
+    private func insertRow(
+        _ title: String, icon: String, enabled: Bool, note: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            guard enabled else { return }
+            withAnimation(.snappy(duration: 0.15)) { insertOpen = false }
+            action()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 16))
+                        .foregroundStyle(enabled ? Brand.ink : Brand.inkFaint)
+                    if let note {
+                        Text(note)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                }
+                Spacer()
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(enabled ? Brand.ink : Brand.inkFaint)
+            }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 
     private var caption: String {
@@ -510,7 +610,17 @@ struct ElevationView: View {
         var moved = openings[dragging.index]
         moved.offset = dragging.startOffset
         openings[dragging.index] = PlanEditing.slideOpening(
-            moved, along: corners, by: Double(now.x - start.x), avoiding: openings)
+            moved, along: corners, by: Double(now.x - start.x),
+            // Excluded by INDEX, not by value — the fix for the "ghosting"
+            // the owner saw. `slideOpening` skips obstacles with
+            // `other != opening`, which compares STRUCT VALUES: `moved` has
+            // been reset to `startOffset` for this frame while the array
+            // still holds the already-moved copy, so the two stop being
+            // equal the instant the drag begins and the opening starts
+            // clamping against ITSELF — pinned a width behind wherever it
+            // already was. The plan editor's own drag and `RoomSketchView`
+            // both got this right; this call was the odd one out.
+            avoiding: openings.enumerated().filter { $0.offset != dragging.index }.map(\.element))
     }
 
     // MARK: - Damage, saved and reloaded
