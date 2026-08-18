@@ -309,6 +309,9 @@ area's own row layout — swatch · name / *surface* · area · expand glyph.
 **Keep.** Our damage-cause chips. magicplan has only name + colour; cause decides
 trade and rate here.
 
+**Prompt.**
+> Read Docs/HANDOFF.md then Docs/SECTIONS.md, and do S4.
+
 **Before starting, two things from 17–18 Aug that land directly on this
 section.**
 
