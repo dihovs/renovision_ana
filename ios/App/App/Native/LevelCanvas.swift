@@ -1,3 +1,4 @@
+import RoomPlan
 import SwiftUI
 
 /// A whole storey on one sheet — every room drawn to scale, tappable.
@@ -966,6 +967,9 @@ struct FloorCanvasView: View {
     @State private var showingHelp = false
     @State private var insertOpen = false
     @State private var addingPhoto = false
+    @State private var choosingMethod = false
+    @State private var picked = false
+    @State private var method: CaptureFlow.CaptureMode = .draw
     /// Viewport. One finger pans and a pinch zooms, because nothing on this
     /// screen is selectable — the room editor needs two fingers to keep a
     /// stray thumb from moving a wall, but here a drag can only ever mean
@@ -989,41 +993,36 @@ struct FloorCanvasView: View {
         ZStack {
             Brand.Plan.paper.ignoresSafeArea()
 
-            // The paper. Drawn whether or not anything sits on it — an empty
-            // floor is still a sheet you are about to draw on, and a blank
-            // white screen would not say that.
-            Canvas { context, size in
-                EditorChrome.drawGrid(context: context, size: size)
-            }
-            .ignoresSafeArea()
+            // The paper AND what is on it, moving together.
+            //
+            // The grid was fixed at first, on the reasoning that screen
+            // pitch is the paper and paper does not magnify. That is right
+            // for a room editor whose drawing fills the frame, and wrong
+            // here: with an empty floor the only thing that moved was a
+            // label, so the canvas read as broken. A floor plan surface has
+            // to feel like a sheet you are sliding under glass.
+            //
+            // Oversized deliberately. At the widest zoom-out a screen-sized
+            // grid would show its own edges as the pan ran past them, and an
+            // edge is the one thing paper must not appear to have.
+            ZStack {
+                Canvas { context, size in
+                    EditorChrome.drawGrid(context: context, size: size)
+                }
+                .frame(width: 2400, height: 2400)
 
-            // The drawing rides the viewport; the grid does not. Screen
-            // pitch is the paper and paper does not magnify when the sheet
-            // on top of it is scaled — the same rule `drawGrid` states.
-            Group {
-                if rooms.isEmpty {
-                    VStack(spacing: 6) {
-                        Text("Nothing on this floor yet")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Brand.inkSoft)
-                        Text("Insert a room to start drawing it.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Brand.inkFaint)
-                    }
-                } else {
+                if !rooms.isEmpty {
                     LevelCanvas(rooms: rooms) { room in openRoom = room }
                         .padding(Brand.Space.base)
                 }
             }
             .scaleEffect(zoom * pinch)
             .offset(x: pan.width + drag.width, y: pan.height + drag.height)
-            // The gesture layer has to FILL the screen, not hug its content.
-            // Without this the plate is only as big as what is on it — on an
-            // empty floor, a two-line label in the middle — so there was
-            // almost nothing to grab and the canvas appeared not to move at
-            // all. The frame goes on before contentShape so the shape is the
-            // whole area rather than the text's box.
+            // The gesture layer has to FILL the screen, not hug its content:
+            // sized to the drawing, an empty floor left almost nothing to
+            // grab and the canvas appeared inert.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
             .contentShape(Rectangle())
             .gesture(
                 SimultaneousGesture(
@@ -1132,6 +1131,20 @@ struct FloorCanvasView: View {
         } message: {
             Text("This is the floor itself. Insert adds a room to it — start from a rectangle and pull it into shape. Tap a room once it is drawn to open its details.")
         }
+        .sheet(
+            isPresented: $choosingMethod,
+            onDismiss: {
+                // Raised by the chooser's dismissal for the same reason Add
+                // Floor's is: SwiftUI will not put up a second sheet while
+                // the first is still going down.
+                if picked { inserting = true; picked = false }
+            }
+        ) {
+            AddRoomMethodSheet { chosen in
+                method = chosen
+                picked = true
+            }
+        }
         .sheet(isPresented: $addingPhoto, onDismiss: { Task { await load() } }) {
             ProjectFileUploader(projectId: projectId) { Task { await load() } }
         }
@@ -1144,7 +1157,7 @@ struct FloorCanvasView: View {
                 initialLevel: level,
                 // Insert IS the mode choice on this screen, so the chooser
                 // has nothing left to ask.
-                initialMode: .draw,
+                initialMode: method,
                 onSaved: { Task { await load() } },
                 onFinished: { _, _ in })
         }
@@ -1167,7 +1180,7 @@ struct FloorCanvasView: View {
     @ViewBuilder private var insertMenu: some View {
         VStack(spacing: 0) {
             insertRow("Room", icon: "square.dashed", enabled: true) {
-                inserting = true
+                choosingMethod = true
             }
             Divider()
             insertRow("Object", icon: "bed.double", enabled: false, note: "In a room, on a wall") {}
@@ -1219,5 +1232,186 @@ struct FloorCanvasView: View {
 
     private func load() async {
         scans = (try? await API.shared.scans(projectId: projectId)) ?? []
+    }
+}
+
+/// The reference's `Add Room` — choose how the room gets measured.
+///
+/// Insert → Room used to go straight to drawing. The reference asks first,
+/// because the two real answers are genuinely different jobs: walk the room
+/// with the phone, or draw it from the doorway. Both already exist here as
+/// `CaptureFlow`'s two modes; this is the chooser they deserved.
+///
+/// THE LiDAR BADGE IS A REAL CHECK, not decoration: `RoomCaptureSession
+/// .isSupported` is the same test the scan flow itself gates on. On a phone
+/// without it the scan cards say so and cannot be tapped, rather than
+/// offering a scan that would open to an error.
+///
+/// Three of the reference's five are not built and are drawn dimmed with
+/// the reason. `Manual-Scan` is not a second scanner we are missing — Apple's
+/// RoomPlan detects objects itself, and there is no manual-detection variant
+/// to expose. `Draw Room` (place corner points one at a time) and
+/// `Import & Draw` (trace over a photo of an existing plan) are real
+/// features nobody has written yet.
+struct AddRoomMethodSheet: View {
+    let onPick: (CaptureFlow.CaptureMode) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var lidar: Bool { RoomCaptureSession.isSupported }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: Brand.Space.base) {
+                    HStack(spacing: Brand.Space.small) {
+                        methodCard(
+                            title: "Auto-Scan",
+                            caption: "Walk the room with the phone. Objects found for you.",
+                            glyph: "arkit",
+                            enabled: lidar
+                        ) {
+                            onPick(.scan)
+                            dismiss()
+                        }
+                        methodCard(
+                            title: "Manual-Scan",
+                            caption: "RoomPlan detects objects itself — there is no manual variant.",
+                            glyph: "viewfinder",
+                            enabled: false
+                        ) {}
+                    }
+
+                    Card(padding: 0) {
+                        methodRow(
+                            title: "Add Square Room",
+                            caption: "Start with a rectangle. Then pull it into shape.",
+                            glyph: "square.dashed",
+                            enabled: true
+                        ) {
+                            onPick(.draw)
+                            dismiss()
+                        }
+                    }
+
+                    Card(padding: 0) {
+                        VStack(spacing: 0) {
+                            methodRow(
+                                title: "Draw Room",
+                                caption: "Add corner points to build the room shape.",
+                                glyph: "hand.draw",
+                                enabled: false
+                            ) {}
+                            Divider().padding(.leading, 62)
+                            methodRow(
+                                title: "Import & Draw",
+                                caption: "Trace over an image of an existing plan.",
+                                glyph: "photo.on.rectangle.angled",
+                                enabled: false
+                            ) {}
+                        }
+                    }
+
+                    if !lidar {
+                        Text("This phone has no LiDAR, so scanning is unavailable. Drawing needs no camera and measures just as well when you have a tape.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                }
+                .padding(Brand.Space.base)
+            }
+            .background(Brand.canvas)
+            .navigationTitle("Add Room")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Brand.inkSoft)
+                            .frame(width: 30, height: 30)
+                            .background(Brand.surfaceRaised, in: Circle())
+                    }
+                }
+            }
+        }
+    }
+
+    private func methodCard(
+        title: String, caption: String, glyph: String, enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: { if enabled { action() } }) {
+            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                ZStack(alignment: .topTrailing) {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Brand.Plan.floorMuted)
+                        .frame(height: 92)
+                        .overlay(
+                            Image(systemName: glyph)
+                                .font(.system(size: 30, weight: .light))
+                                .foregroundStyle(enabled ? Brand.blue : Brand.inkFaint))
+                    Label("LiDAR", systemImage: "cube.transparent")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(
+                            (enabled ? Brand.charcoalDark : Brand.inkFaint),
+                            in: .rect(cornerRadius: 6))
+                        .padding(6)
+                }
+                Text(title)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(enabled ? Brand.ink : Brand.inkFaint)
+                Text(caption)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(Brand.Space.small)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
+    private func methodRow(
+        title: String, caption: String, glyph: String, enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: { if enabled { action() } }) {
+            HStack(spacing: Brand.Space.small) {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Brand.Plan.floorMuted)
+                    .frame(width: 46, height: 46)
+                    .overlay(
+                        Image(systemName: glyph)
+                            .font(.system(size: 18))
+                            .foregroundStyle(enabled ? Brand.blue : Brand.inkFaint))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(enabled ? Brand.ink : Brand.inkFaint)
+                    Text(caption)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                if enabled {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+            }
+            .padding(Brand.Space.small)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 }
