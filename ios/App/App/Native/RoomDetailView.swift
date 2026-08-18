@@ -912,6 +912,101 @@ struct RoomStatisticsSheet: View {
 
 
 
+/// What the `Fill Color` chevron opens — the reference's colour matrix,
+/// with `Reset`.
+///
+/// The matrix is built rather than collected: six hues across, three values
+/// down, and its **middle row is the cause table itself** (`DamageCause.hex`
+/// in `DAMAGE_TYPES` order). So the row an area already sits on is the row
+/// it starts from, and stepping sideways keeps the drawing inside the
+/// palette the rest of the plan uses instead of introducing a hue nothing
+/// else on it has.
+///
+/// `Reset` is not a swatch and must not be one. Nil in the `color` column
+/// does not mean "no colour" — it means "follow the cause", which is what
+/// lets a cause be recoloured later without orphaning every old area on a
+/// stale hex. See `API.ColorEdit`.
+struct AreaFillColorPicker: View {
+    let selected: String?
+    let cause: DamageCause
+    let onPick: (String) -> Void
+    let onReset: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    static let matrix: [String] = [
+        "#1f5fa8", "#a8431f", "#2f6f22", "#5f3f9e", "#5f5f63", "#8a1f3f",
+        "#2b7fd4", "#e2673a", "#4f9d3a", "#8a63d2", "#8a8a8e", "#d4437a",
+        "#6fb0e8", "#f0a184", "#8ecb7d", "#b79ce6", "#c2c6cc", "#f094ac",
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Brand.canvas.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: Brand.Space.base) {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 6),
+                        spacing: 10
+                    ) {
+                        ForEach(Self.matrix, id: \.self) { hex in
+                            swatch(hex)
+                        }
+                    }
+
+                    Text(
+                        selected == nil
+                            ? "Following \(cause.label.lowercased()) — the cause's own colour."
+                            : "Overridden. Reset puts it back to the cause's colour."
+                    )
+                    .font(.system(size: 12))
+                    .foregroundStyle(Brand.inkFaint)
+
+                    Spacer()
+                }
+                .padding(Brand.Space.base)
+            }
+            .navigationTitle("Fill Colour")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    // Disabled when there is nothing to reset — a live
+                    // control that does nothing teaches the operator to
+                    // distrust the ones that do.
+                    Button("Reset") {
+                        onReset()
+                        dismiss()
+                    }
+                    .disabled(selected == nil)
+                }
+            }
+            .presentationDetents([.height(320), .medium])
+        }
+    }
+
+    private func swatch(_ hex: String) -> some View {
+        let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
+        let isSelected = selected == hex
+        return Button {
+            onPick(hex)
+            dismiss()
+        } label: {
+            Circle()
+                .fill(Color(hex: value))
+                .frame(height: 38)
+                .overlay(
+                    Circle().strokeBorder(isSelected ? Brand.blue : .clear, lineWidth: 3)
+                        .padding(-3))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isSelected ? "Colour \(hex), selected" : "Colour \(hex)")
+    }
+}
+
 /// One marked region, laid out as the reference lays its row (object-model
 /// §2b): swatch · name over its surface · area · the glyph that opens it.
 ///
@@ -1022,6 +1117,7 @@ struct AffectedAreaSheet: View {
     @State private var confirmingDelete = false
     @State private var error: String?
     @State private var detent: PresentationDetent = .medium
+    @State private var pickingColor = false
     @FocusState private var nameFocused: Bool
     @FocusState private var notesFocused: Bool
 
@@ -1084,6 +1180,13 @@ struct AffectedAreaSheet: View {
         .background(Brand.canvas)
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
+        .sheet(isPresented: $pickingColor) {
+            AreaFillColorPicker(
+                selected: colorOverride,
+                cause: cause,
+                onPick: { hex in Task { await saveColor(.set(hex)) } },
+                onReset: { Task { await saveColor(.reset) } })
+        }
         .confirmationDialog(
             "Delete \(name.trimmed.isEmpty ? area.name : name.trimmed)?",
             isPresented: $confirmingDelete, titleVisibility: .visible
@@ -1142,6 +1245,7 @@ struct AffectedAreaSheet: View {
         dimensionsSection
         generalSection
         settingsSection
+        newFieldSection
         deleteSection
     }
 
@@ -1203,78 +1307,61 @@ struct AffectedAreaSheet: View {
         }
     }
 
-    /// The reference's `Fill Color`: a full matrix, plus `Reset`.
+    /// The reference's `Fill Color`: a ROW — swatch and a chevron — that
+    /// opens the matrix. Not the matrix inline.
     ///
-    /// The matrix is built rather than collected — six hues across, three
-    /// values down — and its **middle row is the cause table itself**
-    /// (`DamageCause.hex`, in `DAMAGE_TYPES` order). So the row an area
-    /// already sits on is the row it starts from, and picking left or right
-    /// of its own colour keeps the drawing legible instead of introducing a
-    /// hue nothing else on the plan uses.
+    /// Built inline first, and the owner sent the real screen back: theirs
+    /// is one row in `General`, level with `Name`, showing the colour in a
+    /// circle with a disclosure chevron beside it. The matrix and `Reset`
+    /// are what that chevron opens. Position is what a hand learns, and a
+    /// grid of eighteen swatches sitting in the middle of General pushes
+    /// every field below it down the screen.
     private var fillColorRow: some View {
-        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+        Button {
+            pickingColor = true
+        } label: {
             HStack {
-                Text("Fill colour")
+                Text("Fill Colour")
                     .font(.system(size: 15))
                     .foregroundStyle(Brand.ink)
                 Spacer()
-                // Their `Reset`. Disabled when there is nothing to reset —
-                // a live control that does nothing teaches the operator to
-                // distrust the ones that do.
-                Button("Reset") {
-                    Task { await saveColor(.reset) }
-                }
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(colorOverride == nil ? Brand.inkFaint : Brand.blue)
-                .disabled(colorOverride == nil || saving)
+                Circle()
+                    .fill(displayColor)
+                    .frame(width: 26, height: 26)
+                    .overlay(Circle().strokeBorder(Brand.inkFaint.opacity(0.3), lineWidth: 1))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
             }
-
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6),
-                spacing: 8
-            ) {
-                ForEach(Self.fillMatrix, id: \.self) { hex in
-                    fillSwatch(hex)
-                }
-            }
-            .padding(.vertical, 2)
-
-            Text(
-                colorOverride == nil
-                    ? "Following \(cause.label.lowercased()) — the cause's own colour."
-                    : "Overridden. Reset puts it back to the cause's colour."
-            )
-            .font(.system(size: 11))
-            .foregroundStyle(Brand.inkFaint)
-        }
-        .padding(.vertical, 2)
-    }
-
-    /// Six hues by three values. The middle row is `DamageCause` in its own
-    /// order — water, fire, mould, impact, other — with a sixth slot for a
-    /// slate that no cause claims, so every column has three entries.
-    private static let fillMatrix: [String] = [
-        "#1f5fa8", "#a8431f", "#2f6f22", "#5f3f9e", "#5f5f63", "#8a1f3f",
-        "#2b7fd4", "#e2673a", "#4f9d3a", "#8a63d2", "#8a8a8e", "#d4437a",
-        "#6fb0e8", "#f0a184", "#8ecb7d", "#b79ce6", "#c2c6cc", "#f094ac",
-    ]
-
-    private func fillSwatch(_ hex: String) -> some View {
-        let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
-        let selected = colorOverride == hex
-        return Button {
-            guard !saving else { return }
-            Task { await saveColor(.set(hex)) }
-        } label: {
-            Circle()
-                .fill(Color(hex: value))
-                .frame(height: 30)
-                .overlay(
-                    Circle().strokeBorder(selected ? Brand.blue : .clear, lineWidth: 2.5)
-                        .padding(-3))
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(selected ? "Fill colour \(hex), selected" : "Fill colour \(hex)")
+        .disabled(saving)
+    }
+
+    /// Their `+ New Field`, in its place at the foot of Details with its own
+    /// caption. Custom fields on an AREA are not built — the project has
+    /// them (migration 0026) and an area does not — so this says so plainly
+    /// rather than opening something that cannot save. A row that lies about
+    /// what it does is worse than a row that is honest about not being
+    /// finished yet.
+    private var newFieldSection: some View {
+        Section {
+            HStack {
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("New Field")
+                    .font(.system(size: 15, weight: .semibold))
+                Spacer()
+                Image(systemName: "arrow.up.forward")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Brand.inkFaint)
+        } footer: {
+            Text("Collect important information and improve your reports by creating your own fields. Custom fields exist on a project; on an affected area they are not built yet.")
+                .font(.system(size: 11))
+                .foregroundStyle(Brand.inkFaint)
+        }
     }
 
     /// Their `Settings` block. The toggle is theirs; what it drives is ours

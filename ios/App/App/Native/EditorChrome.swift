@@ -31,29 +31,54 @@ enum EditorChrome {
     /// void. The crosshairs are what give it the drafting-paper feel and §2
     /// is explicit that they must not be dropped.
     ///
-    /// Model space, not screen space, deliberately: the grid must pan and
-    /// zoom with the plan, because it is the sheet the room is drawn on —
-    /// a screen-fixed texture would slide under the walls and read as
-    /// wallpaper behind glass. That is why the editor's own metres→points
-    /// mapping comes in as closures instead of this function inventing one.
+    /// **Two modes, and which one you get is the caller's choice.**
+    ///
+    /// Without `model`, the lattice is in SCREEN space: fixed pitch, the
+    /// paper under glass. That is what magicplan does — the reference
+    /// research changed a wall from 2.5 m to 4.0 m and watched both grids,
+    /// and object-model §8 records the split so nobody reverses it by
+    /// accident: floor tile grid model space, background dots screen space.
+    ///
+    /// With `model`, the lattice is pinned to the plan's own metres, so it
+    /// zooms and pans locked to the walls. **This is a deliberate
+    /// divergence, asked for by the owner on 18 Aug 2026** after using the
+    /// editor: *"when I zoom in and out on my floor plan, the floor plan
+    /// itself zooms in and out with the grid inside, but the canvas outside
+    /// of it stays still. I want the canvas also to move in and out because
+    /// they have to be, like, together."* He was told what the reference
+    /// does and chose to diverge. It is not a bug and must not be "fixed"
+    /// back to §8 without asking him.
+    ///
+    /// The screen-space version exists because the model-space one was
+    /// tried first and had a real fault: the dots spread apart when zooming
+    /// in and packed into a grey smear when zooming out. So model mode
+    /// carries the three things that fault needs — an alpha fade through
+    /// the unreadable zooms, a hard cutoff below them, and majors counted
+    /// from the MODEL origin rather than the view's, so they do not swim
+    /// while panning. The cutoff doubles as the volume guard: the dot count
+    /// can only explode at zooms where the grid has already faded out.
     ///
     /// 0.5 m pitch because that is the scale of the things being drawn —
     /// door widths, wall jogs, closet depths are all judged in half-metre
     /// steps — and the majors every fifth dot give the eye a coarse count
     /// without a single ruled line competing with the walls.
-    ///
-    /// The fade: below ~8 pt of screen pitch the dots stop being countable
-    /// marks and merge into grey smear, which is worse than no grid. So the
-    /// grid fades over a few points of pitch and is simply absent below the
-    /// threshold — which doubles as the volume guard, since the dot count
-    /// only explodes at exactly the zooms where the grid has faded out.
     static func drawGrid(
         context: GraphicsContext,
         size: CGSize,
         pitch: CGFloat = 22,
         dotRadius: CGFloat = 1.1,
-        arm: CGFloat = 3.5
+        arm: CGFloat = 3.5,
+        /// Pass the screen point of model (0, 0) and the metres→points
+        /// scale to pin the grid to the plan. Nil keeps it screen-fixed.
+        model: (origin: CGPoint, scale: CGFloat)? = nil
     ) {
+        guard size.width > 0, size.height > 0 else { return }
+        if let model {
+            drawModelGrid(
+                context: context, size: size, origin: model.origin, scale: model.scale,
+                dotRadius: dotRadius, arm: arm)
+            return
+        }
         // SCREEN pitch, not model pitch. The grid is the paper, not the
         // drawing: it belongs to the view the way graph paper under glass
         // belongs to the desk, and glass does not magnify when the sheet on
@@ -71,7 +96,6 @@ enum EditorChrome {
         // cap, and the model-multiple test that kept the majors from
         // swimming while panning. None of them can arise now.
         let major = 5
-        guard size.width > 0, size.height > 0 else { return }
 
         var dots = Path()
         var crosses = Path()
@@ -99,6 +123,76 @@ enum EditorChrome {
         }
         context.fill(dots, with: .color(Brand.Plan.grid.opacity(0.55)))
         context.stroke(crosses, with: .color(Brand.Plan.gridCross.opacity(0.85)), lineWidth: 1)
+    }
+
+    /// The model-space lattice — the owner's divergence, above.
+    ///
+    /// `origin` is where model (0, 0) lands on screen and `scale` is metres
+    /// → points, which together are the whole mapping: the editor's
+    /// transform is a scale and a translate with no rotation, so the grid
+    /// can be laid out arithmetically instead of transforming every dot.
+    private static func drawModelGrid(
+        context: GraphicsContext,
+        size: CGSize,
+        origin: CGPoint,
+        scale: CGFloat,
+        dotRadius: CGFloat,
+        arm: CGFloat
+    ) {
+        /// Half a metre, the pitch the whole grid is reasoned in.
+        let step: CGFloat = 0.5
+        let major = 5
+
+        let screenPitch = step * scale
+        guard screenPitch.isFinite, screenPitch > 0 else { return }
+
+        // Below `vanish` the dots are closer than the eye separates and the
+        // sheet becomes a grey wash — worse than no sheet. Between `vanish`
+        // and `full` it fades, so zooming out dissolves the paper rather
+        // than smearing it.
+        let vanish: CGFloat = 6
+        let full: CGFloat = 12
+        guard screenPitch > vanish else { return }
+        let fade = min(1, (screenPitch - vanish) / (full - vanish))
+
+        // Which model steps are on screen. Counted from the model origin,
+        // not the view's, so a major stays a major while panning — the
+        // failure that made the first model-space grid swim.
+        let firstCol = Int(floor((0 - origin.x) / screenPitch))
+        let lastCol = Int(ceil((size.width - origin.x) / screenPitch))
+        let firstRow = Int(floor((0 - origin.y) / screenPitch))
+        let lastRow = Int(ceil((size.height - origin.y) / screenPitch))
+        guard lastCol >= firstCol, lastRow >= firstRow else { return }
+
+        // Belt and braces on the volume: the fade cutoff already bounds
+        // this, but a caller passing a wild scale should not lock the UI.
+        guard (lastCol - firstCol + 1) * (lastRow - firstRow + 1) <= 40_000 else { return }
+
+        var dots = Path()
+        var crosses = Path()
+        let r = dotRadius
+
+        for ci in firstCol...lastCol {
+            let x = origin.x + CGFloat(ci) * screenPitch
+            for ri in firstRow...lastRow {
+                let y = origin.y + CGFloat(ri) * screenPitch
+                // `%` on a negative index is negative in Swift, so the test
+                // has to be modulus-safe or the majors go missing on the
+                // half of the plan left of and above the origin.
+                if ci % major == 0, ri % major == 0 {
+                    crosses.move(to: CGPoint(x: x - arm, y: y))
+                    crosses.addLine(to: CGPoint(x: x + arm, y: y))
+                    crosses.move(to: CGPoint(x: x, y: y - arm))
+                    crosses.addLine(to: CGPoint(x: x, y: y + arm))
+                } else {
+                    dots.addEllipse(
+                        in: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
+                }
+            }
+        }
+        context.fill(dots, with: .color(Brand.Plan.grid.opacity(0.55 * fade)))
+        context.stroke(
+            crosses, with: .color(Brand.Plan.gridCross.opacity(0.85 * fade)), lineWidth: 1)
     }
 
     // MARK: - The floor you are standing in

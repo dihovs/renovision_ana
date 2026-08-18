@@ -40,7 +40,7 @@ Commit the ledger update with the work.
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
 | **S10** | Report parity | NOT STARTED | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
-| **S12** | Project and floor screens | **PROJECT DONE · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
+| **S12** | Project and floor screens | **PROJECT DONE (amended 18 Aug) · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
 
 **Two verifications** were folded into the sections that own them: the
@@ -991,3 +991,42 @@ Newest last. One or two lines per chat.
   /Applications/Xcode.app/Contents/Developer` is the fix and it needs the
   owner's password. The colour matrix, the floor-area dimension drawing,
   the area photo round-trip and the three tabs are all compiled-only.
+- **2026-08-18** — Same chat, after the owner tested build 96 on his phone
+  (built and installed here; 95 → 96 → 97 → 98 over the session). **Test 1
+  passed: the corner handles now sit on their corners.** Four things came
+  back from him and were acted on.
+  1. **Floor Plans held no floor plans.** The section drew the `+` and
+     nothing else, and the storeys were filed at the very BOTTOM of the
+     project page — under Photos, Files and Created / Last modified — which
+     is also out of the documented page order. New `FloorPlanTile` (the
+     storey drawn, its name, rooms and area) fills the rail beside the `+`;
+     tapping one opens that floor; `See all (n)` drops the full storey
+     detail underneath, which is where the old bottom-of-page content now
+     lives. This is **S12 territory**, fixed here because he was looking at
+     it — S12 should know.
+  2. **Fill Color was built wrong and he sent the real screen back.** Theirs
+     is a ROW in General — swatch plus a disclosure chevron, level with
+     Name — and the matrix and `Reset` are what the chevron opens. It had
+     been built as an inline grid, which pushed every field below it down
+     the screen. Now a row + `AreaFillColorPicker`. Their `+ New Field` row
+     added in its place too, saying honestly that area custom fields are not
+     built (the project has them, migration 0026; an area does not).
+  3. **The background grid now zooms with the plan** — model space, pinned
+     to the plan's metres. This is a **deliberate divergence from
+     object-model §8**, which measured the split on his own device and was
+     written specifically so nobody reversed it. He was told that and chose
+     to diverge. Model mode carries the fade, the cutoff and model-origin
+     majors that the first model-space grid lacked. **Do not "fix" this back
+     without asking him.**
+  4. **Add/delete points** — already there on floor areas (and much easier
+     to find now the handles are in the right place); genuinely absent on
+     the wall face, which is `FaceRect`, a rectangle and only ever a
+     rectangle. Filed as **ORD-38** with the port route mapped out. He also
+     asked for photos on a moisture reading with an instrument icon,
+     explicitly as a later item — filed as **ORD-39**, and unlike the area
+     work that one DOES need a migration.
+
+  **Unverified:** builds 97 and 98 are on his phone but only item 1's
+  predecessor was seen by anyone. The floor-plan rail, the Fill Color row
+  and picker, the New Field row and the zooming grid are all
+  compiled-and-installed, not looked at.

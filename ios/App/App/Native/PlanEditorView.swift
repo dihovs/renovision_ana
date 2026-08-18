@@ -295,11 +295,19 @@ struct PlanEditorView: View {
 
                     // The paper first: the half-metre dotted grid with its
                     // brand-blue crosshairs every fifth dot, behind
-                    // everything, moving with the plan because it is drawn in
-                    // the plan's own metres through the same mapping as the
-                    // walls.
+                    // everything — and pinned to the plan's own metres, so
+                    // it zooms and pans locked to the walls rather than
+                    // sitting still under them.
+                    //
+                    // That is the owner's divergence from the reference,
+                    // asked for 18 Aug 2026 and explained in full on
+                    // `EditorChrome.drawGrid`. The mapping is handed over
+                    // rather than reinvented: model (0, 0) on screen, and
+                    // the same metres→points scale the walls use.
                     if showGrid {
-                        EditorChrome.drawGrid(context: context, size: proxy.size)
+                        EditorChrome.drawGrid(
+                            context: context, size: proxy.size,
+                            model: (origin: pt(.zero), scale: scale))
                     }
 
                     guard corners.count >= 3 else { return }

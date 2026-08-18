@@ -577,3 +577,79 @@ building. The types behind it must come from the owner's own jobs.
 Question 2 is unchanged and still the owner's: ANSI Z765 is a residential
 standard and does not apply to a warehouse, so commercial types either opt out
 of the living-area engine or need their own rule.
+
+---
+
+## ORD-38 — Editing a wall area's shape: add and delete points
+
+**Raised by the owner, 18 Aug 2026, while testing build 96:** *"for the
+damaged area, I wanna be able to add and delete points."*
+
+**Half of this already exists.** On the FLOOR plan, `AreaEditor` has had the
+full corner editor since S3: hollow midpoint dots add a corner, tapping a
+corner turns it into the red four-way handle and reveals `Delete point`,
+live edge dimensions show while dragging. Nothing to build there — and note
+it was hard to find before 18 Aug because every handle sat up to 139pt away
+from the corner it belonged to (see S4).
+
+**On the WALL face it does not exist at all.** `ElevationView` models an
+affected area as `FaceRect` — two dragged corners, so a rectangle and only
+ever a rectangle. There is no way to reopen a saved area's shape, no
+handles, no add, no delete.
+
+The reference has it, on the wall, and describes it exactly (object-model
+§2b, "Editing the shape"): action bar `Insert · Edit Shape · Delete`; `Edit
+Shape` captioned *"Tap to adjust points"*; tap a point for a red four-way
+handle with a `Delete` button; drag it and the shape stops being
+rectangular; live dimensions on the two adjoining edges; points added as
+well as deleted, so an area can be an L or a T.
+
+**Scope.** Port `AreaEditor`'s editing layer onto the wall face rather than
+writing a second one — same corner array, same `PlanEditing.addCorner` /
+`removeCorner` / `moveCorner`, same undo/redo — with the face transform in
+place of `PlanTransform`. `FaceRect` stays for the initial drag-out, which
+is the reference's own reductive gesture; what changes is that the result
+becomes an editable polygon rather than a frozen rectangle.
+
+**Watch for.** `AffectedArea.polygon` on a wall is in FACE metres (x along
+the wall, y above the floor), not plan metres — the two must never meet the
+same renderer. And read S4's note first: an overlay of handles must be
+positioned in the space the drawing actually occupies, not the space its
+container was offered.
+
+---
+
+## ORD-39 — Evidence on a moisture reading: photo + instrument icon
+
+**Raised by the owner, 18 Aug 2026, explicitly as a later item:** *"in the
+future, when we [have an] other humidity measurement icon, so we need to
+attach the photo of the humidity reading to it too. If we're using ultra red
+humidity, like, temperature, thermometer, detector … we have to have the
+icon for it, and we have to be able to attach it too."*
+
+The logic he stated is the report's: **a figure an adjuster is asked to
+believe should carry the photograph it was read from.** Affected areas got
+this on 18 Aug (S4). Moisture readings have not.
+
+**Two parts.**
+
+1. **A photo against a reading.** `project_files` already pins a photo to a
+   room (`room_scan_id`), a wall (`wall_index`) and an affected area
+   (`affected_area_id`). It has no column for a moisture reading, so this
+   one DOES need a migration — the area work did not. Then the same read
+   filter and the same `RoomPhotosSection` treatment.
+2. **The instrument.** Which tool took the reading — pin meter, pinless
+   meter, thermo-hygrometer, infrared camera — as a field on the reading
+   with its own glyph, drawn on the reading's row and carried into the
+   report. This is not decoration: a pin reading and an IR surface
+   temperature are different measurements, and an adjuster who cannot tell
+   which instrument produced a number can discount it. Same argument as
+   `MeasureDefinition` makes for the statistics.
+
+**Ask the owner which instruments before building the list** — the same
+mistake ORD-22 records is available here. His own kit is the vocabulary,
+not a catalogue of everything that exists.
+
+**Glyphs are ours to draw**, per the standing exception: their artwork is
+substituted with equivalents in the identical position and role.
+

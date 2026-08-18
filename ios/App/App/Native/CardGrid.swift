@@ -199,6 +199,83 @@ struct GhostTile: View {
     }
 }
 
+/// One storey, as a tile in the project page's Floor Plans rail.
+///
+/// The reference's Floor Plans section is a rail of the plans that exist,
+/// led by the `+` (object-model §2e). Ours drew the `+` and nothing else,
+/// and filed the storeys themselves at the very bottom of the page — below
+/// Photos, Files and Created / Last modified. The owner put it plainly:
+/// *"when I go up to the project, I wanna see the floor plan where is the
+/// add floor plan button… whatever is already existing should be beside
+/// this add floor plan button, not under everything, separate."*
+///
+/// So the storey is a tile: its own drawing, its name, and what it holds.
+/// Tapping it opens the storey, which is what choosing a floor has always
+/// meant here.
+struct FloorPlanTile: View {
+    let level: String
+    let rooms: [RoomScan]
+    let onOpen: () -> Void
+
+    private var areaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqm } }
+    private var drawable: Bool { rooms.contains { $0.geometry != nil } }
+
+    var body: some View {
+        Button(action: onOpen) {
+            VStack(spacing: 0) {
+                ZStack {
+                    Brand.Plan.paper
+                    if drawable {
+                        // The storey's own drawing, at thumbnail size and
+                        // with the drafting grid off — it would only be
+                        // noise this small. Hit testing off so the tile is
+                        // one target, not one per room inside it.
+                        LevelCanvas(rooms: rooms, grid: false, maxHeight: 62) { _ in }
+                            .allowsHitTesting(false)
+                            .padding(3)
+                    } else {
+                        // A floor that exists but has nothing measured on it
+                        // yet. Says so, rather than showing blank paper that
+                        // reads as a drawing that failed.
+                        Image(systemName: "square.dashed")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Brand.Plan.labelSoft)
+                    }
+                }
+                .frame(height: 68)
+                .clipped()
+
+                VStack(spacing: 1) {
+                    Text(level)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Brand.ink)
+                        .lineLimit(1)
+                    Text(
+                        rooms.isEmpty
+                            ? "No rooms yet"
+                            : "\(rooms.count) room\(rooms.count == 1 ? "" : "s") · \(Measure.sqftLabel(areaSqm))"
+                    )
+                    .font(.system(size: 10))
+                    .monospacedDigit()
+                    .foregroundStyle(Brand.inkFaint)
+                    .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(Brand.surface)
+            }
+            .frame(width: 132)
+            .clipShape(.rect(cornerRadius: Brand.Radius.card))
+            .overlay(
+                RoundedRectangle(cornerRadius: Brand.Radius.card)
+                    .strokeBorder(Brand.Plan.dimension.opacity(0.25), lineWidth: 1))
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(level), \(rooms.count) rooms")
+    }
+}
+
 /// The filter chips above a grid — `All` as a filled pill, the rest outlined.
 ///
 /// The selected chip is SOLID and the others are not, which is the whole of

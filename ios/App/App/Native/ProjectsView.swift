@@ -781,37 +781,7 @@ struct ProjectDetailView: View {
                         ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
                     }
 
-                    // Floor Plans, the reference's own heading for the
-                    // storeys and their rooms, with its explanatory caption.
-                    SectionHeadingRow(title: "Floor Plans")
-                    Text("Create, edit and share floor plans.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Brand.inkSoft)
-
-                    // The + that starts a floor plan, and the ONLY way into
-                    // the scanner from a project now that the floating Scan
-                    // button and the Scan tab are gone. The reference puts it
-                    // exactly here, leading the rail; a measurement is a step
-                    // inside a job rather than a destination beside it.
-                    //
-                    // It leads a rail even when there is nothing beside it
-                    // yet, which is what the reference's empty state IS — a
-                    // dashed tile inviting the first one, not a paragraph
-                    // explaining the absence.
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: Brand.Space.small) {
-                            AddTile(label: "Add floor plan") {
-                                openRoom = nil
-                                addingFloor = true
-                            }
-                            if scans != nil && levels.isEmpty {
-                                // One ghost tile beside the +, so the row
-                                // reads as a place things go rather than as a
-                                // lone button.
-                                GhostTile()
-                            }
-                        }
-                    }
+                    floorPlansSection
 
                     // Photos and Files, the reference's own two rails below
                     // the plans. Both are the JOB's own — a photo of the
@@ -842,13 +812,6 @@ struct ProjectDetailView: View {
                         assignedTo: record?.assignedTo,
                         createdAt: record?.createdAt,
                         updatedAt: record?.updatedAt)
-
-                    // Each storey through the collection shell (ORD-15): the
-                    // rooms as a rail led by the dashed + tile, the storey
-                    // drawing above it, the full-width rows behind `See all`.
-                    ForEach(levels, id: \.self) { level in
-                        storeySection(level)
-                    }
 
                     // The report, one tap from the job it describes.
                     NavigationLink {
@@ -1013,6 +976,57 @@ struct ProjectDetailView: View {
     /// Pulled out of the row's own body: four ternaries inside one
     /// interpolated string, inside a builder already six levels deep, is
     /// what tipped the type checker over its time limit.
+
+    /// Floor Plans — the reference's own section (object-model §2e): a rail
+    /// of the plans that exist, led by the `+`, captioned with its sort
+    /// order, with `See all (n)` opening the storeys in full below it.
+    ///
+    /// **This used to draw the `+` and nothing else.** The storeys were
+    /// filed at the very bottom of the page, under Photos, Files and
+    /// Created / Last modified — so the section that says "Floor Plans"
+    /// held no floor plans, and the floor plans sat below everything with
+    /// no heading tying them back. The owner found it immediately. It was
+    /// also out of the documented page order, which puts Floor Plans above
+    /// Photos and Files, not below them.
+    ///
+    /// Named rather than written inline for the reason `projectGrid` is:
+    /// `CollectionShell`'s three trailing closures inside the page's
+    /// `ScrollView` put the expression past what the type checker solves.
+    @ViewBuilder private var floorPlansSection: some View {
+        CollectionShell(
+            title: "Floor Plans",
+            count: levels.count,
+            // Their caption states the order. On a job with a basement, a
+            // ground floor and an attic, "sorted by floor level" is the
+            // difference between reading the rail and searching it.
+            caption: "Sorted by floor level.",
+            onAdd: {
+                openRoom = nil
+                addingFloor = true
+            }
+        ) {
+            EmptyView()
+        } rail: {
+            ForEach(levels, id: \.self) { level in
+                FloorPlanTile(level: level, rooms: (scans ?? []).filter { $0.level == level }) {
+                    openFloor = level
+                }
+            }
+            if scans != nil && levels.isEmpty {
+                // One ghost tile beside the +, so the row reads as a place
+                // things go rather than as a lone button.
+                GhostTile()
+            }
+        } expanded: {
+            // `See all` — each storey in full: its drawing, its rooms as a
+            // rail, and the full-width rows behind its own `See all`. This
+            // is the content that used to sit at the bottom of the page,
+            // now underneath the heading it belongs to.
+            ForEach(levels, id: \.self) { level in
+                storeySection(level)
+            }
+        }
+    }
 
     /// One storey and its rooms. Extracted from the body for the same reason
     /// `projectGrid` was: `CollectionShell` takes three trailing closures,
