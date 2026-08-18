@@ -630,6 +630,11 @@ struct ProjectDetailView: View {
     @State private var record: ProjectRecord?
     @State private var editingDetails = false
     @State private var pickingLocation = false
+    /// The Add Floor sheet, and the storey it chose. Two sheets cannot be up
+    /// at once, so the level is held here and the capture flow is opened by
+    /// the chooser's own dismissal.
+    @State private var addingFloor = false
+    @State private var pendingLevel: String?
     @State private var projectFiles: [RoomPhoto] = []
     @State private var sharing = false
     @StateObject private var queue = ScanQueue.shared
@@ -796,7 +801,7 @@ struct ProjectDetailView: View {
                         HStack(spacing: Brand.Space.small) {
                             AddTile(label: "Add floor plan") {
                                 openRoom = nil
-                                capturing = true
+                                addingFloor = true
                             }
                             if scans != nil && levels.isEmpty {
                                 // One ghost tile beside the +, so the row
@@ -841,69 +846,8 @@ struct ProjectDetailView: View {
                     // rooms as a rail led by the dashed + tile, the storey
                     // drawing above it, the full-width rows behind `See all`.
                     ForEach(levels, id: \.self) { level in
-                        let rooms = (scans ?? []).filter { $0.level == level }
-                        let area = rooms.reduce(0) { $0 + $1.floorAreaSqm }
-
-                        CollectionShell(
-                            title: level.uppercased(),
-                            count: rooms.count,
-                            caption:
-                                "\(Measure.sqftLabel(area)) · \(rooms.count) room\(rooms.count == 1 ? "" : "s")",
-                            onAdd: { capturing = true }
-                        ) {
-                            // The storey as one drawing, tappable — the plan
-                            // view of the same rooms railed below it.
-                            if rooms.contains(where: { $0.geometry != nil }) {
-                                Card(padding: Brand.Space.small) {
-                                    LevelCanvas(rooms: rooms) { room in
-                                        openRoom = room
-                                    }
-                                }
-                            }
-                        } rail: {
-                            ForEach(rooms) { room in
-                                NavigationLink(value: room) {
-                                    RoomRailCard(room: room)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        } expanded: {
-                            ForEach(rooms) { room in
-                                // A button, not a NavigationLink: the room
-                                // detail is an inspector sheet over this
-                                // screen, so a row tap and a canvas tap are
-                                // the same act — select the room.
-                                Button {
-                                    openRoom = room
-                                } label: {
-                                    Card(padding: Brand.Space.small) {
-                                        CardRow {
-                                            HStack(spacing: Brand.Space.small) {
-                                                RoomGlyph(stairs: room.stairCount > 0)
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(room.name)
-                                                        .font(.system(size: 15, weight: .semibold))
-                                                        .foregroundStyle(Brand.ink)
-                                                    Text(
-                                                        "\(room.doorCount) door\(room.doorCount == 1 ? "" : "s") · \(room.windowCount) window\(room.windowCount == 1 ? "" : "s")"
-                                                    )
-                                                    .font(.system(size: 12))
-                                                    .foregroundStyle(Brand.inkFaint)
-                                                }
-                                                Spacer()
-                                                Text(Measure.sqftLabel(room.floorAreaSqm))
-                                                    .font(.system(size: 14, weight: .bold))
-                                                    .monospacedDigit()
-                                                    .foregroundStyle(Brand.inkSoft)
-                                            }
-                                        }
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                        storeySection(level)
                     }
-
 
                     // The report, one tap from the job it describes.
                     NavigationLink {
@@ -969,6 +913,17 @@ struct ProjectDetailView: View {
                 projectName: project.name,
                 onShowFiles: {})
         }
+        .sheet(
+            isPresented: $addingFloor,
+            onDismiss: {
+                // Opened here rather than from the row's action: SwiftUI
+                // will not raise a second sheet while the first is still
+                // dismissing, and the scan would simply never appear.
+                if pendingLevel != nil { capturing = true }
+            }
+        ) {
+            AddFloorSheet(existing: Set(levels)) { level in pendingLevel = level }
+        }
         .sheet(isPresented: $pickingLocation) {
             ProjectLocationPicker(
                 projectName: project.name,
@@ -1012,6 +967,7 @@ struct ProjectDetailView: View {
             onDismiss: {
                 landing = landingIntent
                 landingIntent = nil
+                pendingLevel = nil
             }
         ) {
             CaptureFlow(
@@ -1019,6 +975,7 @@ struct ProjectDetailView: View {
                 projectName: project.name,
                 existingCount: (scans ?? []).count,
                 existingNames: (scans ?? []).map(\.name),
+                initialLevel: pendingLevel,
                 onSaved: { Task { await load() } },
                 onFinished: { level, filed in
                     landingIntent = PlanLanding(level: level, filed: filed)
@@ -1039,6 +996,82 @@ struct ProjectDetailView: View {
             if await ScanQueue.shared.flush() > 0 { await load() }
             await load()
         }
+    }
+
+    /// Pulled out of the row's own body: four ternaries inside one
+    /// interpolated string, inside a builder already six levels deep, is
+    /// what tipped the type checker over its time limit.
+
+    /// One storey and its rooms. Extracted from the body for the same reason
+    /// `projectGrid` was: `CollectionShell` takes three trailing closures,
+    /// and nesting all of them inside a ForEach inside the page's ScrollView
+    /// put the whole expression past what the type checker will solve.
+    @ViewBuilder private func storeySection(_ level: String) -> some View {
+                    let rooms = (scans ?? []).filter { $0.level == level }
+                    let area = rooms.reduce(0) { $0 + $1.floorAreaSqm }
+
+                    CollectionShell(
+                        title: level.uppercased(),
+                        count: rooms.count,
+                        caption:
+                            "\(Measure.sqftLabel(area)) · \(rooms.count) room\(rooms.count == 1 ? "" : "s")",
+                        onAdd: { capturing = true }
+                    ) {
+                        // The storey as one drawing, tappable — the plan
+                        // view of the same rooms railed below it.
+                        if rooms.contains(where: { $0.geometry != nil }) {
+                            Card(padding: Brand.Space.small) {
+                                LevelCanvas(rooms: rooms) { room in
+                                    openRoom = room
+                                }
+                            }
+                        }
+                    } rail: {
+                        ForEach(rooms) { room in
+                            NavigationLink(value: room) {
+                                RoomRailCard(room: room)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } expanded: {
+                        ForEach(rooms) { room in
+                            // A button, not a NavigationLink: the room
+                            // detail is an inspector sheet over this
+                            // screen, so a row tap and a canvas tap are
+                            // the same act — select the room.
+                            Button {
+                                openRoom = room
+                            } label: {
+                                Card(padding: Brand.Space.small) {
+                                    CardRow {
+                                        HStack(spacing: Brand.Space.small) {
+                                            RoomGlyph(stairs: room.stairCount > 0)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(room.name)
+                                                    .font(.system(size: 15, weight: .semibold))
+                                                    .foregroundStyle(Brand.ink)
+                                                Text(openingsCaption(room))
+                                                    .font(.system(size: 12))
+                                                    .foregroundStyle(Brand.inkFaint)
+                                            }
+                                            Spacer()
+                                            Text(Measure.sqftLabel(room.floorAreaSqm))
+                                                .font(.system(size: 14, weight: .bold))
+                                                .monospacedDigit()
+                                                .foregroundStyle(Brand.inkSoft)
+                                        }
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+    private func openingsCaption(_ room: RoomScan) -> String {
+        let doors = "\(room.doorCount) door" + (room.doorCount == 1 ? "" : "s")
+        let windows = "\(room.windowCount) window" + (room.windowCount == 1 ? "" : "s")
+        return doors + " · " + windows
     }
 
     private func loadFiles() async {
@@ -2166,5 +2199,95 @@ private struct ExportRow: View {
         }
         .padding(Brand.Space.small)
         .contentShape(Rectangle())
+    }
+}
+
+/// The reference's `Add Floor` sheet, behind the + in Floor Plans.
+///
+/// Shape copied exactly: a grabber, a centred title, an ✕, then two grouped
+/// lists — `Most common` and `Other floors` — each a plain row you tap.
+///
+/// TWO DELIBERATE DIFFERENCES IN THE CONTENT, both already settled in this
+/// codebase and neither a slip:
+///
+/// **Basement sits in `Most common`.** The reference files every basement
+/// under `Other floors`, which is an appraiser's ordering. This trade lives
+/// in basements (`HANDOFF.md` §3), so it leads the short list.
+///
+/// **There is no `1st Floor`, and there must not be.** The reference reads
+/// "1st" the European way — one storey ABOVE ground. Every row already
+/// stored here reads it the North American way and calls that storey `2nd`.
+/// Offering both spellings would file one physical storey under two names
+/// and split every total that groups by level. `FloorVocabulary` and
+/// `floors.ts` both carry this warning; changing it is a data migration, not
+/// a list edit.
+struct AddFloorSheet: View {
+    /// Floors already on this project — shown with a check, and still
+    /// tappable, because a storey can hold more than one room.
+    let existing: Set<String>
+    let onPick: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    /// The reference's five, with Basement standing where their `1st Floor`
+    /// would be — same length, same job, our vocabulary.
+    private static let common = ["Ground", "Basement", "2nd", "3rd", "4th"]
+
+    private var others: [FloorVocabulary.Level] {
+        FloorVocabulary.levels.filter { !Self.common.contains($0.id) }
+    }
+
+    private var commonLevels: [FloorVocabulary.Level] {
+        Self.common.compactMap { id in FloorVocabulary.levels.first { $0.id == id } }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Most common") {
+                    ForEach(commonLevels, id: \.id) { level in row(level) }
+                }
+                Section("Other floors") {
+                    ForEach(others, id: \.id) { level in row(level) }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Add Floor")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Brand.inkSoft)
+                            .frame(width: 30, height: 30)
+                            .background(Brand.surfaceRaised, in: Circle())
+                    }
+                }
+            }
+        }
+    }
+
+    private func row(_ level: FloorVocabulary.Level) -> some View {
+        Button {
+            onPick(level.id)
+            dismiss()
+        } label: {
+            HStack {
+                Text(level.label)
+                    .font(.system(size: 17))
+                    .foregroundStyle(Brand.ink)
+                Spacer()
+                if existing.contains(level.id) {
+                    // Already measured. Not disabled — a storey holds many
+                    // rooms and the second one is added the same way.
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Brand.blue)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
