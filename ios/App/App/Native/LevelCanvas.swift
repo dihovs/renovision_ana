@@ -1038,14 +1038,40 @@ struct FloorCanvasView: View {
         // FLOOR, not to a room inspector behind it.
         if let room = editingRoom {
             RoomEditorCore(
-                room: room, onExit: { editingRoom = nil }, backContext: .floor,
+                room: room,
+                // Wrapped here, not at each call site inside the core — one
+                // closure, every path that leaves a room (tap outside, the
+                // discard-confirm, Save, Duplicate, Delete) animates alike
+                // without RoomEditorCore having to know this exists.
+                onExit: { withAnimation(Self.roomTransitionAnimation) { editingRoom = nil } },
+                backContext: .floor,
                 onSaved: { Task { await load() } })
                 .id(room.id)
                 .environment(\.colorScheme, .light)
+                // Shrinks toward the middle of the screen and fades as it
+                // goes, rather than the hard cut a plain `if/else` gives by
+                // default — "it jumps," 18 Aug 2026. Not a true morph: the
+                // room does not travel to its actual position on the
+                // storey, because that position lives inside `LevelCanvas`'s
+                // `Canvas` draw, which has no real view geometry a
+                // `matchedGeometryEffect` could target. This reads as a
+                // camera pulling back, which is what he asked for by name,
+                // without pretending to be more than that.
+                .transition(
+                    .scale(scale: 0.85, anchor: .center).combined(with: .opacity))
         } else {
             floorContent
+                // The counterpart: grows in from slightly small as the room
+                // shrinks away, so the two feel like one continuous pull-back
+                // rather than a cut mid-way between two unrelated animations.
+                .transition(
+                    .scale(scale: 1.08, anchor: .center).combined(with: .opacity))
         }
     }
+
+    /// One constant so entering and leaving a room animate identically —
+    /// nothing here decides speed twice.
+    private static let roomTransitionAnimation: Animation = .easeInOut(duration: 0.3)
 
     private var floorContent: some View {
         ZStack {
@@ -1092,8 +1118,17 @@ struct FloorCanvasView: View {
                             // from inside the editor — his choice of where
                             // it should live, and the gesture the reference
                             // uses for every inspector.
-                            LevelCanvas(rooms: rooms) { room in editingRoom = room }
-                                .padding(Brand.Space.base)
+                            LevelCanvas(rooms: rooms) { room in
+                                // Same animation, same duration as leaving —
+                                // see `body`'s `.transition` — so entering
+                                // and exiting a room read as one continuous
+                                // gesture rather than a smooth exit bolted
+                                // onto an instant entry.
+                                withAnimation(Self.roomTransitionAnimation) {
+                                    editingRoom = room
+                                }
+                            }
+                            .padding(Brand.Space.base)
                         }
                     }
                     .scaleEffect(zoom * pinch)

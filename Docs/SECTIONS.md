@@ -1172,4 +1172,29 @@ Newest last. One or two lines per chat.
      same 0.6, kept as one named constant so the two cannot drift apart.
 
   **Unverified — build 101 installed, none of these three tapped yet.**
+- **2026-08-18** — Build 102. He confirmed test 7 (tap outside to leave)
+  works, then: *"it jumps, i need a smooth transition from edit mode to
+  zoom out to story mode when i click outside of the room."* The
+  `if/else` swap in `FloorCanvasView.body` had no `.transition` — a plain
+  branch change is an instant cut by default. Both directions now animate:
+  entering a room (`editingRoom = room`) and leaving one (`onExit`, wired
+  through every path that calls it — tap-outside, discard-confirm, Save,
+  Duplicate, Delete) both go through one `withAnimation(.easeInOut(duration:
+  0.3))`, named `roomTransitionAnimation` so the two cannot drift out of
+  step. The room's content scales to 0.85 and fades on the way out; the
+  storey scales in from 1.08 and fades on the way in — reads as a camera
+  pull-back.
+
+  **Said plainly: this is NOT a true morph.** `RoomEditorCore`'s canvas and
+  `LevelCanvas`'s storey canvas both draw with SwiftUI `Canvas` — immediate-
+  mode paths, not real views — so there is no view geometry a
+  `matchedGeometryEffect` could hang onto to make the room visually travel
+  from its edit-mode framing to its actual position on the storey. A scale-
+  and-fade is the honest version of "zoom out" available without turning
+  every room into a real subview, which would be a far bigger change than
+  this fix. If the pull-back does not read as smooth ENOUGH once he sees
+  it, the duration/scale numbers are one place to tune, in `FloorCanvasView`
+  — the true-morph version is a separate, much larger piece of work.
+
+  Unverified — build 102 installed, not yet looked at.
 
