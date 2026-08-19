@@ -847,6 +847,9 @@ struct RoomStatisticsSheet: View {
     let room: RoomScan
 
     @Environment(\.dismiss) private var dismiss
+    /// The objects standing in this room — the takeoff `room_objects` was
+    /// built for, and until now the only part of it with no screen.
+    @State private var objects: [RoomObject] = []
 
     private var measurements: [ProjectStats.Row] {
         [
@@ -890,11 +893,84 @@ struct RoomStatisticsSheet: View {
         return rows
     }
 
+    /// The takeoff: what is in this room, counted.
+    ///
+    /// **This is the whole reason objects are a table.** The owner, asked
+    /// what an object has to do on a job: *"if replaced, if there is
+    /// damage, it needs to be counted, there is installation involved
+    /// also, i need to have an option to include or exclude it like any
+    /// other item."* The disposition and the include switch have been in
+    /// the object's own sheet since it was built; the COUNTING had nowhere
+    /// to appear.
+    ///
+    /// Three rules, all of them his:
+    ///
+    /// - **Excluded objects are not here at all.** Not counted and greyed —
+    ///   absent, the way an unticked line is absent from an estimate.
+    /// - **Quantities are summed, not rows counted.** One row can stand for
+    ///   eight identical base cabinets along a run.
+    /// - **Grouped by what happens to them**, because "remove" and "reset"
+    ///   are different money and a total that mixed them would have to be
+    ///   taken apart again by whoever prices it.
+    private var takeoff: [ProjectStats.Row] {
+        let counted = objects.filter(\.included)
+        guard !counted.isEmpty else { return [] }
+
+        var totals: [String: Int] = [:]
+        for object in counted {
+            totals[object.displayName, default: 0] += object.quantity
+        }
+        return totals.keys.sorted().map { name in
+            .init(id: "object.\(name)", label: name, value: "\(totals[name] ?? 0)", meaning: nil)
+        }
+    }
+
+    /// What is being DONE to them, which is the half a count alone cannot
+    /// say. Only the dispositions actually present — a job with nothing to
+    /// reset should not carry a "Reset: 0" line.
+    private var work: [ProjectStats.Row] {
+        var totals: [String: Int] = [:]
+        for object in objects where object.included && object.disposition != "none" {
+            totals[object.dispositionLabel, default: 0] += object.quantity
+        }
+        return totals.keys.sorted().map {
+            .init(id: "work.\($0)", label: $0, value: "\(totals[$0] ?? 0)", meaning: nil)
+        }
+    }
+
+    private var excluded: Int {
+        objects.filter { !$0.included }.reduce(0) { $0 + $1.quantity }
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 Section("Measurements") {
                     ForEach(measurements) { StatisticRowView(row: $0) }
+                }
+
+                if !takeoff.isEmpty {
+                    Section {
+                        ForEach(takeoff) { StatisticRowView(row: $0) }
+                    } header: {
+                        Text("Objects in this room")
+                    } footer: {
+                        if excluded > 0 {
+                            Text(
+                                "\(excluded) more \(excluded == 1 ? "is" : "are") on the plan but excluded from the claim."
+                            )
+                        }
+                    }
+                }
+
+                if !work.isEmpty {
+                    Section {
+                        ForEach(work) { StatisticRowView(row: $0) }
+                    } header: {
+                        Text("Work on those objects")
+                    } footer: {
+                        Text("Removing, resetting and replacing are different labour lines — they are counted apart rather than totalled together.")
+                    }
                 }
                 Section {
                     ForEach(counts) { StatisticRowView(row: $0) }
@@ -921,6 +997,9 @@ struct RoomStatisticsSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .task {
+                objects = (try? await API.shared.objects(roomScanId: room.id)) ?? []
             }
         }
     }
