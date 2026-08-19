@@ -853,10 +853,33 @@ struct ElevationView: View {
 
         let half = object.width / 2
         let moved = drag.startAlong + Double(now.x - start.x)
-        draggingObject = (
-            drag.id, drag.startAlong,
-            min(max(moved, half), max(wallLength - half, half))
-        )
+
+        // **Stop where the next thing starts.** The owner, dragging a
+        // fridge into a washer: *"they go on top of each other. It's not
+        // right. They should, when they touch each other, they should
+        // stop."* Right — and `PlanEditing.slideOpening` has enforced
+        // exactly this for doors and windows since they became draggable.
+        // The rule was there; objects simply were not being held to it.
+        //
+        // The neighbours either side are found from where the drag STARTED,
+        // not from where the finger is now: a fast drag must not be allowed
+        // to jump the fridge through the washer and re-anchor on its far
+        // side, which is what comparing against the live position would do.
+        var lower = half
+        var upper = max(wallLength - half, half)
+        for other in objectsOnThisWall() where other.object.id != object.id {
+            let otherHalf = other.object.width / 2
+            if other.along <= drag.startAlong {
+                lower = max(lower, other.along + otherHalf + half)
+            } else {
+                upper = min(upper, other.along - otherHalf - half)
+            }
+        }
+        // A wall too crowded to hold this object leaves the bounds crossed;
+        // staying put beats teleporting to a nonsense position.
+        let clamped = lower <= upper ? min(max(moved, lower), upper) : drag.startAlong
+
+        draggingObject = (drag.id, drag.startAlong, clamped)
         return true
     }
 

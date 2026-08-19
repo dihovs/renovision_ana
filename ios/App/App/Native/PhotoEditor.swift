@@ -356,6 +356,23 @@ struct PhotoEditorView: View {
                 Text(error ?? "")
             }
             .task { prepare() }
+            // A text mark asks for its words once its box is drawn — put it
+            // where it goes, then say what it says.
+            .alert(
+                "Add text",
+                isPresented: Binding(get: { typing != nil }, set: { if !$0 { typing = nil } })
+            ) {
+                TextField("Text", text: $typedText)
+                Button("Add") {
+                    if var shape = typing, !typedText.isEmpty {
+                        shape.text = typedText
+                        push()
+                        edit.shapes.append(shape)
+                    }
+                    typing = nil
+                }
+                Button("Cancel", role: .cancel) { typing = nil }
+            }
         }
         .interactiveDismissDisabled(!edit.isEmpty)
     }
@@ -858,6 +875,14 @@ struct PhotoEditorView: View {
             let flat = Self.rendered(
                 original, adjustments: edit.adjustments, regions: edit.redactions,
                 drawing: edit.drawing.strokes.isEmpty ? nil : edit.drawing,
+                annotations: edit.shapes.isEmpty
+                    ? nil
+                    : Self.annotationImage(
+                        edit.shapes,
+                        size: Self.outputSize(
+                            of: original, quarterTurns: edit.quarterTurns, crop: edit.crop)),
+                quarterTurns: edit.quarterTurns, flipped: edit.flipped,
+                straighten: edit.straighten, crop: edit.crop,
                 drawnAt: drawnSize),
             let jpeg = flat.jpegData(compressionQuality: 0.85)
         else {
@@ -915,6 +940,34 @@ struct PhotoEditorView: View {
         let clamped = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
             .intersection(CGRect(origin: .zero, size: image))
         return clamped.isNull ? .zero : clamped
+    }
+
+    /// What the finished file will measure, which the annotation overlay
+    /// has to match. Only the crop and the quarter turns change it; a
+    /// straighten grows the frame slightly and is close enough at this
+    /// scale not to be worth a second pass.
+    @MainActor
+    static func outputSize(of image: UIImage, quarterTurns: Int, crop: CGRect?) -> CGSize {
+        let base = crop?.size ?? image.size
+        return quarterTurns % 2 == 0 ? base : CGSize(width: base.height, height: base.width)
+    }
+
+    /// The shapes as a transparent image, drawn through the same routine
+    /// the screen uses.
+    @MainActor
+    static func annotationImage(_ shapes: [Annotation], size: CGSize) -> UIImage? {
+        guard size.width > 0, size.height > 0 else { return nil }
+        let renderer = ImageRenderer(
+            content:
+                Canvas { context, _ in
+                    for shape in shapes {
+                        drawShape(shape, in: context, scale: 1, size: size)
+                    }
+                }
+                .frame(width: size.width, height: size.height)
+        )
+        renderer.scale = 1
+        return renderer.uiImage
     }
 
     /// One screen point → the image's own pixels.
@@ -1027,6 +1080,23 @@ struct PhotoEditorView: View {
     /// uploaded as a redacted one.
     static func rendered(
         _ image: UIImage, adjustments: Adjustments, regions: [CGRect], drawing: PKDrawing?,
+        /// The shape tools' marks, already rendered to a transparent image
+        /// the size of the photograph, composited last so an arrow drawn at
+        /// a blurred plate stays crisp.
+        ///
+        /// An IMAGE rather than the shapes themselves, for a reason worth
+        /// keeping: `drawShape` draws into a SwiftUI `GraphicsContext` and
+        /// there is no way to construct one over a `CGContext`. Rendering
+        /// the overlay through a `Canvas` keeps ONE drawing routine serving
+        /// both the live preview and the saved file, where a Core Graphics
+        /// twin would be a second copy to keep in step — and this file
+        /// already knows what that costs.
+        annotations: UIImage? = nil,
+        /// Crop and transform. Applied FIRST, before anything is drawn on
+        /// the photograph — a mark is placed on the picture the operator
+        /// can see, and rotating afterwards would carry it somewhere else.
+        quarterTurns: Int = 0, flipped: Bool = false, straighten: Double = 0,
+        crop: CGRect? = nil,
         /// The size the drawing was made at — the picture's own drawn size
         /// on screen. The strokes are in THAT space, and the photograph is
         /// in pixels; the ratio between them is the whole reason this is a
@@ -1037,6 +1107,35 @@ struct PhotoEditorView: View {
 
         let context = CIContext()
         var working = CIImage(cgImage: cgImage)
+
+        // **Geometry first.** Crop, rotation and flip change what the
+        // picture IS; everything after them — adjustments, redactions,
+        // annotation — is applied to the picture the operator was looking
+        // at when they made the mark. In the other order a redaction would
+        // travel somewhere else the moment the photo was straightened.
+        if let crop {
+            // UIKit's rect is top-left; Core Image's is bottom-left.
+            let flippedRect = CGRect(
+                x: crop.minX, y: working.extent.height - crop.maxY,
+                width: crop.width, height: crop.height)
+            working = working.cropped(to: flippedRect)
+            working = working.transformed(
+                by: CGAffineTransform(
+                    translationX: -working.extent.minX, y: -working.extent.minY))
+        }
+        if flipped {
+            working = working.transformed(by: CGAffineTransform(scaleX: -1, y: 1))
+            working = working.transformed(
+                by: CGAffineTransform(translationX: working.extent.width, y: 0))
+        }
+        if straighten != 0 || quarterTurns != 0 {
+            let radians = -straighten * .pi / 180 + Double(quarterTurns) * .pi / 2
+            let rotated = working.transformed(by: CGAffineTransform(rotationAngle: radians))
+            working = rotated.transformed(
+                by: CGAffineTransform(
+                    translationX: -rotated.extent.minX, y: -rotated.extent.minY))
+        }
+
         let extent = working.extent
 
         // §2a's five channels, each mapped from the dial's −100…100 to its
@@ -1110,7 +1209,8 @@ struct PhotoEditorView: View {
         guard let rendered = context.createCGImage(working, from: extent) else { return nil }
         let flat = UIImage(cgImage: rendered, scale: 1, orientation: image.imageOrientation)
 
-        guard let drawing, !drawing.strokes.isEmpty, canvasSize.width > 0 else { return flat }
+        let hasDrawing = (drawing?.strokes.isEmpty == false) && canvasSize.width > 0
+        guard hasDrawing || annotations != nil else { return flat }
 
         // The annotation, drawn over the finished photograph at the photo's
         // own resolution. PencilKit's strokes are in the canvas's points —
@@ -1118,16 +1218,19 @@ struct PhotoEditorView: View {
         // the size of the picture and scaling by the ratio puts every stroke
         // exactly where it sat under the finger.
         let size = CGSize(width: extent.width, height: extent.height)
-        let ratio = size.width / canvasSize.width
+        let ratio = canvasSize.width > 0 ? size.width / canvasSize.width : 1
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             flat.draw(in: CGRect(origin: .zero, size: size))
+
+            annotations?.draw(in: CGRect(origin: .zero, size: size))
             // Rendered at `ratio` so a stroke drawn 11pt wide on screen is
             // 11pt wide RELATIVE TO THE PICTURE in the file, not 11 pixels
             // of a 2048px image. Drawing the stroke image into a scaled
             // rect would soften it; asking PencilKit to render at the scale
             // keeps the line crisp at full resolution.
+            guard let drawing, hasDrawing else { return }
             let bounds = drawing.bounds
             let target = CGRect(
                 x: bounds.minX * ratio, y: bounds.minY * ratio,
