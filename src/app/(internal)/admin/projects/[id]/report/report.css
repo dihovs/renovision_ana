@@ -17,12 +17,51 @@
   line-height: 1.45;
 }
 
+/*
+ * **A page is a PAGE on screen too, not only in print.**
+ *
+ * The owner's exports kept coming out as one endless strip with the app's
+ * own menus printed in it — because whatever produced the PDF rendered the
+ * SCREEN stylesheet, where a "page" was just a card in a scrolling column.
+ * Every page break, running header and `Page n/N` lived inside
+ * `@media print` and never ran.
+ *
+ * Betting a claim document on the reader choosing the right export path is
+ * a bad bet. So the page is Letter-sized here, always: any route that turns
+ * this into a PDF — the print dialog, a save-as-PDF tool, a headless
+ * renderer — now gets the same paginated document.
+ *
+ * `break-after` stays in the print block as well, because on screen these
+ * are boxes in a column and only paged media can honour it.
+ */
 .report .page {
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 14px;
-  padding: 22px;
-  margin-bottom: 16px;
+  margin: 0 auto 16px;
+  /* US Letter, less the 2cm margins the print block sets. */
+  width: 17.6cm;
+  min-height: 23.9cm;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The content sits inside the sheet with the same margin print uses, so a
+   screen page and a printed page break in the same place. */
+.report .page > * {
+  margin-left: 1.2cm;
+  margin-right: 1.2cm;
+}
+.report .page > .running {
+  margin-top: 1.2cm;
+}
+/* The foot is pushed to the bottom of the sheet, which is what makes a
+   short page look like a page rather than a stub. */
+.report .page > .page-foot {
+  margin-top: auto;
+  margin-bottom: 1.2cm;
 }
 
 /* ---------------------------------------------------------------- header */
@@ -217,6 +256,10 @@
   .report .page {
     border: none;
     border-radius: 0;
+    /* The @page margin does the insetting when printing, so the sheet
+       itself goes back to filling the paper. */
+    width: auto;
+    min-height: 0;
     padding: 0;
     margin: 0;
     /* Each section is a page. break-after rather than page-break-after: the
@@ -224,6 +267,16 @@
     break-after: page;
   }
   .report .page:last-child { break-after: auto; }
+
+  /* On paper the @page margin insets the content, so the on-screen
+     margins are removed rather than doubled. */
+  .report .page > *,
+  .report .page > .running,
+  .report .page > .page-foot {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .report .page > .running { margin-top: 0; }
 
   /* A room's plan and its measurements must not be split from each other —
      a table of figures on a page without the drawing they describe is worse
@@ -400,3 +453,30 @@
   color: #62666d;
   font-size: 8pt;
 }
+
+/*
+ * The bare view: the document and nothing else, on screen.
+ *
+ * His PDFs kept arriving with "Projects", "Sign out" and the option
+ * checkboxes printed at the top, because whatever produced them rendered
+ * the screen rather than the print stylesheet. Rather than argue with the
+ * export route, `?bare=1` removes the chrome on screen too — so a
+ * screenshot, a save-as-PDF extension and the print dialog all produce the
+ * same clean document.
+ *
+ * `:has()` reaches the shell's own nav, which lives outside this component
+ * and cannot be reached any other way without threading a flag through the
+ * whole admin layout.
+ */
+html:has(.report-bare) nav,
+html:has(.report-bare) header.app-header,
+html:has(.report-bare) footer.app-footer,
+.report-bare .no-print {
+  display: none !important;
+}
+html:has(.report-bare) body,
+html:has(.report-bare) .report-shell {
+  background: #f4f5f7 !important;
+  padding: 0 !important;
+}
+

@@ -45,6 +45,9 @@ export default async function ReportPage({
   const onlyLockedDimensions = query.dimensions === "locked";
   // The reference's third export layout, which had never been generated.
   const floorsOnly = query.layout === "floors";
+  // The document alone, no app chrome — so any way of turning this into a
+  // PDF produces the same clean pages.
+  const bare = query.bare === "1";
 
   if (!isConfigured) {
     return (
@@ -123,7 +126,7 @@ export default async function ReportPage({
   const property = claim.loss_address?.trim() || null;
 
   return (
-    <div className="report-shell">
+    <div className={bare ? "report-shell report-bare" : "report-shell"}>
       <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-lg font-bold text-charcoal">Report</h1>
@@ -134,6 +137,16 @@ export default async function ReportPage({
           </p>
         </div>
         <PrintButton />
+        {/* A clean view, for any export route that renders the screen
+            rather than the print stylesheet. */}
+        <Link
+          href={`/admin/projects/${project.id}/report?bare=1${
+            onlyLockedDimensions ? "&dimensions=locked" : ""
+          }${floorsOnly ? "&layout=floors" : ""}`}
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-charcoal transition-colors hover:border-brand-blue/40"
+        >
+          Clean view for PDF
+        </Link>
       </div>
 
       {/* Report options. A link rather than client state: toggling reloads
