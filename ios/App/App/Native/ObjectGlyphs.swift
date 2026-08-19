@@ -53,6 +53,13 @@ enum ObjectGlyphs {
             return (Color(hex: 0xF6DADA), Color(hex: 0xB03A3A))
         case .outdoors:
             return (Palette.concrete, Palette.concreteEdge)
+        case .annotations:
+            // Blue, like every other thing on this plan that is writing
+            // rather than building — dimensions, labels, the operator's own
+            // marks.
+            return (Color(hex: 0xE6EEF8), Color(hex: 0x2B5C9E))
+        case .garage:
+            return (Palette.steel, Palette.steelEdge)
         case .furniture: return (Palette.fabric, Palette.fabricEdge)
         case .structural: return (Palette.concrete, Palette.concreteEdge)
         }

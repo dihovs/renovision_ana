@@ -47,6 +47,15 @@ enum ObjectCatalog {
     /// in a wall, and `ObjectLibrary` below is what puts them in the same
     /// list as these without pretending they are the same kind of thing.
     enum Category: String, CaseIterable, Identifiable, Hashable {
+        /// **Marks on the drawing rather than things in the room.** Their
+        /// list leads with these and ours had none: a label, an arrow, a
+        /// north point, a flag against something worth saying in words.
+        ///
+        /// They are stored as objects because they ARE positioned things
+        /// with a place on a plan — but they carry no size worth measuring,
+        /// deduct nothing, and are never counted in a takeoff. `isAnnotation`
+        /// is what keeps them out of the totals.
+        case annotations = "Annotations"
         case structural = "Structural"
         case plumbing = "Plumbing"
         case appliances = "Appliances"
@@ -57,6 +66,7 @@ enum ObjectCatalog {
         case restoration = "Restoration"
         case safety = "Fire & Safety"
         case outdoors = "Outdoors"
+        case garage = "Garage"
 
         var id: String { rawValue }
 
@@ -73,6 +83,8 @@ enum ObjectCatalog {
             case .furniture: return "What was in the room"
             case .structural: return "Columns, stairs, bulkheads"
             case .restoration: return "Our own equipment, on the plan where it stands"
+            case .annotations: return "Write on the drawing — labels, arrows, north"
+            case .garage: return "What is in the garage"
             case .safety: return "Extinguishers, alarms, shut-offs, exits"
             case .outdoors: return "Decks, steps, drains, what surrounds the building"
             }
@@ -113,6 +125,18 @@ enum ObjectCatalog {
         var stock: [Stock] = []
 
         var id: String { slug }
+
+        /// A mark on the drawing rather than a thing in the room.
+        ///
+        /// Annotations are never counted in a takeoff, never deduct
+        /// anything, and are drawn as what they say rather than as a
+        /// footprint with a symbol in it. One flag, checked in the three
+        /// places that would otherwise treat them as fixtures.
+        var isAnnotation: Bool { category == .annotations }
+
+        /// Whether placing this asks for words first. A label with nothing
+        /// written on it is a blank box nobody can interpret later.
+        var needsText: Bool { slug == "note_label" || slug == "note_arrow" }
 
         /// This entry at one of its stock sizes — see `ObjectCatalog.sized`.
         func sized(_ stock: Stock) -> Entry { ObjectCatalog.sized(self, stock) }
@@ -186,6 +210,16 @@ enum ObjectCatalog {
             case "window_well": return "rectangle.portrait"
             case "downspout": return "arrow.down.to.line"
             case "ac_condenser": return "wind.snow"
+            case "note_label": return "text.bubble"
+            case "note_arrow": return "arrow.up.right"
+            case "note_north": return "location.north.circle"
+            case "note_flag": return "flag"
+            case "note_source": return "drop.triangle.fill"
+            case "car": return "car"
+            case "workbench": return "hammer"
+            case "garage_shelving": return "square.grid.3x3"
+            case "garage_opener": return "gearshape"
+            case "utility_sink": return "sink"
             default: return "square"
             }
         }
@@ -498,6 +532,54 @@ enum ObjectCatalog {
             slug: "containment", name: "Containment barrier", category: .restoration,
             width: 96 * inch, depth: 2 * inch, height: 96 * inch, shape: .panel,
             sizeNote: "8ft of poly on a zip pole — drawn as the line it is."),
+
+        // MARK: Annotations — writing on the drawing.
+        //
+        // Sizes here are the mark's own extent on the plan, not a
+        // measurement of anything: a label is as big as its words. They are
+        // deliberately small so an annotation never reads as a fixture.
+        Entry(
+            slug: "note_label", name: "Text label", category: .annotations,
+            width: 24 * inch, depth: 8 * inch, height: 0, shape: .panel,
+            sizeNote: "Words on the plan — 'water line here', 'cut for inspection'."),
+        Entry(
+            slug: "note_arrow", name: "Arrow", category: .annotations,
+            width: 24 * inch, depth: 8 * inch, height: 0, shape: .panel,
+            sizeNote: "Points at what the words are about."),
+        Entry(
+            slug: "note_north", name: "North arrow", category: .annotations,
+            width: 12 * inch, depth: 12 * inch, height: 0, shape: .panel,
+            sizeNote: "Which way the building faces — an adjuster's first question on a site plan."),
+        Entry(
+            slug: "note_flag", name: "Flag", category: .annotations,
+            width: 10 * inch, depth: 10 * inch, height: 0, shape: .panel,
+            sizeNote: "Marks a spot to come back to."),
+        Entry(
+            slug: "note_source", name: "Water source", category: .annotations,
+            width: 12 * inch, depth: 12 * inch, height: 0, shape: .panel,
+            sizeNote: "Where it came FROM — the single most important mark on a water claim."),
+
+        // MARK: Garage.
+        Entry(
+            slug: "car", name: "Car", category: .garage,
+            width: 72 * inch, depth: 180 * inch, height: 58 * inch, shape: .box,
+            sizeNote: "6x15ft — a mid-size sedan, for whether a bay is usable."),
+        Entry(
+            slug: "workbench", name: "Workbench", category: .garage,
+            width: 72 * inch, depth: 30 * inch, height: 36 * inch, shape: .counter,
+            sizeNote: "6ft bench along a wall."),
+        Entry(
+            slug: "garage_shelving", name: "Garage shelving", category: .garage,
+            width: 48 * inch, depth: 24 * inch, height: 72 * inch, shape: .shelving,
+            sizeNote: "48in steel racking — and usually what is holding the wet boxes."),
+        Entry(
+            slug: "garage_opener", name: "Door opener", category: .garage,
+            width: 12 * inch, depth: 30 * inch, height: 10 * inch, shape: .box,
+            sizeNote: "Ceiling mounted over the bay."),
+        Entry(
+            slug: "utility_sink", name: "Utility sink", category: .garage,
+            width: 24 * inch, depth: 22 * inch, height: 34 * inch, shape: .sink,
+            sizeNote: "24in garage sink."),
 
         // MARK: Fire & Safety — what is ON the building, not in it.
         //

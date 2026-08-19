@@ -760,6 +760,17 @@ enum EditorChrome {
         let ink = selected ? Brand.blue : Brand.Plan.ink
         let alpha = object.included ? 1.0 : 0.45
 
+        // **An annotation is writing, not a fixture.** No envelope, no
+        // footprint, no name plate under it — a label IS its words, an
+        // arrow is its arrow. Drawing them like objects would put a
+        // measured-looking rectangle around something that measures
+        // nothing, which is the one thing a plan must never do.
+        if object.entry?.isAnnotation == true {
+            drawAnnotation(
+                object, context: context, toScreen: toScreen, scale: scale, selected: selected)
+            return
+        }
+
         // The envelope: the object's measured extent, which the owner asked
         // to keep — *"it's good to keep this rectangular shape… it is kind
         // of gonna show all around measure of the toilet."* Drawn first and
@@ -844,6 +855,113 @@ enum EditorChrome {
         context.draw(
             text, at: CGPoint(x: centre.x, y: centre.y + depthPts / 2 + size.height * 0.7),
             anchor: .center)
+    }
+
+    /// A mark on the drawing: a label, an arrow, a north point, a flag.
+    ///
+    /// Drawn in `Brand.blue` with everything else on a plan that is writing
+    /// rather than building — the dimensions already are, and an annotation
+    /// belongs to the same layer of meaning.
+    static func drawAnnotation(
+        _ object: RoomObject, context: GraphicsContext, toScreen: (CGPoint) -> CGPoint,
+        scale: CGFloat, selected: Bool
+    ) {
+        let at = toScreen(CGPoint(x: object.x, y: object.y))
+        let ink = selected ? Brand.blue : Brand.Plan.dimension
+        let tint = selected ? Brand.blue : Brand.blue.opacity(0.9)
+        let size = max(9, min(16, object.width * scale * 0.5))
+
+        switch object.kind {
+        case "note_arrow":
+            // Points along the object's own rotation, so turning it aims it.
+            let length = max(18, object.width * scale)
+            let radians = object.rotation * .pi / 180
+            let tip = CGPoint(
+                x: at.x + cos(radians) * length / 2, y: at.y + sin(radians) * length / 2)
+            let tail = CGPoint(
+                x: at.x - cos(radians) * length / 2, y: at.y - sin(radians) * length / 2)
+            var shaft = Path()
+            shaft.move(to: tail)
+            shaft.addLine(to: tip)
+            context.stroke(
+                shaft, with: .color(tint), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            arrowheads(
+                at: tip, along: (cos(radians), sin(radians)), context: context, color: tint)
+            // Its words, if it has any, along the tail.
+            if let text = object.name, !text.isEmpty {
+                let label = context.resolve(
+                    Text(text).font(.system(size: size, weight: .semibold))
+                        .foregroundStyle(tint))
+                context.draw(label, at: tail, anchor: .trailing)
+            }
+
+        case "note_north":
+            let r = max(10, object.width * scale / 2)
+            context.stroke(
+                Path(ellipseIn: CGRect(x: at.x - r, y: at.y - r, width: r * 2, height: r * 2)),
+                with: .color(ink), lineWidth: 1.2)
+            var needle = Path()
+            needle.move(to: CGPoint(x: at.x, y: at.y + r * 0.6))
+            needle.addLine(to: CGPoint(x: at.x, y: at.y - r * 0.7))
+            context.stroke(
+                needle, with: .color(tint), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            arrowheads(at: CGPoint(x: at.x, y: at.y - r * 0.7), along: (0, -1),
+                       context: context, color: tint)
+            let n = context.resolve(
+                Text("N").font(.system(size: max(8, r * 0.7), weight: .bold))
+                    .foregroundStyle(tint))
+            context.draw(n, at: CGPoint(x: at.x + r * 0.9, y: at.y - r * 0.5), anchor: .leading)
+
+        case "note_source":
+            // A drop with a ring round it: where the water came FROM.
+            let r = max(9, object.width * scale / 2)
+            context.stroke(
+                Path(ellipseIn: CGRect(x: at.x - r, y: at.y - r, width: r * 2, height: r * 2)),
+                with: .color(tint), style: StrokeStyle(lineWidth: 1.6, dash: [4, 3]))
+            let drop = context.resolve(
+                Text(Image(systemName: "drop.fill"))
+                    .font(.system(size: r)).foregroundStyle(tint))
+            context.draw(drop, at: at, anchor: .center)
+
+        case "note_flag":
+            let h = max(12, object.width * scale)
+            var pole = Path()
+            pole.move(to: CGPoint(x: at.x, y: at.y + h / 2))
+            pole.addLine(to: CGPoint(x: at.x, y: at.y - h / 2))
+            context.stroke(pole, with: .color(tint), lineWidth: 1.6)
+            var flag = Path()
+            flag.move(to: CGPoint(x: at.x, y: at.y - h / 2))
+            flag.addLine(to: CGPoint(x: at.x + h * 0.55, y: at.y - h * 0.32))
+            flag.addLine(to: CGPoint(x: at.x, y: at.y - h * 0.14))
+            flag.closeSubpath()
+            context.fill(flag, with: .color(tint))
+
+        default:
+            // A text label: its words, and nothing else at all.
+            let text = object.name?.isEmpty == false ? object.name! : "Note"
+            let label = context.resolve(
+                Text(text).font(.system(size: size, weight: .semibold)).foregroundStyle(tint))
+            let measured = label.measure(in: CGSize(width: 400, height: 100))
+            // A soft knockout so words stay readable over the tile grid —
+            // the same treatment a dimension figure already gets.
+            context.fill(
+                Path(
+                    roundedRect: CGRect(
+                        x: at.x - measured.width / 2 - 4, y: at.y - measured.height / 2 - 2,
+                        width: measured.width + 8, height: measured.height + 4),
+                    cornerRadius: 3),
+                with: .color(Brand.surface.opacity(0.85)))
+            context.draw(label, at: at, anchor: .center)
+        }
+
+        if selected {
+            let r = max(14, object.width * scale * 0.6)
+            context.stroke(
+                Path(
+                    roundedRect: CGRect(x: at.x - r, y: at.y - r, width: r * 2, height: r * 2),
+                    cornerRadius: 4),
+                with: .color(Brand.blue), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+        }
     }
 
     // MARK: - Live dimensions during a drag (ORD-31)

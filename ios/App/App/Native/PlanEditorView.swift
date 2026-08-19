@@ -125,6 +125,11 @@ struct RoomEditorCore: View {
     /// not take it back.
     @State private var objects: [RoomObject] = []
     @State private var placingObject = false
+    /// An annotation chosen but not yet placed, waiting for its words. A
+    /// label with nothing written on it is a blank mark nobody can read a
+    /// week later.
+    @State private var typingAnnotation: ObjectCatalog.Entry?
+    @State private var annotationText = ""
     /// A door or window chosen from the Insert menu with no wall selected
     /// yet — it is waiting for the operator to tap the wall it goes in.
     ///
@@ -388,7 +393,12 @@ struct RoomEditorCore: View {
                         pendingOpening = kind
                     }
                 case .object(let entry):
-                    placeChosen(entry)
+                    if entry.needsText {
+                        annotationText = ""
+                        typingAnnotation = entry
+                    } else {
+                        placeChosen(entry)
+                    }
                 }
             }
         }
@@ -398,6 +408,21 @@ struct RoomEditorCore: View {
             } onDelete: {
                 Task { await removeObject(object.id) }
             }
+        }
+        .alert(
+            "What does it say?",
+            isPresented: Binding(
+                get: { typingAnnotation != nil }, set: { if !$0 { typingAnnotation = nil } })
+        ) {
+            TextField("Water line here", text: $annotationText)
+            Button("Place") {
+                if let entry = typingAnnotation, !annotationText.isEmpty {
+                    let words = annotationText
+                    Task { await place(entry, named: words) }
+                }
+                typingAnnotation = nil
+            }
+            Button("Cancel", role: .cancel) { typingAnnotation = nil }
         }
         .task { await loadObjects() }
         .task {
@@ -1752,7 +1777,8 @@ struct RoomEditorCore: View {
     }
 
     private func place(
-        _ entry: ObjectCatalog.Entry, at position: CGPoint? = nil, rotation: Double = 0
+        _ entry: ObjectCatalog.Entry, named: String? = nil, at position: CGPoint? = nil,
+        rotation: Double = 0
     ) async {
         let centre = position
             ?? CGPoint(x: bounds.midX - roomOrigin.x, y: bounds.midY - roomOrigin.y)
@@ -1762,7 +1788,7 @@ struct RoomEditorCore: View {
                 // The catalogue's own name when a size was chosen, so the
                 // plan reads "Refrigerator, 30in top-freezer" rather than
                 // leaving the operator to remember which one he placed.
-                name: entry.stock.count > 1 ? entry.name : nil,
+                name: named ?? (entry.stock.count > 1 ? entry.name : nil),
                 at: centre, rotation: rotation,
                 width: entry.width, depth: entry.depth, height: entry.height)
             await loadObjects()

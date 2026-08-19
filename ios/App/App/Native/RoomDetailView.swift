@@ -913,7 +913,9 @@ struct RoomStatisticsSheet: View {
     ///   are different money and a total that mixed them would have to be
     ///   taken apart again by whoever prices it.
     private var takeoff: [ProjectStats.Row] {
-        let counted = objects.filter(\.included)
+        // Annotations are writing, not things — a label saying "water line
+        // here" is not one of anything and must never appear in a count.
+        let counted = objects.filter { $0.included && $0.entry?.isAnnotation != true }
         guard !counted.isEmpty else { return [] }
 
         var totals: [String: Int] = [:]
@@ -930,7 +932,10 @@ struct RoomStatisticsSheet: View {
     /// reset should not carry a "Reset: 0" line.
     private var work: [ProjectStats.Row] {
         var totals: [String: Int] = [:]
-        for object in objects where object.included && object.disposition != "none" {
+        for object in objects
+        where object.included && object.disposition != "none"
+            && object.entry?.isAnnotation != true
+        {
             totals[object.dispositionLabel, default: 0] += object.quantity
         }
         return totals.keys.sorted().map {

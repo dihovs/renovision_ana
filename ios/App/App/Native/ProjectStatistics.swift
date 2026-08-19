@@ -144,7 +144,8 @@ struct ProjectStatisticsSheet: View {
     /// DONE to a thing is counted apart from the thing being there.
     private var takeoff: [ProjectStats.Row] {
         var totals: [String: Int] = [:]
-        for object in objects where object.included {
+        // Annotations are writing, not things — they are never counted.
+        for object in objects where object.included && object.entry?.isAnnotation != true {
             totals[object.displayName, default: 0] += object.quantity
         }
         return totals.keys.sorted().map {
@@ -154,7 +155,10 @@ struct ProjectStatisticsSheet: View {
 
     private var work: [ProjectStats.Row] {
         var totals: [String: Int] = [:]
-        for object in objects where object.included && object.disposition != "none" {
+        for object in objects
+        where object.included && object.disposition != "none"
+            && object.entry?.isAnnotation != true
+        {
             totals[object.dispositionLabel, default: 0] += object.quantity
         }
         return totals.keys.sorted().map {

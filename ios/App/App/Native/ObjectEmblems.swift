@@ -246,6 +246,24 @@ struct SectionEmblem: View {
                         0.8)
                 }
 
+            case .annotations:
+                // A note with a fold, and a pen line under it.
+                box(0.2, 0.4, 0, 1.8, 1.4, 0.12)
+                var fold = Path()
+                fold.move(to: p(1.5, 0.4, 0.12))
+                fold.addLine(to: p(2.0, 0.4, 0.12))
+                fold.addLine(to: p(2.0, 0.9, 0.12))
+                context.stroke(fold, with: .color(ink), lineWidth: weight)
+                for i in 1..<3 {
+                    let y = 0.4 + 1.4 * Double(i) / 3
+                    line(p(0.45, y, 0.13), p(1.55, y, 0.13), 0.7)
+                }
+
+            case .garage:
+                // A car, roughly: body and cabin.
+                box(0.1, 0.5, 0, 2.2, 1.1, 0.5)
+                box(0.7, 0.55, 0.5, 1.0, 1.0, 0.45)
+
             case .safety:
                 // An extinguisher on its bracket: the body, the neck, and
                 // the hose over its shoulder.
