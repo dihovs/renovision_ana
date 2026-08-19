@@ -2144,3 +2144,15 @@ Newest last. One or two lines per chat.
   objects, and a move freezes every room's `plan_x`/`plan_y` so the packer
   stops rearranging a floor somebody laid out by hand. Build 156. Still open:
   the storey-empty / upload-failing report from the phone, unreproduced.
+- **2026-08-19 (later)** — Watched the reference on the owner's own phone
+  through iPhone Mirroring, with his permission, and built against what it
+  actually does. Four things: the storey's Edit Layout mode now draws the two
+  on-room handles it draws (move cross, turn arrow) and the turn one drags;
+  opening a room frames the WHOLE connected floor plan with its neighbours
+  greyed, and tapping a neighbour goes there; the duplicate bounding dimension
+  is gone from rectangular rooms; and an object standing against a wall is
+  carried by that wall when the wall is dragged. Build 157. Also confirmed
+  from the reference: a room may be torn off its neighbours, a move snaps
+  flush on release, and their rectangular rooms carry exactly one figure per
+  wall plus a split chain — no bounding line. NOT YET BUILT, seen there:
+  Merge Rooms, Split Room, Add Corner, Add Wall, Duplicate.

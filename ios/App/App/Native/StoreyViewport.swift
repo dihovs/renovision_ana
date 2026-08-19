@@ -196,6 +196,49 @@ struct StoreyLayout {
     /// of a false ATTACHED is one room that will not spin, which is
     /// recoverable and obvious; the cost of a false DETACHED is a plan
     /// quietly torn apart.
+    /// Every room joined to this one, directly or through another — the
+    /// whole floor plan it belongs to.
+    ///
+    /// **The owner, 19 Aug 2026**, after pushing two rooms together:
+    /// *"When I connect two rooms together, they are not separate anymore.
+    /// They become a part of one floor plan. So I think when I touch on it,
+    /// I should see the entire floor plan getting activated."* Which is what
+    /// the reference does — its editor frames the whole plan and greys the
+    /// rooms you are not in.
+    ///
+    /// Transitive on purpose: a room touching a room that touches a third is
+    /// on the same plan as the third, and framing only the DIRECT neighbours
+    /// would cut a floor in half at an arbitrary place. Same coarse
+    /// bounding-box test as `detachedRooms`, and for the same reason — the
+    /// two must agree about what "touching" means, or a room could be
+    /// detached enough to spin and attached enough to be framed with its
+    /// neighbours.
+    func connectedGroup(of id: String) -> [StoreyRoom] {
+        guard rooms.contains(where: { $0.id == id }) else { return [] }
+        let slack = 0.15
+        var group: Set<String> = [id]
+        var growing = true
+        while growing {
+            growing = false
+            for candidate in rooms where !group.contains(candidate.id) {
+                let box = candidate.floorBounds.insetBy(dx: -slack, dy: -slack)
+                guard rooms.contains(where: { group.contains($0.id) && box.intersects($0.floorBounds) })
+                else { continue }
+                group.insert(candidate.id)
+                growing = true
+            }
+        }
+        return rooms.filter { group.contains($0.id) }
+    }
+
+    /// What the whole connected plan occupies — what the camera frames when
+    /// one of its rooms is opened. Nil for a room this layout does not hold.
+    func groupBounds(of id: String) -> CGRect? {
+        let group = connectedGroup(of: id)
+        guard let first = group.first else { return nil }
+        return group.dropFirst().reduce(first.floorBounds) { $0.union($1.floorBounds) }
+    }
+
     var detachedRooms: [StoreyRoom] {
         guard rooms.count > 1 else { return rooms }
         let slack = 0.15
@@ -253,6 +296,15 @@ struct StoreyBaseLayer: View {
     /// Held by the SCREEN and handed down, not owned here, because the
     /// gestures that drive it have to sit beside the pan and pinch they
     /// compete with. This layer only draws it.
+    /// Where the two handles sit, given the lifted room's centre on screen.
+    ///
+    /// One function, called by both the drawing and the gesture that hit-tests
+    /// them — the third time in this codebase that two places drawing the same
+    /// thing by two different rules has cost a bug.
+    static func handlePoints(centre: CGPoint) -> (move: CGPoint, turn: CGPoint) {
+        (move: centre, turn: CGPoint(x: centre.x + 40, y: centre.y - 6))
+    }
+
     struct LiftedRoom: Equatable {
         let id: String
         /// Where it has been dragged to, floor metres, snapping already
@@ -597,9 +649,38 @@ struct StoreyBaseLayer: View {
                     halo.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
                     for p in plan.polygon.dropFirst() { halo.addLine(to: pt(p.x, p.y)) }
                     halo.closeSubpath()
+                    context.fill(halo, with: .color(Brand.blue.opacity(0.10)))
                     context.stroke(
                         halo, with: .color(Brand.blue),
                         style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+
+                    // The two handles the reference draws on a room in this
+                    // mode, seen on the owner's own phone 19 Aug 2026: a
+                    // four-way move cross, and a curved turn arrow beside
+                    // it. Ours to draw, per the standing rule — same idea,
+                    // our own symbols.
+                    //
+                    // The room BODY drags too, which the reference does not
+                    // allow. Kept: the handle is the affordance, not the
+                    // restriction, and taking the body away would make a
+                    // room that is plainly picked up refuse to move.
+                    let handles = Self.handlePoints(
+                        centre: pt(pivot.x, pivot.y))
+                    for (point, symbol) in [
+                        (handles.move, "arrow.up.and.down.and.arrow.left.and.right"),
+                        (handles.turn, "arrow.clockwise"),
+                    ] {
+                        context.fill(
+                            Path(ellipseIn: CGRect(
+                                x: point.x - 15, y: point.y - 15, width: 30, height: 30)),
+                            with: .color(bg.opacity(0.9)))
+                        context.draw(
+                            context.resolve(
+                                Text(Image(systemName: symbol))
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundStyle(Brand.blue)),
+                            at: point, anchor: .center)
+                    }
                 }
 
                 context.opacity = 1

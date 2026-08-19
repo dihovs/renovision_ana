@@ -1102,6 +1102,10 @@ struct FloorCanvasView: View {
     /// Whether a wall was against a wall on the last frame, so the snap gets
     /// exactly one haptic rather than one per frame it stays snapped.
     @State private var wasFlush = false
+    /// The angle from the lifted room's centre to the finger when a drag on
+    /// the turn handle began — a turn is measured from there, so the room does
+    /// not jump to meet the finger on the first frame.
+    @State private var turnGrabAngle: Double?
     @State private var showingFloorViewModes = false
     @State private var switchingFloor = false
     @State private var sharing = false
@@ -1176,8 +1180,18 @@ struct FloorCanvasView: View {
         // 0.22 each side is `EditorChrome.overallExtentRow` and its type
         // against a room filling a phone canvas; being proportional it
         // holds at any room size, since the scale adjusts with it.
+        //
+        // The frame is the WHOLE CONNECTED PLAN, not the one room — the
+        // owner, 19 Aug 2026: *"when I touch on it, I should see the entire
+        // floor plan getting activated."* A room joined to others is a part
+        // of a building and framing it alone crops the building away. The
+        // MARGIN stays proportional to the room being edited, though, not to
+        // the plan: it exists to clear that room's own dimension lines, and
+        // 0.22 of a six-room floor would push the room itself into the
+        // middle distance.
         let bounds = storeyRoom.floorBounds
-        return bounds.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22)
+        let plan = cachedLayout.groupBounds(of: cameraFocusID) ?? bounds
+        return plan.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22)
     }
 
     /// The whole floor, moved and scaled by whatever the fingers have done
@@ -1218,6 +1232,32 @@ struct FloorCanvasView: View {
         withAnimation(Self.roomTransitionAnimation) {
             cameraFocusID = room.id
             focusProgress = 1
+        }
+    }
+
+    /// The rest of the floor, in the focused room's own local metres — what
+    /// `RoomEditorCore` draws greyed around the room being edited.
+    ///
+    /// EVERY other room on the storey, not just the connected ones. The
+    /// camera frames the connected plan, so a room off on its own is
+    /// normally outside the view anyway — but if the operator pans over to
+    /// it, it should be there, and it should be tappable. Deciding what to
+    /// DRAW by the same touching test that decides what to FRAME would make
+    /// a room vanish the moment it was dragged a centimetre clear.
+    private func neighbourOutlines(around room: RoomScan) -> [RoomEditorCore.Neighbour] {
+        guard let focused = cachedLayout.room(id: room.id) else { return [] }
+        return cachedLayout.rooms.compactMap { other in
+            guard other.id != room.id else { return nil }
+            var polygon = other.plan.polygon
+            if polygon.count >= 4 { polygon.removeLast() }
+            guard polygon.count >= 3 else { return nil }
+            return RoomEditorCore.Neighbour(
+                id: other.id,
+                polygon: polygon.map {
+                    CGPoint(
+                        x: other.origin.x + $0.x - focused.origin.x,
+                        y: other.origin.y + $0.y - focused.origin.y)
+                })
         }
     }
 
@@ -1333,14 +1373,28 @@ struct FloorCanvasView: View {
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 4)
                             .onChanged { value in
-                                guard !lifting, lifted != nil, focusedRoomID == nil,
-                                    startedOnLiftedRoom(value.startLocation, viewport: viewport)
+                                guard !lifting, lifted != nil, focusedRoomID == nil
+                                else { return }
+                                // The turn handle first: it sits OUTSIDE the
+                                // room's own box on a small room, so testing
+                                // the box first would make it unreachable
+                                // exactly where it is needed most.
+                                if turnGrabAngle != nil
+                                    || grabbedTurnHandle(value.startLocation, viewport: viewport)
+                                {
+                                    turnLiftedToward(value.location, viewport: viewport)
+                                    return
+                                }
+                                guard startedOnLiftedRoom(value.startLocation, viewport: viewport)
                                 else { return }
                                 moveLifted(by: value.translation, viewport: viewport)
                             }
                             .onEnded { value in
-                                guard !lifting, lifted != nil, focusedRoomID == nil,
-                                    startedOnLiftedRoom(value.startLocation, viewport: viewport)
+                                guard !lifting, lifted != nil, focusedRoomID == nil else { return }
+                                let turning = turnGrabAngle != nil
+                                turnGrabAngle = nil
+                                guard turning
+                                    || startedOnLiftedRoom(value.startLocation, viewport: viewport)
                                 else { return }
                                 Task { await commitPlacement() }
                             }
@@ -1414,6 +1468,11 @@ struct FloorCanvasView: View {
                             externalViewport: viewport,
                             roomOrigin: cachedLayout.room(id: room.id)?.origin ?? .zero,
                             initialLibraryItem: pendingLibraryItem,
+                            neighbours: neighbourOutlines(around: room),
+                            onSwitchRoom: { id in
+                                guard let next = rooms.first(where: { $0.id == id }) else { return }
+                                enterRoom(next)
+                            },
                             onSaved: { Task { await load() } }
                         )
                         // Spent the moment it is handed over — it is one
@@ -1782,6 +1841,7 @@ struct FloorCanvasView: View {
         // — a call arriving, the app backgrounded — leaves it set, and a
         // stuck `lifting` blocks the plain move gesture for good.
         lifting = false
+        turnGrabAngle = nil
         withAnimation(.snappy(duration: 0.15)) {
             lifted = nil
             guides = []
@@ -1816,6 +1876,34 @@ struct FloorCanvasView: View {
         // there — a haptic that repeats reads as a stutter, not as contact.
         if result.flush, !wasFlush { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
         wasFlush = result.flush
+    }
+
+    /// Where the lifted room's centre is on screen right now — what both
+    /// handles are placed from.
+    private func liftedCentre(_ viewport: StoreyViewport) -> CGPoint? {
+        guard let lifted, let room = cachedLayout.room(id: lifted.id) else { return nil }
+        let pivot = StoreyArranging.centroid(room.plan.polygon)
+        return viewport.point(
+            CGPoint(
+                x: room.origin.x + pivot.x + lifted.offset.width,
+                y: room.origin.y + pivot.y + lifted.offset.height))
+    }
+
+    /// Did this drag start on the turn handle? Records where the finger was
+    /// so the turn is measured from there rather than snapping the room round
+    /// to meet it.
+    private func grabbedTurnHandle(_ point: CGPoint, viewport: StoreyViewport) -> Bool {
+        guard let centre = liftedCentre(viewport) else { return false }
+        let handle = StoreyBaseLayer.handlePoints(centre: centre).turn
+        guard hypot(point.x - handle.x, point.y - handle.y) <= 26 else { return false }
+        turnGrabAngle = atan2(point.y - centre.y, point.x - centre.x)
+        return true
+    }
+
+    /// Turn the lifted room to follow one finger on the handle.
+    private func turnLiftedToward(_ point: CGPoint, viewport: StoreyViewport) {
+        guard let grabbed = turnGrabAngle, let centre = liftedCentre(viewport) else { return }
+        twistLifted(by: atan2(point.y - centre.y, point.x - centre.x) - grabbed)
     }
 
     private func twistLifted(by radians: Double) {

@@ -1166,3 +1166,102 @@ enum PlanEditing {
         return out
     }
 }
+
+// MARK: - Objects that belong to a wall
+
+extension PlanEditing {
+    /// Where an object sits RELATIVE TO A WALL, so it can be put back on that
+    /// wall after the wall has moved.
+    ///
+    /// **The owner, 19 Aug 2026:** *"let's say sometime I have a fridge on the
+    /// wall, and I'm bringing wall down. This fridge is stuck to the wall. It
+    /// needs to move with the wall. But in my case, it just stays outside, and
+    /// we have to move things around again."* Confirmed against the reference
+    /// the same evening: pulling a kitchen's right wall in by 0.385 m carried
+    /// the fridge with it, still flush, and re-split the door chain on the
+    /// wall above.
+    ///
+    /// An object stores a position in the room, not a host wall — deliberately,
+    /// since a cabinet in the middle of a floor belongs to no wall. So the
+    /// anchor is DERIVED at the moment a drag starts, and only for objects
+    /// actually against a wall. Everything else stays exactly where it is,
+    /// which is the right answer for an island or a table.
+    struct WallAnchor {
+        let edge: Int
+        /// Metres along the wall from its first corner. Absolute rather than
+        /// fractional: a wall being dragged changes its NEIGHBOURS' lengths,
+        /// and a fridge two metres from the corner should still be two metres
+        /// from that corner afterwards, not two-thirds of a longer wall.
+        let along: Double
+        /// Metres out from the wall's line, signed along the wall's normal —
+        /// what keeps the object flush rather than re-centring it.
+        let offset: Double
+        /// The object's heading relative to the wall's own direction, so a
+        /// wall dragged out of square turns the object with it.
+        let turn: Double
+    }
+
+    /// The wall an object is standing against, if any.
+    ///
+    /// `reach` is how far from a wall still counts as "against" it — the
+    /// caller passes the object's own half-depth plus a little, so a wide
+    /// cabinet is caught by the wall it touches and a table in the middle of
+    /// the room is caught by nothing.
+    static func wallAnchor(
+        centre: CGPoint, rotation: Double, reach: Double, polygon: [CGPoint]
+    ) -> WallAnchor? {
+        guard polygon.count >= 3 else { return nil }
+        var best: WallAnchor?
+        var bestDistance = reach
+
+        for i in polygon.indices {
+            let (ai, bi) = edgeCorners(i, count: polygon.count)
+            let a = polygon[ai]
+            let b = polygon[bi]
+            let length = self.length(sub(b, a))
+            guard length > 0.05 else { continue }
+            let direction = normalised(sub(b, a))
+            let sideways = normal(direction)
+
+            let relative = sub(centre, a)
+            let along = dot(relative, direction)
+            // Past either end is not "against this wall" — without this, the
+            // wall opposite a narrow room would claim an object standing at
+            // the far corner of a different one.
+            guard along >= -0.05, along <= length + 0.05 else { continue }
+
+            let offset = dot(relative, sideways)
+            guard abs(offset) < bestDistance else { continue }
+            bestDistance = abs(offset)
+            best = WallAnchor(
+                edge: i, along: along, offset: offset,
+                turn: rotation - direction.angleDegrees)
+        }
+        return best
+    }
+
+    /// Put an anchored object back on its wall, wherever that wall is now.
+    static func placed(_ anchor: WallAnchor, on polygon: [CGPoint])
+        -> (centre: CGPoint, rotation: Double)?
+    {
+        guard polygon.count >= 3, anchor.edge < polygon.count else { return nil }
+        let (ai, bi) = edgeCorners(anchor.edge, count: polygon.count)
+        let a = polygon[ai]
+        let b = polygon[bi]
+        guard length(sub(b, a)) > 0.05 else { return nil }
+        let direction = normalised(sub(b, a))
+        let sideways = normal(direction)
+        return (
+            CGPoint(
+                x: a.x + direction.x * anchor.along + sideways.x * anchor.offset,
+                y: a.y + direction.y * anchor.along + sideways.y * anchor.offset),
+            anchor.turn + direction.angleDegrees
+        )
+    }
+}
+
+extension CGPoint {
+    /// This vector's heading in degrees clockwise from +x — the same
+    /// convention `RoomObject.rotation` is stored in.
+    fileprivate var angleDegrees: Double { atan2(y, x) * 180 / .pi }
+}

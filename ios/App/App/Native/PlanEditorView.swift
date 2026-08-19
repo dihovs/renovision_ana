@@ -88,7 +88,32 @@ struct RoomEditorCore: View {
     /// wait one more tap for its wall, which is the same pending state the
     /// Insert menu already uses.
     var initialLibraryItem: LibraryItem? = nil
+    /// The other rooms on this floor, in THIS room's own local metres.
+    ///
+    /// **The owner, 19 Aug 2026:** *"When I connect two rooms together, they
+    /// are not separate anymore. They become a part of one floor plan. So I
+    /// think when I touch on it, I should see the entire floor plan getting
+    /// activated."* So the editor draws them — greyed, walls as footprint
+    /// only, no dimensions and no names — and `LevelCanvas.cameraBounds`
+    /// frames the whole connected plan rather than the one room.
+    ///
+    /// Drawn HERE rather than left to `StoreyBaseLayer` underneath, and that
+    /// is not a preference: this editor has its own pan and zoom inside the
+    /// room, so the moment a finger moves the plan, a room drawn by the
+    /// layer below would sit still while this one moved. One space, one
+    /// drawing.
+    var neighbours: [Neighbour] = []
+    /// Tapping a greyed neighbour goes there. Nil keeps the old behaviour,
+    /// where a tap outside the room leaves for the storey.
+    var onSwitchRoom: ((String) -> Void)? = nil
     let onSaved: () -> Void
+
+    struct Neighbour: Equatable {
+        let id: String
+        /// Its outline, already shifted out of floor space into this room's,
+        /// with no repeated closing point.
+        let polygon: [CGPoint]
+    }
 
     /// Observed so changing the unit redraws every dimension on the
     /// canvas, not just the keypad's own readout.
@@ -143,6 +168,14 @@ struct RoomEditorCore: View {
     /// Where an object drag started, in plan metres, so each frame applies
     /// the whole translation from the original rather than accumulating.
     @State private var objectDragStart: CGPoint?
+    /// Which wall each object was standing against when the current wall or
+    /// corner drag began, so the objects can be carried along with it. See
+    /// `PlanEditing.WallAnchor` for why this is derived at drag time rather
+    /// than stored on the object.
+    @State private var wallAnchors: [String: PlanEditing.WallAnchor] = [:]
+    /// Where those objects were before the drag, so only the ones that
+    /// actually moved are written when it ends.
+    @State private var objectsBeforeDrag: [String: CGPoint] = [:]
     /// The room-depth Insert menu (§4's five nouns).
     @State private var insertMenuOpen = false
     @State private var saving = false
@@ -595,6 +628,23 @@ struct RoomEditorCore: View {
                             model: (origin: pt(.zero), scale: scale))
                     }
 
+                    // The rest of the floor plan, behind everything: fill
+                    // and footprint band only, no black wall core, no
+                    // dimensions, no name. It is context — enough to see
+                    // that this room is the corner of a building, not
+                    // enough to compete with the room being edited.
+                    for neighbour in neighbours where neighbour.polygon.count >= 3 {
+                        var shape = Path()
+                        shape.move(to: pt(neighbour.polygon[0]))
+                        for c in neighbour.polygon.dropFirst() { shape.addLine(to: pt(c)) }
+                        shape.closeSubpath()
+                        context.fill(shape, with: .color(Brand.Plan.floorMuted))
+                        context.stroke(
+                            shape, with: .color(Brand.Plan.wallFootprint),
+                            style: StrokeStyle(
+                                lineWidth: max(3, 0.114 * scale) + 7, lineJoin: .miter))
+                    }
+
                     guard corners.count >= 3 else { return }
 
                     var floor = Path()
@@ -740,12 +790,29 @@ struct RoomEditorCore: View {
                         // not one". On a slanted wall the two disagree on
                         // purpose: the wall says what a tape reads along
                         // it, this says how deep the room is.
-                        EditorChrome.drawOverallDimensions(
-                            context: context,
-                            polygon: corners,
-                            toScreen: pt,
-                            proxySize: proxy.size,
-                            format: units.format)
+                        //
+                        // NOT ON A RECTANGLE, 19 Aug 2026. On a square room
+                        // the bounding box and the walls are the same
+                        // measurement, so this drew 2.500 a second time
+                        // outboard of the 2.500 already there — and on the
+                        // wall carrying a door, a THIRD row under the split
+                        // chain. The owner, comparing ours with the
+                        // reference: *"the outer diameters and sizes on
+                        // magicplan are cleaner. I have, like, I don't
+                        // know, three numbers going on there. It's too
+                        // confusing."* Right, and the reference agrees: its
+                        // rectangular rooms carry one figure per wall and
+                        // no bounding line at all. ORD-23's own premise was
+                        // "needed once a room is NOT a rectangle" — this
+                        // just holds it to that.
+                        if !PlanEditing.isRectangle(corners) {
+                            EditorChrome.drawOverallDimensions(
+                                context: context,
+                                polygon: corners,
+                                toScreen: pt,
+                                proxySize: proxy.size,
+                                format: units.format)
+                        }
                     }
 
                     // ORD-31. The two edges either side of the corner in
@@ -834,6 +901,7 @@ struct RoomEditorCore: View {
                         liveLabel = nil
                         snapEngaged = false
                         lastPanDrag = .zero
+                        saveCarriedObjects()
                         endObjectDrag()
                     }
             )
@@ -1092,6 +1160,18 @@ struct RoomEditorCore: View {
         // alone rather than abandoning a walk the operator did not ask to
         // leave.
         if backContext == .floor, measuring == nil, !PlanEditing.contains(corners, point: point) {
+            // A tap on a greyed neighbour GOES THERE rather than stepping
+            // out and making the operator tap it again. Only with nothing
+            // unsaved: switching would discard the edits silently, and the
+            // discard prompt below is the established answer to that.
+            if !isDirty, let onSwitchRoom,
+                let neighbour = neighbours.first(where: {
+                    PlanEditing.contains($0.polygon, point: point)
+                })
+            {
+                onSwitchRoom(neighbour.id)
+                return
+            }
             if isDirty { showDiscard = true } else { onExit() }
             return
         }
@@ -1160,6 +1240,7 @@ struct RoomEditorCore: View {
         if dragStart == nil {
             dragStart = Snapshot(corners: corners, openings: openings, locked: locked)
             push()
+            captureWallAnchors()
         }
         guard let start = dragStart?.corners else { return }
 
@@ -1197,6 +1278,7 @@ struct RoomEditorCore: View {
             snapEngaged = snap.engaged
 
             corners = PlanEditing.moveEdge(start, index: index, offset: snap.value)
+            carryAnchoredObjects()
             liveLabel = UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index))
 
         case .corner(let index):
@@ -1214,6 +1296,7 @@ struct RoomEditorCore: View {
             }
             snapEngaged = squared.engaged
             corners = PlanEditing.moveCorner(start, index: index, to: squared.point)
+            carryAnchoredObjects()
             let before = (index - 1 + corners.count) % corners.count
             liveLabel = "\(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, before)))  ·  \(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index)))"
 
@@ -1855,6 +1938,65 @@ struct RoomEditorCore: View {
                 y: a.y + d.y * clamped + inward.y * rest))
         replaceObject(object.id) { $0.moved(to: centre) }
         await patchObject(object.id, at: centre)
+    }
+
+    /// Note which objects are standing against which wall, at the moment a
+    /// wall or corner drag begins.
+    ///
+    /// Derived here rather than stored on the object, because most objects
+    /// have no wall: a kitchen island belongs to the floor and must not be
+    /// dragged around by whichever wall happens to be nearest. `reach` is the
+    /// object's own half-depth plus a hand's width, so a fridge pushed up
+    /// against a wall is caught and a table standing clear of it is not.
+    private func captureWallAnchors() {
+        wallAnchors = [:]
+        objectsBeforeDrag = [:]
+        guard corners.count >= 3 else { return }
+        for object in objects {
+            let centre = CGPoint(x: object.x, y: object.y)
+            objectsBeforeDrag[object.id] = centre
+            guard
+                let anchor = PlanEditing.wallAnchor(
+                    centre: centre, rotation: object.rotation,
+                    reach: max(object.width, object.depth) / 2 + 0.12,
+                    polygon: corners)
+            else { continue }
+            wallAnchors[object.id] = anchor
+        }
+    }
+
+    /// Put every anchored object back on its wall, wherever that wall now is.
+    ///
+    /// Called on every frame of the drag rather than once at the end, so the
+    /// fridge travels with the wall under the finger instead of jumping into
+    /// place when it is let go.
+    private func carryAnchoredObjects() {
+        guard !wallAnchors.isEmpty, corners.count >= 3 else { return }
+        for (id, anchor) in wallAnchors {
+            guard let put = PlanEditing.placed(anchor, on: corners) else { continue }
+            replaceObject(id) { $0.moved(to: put.centre).rotated(to: put.rotation) }
+        }
+    }
+
+    /// Write the objects a wall carried with it. Only the ones that actually
+    /// moved: dragging a wall in a room with eight cabinets on the other three
+    /// walls should be one write, not eight.
+    private func saveCarriedObjects() {
+        let anchors = wallAnchors
+        let before = objectsBeforeDrag
+        wallAnchors = [:]
+        objectsBeforeDrag = [:]
+        guard !anchors.isEmpty else { return }
+
+        for (id, _) in anchors {
+            guard let object = objects.first(where: { $0.id == id }),
+                let was = before[id],
+                hypot(object.x - was.x, object.y - was.y) > 0.005
+            else { continue }
+            let centre = CGPoint(x: object.x, y: object.y)
+            let rotation = object.rotation
+            Task { await patchObject(id, at: centre, rotation: rotation) }
+        }
     }
 
     /// The write at the end of a drag — once, not per frame.
