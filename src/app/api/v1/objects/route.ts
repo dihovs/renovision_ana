@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guarded } from "../guard";
 import {
   createRoomObject,
+  listProjectObjects,
   deleteRoomObject,
   listRoomObjects,
   updateRoomObject,
@@ -21,11 +22,22 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const roomScanId = new URL(request.url).searchParams.get("roomScanId");
-  if (!roomScanId) {
-    return NextResponse.json({ error: "roomScanId is required." }, { status: 400 });
+  const params = new URL(request.url).searchParams;
+  const roomScanId = params.get("roomScanId");
+  const projectId = params.get("projectId");
+
+  // One room while editing it; a whole property for the job-wide takeoff.
+  // The same shape `/api/v1/areas` already uses, so the two read alike.
+  if (roomScanId) {
+    return guarded(async () => ({ objects: await listRoomObjects(roomScanId) }));
   }
-  return guarded(async () => ({ objects: await listRoomObjects(roomScanId) }));
+  if (projectId) {
+    return guarded(async () => ({ objects: await listProjectObjects(projectId) }));
+  }
+  return NextResponse.json(
+    { error: "Pass either roomScanId or projectId." },
+    { status: 400 },
+  );
 }
 
 export async function POST(request: Request) {

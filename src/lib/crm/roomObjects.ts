@@ -120,6 +120,38 @@ export async function listRoomObjects(roomScanId: string): Promise<RoomObject[]>
   return (data ?? []).map((row) => toObject(row as Row));
 }
 
+/**
+ * Every object on a whole property, for the job-wide takeoff.
+ *
+ * Two steps rather than a join: PostgREST can embed, but the room list is
+ * already the shape this needs and a project with no rooms should cost one
+ * cheap query rather than a failed embed. The second query is skipped
+ * entirely when there is nothing to ask about.
+ */
+export async function listProjectObjects(projectId: string): Promise<RoomObject[]> {
+  const client = requireDb();
+  const { data: rooms, error: roomError } = await client
+    .from("room_scans")
+    .select("id")
+    .eq("project_id", projectId);
+  if (roomError) throw new Error(`Could not read the project's rooms: ${roomError.message}`);
+
+  const ids = (rooms ?? []).map((r) => String((r as Row).id));
+  if (ids.length === 0) return [];
+
+  const { data, error } = await client
+    .from("room_objects")
+    .select("*")
+    .in("room_scan_id", ids)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("room_objects", error.message);
+    throw new Error(`Could not read the project's objects: ${error.message}`);
+  }
+  return (data ?? []).map((row) => toObject(row as Row));
+}
+
 export async function createRoomObject(input: RoomObjectInput): Promise<string> {
   const client = requireDb();
   const { data, error } = await client

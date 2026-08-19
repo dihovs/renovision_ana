@@ -515,6 +515,14 @@ actor API {
         ).objects
     }
 
+    /// Every object on the property — what the job-wide takeoff totals.
+    func objects(projectId: String) async throws -> [RoomObject] {
+        let encoded = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        return try await get(
+            "/api/v1/objects?projectId=\(encoded)", as: RoomObjectListResponse.self
+        ).objects
+    }
+
     private struct NewObject: Encodable {
         let roomScanId: String
         let kind: String

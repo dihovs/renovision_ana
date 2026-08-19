@@ -927,7 +927,7 @@ struct ProjectDetailView: View {
                 .id(room.id)
         }
         .sheet(isPresented: $showingStatistics) {
-            ProjectStatisticsSheet(rooms: scans ?? [])
+            ProjectStatisticsSheet(rooms: scans ?? [], projectId: project.id)
         }
         .sheet(
             isPresented: $capturing,

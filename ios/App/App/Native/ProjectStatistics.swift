@@ -128,7 +128,43 @@ struct ProjectStatisticsBand: View {
 /// and a good one: an ⓘ on each row means no number is taken on faith.
 struct ProjectStatisticsSheet: View {
     let rooms: [RoomScan]
+    /// Nil where the caller has no project to total — the sheet then shows
+    /// measurements alone, exactly as it did before the takeoff existed.
+    var projectId: String? = nil
     @Environment(\.dismiss) private var dismiss
+
+    /// Every object on the property. One request rather than one per room:
+    /// a nine-room condo is nine round trips from a phone in a basement,
+    /// and the server can answer it in one.
+    @State private var objects: [RoomObject] = []
+
+    /// The job-wide takeoff — the same three rules the room's own sheet
+    /// follows, applied across every room. Excluded objects are absent,
+    /// quantities are summed rather than rows counted, and what is being
+    /// DONE to a thing is counted apart from the thing being there.
+    private var takeoff: [ProjectStats.Row] {
+        var totals: [String: Int] = [:]
+        for object in objects where object.included {
+            totals[object.displayName, default: 0] += object.quantity
+        }
+        return totals.keys.sorted().map {
+            .init(id: "object.\($0)", label: $0, value: "\(totals[$0] ?? 0)", meaning: nil)
+        }
+    }
+
+    private var work: [ProjectStats.Row] {
+        var totals: [String: Int] = [:]
+        for object in objects where object.included && object.disposition != "none" {
+            totals[object.dispositionLabel, default: 0] += object.quantity
+        }
+        return totals.keys.sorted().map {
+            .init(id: "work.\($0)", label: $0, value: "\(totals[$0] ?? 0)", meaning: nil)
+        }
+    }
+
+    private var excluded: Int {
+        objects.filter { !$0.included }.reduce(0) { $0 + $1.quantity }
+    }
 
     var body: some View {
         NavigationStack {
@@ -138,6 +174,30 @@ struct ProjectStatisticsSheet: View {
                 }
                 Section("Measurements") {
                     ForEach(ProjectStats.measurements(rooms)) { StatisticRowView(row: $0) }
+                }
+
+                if !takeoff.isEmpty {
+                    Section {
+                        ForEach(takeoff) { StatisticRowView(row: $0) }
+                    } header: {
+                        Text("Objects on this property")
+                    } footer: {
+                        if excluded > 0 {
+                            Text(
+                                "\(excluded) more \(excluded == 1 ? "is" : "are") on the plans but excluded from the claim."
+                            )
+                        }
+                    }
+                }
+
+                if !work.isEmpty {
+                    Section {
+                        ForEach(work) { StatisticRowView(row: $0) }
+                    } header: {
+                        Text("Work on those objects")
+                    } footer: {
+                        Text("Counted apart, because removing, resetting and replacing are different labour lines.")
+                    }
                 }
                 Section {
                     Text("""
@@ -155,6 +215,10 @@ struct ProjectStatisticsSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .task {
+                guard let projectId else { return }
+                objects = (try? await API.shared.objects(projectId: projectId)) ?? []
             }
         }
     }
