@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import FloorPlan from "./FloorPlan";
 import { RoomElevations } from "./WallElevation";
 import {
@@ -73,6 +74,66 @@ export type ReportData = {
       and nothing inferred. Off by default: the full drawing is the report. */
   onlyLockedDimensions?: boolean;
 };
+
+/**
+ * The scale bar and its ratio, as the reference prints them.
+ *
+ * **The ratio is DERIVED per drawing, not fixed.** Read off a real export:
+ * 1:70 on the storey page, then 1:54, 1:64, 1:49, 1:45 on the room pages
+ * that follow. Each page shows what that page had to fit, which is the only
+ * honest thing a scale can say — a constant ratio printed under a drawing
+ * that was scaled to the page is a lie an adjuster could measure.
+ *
+ * The bar itself is ticked in whole metres, so a reader can lay a ruler on
+ * it and check.
+ */
+function ScaleBar({ metresWide, pixelsWide }: { metresWide: number; pixelsWide: number }) {
+  if (!(metresWide > 0) || !(pixelsWide > 0)) return null;
+
+  // A printed page is 96 CSS px to the inch, and an inch is 25.4mm, so the
+  // ratio is metres-on-paper against metres-in-the-world.
+  const metresOnPaper = (pixelsWide / 96) * 0.0254;
+  const ratio = Math.round(metresWide / metresOnPaper);
+
+  // Bar length: the largest whole number of metres that fits in a third of
+  // the drawing, so it is a round figure rather than an awkward one.
+  const metres = Math.max(1, Math.floor(metresWide / 3));
+  const barPx = (metres / metresWide) * pixelsWide;
+
+  return (
+    <div className="scalebar">
+      <svg width={barPx} height={14} aria-hidden>
+        <line x1="0" y1="9" x2={barPx} y2="9" stroke="#333" strokeWidth="1" />
+        {Array.from({ length: metres + 1 }, (_, i) => {
+          const x = (i / metres) * barPx;
+          return <line key={i} x1={x} y1="4" x2={x} y2="14" stroke="#333" strokeWidth="1" />;
+        })}
+      </svg>
+      <span>
+        0 — {metres} m · 1:{ratio}
+      </span>
+    </div>
+  );
+}
+
+/** Six to a page, two columns — the reference's own grid. */
+const PHOTOS_PER_PAGE = 6;
+
+/** How wide a room's drawing is, in metres — what a scale ratio is against. */
+function planWidthM(geometry: ScanGeometry): number {
+  const plan = toFloorPlan(geometry);
+  return plan.width > 0 ? plan.width : 0;
+}
+
+/** One room's photos, split into pages of six. */
+function photoPages(room: ReportRoom) {
+  const usable = room.photos;
+  const pages: (typeof usable)[] = [];
+  for (let i = 0; i < usable.length; i += PHOTOS_PER_PAGE) {
+    pages.push(usable.slice(i, i + PHOTOS_PER_PAGE));
+  }
+  return pages;
+}
 
 const sqft = (sqm: number) => Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA");
 const ft = (m: number) => Math.round(metersToFeet(m)).toLocaleString("en-CA");
@@ -256,7 +317,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 
       {/* --------------------------------------------- one page per room */}
       {rooms.map((room) => (
-        <section className="page" key={room.id}>
+        <Fragment key={room.id}>
+        <section className="page">
           <Running identity={identity} title={`${room.name} — ${room.level}`} company={company} />
 
           <div className="room-body">
@@ -277,6 +339,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   A room with none shows no dimensions.
                 </p>
               )}
+              {/* 620px is what `.plan.large` is given in report.css; the
+                  drawing is fitted to it, so that is the width the ratio is
+                  computed against. */}
+              <ScaleBar metresWide={planWidthM(room.geometry)} pixelsWide={620} />
             </div>
 
             <table className="measure">
@@ -389,17 +455,55 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 
           {room.notes && <p className="notes">{room.notes}</p>}
 
+          {/* The photos are NOT here. They follow, on their own pages —
+              see below. What stays is the pointer the reference prints, so
+              a reader on the plan page knows they exist and where. */}
           {room.photos.length > 0 && (
-            <div className="photos">
-              {room.photos.map((photo) =>
-                photo.url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={photo.id} src={photo.url} alt={photo.note ?? room.name} />
-                ) : null,
-              )}
-            </div>
+            <p className="photo-pointer">
+              ▼ {room.name}/{room.level} — {room.photos.length}{" "}
+              {room.photos.length === 1 ? "photo" : "photos"} (see photo pages)
+            </p>
           )}
         </section>
+
+        {/* --------------------------------- this room's photos, interleaved
+           **Behind their own room, not collected at the back.** The
+           reference's structure, read page by page off a real 19-page
+           export: room page, then that room's photos, then the next room.
+           An adjuster reading about a bathroom wants the bathroom's photos
+           on the next page, not forty photos in one pile at the end with
+           the room name repeated in every caption.
+
+           Six tiles a page, two columns, overflowing onto further pages
+           with the same header — their layout exactly, down to the
+           `<Room> Photo n` caption, which is what makes a photo citable in
+           correspondence. */}
+        {photoPages(room).map((batch, index) => (
+          <section className="page" key={`${room.id}-photos-${index}`}>
+            <Running
+              identity={identity}
+              title={`Photos / ${room.name}`}
+              company={company}
+            />
+            <div className="photo-grid">
+              {batch.map((photo, offset) => (
+                <figure key={photo.id}>
+                  {photo.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photo.url} alt={photo.note ?? room.name} />
+                  ) : (
+                    <div className="missing">Photo unavailable</div>
+                  )}
+                  <figcaption>
+                    {room.name} Photo {index * PHOTOS_PER_PAGE + offset + 1}
+                    {photo.note ? ` — ${photo.note}` : ""}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+        ))}
+        </Fragment>
       ))}
 
       {/* ------------------------------------------------ drying record */}
@@ -441,6 +545,26 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           </p>
         </section>
       )}
+
+      {/* ------------------------------------------------ signature page */}
+      {/* The reference ends on one, and it is not decoration: a report
+          nobody signed is a report nobody agreed to. Four labelled blanks,
+          exactly theirs — signature, date, printed name, phone. */}
+      <section className="page signature">
+        <Running identity={identity} title="Acknowledgement" company={company} />
+        <p className="fineprint">
+          Signing acknowledges that the areas, measurements and photographs in
+          this report were taken at the property on the dates shown.
+        </p>
+        <div className="signature-grid">
+          {["Signature", "Signature date", "Printed full name", "Phone"].map((label) => (
+            <div key={label}>
+              <div className="rule" />
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* --------------------------------------- measurement definitions */}
       {/* An adjuster-facing document must state its definitions: when their
