@@ -334,3 +334,69 @@
 }
 .report .page-foot p { font-size: 6.5pt; color: #8e939b; margin: 0; max-width: 140mm; }
 .report .page-foot span { font-size: 8pt; color: #62666d; white-space: nowrap; }
+
+/* The cover's four figures, in the reference's order. */
+.report .cover-figures {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8mm;
+  margin: 10mm 0;
+  padding: 6mm 0;
+  border-top: 1px solid #e4e6ea;
+  border-bottom: 1px solid #e4e6ea;
+}
+.report .cover-figures .figure-value {
+  display: block;
+  font-size: 16pt;
+  font-weight: 600;
+}
+.report .cover-figures .figure-label {
+  display: block;
+  font-size: 8.5pt;
+  color: #62666d;
+}
+
+/* The locator: the storey's rooms in a row, this one shaded. */
+.report .locator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 3mm;
+  margin: 0 0 4mm;
+}
+.report .locator figure {
+  width: 16mm;
+  height: 14mm;
+  margin: 0;
+  opacity: 0.35;
+}
+.report .locator figure.here {
+  opacity: 1;
+  outline: 1px solid #2b5c9e;
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+.report .locator figcaption {
+  flex-basis: 100%;
+  font-size: 8pt;
+  color: #62666d;
+}
+
+/* The numbered key's badges, matching the circles drawn on the plan. */
+.report .measure.key .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5mm;
+  height: 5mm;
+  margin-right: 2mm;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 7.5pt;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.report .measure.key .cause {
+  color: #62666d;
+  font-size: 8pt;
+}

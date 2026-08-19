@@ -31,6 +31,7 @@ export default function FloorPlan({
   variant = "full",
   sections,
   dimensions = "all",
+  areas,
 }: {
   result: ScanGeometry;
   name: string;
@@ -40,6 +41,22 @@ export default function FloorPlan({
   /** "all" is the drawing as always. "locked" renders only hand-set
       dimensions, padlocked, for the report option that consumes them. */
   dimensions?: "all" | "locked";
+  /**
+   * Damaged regions, drawn in their cause colour with a NUMBERED badge —
+   * the report's numbered key.
+   *
+   * The plan has never drawn these, which left the report listing "wet
+   * area 4.2 m²" in a table beside a drawing that showed no wet area. A
+   * figure an adjuster cannot point at on the plan is a figure that gets
+   * queried, and answering the query costs more than drawing it would
+   * have.
+   *
+   * Floor areas only. A wall area's polygon is in its wall's FACE space —
+   * x along the wall, y above the floor — and drawing it here would put a
+   * shape from one coordinate system on top of another, which is the
+   * mistake `AffectedArea.polygon` documents at length.
+   */
+  areas?: { id: string; polygon: { x: number; y: number }[]; color: string }[];
 }) {
   const plan = toFloorPlan(result);
   if (plan.segments.length === 0) return null;
@@ -136,6 +153,42 @@ export default function FloorPlan({
         {plan.polygon.length > 0 && (
           <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill="#ebebeb" />
         )}
+
+        {/* The damaged regions, under the walls so a patch never covers the
+            line it was measured to. */}
+        {(areas ?? []).map((area, index) => {
+          if (area.polygon.length < 3) return null;
+          const points = area.polygon.map((p) => `${p.x},${p.y}`).join(" ");
+          const cx = area.polygon.reduce((sum, p) => sum + p.x, 0) / area.polygon.length;
+          const cy = area.polygon.reduce((sum, p) => sum + p.y, 0) / area.polygon.length;
+          return (
+            <g key={area.id}>
+              <polygon
+                points={points}
+                fill={area.color}
+                fillOpacity={0.35}
+                stroke={area.color}
+                strokeWidth={0.02}
+              />
+              {!thumb && (
+                <>
+                  <circle cx={cx} cy={cy} r={0.22} fill={area.color} />
+                  <text
+                    x={cx}
+                    y={cy}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={0.28}
+                    fill="#fff"
+                    fontWeight={700}
+                  >
+                    {index + 1}
+                  </text>
+                </>
+              )}
+            </g>
+          );
+        })}
 
         {/* Two passes: the wall body at true thickness over a slightly wider
             ink stroke, which leaves the heavier CUT face lines on both sides

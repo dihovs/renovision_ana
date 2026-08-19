@@ -51,6 +51,9 @@ export type ReportRoom = {
   /** Z765 living-area share, where one was set. Null means the whole room
       counts, which is what an unset percentage has always meant. */
   livingAreaPercent?: number | null;
+  /** Bedroom, bathroom, garage… The cover counts bathrooms separately, so
+      the type has to reach the report. */
+  roomType?: string | null;
   notes: string | null;
   geometry: ScanGeometry;
   areas: AffectedArea[];
@@ -114,6 +117,11 @@ function ScaleBar({ metresWide, pixelsWide }: { metresWide: number; pixelsWide: 
 const PHOTOS_PER_PAGE = 6;
 
 /** A room's bounding extent — what the reference calls WIDTH and LENGTH. */
+/** The rooms sharing a storey, in the order the report prints them. */
+function roomsOnLevel(rooms: ReportRoom[], level: string): ReportRoom[] {
+  return rooms.filter((room) => room.level === level);
+}
+
 function planExtent(geometry: ScanGeometry): { width: number; height: number } {
   const plan = toFloorPlan(geometry);
   return { width: plan.width, height: plan.height };
@@ -243,6 +251,13 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   const nextPage = () => ++pageNo;
 
   // The three-line header the reference repeats on every page from two.
+  // A bathroom by its type, however the operator spelled it. `room_type`
+  // is a free-ish string and "Bathroom", "bathroom" and "Full bathroom"
+  // are all the same room to somebody pricing one.
+  const bathroomCount = rooms.filter((room) =>
+    (room.roomType ?? "").toLowerCase().includes("bath"),
+  ).length;
+
   const headerTotals = [
     `TOTAL AREA: ${m2(floorAreaSqm)}`,
     `LIVING AREA: ${m2(livingAreaSqm)}`,
@@ -264,6 +279,26 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             {company.rbqLicence && <span>RBQ {company.rbqLicence}</span>}
           </div>
         </header>
+
+        {/* **Their four cover figures, in their order.** Total area,
+            Floors, Rooms — and BATHROOM, which is a room TYPE counted
+            separately on the cover. An odd choice until you price a job:
+            bathrooms carry the plumbing, the tile and the fan, and an
+            adjuster reading a cover wants to know how many before anything
+            else. We store `room_type`, so we can answer it. */}
+        <div className="cover-figures">
+          {[
+            ["Total area", m2(floorAreaSqm)],
+            ["Floors", String(levels.length)],
+            ["Rooms", String(rooms.length)],
+            ["Bathroom", String(bathroomCount)],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <span className="figure-value">{value}</span>
+              <span className="figure-label">{label}</span>
+            </div>
+          ))}
+        </div>
 
         <div className="cover-grid">
           <dl>
@@ -396,6 +431,31 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             AREA: {m2(room.floorAreaSqm)} • PERIMETER: {m(room.wallLengthM)}
           </p>
 
+          {/* **The locator**: this room picked out in its own floor, so a
+              reader knows WHERE the drawing they are looking at sits. A
+              room page without one is a rectangle with no address — and an
+              adjuster reading nine of them in a row has no way to tell the
+              2nd bedroom from the 3rd except by the label. */}
+          {roomsOnLevel(rooms, room.level).length > 1 && (
+            <div className="locator">
+              {/* Every room on the storey at thumbnail size, THIS one
+                  filled. Not a packed floor plan: the report has no
+                  positions for rooms measured on separate visits, and
+                  drawing a floor whose rooms are placed by guesswork would
+                  be inventing a building. A row of outlines with one picked
+                  out says exactly what it knows and nothing more. */}
+              {roomsOnLevel(rooms, room.level).map((other) => (
+                <figure
+                  key={other.id}
+                  className={other.id === room.id ? "here" : undefined}
+                >
+                  <FloorPlan result={other.geometry} name={other.name} variant="thumb" />
+                </figure>
+              ))}
+              <figcaption>{room.level} — this room shaded</figcaption>
+            </div>
+          )}
+
           <div className="room-body">
             {/* Wrapped so the plan and its note share one grid cell. */}
             <div>
@@ -404,6 +464,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   result={room.geometry}
                   name={room.name}
                   dimensions={onlyLockedDimensions ? "locked" : "all"}
+                  // Floor areas only — a wall area's polygon is in its
+                  // wall's own face space and belongs on the elevation.
+                  areas={room.areas
+                    .filter((area) => area.surface !== "wall" && area.polygon.length >= 3)
+                    .map((area) => ({
+                      id: area.id,
+                      polygon: area.polygon,
+                      color: areaColor(area),
+                    }))}
                 />
               </div>
               {/* The printed page must say what it is showing — a plan with
@@ -419,6 +488,46 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   computed against. */}
               <ScaleBar metresWide={planWidthM(room.geometry)} pixelsWide={620} />
             </div>
+
+            {/* **The numbered key.** Badges on the drawing against an
+                itemised legend beside it, so a figure in the table can be
+                pointed at on the plan. Without it an adjuster reading "wet
+                area 4.2 m²" has no way to know WHICH patch that is, and a
+                report that cannot be cross-referenced gets queried.
+
+                Numbered per room rather than per report: a reader is
+                looking at one page, and "3" meaning the third area in this
+                room is easier to follow than "17" meaning the seventeenth
+                in the property. */}
+            {room.areas.length > 0 && (
+              <table className="measure key">
+                <tbody>
+                  {room.areas
+                    .filter((area) => area.surface !== "wall" && area.polygon.length >= 3)
+                    .map((area, index) => (
+                    <tr key={area.id}>
+                      <th>
+                        <span
+                          className="badge"
+                          style={{ background: areaColor(area) }}
+                        >
+                          {index + 1}
+                        </span>
+                        {area.name}
+                      </th>
+                      <td className="num">
+                        {m2(Number(area.area_sqm))}
+                        <span className="cause">
+                          {" "}
+                          {DAMAGE_LABEL[area.damage_type] ?? area.damage_type}
+                          {area.surface === "wall" ? " · wall" : " · floor"}
+                        </span>
+                      </td>
+                    </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
 
             <table className="measure">
               <tbody>

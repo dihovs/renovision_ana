@@ -90,6 +90,7 @@ export default async function ReportPage({
         stairCount: scan.stair_count,
         // The running header prints LIVING AREA on every page, so the share
         // has to reach the report — it was only ever on the phone before.
+        roomType: scan.room_type,
         livingAreaPercent:
           scan.living_percent == null ? null : Number(scan.living_percent),
         notes: scan.notes,
