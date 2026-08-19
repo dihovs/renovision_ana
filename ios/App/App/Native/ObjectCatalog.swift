@@ -97,6 +97,57 @@ enum ObjectCatalog {
         let sizeNote: String
 
         var id: String { slug }
+
+        /// The mark that goes INSIDE the footprint on a floor plan.
+        ///
+        /// **The owner's own reference, and it settles what a plan symbol
+        /// is.** He sent magicplan drawing a fridge as a plain rectangle
+        /// with a SNOWFLAKE in it: *"I want like this."* Which is right,
+        /// and it is what a plan symbol has always been — the outline
+        /// carries the measurement and a glyph says what the thing is. It
+        /// replaces both earlier attempts: the outline with two ticks
+        /// nobody could read, and the isometric picture, which is a
+        /// catalogue illustration doing a drafting job.
+        ///
+        /// SF Symbols, deliberately. Apple ships fixtures — `refrigerator`,
+        /// `washer`, `toilet`, `bathtub`, `sofa`, `stairs` — they are
+        /// drawn to one optical weight, and a glyph nobody has to maintain
+        /// is a glyph that cannot drift from the rest of the set.
+        var glyph: String {
+            switch slug {
+            case "toilet": return "toilet"
+            case "bathtub": return "bathtub"
+            case "shower_stall": return "shower"
+            case "kitchen_sink", "laundry_tub": return "sink"
+            case "vanity_24", "vanity_36", "vanity_60": return "sink"
+            case "water_heater": return "water.waves"
+            case "sump_pit": return "drop"
+            case "refrigerator": return "refrigerator"
+            case "range": return "oven"
+            case "dishwasher": return "dishwasher"
+            case "washer": return "washer"
+            case "dryer": return "dryer"
+            case "furnace": return "flame"
+            case "air_handler": return "wind"
+            case "electrical_panel": return "bolt"
+            case "baseboard_heater": return "thermometer.medium"
+            case "base_cabinet", "wall_cabinet", "tall_pantry", "dresser": return "cabinet"
+            case "island", "countertop_run": return "rectangle.split.3x1"
+            case "sofa": return "sofa"
+            case "bed_queen": return "bed.double"
+            case "desk", "table": return "table.furniture"
+            case "shelving": return "books.vertical"
+            case "stairs": return "stairs"
+            case "column": return "square.split.diagonal"
+            case "bulkhead": return "rectangle"
+            case "fireplace": return "fireplace"
+            case "dehumidifier": return "humidity"
+            case "air_mover": return "fan.desk"
+            case "air_scrubber": return "aqi.medium"
+            case "containment": return "rectangle.dashed"
+            default: return "square"
+            }
+        }
     }
 
     /// The drawable families. Deliberately few: a plan symbol is a

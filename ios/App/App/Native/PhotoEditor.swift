@@ -76,8 +76,36 @@ struct PhotoEditorView: View {
     /// 350pt onto a 2048px photograph; without it every stroke composites
     /// at a sixth of its size in the corner of the image.
     @State private var drawnSize: CGSize = .zero
+    /// The shape being dragged out right now, before it is committed.
+    @State private var pendingShape: Annotation?
+    /// A text mark waiting for its words.
+    @State private var typing: Annotation?
+    @State private var typedText = ""
+    /// Which crop handle is in the hand, as a corner index 0…3.
+    @State private var cropHandle: Int?
 
     // MARK: - The state one edit is made of
+
+    /// One drawn mark: an arrow, a line, a box, an ellipse, a word.
+    ///
+    /// §2a's shape tools. PencilKit gives freehand and the eraser honestly;
+    /// these five have no system equivalent and are ours, which is what its
+    /// own table said when this section was scoped.
+    ///
+    /// Held in the image's OWN pixels like the redactions, so what is drawn
+    /// and what is saved are the same arithmetic rather than two.
+    struct Annotation: Identifiable {
+        let id = UUID()
+        var kind: DrawTool
+        /// Where the drag began and where it ended. Every one of these five
+        /// is defined by two corners — an arrow points from a to b, a box
+        /// spans them, a word sits at a.
+        var a: CGPoint
+        var b: CGPoint
+        var color: Color
+        var width: CGFloat
+        var text: String = ""
+    }
 
     struct EditState {
         /// Redactions in the image's OWN pixel coordinates rather than the
@@ -89,9 +117,24 @@ struct PhotoEditorView: View {
         /// PencilKit's own model. Held here rather than left inside the
         /// canvas so undo can put a previous drawing back.
         var drawing = PKDrawing()
+        /// The shape tools' marks, in the order they were made.
+        var shapes: [Annotation] = []
+        /// Quarter turns anticlockwise, and whether the picture is mirrored
+        /// — §2a's `Rotate left` and `Flip horizontal`.
+        var quarterTurns = 0
+        var flipped = false
+        /// Fine straightening in degrees, which is what their dial reading
+        /// `0°` under the Rotation tab does.
+        var straighten: Double = 0
+        /// The kept rectangle, in the image's own pixels. Nil means the
+        /// whole picture — an uncropped photo should carry no crop, not a
+        /// crop that happens to be the full frame.
+        var crop: CGRect?
 
         var isEmpty: Bool {
             redactions.isEmpty && adjustments.isIdentity && drawing.strokes.isEmpty
+                && shapes.isEmpty && quarterTurns == 0 && !flipped && straighten == 0
+                && crop == nil
         }
     }
 
@@ -195,10 +238,24 @@ struct PhotoEditorView: View {
             }
         }
 
-        /// PencilKit gives these two honestly — pressure, smoothing and a
-        /// stroke that does not look hand-rolled. The other six have no
-        /// system equivalent and are ours to write; §2a's table says so.
-        var isBuilt: Bool { self == .sharpie || self == .eraser }
+        /// PencilKit gives Sharpie and Eraser honestly — pressure,
+        /// smoothing and a stroke that does not look hand-rolled. Arrow,
+        /// Text, Rectangle, Line and Ellipse are ours, and are now written.
+        ///
+        /// `Path` — their multi-point polyline, placed a tap at a time — is
+        /// the one still missing, and is left greyed rather than guessed:
+        /// Sharpie already covers freehand, and a polyline needs a
+        /// placement interaction nobody has observed.
+        var isBuilt: Bool { self != .path }
+
+        /// Whether this tool draws one of OUR shapes rather than driving
+        /// PencilKit.
+        var isShape: Bool {
+            switch self {
+            case .arrow, .text, .rectangle, .line, .ellipse: return true
+            default: return false
+            }
+        }
     }
 
     /// §2a's four modes, in the reference's own order.
@@ -351,28 +408,183 @@ struct PhotoEditorView: View {
                             .offset(x: onScreen.minX, y: onScreen.minY)
                     }
                 }
+                // The shapes, live. Drawn as an overlay rather than baked
+                // into the preview so a mark can be undone without
+                // re-rendering the photograph underneath it.
+                .overlay {
+                    Canvas { context, _ in
+                        let scale = drawn.width / max(original.size.width, 1)
+                        for shape in edit.shapes + [pendingShape].compactMap({ $0 }) {
+                            Self.drawShape(shape, in: context, scale: scale, size: drawn.size)
+                        }
+                    }
+                    .allowsHitTesting(false)
+                }
+                // §2a's crop frame: the kept rectangle, everything outside
+                // it dimmed, a handle at each corner.
+                .overlay {
+                    if mode == .crop {
+                        cropFrame(drawn: drawn)
+                    }
+                }
                 .contentShape(.rect)
-                .gesture(
-                    mode == .pixelate
-                        ? DragGesture(minimumDistance: 6)
-                            .onChanged { value in
-                                dragging = Self.rect(
-                                    from: value.startLocation, to: value.location,
-                                    image: original.size, drawn: drawn)
-                            }
-                            .onEnded { _ in
-                                if let dragging, dragging.width > 4, dragging.height > 4 {
-                                    push()
-                                    edit.redactions.append(dragging)
-                                    rebuildPreview()
-                                }
-                                dragging = nil
-                            }
-                        : nil
-                )
+                .gesture(canvasGesture(drawn: drawn))
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
+    }
+
+    // MARK: - Gestures
+
+    /// One drag, meaning whatever the mode says it means.
+    ///
+    /// Branching inside a single `DragGesture` rather than choosing between
+    /// several: `some Gesture` is an opaque type and two of them are two
+    /// different types, which a ternary will not unify — the same lesson
+    /// `ElevationView.faceGesture` records.
+    private func canvasGesture(drawn: CGRect) -> some Gesture {
+        DragGesture(minimumDistance: 4)
+            .onChanged { value in
+                switch mode {
+                case .pixelate:
+                    dragging = Self.rect(
+                        from: value.startLocation, to: value.location,
+                        image: original.size, drawn: drawn)
+
+                case .draw where tool.isShape:
+                    let a = Self.imagePoint(value.startLocation, image: original.size, drawn: drawn)
+                    let b = Self.imagePoint(value.location, image: original.size, drawn: drawn)
+                    // Width is in the picture's pixels, not the screen's, so
+                    // a "Medium" line is the same weight on the saved photo
+                    // whatever the phone was zoomed to when it was drawn.
+                    let scale = original.size.width / max(drawn.width, 1)
+                    pendingShape = Annotation(
+                        kind: tool, a: a, b: b, color: ink,
+                        width: width.points * scale,
+                        text: tool == .text ? typedText : "")
+
+                case .crop:
+                    dragCropHandle(to: value.location, drawn: drawn)
+
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                switch mode {
+                case .pixelate:
+                    if let dragging, dragging.width > 4, dragging.height > 4 {
+                        push()
+                        edit.redactions.append(dragging)
+                        rebuildPreview()
+                    }
+                    dragging = nil
+
+                case .draw where tool.isShape:
+                    guard let shape = pendingShape else { break }
+                    pendingShape = nil
+                    // A text mark is not finished until it has words. Asking
+                    // for them here, once the box is drawn, is the order the
+                    // hand expects: put it where it goes, then say what it
+                    // says.
+                    if shape.kind == .text {
+                        typedText = ""
+                        typing = shape
+                    } else {
+                        push()
+                        edit.shapes.append(shape)
+                    }
+
+                case .crop:
+                    cropHandle = nil
+
+                default:
+                    break
+                }
+            }
+    }
+
+    /// Move whichever crop corner the finger is nearest, keeping the
+    /// rectangle inside the picture and never letting it collapse.
+    private func dragCropHandle(to location: CGPoint, drawn: CGRect) {
+        let full = CGRect(origin: .zero, size: original.size)
+        var rect = edit.crop ?? full
+        let point = Self.imagePoint(location, image: original.size, drawn: drawn)
+
+        if cropHandle == nil {
+            // Nearest corner wins, decided once at the start of the drag so
+            // a fast finger cannot hand the rectangle to a different corner
+            // halfway through.
+            let corners = [
+                CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
+                CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY),
+            ]
+            cropHandle = corners.enumerated().min {
+                hypot($0.element.x - point.x, $0.element.y - point.y)
+                    < hypot($1.element.x - point.x, $1.element.y - point.y)
+            }?.offset
+            if edit.crop == nil { push() }
+        }
+
+        // A floor of 64px on each side: a crop nobody can see is a crop
+        // nobody meant.
+        let x = min(max(point.x, full.minX), full.maxX)
+        let y = min(max(point.y, full.minY), full.maxY)
+        switch cropHandle {
+        case 0: rect = CGRect(x: min(x, rect.maxX - 64), y: min(y, rect.maxY - 64),
+                              width: rect.maxX - min(x, rect.maxX - 64),
+                              height: rect.maxY - min(y, rect.maxY - 64))
+        case 1: rect = CGRect(x: rect.minX, y: min(y, rect.maxY - 64),
+                              width: max(x - rect.minX, 64),
+                              height: rect.maxY - min(y, rect.maxY - 64))
+        case 2: rect = CGRect(x: rect.minX, y: rect.minY,
+                              width: max(x - rect.minX, 64), height: max(y - rect.minY, 64))
+        case 3: rect = CGRect(x: min(x, rect.maxX - 64), y: rect.minY,
+                              width: rect.maxX - min(x, rect.maxX - 64),
+                              height: max(y - rect.minY, 64))
+        default: break
+        }
+        edit.crop = rect.intersection(full)
+    }
+
+    /// The crop rectangle over the picture: everything outside it dimmed,
+    /// a handle at each corner.
+    private func cropFrame(drawn: CGRect) -> some View {
+        let rect = Self.toScreen(
+            edit.crop ?? CGRect(origin: .zero, size: original.size),
+            image: original.size, drawn: drawn)
+        return ZStack(alignment: .topLeading) {
+            // The dimming, as one shape with the kept rectangle knocked out
+            // of it — `.evenOdd` rather than four rectangles around the
+            // hole, which never quite meet at the corners.
+            Path { p in
+                p.addRect(CGRect(origin: .zero, size: drawn.size))
+                p.addRect(rect)
+            }
+            .fill(Color.black.opacity(0.45), style: FillStyle(eoFill: true))
+
+            Rectangle()
+                .strokeBorder(.white, lineWidth: 1.5)
+                .frame(width: rect.width, height: rect.height)
+                .offset(x: rect.minX, y: rect.minY)
+
+            ForEach(0..<4, id: \.self) { corner in
+                let p = [
+                    CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
+                    CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY),
+                ][corner]
+                Rectangle()
+                    .fill(.white)
+                    .frame(width: 18, height: 4)
+                    .offset(x: p.x - 9, y: p.y - 2)
+                Rectangle()
+                    .fill(.white)
+                    .frame(width: 4, height: 18)
+                    .offset(x: p.x - 2, y: p.y - 9)
+            }
+        }
+        .frame(width: drawn.width, height: drawn.height)
+        .allowsHitTesting(false)
     }
 
     // MARK: - The mode's own controls
@@ -703,6 +915,94 @@ struct PhotoEditorView: View {
         let clamped = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
             .intersection(CGRect(origin: .zero, size: image))
         return clamped.isNull ? .zero : clamped
+    }
+
+    /// One screen point → the image's own pixels.
+    ///
+    /// The counterpart of `toScreen`, and the reason both exist here rather
+    /// than at their call sites: every mark this editor makes is stored in
+    /// image pixels, so exactly one conversion each way is what keeps the
+    /// preview and the saved file the same drawing.
+    static func imagePoint(_ p: CGPoint, image: CGSize, drawn: CGRect) -> CGPoint {
+        guard drawn.width > 0 else { return .zero }
+        let scale = image.width / drawn.width
+        return CGPoint(x: p.x * scale, y: p.y * scale)
+    }
+
+    /// One annotation, drawn at whatever scale it is asked for.
+    ///
+    /// `scale` converts image pixels to the destination — the drawn size on
+    /// screen for the live overlay, 1 for the full-resolution render — so
+    /// the SAME routine does both and a mark cannot look one way on screen
+    /// and another in the file.
+    static func drawShape(
+        _ shape: Annotation, in context: GraphicsContext, scale: CGFloat, size: CGSize
+    ) {
+        let a = CGPoint(x: shape.a.x * scale, y: shape.a.y * scale)
+        let b = CGPoint(x: shape.b.x * scale, y: shape.b.y * scale)
+        let width = max(1, shape.width * scale)
+        let box = CGRect(
+            x: min(a.x, b.x), y: min(a.y, b.y),
+            width: abs(b.x - a.x), height: abs(b.y - a.y))
+
+        switch shape.kind {
+        case .line:
+            var path = Path()
+            path.move(to: a)
+            path.addLine(to: b)
+            context.stroke(
+                path, with: .color(shape.color),
+                style: StrokeStyle(lineWidth: width, lineCap: .round))
+
+        case .arrow:
+            var path = Path()
+            path.move(to: a)
+            path.addLine(to: b)
+            context.stroke(
+                path, with: .color(shape.color),
+                style: StrokeStyle(lineWidth: width, lineCap: .round))
+            // The head, scaled to the LINE's weight rather than its length:
+            // a long thin arrow and a short thin one should point the same
+            // way with the same nib.
+            let angle = atan2(b.y - a.y, b.x - a.x)
+            let head = max(width * 3.5, 10)
+            var tip = Path()
+            tip.move(to: b)
+            tip.addLine(
+                to: CGPoint(
+                    x: b.x - cos(angle - .pi / 7) * head,
+                    y: b.y - sin(angle - .pi / 7) * head))
+            tip.addLine(
+                to: CGPoint(
+                    x: b.x - cos(angle + .pi / 7) * head,
+                    y: b.y - sin(angle + .pi / 7) * head))
+            tip.closeSubpath()
+            context.fill(tip, with: .color(shape.color))
+
+        case .rectangle:
+            context.stroke(
+                Path(box), with: .color(shape.color), style: StrokeStyle(lineWidth: width))
+
+        case .ellipse:
+            context.stroke(
+                Path(ellipseIn: box), with: .color(shape.color),
+                style: StrokeStyle(lineWidth: width))
+
+        case .text:
+            guard !shape.text.isEmpty else { return }
+            // Sized to the box the operator dragged out, so text scales the
+            // way the shape tools do rather than being one fixed size on a
+            // photo that might be 500px or 4000px across.
+            let point = max(12, min(box.height, width * 6))
+            let resolved = context.resolve(
+                Text(shape.text)
+                    .font(.system(size: point, weight: .semibold))
+                    .foregroundStyle(shape.color))
+            context.draw(resolved, at: CGPoint(x: box.minX, y: box.minY), anchor: .topLeading)
+
+        default:
+            break
+        }
     }
 
     /// One image-pixel rect back to the drawn image's own coordinates.

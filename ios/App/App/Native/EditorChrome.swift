@@ -784,44 +784,33 @@ enum EditorChrome {
         let widthPts = object.width * scale
         let depthPts = object.depth * scale
 
-        // **The catalogue's own illustration, on the plan.** The owner's
-        // call, looking at a fridge drawn as an outline with two ticks on
-        // it: *"I don't like the top down view… it should be the nice
-        // isometric drawing."*
+        // **The footprint, with a symbol in it.** The owner's reference,
+        // sent as a magicplan screenshot of a fridge drawn as a rectangle
+        // with a snowflake inside: *"I want like this."*
         //
-        // This is a deliberate divergence from drafting convention and from
-        // what this file argued for a build ago. A floor plan is
-        // conventionally orthographic, and `Brand.Plan` exists to keep this
-        // drawing reading as drafting — but he is the one who has to
-        // recognise a room at a glance on a job, and an illustration he
-        // recognises beats a symbol he has to decode. Note the cost, since
-        // somebody will meet it: an isometric drawing has a fixed viewing
-        // angle, so an object rotated 180° is drawn upside down rather than
-        // seen from the other side.
+        // It replaces two earlier attempts and is better than both. The
+        // outline-with-details version needed decoding at plan size; the
+        // isometric illustration was a catalogue picture doing a drafting
+        // job — pretty, fixed-angle, and wrong on a drawing that is read
+        // beside a report. A plan symbol is an outline that MEASURES and a
+        // glyph that NAMES, which is what every floor plan has always done.
         //
-        // Only where there is room for it. Below about 24pt the picture is
-        // a smudge and the drawn symbol reads better, which is also what
-        // keeps the storey and the project card legible.
-        if ObjectArtwork.exists(object.kind), widthPts >= 24, depthPts >= 24 {
-            context.drawLayer { layer in
-                layer.translateBy(x: centre.x, y: centre.y)
-                // **The picture does NOT rotate with the object, and the
-                // envelope does.** An isometric drawing has one fixed
-                // viewing angle: turn it 180° and you do not see the fridge
-                // from behind, you see an upside-down fridge. So the
-                // rectangle carries the orientation — it is the measured
-                // footprint and must be true — while the illustration stays
-                // upright and legible, which is the only job it has.
-                layer.opacity = alpha
-                // Square art, rectangular footprint: fitted to the LONGER
-                // side and centred, so a sofa's drawing spans its length
-                // rather than being squashed into its depth.
-                let side = max(widthPts, depthPts)
-                layer.draw(
-                    Image(ObjectArtwork.assetName(for: object.kind)),
-                    in: CGRect(x: -side / 2, y: -side / 2, width: side, height: side))
-            }
+        // The glyph does not rotate with the object: a snowflake has no
+        // orientation to preserve, and the rectangle around it already
+        // carries the true one.
+        if widthPts >= 18, depthPts >= 18, let entry = object.entry {
+            let side = min(widthPts, depthPts) * 0.55
+            // Resolved through Text, not Image: `GraphicsContext.resolve`
+            // takes no styling on an Image, and an SF Symbol carried in a
+            // Text keeps both its size and its colour.
+            let symbol = context.resolve(
+                Text(Image(systemName: entry.glyph))
+                    .font(.system(size: side))
+                    .foregroundStyle(ink.opacity(alpha)))
+            context.draw(symbol, at: centre, anchor: .center)
         } else if let shape = object.entry?.shape, widthPts > 10, depthPts > 10 {
+            // Too small for a glyph — the drawn figure still reads as a
+            // silhouette at storey and thumbnail size.
             context.drawLayer { layer in
                 layer.translateBy(x: centre.x, y: centre.y)
                 layer.rotate(by: Angle(degrees: object.rotation))
@@ -831,13 +820,7 @@ enum EditorChrome {
                         x: -widthPts / 2, y: -depthPts / 2,
                         width: widthPts, height: depthPts),
                     context: layer,
-                    // Ink on paper, not the catalogue's colour: `Brand.Plan`
-                    // is what keeps this drawing reading as drafting beside
-                    // a report. The picker is where the colour lives.
-                    tones: (
-                        fill: Brand.surface.opacity(alpha),
-                        edge: ink.opacity(alpha)
-                    ))
+                    tones: (fill: Brand.surface.opacity(alpha), edge: ink.opacity(alpha)))
             }
         }
 
