@@ -98,6 +98,28 @@ enum ObjectCatalog {
 
         var id: String { slug }
 
+        /// Which family of sizes this belongs to.
+        ///
+        /// A fridge comes in four widths and they are four catalogue
+        /// entries — the owner chose that over a picker at placement time.
+        /// But he then placed one and said *"it's not asking me to choose
+        /// the size."* Both are true: the tiles ARE the choice, and the
+        /// tile he tapped came from the Recently-used rail, which goes
+        /// straight to the one he used last.
+        ///
+        /// So the family is also offered INSIDE the object, where changing
+        /// your mind belongs. `Refrigerator, 33"` is one tap from
+        /// `Refrigerator, 36"` without deleting anything and placing again.
+        var family: String {
+            for stem in [
+                "refrigerator", "dishwasher", "washer", "dryer", "range", "bathtub",
+                "water_heater", "toilet", "vanity", "shower", "base_cabinet",
+            ] where slug.hasPrefix(stem) {
+                return stem
+            }
+            return slug
+        }
+
         /// The mark that goes INSIDE the footprint on a floor plan.
         ///
         /// **The owner's own reference, and it settles what a plan symbol
@@ -413,6 +435,14 @@ enum ObjectCatalog {
 
     static func entry(slug: String) -> Entry? {
         entries.first { $0.slug == slug }
+    }
+
+    /// Every size this thing comes in, in catalogue order. One entry long
+    /// for anything that comes in one size, which the picker uses to know
+    /// there is nothing to choose.
+    static func sizes(of entry: Entry) -> [Entry] {
+        let family = entry.family
+        return entries.filter { $0.family == family }
     }
 
     static func entries(in category: Category) -> [Entry] {

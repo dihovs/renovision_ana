@@ -28,6 +28,7 @@ struct ObjectDetailView: View {
     @State private var quantity: Int
     @State private var notes: String
     @State private var changed = false
+    @State private var kind: String
     @State private var widthText: String
     @State private var depthText: String
     @State private var heightText: String
@@ -43,6 +44,7 @@ struct ObjectDetailView: View {
         _included = State(initialValue: object.included)
         _quantity = State(initialValue: object.quantity)
         _notes = State(initialValue: object.notes ?? "")
+        _kind = State(initialValue: object.kind)
         let format = UnitSettings.current
         _widthText = State(initialValue: format.format(object.width))
         _depthText = State(initialValue: format.format(object.depth))
@@ -60,6 +62,13 @@ struct ObjectDetailView: View {
                 .foregroundStyle(Brand.ink)
                 .frame(maxWidth: 130)
         }
+    }
+
+    /// The sizes this object comes in — empty of choice when it comes in
+    /// one, which is what hides the picker.
+    private var sizeOptions: [ObjectCatalog.Entry] {
+        guard let entry = object.entry else { return [] }
+        return ObjectCatalog.sizes(of: entry)
     }
 
     /// The three dimensions as metres, or nil where a field cannot be read.
@@ -139,6 +148,34 @@ struct ObjectDetailView: View {
                     )
                 }
 
+                // **Choosing the size, inside the object.** His report on
+                // build 146: *"I'm putting the refrigerator. It's not asking
+                // me to choose the size… it's showing me the refrigerator
+                // thirty six inch, and that's it."* The four widths are four
+                // catalogue tiles, which is what he chose — but the tile he
+                // tapped came from the Recently-used rail, which goes
+                // straight to the one he used last, so no choice was ever
+                // offered.
+                //
+                // Here is where changing your mind belongs anyway: one tap
+                // from 36in to 33in, on the object already standing in the
+                // room, rather than delete-and-place-again.
+                if sizeOptions.count > 1 {
+                    Section {
+                        Picker("Size", selection: $kind) {
+                            ForEach(sizeOptions) { option in
+                                Text(option.name).tag(option.slug)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                        .labelsHidden()
+                    } header: {
+                        Text("Standard sizes")
+                    } footer: {
+                        Text("The sizes this comes in. Choosing one resets the measurements below to that size.")
+                    }
+                }
+
                 Section {
                     // **Editable, because a real building does not read the
                     // catalogue.** The owner: *"I need to have a place that
@@ -203,6 +240,15 @@ struct ObjectDetailView: View {
                     Text("Deleting takes it off the drawing. To keep it on the plan but out of the claim, turn off Include instead.")
                 }
             }
+            .onChange(of: kind) { _, slug in
+                // A different size is a different set of measurements, so
+                // the fields follow the choice rather than keeping the old
+                // ones and quietly disagreeing with the name.
+                guard let entry = ObjectCatalog.entry(slug: slug) else { return }
+                widthText = units.format.format(entry.width)
+                depthText = units.format.format(entry.depth)
+                heightText = units.format.format(entry.height)
+            }
             .navigationTitle(object.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -244,9 +290,11 @@ struct ObjectDetailView: View {
                 abs($0.width - object.width) > 0.005 || abs($0.depth - object.depth) > 0.005
                     || abs($0.height - object.height) > 0.005
             } ?? false
+        let kindChanged = kind != object.kind
         let anything =
             nameChanged || disposition != object.disposition || included != object.included
             || quantity != object.quantity || notes != (object.notes ?? "") || sizeChanged
+            || kindChanged
 
         guard anything else {
             onClose(false)
@@ -257,6 +305,7 @@ struct ObjectDetailView: View {
         do {
             try await API.shared.updateObject(
                 id: object.id,
+                kind: kindChanged ? kind : nil,
                 name: nameChanged ? newName : nil,
                 width: sizeChanged ? typed?.width : nil,
                 depth: sizeChanged ? typed?.depth : nil,
@@ -267,7 +316,10 @@ struct ObjectDetailView: View {
                 // Marked the moment a figure is typed, and left alone
                 // otherwise — resetting to the catalogue size clears it,
                 // which is what `handSet` recomputes above.
-                sizeHandSet: sizeChanged ? handSet : nil,
+                // Picking a standard size is not measuring one: choosing
+                // 33in from the list clears the padlock, typing 33.5 sets
+                // it.
+                sizeHandSet: sizeChanged ? (kindChanged ? false : handSet) : nil,
                 notes: notes != (object.notes ?? "") ? notes : nil)
             onClose(true)
             dismiss()

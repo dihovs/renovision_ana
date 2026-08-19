@@ -102,6 +102,7 @@ export async function PATCH(request: Request) {
 
   return guarded(async () => {
     await updateRoomObject(id, {
+      ...(typeof body.kind === "string" && body.kind ? { kind: body.kind } : {}),
       ...(body.name !== undefined ? { name: body.name as string | null } : {}),
       ...number("x"),
       ...number("y"),

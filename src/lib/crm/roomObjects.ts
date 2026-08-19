@@ -155,6 +155,9 @@ export async function createRoomObject(input: RoomObjectInput): Promise<string> 
 export async function updateRoomObject(
   id: string,
   patch: {
+    /** Swapping one catalogue size for another - a 33in fridge for a 36in -
+        changes what the object IS, so the slug moves with the dimensions. */
+    kind?: string;
     name?: string | null;
     x?: number;
     y?: number;
@@ -173,6 +176,7 @@ export async function updateRoomObject(
   const { error } = await client
     .from("room_objects")
     .update({
+      ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
       ...(patch.name !== undefined ? { name: patch.name?.trim().slice(0, 200) || null } : {}),
       ...(patch.x !== undefined ? { x: patch.x } : {}),
       ...(patch.y !== undefined ? { y: patch.y } : {}),

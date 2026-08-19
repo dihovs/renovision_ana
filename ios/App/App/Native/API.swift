@@ -548,6 +548,7 @@ actor API {
     /// key as "not mentioned" — which is exactly what is wanted here, since
     /// nothing on an object is nullable except `name` and `notes`.
     private struct ObjectPatch: Encodable {
+        var kind: String?
         var name: String?
         var x: Double?
         var y: Double?
@@ -563,7 +564,7 @@ actor API {
     }
 
     func updateObject(
-        id: String, name: String? = nil, at point: CGPoint? = nil, rotation: Double? = nil,
+        id: String, kind: String? = nil, name: String? = nil, at point: CGPoint? = nil, rotation: Double? = nil,
         width: Double? = nil, depth: Double? = nil, height: Double? = nil,
         disposition: String? = nil, included: Bool? = nil, quantity: Int? = nil,
         sizeHandSet: Bool? = nil, notes: String? = nil
