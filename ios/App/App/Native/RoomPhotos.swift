@@ -32,13 +32,23 @@ struct RoomPhotosSection: View {
     @State private var error: String?
     /// The photo open full-screen, if any — the route to the editor.
     @State private var viewing: RoomPhoto?
+    /// Photos this phone is still holding, so the grid shows them the moment
+    /// they are taken rather than after the server has them.
+    @ObservedObject private var queue = PhotoQueue.shared
+
+    /// What this phone is holding for THIS grid — the room, or the wall, or
+    /// the area, matched the same way the server's own filter matches.
+    private var waiting: [PhotoQueue.Held] {
+        queue.pending(
+            roomScanId: roomScanId, wallIndex: wallIndex, affectedAreaId: affectedAreaId)
+    }
 
     var body: some View {
         Section {
-            if let photos, !photos.isEmpty {
+            if (photos.map { !$0.isEmpty } ?? false) || !waiting.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Brand.Space.tight) {
-                        ForEach(photos) { photo in
+                        ForEach(photos ?? []) { photo in
                             // Tappable, which they were not until S6. A
                             // photo that can be uploaded and never looked
                             // at again on the phone that took it is half a
@@ -60,6 +70,33 @@ struct RoomPhotosSection: View {
                                 .clipShape(.rect(cornerRadius: Brand.Radius.tile))
                             }
                             .buttonStyle(.plain)
+                        }
+
+                        // Held on this phone: drawn exactly like the rest,
+                        // with a cloud mark. A photo that has been taken IS
+                        // in the record as far as the operator is concerned,
+                        // and hiding it until the server agrees would make
+                        // them take it twice.
+                        ForEach(waiting) { held in
+                            ZStack(alignment: .bottomTrailing) {
+                                if let image = queue.image(for: held) {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 96, height: 96)
+                                        .clipShape(.rect(cornerRadius: Brand.Radius.tile))
+                                } else {
+                                    Brand.surfaceRaised
+                                        .frame(width: 96, height: 96)
+                                        .clipShape(.rect(cornerRadius: Brand.Radius.tile))
+                                }
+                                Image(systemName: "icloud.and.arrow.up")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(4)
+                                    .background(Brand.charcoal.opacity(0.75), in: .capsule)
+                                    .padding(5)
+                            }
                         }
                     }
                 }
@@ -97,8 +134,16 @@ struct RoomPhotosSection: View {
             HStack {
                 Text(title)
                 Spacer()
-                if let photos, !photos.isEmpty {
-                    Text("\(photos.count)").font(.caption.monospacedDigit())
+                if let photos, !photos.isEmpty || !waiting.isEmpty {
+                    Text("\(photos.count + waiting.count)")
+                        .font(.caption.monospacedDigit())
+                }
+                if !waiting.isEmpty {
+                    // Says what is happening rather than leaving a cloud
+                    // badge to be interpreted.
+                    Text("\(waiting.count) waiting to upload")
+                        .font(.caption)
+                        .foregroundStyle(Brand.inkFaint)
                 }
             }
         }
@@ -141,30 +186,30 @@ struct RoomPhotosSection: View {
                 affectedAreaId: affectedAreaId)) ?? []
     }
 
+    /// Take the photo, hold it, and let it upload behind the operator.
+    ///
+    /// **Never blocks on the network**, which is the owner's ask and the
+    /// right shape besides: *"they're in a place when there is no Internet,
+    /// I want them to be able to upload the photos… and whenever they have
+    /// an Internet, it will upload."*
+    ///
+    /// A restoration photograph records a condition that will not exist
+    /// tomorrow — the water is being extracted, the drywall is coming out.
+    /// Losing one to a failed POST in a basement is losing it for good, and
+    /// nobody finds out until an adjuster asks. `PhotoQueue` writes it to
+    /// disk first and sends it when there is signal.
     private func upload(_ image: UIImage) async {
-        uploading = true
         error = nil
-
-        // Longest edge capped at 2048 and recompressed. A 48-megapixel HEIC
-        // is wasted on a report photo printed at a third of a page, and it is
-        // minutes of upload on a job-site connection.
-        let jpeg = image.resized(maxEdge: 2048).jpegData(compressionQuality: 0.8)
-
-        guard let jpeg else {
-            error = "Could not read that photo."
-            uploading = false
+        let held = PhotoQueue.shared.enqueue(
+            image, projectId: projectId, roomScanId: roomScanId,
+            affectedAreaId: affectedAreaId, wallIndex: wallIndex, note: nil)
+        if !held {
+            error = PhotoQueue.shared.lastError ?? "Could not save that photo on this phone."
             return
         }
-
-        do {
-            _ = try await API.shared.uploadPhoto(
-                projectId: projectId, roomScanId: roomScanId, affectedAreaId: affectedAreaId,
-                wallIndex: wallIndex, jpeg: jpeg, note: nil)
-            await load()
-        } catch {
-            self.error = error.localizedDescription
-        }
-        uploading = false
+        // The list may already have it if the send was quick; if not, the
+        // pending row below stands in until it lands.
+        await load()
     }
 }
 
