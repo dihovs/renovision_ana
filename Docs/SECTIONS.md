@@ -36,7 +36,7 @@ Commit the ledger update with the work.
 | **S5** | Plan editor parity | **DONE** — all four items shipped and confirmed on the device, build 120 | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
 | **S6** | Photo editor — blur first | **THREE MODES OF FOUR (build 123)** — Crop and the six shape tools left | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
-| **S8** | Objects — doors, windows, catalogue | **BUILT (build 124)** — placement, catalogue, inspector; takeoff roll-up left | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift` |
+| **S8** | Objects — doors, windows, catalogue | **BUILT AND ILLUSTRATED (build 137)** — takeoff roll-up and more door types left | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectEmblems.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift`, `Artwork/` |
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
 | **S10** | Report parity | NOT STARTED | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
@@ -2005,3 +2005,53 @@ Newest last. One or two lines per chat.
   reachable from the room-depth Insert menu, at his ask mid-build, with a
   tap-the-wall step when none is selected.
   **Unverified by eye, all of it.** 1120 tests still passing.
+- **2026-08-18/19** — **S8 built end to end**, builds 124 → 137, live-tested
+  throughout. Migration **0037** (`room_objects`) applied to production and
+  verified. An object is a LINE ITEM, not decoration — the owner's answer
+  when asked what one has to do: *"if replaced, if there is damage, it
+  needs to be counted, there is installation involved also, i need to have
+  an option to include or exclude it like any other item."* Hence
+  `disposition`, `included` and `quantity`, and hence a table rather than
+  more JSON on the scan.
+
+  **The library is one list and two models.** His screenshots settled the
+  layout — `All Objects`, search pinned under the title, a Recently-used
+  rail with stars, sections as rows with counts — and put doors and windows
+  IN it, reversing an earlier call to keep them out. `LibraryItem` is the
+  seam: the list is one thing while an opening (lives in a wall, deducts
+  wall area) and an object (stands on the floor, deducts nothing) stay two.
+  Reachable from a selected wall, from room depth, and from the floor,
+  which was his ask.
+
+  **What live testing found, in the order it found it:** the dimension
+  stealing taps from the wall behind it (fixed by letting the wall win an
+  ambiguous tap — the reversible thing should win); objects snapping to the
+  wall CENTRELINE and so sitting half a band inside the drywall; the
+  elevation showing a plan symbol, which from the front is a square (front
+  elevations are a second drawing, not a rotation of the first); the
+  elevation editing openings through a binding without marking the room
+  dirty, so a window inserted there could leave WITHOUT the Save/Discard
+  prompt; and objects missing from the storey and the card until the floor
+  reloaded and the projects payload carried them.
+
+  **ORD-43 — the artwork.** Hand-coded vector art hit its ceiling at build
+  134 and the owner said so plainly. All 33 objects now carry authored
+  isometric SVG, made in his own ChatGPT session as MARKUP rather than
+  generated images: no picture quota, crisp at any size, and readable so a
+  wrong drawing is corrected rather than re-rolled. `scripts/` carries the
+  three pieces that make it repeatable, and `ObjectArtwork` falls back to
+  the code-drawn figure for anything without a picture — which is why
+  **doors and windows are deliberately refused**: the model draws known
+  objects well and drawing conventions badly, and our own door with its
+  swing arc is more correct on a plan than what came back.
+
+  **Left in S8:** the takeoff roll-up (`countByKind` exists server-side and
+  nothing shows it yet), and the door catalogue — theirs is 17 doors and 15
+  windows to our 4 and 3, and each new kind needs a real stock width
+  because that width knocks the hole in the wall and comes off net wall
+  area.
+
+  **Unverified:** everything from build 130 on has been shipped faster than
+  it could be looked at. The artwork itself was reviewed on a contact sheet
+  before shipping; the rest has not been tapped.
+

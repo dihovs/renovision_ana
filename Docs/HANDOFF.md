@@ -81,8 +81,11 @@ clarity during the review.
 
 ## 4. State of the work
 
-**Last updated 18 Aug 2026, end of a long live-testing session.** Build
-**120** is installed on the owner's phone and confirmed off the device.
+**Last updated 19 Aug 2026, end of a very long live-testing session.** Build
+**137** is installed on the owner's phone and confirmed off the device.
+S5 is closed and verified, S6 has three of its four modes, and S8 went from
+nothing to a working object system with a full illustration set — see the
+ledger's Log, which carries the detail in order.
 Builds 96 → 118 all shipped in that one session, each one installed and
 most of them reported back on within minutes — the ledger's Log carries
 them in order and is the real record.
