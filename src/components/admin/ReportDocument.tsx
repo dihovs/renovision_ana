@@ -89,29 +89,20 @@ export type ReportData = {
  */
 function ScaleBar({ metresWide, pixelsWide }: { metresWide: number; pixelsWide: number }) {
   if (!(metresWide > 0) || !(pixelsWide > 0)) return null;
+  // **The BAR is `FloorPlan`'s, not ours.** It has drawn a ticked scale in
+  // feet since long before this, and the first version of this component
+  // printed a second one underneath — two scale bars under one drawing,
+  // which is worse than none: a reader has to work out which to trust.
+  // What was genuinely missing is the RATIO, so that is all this prints.
 
   // A printed page is 96 CSS px to the inch, and an inch is 25.4mm, so the
   // ratio is metres-on-paper against metres-in-the-world.
   const metresOnPaper = (pixelsWide / 96) * 0.0254;
   const ratio = Math.round(metresWide / metresOnPaper);
 
-  // Bar length: the largest whole number of metres that fits in a third of
-  // the drawing, so it is a round figure rather than an awkward one.
-  const metres = Math.max(1, Math.floor(metresWide / 3));
-  const barPx = (metres / metresWide) * pixelsWide;
-
   return (
     <div className="scalebar">
-      <svg width={barPx} height={14} aria-hidden>
-        <line x1="0" y1="9" x2={barPx} y2="9" stroke="#333" strokeWidth="1" />
-        {Array.from({ length: metres + 1 }, (_, i) => {
-          const x = (i / metres) * barPx;
-          return <line key={i} x1={x} y1="4" x2={x} y2="14" stroke="#333" strokeWidth="1" />;
-        })}
-      </svg>
-      <span>
-        0 — {metres} m · 1:{ratio}
-      </span>
+      <span>Scale 1:{ratio}</span>
     </div>
   );
 }
