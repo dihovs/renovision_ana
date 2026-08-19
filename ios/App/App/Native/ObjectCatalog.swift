@@ -105,16 +105,28 @@ enum ObjectCatalog {
     enum Shape: Hashable {
         case box
         case counter
+        case wallCabinet
         case toilet
         case tub
         case shower
         case sink
         case basinInCounter
         case cylinder
-        case appliance
+        case stove
+        case fridge
+        /// Anything with a round door seen from above — washer, dryer,
+        /// dishwasher. One family because from the top they ARE one shape.
+        case machine
+        case sofa
+        case bed
+        case table
+        case shelving
         case stairs
         case column
         case panel
+        /// Our own gear: a blower or a dehumidifier, drawn with the vent
+        /// that says which end the air comes out of.
+        case equipment
     }
 
     /// Everything placeable, in the order each section shows it: most
@@ -170,11 +182,11 @@ enum ObjectCatalog {
             sizeNote: "24in base unit; 34.5in carcass under a 1.5in top makes 36in."),
         Entry(
             slug: "wall_cabinet", name: "Wall cabinet", category: .cabinets,
-            width: 30 * inch, depth: 12 * inch, height: 30 * inch, shape: .box,
+            width: 30 * inch, depth: 12 * inch, height: 30 * inch, shape: .wallCabinet,
             sizeNote: "30in wide, 12in deep — hung, so its own height is what matters."),
         Entry(
             slug: "tall_pantry", name: "Tall pantry", category: .cabinets,
-            width: 24 * inch, depth: 24 * inch, height: 84 * inch, shape: .box,
+            width: 24 * inch, depth: 24 * inch, height: 84 * inch, shape: .wallCabinet,
             sizeNote: "24in pantry, 84in — floor to the standard soffit."),
         Entry(
             slug: "island", name: "Island", category: .cabinets,
@@ -188,29 +200,29 @@ enum ObjectCatalog {
         // MARK: Appliances — what has to come out to dry a floor.
         Entry(
             slug: "refrigerator", name: "Refrigerator", category: .appliances,
-            width: 36 * inch, depth: 30 * inch, height: 70 * inch, shape: .appliance,
+            width: 36 * inch, depth: 30 * inch, height: 70 * inch, shape: .fridge,
             sizeNote: "36in French-door, 30in deep with the doors."),
         Entry(
             slug: "range", name: "Range", category: .appliances,
-            width: 30 * inch, depth: 26 * inch, height: 36 * inch, shape: .appliance,
+            width: 30 * inch, depth: 26 * inch, height: 36 * inch, shape: .stove,
             sizeNote: "30in slide-in — the stock opening in every cabinet run."),
         Entry(
             slug: "dishwasher", name: "Dishwasher", category: .appliances,
-            width: 24 * inch, depth: 24 * inch, height: 34 * inch, shape: .appliance,
+            width: 24 * inch, depth: 24 * inch, height: 34 * inch, shape: .machine,
             sizeNote: "24in built-in, sized to the base cabinet it replaces."),
         Entry(
             slug: "washer", name: "Washer", category: .appliances,
-            width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .appliance,
+            width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .machine,
             sizeNote: "27in front-loader, 30in deep with the door shut."),
         Entry(
             slug: "dryer", name: "Dryer", category: .appliances,
-            width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .appliance,
+            width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .machine,
             sizeNote: "27in, matched to the washer it stacks with."),
 
         // MARK: Mechanical and electrical — the basement's own furniture.
         Entry(
             slug: "furnace", name: "Furnace", category: .hvac,
-            width: 24 * inch, depth: 30 * inch, height: 60 * inch, shape: .appliance,
+            width: 24 * inch, depth: 30 * inch, height: 60 * inch, shape: .box,
             sizeNote: "24in cabinet, 60in tall — a mid-efficiency upflow."),
         Entry(
             slug: "electrical_panel", name: "Electrical panel", category: .electrical,
@@ -228,23 +240,23 @@ enum ObjectCatalog {
         // MARK: Furniture — what was in the room, for the record.
         Entry(
             slug: "sofa", name: "Sofa", category: .furniture,
-            width: 84 * inch, depth: 36 * inch, height: 34 * inch, shape: .box,
+            width: 84 * inch, depth: 36 * inch, height: 34 * inch, shape: .sofa,
             sizeNote: "7ft three-seat — the common size on a contents list."),
         Entry(
             slug: "bed_queen", name: "Bed, queen", category: .furniture,
-            width: 60 * inch, depth: 80 * inch, height: 24 * inch, shape: .box,
+            width: 60 * inch, depth: 80 * inch, height: 24 * inch, shape: .bed,
             sizeNote: "60×80in mattress, the North American queen."),
         Entry(
             slug: "dresser", name: "Dresser", category: .furniture,
-            width: 60 * inch, depth: 18 * inch, height: 32 * inch, shape: .box,
+            width: 60 * inch, depth: 18 * inch, height: 32 * inch, shape: .shelving,
             sizeNote: "60in six-drawer, 18in deep."),
         Entry(
             slug: "desk", name: "Desk", category: .furniture,
-            width: 48 * inch, depth: 24 * inch, height: 30 * inch, shape: .box,
+            width: 48 * inch, depth: 24 * inch, height: 30 * inch, shape: .table,
             sizeNote: "48×24in, the stock office size."),
         Entry(
             slug: "shelving", name: "Shelving unit", category: .furniture,
-            width: 36 * inch, depth: 16 * inch, height: 72 * inch, shape: .box,
+            width: 36 * inch, depth: 16 * inch, height: 72 * inch, shape: .shelving,
             sizeNote: "36in bay, 16in deep — basement storage racking."),
 
         // MARK: Structural — things that are in the way and cannot move.
@@ -263,15 +275,15 @@ enum ObjectCatalog {
         // MARK: Restoration — their section, and the one we can fill better.
         Entry(
             slug: "dehumidifier", name: "Dehumidifier", category: .restoration,
-            width: 20 * inch, depth: 20 * inch, height: 33 * inch, shape: .appliance,
+            width: 20 * inch, depth: 20 * inch, height: 33 * inch, shape: .equipment,
             sizeNote: "20in square footprint — an LGR on its own wheels."),
         Entry(
             slug: "air_mover", name: "Air mover", category: .restoration,
-            width: 18 * inch, depth: 18 * inch, height: 17 * inch, shape: .appliance,
+            width: 18 * inch, depth: 18 * inch, height: 17 * inch, shape: .equipment,
             sizeNote: "18in axial mover, the one that sits in every doorway."),
         Entry(
             slug: "air_scrubber", name: "Air scrubber", category: .restoration,
-            width: 20 * inch, depth: 20 * inch, height: 26 * inch, shape: .appliance,
+            width: 20 * inch, depth: 20 * inch, height: 26 * inch, shape: .equipment,
             sizeNote: "20in HEPA scrubber, 500 CFM class."),
         Entry(
             slug: "containment", name: "Containment barrier", category: .restoration,
