@@ -230,9 +230,9 @@ struct FloorPlanTile: View {
                         // with the drafting grid off — it would only be
                         // noise this small. Hit testing off so the tile is
                         // one target, not one per room inside it.
-                        LevelCanvas(rooms: rooms, grid: false, maxHeight: 62) { _ in }
+                        LevelCanvas(rooms: rooms, grid: false, maxHeight: 86) { _ in }
                             .allowsHitTesting(false)
-                            .padding(3)
+                            .padding(2)
                     } else {
                         // A floor that exists but has nothing measured on it
                         // yet. Says so, rather than showing blank paper that
@@ -242,7 +242,11 @@ struct FloorPlanTile: View {
                             .foregroundStyle(Brand.Plan.labelSoft)
                     }
                 }
-                .frame(height: 68)
+                // Taller, so the drawing gets the room the owner asked for:
+                // *"on this card the plan is too small."* The caption block
+                // under it is unchanged, so the tile grows by exactly what
+                // the plan gains.
+                .frame(height: 92)
                 .clipped()
 
                 VStack(spacing: 1) {

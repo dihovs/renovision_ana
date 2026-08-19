@@ -181,7 +181,11 @@ struct LevelCanvas: View {
                 // no paper visible around it. The owner's word for it:
                 // "too zoomed in." 12% keeps a small tile breathing and
                 // barely moves the 320pt case (10pt → ~38pt there).
-                let pad = max(8, min(proxy.size.width, proxy.size.height) * 0.12)
+                // 12% on a full sheet, but a hard floor of 4 rather than 8
+                // on a thumbnail — on a 68pt tile, 8pt of padding each side
+                // is a quarter of the height spent on margin, which is the
+                // other half of "the plan is too small".
+                let pad = max(4, min(proxy.size.width, proxy.size.height) * 0.12)
                 let scale = min(
                     (proxy.size.width - pad * 2) / layout.width,
                     (proxy.size.height - pad * 2) / layout.height)
@@ -274,7 +278,10 @@ struct LevelCanvas: View {
                                 anchor: .center)
                         }
 
-                        if plotWidth >= 64 {
+                        // 40, not 64: the label scales now, so a room that
+                        // was too narrow for 14pt type is wide enough for
+                        // the 8pt version of it.
+                        if plotWidth >= 40 {
                             // The point deepest inside the room's own shape,
                             // not the bounding box's midpoint. The two agree
                             // on a plain rectangle, which is why this bug sat
@@ -285,31 +292,56 @@ struct LevelCanvas: View {
                             let anchor = FloorPlanGeometry.labelAnchor(
                                 slot.plan.polygon, width: slot.plan.width, height: slot.plan.height)
                             let centre = pt(anchor.x, anchor.y)
-                            // Sized up on the owner's word, 18 Aug 2026 —
-                            // 11/9 was legible on a desk and not on a job
-                            // site. The plate grows with the type rather
-                            // than staying at the old 28pt, or the second
-                            // line would hang off the bottom of it.
+                            // **The type is sized to the DRAWING, not fixed.**
+                            // Sized up on the owner's word on 18 Aug — 11/9
+                            // was legible on a desk and not on a job site —
+                            // but a fixed 14/11 then swallowed the tile on
+                            // the project page's Floor Plans rail, where the
+                            // whole storey is 60 points across: *"on this
+                            // card the plan is too small and the writing is
+                            // big, make it like magicplan."* Right, and the
+                            // fault was fixing a size that has to work at
+                            // 60pt and at 320. It is a fraction of the
+                            // room's own drawn width now, clamped at both
+                            // ends: 14 on the full sheet exactly as before,
+                            // small enough on a thumbnail that the plan is
+                            // what the card shows.
+                            let nameSize = min(14, max(7, plotWidth * 0.13))
+                            let areaSize = nameSize * 0.78
                             let name = context.resolve(
                                 Text(slot.piece.name)
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.system(size: nameSize, weight: .bold))
                                     .foregroundStyle(Brand.Plan.label))
                             let sqft = context.resolve(
                                 Text(Measure.sqftLabel(slot.piece.areaSqm))
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.system(size: areaSize, weight: .medium))
                                     .foregroundStyle(Brand.Plan.labelSoft))
                             let box = name.measure(in: proxy.size)
                             let sqftBox = sqft.measure(in: proxy.size)
-                            let plateWidth = max(box.width, sqftBox.width) + 10
-                            context.fill(
-                                Path(
-                                    roundedRect: CGRect(
-                                        x: centre.x - plateWidth / 2, y: centre.y - 18,
-                                        width: plateWidth, height: 36),
-                                    cornerRadius: 4),
-                                with: .color(bg.opacity(0.8)))
-                            context.draw(name, at: CGPoint(x: centre.x, y: centre.y - 7), anchor: .center)
-                            context.draw(sqft, at: CGPoint(x: centre.x, y: centre.y + 9), anchor: .center)
+                            let plateWidth = max(box.width, sqftBox.width) + nameSize * 0.7
+                            let plateHeight = nameSize + areaSize + nameSize * 0.8
+                            // The knock-out plate only where the label would
+                            // otherwise sit on the walls. On a thumbnail the
+                            // type is small enough to read against the floor
+                            // fill, and a plate there is a grey slab over
+                            // the drawing — which is what the card was
+                            // showing.
+                            if nameSize >= 11 {
+                                context.fill(
+                                    Path(
+                                        roundedRect: CGRect(
+                                            x: centre.x - plateWidth / 2,
+                                            y: centre.y - plateHeight / 2,
+                                            width: plateWidth, height: plateHeight),
+                                        cornerRadius: 4),
+                                    with: .color(bg.opacity(0.8)))
+                            }
+                            context.draw(
+                                name, at: CGPoint(x: centre.x, y: centre.y - areaSize * 0.62),
+                                anchor: .center)
+                            context.draw(
+                                sqft, at: CGPoint(x: centre.x, y: centre.y + nameSize * 0.62),
+                                anchor: .center)
                         }
                     }
                 }
