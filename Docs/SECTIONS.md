@@ -2135,3 +2135,12 @@ Newest last. One or two lines per chat.
   project exists for exactly this: export it, read it beside
   `My New Project Report 4.pdf`, fix the differences.
 
+- **2026-08-19** — Report export fixed at the root: a page is now a real
+  Letter-sized page ON SCREEN, and `?bare=1` ("Clean view for PDF") drops the
+  app chrome, so any export route yields the same paginated document rather
+  than one strip of screen. ORD-42 built: press-and-hold lifts a room on the
+  storey canvas, one finger moves it, two fingers twist it, walls snap flush
+  and edges show alignment guides; a turn rewrites the polygon AND its
+  objects, and a move freezes every room's `plan_x`/`plan_y` so the packer
+  stops rearranging a floor somebody laid out by hand. Build 156. Still open:
+  the storey-empty / upload-failing report from the phone, unreproduced.

@@ -1079,6 +1079,29 @@ struct FloorCanvasView: View {
     /// these hold the last total so each frame applies only its own delta.
     @State private var lastFloorDrag: CGSize = .zero
     @State private var lastFloorPinch: CGFloat = 1
+
+    /// Arranging a floor by hand — the owner's ask of 19 Aug 2026: *"we
+    /// should be able to hold on it, and it should allow us to move it
+    /// around and turn it… we should be able to bring them together."*
+    ///
+    /// A lifted room is a room in the AIR: moved and turned freely, drawn
+    /// where the finger has it, and written only when the gesture ends. It
+    /// stays lifted after the finger comes up so it can then be twisted —
+    /// a two-finger twist and a one-finger hold cannot be the same gesture.
+    /// A tap anywhere sets it down.
+    @State private var lifted: StoreyBaseLayer.LiftedRoom?
+    @State private var guides: [StoreyArranging.Guide] = []
+    /// The lifted room's offset when the CURRENT drag began — a room can be
+    /// dragged more than once before it is set down, and `DragGesture`
+    /// reports translation from its own start, not from the room's home.
+    @State private var liftDragStart: CGSize = .zero
+    /// True for the length of the press-and-drag that picks a room up, so
+    /// the plain move gesture does not also claim the same finger and apply
+    /// the travel twice.
+    @State private var lifting = false
+    /// Whether a wall was against a wall on the last frame, so the snap gets
+    /// exactly one haptic rather than one per frame it stays snapped.
+    @State private var wasFlush = false
     @State private var showingFloorViewModes = false
     @State private var switchingFloor = false
     @State private var sharing = false
@@ -1265,7 +1288,76 @@ struct FloorCanvasView: View {
                         layout: cachedLayout, viewport: viewport, focusedRoomID: focusedRoomID,
                         focusProgress: progress, grid: true,
                         objects: roomObjects,
-                        onTapRoom: { room in enterRoom(room) }
+                        lifted: lifted, guides: guides,
+                        // A tap while something is in the air SETS IT DOWN
+                        // rather than opening a room. Opening a room on the
+                        // tap that was meant to end an arrangement is how a
+                        // careful layout gets lost behind a screen the
+                        // operator did not ask for.
+                        onTapRoom: { room in
+                            if lifted != nil { setDown() } else { enterRoom(room) }
+                        },
+                        onTapEmpty: { setDown() }
+                    )
+                    // PRESS AND HOLD to pick a room up, then keep dragging
+                    // in the same motion. Sequenced rather than
+                    // simultaneous: a drag that starts before the press
+                    // completes is a drag of the SHEET, which is the
+                    // gesture that was here first and the one used far more
+                    // often. Holding still for a moment is the whole signal
+                    // that this drag means something else.
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.4, maximumDistance: 12)
+                            .sequenced(before: DragGesture(minimumDistance: 0))
+                            .onChanged { value in
+                                guard focusedRoomID == nil else { return }
+                                switch value {
+                                case .first:
+                                    break
+                                case .second(_, let drag):
+                                    guard let drag else { return }
+                                    if !lifting { pickUp(at: drag.startLocation, viewport: viewport) }
+                                    guard lifting else { return }
+                                    moveLifted(by: drag.translation, viewport: viewport)
+                                }
+                            }
+                            .onEnded { _ in
+                                guard lifting else { return }
+                                lifting = false
+                                Task { await commitPlacement() }
+                            }
+                    )
+                    // Dragging a room that is ALREADY in the air. Same
+                    // arithmetic, different entry: once lifted it moves on
+                    // a plain drag, with no second hold to sit through.
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 4)
+                            .onChanged { value in
+                                guard !lifting, lifted != nil, focusedRoomID == nil,
+                                    startedOnLiftedRoom(value.startLocation, viewport: viewport)
+                                else { return }
+                                moveLifted(by: value.translation, viewport: viewport)
+                            }
+                            .onEnded { value in
+                                guard !lifting, lifted != nil, focusedRoomID == nil,
+                                    startedOnLiftedRoom(value.startLocation, viewport: viewport)
+                                else { return }
+                                Task { await commitPlacement() }
+                            }
+                    )
+                    // TWO FINGERS TWIST the lifted room. Free, then landed
+                    // on something deliberate — see
+                    // `StoreyArranging.snappedTwist`.
+                    .simultaneousGesture(
+                        RotateGesture(minimumAngleDelta: .degrees(2))
+                            .onChanged { value in
+                                guard lifted != nil, focusedRoomID == nil else { return }
+                                twistLifted(by: value.rotation.radians)
+                            }
+                            .onEnded { _ in
+                                guard lifted != nil else { return }
+                                Task { await commitPlacement() }
+                            }
                     )
                     // ONE finger moves the paper, TWO fingers zoom it —
                     // the owner's own instruction, and safe HERE in a way
@@ -1283,7 +1375,11 @@ struct FloorCanvasView: View {
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 8)
                             .onChanged { value in
-                                guard focusedRoomID == nil, viewport.scale > 0 else { return }
+                                // A room in the air owns the one finger on
+                                // the glass; moving the sheet under it as
+                                // well would move both at once.
+                                guard focusedRoomID == nil, lifted == nil, viewport.scale > 0
+                                else { return }
                                 let dx = value.translation.width - lastFloorDrag.width
                                 let dy = value.translation.height - lastFloorDrag.height
                                 lastFloorDrag = value.translation
@@ -1295,7 +1391,10 @@ struct FloorCanvasView: View {
                     .simultaneousGesture(
                         MagnificationGesture()
                             .onChanged { value in
-                                guard focusedRoomID == nil, lastFloorPinch > 0 else { return }
+                                // Two fingers TWIST a lifted room; they must
+                                // not also zoom the sheet out from under it.
+                                guard focusedRoomID == nil, lifted == nil, lastFloorPinch > 0
+                                else { return }
                                 let delta = value / lastFloorPinch
                                 lastFloorPinch = value
                                 floorZoom = min(max(floorZoom * delta, 0.4), 6)
@@ -1528,13 +1627,24 @@ struct FloorCanvasView: View {
                     // whose rooms are all joined up it stays dimmed, which
                     // is now a true statement about this floor rather than
                     // an unimplemented button.
-                    supported: rotatableRooms.isEmpty ? [.insert] : [.insert, .rotate],
+                    supported: (rotatableRooms.isEmpty && lifted == nil)
+                        ? [.insert] : [.insert, .rotate],
                     onAction: { action in
                         switch action {
                         case .insert:
                             withAnimation(.snappy(duration: 0.18)) { insertOpen.toggle() }
                         case .rotate:
-                            Task { await rotateDetachedRooms() }
+                            // With a room in the air, Rotate is about THAT
+                            // room — turning the whole floor while somebody
+                            // is holding one piece of it is not what the
+                            // button means any more.
+                            if lifted != nil {
+                                twistLifted(by: .pi / 2)
+                                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                                Task { await commitPlacement() }
+                            } else {
+                                Task { await rotateDetachedRooms() }
+                            }
                         default:
                             break
                         }
@@ -1619,6 +1729,200 @@ struct FloorCanvasView: View {
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
+    }
+
+    // MARK: - Arranging a floor by hand
+
+    /// One room's outline in FLOOR metres, optionally as it would sit after
+    /// a move and a turn — the only space in which two rooms can be compared.
+    private func floorPolygon(_ room: StoreyRoom, offset: CGSize = .zero, angle: Double = 0)
+        -> [CGPoint]
+    {
+        let pivot = StoreyArranging.centroid(room.plan.polygon)
+        return StoreyArranging.rotate(room.plan.polygon, by: angle, about: pivot).map {
+            CGPoint(x: room.origin.x + $0.x + offset.width, y: room.origin.y + $0.y + offset.height)
+        }
+    }
+
+    /// Which room a point on the glass is over.
+    private func room(at point: CGPoint, viewport: StoreyViewport) -> StoreyRoom? {
+        let floor = viewport.model(point)
+        return cachedLayout.rooms.first { room in
+            floor.x >= room.origin.x && floor.x <= room.origin.x + room.plan.width
+                && floor.y >= room.origin.y && floor.y <= room.origin.y + room.plan.height
+        }
+    }
+
+    private func startedOnLiftedRoom(_ point: CGPoint, viewport: StoreyViewport) -> Bool {
+        guard let lifted, let room = cachedLayout.room(id: lifted.id) else { return false }
+        // The room's CURRENT box, offset included — after a drag it is not
+        // where the layout still says it is.
+        let box = StoreyArranging.bounds(
+            floorPolygon(room, offset: lifted.offset, angle: lifted.angle))
+        return box.insetBy(dx: -0.15, dy: -0.15).contains(viewport.model(point))
+    }
+
+    private func pickUp(at point: CGPoint, viewport: StoreyViewport) {
+        guard let room = room(at: point, viewport: viewport) else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        lifted = StoreyBaseLayer.LiftedRoom(id: room.id)
+        liftDragStart = .zero
+        wasFlush = false
+        lifting = true
+    }
+
+    /// Set the lifted room down. Nothing is saved here — every gesture
+    /// already wrote when it ended, so setting down only ends the mode, and
+    /// a room left in the air by a backgrounded app has still had its move
+    /// recorded.
+    private func setDown() {
+        guard lifted != nil else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        // `lifting` too: a press-and-drag that is cancelled rather than ended
+        // — a call arriving, the app backgrounded — leaves it set, and a
+        // stuck `lifting` blocks the plain move gesture for good.
+        lifting = false
+        withAnimation(.snappy(duration: 0.15)) {
+            lifted = nil
+            guides = []
+        }
+    }
+
+    /// Follow the finger, then correct for whatever it came near.
+    ///
+    /// The tolerance is a fixed 14 SCREEN points converted to metres, so
+    /// snapping has the same feel whether the whole storey is on screen or
+    /// one room fills it — a fixed distance in metres would be unusable at
+    /// one zoom and invisible at the other.
+    private func moveLifted(by translation: CGSize, viewport: StoreyViewport) {
+        guard var lift = lifted, viewport.scale > 0, let room = cachedLayout.room(id: lift.id)
+        else { return }
+
+        let free = CGSize(
+            width: liftDragStart.width + translation.width / viewport.scale,
+            height: liftDragStart.height + translation.height / viewport.scale)
+
+        let moving = floorPolygon(room, offset: free, angle: lift.angle)
+        let others = cachedLayout.rooms.filter { $0.id != lift.id }.map { floorPolygon($0) }
+        let result = StoreyArranging.snap(
+            moving: moving, others: others, tolerance: 14 / viewport.scale)
+
+        lift.offset = CGSize(
+            width: free.width + result.offset.width, height: free.height + result.offset.height)
+        lifted = lift
+        guides = result.guides
+
+        // One tick when a wall lands on a wall, not one per frame it stays
+        // there — a haptic that repeats reads as a stutter, not as contact.
+        if result.flush, !wasFlush { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
+        wasFlush = result.flush
+    }
+
+    private func twistLifted(by radians: Double) {
+        guard var lift = lifted, let room = cachedLayout.room(id: lift.id) else { return }
+        let neighbours = StoreyArranging.wallAngles(
+            cachedLayout.rooms.filter { $0.id != lift.id }.map { floorPolygon($0) })
+        lift.angle = StoreyArranging.snappedTwist(
+            baseAngle: StoreyArranging.longestWallAngle(room.plan.polygon),
+            twist: radians, neighbourAngles: neighbours)
+        lifted = lift
+    }
+
+    /// Write what the gesture just did.
+    ///
+    /// A TURN rewrites the room's own polygon, because a room has no stored
+    /// angle — the same thing the floor-wide quarter-turn has always done.
+    /// Which means the room's objects have to be turned with it: they are
+    /// stored in the room's own plan metres, and a polygon that rotates
+    /// while its toilet does not is a toilet standing in the garden.
+    ///
+    /// A MOVE writes `plan_x`/`plan_y` for EVERY room on the floor, not just
+    /// the one that moved. The packer only auto-arranges rooms that have no
+    /// stored position, so freezing them all is what stops the other rooms
+    /// shuffling themselves the next time the floor loads — once a floor has
+    /// been arranged by hand, it stays arranged.
+    private func commitPlacement() async {
+        guard let lift = lifted, let room = cachedLayout.room(id: lift.id) else { return }
+
+        var originShift = CGSize.zero
+
+        if abs(lift.angle) > 0.0005 {
+            var corners = room.plan.polygon
+            if corners.count >= 4 { corners.removeLast() }
+            guard corners.count >= 3 else { return }
+
+            let pivot = StoreyArranging.centroid(room.plan.polygon)
+            let turned = StoreyArranging.rotate(corners, by: lift.angle, about: pivot)
+            let before = StoreyArranging.bounds(corners).origin
+            let after = StoreyArranging.bounds(turned).origin
+            // Re-based to its own corner, the way `plan(from:)` will re-base
+            // it on the way back out — and the room's position moves by the
+            // same amount, so it turns where it stands instead of walking
+            // sideways every time it is twisted.
+            let placed = turned.map {
+                PlanEditing.quantise(CGPoint(x: $0.x - after.x, y: $0.y - after.y))
+            }
+            originShift = CGSize(width: after.x - before.x, height: after.y - before.y)
+
+            let openings = (room.room.geometry?.authoredOpenings ?? []).compactMap {
+                record -> PlanEditing.WallOpening? in
+                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
+                return PlanEditing.WallOpening(
+                    edge: record.edge, offset: record.offset, width: record.width,
+                    height: record.height, sill: record.sill, kind: kind)
+            }
+            // Openings are keyed to an EDGE INDEX, and locked lengths to the
+            // same, so both ride the rotation untouched — the polygon turned,
+            // its edges did not renumber.
+            try? await API.shared.saveEditedPlan(
+                roomId: room.id, corners: placed,
+                locked: room.room.geometry?.lockedEdges ?? [],
+                openings: openings,
+                ceilingHeight: room.room.ceilingHeightM)
+
+            let degrees = lift.angle * 180 / .pi
+            let c = cos(lift.angle)
+            let sn = sin(lift.angle)
+            for object in roomObjects[room.id] ?? [] {
+                let dx = object.x - pivot.x
+                let dy = object.y - pivot.y
+                let moved = CGPoint(
+                    x: pivot.x + dx * c - dy * sn - after.x + before.x,
+                    y: pivot.y + dx * sn + dy * c - after.y + before.y)
+                try? await API.shared.updateObject(
+                    id: object.id, at: moved, rotation: object.rotation + degrees)
+            }
+        }
+
+        // Every room's position, so the packer stops rearranging the floor
+        // under a layout somebody just made by hand.
+        for other in cachedLayout.rooms {
+            var x = other.origin.x
+            var y = other.origin.y
+            if other.id == lift.id {
+                x += lift.offset.width + originShift.width
+                y += lift.offset.height + originShift.height
+            }
+            let unchanged =
+                other.room.planX != nil && other.room.planY != nil
+                && abs((other.room.planX ?? 0) - x) < 0.005
+                && abs((other.room.planY ?? 0) - y) < 0.005
+            guard !unchanged else { continue }
+            try? await API.shared.placeRoom(roomId: other.id, x: x, y: y)
+        }
+
+        // Reloaded and zeroed in ONE synchronous step. Clearing the offset
+        // before the new layout arrives snaps the room back to where it
+        // started for a frame; clearing it after a further await does the
+        // same in the other direction.
+        scans = (try? await API.shared.scans(projectId: projectId)) ?? []
+        refreshLayout()
+        lifted?.offset = .zero
+        lifted?.angle = 0
+        liftDragStart = .zero
+        guides = []
+        wasFlush = false
+        await loadObjects()
     }
 
     /// Rooms a quarter-turn may move — detached ones only, per the owner's

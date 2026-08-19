@@ -748,6 +748,19 @@ component, not two.
 
 ## ORD-42 — Edit Layout: tap-and-hold to move and rotate a room in place
 
+**BUILT 19 Aug 2026, build 156** — `StoreyArranging.swift`, plus the lift
+state and gestures in `StoreyCanvas` and the preview drawing in
+`StoreyBaseLayer`. Asked what he wanted, the owner chose: rooms sit FLUSH
+and stay two rooms (no shared-wall model — that is still open); free twist
+snapping to 15° or to a neighbour's wall angle; press-and-hold to pick up,
+tap still opens a room; flush contact PLUS alignment guides across the
+whole sheet. Handles were not drawn — the room itself is the handle, which
+is what press-and-hold already means. **Divergence from his 18 Aug rule,
+flagged to him:** a lifted room may be turned whether or not it touches
+another. The detachment rule still governs the floor-wide Rotate button,
+which is what it was written about; picking one room up is an explicit act
+on that room.
+
 **Shown by the owner, 18 Aug 2026**, with a screenshot of magicplan's own
 mode — a selected `Bedroom` carrying a blue four-way move handle and a
 curved rotate arrow directly on the room, action bar reduced to

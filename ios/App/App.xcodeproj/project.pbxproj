@@ -75,6 +75,7 @@
 		547F794211626CFF8CFA6570 /* ObjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */; };
 		A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */; };
 		03F8E9CA9E3AA11C291D111E /* PhotoQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */; };
+		7C1A5E20B4D3F09188A2C610 /* StoreyArranging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -147,6 +148,7 @@
 		6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectDetailView.swift; sourceTree = "<group>"; };
 		D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectEmblems.swift; sourceTree = "<group>"; };
 		4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhotoQueue.swift; sourceTree = "<group>"; };
+		7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/StoreyArranging.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +193,7 @@
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
 				4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */,
+				7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */,
 				D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */,
 				6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */,
 				88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */,
@@ -337,6 +340,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				03F8E9CA9E3AA11C291D111E /* PhotoQueue.swift in Sources */,
+				7C1A5E20B4D3F09188A2C610 /* StoreyArranging.swift in Sources */,
 				A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */,
 				547F794211626CFF8CFA6570 /* ObjectDetailView.swift in Sources */,
 				12FDE45F0886FC57A524DE42 /* ObjectPicker.swift in Sources */,

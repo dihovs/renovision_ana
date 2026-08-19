@@ -230,7 +230,28 @@ struct StoreyBaseLayer: View {
     /// because an object's coordinates are its own room's, and it is
     /// `StoreyRoom.origin` that puts them on the floor.
     var objects: [String: [RoomObject]] = [:]
+    /// The room currently in the air, if any — see `LiftedRoom`.
+    var lifted: LiftedRoom? = nil
+    /// Lines saying why a lifted room just jumped somewhere.
+    var guides: [StoreyArranging.Guide] = []
     let onTapRoom: (RoomScan) -> Void
+    /// A tap that hit no room. Nil keeps the old behaviour, where empty
+    /// paper does nothing.
+    var onTapEmpty: (() -> Void)? = nil
+
+    /// A room being moved or turned by hand, before anything is saved.
+    ///
+    /// Held by the SCREEN and handed down, not owned here, because the
+    /// gestures that drive it have to sit beside the pan and pinch they
+    /// compete with. This layer only draws it.
+    struct LiftedRoom: Equatable {
+        let id: String
+        /// Where it has been dragged to, floor metres, snapping already
+        /// applied by `StoreyArranging.snap`.
+        var offset: CGSize = .zero
+        /// How far it has been twisted, radians, snapping already applied.
+        var angle: Double = 0
+    }
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -252,12 +273,37 @@ struct StoreyBaseLayer: View {
                 let opacity = isFocused ? Double(1 - focusProgress) : 1
                 guard opacity > 0.003 else { continue }
 
-                func pt(_ x: Double, _ y: Double) -> CGPoint {
-                    viewport.point(CGPoint(x: storeyRoom.origin.x + x, y: storeyRoom.origin.y + y))
-                }
-
                 let plan = storeyRoom.plan
                 let isNew = spotlight.contains(storeyRoom.id)
+
+                // A room in the air is drawn where the finger has it, not
+                // where it is stored — the move and the turn are previewed
+                // here and written only when the gesture ends. One transform
+                // for the whole room, so its walls, its doors and the toilet
+                // standing in it all travel together; a version that moved
+                // only the outline is a room sliding out from under its own
+                // fixtures.
+                let lift = lifted?.id == storeyRoom.id ? lifted : nil
+                let pivot = StoreyArranging.centroid(plan.polygon)
+                let spin = (cos(lift?.angle ?? 0), sin(lift?.angle ?? 0))
+
+                /// A point in the room's own metres, put on the floor.
+                func floorPoint(_ x: Double, _ y: Double) -> CGPoint {
+                    guard let lift else {
+                        return CGPoint(x: storeyRoom.origin.x + x, y: storeyRoom.origin.y + y)
+                    }
+                    let dx = x - pivot.x
+                    let dy = y - pivot.y
+                    return CGPoint(
+                        x: storeyRoom.origin.x + pivot.x + dx * spin.0 - dy * spin.1
+                            + lift.offset.width,
+                        y: storeyRoom.origin.y + pivot.y + dx * spin.1 + dy * spin.0
+                            + lift.offset.height)
+                }
+
+                func pt(_ x: Double, _ y: Double) -> CGPoint {
+                    viewport.point(floorPoint(x, y))
+                }
 
                 if plan.polygon.count >= 3 {
                     var floor = Path()
@@ -339,10 +385,9 @@ struct StoreyBaseLayer: View {
                 // where it crosses a cabinet run.
                 for object in objects[storeyRoom.id] ?? [] {
                     EditorChrome.drawObject(
-                        object.moved(
-                            to: CGPoint(
-                                x: object.x + storeyRoom.origin.x,
-                                y: object.y + storeyRoom.origin.y)),
+                        object
+                            .moved(to: floorPoint(object.x, object.y))
+                            .rotated(to: object.rotation + (lift?.angle ?? 0) * 180 / .pi),
                         context: context,
                         toScreen: { viewport.point($0) },
                         scale: viewport.scale,
@@ -535,7 +580,42 @@ struct StoreyBaseLayer: View {
                     context.draw(name, at: CGPoint(x: centre.x, y: centre.y - 7), anchor: .center)
                     context.draw(sqft, at: CGPoint(x: centre.x, y: centre.y + 9), anchor: .center)
                 }
+                // The room in the air, ringed. A lifted room that looks
+                // exactly like a resting one leaves no way to tell whether
+                // the next drag will move the room or the sheet.
+                if lift != nil, plan.polygon.count >= 3 {
+                    var halo = Path()
+                    halo.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
+                    for p in plan.polygon.dropFirst() { halo.addLine(to: pt(p.x, p.y)) }
+                    halo.closeSubpath()
+                    context.stroke(
+                        halo, with: .color(Brand.blue),
+                        style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+                }
+
                 context.opacity = 1
+            }
+
+            // Alignment guides, over everything: they are about two rooms
+            // at once and belong to neither, and a guide drawn under a wall
+            // band is a guide nobody sees.
+            for guide in guides {
+                let a: CGPoint
+                let b: CGPoint
+                switch guide.axis {
+                case .vertical:
+                    a = viewport.point(CGPoint(x: guide.position, y: guide.from))
+                    b = viewport.point(CGPoint(x: guide.position, y: guide.to))
+                case .horizontal:
+                    a = viewport.point(CGPoint(x: guide.from, y: guide.position))
+                    b = viewport.point(CGPoint(x: guide.to, y: guide.position))
+                }
+                var line = Path()
+                line.move(to: a)
+                line.addLine(to: b)
+                context.stroke(
+                    line, with: .color(Brand.blue.opacity(0.9)),
+                    style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
             }
         }
         .contentShape(.rect)
@@ -549,6 +629,8 @@ struct StoreyBaseLayer: View {
             }) {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 onTapRoom(hit.room)
+            } else {
+                onTapEmpty?()
             }
         }
     }
