@@ -168,8 +168,17 @@ struct StoreyLayout {
 
     func room(id: String) -> StoreyRoom? { rooms.first { $0.id == id } }
 
-    /// Rooms that touch nothing else on this floor — the ones a quarter-turn
-    /// is allowed to move.
+    /// Rooms that touch nothing else on this floor — the ones the FLOOR-WIDE
+    /// `Rotate` button is allowed to move.
+    ///
+    /// **Scope narrowed 19 Aug 2026.** This once governed rotation
+    /// everywhere. It no longer does: a room picked up by hand turns whether
+    /// or not it touches another, because the owner withdrew the rule
+    /// himself — *"Yes. I think I was wrong. The rooms need to turn because
+    /// they turn in the magic plan too."* What survives here is the case the
+    /// rule was really about: a button that turns rooms nobody selected. Let
+    /// that reach attached rooms and it spins the whole floor plan, which is
+    /// exactly what he objected to.
     ///
     /// The owner set this rule himself, 18 Aug 2026, asked what Rotate should
     /// do: *"floorplan doesn't turn, separate rooms will, but only when it is

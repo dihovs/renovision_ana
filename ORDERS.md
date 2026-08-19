@@ -755,11 +755,17 @@ and stay two rooms (no shared-wall model — that is still open); free twist
 snapping to 15° or to a neighbour's wall angle; press-and-hold to pick up,
 tap still opens a room; flush contact PLUS alignment guides across the
 whole sheet. Handles were not drawn — the room itself is the handle, which
-is what press-and-hold already means. **Divergence from his 18 Aug rule,
-flagged to him:** a lifted room may be turned whether or not it touches
-another. The detachment rule still governs the floor-wide Rotate button,
-which is what it was written about; picking one room up is an explicit act
-on that room.
+is what press-and-hold already means. **His 18 Aug rule is withdrawn.** A lifted
+room may be turned whether or not it touches another. Told that this
+softened his own rule, 19 Aug: *"Yes. I think I was wrong. The rooms need
+to turn because they turn in the magic plan too. So, yeah, it makes
+sense."* So the paragraph below about honouring the detachment rule for
+rotation is HISTORY, not a requirement — it survives to explain where the
+rule came from and why it was dropped. The one place it still holds is the
+floor-wide `Rotate` BUTTON, which turns every detached room at once
+without anything being selected; letting that spin attached rooms would
+turn the whole floor plan, which is the thing he actually objected to
+(*"floorplan doesn't turn, separate rooms will"*).
 
 **Shown by the owner, 18 Aug 2026**, with a screenshot of magicplan's own
 mode — a selected `Bedroom` carrying a blue four-way move handle and a
