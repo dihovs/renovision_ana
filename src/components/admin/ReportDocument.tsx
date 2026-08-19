@@ -48,6 +48,9 @@ export type ReportRoom = {
   wallLengthM: number;
   ceilingHeightM: number;
   stairCount: number;
+  /** Z765 living-area share, where one was set. Null means the whole room
+      counts, which is what an unset percentage has always meant. */
+  livingAreaPercent?: number | null;
   notes: string | null;
   geometry: ScanGeometry;
   areas: AffectedArea[];
@@ -110,6 +113,12 @@ function ScaleBar({ metresWide, pixelsWide }: { metresWide: number; pixelsWide: 
 /** Six to a page, two columns — the reference's own grid. */
 const PHOTOS_PER_PAGE = 6;
 
+/** A room's bounding extent — what the reference calls WIDTH and LENGTH. */
+function planExtent(geometry: ScanGeometry): { width: number; height: number } {
+  const plan = toFloorPlan(geometry);
+  return { width: plan.width, height: plan.height };
+}
+
 /** How wide a room's drawing is, in metres — what a scale ratio is against. */
 function planWidthM(geometry: ScanGeometry): number {
   const plan = toFloorPlan(geometry);
@@ -125,6 +134,20 @@ function photoPages(room: ReportRoom) {
   }
   return pages;
 }
+
+/**
+ * **Metric, because the reference is and because he works in it.**
+ *
+ * His own export prints `78.68 m²`, `2.449 m`, `17.00 m`. The app already
+ * follows his unit setting everywhere after ORD-21; the report was the one
+ * surface still hard-coded to feet, which is exactly the split that
+ * produced "keep the measurement units same across the page".
+ *
+ * Three decimals on a length and two on an area — theirs, and the precision
+ * a scan actually has.
+ */
+const m2 = (sqm: number) => `${sqm.toFixed(2)} m²`;
+const m = (metres: number) => `${metres.toFixed(3)} m`;
 
 const sqft = (sqm: number) => Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA");
 const ft = (m: number) => Math.round(metersToFeet(m)).toLocaleString("en-CA");
@@ -156,6 +179,14 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   } = data;
 
   const floorAreaSqm = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
+  // Living area is on every page of the reference's header, so it has to
+  // reach the report and not only the phone. Falls back to the floor area
+  // where a room carries no living-area percentage — equal, not absent,
+  // which is what an unset percentage means.
+  const livingAreaSqm = rooms.reduce(
+    (sum, room) => sum + room.floorAreaSqm * ((room.livingAreaPercent ?? 100) / 100),
+    0,
+  );
   const wallAreaSqm = rooms.reduce(
     (sum, room) => sum + room.wallLengthM * room.ceilingHeightM,
     0,
@@ -188,6 +219,36 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   ]
     .filter(Boolean)
     .join("  •  ");
+
+  // **Page numbering, the reference's way: `Page n/19`.**
+  //
+  // Counted rather than left to CSS. `@page` margin boxes can print a page
+  // counter, but browser support for them is patchy and the TOTAL is worse
+  // still — and a report that says "Page 4 of 19" is making a claim about
+  // completeness that has to be right. Everything here is generated from
+  // one list, so the count is arithmetic rather than a guess.
+  const photoPageCount = rooms.reduce((sum, room) => sum + photoPages(room).length, 0);
+  const totalPages =
+    1 // cover
+    + (shownClaim.length > 0 || client ? 1 : 0)
+    + levels.length
+    + rooms.length
+    + photoPageCount
+    + (damage.floor.length + damage.wall.length > 0 ? 1 : 0)
+    + (rooms.some((room) => room.readings.length > 0) ? 1 : 0)
+    + (equipment.length > 0 ? 1 : 0)
+    + 1 // signature
+    + 1; // definitions
+  let pageNo = 0;
+  const nextPage = () => ++pageNo;
+
+  // The three-line header the reference repeats on every page from two.
+  const headerTotals = [
+    `TOTAL AREA: ${m2(floorAreaSqm)}`,
+    `LIVING AREA: ${m2(livingAreaSqm)}`,
+    `FLOORS: ${levels.length}`,
+    `ROOMS: ${rooms.length}`,
+  ].join(" • ");
 
   return (
     <article className="report">
@@ -285,9 +346,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 
         return (
           <section className="page" key={level}>
-            <Running identity={identity} title={`${level} — floor plan`} company={company} />
+            <Running project={project.name} address={property} totals={headerTotals} />
             <p className="totals">
-              {sqft(levelArea)} sq ft · {onLevel.length} room{onLevel.length === 1 ? "" : "s"}
+              ▼ {level} — {m2(levelArea)} · {onLevel.length} room
+              {onLevel.length === 1 ? "" : "s"}
             </p>
             <div className="plan-grid">
               {onLevel.map((room) => (
@@ -296,12 +358,18 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                     <FloorPlan result={room.geometry} name={room.name} variant="thumb" />
                   </div>
                   <figcaption>
+                    {/* Their caption: name, area, and the extent in
+                        brackets under it. */}
                     <strong>{room.name}</strong>
-                    <span>{sqft(room.floorAreaSqm)} sq ft</span>
+                    <span>
+                      {m2(room.floorAreaSqm)} ({m(planExtent(room.geometry).width)} ×{" "}
+                      {m(planExtent(room.geometry).height)})
+                    </span>
                   </figcaption>
                 </figure>
               ))}
             </div>
+            <PageFoot n={nextPage()} of={totalPages} company={company} />
           </section>
         );
       })}
@@ -310,7 +378,23 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {rooms.map((room) => (
         <Fragment key={room.id}>
         <section className="page">
-          <Running identity={identity} title={`${room.name} — ${room.level}`} company={company} />
+          <Running project={project.name} address={property} totals={headerTotals} />
+
+          {/* The reference's own two lines above the drawing, in its own
+              order and wording: the room and its storey, then the figures
+              on two rows. `WIDTH` and `LENGTH` are the drawing's extent,
+              not the longest wall — which is why an L-shaped room's width
+              is bigger than any single wall it has. */}
+          <p className="marker">▼ {room.name}</p>
+          <p className="marker-sub">{room.level}</p>
+          <p className="figures">
+            WIDTH: {m(planExtent(room.geometry).width)} • LENGTH:{" "}
+            {m(planExtent(room.geometry).height)} • CEILING HEIGHT:{" "}
+            {m(room.ceilingHeightM)}
+          </p>
+          <p className="figures">
+            AREA: {m2(room.floorAreaSqm)} • PERIMETER: {m(room.wallLengthM)}
+          </p>
 
           <div className="room-body">
             {/* Wrapped so the plan and its note share one grid cell. */}
@@ -450,11 +534,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               see below. What stays is the pointer the reference prints, so
               a reader on the plan page knows they exist and where. */}
           {room.photos.length > 0 && (
-            <p className="photo-pointer">
-              ▼ {room.name}/{room.level} — {room.photos.length}{" "}
-              {room.photos.length === 1 ? "photo" : "photos"} (see photo pages)
-            </p>
+            <>
+              <p className="marker">▼ {room.name}/{room.level}</p>
+              <p className="photo-pointer">
+                Photos — {room.photos.length}{" "}
+                {room.photos.length === 1 ? "Photo" : "Photos"} (see photos page)
+              </p>
+            </>
           )}
+          <PageFoot n={nextPage()} of={totalPages} company={company} />
         </section>
 
         {/* --------------------------------- this room's photos, interleaved
@@ -471,11 +559,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
            correspondence. */}
         {photoPages(room).map((batch, index) => (
           <section className="page" key={`${room.id}-photos-${index}`}>
-            <Running
-              identity={identity}
-              title={`Photos / ${room.name}`}
-              company={company}
-            />
+            <Running project={project.name} address={property} totals={headerTotals} />
+            {/* Their section marker: `▼ Photos/1st bedroom`. */}
+            <p className="marker">▼ Photos/{room.name}</p>
             <div className="photo-grid">
               {batch.map((photo, offset) => (
                 <figure key={photo.id}>
@@ -492,6 +578,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 </figure>
               ))}
             </div>
+            <PageFoot n={nextPage()} of={totalPages} company={company} />
           </section>
         ))}
         </Fragment>
@@ -500,7 +587,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {/* ------------------------------------------------ drying record */}
       {equipment.length > 0 && (
         <section className="page">
-          <Running identity={identity} title="Equipment on site" company={company} />
+          <Running project={project.name} address={property} totals={headerTotals} />
           <table className="listing">
             <thead>
               <tr>
@@ -542,7 +629,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           nobody signed is a report nobody agreed to. Four labelled blanks,
           exactly theirs — signature, date, printed name, phone. */}
       <section className="page signature">
-        <Running identity={identity} title="Acknowledgement" company={company} />
+        <Running project={project.name} address={property} totals={headerTotals} />
         <p className="fineprint">
           Signing acknowledges that the areas, measurements and photographs in
           this report were taken at the property on the dates shown.
@@ -555,6 +642,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             </div>
           ))}
         </div>
+        <PageFoot n={nextPage()} of={totalPages} company={company} />
       </section>
 
       {/* --------------------------------------- measurement definitions */}
@@ -565,11 +653,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           the screens. */}
       {rooms.length > 0 && (
         <section className="page">
-          <Running
-            identity={identity}
-            title="How these figures are measured"
-            company={company}
-          />
+          <Running project={project.name} address={property} totals={headerTotals} />
           <table className="measure definitions">
             <tbody>
               {Object.values(MEASURE_DEFINITIONS).map((meaning) => (
@@ -629,21 +713,50 @@ function DamageTotals({
 
 /** The band that identifies the claim on every page after the cover. */
 function Running({
-  identity,
-  title,
-  company,
+  project,
+  address,
+  totals,
 }: {
-  identity: string;
-  title: string;
-  company: CompanySetting;
+  project: string;
+  address: string | null;
+  totals: string;
 }) {
+  // **The reference's header, duplicated.** Three lines on every page from
+  // two onward: the project, the full address on ONE line, and the running
+  // totals. Read straight off his own 19-page export.
+  //
+  // Both areas are printed on every page there — total AND living — which
+  // is why the living-area figure has to reach the report rather than only
+  // the phone.
   return (
     <header className="running">
-      <div>
-        <h2>{title}</h2>
-        <p>{identity || company.tradeName}</p>
-      </div>
-      <span className="mark">{company.tradeName || company.legalName}</span>
+      <div className="running-project">{project}</div>
+      {address && <div className="running-address">{address}</div>}
+      <div className="running-totals">{totals}</div>
     </header>
+  );
+}
+
+/**
+ * The foot of every page: the disclaimer, then `Page n/N`.
+ *
+ * Theirs names Sensopia because it is their software. Ours names this
+ * company, because a disclaimer is only worth anything if it says who is
+ * disclaiming — and putting a competitor's name in the foot of our report
+ * would be absurd.
+ */
+function PageFoot({ n, of, company }: { n: number; of: number; company: CompanySetting }) {
+  return (
+    <footer className="page-foot">
+      <p>
+        THIS FLOOR PLAN IS PROVIDED WITHOUT WARRANTY OF ANY KIND.{" "}
+        {(company.tradeName || company.legalName || "").toUpperCase()} DISCLAIMS ANY
+        WARRANTY INCLUDING, WITHOUT LIMITATION, SATISFACTORY QUALITY OR ACCURACY OF
+        DIMENSIONS.
+      </p>
+      <span>
+        Page {n}/{of}
+      </span>
+    </footer>
   );
 }

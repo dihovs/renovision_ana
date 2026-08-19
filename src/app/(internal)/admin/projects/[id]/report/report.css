@@ -312,3 +312,25 @@
   font-size: 9pt;
   color: #62666d;
 }
+
+/* The reference's own header, footer and section markers. */
+.report .running { display: block; border-bottom: none; padding-bottom: 4mm; }
+.report .running-project { font-size: 11pt; font-weight: 600; }
+.report .running-address { font-size: 8.5pt; color: #62666d; }
+.report .running-totals { font-size: 8.5pt; color: #62666d; letter-spacing: 0.01em; }
+
+.report .marker { font-size: 11pt; font-weight: 600; margin: 4mm 0 0; }
+.report .marker-sub { font-size: 9pt; color: #62666d; margin: 0 0 2mm; }
+.report .figures { font-size: 9pt; color: #333; margin: 0 0 1mm; letter-spacing: 0.01em; }
+
+.report .page-foot {
+  margin-top: 6mm;
+  padding-top: 2mm;
+  border-top: 1px solid #e4e6ea;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8mm;
+}
+.report .page-foot p { font-size: 6.5pt; color: #8e939b; margin: 0; max-width: 140mm; }
+.report .page-foot span { font-size: 8pt; color: #62666d; white-space: nowrap; }
