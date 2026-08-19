@@ -82,7 +82,7 @@ clarity during the review.
 ## 4. State of the work
 
 **Last updated 18 Aug 2026, end of a long live-testing session.** Build
-**118** is installed on the owner's phone and confirmed off the device.
+**120** is installed on the owner's phone and confirmed off the device.
 Builds 96 → 118 all shipped in that one session, each one installed and
 most of them reported back on within minutes — the ledger's Log carries
 them in order and is the real record.
@@ -204,18 +204,28 @@ and the unit fix all belong to it. Read S5's own **"State at handoff"**
 block first — it lists what is genuinely left, checked against the code
 rather than remembered, and it is short.
 
-**Four items remain**, in the order they are worth doing:
+**Three of the four are done** — items 2, 3 and 4 shipped in **build 120**,
+confirmed installed on the phone: `Set Size` hides on a non-rectangular room
+and comes back when it is square, ORD-31's live edge dimensions on the two
+edges adjoining a dragged corner, and ORD-23's overall bounding extent on its
+own outer line. **None of it has been looked at.**
 
-1. **Verify the dimension tap** — ten seconds, and it is the one thing here
-   already built but never seen working. It was disabled behind `if false`
-   from an old bisect and re-enabled in build 112; nobody has confirmed the
-   keypad opens.
-2. **Set Size should HIDE on a non-rectangular room**, not grey. There is no
-   rectangularity test in the source at all — checked 18 Aug.
-3. **ORD-31** live edge dimensions while dragging in the plan editor. The
-   AREA editor draws them on the two adjoining edges; the plan editor has
-   only a single floating `liveLabel`.
-4. **ORD-23** overall bounding dimension line, outboard of the per-wall ones.
+**One item remains, and it is ten seconds:**
+
+1. **Verify the dimension tap.** The one thing here already built but never
+   seen working. Disabled behind `if false` from an old bisect, re-enabled in
+   build 112; nobody has confirmed the keypad opens. Build 120 did not touch
+   the hit test — the only adjacent change is that the branch is now also
+   gated on the `Dimensions` layer being on, which is its default.
+
+**ORD-23 moved the camera, so read S5's item 4 before touching the
+viewport.** An outer dimension line needs space outboard of the walls and
+there was none, so the standalone editor's fit inset grew and
+`LevelCanvas.cameraBounds` now pads the focused room by 22% each side — in
+METRES, as a fraction of the room, because `bounds` is what
+`AnimatedStoreyViewport` interpolates and an inset changed at focus would pop
+the base layer on the transition's first frame. Entering a room frames
+slightly wider than build 118 did.
 
 Anything the owner reports live outranks this list — that is how the whole
 of 18 Aug went, and it worked.

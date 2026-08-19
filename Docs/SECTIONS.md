@@ -33,7 +33,7 @@ Commit the ledger update with the work.
 | **S2** | Wall inspector | **DONE** | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
 | **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
-| **S5** | Plan editor parity | **IN PROGRESS — 4 items left, see its own handoff block** | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
+| **S5** | Plan editor parity | **BUILT — 3 of 4 items shipped in build 120; the dimension tap still needs one look** | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
 | **S6** | Photo editor — blur first | NOT STARTED | — | new `PhotoEditor*.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
@@ -487,24 +487,57 @@ source on the day rather than remembered.
 - Room label centred and enlarged; wall joints mitred; units follow the
   operator's own setting everywhere.
 
-**Left to do, in the order worth doing it:**
+**Left to do — items 2, 3 and 4 shipped in build 120 (18 Aug 2026).**
+Item 1 is the only one still open, and it is the one nobody can close from
+a keyboard.
 
-1. **Verify the dimension tap.** Built long ago, never once seen working,
-   and 18 Aug found why: the whole branch sat behind `if false` from an old
-   bisect nobody closed. Re-enabled in build 112, still unconfirmed. Ten
-   seconds — tap a wall's length figure and the keypad should open with
-   `Unlock`. Because dimensions draw OUTBOARD of the walls, a miss now
-   falls through to "tap outside to leave", which is an obvious tell.
-2. **Set Size should HIDE on a non-rectangular room**, not grey — the
-   reference removes it and restores it when the room is a rectangle again.
-   There is no rectangularity test in the source at all (checked 18 Aug).
-3. **ORD-31 — live edge dimensions while dragging.** `AreaEditor` draws
-   them on the two edges adjoining the dragged corner;
-   `RoomEditorCore` has only a single floating `liveLabel`. Port the
-   former's `liveDimensions`.
-4. **ORD-23 — overall bounding dimension line**, outboard of the per-wall
-   ones. Without it a non-rectangular room cannot answer "how deep is the
-   whole thing".
+1. **Verify the dimension tap. STILL OPEN — ten seconds on the phone.**
+   Built long ago, never once seen working, and 18 Aug found why: the whole
+   branch sat behind `if false` from an old bisect nobody closed. Re-enabled
+   in build 112. Tap a wall's length figure; the keypad should open with
+   `Unlock`. Because dimensions draw OUTBOARD of the walls, a miss falls
+   through to "tap outside to leave", which is an obvious tell. **Nothing
+   in build 120 changed the hit test itself** — the one adjacent change is
+   that the branch is now also gated on the `Dimensions` layer being ON, so
+   check with that layer on (its default).
+2. ~~**Set Size should HIDE on a non-rectangular room**~~ — **done, build
+   120.** `PlanEditing.isRectangle` (four corners, four square angles,
+   1.2° tolerance because every corner is quantised to a centimetre and a
+   1 m wall can sit 0.57° off square while being as square as this app can
+   represent). `EditorActionBar` gained `hidden:`, which REMOVES a verb
+   rather than greying it — deliberately a different thing from the greying
+   the bar already does for Add Wall and Split Room, and the header on
+   `hidden` sets out why. Both editors pass it, `RoomSketchView` included:
+   that canvas opens as a typed rectangle and is pulled out of one, which
+   is exactly the case.
+3. ~~**ORD-31 — live edge dimensions while dragging**~~ — **done, build
+   120.** `EditorChrome.drawLiveEdgeDimensions`, on the two edges adjoining
+   the dragged corner, at their midpoints (the point on each edge furthest
+   from the hand), in the area editor's own red. The floating `liveLabel`
+   now stands aside while they are on screen — on a corner drag it was
+   printing the same two figures a second time.
+4. ~~**ORD-23 — overall bounding dimension line**~~ — **done, build 120.**
+   `EditorChrome.drawOverallDimensions`: width along the bottom, depth up
+   the left, on their own line outboard of every per-wall one. Drawn on
+   every room, not only odd-shaped ones — the reference draws it there too,
+   and a figure that appears only sometimes is one nobody learns to look
+   for.
+
+   **This one moved the camera, and that is the part to know about.** An
+   outer line needs room outboard of the walls and there was none: the
+   standalone editor fit the plan at a 48pt inset and the storey camera at
+   28, both of which already clipped the per-wall figures on whichever axis
+   was binding. The standalone fit now insets by what the outer row plus
+   its own type needs, and `LevelCanvas.cameraBounds` pads the focused
+   room's bounds by 22% each side. **The padding is expressed in METRES, as
+   a fraction of the room, on purpose** — `bounds` is the value
+   `AnimatedStoreyViewport` interpolates, so a margin written there zooms
+   continuously with everything else. Changing the viewport's `inset`
+   instead would step the base layer's scale on the first frame of the
+   focus transition: a pop, in the one animation this app has already had
+   rejected twice for not reading as one continuous zoom. **Entering a room
+   therefore frames it slightly wider than build 118 did.** That is the
+   cost of the figures fitting, and it is worth a word from the owner.
 
 **Closed, do not go looking for them:**
 
@@ -1764,4 +1797,42 @@ Newest last. One or two lines per chat.
   its direction when SwiftUI evaluates it.
 
   Build 119 confirmed on the device; not yet looked at.
+- **2026-08-18** — S5 opened formally and closed down to one item. Build
+  **120**, installed and confirmed on the device by `devicectl`.
+  **Shipped:** `Set Size` now HIDES on a non-rectangular room and returns
+  when it is square again (`PlanEditing.isRectangle`, `EditorActionBar`'s
+  new `hidden:` — removing a verb, which is a different statement from the
+  greying the bar already does); ORD-31 live edge dimensions on the two
+  edges adjoining a dragged corner, ported from `AreaEditor` so the two
+  canvases read the same; ORD-23 the overall bounding extent, width along
+  the bottom and depth up the left, on its own outer line. One adjacent
+  fix: the dimension-tap branch is now gated on the `Dimensions` layer
+  being on, since with it off that branch was claiming taps on blank canvas
+  and opening a keypad for a figure not on screen.
 
+  **ORD-23 moved the camera** — read S5's item 4 before touching it. There
+  was no space outboard of the walls for an outer line, so the standalone
+  fit inset grew and `LevelCanvas.cameraBounds` now pads the focused room
+  by 22% each side, in METRES as a fraction of the room rather than as a
+  viewport inset, because `bounds` is what `AnimatedStoreyViewport`
+  interpolates and an inset changed at focus would pop the base layer on
+  the transition's first frame. Entering a room frames slightly wider than
+  build 118 did; that is the trade and the owner should say if he dislikes
+  it.
+
+  **Not verified by eye — none of it.** `BUILD SUCCEEDED`, installed,
+  build number read back off the phone, and that is all this chat can
+  honestly claim. The native simulator tool is still refusing with "Xcode
+  is installed but not selected" although `xcode-select -p` is correct
+  (it needs `sudo xcode-select -s`, i.e. the owner's password), and
+  screen control of the Simulator app was declined when offered as the
+  fallback. **So S5's item 1, the dimension tap, is exactly where it was:
+  built, re-enabled, never once seen working.** It remains the first ten
+  seconds of the next session on the phone.
+
+  **Note for whoever reads the history.** This chat's Swift changes are
+  NOT in a commit of their own: a concurrent session committed the shared
+  working tree as `4df4ea6` ("Stepping between walls turns the room") and
+  swept them in, together with unrelated `admin/messages` web work. One
+  chat per task does not mean one tree per task — if two are open, commit
+  early or expect this.
