@@ -791,3 +791,73 @@ pan. A long-press that steals from the pan gesture would be a regression;
 `.simultaneousGesture` and a minimum duration need testing on a real thumb,
 not just in principle.
 
+---
+
+## ORD-43 — A real illustration set for the object library
+
+**Raised by the owner, 18 Aug 2026**, after seeing our drawings beside the
+reference's Doors screen: *"the windows don't look good. If we compare with
+the illustrations that magicplan has, we're not good at all. So if you're
+not able to do the illustrations yourself, maybe we can go and find it
+somewhere that they can give us, like, these illustrations for free."*
+
+**He is right, and the honest reading is that this is not a code problem.**
+Builds 133 and 134 took the hand-coded drawings about as far as they go:
+`ObjectGlyphs.figure` is 21 shape families of `Path` calls and
+`SectionEmblem` is an isometric primitive set. Both are decent plan symbols
+and neither is an illustration. What the reference ships — a shaded door
+leaf, a wood floor strip, blue glass, a red swing arrow, per door type,
+seventeen times — is a professional asset set. Another pass of vector code
+closes very little of that gap.
+
+**So the order is: get real assets, and ship them as assets.** Three routes,
+and the licence decides more than the look does.
+
+1. **A permissively-licensed set** — CC0, MIT or Apache. Redistributable in
+   a commercial app with no attribution screen. The catch is coverage: line
+   icon sets are everywhere, but a coherent ISOMETRIC set covering doors,
+   windows, plumbing, cabinets and appliances is rare, and stitching four
+   sets together looks stitched.
+2. **An attribution set** — CC BY, the Noun Project's free tier. Far more
+   choice, but every screen carrying one owes a credit, which means an
+   acknowledgements screen and a rule nobody may forget when adding an
+   object. Worth it only if the coverage is genuinely there.
+3. **Generate a bespoke set as SVG** and ship it in the asset catalogue.
+   This repo already carries a skill for exactly that (`.claude/skills`,
+   icon design, SVG out). One prompt per catalogue entry, one house style,
+   ours outright with no licence question at all.
+
+**Recommendation: 3, with 1 as the fallback** for anything the generator
+cannot make consistent. It is the only route that gives one coherent style
+across a catalogue that will keep growing — and growth is certain, since
+the reference's own library is 300+ objects to our 35.
+
+**Whatever the route, the constraints are the same:**
+
+- **The licence must permit commercial redistribution.** This ships to a
+  paying customer's phone. Anything NonCommercial or ShareAlike is out, and
+  "free to download" is not a licence.
+- **Three drawings per object, not one.** The app already needs a catalogue
+  tile, a plan symbol and a front elevation, and they are genuinely
+  different views — a toilet from above is a tank and a bowl, from the front
+  a tank over a pedestal. An asset set that only solves the tile leaves the
+  other two hand-drawn, which is where we already are.
+- **The plan symbol stays ink-on-paper.** `Brand.Plan` exists so the
+  drawing reads as drafting beside a report. Coloured illustrations belong
+  in the picker, which is the split the owner already agreed.
+- **Slugs are the join.** `ObjectCatalog.Entry.slug` is what the database
+  stores; an asset is named for its slug and nothing else has to change.
+
+**Territory:** `ObjectGlyphs.swift`, `ObjectEmblems.swift`,
+`ObjectCatalog.swift`, and a new asset catalogue. `EditorChrome.drawObject`
+and `ElevationView.drawObjects` call through one routine each, so swapping
+the source of the artwork touches two call sites, not twenty.
+
+**Note the door catalogue is a separate gap and should be sequenced with
+this.** The reference lists 17 doors and 15 windows to our 4 and 3 — arch,
+bypass, folding, double folding, hinged, double hinged, pocket, double
+pocket, door-with-window, French. Each new kind needs a real North American
+stock width, because that width knocks the hole in the wall and comes off
+the net wall area; the artwork alone would be a picture of a door we cannot
+measure.
+
