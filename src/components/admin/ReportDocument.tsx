@@ -9,6 +9,7 @@ import {
   type ScanGeometry,
 } from "@/lib/roomScan";
 import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
+import { FLOOR_LEVELS } from "@/lib/crm/floors";
 import {
   areaColor,
   floorAreas,
@@ -131,6 +132,17 @@ function ScaleBar({ metresWide, pixelsWide }: { metresWide: number; pixelsWide: 
 const PHOTOS_PER_PAGE = 6;
 
 /** A room's bounding extent — what the reference calls WIDTH and LENGTH. */
+/**
+ * The floor's own LABEL, not the id stored against a room.
+ *
+ * `room_scans.level` stores `2nd`; `2nd Floor` is what a person calls it.
+ * The report printed the id, so a page headed "▼ 2nd" read as a fragment.
+ * One vocabulary, `floors.ts`, decides both.
+ */
+function floorLabel(level: string): string {
+  return FLOOR_LEVELS.find((entry) => entry.id === level)?.label ?? level;
+}
+
 /** The rooms sharing a storey, in the order the report prints them. */
 function roomsOnLevel(rooms: ReportRoom[], level: string): ReportRoom[] {
   return rooms.filter((room) => room.level === level);
@@ -346,24 +358,19 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           </dl>
         </div>
 
+        {/* Wall area alone here: floor area, floors and rooms are already
+            in the four figures above, and printing them twice on one cover
+            — as this did — makes a reader check whether the two agree. */}
         <table className="stats">
           <thead>
             <tr>
-              <th>Floor area</th>
               {/* Named gross so the definitions appendix maps onto it. */}
               <th>Wall area (gross)</th>
-              <th>Floors</th>
-              <th>Rooms</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>{sqft(floorAreaSqm)} sq ft</td>
-              <td>{sqft(wallAreaSqm)} sq ft</td>
-              <td>{levels.length}</td>
-              {/* Counted from the rooms present, not from a type enum that
-                  nobody set — the bug their own cover page ships with. */}
-              <td>{rooms.length}</td>
+              <td>{m2(wallAreaSqm)}</td>
             </tr>
           </tbody>
         </table>
@@ -400,7 +407,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <section className="page" key={level}>
             <Running project={project.name} address={property} totals={headerTotals} />
             <p className="totals">
-              ▼ {level} — {m2(levelArea)} · {onLevel.length} room
+              ▼ {floorLabel(level)} — {m2(levelArea)} · {onLevel.length} room
               {onLevel.length === 1 ? "" : "s"}
             </p>
             <div className="plan-grid">
@@ -438,7 +445,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               not the longest wall — which is why an L-shaped room's width
               is bigger than any single wall it has. */}
           <p className="marker">▼ {room.name}</p>
-          <p className="marker-sub">{room.level}</p>
+          <p className="marker-sub">{floorLabel(room.level)}</p>
           <p className="figures">
             WIDTH: {m(planExtent(room.geometry).width)} • LENGTH:{" "}
             {m(planExtent(room.geometry).height)} • CEILING HEIGHT:{" "}
@@ -469,7 +476,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   <FloorPlan result={other.geometry} name={other.name} variant="thumb" />
                 </figure>
               ))}
-              <figcaption>{room.level} — this room shaded</figcaption>
+              <figcaption>{floorLabel(room.level)} — this room shaded</figcaption>
             </div>
           )}
 
@@ -550,19 +557,19 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               <tbody>
                 <tr>
                   <th>Floor</th>
-                  <td className="num">{sqft(room.floorAreaSqm)} sq ft</td>
+                  <td className="num">{m2(room.floorAreaSqm)}</td>
                 </tr>
                 <tr>
                   <th>Wall area (gross)</th>
-                  <td className="num">{sqft(room.wallLengthM * room.ceilingHeightM)} sq ft</td>
+                  <td className="num">{m2(room.wallLengthM * room.ceilingHeightM)}</td>
                 </tr>
                 <tr>
                   <th>Perimeter</th>
-                  <td className="num">{ft(room.wallLengthM)} ft</td>
+                  <td className="num">{m(room.wallLengthM)}</td>
                 </tr>
                 <tr>
                   <th>Ceiling height</th>
-                  <td className="num">{metersToFeet(room.ceilingHeightM).toFixed(1)} ft</td>
+                  <td className="num">{m(room.ceilingHeightM)}</td>
                 </tr>
                 {room.stairCount > 0 && (
                   <tr>
