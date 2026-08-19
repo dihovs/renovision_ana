@@ -2156,3 +2156,12 @@ Newest last. One or two lines per chat.
   flush on release, and their rectangular rooms carry exactly one figure per
   wall plus a split chain — no bounding line. NOT YET BUILT, seen there:
   Merge Rooms, Split Room, Add Corner, Add Wall, Duplicate.
+- **2026-08-19 (night)** — Snap guides: dragging a wall now draws every
+  straight run it could land on, grey and dashed, and the one it IS on solid
+  green — the owner pointed at the reference's own pair and said *"the gray
+  lines that are not active... I think these are very useful for us."* The
+  candidates come from the NEIGHBOURING rooms as well as this one, which is
+  the whole point: a rectangle's only self-alignment is the wall opposite,
+  and landing on that is a room of zero width. Build 158. Split Room's rule
+  captured from the reference and filed as ORD-44; Add Wall and Merge Rooms
+  seen in the bars but never watched performing anything, so not guessed.

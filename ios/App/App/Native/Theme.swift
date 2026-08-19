@@ -23,6 +23,14 @@ enum Brand {
     static let blueDark = Color(hex: 0x1F4677)
     static let blueLight = Color(hex: 0xEAF1FB)
 
+    /// The alignment guide a dragged wall has actually landed on, and the
+    /// ones it could land on next. Green because the reference is green and
+    /// the owner asked for it by colour — and because green is the one hue
+    /// nothing else in this editor uses, so a guide can never be mistaken
+    /// for a selection (blue), a warning (orange) or an invalid shape (red).
+    static let snapGuide = Color(hex: 0x1F9D55)
+    static let snapGuideIdle = Color(hex: 0x1F9D55).opacity(0.35)
+
     static let green = Color(hex: 0x4E9E2E)
     static let greenDark = Color(hex: 0x3D7D24)
     static let greenLight = Color(hex: 0xEEF8E9)

@@ -812,6 +812,39 @@ not just in principle.
 
 ---
 
+## ORD-44 — Split Room, Add Wall, Merge Rooms
+
+**Observed on the owner's own phone, 19 Aug 2026**, in the reference's own
+two-room plan. He asked for all of them: *"ok do it."*
+
+**Split Room** — a wall selected, `Split Room` in the bar. It cuts the room
+**at the point on that wall the finger tapped**, on a line perpendicular to
+it. Measured: a 2.497 x 3.111 kitchen, tapped 0.79 m up from the bottom of
+its right wall, became a 5.67 sq m kitchen and a new 2.497 x 0.722 room
+below it, flush, keeping the name. The fridge stayed with the piece it
+stood in. So the rule is: cut through the tap point, normal to the selected
+wall; the ORIGINAL row keeps the larger piece; the other piece becomes a
+NEW room, placed flush.
+
+Two things this order still has to settle, neither observed:
+- **Openings on the cut wall.** The split renumbers every edge. What
+  survives, and where a door sitting exactly on the cut goes, is unknown.
+- **Non-convex rooms.** A half-plane clip is exact for a convex outline and
+  wrong for an L. Refuse with a sentence rather than produce a bad polygon,
+  until the reference has been watched doing it.
+
+**Add Wall** — present in the wall bar, NEVER OBSERVED performing anything.
+Do not guess it. It is one tap to capture next time the phone is mirrored.
+
+**Merge Rooms** — present in the STOREY's Edit Layout bar when a room is
+lifted, alongside Insert / Duplicate / Delete. Also never observed. Note
+what it implies: the reference has a real shared-wall model underneath,
+which we deliberately do not (see ORD-42, where the owner chose "rooms sit
+flush and stay two rooms"). Merging is likely the gateway to that model
+rather than a small verb, so watch it before costing it.
+
+---
+
 ## ORD-43 — A real illustration set for the object library
 
 **Raised by the owner, 18 Aug 2026**, after seeing our drawings beside the

@@ -1149,19 +1149,70 @@ enum PlanEditing {
     /// each other wall running the same way — the "flush with that wall"
     /// magnets.
     static func collinearCandidates(_ polygon: [CGPoint], index: Int) -> [Double] {
+        collinearAlignments(polygon, index: index).map(\.offset)
+    }
+
+    /// The same candidates, but each still knowing WHICH wall it came from —
+    /// so the canvas can draw the line the finger is about to land on.
+    ///
+    /// **The owner, 19 Aug 2026**, watching the reference beside ours: *"Do
+    /// you see the silhouette? Do you see the green lines? The gray lines
+    /// that are not active? I want you to understand what are these for, and
+    /// I think these are very useful for us."* They are: the snap has been
+    /// here since the plan editor was built, but it was INVISIBLE — a wall
+    /// jumped and buzzed and never said what it had lined up with. Showing
+    /// the other alignments greyed says what ELSE is available before the
+    /// finger gets there, which is the difference between a magnet that
+    /// works and a magnet you can aim.
+    struct Alignment {
+        /// How far the dragged wall must move to land on this line.
+        let offset: Double
+        /// Two points ON the line, in the room's own metres — carried rather
+        /// than an edge index because the useful lines mostly belong to
+        /// OTHER rooms, which this room's `corners` know nothing about.
+        let a: CGPoint
+        let b: CGPoint
+    }
+
+    /// Every straight run the wall under the finger could land on.
+    ///
+    /// `others` are the neighbouring rooms' outlines, already shifted into
+    /// this room's own metres — and they are the whole point. A rectangle's
+    /// only self-alignment is the wall opposite, and landing on THAT means a
+    /// room of zero width, so a guide list built from one room alone would
+    /// be a feature that never fires. What an operator is actually doing is
+    /// pulling a wall out until it runs true with the room next door.
+    static func collinearAlignments(
+        _ polygon: [CGPoint], index: Int, others: [[CGPoint]] = []
+    ) -> [Alignment] {
         let n = polygon.count
         guard n >= 3, index >= 0, index < n else { return [] }
         let (a, b) = edgeCorners(index, count: n)
         let direction = normalised(sub(polygon[b], polygon[a]))
         let sideways = normal(direction)
 
-        var out: [Double] = []
+        var out: [Alignment] = []
+
+        func consider(_ p: CGPoint, _ q: CGPoint) {
+            let length = self.length(sub(q, p))
+            guard length > 0.2 else { return }
+            // Only walls running the same way can be lined up with.
+            guard abs(cross(direction, normalised(sub(q, p)))) < 0.07 else { return }
+            let offset = dot(sub(p, polygon[a]), sideways)
+            // One line per straight run: two rooms sharing a wall would
+            // otherwise stack three identical guides on the same pixels.
+            guard !out.contains(where: { abs($0.offset - offset) < 0.01 }) else { return }
+            out.append(Alignment(offset: offset, a: p, b: q))
+        }
+
         for other in 0..<n where other != index {
             let (oa, ob) = edgeCorners(other, count: n)
-            let otherDirection = normalised(sub(polygon[ob], polygon[oa]))
-            // Only walls running the same way can be lined up with.
-            guard abs(cross(direction, otherDirection)) < 0.07 else { continue }
-            out.append(dot(sub(polygon[oa], polygon[a]), sideways))
+            consider(polygon[oa], polygon[ob])
+        }
+        for outline in others {
+            for i in outline.indices {
+                consider(outline[i], outline[(i + 1) % outline.count])
+            }
         }
         return out
     }

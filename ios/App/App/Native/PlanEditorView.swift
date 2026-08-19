@@ -138,6 +138,11 @@ struct RoomEditorCore: View {
     /// the last total so each frame applies only its own delta.
     @State private var lastPanDrag: CGSize = .zero
     @State private var snapEngaged = false
+    /// Every wall the one under the finger could line up with, and which of
+    /// them it is actually on — drawn grey and green respectively while a
+    /// wall drag runs. See `PlanEditing.collinearAlignments`.
+    @State private var alignments: [PlanEditing.Alignment] = []
+    @State private var alignedOffset: Double?
     @State private var liveLabel: String?
     /// The wall-by-wall measurement walk, when one is running. The queue is
     /// every wall in order starting from the one the operator asked about;
@@ -696,6 +701,48 @@ struct RoomEditorCore: View {
                                 dash: invalid ? [8, 5] : []))
                     }
 
+                    // Alignment guides, while a wall is being dragged. Grey
+                    // for every wall this one COULD line up with, green for
+                    // the one it is on — the reference's own two-colour
+                    // scheme, which the owner pointed at directly: *"Do you
+                    // see the green lines? The gray lines that are not
+                    // active?"*
+                    //
+                    // Run right across the plan rather than stopping at the
+                    // wall they belong to, because the point of the line is
+                    // to show that two walls FAR APART share one straight
+                    // run — a stub beside the wall you are already looking
+                    // at says nothing.
+                    if !alignments.isEmpty, corners.count >= 3 {
+                        var extent = StoreyArranging.bounds(corners)
+                        for neighbour in neighbours {
+                            extent = extent.union(StoreyArranging.bounds(neighbour.polygon))
+                        }
+                        let reach = hypot(extent.width, extent.height) + 1
+                        for alignment in alignments {
+                            let direction = PlanEditing.normalised(
+                                PlanEditing.sub(alignment.b, alignment.a))
+                            let mid = CGPoint(
+                                x: (alignment.a.x + alignment.b.x) / 2,
+                                y: (alignment.a.y + alignment.b.y) / 2)
+                            var guide = Path()
+                            guide.move(
+                                to: pt(CGPoint(
+                                    x: mid.x - direction.x * reach, y: mid.y - direction.y * reach)))
+                            guide.addLine(
+                                to: pt(CGPoint(
+                                    x: mid.x + direction.x * reach, y: mid.y + direction.y * reach)))
+                            let live =
+                                alignedOffset.map { abs($0 - alignment.offset) < 0.001 } ?? false
+                            context.stroke(
+                                guide,
+                                with: .color(live ? Brand.snapGuide : Brand.snapGuideIdle),
+                                style: StrokeStyle(
+                                    lineWidth: live ? 1.4 : 0.7,
+                                    dash: live ? [] : [4, 5]))
+                        }
+                    }
+
                     // Openings, cut into their walls: band break, jamb caps,
                     // our own glyphs. Drawn after the walls so the knock-out
                     // actually knocks out. A selected one gains the thin
@@ -900,6 +947,8 @@ struct RoomEditorCore: View {
                         dragStart = nil
                         liveLabel = nil
                         snapEngaged = false
+                        alignments = []
+                        alignedOffset = nil
                         lastPanDrag = .zero
                         saveCarriedObjects()
                         endObjectDrag()
@@ -1249,8 +1298,10 @@ struct RoomEditorCore: View {
             // Dragging a wall changes its NEIGHBOURS' lengths, not its own —
             // so a locked neighbour is what has to be defended here.
             let n = start.count
-            let neighbours = [(index - 1 + n) % n, (index + 1) % n]
-            if neighbours.contains(where: { locked.contains($0) }), lockedWarning == nil {
+            // Named for what they are, not `neighbours` — that word now
+            // means the rooms next door, and the shadowing cost a build.
+            let adjacentEdges = [(index - 1 + n) % n, (index + 1) % n]
+            if adjacentEdges.contains(where: { locked.contains($0) }), lockedWarning == nil {
                 lockedWarning = index
                 corners = start
                 dragStart = nil
@@ -1266,9 +1317,11 @@ struct RoomEditorCore: View {
                 CGPoint(x: value.translation.width / scale, y: value.translation.height / scale),
                 sideways)
 
+            let available = PlanEditing.collinearAlignments(
+                start, index: index, others: neighbours.map(\.polygon))
             let snap = PlanEditing.snapOffset(
                 raw,
-                candidates: PlanEditing.collinearCandidates(start, index: index),
+                candidates: available.map(\.offset),
                 capture: captureRadius / scale,
                 alreadyEngaged: snapEngaged)
 
@@ -1276,6 +1329,14 @@ struct RoomEditorCore: View {
                 UISelectionFeedbackGenerator().selectionChanged()
             }
             snapEngaged = snap.engaged
+            alignments = available
+            // Which one it actually landed on — `snapOffset` also rounds to
+            // the nearest 5cm, and a 5cm detent is not an alignment with
+            // anything, so a near miss must NOT light a wall up green.
+            alignedOffset =
+                snap.engaged
+                ? available.first(where: { abs($0.offset - snap.value) < 0.001 })?.offset
+                : nil
 
             corners = PlanEditing.moveEdge(start, index: index, offset: snap.value)
             carryAnchoredObjects()
