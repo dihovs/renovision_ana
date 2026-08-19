@@ -34,11 +34,11 @@ Commit the ledger update with the work.
 | **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | **DONE** — all four items shipped and confirmed on the device, build 120 | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
-| **S6** | Photo editor — blur first | **THREE MODES OF FOUR (build 123)** — Crop and the six shape tools left | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
+| **S6** | Photo editor — blur first | **DONE (build 145)** — all four modes; `Path` tool alone left greyed | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
-| **S8** | Objects — doors, windows, catalogue | **BUILT AND ILLUSTRATED (build 137)** — takeoff roll-up and more door types left | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectEmblems.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift`, `Artwork/` |
+| **S8** | Objects — doors, windows, catalogue | **DONE (build 155)** — 77 entries, 14 sections, sizes, takeoff both levels | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectEmblems.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift`, `Artwork/` |
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
-| **S10** | Report parity | NOT STARTED | S9 | `ReportDocument.tsx` |
+| **S10** | Report parity | **IN PROGRESS** — header, footer, photo pages, signature, metric done; key, locator, cover count, `Only floors` left | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
 | **S12** | Project and floor screens | **PROJECT DONE (amended 18 Aug) · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
@@ -2054,4 +2054,66 @@ Newest last. One or two lines per chat.
   **Unverified:** everything from build 130 on has been shipped faster than
   it could be looked at. The artwork itself was reviewed on a contact sheet
   before shipping; the rest has not been tapped.
+- **2026-08-19** — A very long session; the Log above carries S5 and S6's
+  early half, this entry carries the rest. **Builds 143 → 155.**
+
+  **S6 is DONE.** Crop and transform (rotate left, flip, straighten dial,
+  corner handles with the rest dimmed) and the shape tools (arrow, line,
+  rectangle, ellipse, text). `Path` stays greyed: Sharpie covers freehand
+  and their multi-point placement was never observed. Render order is
+  geometry → adjustments → redaction → annotation, because crop and
+  rotation change what the picture IS and a mark placed before them would
+  travel.
+
+  **S8 is DONE**, and most of it came from live reports. 77 entries across
+  their full fourteen sections, including Annotations (marks on the
+  drawing, never counted) and the Fire & Safety and Outdoors sections. One
+  catalogue entry per thing with a SIZE SHEET rather than a tile per size —
+  his call after using the alternative. Migration **0038** stores whether a
+  size was typed, so the padlock cannot be faked by a catalogue edit later.
+  The takeoff totals per room and per job.
+
+  **Three drawings, three jobs, and it took three attempts to see why.**
+  The catalogue tile is a coloured illustration (browse), the plan symbol
+  is a footprint with an SF Symbol in it (measure and name), the elevation
+  is a front view (what stands against a wall). His own reference settled
+  the plan one: *"I want like this"* — a fridge as a rectangle with a
+  snowflake in it. The isometric illustration that preceded it was a
+  catalogue picture doing a drafting job.
+
+  **The bug family this session kept producing: two places drawing the same
+  thing by two different rules.** The elevation fridge wearing the washing
+  machine's face; the project card drawing its own silhouette while the
+  plan drew a symbol; a second scale bar under a drawing that already had
+  one. Three instances in one day. **Before adding a drawing, look for the
+  routine that already draws it.**
+
+  **Photos queue on the phone now** (`PhotoQueue`, the shape `ScanQueue`
+  established): written to disk first, uploaded behind the operator, sent
+  on reconnect. A network failure is held; a server refusal is reported and
+  dropped, because one permanently-rejected photo would otherwise block
+  every photo behind it.
+
+  **S10 started.** Photo pages interleaved behind their own room six to a
+  page, the reference's running header and `Page n/N` foot, its room-page
+  figure lines, a signature page, and the whole report switched to metric —
+  it was the last surface still hard-coded to feet. Left: the numbered key,
+  the locator thumbnail, `Bathroom` as a cover count, and `Only floors`.
+
+  **A seeded comparison project exists** — `Palerme - side by side`, the
+  reference's own nine rooms at their printed extents, for reading our
+  report against theirs page by page.
+
+  **Unverified, and it matters more than usual.** Almost nothing from build
+  139 on has been confirmed by eye, and at the session's end the owner
+  reported the storey screen showing an empty card with drawing, moving and
+  connecting rooms all failing, and photo upload erroring. **Those are all
+  one symptom — every one is a read or a write against the API** — and the
+  likeliest cause is an expired session on the phone rather than four
+  separate bugs. It was not settled before the session ended. **Start
+  there**: `More → Diagnostics` says whether the app is signed in and
+  whether the server is reachable. If it is signed in and healthy, suspect
+  `LevelCanvas`, which changed several times today (objects loading, the
+  insert menu, the focused-room camera padding), and bisect against build
+  138, which he had working.
 

@@ -82,7 +82,14 @@ clarity during the review.
 ## 4. State of the work
 
 **Last updated 19 Aug 2026, end of a very long live-testing session.** Build
-**137** is installed on the owner's phone and confirmed off the device.
+**155** is installed on the owner's phone and confirmed off the device.
+
+**Read the ledger's last Log entry before touching anything.** The session
+ended with the storey screen reported as empty — no rooms drawing, moving
+and connecting not working, photo upload erroring. All of those are reads
+and writes against the API and are most likely ONE cause, probably an
+expired session. It was not settled. Migrations **0037** and **0038** are
+applied to production.
 S5 is closed and verified, S6 has three of its four modes, and S8 went from
 nothing to a working object system with a full illustration set — see the
 ledger's Log, which carries the detail in order.
