@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { sendToPhoneAction } from "../actions";
+import { saveAsClientAction, sendToPhoneAction } from "../actions";
 import AdminNotice from "@/components/admin/AdminNotice";
 import SmsThread from "@/components/admin/SmsThread";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
