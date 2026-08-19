@@ -79,6 +79,13 @@ struct ElevationView: View {
     /// view knows the wall and the position; the editor knows how to turn
     /// that into a row.
     var onPlaceObject: ((ObjectCatalog.Entry, Double) -> Void)? = nil
+    /// Slide an object along the wall it stands against, to a new distance
+    /// from the wall's start corner in face metres.
+    ///
+    /// The owner's ask: *"I still not able to move things around on the
+    /// elevation view."* Fair — objects drew on the face from build 129 and
+    /// could only be moved on the plan.
+    var onMoveObject: ((RoomObject, Double) -> Void)? = nil
     /// Called BEFORE this view changes the openings it was handed.
     ///
     /// **The bug this closes**, reported on build 130: insert a window from
@@ -105,6 +112,11 @@ struct ElevationView: View {
     /// `RoomEditorCore.handleDrag` uses, so a drag is one undoable move
     /// rather than a running accumulation of rounding error.
     @State private var draggingOpening: (index: Int, startOffset: Double)?
+    /// The object being slid along this wall, and where it currently sits.
+    /// Held locally because `objects` is a value, not a binding: the editor
+    /// owns the rows and every write goes through it, so the face keeps
+    /// only enough state to DRAW the drag and hands over the result on lift.
+    @State private var draggingObject: (id: String, startAlong: Double, along: Double)?
     /// The Insert menu.
     @State private var insertOpen = false
     /// Which way the last step went, so the turn animation below spins the
@@ -769,10 +781,25 @@ struct ElevationView: View {
                     draft = FaceRect(a: start, b: now)
                     return
                 }
+                // Objects before openings: an object standing against the
+                // wall covers part of it, and a vanity in front of a window
+                // is the ordinary arrangement in a bathroom. What the
+                // finger is on top of is what it should move.
+                if draggingOpening == nil, moveObject(startingAt: start, to: now) { return }
                 moveOpening(startingAt: start, to: now)
             }
             .onEnded { _ in
                 if !drawing {
+                    // Hand the result over ONCE, on lift — the same rule
+                    // the plan's own object drag follows, because a PATCH
+                    // per frame is sixty requests a second from a phone on
+                    // a job-site connection.
+                    if let drag = draggingObject,
+                        let object = objects.first(where: { $0.id == drag.id })
+                    {
+                        onMoveObject?(object, drag.along)
+                    }
+                    draggingObject = nil
                     draggingOpening = nil
                     return
                 }
@@ -802,6 +829,50 @@ struct ElevationView: View {
     ///
     /// The offset is re-derived from the START offset every frame rather
     /// than accumulated, so a slow drag cannot creep from rounding.
+    /// Slide the object the finger started on, along its own wall.
+    ///
+    /// Horizontal only, and for a firmer reason than the opening's: an
+    /// object STANDS ON THE FLOOR. That is the whole distinction from an
+    /// opening, which has a sill. There is no vertical freedom to offer.
+    ///
+    /// Clamped so the object cannot slide off the end of the wall it is
+    /// against, and re-derived from the START each frame rather than
+    /// accumulated, so a slow drag cannot creep from rounding.
+    ///
+    /// Returns true when it took the drag, so the caller knows not to hand
+    /// the same gesture to the openings underneath.
+    private func moveObject(startingAt start: CGPoint, to now: CGPoint) -> Bool {
+        if draggingObject == nil {
+            guard let hit = objectHit(at: start) else { return false }
+            draggingObject = (hit.id, hit.along, hit.along)
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+        guard let drag = draggingObject,
+            let object = objects.first(where: { $0.id == drag.id })
+        else { return false }
+
+        let half = object.width / 2
+        let moved = drag.startAlong + Double(now.x - start.x)
+        draggingObject = (
+            drag.id, drag.startAlong,
+            min(max(moved, half), max(wallLength - half, half))
+        )
+        return true
+    }
+
+    /// Which object on this wall the finger landed on, and where along the
+    /// wall it currently stands.
+    private func objectHit(at point: CGPoint) -> (id: String, along: Double)? {
+        for placed in objectsOnThisWall() {
+            let half = placed.object.width / 2
+            guard point.x > placed.along - half, point.x < placed.along + half,
+                point.y >= 0, point.y < placed.object.height
+            else { continue }
+            return (placed.object.id, placed.along)
+        }
+        return nil
+    }
+
     private func moveOpening(startingAt start: CGPoint, to now: CGPoint) {
         if draggingOpening == nil, let hit = openingHit(at: start) {
             draggingOpening = (hit, openings[hit].offset)
@@ -1208,18 +1279,29 @@ struct ElevationView: View {
         onClose()
     }
 
-    private func drawObjects(context: GraphicsContext, face: Face, size: CGSize) {
-        guard wallCount >= 3 else { return }
+    /// Which objects stand against THIS wall, and how far along it.
+    ///
+    /// **Derived, never stored.** An object has no wall index — it stands on
+    /// the floor and only HAPPENS to be against something — so which face it
+    /// belongs on is worked out every time from where it is. A stored index
+    /// would go stale the moment it was dragged, and an object drawn on the
+    /// wrong elevation is worse than one drawn on none.
+    ///
+    /// Shared by the drawing and the hit test, so the picture and the touch
+    /// target cannot disagree — the mistake this project has already paid
+    /// for twice with drag handles that sat off the corners they belonged to.
+    private func objectsOnThisWall() -> [(object: RoomObject, along: Double)] {
+        guard wallCount >= 3 else { return [] }
         let (ai, bi) = PlanEditing.edgeCorners(edge, count: corners.count)
         let a = corners[ai]
         let b = corners[bi]
         let run = PlanEditing.length(PlanEditing.sub(b, a))
-        guard run > 0.05 else { return }
+        guard run > 0.05 else { return [] }
         let direction = PlanEditing.normalised(PlanEditing.sub(b, a))
         let winding = PlanEditing.polygonWinding(corners)
         let inward = CGPoint(x: -winding * direction.y, y: winding * direction.x)
 
-        for object in objects {
+        return objects.compactMap { object in
             let offset = PlanEditing.sub(CGPoint(x: object.x, y: object.y), a)
             let along = PlanEditing.dot(offset, direction)
             let across = PlanEditing.dot(offset, inward)
@@ -1231,9 +1313,21 @@ struct ElevationView: View {
             // rounding plus a little, not an invitation: something parked in
             // the middle of the room belongs on no elevation.
             let backGap = across - object.depth / 2 - PlanEditing.wallFaceInset
-            guard backGap > -0.08, backGap < 0.08 else { continue }
-            guard along > -object.width / 2, along < run + object.width / 2 else { continue }
+            guard backGap > -0.08, backGap < 0.08 else { return nil }
+            guard along > -object.width / 2, along < run + object.width / 2 else { return nil }
+            // A drag in progress overrides where the row says it is, so the
+            // drawing follows the finger before the write has happened.
+            if let drag = draggingObject, drag.id == object.id {
+                return (object, drag.along)
+            }
+            return (object, along)
+        }
+    }
 
+    private func drawObjects(context: GraphicsContext, face: Face, size: CGSize) {
+        let run = wallLength
+
+        for (object, along) in objectsOnThisWall() {
             let left = max(0, along - object.width / 2)
             let right = min(run, along + object.width / 2)
             guard right - left > 0.02 else { continue }

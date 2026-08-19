@@ -1351,6 +1351,12 @@ struct RoomEditorCore: View {
             onPlaceObject: { entry, along in
                 Task { await placeAgainstWall(entry, edge: elevationWall ?? 0, along: along) }
             },
+            // Sliding an object on the face writes the same way sliding it
+            // on the plan does — one PATCH, on lift. Objects are rows, so
+            // this is saved the moment it lands and rides no Save button.
+            onMoveObject: { object, along in
+                Task { await slideAgainstWall(object, edge: elevationWall ?? 0, along: along) }
+            },
             // The face edits THIS editor's openings through a binding, so
             // it has to say when it does — a binding carries the value, not
             // the intent. `push()` is what makes the room dirty, and dirty
@@ -1790,6 +1796,34 @@ struct RoomEditorCore: View {
         let heading = atan2(d.y, d.x) * 180 / .pi + (winding > 0 ? 0 : 180)
         await place(
             entry, at: centre, rotation: heading.truncatingRemainder(dividingBy: 360))
+    }
+
+    /// Slide an existing object along the wall it stands against.
+    ///
+    /// The elevation's own drag. It keeps the object flush and square —
+    /// only the distance along the wall changes — which is the whole of
+    /// what a wall face can say about where a fixture sits. The arithmetic
+    /// is `placeAgainstWall`'s, so an object slid on the face and one
+    /// dragged on the plan come to rest by the same rule.
+    private func slideAgainstWall(_ object: RoomObject, edge: Int, along: Double) async {
+        guard corners.indices.contains(edge) else { return }
+        let (ai, bi) = PlanEditing.edgeCorners(edge, count: corners.count)
+        let a = corners[ai]
+        let b = corners[bi]
+        let run = PlanEditing.length(PlanEditing.sub(b, a))
+        guard run > 0.05 else { return }
+        let d = PlanEditing.normalised(PlanEditing.sub(b, a))
+        let winding = PlanEditing.polygonWinding(corners)
+        let inward = CGPoint(x: -winding * d.y, y: winding * d.x)
+        let rest = object.depth / 2 + PlanEditing.wallFaceInset
+        let clamped = min(
+            max(along, object.width / 2), max(run - object.width / 2, object.width / 2))
+        let centre = PlanEditing.quantise(
+            CGPoint(
+                x: a.x + d.x * clamped + inward.x * rest,
+                y: a.y + d.y * clamped + inward.y * rest))
+        replaceObject(object.id) { $0.moved(to: centre) }
+        await patchObject(object.id, at: centre)
     }
 
     /// The write at the end of a drag — once, not per frame.
