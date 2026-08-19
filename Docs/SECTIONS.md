@@ -34,7 +34,7 @@ Commit the ledger update with the work.
 | **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | **DONE** — all four items shipped and confirmed on the device, build 120 | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
-| **S6** | Photo editor — blur first | **BLUR BUILT (build 121) — three modes still empty** | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
+| **S6** | Photo editor — blur first | **THREE MODES OF FOUR (build 123)** — Crop and the six shape tools left | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
@@ -685,9 +685,32 @@ PencilKit, five Core Image filters. Roughly two thirds.
   new **`DELETE /api/v1/photos?id=`** — `deleteProjectFile` already removed
   the storage object as well as the row.
 
-**Left, in this order:** adjustments (`CIColorControls`,
-`CIExposureAdjust`, `CITemperatureAndTint` — trivial), freehand and eraser
-(PencilKit), the shape tools, the cropper.
+**Adjustments and Draw landed next, build 123.** Adjust is §2a's value dial
+at 0 with all five channels, each held as −100…100 and mapped to its
+filter's own units at render time — one control, one range, centre neutral,
+rather than exposing `CIColorControls`'s native scales where contrast is
+neutral at 1 and brightness at 0 on the same row. Draw is the full colour
+picker, the seven named widths and the reference's eight-tool row with
+`Sharpie` and `Eraser` live on PencilKit; the other six greyed.
+
+**Three things about the editor's internals worth not rediscovering:**
+
+- **One history across all three modes.** `EditState` holds redactions,
+  adjustments and the `PKDrawing` together, so `undo` means the same thing
+  wherever it is pressed. Parallel stacks would restore a screen that never
+  existed.
+- **Pipeline order is deliberate**: adjustments → redaction → annotation.
+  Adjustments are a property of the photograph, so the redaction pixellates
+  what the operator can actually see; annotation is LAST so an arrow drawn
+  at a blurred plate stays crisp instead of being pixellated with it.
+- **PencilKit strokes are in the picture's DRAWN size, not its pixels.**
+  `rendered` takes `drawnAt:` and scales by the ratio. Without it every
+  stroke composites at a fraction of its size in the corner of a 2048px
+  file — found on review before it shipped, and the same family as the S4
+  overlay bug.
+
+**Left:** the cropper (no public system cropper exists) and §2a's six
+custom shape tools — Arrow, Text, Rectangle, Path, Line, Ellipse.
 
 **Two things the next chat must know.**
 
@@ -1918,3 +1941,11 @@ Newest last. One or two lines per chat.
   rotation ANCHOR on the sign of the angle, so the pivot jumped from one
   edge of the drawing to the other halfway through. **Unverified** — shipped
   minutes ago.
+- **2026-08-18** — S6 continued to build **123**: Adjust (five channels on
+  one −100…100 dial) and Draw (PencilKit `Sharpie` and `Eraser`, the full
+  `ColorPicker`, §2a's seven named widths, the other six tools greyed in
+  place). Undo became one stack across all three modes. Branch **pushed**,
+  so the `DELETE /api/v1/photos` route the redaction needs is deployed.
+  **Unverified by eye, all of it** — and the destructive path (Done deletes
+  the original) has still never been run. Test it on a photo nobody minds
+  losing.
