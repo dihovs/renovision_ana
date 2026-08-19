@@ -798,7 +798,13 @@ enum EditorChrome {
         // The glyph does not rotate with the object: a snowflake has no
         // orientation to preserve, and the rectangle around it already
         // carries the true one.
-        if widthPts >= 18, depthPts >= 18, let entry = object.entry {
+        // 10, not 18. The owner: *"the illustration is only inside of the
+        // floor plan. It's not on the thumbnail, and it's not in the storey.
+        // I want to have it everywhere the same."* Right — one drawing at
+        // every scale is the whole point, and an SF Symbol still reads at
+        // ten points where the hand-drawn silhouette it fell back to reads
+        // as a squiggle.
+        if widthPts >= 10, depthPts >= 10, let entry = object.entry {
             let side = min(widthPts, depthPts) * 0.55
             // Resolved through Text, not Image: `GraphicsContext.resolve`
             // takes no styling on an Image, and an SF Symbol carried in a
@@ -808,9 +814,9 @@ enum EditorChrome {
                     .font(.system(size: side))
                     .foregroundStyle(ink.opacity(alpha)))
             context.draw(symbol, at: centre, anchor: .center)
-        } else if let shape = object.entry?.shape, widthPts > 10, depthPts > 10 {
-            // Too small for a glyph — the drawn figure still reads as a
-            // silhouette at storey and thumbnail size.
+        } else if let shape = object.entry?.shape, widthPts > 6, depthPts > 6 {
+            // Smaller than a glyph can carry: the outline alone, which at
+            // that size is all anyone can see anyway.
             context.drawLayer { layer in
                 layer.translateBy(x: centre.x, y: centre.y)
                 layer.rotate(by: Angle(degrees: object.rotation))

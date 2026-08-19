@@ -408,19 +408,36 @@ struct MiniPlan: View {
                 // across, where both would be noise. Below a few points of
                 // width nothing is drawn at all, which is the same rule the
                 // door arc below follows.
+                // The SAME symbol the plan and the storey draw — his ask
+                // that it be *"everywhere the same"*. The card was drawing
+                // its own silhouette, which is how a thumbnail ends up
+                // disagreeing with the drawing it is a thumbnail of.
                 for object in item.objects {
-                    guard object.width * scale >= 6, object.depth * scale >= 6 else { continue }
-                    context.drawLayer { layer in
-                        layer.translateBy(x: pt(object.x, object.y).x, y: pt(object.x, object.y).y)
-                        layer.rotate(by: Angle(degrees: object.rotation))
-                        ObjectGlyphs.figure(
-                            ObjectCatalog.entry(slug: object.kind)?.shape ?? .box,
-                            in: CGRect(
-                                x: -object.width * scale / 2, y: -object.depth * scale / 2,
-                                width: object.width * scale, height: object.depth * scale),
-                            context: layer,
-                            tones: (fill: Brand.Plan.paper, edge: Brand.Plan.ink))
+                    let w = object.width * scale
+                    let d = object.depth * scale
+                    guard w >= 6, d >= 6 else { continue }
+                    let centre = pt(object.x, object.y)
+
+                    var box = Path()
+                    let corners = ObjectCatalog.footprint(
+                        width: object.width, depth: object.depth, rotation: object.rotation
+                    ).map { pt(object.x + $0.x, object.y + $0.y) }
+                    if let first = corners.first {
+                        box.move(to: first)
+                        for c in corners.dropFirst() { box.addLine(to: c) }
+                        box.closeSubpath()
                     }
+                    context.fill(box, with: .color(Brand.Plan.paper))
+                    context.stroke(box, with: .color(Brand.Plan.ink), lineWidth: 0.8)
+
+                    guard w >= 10, d >= 10,
+                        let entry = ObjectCatalog.entry(slug: object.kind)
+                    else { continue }
+                    let symbol = context.resolve(
+                        Text(Image(systemName: entry.glyph))
+                            .font(.system(size: min(w, d) * 0.55))
+                            .foregroundStyle(Brand.Plan.ink))
+                    context.draw(symbol, at: centre, anchor: .center)
                 }
 
                 for opening in plan.openings {
