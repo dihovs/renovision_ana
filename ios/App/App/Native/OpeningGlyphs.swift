@@ -114,9 +114,11 @@ enum OpeningGlyphs {
         }
 
         switch opening.kind {
-        case .doorSingle:
+        case .doorSingle, .doorEntry:
             // Hinge at the jamb nearer a corner of the host edge — the side
-            // a framer would hang it from.
+            // a framer would hang it from. An exterior entry door swings the
+            // same way on a plan; what differs is its width and the wall it
+            // is in, not its symbol.
             let (ai, bi) = PlanEditing.edgeCorners(opening.edge, count: polygon.count)
             let cornerA = toScreen(polygon[ai])
             let cornerB = toScreen(polygon[bi])
@@ -124,12 +126,14 @@ enum OpeningGlyphs {
                 hypot(A.x - cornerA.x, A.y - cornerA.y) <= hypot(B.x - cornerB.x, B.y - cornerB.y)
             leafAndArc(hinge: hingeAtA ? A : B, latch: hingeAtA ? B : A)
 
-        case .doorDouble:
+        case .doorDouble, .doorFrench:
             // Two leaves, each hinged at its own jamb, meeting in the middle.
+            // French doors are the same symbol — they differ in being glazed,
+            // which a plan cannot show and an elevation can.
             leafAndArc(hinge: A, latch: mid)
             leafAndArc(hinge: B, latch: mid)
 
-        case .doorSliding:
+        case .doorSliding, .doorBypass, .doorPatio:
             // The bypass convention: two panels, each just over half the
             // width, offset either side of the centreline so the overlap at
             // the middle reads.
@@ -145,6 +149,43 @@ enum OpeningGlyphs {
                 context.stroke(track, with: .color(ink), lineWidth: 1.2)
             }
 
+        case .doorPocket:
+            // A pocket door disappears INTO the wall, so its symbol is the
+            // leaf drawn inside the wall band rather than swinging out of
+            // it — the one door you can stand in front of with no clearance
+            // at all, which is why it is worth telling apart on a plan.
+            var slot = Path()
+            slot.move(to: CGPoint(x: A.x + nx * tPts * 0.35, y: A.y + ny * tPts * 0.35))
+            slot.addLine(to: CGPoint(x: B.x + nx * tPts * 0.35, y: B.y + ny * tPts * 0.35))
+            context.stroke(
+                slot, with: .color(ink),
+                style: StrokeStyle(lineWidth: 1.4, dash: [5, 3]))
+
+        case .doorBifold:
+            // Folded in the middle: two half-leaves at an angle, which is
+            // what a bifold looks like standing open.
+            let half = w / 2
+            let fold = CGPoint(
+                x: mid.x + nx * half * 0.5, y: mid.y + ny * half * 0.5)
+            var leaves = Path()
+            leaves.move(to: A)
+            leaves.addLine(to: fold)
+            leaves.addLine(to: B)
+            context.stroke(leaves, with: .color(ink), lineWidth: 1.2)
+
+        case .doorGarage:
+            // A garage door has no swing on a plan — it goes up. Drawn as
+            // the panelled leaf across the opening, which is what an
+            // elevation of it shows too.
+            var panels = Path()
+            for i in 1..<4 {
+                let t = CGFloat(i) / 4
+                let p = CGPoint(x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t)
+                panels.move(to: CGPoint(x: p.x - nx * tPts / 2, y: p.y - ny * tPts / 2))
+                panels.addLine(to: CGPoint(x: p.x + nx * tPts / 2, y: p.y + ny * tPts / 2))
+            }
+            context.stroke(panels, with: .color(ink), lineWidth: 0.8)
+
         case .doorCased:
             // A passage: nothing closes it, so nothing more than the break
             // and its jambs — plus a hairline across the gap so the gap
@@ -156,7 +197,9 @@ enum OpeningGlyphs {
                 sill, with: .color(ink),
                 style: StrokeStyle(lineWidth: 0.7, dash: [4, 3]))
 
-        case .windowStandard, .windowWide, .windowSmall:
+        case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
+            .windowCasement, .windowSliding, .windowPicture, .windowEgress,
+            .windowBay:
             // Frame lines either side of the band, glazing on the centre —
             // the three-line window, same as the plan renderer.
             for s in [1.0, -1.0] {

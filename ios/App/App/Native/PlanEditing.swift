@@ -476,18 +476,43 @@ enum PlanEditing {
         /// the doors but filed with the connective openings, because that is
         /// what it is: a gap that connects, not a door that closes.
         case doorCased
+        /// **The rest of the doors a North American house actually has**,
+        /// added 19 Aug 2026 on the owner's ask that the library stop being
+        /// four kinds. Each is a real mechanism with a real stock width,
+        /// because the width is what knocks the hole in the wall and comes
+        /// off net wall area — a picture of a door we cannot measure would
+        /// be worse than no door at all.
+        case doorPocket
+        case doorBifold
+        case doorBypass
+        case doorFrench
+        case doorPatio
+        case doorEntry
+        case doorGarage
         case windowStandard
         case windowWide
         case windowSmall
+        case windowDoubleHung
+        case windowCasement
+        case windowSliding
+        case windowPicture
+        case windowEgress
+        case windowBay
 
         /// Which of the geometry's three arrays this lands in downstream.
         enum Category { case door, window, passage }
 
         var category: Category {
             switch self {
-            case .doorSingle, .doorDouble, .doorSliding: return .door
-            case .doorCased: return .passage
-            case .windowStandard, .windowWide, .windowSmall: return .window
+            case .doorSingle, .doorDouble, .doorSliding, .doorPocket, .doorBifold,
+                .doorBypass, .doorFrench, .doorPatio, .doorEntry, .doorGarage:
+                return .door
+            case .doorCased:
+                return .passage
+            case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
+                .windowCasement, .windowSliding, .windowPicture, .windowEgress,
+                .windowBay:
+                return .window
             }
         }
 
@@ -502,6 +527,20 @@ enum PlanEditing {
             case .windowStandard: return 36 * Self.inch
             case .windowWide: return 60 * Self.inch
             case .windowSmall: return 24 * Self.inch
+            // Stock widths, every one of them a size a supplier sells.
+            case .doorPocket: return 32 * Self.inch
+            case .doorBifold: return 30 * Self.inch
+            case .doorBypass: return 60 * Self.inch
+            case .doorFrench: return 60 * Self.inch
+            case .doorPatio: return 72 * Self.inch
+            case .doorEntry: return 36 * Self.inch
+            case .doorGarage: return 96 * Self.inch
+            case .windowDoubleHung: return 36 * Self.inch
+            case .windowCasement: return 24 * Self.inch
+            case .windowSliding: return 48 * Self.inch
+            case .windowPicture: return 72 * Self.inch
+            case .windowEgress: return 36 * Self.inch
+            case .windowBay: return 72 * Self.inch
             }
         }
 
@@ -516,6 +555,28 @@ enum PlanEditing {
                 return 48 * Self.inch
             case .windowSmall:
                 return 24 * Self.inch
+            case .doorPocket, .doorBifold, .doorBypass, .doorFrench, .doorPatio,
+                .doorEntry:
+                return 80 * Self.inch
+            // A garage door is the one opening measured in feet: 7ft is the
+            // stock height, and it is most of a wall.
+            case .doorGarage:
+                return 84 * Self.inch
+            case .windowDoubleHung:
+                return 60 * Self.inch
+            case .windowCasement:
+                return 48 * Self.inch
+            case .windowSliding:
+                return 36 * Self.inch
+            case .windowPicture:
+                return 48 * Self.inch
+            // Code egress: the sill low enough and the opening big enough to
+            // climb out of. A finished basement legally needs one, and
+            // whether a room HAS one changes what may be rebuilt there.
+            case .windowEgress:
+                return 48 * Self.inch
+            case .windowBay:
+                return 48 * Self.inch
             }
         }
 
@@ -545,6 +606,21 @@ enum PlanEditing {
             case .windowStandard: return 36 * Self.inch
             case .windowWide: return 30 * Self.inch
             case .windowSmall: return 72 * Self.inch
+            // Anything you walk through sits on the floor, whatever its
+            // mechanism — that is what `sill` means.
+            case .doorPocket, .doorBifold, .doorBypass, .doorFrench, .doorPatio,
+                .doorEntry, .doorGarage:
+                return 0
+            case .windowDoubleHung: return 30 * Self.inch
+            case .windowCasement: return 36 * Self.inch
+            case .windowSliding: return 42 * Self.inch
+            case .windowPicture: return 30 * Self.inch
+            // Egress sills are LOW by code — no more than 44in to the sill,
+            // and usually well under it in a basement. It is also why an
+            // egress window is so often in a water claim: the lowest glass
+            // in the house.
+            case .windowEgress: return 36 * Self.inch
+            case .windowBay: return 24 * Self.inch
             }
         }
 
@@ -562,6 +638,19 @@ enum PlanEditing {
             case .windowStandard: return "Window"
             case .windowWide: return "Wide window"
             case .windowSmall: return "Small window"
+            case .doorPocket: return "Pocket door"
+            case .doorBifold: return "Bifold door"
+            case .doorBypass: return "Bypass door"
+            case .doorFrench: return "French doors"
+            case .doorPatio: return "Patio slider"
+            case .doorEntry: return "Exterior entry door"
+            case .doorGarage: return "Garage door"
+            case .windowDoubleHung: return "Double-hung window"
+            case .windowCasement: return "Casement window"
+            case .windowSliding: return "Sliding window"
+            case .windowPicture: return "Picture window"
+            case .windowEgress: return "Egress window"
+            case .windowBay: return "Bay window"
             }
         }
     }

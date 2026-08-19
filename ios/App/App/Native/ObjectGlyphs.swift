@@ -48,6 +48,11 @@ enum ObjectGlyphs {
         case .cabinets: return (Palette.wood, Palette.woodEdge)
         case .appliances, .electrical, .hvac, .restoration:
             return (Palette.steel, Palette.steelEdge)
+        case .safety:
+            // Safety kit is red on every drawing that has ever shown it.
+            return (Color(hex: 0xF6DADA), Color(hex: 0xB03A3A))
+        case .outdoors:
+            return (Palette.concrete, Palette.concreteEdge)
         case .furniture: return (Palette.fabric, Palette.fabricEdge)
         case .structural: return (Palette.concrete, Palette.concreteEdge)
         }

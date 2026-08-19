@@ -246,6 +246,28 @@ struct SectionEmblem: View {
                         0.8)
                 }
 
+            case .safety:
+                // An extinguisher on its bracket: the body, the neck, and
+                // the hose over its shoulder.
+                box(0.6, 0.6, 0, 0.8, 0.8, 1.6)
+                box(0.85, 0.85, 1.6, 0.3, 0.3, 0.3)
+                var hose = Path()
+                hose.move(to: p(1.0, 0.85, 1.85))
+                hose.addQuadCurve(to: p(1.7, 1.5, 0.8), control: p(1.9, 1.0, 1.8))
+                context.stroke(hose, with: .color(ink), lineWidth: weight * 1.2)
+
+            case .outdoors:
+                // A deck: boards on posts, which is what most of this
+                // section is standing on.
+                box(0, 0, 0.7, 2.2, 1.6, 0.18)
+                for i in 1..<5 {
+                    let x = 2.2 * Double(i) / 5
+                    line(p(x, 0, 0.88), p(x, 1.6, 0.88), 0.7)
+                }
+                for (x, y) in [(0.15, 0.15), (1.95, 0.15), (0.15, 1.45), (1.95, 1.45)] {
+                    line(p(x, y, 0.7), p(x, y, 0), 1.2)
+                }
+
             case .restoration:
                 // A toolbox: a body, a lid band and a handle over it.
                 box(0, 0, 0, 2, 1.3, 0.9)

@@ -1031,12 +1031,18 @@ enum EditorChrome {
         let band = OpeningGlyphs.bandT * scale
         let swing: CGFloat
         switch opening.kind {
-        case .doorSingle, .doorCased: swing = w
-        case .doorDouble: swing = w / 2
+        case .doorSingle, .doorCased, .doorEntry: swing = w
+        case .doorDouble, .doorFrench: swing = w / 2
         // Bypass panels stay in the wall; the box only has to clear the
-        // track marks either side of the centreline.
-        case .doorSliding: swing = band
-        case .windowStandard, .windowWide, .windowSmall: swing = band
+        // track marks either side of the centreline. A pocket door is the
+        // extreme of the same thing — it is entirely inside the wall.
+        case .doorSliding, .doorBypass, .doorPatio, .doorPocket, .doorGarage: swing = band
+        // A bifold folds INTO the opening, so it needs about half a leaf.
+        case .doorBifold: swing = w / 2
+        case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
+            .windowCasement, .windowSliding, .windowPicture, .windowEgress,
+            .windowBay:
+            swing = band
         }
         let inward = opening.kind.category == .door ? max(12, swing * 1.06) : band
         let outward = max(4, band * 0.6)

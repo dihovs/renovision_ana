@@ -1417,7 +1417,9 @@ struct ElevationView: View {
 
             let ink = Color(hex: 0x111111)
             switch opening.kind {
-            case .windowStandard, .windowWide, .windowSmall:
+            case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
+                .windowCasement, .windowSliding, .windowPicture, .windowEgress,
+                .windowBay:
                 context.fill(Path(box), with: .color(Brand.blueLight.opacity(0.55)))
                 // Concentric: casing, sash, glazing bead. Each inset by a
                 // real thickness rather than a fraction, so a small hopper
@@ -1439,13 +1441,13 @@ struct ElevationView: View {
                 jambs.addLine(to: CGPoint(x: box.maxX, y: box.maxY))
                 context.stroke(jambs, with: .color(ink), lineWidth: 1.4)
 
-            case .doorDouble:
+            case .doorDouble, .doorFrench:
                 leaf(box.divided(atDistance: box.width / 2, from: .minXEdge).slice,
                      handleAtTrailing: true, context: context, face: face)
                 leaf(box.divided(atDistance: box.width / 2, from: .maxXEdge).slice,
                      handleAtTrailing: false, context: context, face: face)
 
-            case .doorSliding:
+            case .doorSliding, .doorBypass, .doorPatio, .doorPocket:
                 // The bypass convention, in elevation: two panels just over
                 // half the width each, offset so the overlap reads.
                 let panel = box.width * 0.55
@@ -1459,7 +1461,31 @@ struct ElevationView: View {
                             width: panel, height: box.height - 2)),
                     with: .color(ink), lineWidth: 1.3)
 
-            case .doorSingle:
+            case .doorBifold:
+                // Folded: four narrow panels across the opening, which is
+                // what a bifold reads as head-on.
+                for i in 0..<4 {
+                    let panel = box.width / 4
+                    context.stroke(
+                        Path(
+                            CGRect(
+                                x: box.minX + panel * CGFloat(i), y: box.minY,
+                                width: panel, height: box.height)),
+                        with: .color(ink), lineWidth: 1)
+                }
+
+            case .doorGarage:
+                // Horizontal panels, which is exactly what you see standing
+                // in front of one.
+                for i in 1..<5 {
+                    var line = Path()
+                    let y = box.minY + box.height * CGFloat(i) / 5
+                    line.move(to: CGPoint(x: box.minX, y: y))
+                    line.addLine(to: CGPoint(x: box.maxX, y: y))
+                    context.stroke(line, with: .color(ink), lineWidth: 1)
+                }
+
+            case .doorSingle, .doorEntry:
                 // Hinge at the jamb nearer a corner of the wall, exactly as
                 // the plan glyph guesses it, so the handle is on the same
                 // side in both views.

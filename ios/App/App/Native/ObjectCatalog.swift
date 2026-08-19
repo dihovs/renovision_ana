@@ -55,6 +55,8 @@ enum ObjectCatalog {
         case electrical = "Electrical"
         case hvac = "HVAC"
         case restoration = "Restoration"
+        case safety = "Fire & Safety"
+        case outdoors = "Outdoors"
 
         var id: String { rawValue }
 
@@ -71,6 +73,8 @@ enum ObjectCatalog {
             case .furniture: return "What was in the room"
             case .structural: return "Columns, stairs, bulkheads"
             case .restoration: return "Our own equipment, on the plan where it stands"
+            case .safety: return "Extinguishers, alarms, shut-offs, exits"
+            case .outdoors: return "Decks, steps, drains, what surrounds the building"
             }
         }
     }
@@ -161,6 +165,27 @@ enum ObjectCatalog {
             case "air_mover": return "fan.desk"
             case "air_scrubber": return "aqi.medium"
             case "containment": return "rectangle.dashed"
+            case "dehumidifier_lgr", "dehumidifier_desiccant": return "humidity"
+            case "air_mover_axial", "air_mover_centrifugal", "wall_cavity_dryer":
+                return "fan.desk"
+            case "hydroxyl_generator", "ozone_generator": return "aqi.medium"
+            case "heater_drying": return "heater.vertical"
+            case "extraction_unit": return "drop.triangle"
+            case "moisture_sensor": return "sensor"
+            case "drying_mat": return "rectangle.grid.1x2"
+            case "smoke_alarm": return "smoke"
+            case "co_alarm": return "carbon.dioxide.cloud"
+            case "extinguisher": return "flame.circle"
+            case "water_shutoff": return "spigot"
+            case "gas_shutoff": return "flame"
+            case "floor_drain": return "drop.circle"
+            case "exit_sign": return "figure.walk.departure"
+            case "hazard_marker": return "exclamationmark.triangle"
+            case "deck": return "square.split.bottomrightquarter"
+            case "exterior_steps": return "stairs"
+            case "window_well": return "rectangle.portrait"
+            case "downspout": return "arrow.down.to.line"
+            case "ac_condenser": return "wind.snow"
             default: return "square"
             }
         }
@@ -417,10 +442,129 @@ enum ObjectCatalog {
             slug: "air_scrubber", name: "Air scrubber", category: .restoration,
             width: 20 * inch, depth: 20 * inch, height: 26 * inch, shape: .equipment,
             sizeNote: "20in HEPA scrubber, 500 CFM class."),
+        // The equipment a drying job actually runs, by what it IS rather
+        // than by brand. The reference lists named models — `Phoenix 250
+        // MAX LGR`, `Tramex CMEX5` — and naming a model is a promise to
+        // maintain a price list of other people's product lines. What a
+        // claim needs is the CLASS and the footprint: an LGR dehumidifier
+        // stands where it stands whoever made it.
+        Entry(
+            slug: "dehumidifier_lgr", name: "Dehumidifier, LGR", category: .restoration,
+            width: 22 * inch, depth: 22 * inch, height: 34 * inch, shape: .equipment,
+            sizeNote: "22in LGR on castors — the workhorse of a structural dry."),
+        Entry(
+            slug: "dehumidifier_desiccant", name: "Dehumidifier, desiccant",
+            category: .restoration,
+            width: 30 * inch, depth: 24 * inch, height: 40 * inch, shape: .equipment,
+            sizeNote: "30in desiccant — for a cold building where an LGR stalls."),
+        Entry(
+            slug: "air_mover_axial", name: "Air mover, axial", category: .restoration,
+            width: 18 * inch, depth: 18 * inch, height: 17 * inch, shape: .equipment,
+            sizeNote: "18in axial — the one that sits in a doorway."),
+        Entry(
+            slug: "air_mover_centrifugal", name: "Air mover, centrifugal",
+            category: .restoration,
+            width: 20 * inch, depth: 17 * inch, height: 17 * inch, shape: .equipment,
+            sizeNote: "20in snail — aimed along a wall or under a cabinet kick."),
+        Entry(
+            slug: "wall_cavity_dryer", name: "Wall cavity dryer", category: .restoration,
+            width: 20 * inch, depth: 14 * inch, height: 14 * inch, shape: .equipment,
+            sizeNote: "Drives air into a stud bay through drilled holes."),
+        Entry(
+            slug: "hydroxyl_generator", name: "Hydroxyl generator", category: .restoration,
+            width: 22 * inch, depth: 15 * inch, height: 20 * inch, shape: .equipment,
+            sizeNote: "22in hydroxyl — runs with people in the building, unlike ozone."),
+        Entry(
+            slug: "ozone_generator", name: "Ozone generator", category: .restoration,
+            width: 14 * inch, depth: 12 * inch, height: 12 * inch, shape: .equipment,
+            sizeNote: "14in ozone — the building must be empty while it runs."),
+        Entry(
+            slug: "heater_drying", name: "Drying heater", category: .restoration,
+            width: 20 * inch, depth: 18 * inch, height: 22 * inch, shape: .equipment,
+            sizeNote: "Portable heat, to hold a cold basement at drying temperature."),
+        Entry(
+            slug: "extraction_unit", name: "Extraction unit", category: .restoration,
+            width: 24 * inch, depth: 20 * inch, height: 30 * inch, shape: .equipment,
+            sizeNote: "Portable extractor for standing water and saturated carpet."),
+        Entry(
+            slug: "moisture_sensor", name: "Moisture sensor", category: .restoration,
+            width: 4 * inch, depth: 2 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: "A logging sensor left in place — the record an adjuster reads."),
+        Entry(
+            slug: "drying_mat", name: "Floor drying mat", category: .restoration,
+            width: 24 * inch, depth: 20 * inch, height: 1 * inch, shape: .panel,
+            sizeNote: "Pulls water up through hardwood rather than lifting it."),
         Entry(
             slug: "containment", name: "Containment barrier", category: .restoration,
             width: 96 * inch, depth: 2 * inch, height: 96 * inch, shape: .panel,
             sizeNote: "8ft of poly on a zip pole — drawn as the line it is."),
+
+        // MARK: Fire & Safety — what is ON the building, not in it.
+        //
+        // The reference carries 136 of these and most are industrial
+        // signage: "Do not use lift when fire", "Counterrotating rollers".
+        // A restoration claim needs the ones that are actually IN a house
+        // and the ones a technician must find on arrival — a shut-off you
+        // cannot locate is the difference between a wet room and a wet
+        // storey.
+        //
+        // Small footprints because most of these hang on a wall rather than
+        // stand on a floor. They still carry a position, which is the whole
+        // point: this is a map of where the safety kit is.
+        Entry(
+            slug: "smoke_alarm", name: "Smoke alarm", category: .safety,
+            width: 6 * inch, depth: 6 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: "Ceiling mounted; drawn where it is, since code counts them per storey."),
+        Entry(
+            slug: "co_alarm", name: "Carbon monoxide alarm", category: .safety,
+            width: 6 * inch, depth: 4 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: "Required near sleeping areas in Québec."),
+        Entry(
+            slug: "extinguisher", name: "Fire extinguisher", category: .safety,
+            width: 8 * inch, depth: 6 * inch, height: 20 * inch, shape: .cylinder,
+            sizeNote: "A 5lb ABC on its bracket."),
+        Entry(
+            slug: "water_shutoff", name: "Water shut-off", category: .safety,
+            width: 6 * inch, depth: 4 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: "THE most useful mark on a water-damage plan: where the water stops."),
+        Entry(
+            slug: "gas_shutoff", name: "Gas shut-off", category: .safety,
+            width: 6 * inch, depth: 4 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: "Found before work starts, not during it."),
+        Entry(
+            slug: "floor_drain", name: "Floor drain", category: .safety,
+            width: 6 * inch, depth: 6 * inch, height: 1 * inch, shape: .cylinder,
+            sizeNote: "Where the water went, and where an extractor discharges."),
+        Entry(
+            slug: "exit_sign", name: "Exit", category: .safety,
+            width: 12 * inch, depth: 3 * inch, height: 8 * inch, shape: .panel,
+            sizeNote: "Commercial work: the exit an occupant is directed to."),
+        Entry(
+            slug: "hazard_marker", name: "Hazard", category: .safety,
+            width: 8 * inch, depth: 8 * inch, height: 8 * inch, shape: .panel,
+            sizeNote: "Anything on site that will hurt somebody — a hole, a live panel, asbestos."),
+
+        // MARK: Outdoors — the building's own surroundings.
+        Entry(
+            slug: "deck", name: "Deck", category: .outdoors,
+            width: 144 * inch, depth: 96 * inch, height: 36 * inch, shape: .counter,
+            sizeNote: "12x8ft, a common rear deck. Often the water path into a basement."),
+        Entry(
+            slug: "exterior_steps", name: "Exterior steps", category: .outdoors,
+            width: 48 * inch, depth: 60 * inch, height: 48 * inch, shape: .stairs,
+            sizeNote: "48in wide, five risers to a door."),
+        Entry(
+            slug: "window_well", name: "Window well", category: .outdoors,
+            width: 42 * inch, depth: 24 * inch, height: 36 * inch, shape: .box,
+            sizeNote: "42in well at an egress window — and a common way water gets in."),
+        Entry(
+            slug: "downspout", name: "Downspout", category: .outdoors,
+            width: 4 * inch, depth: 3 * inch, height: 120 * inch, shape: .cylinder,
+            sizeNote: "Where the roof discharges — the first thing to check on a wet foundation."),
+        Entry(
+            slug: "ac_condenser", name: "A/C condenser", category: .outdoors,
+            width: 30 * inch, depth: 30 * inch, height: 32 * inch, shape: .equipment,
+            sizeNote: "30in outdoor unit on its pad."),
 
         Entry(
             slug: "fireplace", name: "Fireplace", category: .structural,
@@ -596,9 +740,16 @@ enum LibrarySection: Identifiable, Hashable, CaseIterable {
     var items: [LibraryItem] {
         switch self {
         case .doors:
-            return [.doorSingle, .doorDouble, .doorSliding, .doorCased].map(LibraryItem.opening)
+            return [
+                .doorSingle, .doorDouble, .doorPocket, .doorBifold, .doorBypass,
+                .doorFrench, .doorSliding, .doorPatio, .doorEntry, .doorGarage,
+                .doorCased,
+            ].map(LibraryItem.opening)
         case .windows:
-            return [.windowStandard, .windowWide, .windowSmall].map(LibraryItem.opening)
+            return [
+                .windowStandard, .windowDoubleHung, .windowCasement, .windowSliding,
+                .windowWide, .windowPicture, .windowBay, .windowEgress, .windowSmall,
+            ].map(LibraryItem.opening)
         case .catalogue(let category):
             return ObjectCatalog.entries(in: category).map(LibraryItem.object)
         }
