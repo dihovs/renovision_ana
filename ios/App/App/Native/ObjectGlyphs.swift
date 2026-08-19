@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Drawing an object twice: coloured in the catalogue, ink on the plan.
 ///
@@ -55,6 +56,42 @@ enum ObjectGlyphs {
 
 // MARK: - The coloured tile
 
+/// The generated artwork for a catalogue entry, if we have any.
+///
+/// **ORD-43.** Hand-coded vector art has a ceiling and builds 133–134 hit
+/// it: what the reference ships is an illustration set, not plan symbols.
+/// So the catalogue TILES take real artwork — an image named for the
+/// entry's slug, dropped into the asset catalogue.
+///
+/// **Tiles only, and that is the design.** The plan symbol and the front
+/// elevation stay code-drawn, because they have to rotate with the object,
+/// scale from a 130pt thumbnail to a full sheet, and stay ink-on-paper so
+/// the drawing reads as drafting beside a report. An image does none of
+/// those. A tile is a fixed size at a fixed angle, which is exactly what
+/// artwork is good at.
+///
+/// **Missing is a normal state, not a failure.** The set arrives a few at a
+/// time; anything without artwork yet falls back to the drawing it has
+/// today, so the catalogue is never broken and never half-empty.
+struct ObjectArtwork: View {
+    let slug: String
+
+    /// The asset name for a slug. One rule, so adding a picture means
+    /// dropping in a file called `object-toilet` and nothing else.
+    static func assetName(for slug: String) -> String { "object-\(slug)" }
+
+    static func exists(_ slug: String) -> Bool {
+        UIImage(named: assetName(for: slug)) != nil
+    }
+
+    var body: some View {
+        Image(Self.assetName(for: slug))
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
+    }
+}
+
 /// One catalogue illustration, drawn to fill whatever it is given.
 ///
 /// A plan view rather than a perspective, and deliberately: the operator is
@@ -64,6 +101,15 @@ struct ObjectTileArt: View {
     let entry: ObjectCatalog.Entry
 
     var body: some View {
+        // Real artwork when it exists — see `ObjectArtwork`.
+        if ObjectArtwork.exists(entry.slug) {
+            ObjectArtwork(slug: entry.slug)
+        } else {
+            drawn
+        }
+    }
+
+    private var drawn: some View {
         Canvas { context, size in
             let tones = ObjectGlyphs.tones(for: entry)
             // The object's own proportions inside the tile, so a 7ft sofa

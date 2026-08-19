@@ -272,7 +272,14 @@ struct LibraryArt: View {
         case .object(let entry):
             ObjectTileArt(entry: entry)
         case .opening(let kind):
-            OpeningTileArt(kind: kind)
+            // Openings take artwork the same way objects do — their slug is
+            // the raw value, so a `door-doorSingle` asset replaces the drawn
+            // symbol with an illustration when one exists.
+            if ObjectArtwork.exists("door-\(kind.rawValue)") {
+                ObjectArtwork(slug: "door-\(kind.rawValue)")
+            } else {
+                OpeningTileArt(kind: kind)
+            }
         }
     }
 }
