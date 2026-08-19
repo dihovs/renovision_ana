@@ -38,7 +38,7 @@ Commit the ledger update with the work.
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | **DONE (build 155)** — 77 entries, 14 sections, sizes, takeoff both levels | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectEmblems.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift`, `Artwork/` |
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
-| **S10** | Report parity | **IN PROGRESS** — header, footer, photo pages, signature, metric done; key, locator, cover count, `Only floors` left | S9 | `ReportDocument.tsx` |
+| **S10** | Report parity | **BUILT (unverified)** — every listed item; needs one export read against theirs | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
 | **S12** | Project and floor screens | **PROJECT DONE (amended 18 Aug) · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
@@ -2116,4 +2116,22 @@ Newest last. One or two lines per chat.
   `LevelCanvas`, which changed several times today (objects loading, the
   insert menu, the focused-room camera padding), and bisect against build
   138, which he had working.
+- **2026-08-19** — **S10 built out.** The numbered key (and the gap it
+  exposed: the plan had never drawn affected areas at all, so the report
+  listed damaged square metres beside a drawing showing none), the locator
+  strip, `Bathroom` on the cover, and the `Only floors` layout — their
+  third export, which had never been generated.
+
+  Two decisions worth keeping. The locator is a ROW of the storey's rooms
+  with this one shaded, not a packed floor plan: the report has no
+  positions for rooms measured on separate visits, and drawing a floor
+  whose rooms were placed by guesswork would be inventing a building. And
+  `Only floors` is a different document rather than a trimmed one — an
+  adjuster who asked for the drawings should not be sent forty pages of
+  photographs.
+
+  **Unverified.** It compiles and the tests pass, which for a printed
+  document proves almost nothing. The seeded `Palerme - side by side`
+  project exists for exactly this: export it, read it beside
+  `My New Project Report 4.pdf`, fix the differences.
 

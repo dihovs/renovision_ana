@@ -39,7 +39,12 @@ export default async function ReportPage({
   // A search param rather than client state: the whole page is server
   // rendered for print, and a URL that says what the document shows is a
   // URL that can be shared showing the same thing.
-  const onlyLockedDimensions = (await searchParams).dimensions === "locked";
+  // `params` is already taken by the route's own id, so the query gets its
+  // own name rather than shadowing it.
+  const query = await searchParams;
+  const onlyLockedDimensions = query.dimensions === "locked";
+  // The reference's third export layout, which had never been generated.
+  const floorsOnly = query.layout === "floors";
 
   if (!isConfigured) {
     return (
@@ -164,6 +169,46 @@ export default async function ReportPage({
             where nothing was set by hand print without dimensions.
           </p>
         )}
+
+        {/* Their third layout. Its own link rather than a mode switch on
+            the first: the two options are independent, and an adjuster can
+            want hand-set dimensions on a floors-only sheet. */}
+        <div className="mt-2">
+          <Link
+            href={
+              floorsOnly
+                ? `/admin/projects/${project.id}/report${
+                    onlyLockedDimensions ? "?dimensions=locked" : ""
+                  }`
+                : `/admin/projects/${project.id}/report?layout=floors${
+                    onlyLockedDimensions ? "&dimensions=locked" : ""
+                  }`
+            }
+            className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-charcoal transition-colors hover:border-brand-blue/40"
+          >
+            <span
+              aria-hidden
+              className={`flex h-4 w-4 items-center justify-center rounded border ${
+                floorsOnly
+                  ? "border-brand-blue bg-brand-blue text-white"
+                  : "border-black/20 bg-white"
+              }`}
+            >
+              {floorsOnly && (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+            Only floors
+          </Link>
+          {floorsOnly && (
+            <p className="mt-1.5 text-xs leading-snug text-charcoal/50">
+              The cover, the storey plans and the signature. No room pages and
+              no photographs — for an adjuster who asked for the drawings.
+            </p>
+          )}
+        </div>
       </div>
 
       <ReportDocument
@@ -183,6 +228,7 @@ export default async function ReportPage({
           equipment,
           generatedAt: new Date().toISOString(),
           onlyLockedDimensions,
+          layout: floorsOnly ? ("onlyFloors" as const) : ("full" as const),
         }}
       />
     </div>

@@ -79,6 +79,20 @@ export type ReportData = {
       each padlocked — for the adjuster who wants measured-by-hand figures
       and nothing inferred. Off by default: the full drawing is the report. */
   onlyLockedDimensions?: boolean;
+  /**
+   * Which of the reference's three export layouts to print.
+   *
+   * `full` is everything — the document as built. `onlyFloors` is their
+   * third layout, the one that had never been generated: the cover, the
+   * storey plans, and the signature. No room pages, no photos, no
+   * definitions.
+   *
+   * **It is not a trimmed report; it is a different document.** An adjuster
+   * asking for the floor plans wants the drawings, and sending forty pages
+   * of photographs when they asked for four pages of plans is how a claim
+   * file gets set aside unread.
+   */
+  layout?: "full" | "onlyFloors";
 };
 
 /**
@@ -184,7 +198,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     equipment,
     generatedAt,
     onlyLockedDimensions = false,
+    layout = "full",
   } = data;
+  const floorsOnly = layout === "onlyFloors";
 
   const floorAreaSqm = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
   // Living area is on every page of the reference's header, so it has to
@@ -236,17 +252,18 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   // completeness that has to be right. Everything here is generated from
   // one list, so the count is arithmetic rather than a guess.
   const photoPageCount = rooms.reduce((sum, room) => sum + photoPages(room).length, 0);
-  const totalPages =
-    1 // cover
-    + (shownClaim.length > 0 || client ? 1 : 0)
-    + levels.length
-    + rooms.length
-    + photoPageCount
-    + (damage.floor.length + damage.wall.length > 0 ? 1 : 0)
-    + (rooms.some((room) => room.readings.length > 0) ? 1 : 0)
-    + (equipment.length > 0 ? 1 : 0)
-    + 1 // signature
-    + 1; // definitions
+  const totalPages = floorsOnly
+    ? 1 + levels.length + 1
+    : 1 // cover
+      + (shownClaim.length > 0 || client ? 1 : 0)
+      + levels.length
+      + rooms.length
+      + photoPageCount
+      + (damage.floor.length + damage.wall.length > 0 ? 1 : 0)
+      + (rooms.some((room) => room.readings.length > 0) ? 1 : 0)
+      + (equipment.length > 0 ? 1 : 0)
+      + 1 // signature
+      + 1; // definitions
   let pageNo = 0;
   const nextPage = () => ++pageNo;
 
@@ -410,7 +427,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       })}
 
       {/* --------------------------------------------- one page per room */}
-      {rooms.map((room) => (
+      {!floorsOnly && rooms.map((room) => (
         <Fragment key={room.id}>
         <section className="page">
           <Running project={project.name} address={property} totals={headerTotals} />
@@ -694,7 +711,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       ))}
 
       {/* ------------------------------------------------ drying record */}
-      {equipment.length > 0 && (
+      {!floorsOnly && equipment.length > 0 && (
         <section className="page">
           <Running project={project.name} address={property} totals={headerTotals} />
           <table className="listing">
@@ -760,7 +777,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           These are the same definitions the app shows beside each figure —
           MEASURE_DEFINITIONS is one list, so the report cannot drift from
           the screens. */}
-      {rooms.length > 0 && (
+      {!floorsOnly && rooms.length > 0 && (
         <section className="page">
           <Running project={project.name} address={property} totals={headerTotals} />
           <table className="measure definitions">
