@@ -783,7 +783,45 @@ enum EditorChrome {
         let centre = toScreen(CGPoint(x: object.x, y: object.y))
         let widthPts = object.width * scale
         let depthPts = object.depth * scale
-        if let shape = object.entry?.shape, widthPts > 10, depthPts > 10 {
+
+        // **The catalogue's own illustration, on the plan.** The owner's
+        // call, looking at a fridge drawn as an outline with two ticks on
+        // it: *"I don't like the top down view… it should be the nice
+        // isometric drawing."*
+        //
+        // This is a deliberate divergence from drafting convention and from
+        // what this file argued for a build ago. A floor plan is
+        // conventionally orthographic, and `Brand.Plan` exists to keep this
+        // drawing reading as drafting — but he is the one who has to
+        // recognise a room at a glance on a job, and an illustration he
+        // recognises beats a symbol he has to decode. Note the cost, since
+        // somebody will meet it: an isometric drawing has a fixed viewing
+        // angle, so an object rotated 180° is drawn upside down rather than
+        // seen from the other side.
+        //
+        // Only where there is room for it. Below about 24pt the picture is
+        // a smudge and the drawn symbol reads better, which is also what
+        // keeps the storey and the project card legible.
+        if ObjectArtwork.exists(object.kind), widthPts >= 24, depthPts >= 24 {
+            context.drawLayer { layer in
+                layer.translateBy(x: centre.x, y: centre.y)
+                // **The picture does NOT rotate with the object, and the
+                // envelope does.** An isometric drawing has one fixed
+                // viewing angle: turn it 180° and you do not see the fridge
+                // from behind, you see an upside-down fridge. So the
+                // rectangle carries the orientation — it is the measured
+                // footprint and must be true — while the illustration stays
+                // upright and legible, which is the only job it has.
+                layer.opacity = alpha
+                // Square art, rectangular footprint: fitted to the LONGER
+                // side and centred, so a sofa's drawing spans its length
+                // rather than being squashed into its depth.
+                let side = max(widthPts, depthPts)
+                layer.draw(
+                    Image(ObjectArtwork.assetName(for: object.kind)),
+                    in: CGRect(x: -side / 2, y: -side / 2, width: side, height: side))
+            }
+        } else if let shape = object.entry?.shape, widthPts > 10, depthPts > 10 {
             context.drawLayer { layer in
                 layer.translateBy(x: centre.x, y: centre.y)
                 layer.rotate(by: Angle(degrees: object.rotation))
