@@ -114,6 +114,7 @@ export async function PATCH(request: Request) {
         ? { disposition: body.disposition as Disposition }
         : {}),
       ...(typeof body.included === "boolean" ? { included: body.included } : {}),
+      ...(typeof body.sizeHandSet === "boolean" ? { sizeHandSet: body.sizeHandSet } : {}),
       ...(body.notes !== undefined ? { notes: body.notes as string | null } : {}),
     });
     return { updated: id };

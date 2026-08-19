@@ -558,6 +558,7 @@ actor API {
         var disposition: String?
         var included: Bool?
         var quantity: Int?
+        var sizeHandSet: Bool?
         var notes: String?
     }
 
@@ -565,7 +566,7 @@ actor API {
         id: String, name: String? = nil, at point: CGPoint? = nil, rotation: Double? = nil,
         width: Double? = nil, depth: Double? = nil, height: Double? = nil,
         disposition: String? = nil, included: Bool? = nil, quantity: Int? = nil,
-        notes: String? = nil
+        sizeHandSet: Bool? = nil, notes: String? = nil
     ) async throws {
         let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id
         _ = try await request(
@@ -577,7 +578,8 @@ actor API {
                 name: name, x: point.map { Double($0.x) }, y: point.map { Double($0.y) },
                 rotation: rotation,
                 width: width, depth: depth, height: height, disposition: disposition,
-                included: included, quantity: quantity, notes: notes))
+                included: included, quantity: quantity, sizeHandSet: sizeHandSet,
+                notes: notes))
     }
 
     func deleteObject(id: String) async throws {

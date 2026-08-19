@@ -47,6 +47,11 @@ export type RoomObject = {
   disposition: Disposition;
   included: boolean;
   quantity: number;
+  /** True when a person put a tape on it rather than taking the catalogue's
+      stock size. A measured figure and a guess are different kinds of fact,
+      and a claim is entitled to tell them apart — the same argument behind
+      the padlock on a typed wall length. */
+  sizeHandSet: boolean;
   notes: string | null;
 };
 
@@ -63,6 +68,7 @@ export type RoomObjectInput = {
   disposition?: Disposition;
   included?: boolean;
   quantity?: number;
+  sizeHandSet?: boolean;
   notes?: string | null;
 };
 
@@ -91,6 +97,7 @@ function toObject(row: Row): RoomObject {
       : "none",
     included: row.included !== false,
     quantity: Number(row.quantity ?? 1),
+    sizeHandSet: row.size_hand_set === true,
     notes: (row.notes as string | null) ?? null,
   };
 }
@@ -132,6 +139,7 @@ export async function createRoomObject(input: RoomObjectInput): Promise<string> 
       // Guarded here as well as by the check constraint, so a bad value
       // fails as a sentence rather than as a constraint name.
       quantity: Math.max(1, Math.round(input.quantity ?? 1)),
+      size_hand_set: input.sizeHandSet ?? false,
       notes: input.notes?.trim() || null,
     })
     .select("id")
@@ -157,6 +165,7 @@ export async function updateRoomObject(
     disposition?: Disposition;
     included?: boolean;
     quantity?: number;
+    sizeHandSet?: boolean;
     notes?: string | null;
   },
 ): Promise<void> {
@@ -176,6 +185,7 @@ export async function updateRoomObject(
       ...(patch.quantity !== undefined
         ? { quantity: Math.max(1, Math.round(patch.quantity)) }
         : {}),
+      ...(patch.sizeHandSet !== undefined ? { size_hand_set: patch.sizeHandSet } : {}),
       ...(patch.notes !== undefined ? { notes: patch.notes?.trim() || null } : {}),
       updated_at: new Date().toISOString(),
     })

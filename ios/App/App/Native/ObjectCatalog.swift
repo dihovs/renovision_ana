@@ -186,9 +186,13 @@ enum ObjectCatalog {
     static let entries: [Entry] = [
         // MARK: Plumbing — where a water-damage job usually starts.
         Entry(
-            slug: "toilet", name: "Toilet", category: .plumbing,
-            width: 20 * inch, depth: 28 * inch, height: 30 * inch, shape: .toilet,
-            sizeNote: "20×28in footprint, 30in to the tank lid — a standard two-piece."),
+            slug: "toilet", name: "Toilet, elongated", category: .plumbing,
+            width: 20 * inch, depth: 30 * inch, height: 30 * inch, shape: .toilet,
+            sizeNote: "20x30in, 12in rough-in — the standard two-piece in most homes."),
+        Entry(
+            slug: "toilet_round", name: "Toilet, round front", category: .plumbing,
+            width: 20 * inch, depth: 27 * inch, height: 29 * inch, shape: .toilet,
+            sizeNote: "20x27in round front — three inches shorter, for a tight powder room."),
         Entry(
             slug: "vanity_24", name: "Vanity, 24\"", category: .plumbing,
             width: 24 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
@@ -202,9 +206,17 @@ enum ObjectCatalog {
             width: 60 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
             sizeNote: "60in double vanity, the stock two-basin width."),
         Entry(
-            slug: "bathtub", name: "Bathtub", category: .plumbing,
+            slug: "bathtub", name: "Bathtub, 60\"", category: .plumbing,
             width: 60 * inch, depth: 30 * inch, height: 20 * inch, shape: .tub,
-            sizeNote: "60×30in alcove tub — the near-universal North American size."),
+            sizeNote: "60x30in alcove tub — the near-universal North American size."),
+        Entry(
+            slug: "bathtub_54", name: "Bathtub, 54\"", category: .plumbing,
+            width: 54 * inch, depth: 30 * inch, height: 20 * inch, shape: .tub,
+            sizeNote: "54in alcove — older and smaller bathrooms."),
+        Entry(
+            slug: "bathtub_66", name: "Bathtub, 66\" soaker", category: .plumbing,
+            width: 66 * inch, depth: 32 * inch, height: 22 * inch, shape: .tub,
+            sizeNote: "66x32in soaker."),
         Entry(
             slug: "shower_stall", name: "Shower stall", category: .plumbing,
             width: 36 * inch, depth: 36 * inch, height: 78 * inch, shape: .shower,
@@ -218,9 +230,17 @@ enum ObjectCatalog {
             width: 23 * inch, depth: 23 * inch, height: 34 * inch, shape: .sink,
             sizeNote: "23in square utility tub — the basement standard."),
         Entry(
-            slug: "water_heater", name: "Water heater", category: .plumbing,
-            width: 22 * inch, depth: 22 * inch, height: 60 * inch, shape: .cylinder,
-            sizeNote: "22in diameter, 60in tall — a 40–50 gallon tank."),
+            slug: "water_heater", name: "Water heater, 40 gal", category: .plumbing,
+            width: 20 * inch, depth: 20 * inch, height: 58 * inch, shape: .cylinder,
+            sizeNote: "20in diameter, 58in tall — a 40 gallon tank."),
+        Entry(
+            slug: "water_heater_50", name: "Water heater, 50 gal", category: .plumbing,
+            width: 22 * inch, depth: 22 * inch, height: 62 * inch, shape: .cylinder,
+            sizeNote: "22in diameter, 62in — a 50 gallon tank."),
+        Entry(
+            slug: "water_heater_tankless", name: "Water heater, tankless", category: .plumbing,
+            width: 14 * inch, depth: 9 * inch, height: 24 * inch, shape: .panel,
+            sizeNote: "14x9in wall unit, 24in tall — hangs, so it survives a floor flood."),
         Entry(
             slug: "sump_pit", name: "Sump pit", category: .plumbing,
             width: 18 * inch, depth: 18 * inch, height: 24 * inch, shape: .cylinder,
@@ -249,26 +269,70 @@ enum ObjectCatalog {
             sizeNote: "8ft of counter, 25in deep with the overhang."),
 
         // MARK: Appliances — what has to come out to dry a floor.
+        // **Sizes are stocked, not invented.** The owner asked for the real
+        // ones — *"they all have different sizes… what are the most common
+        // sizes in the market?"* — so an appliance that ships in three
+        // widths is three entries, the way a 300-object library does it.
+        // Picking the right one beats placing a guess and correcting it,
+        // and the width is not cosmetic: it is what the cabinet opening was
+        // built to and what a replacement has to fit.
         Entry(
-            slug: "refrigerator", name: "Refrigerator", category: .appliances,
+            slug: "refrigerator_30", name: "Refrigerator, 30\"", category: .appliances,
+            width: 30 * inch, depth: 32 * inch, height: 66 * inch, shape: .fridge,
+            sizeNote: "30in top-freezer — the narrowest common opening, older kitchens."),
+        Entry(
+            slug: "refrigerator_33", name: "Refrigerator, 33\"", category: .appliances,
+            width: 33 * inch, depth: 32 * inch, height: 68 * inch, shape: .fridge,
+            sizeNote: "33in side-by-side."),
+        Entry(
+            slug: "refrigerator", name: "Refrigerator, 36\"", category: .appliances,
             width: 36 * inch, depth: 30 * inch, height: 70 * inch, shape: .fridge,
-            sizeNote: "36in French-door, 30in deep with the doors."),
+            sizeNote: "36in French-door, 30in deep with the doors — the common new build."),
         Entry(
-            slug: "range", name: "Range", category: .appliances,
+            slug: "refrigerator_36_cd", name: "Refrigerator, 36\" counter-depth",
+            category: .appliances,
+            width: 36 * inch, depth: 25 * inch, height: 70 * inch, shape: .fridge,
+            sizeNote: "36in counter-depth: 25in deep so it sits flush with the cabinets."),
+        Entry(
+            slug: "range", name: "Range, 30\"", category: .appliances,
             width: 30 * inch, depth: 26 * inch, height: 36 * inch, shape: .stove,
             sizeNote: "30in slide-in — the stock opening in every cabinet run."),
         Entry(
-            slug: "dishwasher", name: "Dishwasher", category: .appliances,
-            width: 24 * inch, depth: 24 * inch, height: 34 * inch, shape: .machine,
-            sizeNote: "24in built-in, sized to the base cabinet it replaces."),
+            slug: "range_24", name: "Range, 24\"", category: .appliances,
+            width: 24 * inch, depth: 25 * inch, height: 36 * inch, shape: .stove,
+            sizeNote: "24in apartment range."),
         Entry(
-            slug: "washer", name: "Washer", category: .appliances,
+            slug: "range_36", name: "Range, 36\"", category: .appliances,
+            width: 36 * inch, depth: 27 * inch, height: 36 * inch, shape: .stove,
+            sizeNote: "36in pro-style, six burners."),
+        Entry(
+            slug: "dishwasher", name: "Dishwasher, 24\"", category: .appliances,
+            width: 24 * inch, depth: 24 * inch, height: 34 * inch, shape: .machine,
+            sizeNote: "24in built-in, sized to the base cabinet it replaces — nearly all of them."),
+        Entry(
+            slug: "dishwasher_18", name: "Dishwasher, 18\"", category: .appliances,
+            width: 18 * inch, depth: 24 * inch, height: 34 * inch, shape: .machine,
+            sizeNote: "18in compact — condos and galley kitchens."),
+        Entry(
+            slug: "washer", name: "Washer, 27\"", category: .appliances,
             width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .machine,
             sizeNote: "27in front-loader, 30in deep with the door shut."),
         Entry(
-            slug: "dryer", name: "Dryer", category: .appliances,
+            slug: "washer_top", name: "Washer, top-load", category: .appliances,
+            width: 27.5 * inch, depth: 27 * inch, height: 42 * inch, shape: .machine,
+            sizeNote: "27.5in top-loader — taller, and the lid needs clearance above it."),
+        Entry(
+            slug: "washer_24", name: "Washer, 24\" compact", category: .appliances,
+            width: 24 * inch, depth: 24 * inch, height: 33 * inch, shape: .machine,
+            sizeNote: "24in compact, the condo stacking pair."),
+        Entry(
+            slug: "dryer", name: "Dryer, 27\"", category: .appliances,
             width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .machine,
             sizeNote: "27in, matched to the washer it stacks with."),
+        Entry(
+            slug: "laundry_pair", name: "Washer & dryer, stacked", category: .appliances,
+            width: 27 * inch, depth: 31 * inch, height: 76 * inch, shape: .machine,
+            sizeNote: "27in stacked pair — one footprint, two machines, 76in tall."),
 
         // MARK: Mechanical and electrical — the basement's own furniture.
         Entry(

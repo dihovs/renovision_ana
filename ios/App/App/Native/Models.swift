@@ -893,7 +893,39 @@ struct RoomObject: Decodable, Identifiable, Hashable {
     let included: Bool
     /// One row can stand for eight identical base cabinets along a run.
     let quantity: Int
+    /// True when somebody put a tape on it rather than taking the
+    /// catalogue's stock size. Shown with a padlock, exactly as a typed
+    /// wall length is — a measured figure and a guess are different kinds
+    /// of fact and a claim should be able to tell them apart.
+    ///
+    /// Decoded leniently: a server older than migration 0038 does not send
+    /// it, and that must read as "catalogue size", not as a failed decode
+    /// of the whole list.
+    let sizeHandSet: Bool
     let notes: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, name, x, y, rotation, width, depth, height
+        case disposition, included, quantity, sizeHandSet, notes
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        kind = try c.decode(String.self, forKey: .kind)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        x = try c.decode(Double.self, forKey: .x)
+        y = try c.decode(Double.self, forKey: .y)
+        rotation = try c.decode(Double.self, forKey: .rotation)
+        width = try c.decode(Double.self, forKey: .width)
+        depth = try c.decode(Double.self, forKey: .depth)
+        height = try c.decode(Double.self, forKey: .height)
+        disposition = try c.decode(String.self, forKey: .disposition)
+        included = try c.decode(Bool.self, forKey: .included)
+        quantity = try c.decode(Int.self, forKey: .quantity)
+        sizeHandSet = (try? c.decodeIfPresent(Bool.self, forKey: .sizeHandSet)) as? Bool ?? false
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+    }
 
     /// The catalogue entry behind it, when this build knows the slug.
     var entry: ObjectCatalog.Entry? { ObjectCatalog.entry(slug: kind) }
@@ -913,14 +945,14 @@ struct RoomObject: Decodable, Identifiable, Hashable {
         RoomObject(
             id: id, kind: kind, name: name, x: point.x, y: point.y, rotation: rotation,
             width: width, depth: depth, height: height, disposition: disposition,
-            included: included, quantity: quantity, notes: notes)
+            included: included, quantity: quantity, sizeHandSet: sizeHandSet, notes: notes)
     }
 
     func rotated(to degrees: Double) -> RoomObject {
         RoomObject(
             id: id, kind: kind, name: name, x: x, y: y, rotation: degrees,
             width: width, depth: depth, height: height, disposition: disposition,
-            included: included, quantity: quantity, notes: notes)
+            included: included, quantity: quantity, sizeHandSet: sizeHandSet, notes: notes)
     }
 
     /// Memberwise, written out because `Decodable` synthesis does not give
@@ -929,7 +961,7 @@ struct RoomObject: Decodable, Identifiable, Hashable {
     init(
         id: String, kind: String, name: String?, x: Double, y: Double, rotation: Double,
         width: Double, depth: Double, height: Double, disposition: String, included: Bool,
-        quantity: Int, notes: String?
+        quantity: Int, sizeHandSet: Bool = false, notes: String?
     ) {
         self.id = id
         self.kind = kind
@@ -943,6 +975,7 @@ struct RoomObject: Decodable, Identifiable, Hashable {
         self.disposition = disposition
         self.included = included
         self.quantity = quantity
+        self.sizeHandSet = sizeHandSet
         self.notes = notes
     }
 
