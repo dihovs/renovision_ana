@@ -518,6 +518,9 @@ actor API {
     private struct NewObject: Encodable {
         let roomScanId: String
         let kind: String
+        /// The stock size's own name, so the plan says WHICH fridge rather
+        /// than just "Refrigerator". Nil for anything sold in one size.
+        let name: String?
         let x: Double
         let y: Double
         let rotation: Double
@@ -530,14 +533,15 @@ actor API {
     /// to the server, because the catalogue is the app's own and the server
     /// deliberately knows nothing about slugs — see `roomObjects.ts`.
     func createObject(
-        roomScanId: String, kind: String, at point: CGPoint, rotation: Double,
-        width: Double, depth: Double, height: Double
+        roomScanId: String, kind: String, name: String? = nil, at point: CGPoint,
+        rotation: Double, width: Double, depth: Double, height: Double
     ) async throws -> String {
         struct Created: Decodable { let id: String }
         let data = try await request(
             "/api/v1/objects", method: "POST",
             body: NewObject(
-                roomScanId: roomScanId, kind: kind, x: Double(point.x), y: Double(point.y),
+                roomScanId: roomScanId, kind: kind, name: name,
+                x: Double(point.x), y: Double(point.y),
                 rotation: rotation, width: width, depth: depth, height: height))
         return try decode(Created.self, from: data).id
     }

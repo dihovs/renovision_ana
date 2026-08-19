@@ -95,30 +95,24 @@ enum ObjectCatalog {
         /// The inch derivation, stated so the number can be checked rather
         /// than trusted. Shown nowhere; it is for whoever reads this file.
         let sizeNote: String
+        /// The sizes this thing is sold in.
+        ///
+        /// **One entry, several sizes** — the owner's call after using the
+        /// alternative: *"I don't wanna have, like, three, four different
+        /// kind of refrigerators in the appliances place. I wanna choose one
+        /// refrigerator, and I want it to tell me to choose the size."*
+        /// Right, and it reads better: a fridge is one thing that comes in
+        /// widths, not four things that happen to look alike.
+        ///
+        /// Empty for anything sold in one size, which is what tells the
+        /// picker there is nothing to ask.
+        var stock: [Stock] = []
 
         var id: String { slug }
 
-        /// Which family of sizes this belongs to.
-        ///
-        /// A fridge comes in four widths and they are four catalogue
-        /// entries — the owner chose that over a picker at placement time.
-        /// But he then placed one and said *"it's not asking me to choose
-        /// the size."* Both are true: the tiles ARE the choice, and the
-        /// tile he tapped came from the Recently-used rail, which goes
-        /// straight to the one he used last.
-        ///
-        /// So the family is also offered INSIDE the object, where changing
-        /// your mind belongs. `Refrigerator, 33"` is one tap from
-        /// `Refrigerator, 36"` without deleting anything and placing again.
-        var family: String {
-            for stem in [
-                "refrigerator", "dishwasher", "washer", "dryer", "range", "bathtub",
-                "water_heater", "toilet", "vanity", "shower", "base_cabinet",
-            ] where slug.hasPrefix(stem) {
-                return stem
-            }
-            return slug
-        }
+        /// This entry at one of its stock sizes — see `ObjectCatalog.sized`.
+        func sized(_ stock: Stock) -> Entry { ObjectCatalog.sized(self, stock) }
+
 
         /// The mark that goes INSIDE the footprint on a floor plan.
         ///
@@ -141,7 +135,7 @@ enum ObjectCatalog {
             case "bathtub": return "bathtub"
             case "shower_stall": return "shower"
             case "kitchen_sink", "laundry_tub": return "sink"
-            case "vanity_24", "vanity_36", "vanity_60": return "sink"
+            case "vanity_24": return "sink"
             case "water_heater": return "water.waves"
             case "sump_pit": return "drop"
             case "refrigerator": return "refrigerator"
@@ -170,6 +164,15 @@ enum ObjectCatalog {
             default: return "square"
             }
         }
+    }
+
+    /// One size a thing is sold in.
+    struct Stock: Identifiable, Hashable {
+        let label: String
+        let width: Double
+        let depth: Double
+        let height: Double
+        var id: String { label }
     }
 
     /// The drawable families. Deliberately few: a plan symbol is a
@@ -208,41 +211,42 @@ enum ObjectCatalog {
     static let entries: [Entry] = [
         // MARK: Plumbing — where a water-damage job usually starts.
         Entry(
-            slug: "toilet", name: "Toilet, elongated", category: .plumbing,
+            slug: "toilet", name: "Toilet", category: .plumbing,
             width: 20 * inch, depth: 30 * inch, height: 30 * inch, shape: .toilet,
-            sizeNote: "20x30in, 12in rough-in — the standard two-piece in most homes."),
+            sizeNote: "20x30in, 12in rough-in — the standard two-piece in most homes.",
+            stock: [
+                Stock(label: "Elongated", width: 20 * inch, depth: 30 * inch, height: 30 * inch),
+                Stock(label: "Round front", width: 20 * inch, depth: 27 * inch, height: 29 * inch),
+            ]),
         Entry(
-            slug: "toilet_round", name: "Toilet, round front", category: .plumbing,
-            width: 20 * inch, depth: 27 * inch, height: 29 * inch, shape: .toilet,
-            sizeNote: "20x27in round front — three inches shorter, for a tight powder room."),
-        Entry(
-            slug: "vanity_24", name: "Vanity, 24\"", category: .plumbing,
+            slug: "vanity_24", name: "Vanity", category: .plumbing,
             width: 24 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
-            sizeNote: "24in stock vanity, 21in deep, 34.5in to the counter."),
+            sizeNote: "24in stock vanity, 21in deep, 34.5in to the counter.",
+            stock: [
+                Stock(label: "24\"", width: 24 * inch, depth: 21 * inch, height: 34.5 * inch),
+                Stock(label: "30\"", width: 30 * inch, depth: 21 * inch, height: 34.5 * inch),
+                Stock(label: "36\"", width: 36 * inch, depth: 21 * inch, height: 34.5 * inch),
+                Stock(label: "48\"", width: 48 * inch, depth: 21 * inch, height: 34.5 * inch),
+                Stock(label: "60\" double", width: 60 * inch, depth: 21 * inch, height: 34.5 * inch),
+            ]),
         Entry(
-            slug: "vanity_36", name: "Vanity, 36\"", category: .plumbing,
-            width: 36 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
-            sizeNote: "36in stock vanity — the common single-basin size."),
-        Entry(
-            slug: "vanity_60", name: "Vanity, 60\" double", category: .plumbing,
-            width: 60 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
-            sizeNote: "60in double vanity, the stock two-basin width."),
-        Entry(
-            slug: "bathtub", name: "Bathtub, 60\"", category: .plumbing,
+            slug: "bathtub", name: "Bathtub", category: .plumbing,
             width: 60 * inch, depth: 30 * inch, height: 20 * inch, shape: .tub,
-            sizeNote: "60x30in alcove tub — the near-universal North American size."),
-        Entry(
-            slug: "bathtub_54", name: "Bathtub, 54\"", category: .plumbing,
-            width: 54 * inch, depth: 30 * inch, height: 20 * inch, shape: .tub,
-            sizeNote: "54in alcove — older and smaller bathrooms."),
-        Entry(
-            slug: "bathtub_66", name: "Bathtub, 66\" soaker", category: .plumbing,
-            width: 66 * inch, depth: 32 * inch, height: 22 * inch, shape: .tub,
-            sizeNote: "66x32in soaker."),
+            sizeNote: "60x30in alcove tub — the near-universal North American size.",
+            stock: [
+                Stock(label: "60\" alcove", width: 60 * inch, depth: 30 * inch, height: 20 * inch),
+                Stock(label: "54\" alcove", width: 54 * inch, depth: 30 * inch, height: 20 * inch),
+                Stock(label: "66\" soaker", width: 66 * inch, depth: 32 * inch, height: 22 * inch),
+            ]),
         Entry(
             slug: "shower_stall", name: "Shower stall", category: .plumbing,
             width: 36 * inch, depth: 36 * inch, height: 78 * inch, shape: .shower,
-            sizeNote: "36in square stock base; 78in to the top of the surround."),
+            sizeNote: "36in square stock base; 78in to the top of the surround.",
+            stock: [
+                Stock(label: "36\" square", width: 36 * inch, depth: 36 * inch, height: 78 * inch),
+                Stock(label: "32\" square", width: 32 * inch, depth: 32 * inch, height: 78 * inch),
+                Stock(label: "60\" x 32\"", width: 60 * inch, depth: 32 * inch, height: 78 * inch),
+            ]),
         Entry(
             slug: "kitchen_sink", name: "Kitchen sink", category: .plumbing,
             width: 33 * inch, depth: 22 * inch, height: 9 * inch, shape: .sink,
@@ -252,17 +256,15 @@ enum ObjectCatalog {
             width: 23 * inch, depth: 23 * inch, height: 34 * inch, shape: .sink,
             sizeNote: "23in square utility tub — the basement standard."),
         Entry(
-            slug: "water_heater", name: "Water heater, 40 gal", category: .plumbing,
+            slug: "water_heater", name: "Water heater", category: .plumbing,
             width: 20 * inch, depth: 20 * inch, height: 58 * inch, shape: .cylinder,
-            sizeNote: "20in diameter, 58in tall — a 40 gallon tank."),
-        Entry(
-            slug: "water_heater_50", name: "Water heater, 50 gal", category: .plumbing,
-            width: 22 * inch, depth: 22 * inch, height: 62 * inch, shape: .cylinder,
-            sizeNote: "22in diameter, 62in — a 50 gallon tank."),
-        Entry(
-            slug: "water_heater_tankless", name: "Water heater, tankless", category: .plumbing,
-            width: 14 * inch, depth: 9 * inch, height: 24 * inch, shape: .panel,
-            sizeNote: "14x9in wall unit, 24in tall — hangs, so it survives a floor flood."),
+            sizeNote: "20in diameter, 58in tall — a 40 gallon tank.",
+            stock: [
+                Stock(label: "40 gallon", width: 20 * inch, depth: 20 * inch, height: 58 * inch),
+                Stock(label: "50 gallon", width: 22 * inch, depth: 22 * inch, height: 62 * inch),
+                Stock(label: "60 gallon", width: 24 * inch, depth: 24 * inch, height: 64 * inch),
+                Stock(label: "Tankless", width: 14 * inch, depth: 9 * inch, height: 24 * inch),
+            ]),
         Entry(
             slug: "sump_pit", name: "Sump pit", category: .plumbing,
             width: 18 * inch, depth: 18 * inch, height: 24 * inch, shape: .cylinder,
@@ -272,7 +274,12 @@ enum ObjectCatalog {
         Entry(
             slug: "base_cabinet", name: "Base cabinet", category: .cabinets,
             width: 24 * inch, depth: 24 * inch, height: 34.5 * inch, shape: .counter,
-            sizeNote: "24in base unit; 34.5in carcass under a 1.5in top makes 36in."),
+            sizeNote: "24in base unit; 34.5in carcass under a 1.5in top makes 36in.",
+            stock: [
+                Stock(label: "24\"", width: 24 * inch, depth: 24 * inch, height: 34.5 * inch),
+                Stock(label: "30\"", width: 30 * inch, depth: 24 * inch, height: 34.5 * inch),
+                Stock(label: "36\"", width: 36 * inch, depth: 24 * inch, height: 34.5 * inch),
+            ]),
         Entry(
             slug: "wall_cabinet", name: "Wall cabinet", category: .cabinets,
             width: 30 * inch, depth: 12 * inch, height: 30 * inch, shape: .wallCabinet,
@@ -299,62 +306,50 @@ enum ObjectCatalog {
         // and the width is not cosmetic: it is what the cabinet opening was
         // built to and what a replacement has to fit.
         Entry(
-            slug: "refrigerator_30", name: "Refrigerator, 30\"", category: .appliances,
-            width: 30 * inch, depth: 32 * inch, height: 66 * inch, shape: .fridge,
-            sizeNote: "30in top-freezer — the narrowest common opening, older kitchens."),
-        Entry(
-            slug: "refrigerator_33", name: "Refrigerator, 33\"", category: .appliances,
-            width: 33 * inch, depth: 32 * inch, height: 68 * inch, shape: .fridge,
-            sizeNote: "33in side-by-side."),
-        Entry(
-            slug: "refrigerator", name: "Refrigerator, 36\"", category: .appliances,
+            slug: "refrigerator", name: "Refrigerator", category: .appliances,
             width: 36 * inch, depth: 30 * inch, height: 70 * inch, shape: .fridge,
-            sizeNote: "36in French-door, 30in deep with the doors — the common new build."),
+            sizeNote: "36in French-door, 30in deep with the doors — the common new build.",
+            stock: [
+                Stock(label: "30\" top-freezer", width: 30 * inch, depth: 32 * inch, height: 66 * inch),
+                Stock(label: "33\" side-by-side", width: 33 * inch, depth: 32 * inch, height: 68 * inch),
+                Stock(label: "36\" French door", width: 36 * inch, depth: 30 * inch, height: 70 * inch),
+                Stock(label: "36\" counter-depth", width: 36 * inch, depth: 25 * inch, height: 70 * inch),
+            ]),
         Entry(
-            slug: "refrigerator_36_cd", name: "Refrigerator, 36\" counter-depth",
-            category: .appliances,
-            width: 36 * inch, depth: 25 * inch, height: 70 * inch, shape: .fridge,
-            sizeNote: "36in counter-depth: 25in deep so it sits flush with the cabinets."),
-        Entry(
-            slug: "range", name: "Range, 30\"", category: .appliances,
+            slug: "range", name: "Range", category: .appliances,
             width: 30 * inch, depth: 26 * inch, height: 36 * inch, shape: .stove,
-            sizeNote: "30in slide-in — the stock opening in every cabinet run."),
+            sizeNote: "30in slide-in — the stock opening in every cabinet run.",
+            stock: [
+                Stock(label: "30\" slide-in", width: 30 * inch, depth: 26 * inch, height: 36 * inch),
+                Stock(label: "24\" apartment", width: 24 * inch, depth: 25 * inch, height: 36 * inch),
+                Stock(label: "36\" pro", width: 36 * inch, depth: 27 * inch, height: 36 * inch),
+            ]),
         Entry(
-            slug: "range_24", name: "Range, 24\"", category: .appliances,
-            width: 24 * inch, depth: 25 * inch, height: 36 * inch, shape: .stove,
-            sizeNote: "24in apartment range."),
-        Entry(
-            slug: "range_36", name: "Range, 36\"", category: .appliances,
-            width: 36 * inch, depth: 27 * inch, height: 36 * inch, shape: .stove,
-            sizeNote: "36in pro-style, six burners."),
-        Entry(
-            slug: "dishwasher", name: "Dishwasher, 24\"", category: .appliances,
+            slug: "dishwasher", name: "Dishwasher", category: .appliances,
             width: 24 * inch, depth: 24 * inch, height: 34 * inch, shape: .machine,
-            sizeNote: "24in built-in, sized to the base cabinet it replaces — nearly all of them."),
+            sizeNote: "24in built-in, sized to the base cabinet it replaces — nearly all of them.",
+            stock: [
+                Stock(label: "24\" standard", width: 24 * inch, depth: 24 * inch, height: 34 * inch),
+                Stock(label: "18\" compact", width: 18 * inch, depth: 24 * inch, height: 34 * inch),
+            ]),
         Entry(
-            slug: "dishwasher_18", name: "Dishwasher, 18\"", category: .appliances,
-            width: 18 * inch, depth: 24 * inch, height: 34 * inch, shape: .machine,
-            sizeNote: "18in compact — condos and galley kitchens."),
-        Entry(
-            slug: "washer", name: "Washer, 27\"", category: .appliances,
+            slug: "washer", name: "Washer", category: .appliances,
             width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .machine,
-            sizeNote: "27in front-loader, 30in deep with the door shut."),
+            sizeNote: "27in front-loader, 30in deep with the door shut.",
+            stock: [
+                Stock(label: "27\" front-load", width: 27 * inch, depth: 30 * inch, height: 38 * inch),
+                Stock(label: "27.5\" top-load", width: 27.5 * inch, depth: 27 * inch, height: 42 * inch),
+                Stock(label: "24\" compact", width: 24 * inch, depth: 24 * inch, height: 33 * inch),
+                Stock(label: "Stacked pair", width: 27 * inch, depth: 31 * inch, height: 76 * inch),
+            ]),
         Entry(
-            slug: "washer_top", name: "Washer, top-load", category: .appliances,
-            width: 27.5 * inch, depth: 27 * inch, height: 42 * inch, shape: .machine,
-            sizeNote: "27.5in top-loader — taller, and the lid needs clearance above it."),
-        Entry(
-            slug: "washer_24", name: "Washer, 24\" compact", category: .appliances,
-            width: 24 * inch, depth: 24 * inch, height: 33 * inch, shape: .machine,
-            sizeNote: "24in compact, the condo stacking pair."),
-        Entry(
-            slug: "dryer", name: "Dryer, 27\"", category: .appliances,
+            slug: "dryer", name: "Dryer", category: .appliances,
             width: 27 * inch, depth: 30 * inch, height: 38 * inch, shape: .machine,
-            sizeNote: "27in, matched to the washer it stacks with."),
-        Entry(
-            slug: "laundry_pair", name: "Washer & dryer, stacked", category: .appliances,
-            width: 27 * inch, depth: 31 * inch, height: 76 * inch, shape: .machine,
-            sizeNote: "27in stacked pair — one footprint, two machines, 76in tall."),
+            sizeNote: "27in, matched to the washer it stacks with.",
+            stock: [
+                Stock(label: "27\" standard", width: 27 * inch, depth: 30 * inch, height: 38 * inch),
+                Stock(label: "24\" compact", width: 24 * inch, depth: 25 * inch, height: 33 * inch),
+            ]),
 
         // MARK: Mechanical and electrical — the basement's own furniture.
         Entry(
@@ -433,17 +428,27 @@ enum ObjectCatalog {
             sizeNote: "48in surround, 24in of hearth into the room."),
     ]
 
+    /// The same catalogue entry at one of its stock sizes.
+    ///
+    /// The SLUG does not change — a 30-inch fridge and a 36-inch one are
+    /// one fridge at two sizes, which is the whole point of collapsing the
+    /// variants back into one entry. What changes is the measurement, and
+    /// the size's own label goes on as the object's name so the plan says
+    /// which one it is.
+    static func sized(_ entry: Entry, _ stock: Stock) -> Entry {
+        var copy = entry
+        copy = Entry(
+            slug: entry.slug, name: "\(entry.name), \(stock.label)",
+            category: entry.category, width: stock.width, depth: stock.depth,
+            height: stock.height, shape: entry.shape, sizeNote: entry.sizeNote,
+            stock: entry.stock)
+        return copy
+    }
+
     static func entry(slug: String) -> Entry? {
         entries.first { $0.slug == slug }
     }
 
-    /// Every size this thing comes in, in catalogue order. One entry long
-    /// for anything that comes in one size, which the picker uses to know
-    /// there is nothing to choose.
-    static func sizes(of entry: Entry) -> [Entry] {
-        let family = entry.family
-        return entries.filter { $0.family == family }
-    }
 
     static func entries(in category: Category) -> [Entry] {
         entries.filter { $0.category == category }

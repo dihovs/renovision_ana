@@ -127,6 +127,12 @@ struct ObjectLibraryPicker: View {
                     }
                 }
             }
+            .sheet(
+                isPresented: Binding(
+                    get: { choosingSize != nil }, set: { if !$0 { choosingSize = nil } })
+            ) {
+                sizeSheet.presentationDetents([.medium, .large])
+            }
         }
     }
 
@@ -172,11 +178,79 @@ struct ObjectLibraryPicker: View {
         }
     }
 
+    /// Chosen, but not yet handed over: a thing that comes in several
+    /// sizes asks which one first.
+    @State private var choosingSize: ObjectCatalog.Entry?
+
     private func pick(_ item: LibraryItem) {
+        // **One tile, then the size** — the owner's call after using the
+        // alternative: *"I don't wanna have three, four different kind of
+        // refrigerators in the appliances place. I wanna choose one
+        // refrigerator, and I want it to tell me to choose the size."*
+        if case .object(let entry) = item, entry.stock.count > 1 {
+            choosingSize = entry
+            return
+        }
         ObjectHabits.remember(item.id)
         version += 1
         onPick(item)
         dismiss()
+    }
+
+    /// The size sheet. Only ever raised for something sold in more than
+    /// one, so it never asks a question with one answer.
+    @ViewBuilder private var sizeSheet: some View {
+        if let entry = choosingSize {
+            NavigationStack {
+                List(entry.stock) { size in
+                    Button {
+                        ObjectHabits.remember("object.\(entry.slug)")
+                        version += 1
+                        onPick(.object(entry.sized(size)))
+                        choosingSize = nil
+                        dismiss()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(size.label)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(Brand.ink)
+                                Text(
+                                    UnitSettings.shared.format.format(size.width) + " × "
+                                        + UnitSettings.shared.format.format(size.depth)
+                                )
+                                .font(.system(size: 12).monospacedDigit())
+                                .foregroundStyle(Brand.inkSoft)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.inkFaint)
+                        }
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .navigationTitle(entry.name)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Back") { choosingSize = nil }
+                    }
+                }
+                // The way out for a size that is not on the list: place the
+                // usual one and correct it. Saying so here beats leaving
+                // the operator to wonder whether the app can cope with a
+                // fridge nobody stocks any more.
+                .safeAreaInset(edge: .bottom) {
+                    Text("Not on the list? Place one and type the real size in its details.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Brand.inkSoft)
+                        .multilineTextAlignment(.center)
+                        .padding(Brand.Space.base)
+                }
+            }
+        }
     }
 }
 

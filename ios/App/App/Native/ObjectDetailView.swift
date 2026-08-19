@@ -28,7 +28,6 @@ struct ObjectDetailView: View {
     @State private var quantity: Int
     @State private var notes: String
     @State private var changed = false
-    @State private var kind: String
     @State private var widthText: String
     @State private var depthText: String
     @State private var heightText: String
@@ -44,7 +43,6 @@ struct ObjectDetailView: View {
         _included = State(initialValue: object.included)
         _quantity = State(initialValue: object.quantity)
         _notes = State(initialValue: object.notes ?? "")
-        _kind = State(initialValue: object.kind)
         let format = UnitSettings.current
         _widthText = State(initialValue: format.format(object.width))
         _depthText = State(initialValue: format.format(object.depth))
@@ -64,11 +62,18 @@ struct ObjectDetailView: View {
         }
     }
 
-    /// The sizes this object comes in — empty of choice when it comes in
-    /// one, which is what hides the picker.
-    private var sizeOptions: [ObjectCatalog.Entry] {
-        guard let entry = object.entry else { return [] }
-        return ObjectCatalog.sizes(of: entry)
+    /// The sizes this object is sold in — empty when it comes in one,
+    /// which is what hides the list.
+    private var sizeOptions: [ObjectCatalog.Stock] { object.entry?.stock ?? [] }
+
+    /// Whether the fields currently hold this stock size, so the list can
+    /// tick the one in force. Compared on the numbers rather than a stored
+    /// choice: the size IS the measurement, and a tick that disagreed with
+    /// the figures underneath would be the lie worth avoiding.
+    private func matches(_ size: ObjectCatalog.Stock) -> Bool {
+        guard let typed = typedSize else { return false }
+        return abs(typed.width - size.width) < 0.005 && abs(typed.depth - size.depth) < 0.005
+            && abs(typed.height - size.height) < 0.005
     }
 
     /// The three dimensions as metres, or nil where a field cannot be read.
@@ -86,6 +91,14 @@ struct ObjectDetailView: View {
         guard let typed = typedSize else { return object.sizeHandSet }
         guard let entry = object.entry else { return true }
         let off = { (a: Double, b: Double) in abs(a - b) > 0.005 }
+        // A size off the STOCK LIST is not hand-measured, whichever one it
+        // is — a 30-inch fridge is as much a catalogue fact as a 36-inch
+        // one. Only a figure that matches none of them was measured, which
+        // is what the padlock is for.
+        if !entry.stock.isEmpty {
+            return object.sizeHandSet && !sizeOptions.contains(where: matches)
+                || !sizeOptions.contains(where: matches)
+        }
         return object.sizeHandSet || off(typed.width, entry.width)
             || off(typed.depth, entry.depth) || off(typed.height, entry.height)
     }
@@ -162,17 +175,38 @@ struct ObjectDetailView: View {
                 // room, rather than delete-and-place-again.
                 if sizeOptions.count > 1 {
                     Section {
-                        Picker("Size", selection: $kind) {
-                            ForEach(sizeOptions) { option in
-                                Text(option.name).tag(option.slug)
+                        ForEach(sizeOptions) { size in
+                            Button {
+                                widthText = units.format.format(size.width)
+                                depthText = units.format.format(size.depth)
+                                heightText = units.format.format(size.height)
+                                name = "\(object.entry?.name ?? "") \(size.label)"
+                                    .trimmingCharacters(in: .whitespaces)
+                            } label: {
+                                HStack {
+                                    Text(size.label)
+                                        .foregroundStyle(Brand.ink)
+                                    Spacer()
+                                    Text(
+                                        UnitSettings.shared.format.format(size.width) + " × "
+                                            + UnitSettings.shared.format.format(size.depth)
+                                    )
+                                    .font(.system(size: 13).monospacedDigit())
+                                    .foregroundStyle(Brand.inkSoft)
+                                    if matches(size) {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundStyle(Brand.blue)
+                                    }
+                                }
+                                .contentShape(.rect)
                             }
+                            .buttonStyle(.plain)
                         }
-                        .pickerStyle(.inline)
-                        .labelsHidden()
                     } header: {
                         Text("Standard sizes")
                     } footer: {
-                        Text("The sizes this comes in. Choosing one resets the measurements below to that size.")
+                        Text("Choosing one sets the measurements below. Type over them if this one was measured.")
                     }
                 }
 
@@ -240,15 +274,6 @@ struct ObjectDetailView: View {
                     Text("Deleting takes it off the drawing. To keep it on the plan but out of the claim, turn off Include instead.")
                 }
             }
-            .onChange(of: kind) { _, slug in
-                // A different size is a different set of measurements, so
-                // the fields follow the choice rather than keeping the old
-                // ones and quietly disagreeing with the name.
-                guard let entry = ObjectCatalog.entry(slug: slug) else { return }
-                widthText = units.format.format(entry.width)
-                depthText = units.format.format(entry.depth)
-                heightText = units.format.format(entry.height)
-            }
             .navigationTitle(object.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -290,7 +315,7 @@ struct ObjectDetailView: View {
                 abs($0.width - object.width) > 0.005 || abs($0.depth - object.depth) > 0.005
                     || abs($0.height - object.height) > 0.005
             } ?? false
-        let kindChanged = kind != object.kind
+        let kindChanged = false
         let anything =
             nameChanged || disposition != object.disposition || included != object.included
             || quantity != object.quantity || notes != (object.notes ?? "") || sizeChanged
@@ -305,7 +330,6 @@ struct ObjectDetailView: View {
         do {
             try await API.shared.updateObject(
                 id: object.id,
-                kind: kindChanged ? kind : nil,
                 name: nameChanged ? newName : nil,
                 width: sizeChanged ? typed?.width : nil,
                 depth: sizeChanged ? typed?.depth : nil,
@@ -316,10 +340,10 @@ struct ObjectDetailView: View {
                 // Marked the moment a figure is typed, and left alone
                 // otherwise — resetting to the catalogue size clears it,
                 // which is what `handSet` recomputes above.
-                // Picking a standard size is not measuring one: choosing
-                // 33in from the list clears the padlock, typing 33.5 sets
-                // it.
-                sizeHandSet: sizeChanged ? (kindChanged ? false : handSet) : nil,
+                // Picking a standard size is not measuring one: a size off
+                // the list leaves the padlock off, typing an odd figure
+                // sets it.
+                sizeHandSet: sizeChanged ? handSet : nil,
                 notes: notes != (object.notes ?? "") ? notes : nil)
             onClose(true)
             dismiss()

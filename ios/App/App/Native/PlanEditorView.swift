@@ -1758,7 +1758,12 @@ struct RoomEditorCore: View {
             ?? CGPoint(x: bounds.midX - roomOrigin.x, y: bounds.midY - roomOrigin.y)
         do {
             let id = try await API.shared.createObject(
-                roomScanId: room.id, kind: entry.slug, at: centre, rotation: rotation,
+                roomScanId: room.id, kind: entry.slug,
+                // The catalogue's own name when a size was chosen, so the
+                // plan reads "Refrigerator, 30in top-freezer" rather than
+                // leaving the operator to remember which one he placed.
+                name: entry.stock.count > 1 ? entry.name : nil,
+                at: centre, rotation: rotation,
                 width: entry.width, depth: entry.depth, height: entry.height)
             await loadObjects()
             select(.object(id))
