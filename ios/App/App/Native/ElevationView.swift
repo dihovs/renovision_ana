@@ -582,6 +582,18 @@ struct ElevationView: View {
                 // will not unify. Branching inside the handlers keeps both
                 // behaviours exactly as written without an eraser.
                 .gesture(faceGesture(face: face))
+                // Tap OFF the wall face to go back to the plan — the
+                // owner's ask, and the same rule the plan editor already
+                // taught one level down: tap outside the thing you are in
+                // to come up a level. One gesture at every depth beats a
+                // gesture that works on the plan and does nothing here.
+                //
+                // Back to the ROOM, not to the storey. His words: *"I don't
+                // want it to go to storey, I want it to go back to the
+                // adjuster mode of the floor plan."* The elevation was
+                // opened from a wall of that room, so the room is where it
+                // came from and where the hand expects to land.
+                .onTapGesture { location in tapOutside(location, face: face) }
                 // Re-identified per wall, so stepping is a REPLACEMENT
                 // SwiftUI can transition rather than a redraw of the same
                 // view. Without the `.id` the canvas simply repaints and
@@ -1160,6 +1172,42 @@ struct ElevationView: View {
     /// Drawn UNDER the openings, because a window above a vanity is seen and
     /// a vanity in front of a window is not — and in a bathroom that is the
     /// usual arrangement.
+    /// A tap that landed somewhere on the canvas — decide whether it means
+    /// "leave".
+    ///
+    /// The LADDER matters as much as the gesture, and it is the plan
+    /// editor's own: a tap only leaves when there is nothing else for it to
+    /// mean. Marking damage is a DRAG that routinely starts or ends off the
+    /// face, so a bare "tap anywhere outside exits" would throw the
+    /// operator out mid-measurement — which is exactly the class of bug
+    /// this screen has already produced twice.
+    ///
+    /// 1. A draft rectangle in hand, or the marking mode armed: the tap
+    ///    cancels THAT and nothing else.
+    /// 2. Otherwise, a tap on the face itself does what it always did.
+    /// 3. Only a tap on bare canvas, with nothing in progress, goes back.
+    private func tapOutside(_ location: CGPoint, face: Face?) {
+        // Step one of the ladder: get out of marking mode before getting
+        // out of the screen.
+        if draft != nil || drawing {
+            draft = nil
+            drawing = false
+            return
+        }
+        guard let face else { return }
+
+        // The face's own rectangle, generously margined so the dimension
+        // strings and the folded neighbours either side still count as
+        // "the drawing" rather than as empty canvas.
+        let bounds = CGRect(
+            x: face.origin.x, y: face.origin.y - face.heightPts,
+            width: face.widthPts, height: face.heightPts
+        ).insetBy(dx: -56, dy: -44)
+        guard !bounds.contains(location) else { return }
+
+        onClose()
+    }
+
     private func drawObjects(context: GraphicsContext, face: Face, size: CGSize) {
         guard wallCount >= 3 else { return }
         let (ai, bi) = PlanEditing.edgeCorners(edge, count: corners.count)
