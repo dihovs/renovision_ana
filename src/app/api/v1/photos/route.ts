@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guarded } from "../guard";
 import {
   addProjectFile,
+  deleteProjectFile,
   listProjectFiles, listRoomFiles,
   signProjectFileUrls,
   MAX_PROJECT_FILE_BYTES,
@@ -110,4 +111,32 @@ export async function POST(request: Request) {
       wallIndex,
     }),
   }));
+}
+
+/**
+ * Remove one photo, object and row together.
+ *
+ * Written for redaction, and that is the whole reason it exists. The phone's
+ * photo editor blurs a document, a face or a plate and uploads the redacted
+ * copy — and if the original stayed in the bucket, the redaction would be
+ * decoration. What the operator did was not "make a censored copy"; it was
+ * "this must not be readable", and only deleting the original says that.
+ *
+ * `deleteProjectFile` removes the storage object as well as the row, so
+ * there is no signed URL left to hand out.
+ *
+ * The client uploads the redacted copy FIRST and calls this only once that
+ * has succeeded. That order is deliberate: the failure it leaves behind is
+ * two photos where there should be one, which anyone can see and fix, rather
+ * than none at all, which loses evidence.
+ */
+export async function DELETE(request: Request) {
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "id is required." }, { status: 400 });
+  }
+  return guarded(async () => {
+    await deleteProjectFile(id);
+    return { deleted: id };
+  });
 }

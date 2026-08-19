@@ -871,6 +871,18 @@ actor API {
         return try decode(Created.self, from: data).id
     }
 
+    /// Remove one photo — the row and the stored object together.
+    ///
+    /// Exists for redaction. `PhotoEditorView` uploads the blurred copy and
+    /// then calls this on the original, in that order: the failure that
+    /// ordering leaves behind is two photos where there should be one, which
+    /// anyone can see and fix. The other order can lose the evidence
+    /// outright.
+    func deletePhoto(id: String) async throws {
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id
+        _ = try await request("/api/v1/photos?id=\(encoded)", method: "DELETE")
+    }
+
     // MARK: - Drying log
 
     func moisture(roomScanId: String) async throws -> [MoistureReading] {

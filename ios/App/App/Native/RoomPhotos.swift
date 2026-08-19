@@ -30,6 +30,8 @@ struct RoomPhotosSection: View {
     @State private var pickedItem: PhotosPickerItem?
     @State private var uploading = false
     @State private var error: String?
+    /// The photo open full-screen, if any — the route to the editor.
+    @State private var viewing: RoomPhoto?
 
     var body: some View {
         Section {
@@ -37,16 +39,27 @@ struct RoomPhotosSection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: Brand.Space.tight) {
                         ForEach(photos) { photo in
-                            AsyncImage(url: photo.url.flatMap(URL.init)) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image.resizable().scaledToFill()
-                                default:
-                                    Brand.surfaceRaised
+                            // Tappable, which they were not until S6. A
+                            // photo that can be uploaded and never looked
+                            // at again on the phone that took it is half a
+                            // feature — and the reference reaches its
+                            // editor from the viewer's `Edit`, so there was
+                            // nowhere for blur to live either.
+                            Button {
+                                viewing = photo
+                            } label: {
+                                AsyncImage(url: photo.url.flatMap(URL.init)) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image.resizable().scaledToFill()
+                                    default:
+                                        Brand.surfaceRaised
+                                    }
                                 }
+                                .frame(width: 96, height: 96)
+                                .clipShape(.rect(cornerRadius: Brand.Radius.tile))
                             }
-                            .frame(width: 96, height: 96)
-                            .clipShape(.rect(cornerRadius: Brand.Radius.tile))
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -99,6 +112,18 @@ struct RoomPhotosSection: View {
                 }
                 pickedItem = nil
             }
+        }
+        .fullScreenCover(item: $viewing) { photo in
+            PhotoViewer(
+                photo: photo,
+                projectId: projectId,
+                roomScanId: roomScanId,
+                affectedAreaId: affectedAreaId,
+                wallIndex: wallIndex,
+                // A redaction uploads a new photo and deletes the old one,
+                // so the id this grid was drawing is gone. Reload rather
+                // than patch: the list is the server's answer, not ours.
+                onReplaced: { Task { await load() } })
         }
         .fullScreenCover(isPresented: $takingPhoto) {
             CameraCapture { image in

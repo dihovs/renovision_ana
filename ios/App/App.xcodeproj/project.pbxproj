@@ -68,6 +68,7 @@
 		4AD82D75B76CB41D5C01E4B3 /* PlanNavigationGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC43E6725CD8B78774541DD /* PlanNavigationGesture.swift */; };
 		AD656B11A5856E2F155930D0 /* DrawRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EBB8DD8CA83FD333FC3CB5 /* DrawRoomView.swift */; };
 		9C37FD87EE8E31CFC6B4670B /* StoreyViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF69A1134AD78F95AF46364D /* StoreyViewport.swift */; };
+		EF82D7C613C825D545AFB52E /* PhotoEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C697F69A9307C37B0E7FED /* PhotoEditor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -133,6 +134,7 @@
 		6BC43E6725CD8B78774541DD /* PlanNavigationGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanNavigationGesture.swift; sourceTree = "<group>"; };
 		F1EBB8DD8CA83FD333FC3CB5 /* DrawRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DrawRoomView.swift; sourceTree = "<group>"; };
 		CF69A1134AD78F95AF46364D /* StoreyViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/StoreyViewport.swift; sourceTree = "<group>"; };
+		B7C697F69A9307C37B0E7FED /* PhotoEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhotoEditor.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -176,6 +178,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				B7C697F69A9307C37B0E7FED /* PhotoEditor.swift */,
 				CF69A1134AD78F95AF46364D /* StoreyViewport.swift */,
 				F1EBB8DD8CA83FD333FC3CB5 /* DrawRoomView.swift */,
 				6BC43E6725CD8B78774541DD /* PlanNavigationGesture.swift */,
@@ -315,6 +318,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EF82D7C613C825D545AFB52E /* PhotoEditor.swift in Sources */,
 				9C37FD87EE8E31CFC6B4670B /* StoreyViewport.swift in Sources */,
 				AD656B11A5856E2F155930D0 /* DrawRoomView.swift in Sources */,
 				4AD82D75B76CB41D5C01E4B3 /* PlanNavigationGesture.swift in Sources */,
