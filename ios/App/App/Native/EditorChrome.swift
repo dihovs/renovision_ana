@@ -331,7 +331,15 @@ enum EditorChrome {
     // silently did nothing, through two build-and-install cycles.
     static let chainRow: CGFloat = 17
     static let overallRow: CGFloat = 38
-    static let plainRow: CGFloat = 18
+    /// Pushed out from 18 to 28 on 18 Aug 2026, at the owner's report:
+    /// *"when I click to the wall by accident, I'm able to click the
+    /// measurement… I'm not opening the properties of the wall itself, but
+    /// I'm actually messing up with the measurements."* At 18 the string's
+    /// anchor sat 28pt off the wall while the wall's own tap band is 22pt
+    /// wide — six points of clearance for a thumb. At 28 the anchor is 38pt
+    /// out and the two targets no longer share a fingertip. The hit test
+    /// reads this constant, so moving the number moved its target with it.
+    static let plainRow: CGFloat = 28
     /// How far past its own dimension line the string is anchored. This is
     /// the 10pt that was missed.
     static let textLift: CGFloat = 10
@@ -382,10 +390,13 @@ enum EditorChrome {
         at point: CGPoint,
         polygon: [CGPoint],
         scale: CGFloat,
-        /// Generous on purpose: the string is small type, it is tapped with a
-        /// thumb, and nothing else on the canvas competes for the space
-        /// outboard of the walls.
-        radius: CGFloat = 30
+        /// Was 30, which was too generous once it turned out something DOES
+        /// compete for the space: the wall itself, whose own band is 22pt.
+        /// A 30pt radius in every direction meant the dimension claimed
+        /// taps that landed on the wall. 20 keeps the number comfortably
+        /// tappable — it is still twice the type's own height — without
+        /// reaching back across the wall.
+        radius: CGFloat = 20
     ) -> Int? {
         guard polygon.count >= 3, scale > 0 else { return nil }
         let winding = Self.winding(polygon)
@@ -730,7 +741,11 @@ enum EditorChrome {
         context: GraphicsContext,
         toScreen: (CGPoint) -> CGPoint,
         scale: CGFloat,
-        selected: Bool
+        selected: Bool,
+        /// Whether to print the object's name under it. Off at storey scale,
+        /// where the room's own name plate already owns that space and a
+        /// hundred-point-wide room cannot carry both.
+        labelled: Bool = true
     ) {
         let corners = ObjectCatalog.footprint(
             width: object.width, depth: object.depth, rotation: object.rotation
@@ -743,19 +758,55 @@ enum EditorChrome {
         path.closeSubpath()
 
         let ink = selected ? Brand.blue : Brand.Plan.ink
-        context.fill(path, with: .color(Brand.Plan.floorMuted.opacity(object.included ? 0.85 : 0.4)))
+        let alpha = object.included ? 1.0 : 0.45
+
+        // The envelope: the object's measured extent, which the owner asked
+        // to keep — *"it's good to keep this rectangular shape… it is kind
+        // of gonna show all around measure of the toilet."* Drawn first and
+        // lightly, so it reads as the box around the thing rather than as
+        // the thing.
+        context.fill(path, with: .color(Brand.surface.opacity(object.included ? 0.9 : 0.5)))
         context.stroke(
-            path, with: .color(ink.opacity(object.included ? 1 : 0.45)),
+            path, with: .color(ink.opacity(alpha * 0.55)),
             style: StrokeStyle(
-                lineWidth: selected ? 2.4 : 1.4,
+                lineWidth: selected ? 2.0 : 1.0,
                 dash: object.included ? [] : [5, 4]))
 
-        // The name, centred, and only when there is room for it — a label
-        // wider than the thing it names is noise, and at floor zoom a
-        // cabinet is 20 points across.
+        // The figure itself, inside the envelope — his other half of the
+        // same report: *"I don't see the silhouette of the toilet."* Drawn
+        // in the SAME routine the catalogue tile uses, so the symbol he
+        // chose is the symbol he gets, in ink instead of colour.
+        //
+        // Rotated in a layer rather than by rotating every path: the figure
+        // is authored square, once, and the layer carries the object's own
+        // heading.
         let centre = toScreen(CGPoint(x: object.x, y: object.y))
         let widthPts = object.width * scale
-        guard widthPts >= 44 else { return }
+        let depthPts = object.depth * scale
+        if let shape = object.entry?.shape, widthPts > 10, depthPts > 10 {
+            context.drawLayer { layer in
+                layer.translateBy(x: centre.x, y: centre.y)
+                layer.rotate(by: Angle(degrees: object.rotation))
+                ObjectGlyphs.figure(
+                    shape,
+                    in: CGRect(
+                        x: -widthPts / 2, y: -depthPts / 2,
+                        width: widthPts, height: depthPts),
+                    context: layer,
+                    // Ink on paper, not the catalogue's colour: `Brand.Plan`
+                    // is what keeps this drawing reading as drafting beside
+                    // a report. The picker is where the colour lives.
+                    tones: (
+                        fill: Brand.surface.opacity(alpha),
+                        edge: ink.opacity(alpha)
+                    ))
+            }
+        }
+
+        // The name, under the figure rather than across it — a label drawn
+        // over the silhouette hides the thing it names. Only when there is
+        // room for it: at floor zoom a cabinet is 20 points across.
+        guard labelled, widthPts >= 44 else { return }
 
         let text = context.resolve(
             Text(object.displayName)
@@ -763,7 +814,9 @@ enum EditorChrome {
                 .foregroundStyle(ink))
         let size = text.measure(in: CGSize(width: widthPts, height: 40))
         guard size.width <= widthPts - 4 else { return }
-        context.draw(text, at: centre, anchor: .center)
+        context.draw(
+            text, at: CGPoint(x: centre.x, y: centre.y + depthPts / 2 + size.height * 0.7),
+            anchor: .center)
     }
 
     // MARK: - Live dimensions during a drag (ORD-31)

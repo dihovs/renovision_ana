@@ -76,8 +76,20 @@ export type ProjectListItem = Project & {
     geometry: Record<string, unknown>;
     plan_x: number | null;
     plan_y: number | null;
+    objects: PlacedObject[];
   }[];
   floor_area_sqm: number;
+};
+
+/** One fixture on a card: enough to draw its symbol, nothing else. */
+export type PlacedObject = {
+  kind: string;
+  x: number;
+  y: number;
+  rotation: number;
+  width: number;
+  depth: number;
+  included?: boolean;
 };
 
 /** A job linked to the project — display fields only; jobs stay read-only here. */
@@ -217,11 +229,28 @@ export async function listProjects(
     return status ? q.eq("status", status) : q.neq("status", "archived");
   };
 
+  const SCAN_FIELDS = "name, floor_area_sqm, geometry, level, plan_x, plan_y";
+  /** With the fixtures, so a card can draw the toilet and not just the room. */
+  const RICHEST =
+    "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
+    `room_scans(${SCAN_FIELDS}, room_objects(kind, x, y, rotation, width, depth, included))`;
   const RICH =
     "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
-    "room_scans(name, floor_area_sqm, geometry, level, plan_x, plan_y)";
+    `room_scans(${SCAN_FIELDS})`;
 
-  let { data, error } = await build(RICH);
+  let { data, error } = await build(RICHEST);
+
+  // THREE steps down, not two, and the middle one is the point. `room_objects`
+  // is the newest table here and the likeliest embed to fail — a stale
+  // PostgREST schema cache after migration 0037 is exactly the shape of
+  // failure this project has hit before. Falling straight from "with
+  // fixtures" to "no embeds at all" would cost every card its floor plan to
+  // fix a missing toilet, so the fixtures drop out first and the thumbnails
+  // survive.
+  if (error && isEmbedFailure(error)) {
+    console.warn("[projects] objects embed failed, falling back", error.message);
+    ({ data, error } = await build(RICH));
+  }
 
   if (error && isEmbedFailure(error)) {
     // Degrade rather than fail: names, statuses and dates are what the list
@@ -246,6 +275,7 @@ export async function listProjects(
           level: string | null;
           plan_x: number | null;
           plan_y: number | null;
+          room_objects?: PlacedObject[] | null;
         }[]
       | null;
   })[]).map(({ clients, project_files, room_scans, ...project }) => {
@@ -297,6 +327,20 @@ export async function listProjects(
         geometry: scan.geometry,
         plan_x: scan.plan_x,
         plan_y: scan.plan_y,
+        // Only the geometry a symbol needs — not the disposition, notes or
+        // quantity, none of which a 130pt thumbnail can show. Excluded
+        // objects are dropped here rather than sent and filtered: they are
+        // out of the claim, and a card is a summary of the claim.
+        objects: (scan.room_objects ?? [])
+          .filter((object) => object.included !== false)
+          .map((object) => ({
+            kind: object.kind,
+            x: Number(object.x),
+            y: Number(object.y),
+            rotation: Number(object.rotation),
+            width: Number(object.width),
+            depth: Number(object.depth),
+          })),
       })),
       floor_area_sqm: scans.reduce((sum, scan) => sum + Number(scan.floor_area_sqm), 0),
     };

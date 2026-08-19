@@ -106,6 +106,37 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
         let geometry: ScanGeometry
         let planX: Double?
         let planY: Double?
+        /// Fixtures in that room, so the card draws the toilet as well as
+        /// the walls. Only what a symbol needs travels — see the projects
+        /// route. Empty on a server older than this, which the card handles
+        /// by drawing what it always drew.
+        let objects: [CardObject]
+
+        enum CodingKeys: String, CodingKey { case geometry, planX, planY, objects }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            geometry = try c.decode(ScanGeometry.self, forKey: .geometry)
+            planX = try c.decodeIfPresent(Double.self, forKey: .planX)
+            planY = try c.decodeIfPresent(Double.self, forKey: .planY)
+            // A malformed fixture costs this card its fixtures, never the
+            // list — the rule `largestRoom` already follows.
+            objects = (try? c.decodeIfPresent([CardObject].self, forKey: .objects)) ?? []
+        }
+    }
+
+    /// One fixture as a card draws it: where it stands, how big, which way
+    /// round, and which catalogue symbol. Deliberately NOT `RoomObject` —
+    /// the card has no business knowing an object's disposition or notes,
+    /// and the payload stays small for a list of two hundred projects on a
+    /// job-site connection.
+    struct CardObject: Decodable, Hashable {
+        let kind: String
+        let x: Double
+        let y: Double
+        let rotation: Double
+        let width: Double
+        let depth: Double
     }
 
     enum CodingKeys: String, CodingKey {

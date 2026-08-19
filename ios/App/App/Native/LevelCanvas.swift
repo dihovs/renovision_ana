@@ -1139,6 +1139,16 @@ struct FloorCanvasView: View {
             width: w, height: h)
     }
 
+    /// Chosen from the library at floor depth and waiting for the room it
+    /// goes in. The owner asked for the library *"when clicking on the walls
+    /// and on the floor itself"*; on the floor there is no room yet, so the
+    /// choice is held here and the next room tap spends it.
+    /// Every room's objects on this floor, keyed by room id — what
+    /// `StoreyBaseLayer` draws so the storey shows fixtures, not bare boxes.
+    @State private var roomObjects: [String: [RoomObject]] = [:]
+    @State private var pendingLibraryItem: LibraryItem?
+    @State private var choosingLibraryItem = false
+
     private static let roomTransitionDuration: Double = 0.3
     private static let roomTransitionAnimation: Animation = .easeInOut(duration: roomTransitionDuration)
 
@@ -1192,6 +1202,13 @@ struct FloorCanvasView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.roomTransitionDuration) {
             focusedRoomID = nil
         }
+        // Objects are written the moment they are placed — they are rows,
+        // not part of the geometry's Save — so leaving a room is exactly
+        // when this floor's copy of them has gone stale. Without this the
+        // storey kept drawing the objects it loaded when the screen opened,
+        // which is the owner's report: place a toilet, step out, and the
+        // storey shows a room with no toilet in it.
+        Task { await loadObjects() }
     }
 
     var body: some View {
@@ -1215,6 +1232,7 @@ struct FloorCanvasView: View {
                     StoreyBaseLayer(
                         layout: cachedLayout, viewport: viewport, focusedRoomID: focusedRoomID,
                         focusProgress: progress, grid: true,
+                        objects: roomObjects,
                         onTapRoom: { room in enterRoom(room) }
                     )
                     // ONE finger moves the paper, TWO fingers zoom it —
@@ -1264,8 +1282,13 @@ struct FloorCanvasView: View {
                             backContext: .floor,
                             externalViewport: viewport,
                             roomOrigin: cachedLayout.room(id: room.id)?.origin ?? .zero,
+                            initialLibraryItem: pendingLibraryItem,
                             onSaved: { Task { await load() } }
                         )
+                        // Spent the moment it is handed over — it is one
+                        // placement, not a mode, and leaving it set would
+                        // put a second toilet in the next room entered.
+                        .onAppear { pendingLibraryItem = nil }
                         .id(room.id)
                         .opacity(progress)
                     }
@@ -1355,6 +1378,11 @@ struct FloorCanvasView: View {
         .sheet(isPresented: $floorInfo) {
             FloorDetailView(level: showing, label: label, rooms: rooms)
         }
+        .sheet(isPresented: $choosingLibraryItem) {
+            ObjectLibraryPicker(context: .floor) { item in
+                pendingLibraryItem = item
+            }
+        }
         .sheet(isPresented: $addingPhoto, onDismiss: { Task { await load() } }) {
             ProjectFileUploader(projectId: projectId) { Task { await load() } }
         }
@@ -1436,6 +1464,24 @@ struct FloorCanvasView: View {
             // stays visible behind it, which is the whole reason it is a
             // popover and not a push.
             VStack(spacing: 0) {
+                // A choice waiting for its room. A mode with no visible
+                // state is a mode nobody can leave, so it says what it is
+                // waiting for and offers the way out.
+                if let pendingLibraryItem {
+                    HStack(spacing: Brand.Space.small) {
+                        Text("Tap the room for the \(pendingLibraryItem.name.lowercased())")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Button("Cancel") { self.pendingLibraryItem = nil }
+                            .font(.system(size: 14, weight: .semibold))
+                            .tint(.white)
+                    }
+                    .padding(.horizontal, Brand.Space.base)
+                    .padding(.vertical, Brand.Space.small)
+                    .background(Brand.blue, in: .capsule)
+                    .padding(.bottom, Brand.Space.small)
+                }
+
                 if insertOpen {
                     insertMenu
                         .padding(.horizontal, Brand.Space.base)
@@ -1488,7 +1534,15 @@ struct FloorCanvasView: View {
                 choosingMethod = true
             }
             Divider()
-            insertRow("Object", icon: "bed.double", enabled: false, note: "In a room, on a wall") {}
+            // Live since S8. At floor depth the library opens the same way
+            // it does inside a room; what differs is only that the room is
+            // named by the NEXT tap rather than already known.
+            insertRow(
+                "Object", icon: "bed.double", enabled: true,
+                note: "Choose one, then tap the room"
+            ) {
+                choosingLibraryItem = true
+            }
             Divider()
             insertRow("Note", icon: "note.text", enabled: false, note: "Not stored yet") {}
             Divider()
@@ -1585,6 +1639,28 @@ struct FloorCanvasView: View {
     private func load() async {
         scans = (try? await API.shared.scans(projectId: projectId)) ?? []
         refreshLayout()
+        await loadObjects()
+    }
+
+    /// Every room's objects, so the storey draws its fixtures too.
+    ///
+    /// One request per room, run concurrently. A floor-wide endpoint would
+    /// be one request instead of eight, but it would also be a second query
+    /// path to keep correct for a saving that does not show on a phone —
+    /// these run in parallel and the rooms are already all in hand.
+    private func loadObjects() async {
+        let ids = (scans ?? []).map(\.id)
+        guard !ids.isEmpty else { return }
+        var found: [String: [RoomObject]] = [:]
+        await withTaskGroup(of: (String, [RoomObject]).self) { group in
+            for id in ids {
+                group.addTask {
+                    (id, (try? await API.shared.objects(roomScanId: id)) ?? [])
+                }
+            }
+            for await (id, list) in group where !list.isEmpty { found[id] = list }
+        }
+        roomObjects = found
     }
 }
 

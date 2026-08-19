@@ -78,6 +78,16 @@ struct RoomEditorCore: View {
     /// floor space are the same thing because there is no floor. `corners`
     /// itself is never touched by this; only the screen projection is.
     var roomOrigin: CGPoint = .zero
+    /// Something chosen from the library at FLOOR depth, waiting for the
+    /// room it goes in — the owner asked for the library *"on the floor
+    /// itself"* as well as on a wall, and at floor depth there is no room to
+    /// put it in until he taps one. `LevelCanvas` carries the choice through
+    /// the tap and hands it over here.
+    ///
+    /// An object lands in the middle of the room; a door or window has to
+    /// wait one more tap for its wall, which is the same pending state the
+    /// Insert menu already uses.
+    var initialLibraryItem: LibraryItem? = nil
     let onSaved: () -> Void
 
     /// Observed so changing the unit redraws every dimension on the
@@ -361,20 +371,24 @@ struct RoomEditorCore: View {
             }
         }
         .sheet(isPresented: $placingObject) {
-            ObjectPicker { entry in
-                // Chosen with an object already selected? Then this was
-                // "Replace with…": the old one goes and the new one takes
-                // its place and its rotation, which is what replacing means.
-                if case .object(let id) = selection,
-                    let existing = objects.first(where: { $0.id == id })
-                {
-                    Task {
-                        await removeObject(id)
-                        await place(entry, at: CGPoint(x: existing.x, y: existing.y),
-                            rotation: existing.rotation)
+            ObjectLibraryPicker(context: libraryContext) { item in
+                switch item {
+                case .opening(let kind):
+                    // A door or window from the library. With a wall already
+                    // selected it goes straight in; without one it waits for
+                    // the tap that names its wall.
+                    if case .wall(let edge) = selection,
+                        let placed = PlanEditing.placeOpening(
+                            kind, onEdge: edge, of: corners, avoiding: openings)
+                    {
+                        push()
+                        openings.append(placed)
+                        select(.opening(openings.count - 1))
+                    } else {
+                        pendingOpening = kind
                     }
-                } else {
-                    Task { await place(entry) }
+                case .object(let entry):
+                    placeChosen(entry)
                 }
             }
         }
@@ -386,6 +400,14 @@ struct RoomEditorCore: View {
             }
         }
         .task { await loadObjects() }
+        .task {
+            // Handed in from the floor: place it, or wait for the wall.
+            guard let initialLibraryItem else { return }
+            switch initialLibraryItem {
+            case .object(let entry): await place(entry)
+            case .opening(let kind): pendingOpening = kind
+            }
+        }
         .sheet(isPresented: $inspectingRoom) {
             RoomDetailView(room: room)
         }
@@ -928,7 +950,22 @@ struct RoomEditorCore: View {
         // control: with the dimension layer off, this branch would claim
         // taps on blank canvas outboard of the walls and open a keypad for
         // a figure that is not on screen.
-        if showDimensions, measuring == nil,
+        //
+        // **THE WALL WINS A TIE, and that is the owner's own report**, 18
+        // Aug 2026: *"when I click to the wall by accident, I'm able to
+        // click the measurement… I'm not opening the properties of the wall
+        // itself, but I'm actually messing up with the measurements."* The
+        // dimension was tested first and unconditionally, so anywhere the
+        // two targets overlapped, the number took the tap — and the number
+        // opens a keypad that CHANGES the room, where the wall only selects.
+        // When a tap is ambiguous, the reversible thing must win.
+        //
+        // So a tap that lands on a wall's own band is a tap on that wall,
+        // full stop. The dimension keeps every tap outboard of the band,
+        // which is where it is drawn — and `plainRow` moved out to 28 so
+        // there is real space between the two rather than a shared edge.
+        let onAWall = corners.indices.contains { distanceToEdge(point, index: $0) < wallBand / scale }
+        if showDimensions, measuring == nil, !onAWall,
             let edge = EditorChrome.dimensionHit(at: point, polygon: corners, scale: scale)
         {
             startMeasuring(at: edge)
@@ -1180,10 +1217,26 @@ struct RoomEditorCore: View {
             let moved = CGPoint(
                 x: origin.x + value.translation.width / scale,
                 y: origin.y + value.translation.height / scale)
+
+            // Flush to a wall when it comes near one — his ask, and how
+            // these things are actually installed. Sets rotation as well as
+            // position: "against the wall" means square to it.
+            let snap = PlanEditing.snapObjectToWall(
+                corners, centre: moved, width: object.width, depth: object.depth,
+                capture: captureRadius * 2 / scale, alreadyEngaged: snapEngaged)
+            if snap.engaged && !snapEngaged {
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
+            snapEngaged = snap.engaged
+
             // Moved in the local array only — the write happens once, on
             // lift, in `endObjectDrag`. A PATCH per frame would be sixty
             // requests a second from a phone on a job-site connection.
-            replaceObject(id) { $0.moved(to: PlanEditing.quantise(moved)) }
+            let landing = snap.engaged ? snap.centre : moved
+            replaceObject(id) {
+                let placed = $0.moved(to: PlanEditing.quantise(landing))
+                return snap.engaged ? placed.rotated(to: snap.rotation) : placed
+            }
             liveLabel = nil
 
         case .none:
@@ -1294,6 +1347,15 @@ struct RoomEditorCore: View {
             openings: $openings,
             ceilingHeight: room.ceilingHeightM,
             roomScanId: room.id,
+            objects: objects,
+            onPlaceObject: { entry, along in
+                Task { await placeAgainstWall(entry, edge: elevationWall ?? 0, along: along) }
+            },
+            // The face edits THIS editor's openings through a binding, so
+            // it has to say when it does — a binding carries the value, not
+            // the intent. `push()` is what makes the room dirty, and dirty
+            // is what makes leaving ask before discarding.
+            onWillEdit: { push() },
             wallIndex: elevationWallBinding,
             onClose: closeElevation)
     }
@@ -1655,6 +1717,34 @@ struct RoomEditorCore: View {
     /// it at when the sheet dismisses. Landing in the middle of the room,
     /// selected, means the very next drag moves it where it belongs, which
     /// is one gesture rather than a placement mode to learn.
+    /// Placing a chosen object, or replacing the selected one with it.
+    ///
+    /// "Replace with…" reopens this same library, so choosing while an
+    /// object is selected means swap — and a swap keeps where the old one
+    /// stood and which way it faced, because that is the part the operator
+    /// already got right.
+    private func placeChosen(_ entry: ObjectCatalog.Entry) {
+        if case .object(let id) = selection,
+            let existing = objects.first(where: { $0.id == id })
+        {
+            Task {
+                await removeObject(id)
+                await place(
+                    entry, at: CGPoint(x: existing.x, y: existing.y),
+                    rotation: existing.rotation)
+            }
+        } else {
+            Task { await place(entry) }
+        }
+    }
+
+    /// What the library's caption says it is about to do. The list is the
+    /// same list either way.
+    private var libraryContext: ObjectLibraryPicker.Context {
+        if case .wall = selection { return .wall }
+        return .room
+    }
+
     private func place(
         _ entry: ObjectCatalog.Entry, at position: CGPoint? = nil, rotation: Double = 0
     ) async {
@@ -1671,6 +1761,37 @@ struct RoomEditorCore: View {
         }
     }
 
+    /// Place an object flush against a named wall, at a distance along it.
+    ///
+    /// The elevation's own Insert route. It knows the wall — you are looking
+    /// straight at it — so the object goes in square and flush rather than
+    /// landing mid-room to be dragged. The arithmetic is the SAME rest
+    /// position `PlanEditing.snapObjectToWall` uses, half a wall band
+    /// inboard of the centreline, so an object inserted from the face and
+    /// one dragged into place end up in the same spot.
+    private func placeAgainstWall(
+        _ entry: ObjectCatalog.Entry, edge: Int, along: Double
+    ) async {
+        guard corners.indices.contains(edge) else { return }
+        let (ai, bi) = PlanEditing.edgeCorners(edge, count: corners.count)
+        let a = corners[ai]
+        let b = corners[bi]
+        let run = PlanEditing.length(PlanEditing.sub(b, a))
+        guard run > 0.05 else { return }
+        let d = PlanEditing.normalised(PlanEditing.sub(b, a))
+        let winding = PlanEditing.polygonWinding(corners)
+        let inward = CGPoint(x: -winding * d.y, y: winding * d.x)
+        let rest = entry.depth / 2 + PlanEditing.wallFaceInset
+        // Kept fully on the wall it was placed against.
+        let clamped = min(max(along, entry.width / 2), max(run - entry.width / 2, entry.width / 2))
+        let centre = CGPoint(
+            x: a.x + d.x * clamped + inward.x * rest,
+            y: a.y + d.y * clamped + inward.y * rest)
+        let heading = atan2(d.y, d.x) * 180 / .pi + (winding > 0 ? 0 : 180)
+        await place(
+            entry, at: centre, rotation: heading.truncatingRemainder(dividingBy: 360))
+    }
+
     /// The write at the end of a drag — once, not per frame.
     private func endObjectDrag() {
         guard objectDragStart != nil, case .object(let id) = selection,
@@ -1680,7 +1801,13 @@ struct RoomEditorCore: View {
             return
         }
         objectDragStart = nil
-        Task { await patchObject(id, at: CGPoint(x: object.x, y: object.y)) }
+        // Rotation goes with it: a snap turned the object square to its
+        // wall, and saving the position without the heading would put it
+        // back at whatever angle it was dragged at.
+        Task {
+            await patchObject(
+                id, at: CGPoint(x: object.x, y: object.y), rotation: object.rotation)
+        }
     }
 
     private func patchObject(
@@ -1748,7 +1875,7 @@ struct RoomEditorCore: View {
                     return "Choose one, then tap the wall"
                 }()
             ) {
-                addingOpening = true
+                placingObject = true
             }
             Divider()
             insertRow("Note", icon: "note.text", enabled: false, note: "Not stored yet") {}
@@ -1822,7 +1949,11 @@ struct RoomEditorCore: View {
         case (.delete, .none):
             confirmingRoomDelete = true
         case (.insert, .wall):
-            addingOpening = true
+            // The same library as everywhere else — his ask, on his own
+            // screenshots: the object list is what opens *"when clicking on
+            // the walls and on the floor itself."* It still lands the door
+            // in THIS wall, because a wall is selected.
+            placingObject = true
         case (.addCorner, .wall(let index)):
             addCorner(on: index)
         case (.delete, .corner(let index)):

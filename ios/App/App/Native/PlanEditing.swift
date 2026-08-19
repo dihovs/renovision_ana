@@ -927,6 +927,135 @@ enum PlanEditing {
         let engaged: Bool
     }
 
+    // MARK: - Objects against walls (S8)
+
+    /// An object snapped flush to a wall: where it sits, which way it faces,
+    /// and which wall caught it.
+    struct ObjectSnap {
+        let centre: CGPoint
+        /// Degrees clockwise, the same convention `ObjectCatalog.footprint`
+        /// and `room_objects.rotation` use.
+        let rotation: Double
+        let engaged: Bool
+        /// The wall it snapped to, so a caller can tell the elevation which
+        /// face this thing belongs on.
+        let edge: Int?
+    }
+
+    /// Pull a dragged object flush against the nearest wall.
+    ///
+    /// The owner's ask, plainly: *"objects and toilets need to snap to the
+    /// wall."* Which is how they are actually installed — a vanity, a
+    /// toilet, a run of base cabinets all sit with their backs to a wall,
+    /// and dragging one into place by eye leaves a two-centimetre gap that
+    /// is wrong on the plan and wrong in the elevation.
+    ///
+    /// Snapping sets BOTH position and rotation, because "against the wall"
+    /// means square to it: a cabinet at 3° off a wall is not a cabinet
+    /// anybody installed. The object's own +depth axis is turned to face
+    /// INTO the room, so its back is what meets the wall.
+    ///
+    /// The magnet is on the BACK EDGE, not the centre — `depth / 2` in from
+    /// the centre — so a deep vanity and a shallow one both catch at the
+    /// same distance from the wall rather than the deep one catching first.
+    ///
+    /// Slid along the wall it stays put: only the perpendicular is snapped,
+    /// and the position along the run is the operator's, clamped so the
+    /// object cannot hang off the end of the wall it is against.
+    /// Half the wall band, which is what "flush" actually means.
+    ///
+    /// **The bug this constant fixes**, reported on build 127 with a
+    /// screenshot: *"it looks like it's going inside of the wall."* It was.
+    /// A room's `corners` are the wall's CENTRELINE, but a wall is drawn as
+    /// a band of `OpeningGlyphs.bandT` straddling that line — so an object
+    /// snapped flush to the centreline overlaps the inner face by half the
+    /// wall's thickness. On a 114mm stud wall that is 57mm of toilet inside
+    /// the drywall.
+    ///
+    /// The face an object actually stands against is half a band INBOARD of
+    /// the line, and that is what this offsets by.
+    static let wallFaceInset = OpeningGlyphs.bandT / 2
+
+    static func snapObjectToWall(
+        _ polygon: [CGPoint], centre: CGPoint, width: Double, depth: Double,
+        capture: Double, alreadyEngaged: Bool
+    ) -> ObjectSnap {
+        guard polygon.count >= 3 else {
+            return ObjectSnap(centre: centre, rotation: 0, engaged: false, edge: nil)
+        }
+        // Same hysteresis the wall and corner magnets use: harder to leave a
+        // detent than to fall into one, so a hovering finger does not
+        // flutter between snapped and free.
+        let radius = alreadyEngaged ? capture * 1.5 : capture
+        let winding = polygonWinding(polygon)
+
+        var best: ObjectSnap?
+        var bestGap = radius
+
+        for i in polygon.indices {
+            let (ai, bi) = edgeCorners(i, count: polygon.count)
+            let a = polygon[ai]
+            let b = polygon[bi]
+            let run = length(sub(b, a))
+            guard run > 0.1 else { continue }
+            let d = normalised(sub(b, a))
+            // Interior side. Taken from the winding rather than from a
+            // centroid test, for the reason `drawWallDimensions` documents:
+            // an L-shaped room has walls whose outside faces the centroid.
+            let inward = CGPoint(x: -winding * d.y, y: winding * d.x)
+
+            let offset = sub(centre, a)
+            let along = dot(offset, d)
+            let across = dot(offset, inward)
+
+            // Behind the wall, or nowhere near its run — not this wall.
+            guard across > -0.05, along > -width / 2, along < run + width / 2 else { continue }
+
+            // Flush against the wall's inner FACE, not its centreline —
+            // see `wallFaceInset`.
+            let restAt = depth / 2 + Self.wallFaceInset
+            let gap = abs(across - restAt)
+            guard gap < bestGap else { continue }
+
+            // Square to the wall, back against it. `footprint` maps local
+            // +y through a +90° turn, so aligning local +x with the wall
+            // direction puts local +y on the inward normal exactly when the
+            // winding is positive; the half turn fixes the other case.
+            let heading = atan2(d.y, d.x) * 180 / .pi + (winding > 0 ? 0 : 180)
+            let clamped = min(max(along, width / 2), max(run - width / 2, width / 2))
+
+            bestGap = gap
+            best = ObjectSnap(
+                centre: CGPoint(
+                    x: a.x + d.x * clamped + inward.x * restAt,
+                    y: a.y + d.y * clamped + inward.y * restAt),
+                rotation: heading.truncatingRemainder(dividingBy: 360),
+                engaged: true,
+                edge: i)
+        }
+
+        return best ?? ObjectSnap(centre: centre, rotation: 0, engaged: false, edge: nil)
+    }
+
+    /// +1 when the polygon is wound so the interior lies to the LEFT of each
+    /// directed edge, -1 otherwise. Shared with `EditorChrome.winding`,
+    /// which computes the same thing for the same reason; this copy is here
+    /// so the geometry does not have to import a view file.
+    static func polygonWinding(_ polygon: [CGPoint]) -> Double {
+        // The SHOELACE, and the same sign convention as
+        // `EditorChrome.winding` — deliberately identical, because the
+        // inward normal derived here has to agree with the outward normal
+        // that file draws dimensions along. Two windings with opposite
+        // signs would put every snapped object through the wall.
+        var shoelace = 0.0
+        for i in polygon.indices {
+            let p = polygon[i]
+            let q = polygon[(i + 1) % polygon.count]
+            shoelace += p.x * q.y - q.x * p.y
+        }
+        return shoelace >= 0 ? 1 : -1
+    }
+
     /// Perpendicular distances at which the dragged wall would line up with
     /// each other wall running the same way — the "flush with that wall"
     /// magnets.

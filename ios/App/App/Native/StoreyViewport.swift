@@ -221,6 +221,15 @@ struct StoreyBaseLayer: View {
     var flagged: Set<String> = []
     var spotlight: Set<String> = []
     var grid: Bool = true
+    /// Objects standing in the rooms on this floor, keyed by room id.
+    ///
+    /// The owner, on build 127: *"in the story mode and the thumbnail mode,
+    /// I don't see the toilet. I wanna see it."* Right — a floor plan that
+    /// shows fixtures inside a room and a bare box outside it is two
+    /// drawings of one building. Keyed by room rather than flattened
+    /// because an object's coordinates are its own room's, and it is
+    /// `StoreyRoom.origin` that puts them on the floor.
+    var objects: [String: [RoomObject]] = [:]
     let onTapRoom: (RoomScan) -> Void
 
     var body: some View {
@@ -319,6 +328,31 @@ struct StoreyBaseLayer: View {
                     context.stroke(
                         walls, with: .color(ink),
                         style: StrokeStyle(lineWidth: band, lineCap: .round))
+                }
+
+                // Objects standing in this room, in the room's OWN metres
+                // shifted onto the floor by its origin — the same figures
+                // the room editor draws, so the storey and the room are one
+                // drawing at two scales rather than two drawings.
+                //
+                // Under the openings, so a door's swing arc stays readable
+                // where it crosses a cabinet run.
+                for object in objects[storeyRoom.id] ?? [] {
+                    EditorChrome.drawObject(
+                        object.moved(
+                            to: CGPoint(
+                                x: object.x + storeyRoom.origin.x,
+                                y: object.y + storeyRoom.origin.y)),
+                        context: context,
+                        toScreen: { viewport.point($0) },
+                        scale: viewport.scale,
+                        selected: false,
+                        // No names at storey scale: a room here is a
+                        // hundred points wide and the room's own name plate
+                        // is already competing for that space. The symbol
+                        // is what carries the meaning; the label belongs
+                        // where there is room for it.
+                        labelled: false)
                 }
 
                 // Openings: knock the band out, then draw the SYMBOL — a

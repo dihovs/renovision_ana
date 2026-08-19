@@ -62,6 +62,36 @@ struct ElevationView: View {
     @Binding var openings: [PlanEditing.WallOpening]
     let ceilingHeight: Double
     let roomScanId: String
+    /// Objects standing in the room. The ones against THIS wall are drawn on
+    /// its face — the owner's ask, 18 Aug 2026: *"objects and toilets need
+    /// to snap to the wall, and need to show on the elevation view."*
+    ///
+    /// Which is right, and it is what makes the elevation worth having: the
+    /// wall behind a vanity is not a wall you can price as bare drywall,
+    /// and an elevation that omits the vanity says you can.
+    var objects: [RoomObject] = []
+    /// Place a catalogue object against THIS wall, centred at the given
+    /// distance along it in face metres.
+    ///
+    /// A callback rather than a write of its own: `RoomEditorCore` owns the
+    /// object list and every API call that touches it, and a second writer
+    /// would be a second source of truth for where a cabinet stands. This
+    /// view knows the wall and the position; the editor knows how to turn
+    /// that into a row.
+    var onPlaceObject: ((ObjectCatalog.Entry, Double) -> Void)? = nil
+    /// Called BEFORE this view changes the openings it was handed.
+    ///
+    /// **The bug this closes**, reported on build 130: insert a window from
+    /// the elevation, tap outside the plan, and it left without offering
+    /// Save or Discard. `openings` is a binding, so the change reached the
+    /// editor's array — but the editor's dirty flag is its UNDO HISTORY,
+    /// and nothing had pushed onto it. The room was modified and believed
+    /// itself untouched, which is not merely a missing prompt: it is an
+    /// edit that leaves without being saved and without anyone being asked.
+    ///
+    /// A binding carries a value, not the fact that it changed on purpose.
+    /// This is that fact, sent explicitly.
+    var onWillEdit: (() -> Void)? = nil
     /// The wall being faced. The arrows mutate this, so the caller's
     /// selection follows the view rather than going stale behind it.
     @Binding var wallIndex: Int
@@ -96,7 +126,14 @@ struct ElevationView: View {
     private enum ActiveSheet: Identifiable {
         case naming
         case addingOpening
-        var id: Int { self == .naming ? 0 : 1 }
+        case addingObject
+        var id: Int {
+            switch self {
+            case .naming: return 0
+            case .addingOpening: return 1
+            case .addingObject: return 2
+            }
+        }
     }
     @State private var activeSheet: ActiveSheet?
     /// Every area filed against this room. Held whole rather than
@@ -231,6 +268,27 @@ struct ElevationView: View {
         }
         .sheet(item: $activeSheet) { which in
             switch which {
+            case .addingObject:
+                // The same library the plan raises, so the catalogue is one
+                // catalogue however you reach it. A door chosen here still
+                // goes in this wall; an object goes against it.
+                ObjectLibraryPicker(context: .wall) { item in
+                    switch item {
+                    case .object(let entry):
+                        // Centred on the wall unless it is too long to
+                        // matter — the middle is the honest default when
+                        // nothing was pointed at, and it is one drag from
+                        // wherever it really goes.
+                        onPlaceObject?(entry, wallLength / 2)
+                    case .opening(let kind):
+                        if let placed = PlanEditing.placeOpening(
+                            kind, onEdge: edge, of: corners, avoiding: openings)
+                        {
+                            onWillEdit?()
+                            openings.append(placed)
+                        }
+                    }
+                }
             case .addingOpening:
                 // The SAME picker the plan editor raises from a selected
                 // wall — one list of kinds, one fit test, rather than a
@@ -248,6 +306,7 @@ struct ElevationView: View {
                     if let placed = PlanEditing.placeOpening(
                         kind, onEdge: edge, of: corners, avoiding: openings)
                     {
+                        onWillEdit?()
                         openings.append(placed)
                     }
                     activeSheet = nil
@@ -408,7 +467,17 @@ struct ElevationView: View {
                 activeSheet = .addingOpening
             }
             Divider()
-            insertRow("Object", icon: "bed.double", enabled: false, note: "Not built yet") {}
+            // Live since build 130, on his own report: *"on the elevated
+            // view, insert button doesn't let me insert objects. I wanna
+            // insert objects."* It lands against THIS wall, which is the
+            // one thing an elevation knows better than the plan does —
+            // you are looking straight at the wall the vanity goes on.
+            insertRow(
+                "Object", icon: "bed.double", enabled: onPlaceObject != nil,
+                note: "Placed against this wall"
+            ) {
+                activeSheet = .addingObject
+            }
         }
         .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
         .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
@@ -491,6 +560,7 @@ struct ElevationView: View {
                     drawAreas(context: context, face: face, size: size)
                     drawAreaDimensions(context: context, face: face, size: size)
                     drawDraft(context: context, face: face)
+                    drawObjects(context: context, face: face, size: size)
                     drawOpenings(context: context, face: face, size: size)
                     drawDimensions(context: context, face: face, size: size)
                 }
@@ -584,21 +654,29 @@ struct ElevationView: View {
     /// the turn reads better stopping short of the degenerate angle, and it
     /// keeps the drawing legible for more of the animation.
     private static func turn(forward: Bool) -> AnyTransition {
-        // **Direction reversed 18 Aug 2026, at the owner's report:** *"I
-        // click right, animation turns left."* Build 119 brought the next
-        // wall in from the RIGHT on the right-hand arrow — defensible as
-        // "you turned your head right, so the room slides left", but it is
-        // not how the arrow reads to the hand pressing it. A right arrow
-        // means the room turns RIGHT: the drawing travels rightwards, the
-        // outgoing wall leaves by the right edge and the next one arrives
-        // from the left. His thumb is the arbiter of which one is "right",
-        // and it is one sign either way if he prefers the other.
+        // **Reversed twice, and this is the settled answer.** The owner,
+        // once he had seen both: *"when we click to the right, I want
+        // actually kind of to show, like, WE are turning, not the room."*
+        //
+        // That is the whole model, and it decides the sign. Turning your
+        // head right does not carry the room right with you — the room
+        // sweeps LEFT across your eyes. So the right-hand arrow sends the
+        // wall you were looking at off to the LEFT and brings the next one
+        // in from the RIGHT.
+        //
+        // Build 119 had this direction and he called it wrong; build 122
+        // flipped it and he called that wrong too. The difference is that
+        // 119 also re-fitted every wall to its own size, so consecutive
+        // frames were two drawings at two scales and no direction could
+        // have read as one room turning. With the scale fixed (see
+        // `layout`), the direction that matches the mental model is legible
+        // — which is why the same sign that failed then works now.
         .asymmetric(
             insertion: .modifier(
-                active: WallTurn(side: forward ? -1 : 1),
+                active: WallTurn(side: forward ? 1 : -1),
                 identity: WallTurn(side: 0)),
             removal: .modifier(
-                active: WallTurn(side: forward ? 1 : -1),
+                active: WallTurn(side: forward ? -1 : 1),
                 identity: WallTurn(side: 0)))
     }
 
@@ -716,6 +794,10 @@ struct ElevationView: View {
         if draggingOpening == nil, let hit = openingHit(at: start) {
             draggingOpening = (hit, openings[hit].offset)
             UISelectionFeedbackGenerator().selectionChanged()
+            // Once per gesture, at the start — the same "one history entry
+            // per drag, not per frame" rule the plan editor's own drags
+            // follow.
+            onWillEdit?()
         }
         guard let dragging = draggingOpening,
             openings.indices.contains(dragging.index)
@@ -1064,6 +1146,102 @@ struct ElevationView: View {
     /// A window as concentric rectangles, a door as a leaf with a handle —
     /// our own drafting, following the same conventions `OpeningGlyphs` uses
     /// in plan so the two views read as one drawing.
+    /// Objects standing against this wall, drawn on it.
+    ///
+    /// An object has no wall index — it stands on the floor and only
+    /// HAPPENS to be against something — so which face it belongs on is
+    /// derived here rather than stored: project its centre onto this wall,
+    /// and take it if its back is within a hand's width of the face and its
+    /// run is actually on this wall. Derived rather than stored on purpose,
+    /// the same argument the dimension chain already follows: a stored wall
+    /// index would go stale the moment the object is dragged, and an object
+    /// drawn on the wrong elevation is worse than one drawn on none.
+    ///
+    /// Drawn UNDER the openings, because a window above a vanity is seen and
+    /// a vanity in front of a window is not — and in a bathroom that is the
+    /// usual arrangement.
+    private func drawObjects(context: GraphicsContext, face: Face, size: CGSize) {
+        guard wallCount >= 3 else { return }
+        let (ai, bi) = PlanEditing.edgeCorners(edge, count: corners.count)
+        let a = corners[ai]
+        let b = corners[bi]
+        let run = PlanEditing.length(PlanEditing.sub(b, a))
+        guard run > 0.05 else { return }
+        let direction = PlanEditing.normalised(PlanEditing.sub(b, a))
+        let winding = PlanEditing.polygonWinding(corners)
+        let inward = CGPoint(x: -winding * direction.y, y: winding * direction.x)
+
+        for object in objects {
+            let offset = PlanEditing.sub(CGPoint(x: object.x, y: object.y), a)
+            let along = PlanEditing.dot(offset, direction)
+            let across = PlanEditing.dot(offset, inward)
+
+            // Against THIS wall: its back within 8cm of the wall's inner
+            // FACE — half a band inboard of the centreline `corners`
+            // describes, the same offset the snap rests at — and its own run
+            // inside the wall's. The tolerance is a snapped object's
+            // rounding plus a little, not an invitation: something parked in
+            // the middle of the room belongs on no elevation.
+            let backGap = across - object.depth / 2 - PlanEditing.wallFaceInset
+            guard backGap > -0.08, backGap < 0.08 else { continue }
+            guard along > -object.width / 2, along < run + object.width / 2 else { continue }
+
+            let left = max(0, along - object.width / 2)
+            let right = min(run, along + object.width / 2)
+            guard right - left > 0.02 else { continue }
+
+            // Face space: x along the wall from its start corner, y above
+            // the floor. An object stands ON the floor — that is the whole
+            // distinction from an opening — so it is drawn from y = 0 up to
+            // its own height, never from a sill.
+            let bottomLeft = face.point(left, 0)
+            let topRight = face.point(right, min(object.height, ceilingHeight))
+            let box = CGRect(
+                x: bottomLeft.x, y: topRight.y,
+                width: topRight.x - bottomLeft.x, height: bottomLeft.y - topRight.y)
+            guard box.width > 1, box.height > 1 else { continue }
+
+            let alpha = object.included ? 1.0 : 0.45
+
+            // The envelope, lightly — the object's measured extent on this
+            // wall, the same role the rectangle plays on the plan.
+            let path = Path(box)
+            context.fill(path, with: .color(Brand.surface.opacity(object.included ? 0.95 : 0.5)))
+            context.stroke(
+                path, with: .color(Brand.Plan.ink.opacity(alpha * 0.5)),
+                style: StrokeStyle(
+                    lineWidth: 1.0, dash: object.included ? [] : [5, 4]))
+
+            // The figure, FRONT-on. Not the plan symbol: a toilet from
+            // above is a tank and a bowl, from the front it is a tank over
+            // a pedestal, and rotating one never yields the other. The
+            // owner on build 128: *"I don't see the toilet itself. I just
+            // see a square."*
+            if let shape = object.entry?.shape, box.width > 8, box.height > 8 {
+                ObjectGlyphs.elevationFigure(
+                    shape, in: box.insetBy(dx: 1, dy: 1), context: context,
+                    tones: (
+                        fill: Brand.surface.opacity(alpha),
+                        edge: Brand.Plan.ink.opacity(alpha)
+                    ))
+            }
+
+            // The name, when the box is big enough to hold it. An elevation
+            // of a 4ft cabinet run is wide; a column is not.
+            let text = context.resolve(
+                Text(object.displayName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Brand.Plan.ink.opacity(alpha)))
+            let measured = text.measure(in: size)
+            guard measured.width < box.width - 6 else { continue }
+            // Under the figure rather than across it — a label drawn over a
+            // silhouette hides the thing it names.
+            context.draw(
+                text, at: CGPoint(x: box.midX, y: box.maxY + measured.height * 0.75),
+                anchor: .center)
+        }
+    }
+
     private func drawOpenings(context: GraphicsContext, face: Face, size: CGSize) {
         for opening in wallOpenings {
             guard let box = openingRect(opening, in: face) else { continue }

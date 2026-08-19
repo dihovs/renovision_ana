@@ -37,6 +37,9 @@ export async function GET(request: Request) {
         geometry: room.geometry,
         planX: room.plan_x,
         planY: room.plan_y,
+        // The fixtures in that room, so a card draws the toilet as well as
+        // the walls — the owner's own ask, having seen them on the storey.
+        objects: room.objects,
       })),
       assignedTo: project.assigned_to ?? null,
       favorite: project.is_favorite ?? false,

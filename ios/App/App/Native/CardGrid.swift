@@ -399,6 +399,26 @@ struct MiniPlan: View {
                         style: StrokeStyle(lineWidth: band, lineCap: .round))
                 }
 
+                // The fixtures, in ink like everything else on a card.
+                // Symbol only — no envelope box and no name at 130 points
+                // across, where both would be noise. Below a few points of
+                // width nothing is drawn at all, which is the same rule the
+                // door arc below follows.
+                for object in item.objects {
+                    guard object.width * scale >= 6, object.depth * scale >= 6 else { continue }
+                    context.drawLayer { layer in
+                        layer.translateBy(x: pt(object.x, object.y).x, y: pt(object.x, object.y).y)
+                        layer.rotate(by: Angle(degrees: object.rotation))
+                        ObjectGlyphs.figure(
+                            ObjectCatalog.entry(slug: object.kind)?.shape ?? .box,
+                            in: CGRect(
+                                x: -object.width * scale / 2, y: -object.depth * scale / 2,
+                                width: object.width * scale, height: object.depth * scale),
+                            context: layer,
+                            tones: (fill: Brand.Plan.paper, edge: Brand.Plan.ink))
+                    }
+                }
+
                 for opening in plan.openings {
                     let seg = opening.segment
                     let length = hypot(seg.x2 - seg.x1, seg.y2 - seg.y1)
@@ -458,19 +478,25 @@ struct MiniPlan: View {
     /// The rooms to draw, with their placements — the whole storey when the
     /// server sent one, otherwise the single largest room, which is what
     /// this card drew before and what an older server still returns.
-    private var resolvedPlans: [(plan: FloorPlanGeometry.Plan, planX: Double?, planY: Double?)] {
+    private typealias Resolved = (
+        plan: FloorPlanGeometry.Plan, planX: Double?, planY: Double?,
+        objects: [ProjectSummary.CardObject]
+    )
+
+    private var resolvedPlans: [Resolved] {
         if !floorRooms.isEmpty {
-            let built = floorRooms.compactMap {
-                room -> (plan: FloorPlanGeometry.Plan, planX: Double?, planY: Double?)? in
+            let built = floorRooms.compactMap { room -> Resolved? in
                 let plan = FloorPlanGeometry.plan(from: room.geometry)
                 guard !plan.segments.isEmpty else { return nil }
-                return (plan, room.planX, room.planY)
+                return (plan, room.planX, room.planY, room.objects)
             }
             if !built.isEmpty { return built }
         }
         let plan = FloorPlanGeometry.plan(from: geometry)
         guard !plan.segments.isEmpty else { return [] }
-        return [(plan, nil, nil)]
+        // The single-room fallback carries no fixtures: an older server does
+        // not send them, and `largestRoom` never did.
+        return [(plan, nil, nil, [])]
     }
 }
 
