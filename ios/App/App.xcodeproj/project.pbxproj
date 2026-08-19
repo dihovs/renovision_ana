@@ -73,6 +73,7 @@
 		3FA58B3CFCD329C45A6DA382 /* ObjectGlyphs.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB452753AD51DC16629EB23C /* ObjectGlyphs.swift */; };
 		12FDE45F0886FC57A524DE42 /* ObjectPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */; };
 		547F794211626CFF8CFA6570 /* ObjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */; };
+		A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -143,6 +144,7 @@
 		DB452753AD51DC16629EB23C /* ObjectGlyphs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectGlyphs.swift; sourceTree = "<group>"; };
 		88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectPicker.swift; sourceTree = "<group>"; };
 		6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectDetailView.swift; sourceTree = "<group>"; };
+		D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectEmblems.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -186,6 +188,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */,
 				6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */,
 				88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */,
 				DB452753AD51DC16629EB23C /* ObjectGlyphs.swift */,
@@ -330,6 +333,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */,
 				547F794211626CFF8CFA6570 /* ObjectDetailView.swift in Sources */,
 				12FDE45F0886FC57A524DE42 /* ObjectPicker.swift in Sources */,
 				3FA58B3CFCD329C45A6DA382 /* ObjectGlyphs.swift in Sources */,

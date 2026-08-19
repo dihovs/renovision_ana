@@ -134,13 +134,19 @@ struct ObjectLibraryPicker: View {
     /// own row.
     private func sectionRow(_ section: LibrarySection) -> some View {
         HStack(spacing: Brand.Space.base) {
-            // The section's first item is its most commonly met one, so it
-            // is also the right thing to draw on the row — his ask that a
-            // section "show one door that opens the door section".
-            if let face = section.items.first {
-                LibraryArt(item: face)
-                    .frame(width: 38, height: 38)
-            }
+            // An isometric EMBLEM, not the section's first item drawn flat.
+            //
+            // The owner's screenshot of the reference's own section list
+            // settled this: their row icons are little three-quarter line
+            // drawings — a stair flight, a basin and tap, a washing machine,
+            // an armchair, a plug, a fan, a toolbox. A row icon has a
+            // different job from a plan symbol: it has to be recognised in a
+            // list at 38 points, and a small drawing of the thing does that
+            // where its floor outline does not. The top-down rule still
+            // governs the TILES, where the picture teaches the symbol that
+            // will land on the plan.
+            SectionEmblem(section: section)
+                .frame(width: 40, height: 40)
             Text(section.title)
                 .font(.system(size: 17))
                 .foregroundStyle(Brand.ink)
