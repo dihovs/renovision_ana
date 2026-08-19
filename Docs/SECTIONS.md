@@ -34,7 +34,7 @@ Commit the ledger update with the work.
 | **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | **BUILT — 3 of 4 items shipped in build 120; the dimension tap still needs one look** | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
-| **S6** | Photo editor — blur first | NOT STARTED | — | new `PhotoEditor*.swift` |
+| **S6** | Photo editor — blur first | **BLUR BUILT (build 121) — three modes still empty** | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
@@ -655,6 +655,46 @@ public system cropper exists).
 
 **Free from the SDK**, all confirmed present: `SwiftUI.ColorPicker` (with alpha),
 PencilKit, five Core Image filters. Roughly two thirds.
+
+### State (18 Aug 2026, build 121)
+
+**Blur is built and shipped alone**, as this section asks. What landed:
+
+- **A photo VIEWER, which did not exist.** The thumbnails in
+  `RoomPhotosSection` were not tappable at all — a photo could be uploaded
+  and then never looked at again on the phone that took it — and since §2a
+  reaches the editor from the viewer's `Edit`, blur had nowhere to live
+  either. `PhotoViewer` loads the photo at full stored resolution, not the
+  96pt thumbnail: an editor that redacts a thumbnail uploads a thumbnail.
+- **`PhotoEditorView`** — §2a's chrome (`Cancel · undo · redo · Done`) and
+  the four-mode row along the bottom in the reference's order. Only
+  Pixelate does anything; Draw, Crop and Adjust are drawn in place and
+  greyed, the rule the plan editor's bar already follows.
+- **Pixellate, not Gaussian blur.** A blur preserves the low frequencies and
+  text under a light one has been read back out by deconvolution;
+  pixellation throws the information away. The cell scales to the REGION —
+  a fixed 40pt cell over a plate in a 4000px photo leaves the plate
+  readable.
+- **Done replaces the original**: uploads the redacted copy, then deletes
+  the original, in that order. A blurred copy beside a readable original
+  redacts nothing. The confirmation dialog says so before it acts. Needed a
+  new **`DELETE /api/v1/photos?id=`** — `deleteProjectFile` already removed
+  the storage object as well as the row.
+
+**Left, in this order:** adjustments (`CIColorControls`,
+`CIExposureAdjust`, `CITemperatureAndTint` — trivial), freehand and eraser
+(PencilKit), the shape tools, the cropper.
+
+**Two things the next chat must know.**
+
+1. **The DELETE route only works once the branch is deployed.** The phone
+   talks to the `mobile-app` Vercel preview, so until this is pushed, Done
+   uploads the redacted copy and then fails to delete the original —
+   leaving both, which is the safe failure but not the intended one.
+2. **Nothing here has been tapped.** Built, installed as build 121, and
+   that is all. Redaction especially deserves a real look: the one thing
+   worse than no blur is a blur the operator trusts that did not land where
+   the finger drew it.
 
 ---
 
@@ -1836,3 +1876,16 @@ Newest last. One or two lines per chat.
   swept them in, together with unrelated `admin/messages` web work. One
   chat per task does not mean one tree per task — if two are open, commit
   early or expect this.
+- **2026-08-18** — S6 started and blur shipped alone, build **121**,
+  installed and confirmed on the device. A photo VIEWER had to come first —
+  the thumbnails were not tappable, so there was no `Edit` to hang an
+  editor off. `PhotoEditorView` is §2a's chrome and its four-mode row with
+  only Pixelate live, the other three greyed in place. Pixellate rather
+  than Gaussian on purpose: a light blur over text has been read back out
+  by deconvolution, and the cell scales to the region so it stays
+  destructive at any photo size. Done uploads the redacted copy and THEN
+  deletes the original — new `DELETE /api/v1/photos?id=` — because a
+  blurred copy beside a readable original redacts nothing.
+  **Unverified by eye, all of it**, and the delete half cannot work at all
+  until the branch is deployed, since the phone talks to the Vercel
+  preview. 1120 tests still passing.
