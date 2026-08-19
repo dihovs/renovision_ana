@@ -109,6 +109,27 @@ struct RoomEditorCore: View {
     /// the panel below the canvas drives it, the canvas highlights it.
     @State private var measuring: MeasureRun?
     @State private var addingOpening = false
+    /// Objects standing in this room — S8. Server rows, not part of the
+    /// polygon's own undo history: placing a cabinet is a write, not an
+    /// edit of the geometry, so it is saved immediately and `Discard` does
+    /// not take it back.
+    @State private var objects: [RoomObject] = []
+    @State private var placingObject = false
+    /// A door or window chosen from the Insert menu with no wall selected
+    /// yet — it is waiting for the operator to tap the wall it goes in.
+    ///
+    /// The owner asked for this route directly, 18 Aug 2026: *"doors and
+    /// windows i want to be able to choose from the insert menu itself also
+    /// from the floorplan look, when i choose a wall and click insert."* Two
+    /// routes to the same placement, and they must not be two behaviours —
+    /// both end in `PlanEditing.placeOpening` on a named edge.
+    @State private var pendingOpening: PlanEditing.OpeningKind?
+    @State private var inspectingObject: RoomObject?
+    /// Where an object drag started, in plan metres, so each frame applies
+    /// the whole translation from the original rather than accumulating.
+    @State private var objectDragStart: CGPoint?
+    /// The room-depth Insert menu (§4's five nouns).
+    @State private var insertMenuOpen = false
     @State private var saving = false
     @State private var error: String?
     @State private var showDiscard = false
@@ -178,6 +199,10 @@ struct RoomEditorCore: View {
         case corner(Int)
         /// Index into `openings`.
         case opening(Int)
+        /// A placed object, by its server id rather than an index — objects
+        /// are rows that arrive from a fetch and can be reordered by a
+        /// reload, where openings are positions in this editor's own array.
+        case object(String)
     }
 
 
@@ -295,6 +320,27 @@ struct RoomEditorCore: View {
         .popover(isPresented: $showingHelp) { helpCard }
         .task { load() }
         .sheet(isPresented: $addingOpening) {
+            if case .wall = selection {} else {
+                // No wall chosen yet — reached from the Insert menu. The
+                // kind is picked here and the wall is tapped next, so
+                // `fits` is asked of EVERY wall: a 60" double door that
+                // fits nowhere in the room should not be offered, but one
+                // that fits on the long wall should be, even though the
+                // short wall could not take it.
+                OpeningPicker(
+                    edgeLength: (0..<max(corners.count, 1))
+                        .map { PlanEditing.edgeLength(corners, $0) }.max() ?? 0,
+                    fits: { kind in
+                        corners.indices.contains {
+                            PlanEditing.placeOpening(
+                                kind, onEdge: $0, of: corners, avoiding: openings) != nil
+                        }
+                    }
+                ) { kind in
+                    pendingOpening = kind
+                    addingOpening = false
+                }
+            }
             if case .wall(let edge) = selection {
                 OpeningPicker(
                     edgeLength: PlanEditing.edgeLength(corners, edge),
@@ -314,6 +360,32 @@ struct RoomEditorCore: View {
                 }
             }
         }
+        .sheet(isPresented: $placingObject) {
+            ObjectPicker { entry in
+                // Chosen with an object already selected? Then this was
+                // "Replace with…": the old one goes and the new one takes
+                // its place and its rotation, which is what replacing means.
+                if case .object(let id) = selection,
+                    let existing = objects.first(where: { $0.id == id })
+                {
+                    Task {
+                        await removeObject(id)
+                        await place(entry, at: CGPoint(x: existing.x, y: existing.y),
+                            rotation: existing.rotation)
+                    }
+                } else {
+                    Task { await place(entry) }
+                }
+            }
+        }
+        .sheet(item: $inspectingObject) { object in
+            ObjectDetailView(object: object) { changed in
+                if changed { Task { await loadObjects() } }
+            } onDelete: {
+                Task { await removeObject(object.id) }
+            }
+        }
+        .task { await loadObjects() }
         .sheet(isPresented: $inspectingRoom) {
             RoomDetailView(room: room)
         }
@@ -550,6 +622,22 @@ struct RoomEditorCore: View {
                         }
                     }
 
+                    // Objects standing on the floor — S8. **Ink, not the
+                    // catalogue's colour**: the picker is browsed and
+                    // colour makes it scannable, but this drawing is read
+                    // beside a report and `Brand.Plan` exists to keep it
+                    // reading as drafting. The owner agreed the split.
+                    //
+                    // Drawn AFTER the walls and openings so an object
+                    // against a wall sits over the band rather than under
+                    // it, and before the dimensions, which belong on top of
+                    // everything.
+                    for object in objects {
+                        EditorChrome.drawObject(
+                            object, context: context, toScreen: pt, scale: scale,
+                            selected: selection == .object(object.id))
+                    }
+
                     // The selected wall's manipulators (§7): the indigo
                     // diamond handle at its midpoint and the `▶◀` marker
                     // further along. Affordances for the drag that already
@@ -625,6 +713,28 @@ struct RoomEditorCore: View {
                         format: units.format)
                 }
 
+                // While a door or window from the Insert menu is waiting
+                // for its wall. A mode with no visible state is a mode
+                // nobody can leave — this says what the app is waiting for
+                // and offers the way out.
+                if let pendingOpening {
+                    VStack {
+                        HStack(spacing: Brand.Space.small) {
+                            Text("Tap the wall for the \(pendingOpening.label.lowercased())")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                            Button("Cancel") { self.pendingOpening = nil }
+                                .font(.system(size: 14, weight: .semibold))
+                                .tint(.white)
+                        }
+                        .padding(.horizontal, Brand.Space.base)
+                        .padding(.vertical, Brand.Space.small)
+                        .background(Brand.blue, in: .capsule)
+                        .padding(.top, 12)
+                        Spacer()
+                    }
+                }
+
                 // The live figure during a drag, well above the finger —
                 // for the drags that have no natural edge to sit on. A
                 // corner drag DOES (ORD-31 draws it there, on both
@@ -677,6 +787,7 @@ struct RoomEditorCore: View {
                         liveLabel = nil
                         snapEngaged = false
                         lastPanDrag = .zero
+                        endObjectDrag()
                     }
             )
             // Double-tap a wall to open it in elevation (G1). Declared
@@ -842,6 +953,15 @@ struct RoomEditorCore: View {
             return
         }
 
+        // Objects, after openings and before walls. An object stands INSIDE
+        // the room while walls are its edges, so the two rarely compete —
+        // but a cabinet pushed against a wall overlaps the band, and the
+        // thing the finger is aiming at there is the cabinet.
+        if let hit = objects.last(where: { objectContains($0, point) }) {
+            select(.object(hit.id))
+            return
+        }
+
         let wallTolerance = wallBand / scale
         var best = -1
         var bestDistance = wallTolerance
@@ -853,6 +973,26 @@ struct RoomEditorCore: View {
             }
         }
         if best >= 0 {
+            // A door or window chosen from the Insert menu is waiting for
+            // its wall — this tap names it. Tested before the selection
+            // branches below, because while something is pending, tapping a
+            // wall MEANS "put it here" and nothing else.
+            if let kind = pendingOpening {
+                if let placed = PlanEditing.placeOpening(
+                    kind, onEdge: best, of: corners, avoiding: openings)
+                {
+                    push()
+                    openings.append(placed)
+                    pendingOpening = nil
+                    select(.opening(openings.count - 1))
+                } else {
+                    // It does not fit this wall. Say so and keep the pending
+                    // kind, so the next tap can try a longer one — dropping
+                    // it silently would read as the tap doing nothing.
+                    error = "A \(kind.label.lowercased()) does not fit on that wall."
+                }
+                return
+            }
             if measuring != nil {
                 // Mid-walk, tapping a wall JUMPS the walk there — the queue
                 // holds every wall, so the step counter stays honest.
@@ -1030,6 +1170,21 @@ struct RoomEditorCore: View {
             liveLabel = PlanEditing.chain(corners, edge: base[index].edge, openings: openings)
                 .map(UnitSettings.shared.format.format)
                 .joined(separator: "  ·  ")
+
+        case .object(let id):
+            guard let object = objects.first(where: { $0.id == id }) else { break }
+            if objectDragStart == nil {
+                objectDragStart = CGPoint(x: object.x, y: object.y)
+            }
+            guard let origin = objectDragStart else { break }
+            let moved = CGPoint(
+                x: origin.x + value.translation.width / scale,
+                y: origin.y + value.translation.height / scale)
+            // Moved in the local array only — the write happens once, on
+            // lift, in `endObjectDrag`. A PATCH per frame would be sixty
+            // requests a second from a phone on a job-site connection.
+            replaceObject(id) { $0.moved(to: PlanEditing.quantise(moved)) }
+            liveLabel = nil
 
         case .none:
             break
@@ -1307,6 +1462,15 @@ struct RoomEditorCore: View {
             }
             .padding(.horizontal, Brand.Space.base)
 
+            // The room-depth Insert menu, over the bar that opened it and
+            // anchored to it — the same arrangement `LevelCanvas` uses at
+            // floor depth, so the gesture is one gesture in both places.
+            if insertMenuOpen {
+                insertMenu
+                    .padding(.horizontal, Brand.Space.base)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             // §4's bar: grabber, equal-width icon-above-label tiles, the
             // destructive one red and ellipsised, and the swipe-up caption
             // under it. It rewrites itself per (depth, view mode), and both
@@ -1328,7 +1492,12 @@ struct RoomEditorCore: View {
                 // entered from the canvas, or a dismissal back to it when
                 // the inspector is the screen underneath.
                 onInfo: {
-                    if case .wall(let index) = selection {
+                    if case .object(let id) = selection {
+                        // An object's own inspector, the same rule the wall
+                        // and the opening already follow: swipe up on what
+                        // is SELECTED, not on the room around it.
+                        inspectingObject = objects.first { $0.id == id }
+                    } else if case .wall(let index) = selection {
                         inspectingWall = index
                     } else if case .opening(let index) = selection {
                         inspectingOpening = index
@@ -1372,6 +1541,11 @@ struct RoomEditorCore: View {
         case .opening(let index):
             guard openings.indices.contains(index) else { return .room(name: room.name) }
             return .opening(label: openings[index].kind.label)
+        case .object(let id):
+            guard let object = objects.first(where: { $0.id == id }) else {
+                return .room(name: room.name)
+            }
+            return .object(label: object.displayName)
         }
     }
 
@@ -1406,11 +1580,22 @@ struct RoomEditorCore: View {
             // reposition mode nobody has observed performing anything. Those
             // remain unimplemented rather than guessed. Duplicate and Delete
             // are enabled because we can actually do them.
-            return [.setSize, .duplicate, .delete]
+            // `Insert` became live with S8: their room-depth menu is
+            // Room · Object · Note · Photo · Form, and Object is now built.
+            // The menu itself still shows the other four greyed with their
+            // reasons, the way the floor canvas's own already does.
+            return [.insert, .setSize, .duplicate, .delete]
         case .wall:
             return canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
         case .corner:
             return corners.count > 3 ? [.delete] : []
+        case .object:
+            // Everything the reference's object bar offers that we can
+            // actually do. `Insert` stays greyed for the same reason it does
+            // at room depth — their five-noun menu is not all built — while
+            // Rotate, Duplicate, Delete and Replace with… all act on a row
+            // this editor owns outright.
+            return [.rotate, .duplicate, .delete, .replaceWith]
         case .opening:
             // `Insert` and `Duplicate` stay greyed for the same reason
             // Insert-at-room-depth does above: never observed doing
@@ -1437,6 +1622,176 @@ struct RoomEditorCore: View {
     /// recomputed from `corners` every render rather than latched.
     private var hiddenActions: Set<EditorAction> {
         PlanEditing.isRectangle(corners) ? [] : [.setSize]
+    }
+
+    // MARK: - Objects (S8)
+
+    /// Is this point inside the object's footprint?
+    ///
+    /// The footprint is rotated, so this is a point-in-polygon test rather
+    /// than a rect containment — `ObjectCatalog.footprint` builds the four
+    /// corners about the centre and `PlanEditing.contains` does the rest,
+    /// which is the same test the room's own outline already uses.
+    private func objectContains(_ object: RoomObject, _ point: CGPoint) -> Bool {
+        let corners = ObjectCatalog.footprint(
+            width: object.width, depth: object.depth, rotation: object.rotation
+        ).map { CGPoint(x: $0.x + object.x, y: $0.y + object.y) }
+        return PlanEditing.contains(corners, point: point)
+    }
+
+    private func replaceObject(_ id: String, _ transform: (RoomObject) -> RoomObject) {
+        guard let index = objects.firstIndex(where: { $0.id == id }) else { return }
+        objects[index] = transform(objects[index])
+    }
+
+    private func loadObjects() async {
+        objects = (try? await API.shared.objects(roomScanId: room.id)) ?? objects
+    }
+
+    /// Place a chosen catalogue entry.
+    ///
+    /// At the ROOM'S CENTROID rather than under the finger, because the
+    /// picker is a full-screen sheet — there is no finger position to place
+    /// it at when the sheet dismisses. Landing in the middle of the room,
+    /// selected, means the very next drag moves it where it belongs, which
+    /// is one gesture rather than a placement mode to learn.
+    private func place(
+        _ entry: ObjectCatalog.Entry, at position: CGPoint? = nil, rotation: Double = 0
+    ) async {
+        let centre = position
+            ?? CGPoint(x: bounds.midX - roomOrigin.x, y: bounds.midY - roomOrigin.y)
+        do {
+            let id = try await API.shared.createObject(
+                roomScanId: room.id, kind: entry.slug, at: centre, rotation: rotation,
+                width: entry.width, depth: entry.depth, height: entry.height)
+            await loadObjects()
+            select(.object(id))
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// The write at the end of a drag — once, not per frame.
+    private func endObjectDrag() {
+        guard objectDragStart != nil, case .object(let id) = selection,
+            let object = objects.first(where: { $0.id == id })
+        else {
+            objectDragStart = nil
+            return
+        }
+        objectDragStart = nil
+        Task { await patchObject(id, at: CGPoint(x: object.x, y: object.y)) }
+    }
+
+    private func patchObject(
+        _ id: String, at point: CGPoint? = nil, rotation: Double? = nil
+    ) async {
+        // Optimistic locally so the drawing does not wait on the network,
+        // then reconciled by the reload — the same shape every other write
+        // in this editor uses.
+        if let rotation { replaceObject(id) { $0.rotated(to: rotation) } }
+        do {
+            try await API.shared.updateObject(id: id, at: point, rotation: rotation)
+        } catch {
+            self.error = error.localizedDescription
+            await loadObjects()
+        }
+    }
+
+    private func duplicateObject(_ id: String) async {
+        guard let object = objects.first(where: { $0.id == id }) else { return }
+        do {
+            // Offset half its own width, so the copy is visibly a second
+            // object rather than sitting exactly on the first where nobody
+            // can tell one was made.
+            let newId = try await API.shared.createObject(
+                roomScanId: room.id, kind: object.kind,
+                at: CGPoint(x: object.x + object.width / 2, y: object.y + object.depth / 2),
+                rotation: object.rotation,
+                width: object.width, depth: object.depth, height: object.height)
+            await loadObjects()
+            select(.object(newId))
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func removeObject(_ id: String) async {
+        do {
+            try await API.shared.deleteObject(id: id)
+            select(.none)
+            await loadObjects()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// §4's room-depth Insert: their five nouns, in their order, with the
+    /// four that are not built greyed and saying why — the same treatment
+    /// `LevelCanvas` already gives the floor-depth copy of this menu.
+    @ViewBuilder private var insertMenu: some View {
+        VStack(spacing: 0) {
+            insertRow("Room", icon: "square.dashed", enabled: false, note: "Add rooms on the floor") {}
+            Divider()
+            insertRow("Object", icon: "bed.double", enabled: true) {
+                placingObject = true
+            }
+            Divider()
+            // His own ask: doors and windows reachable from the menu as
+            // well as from a selected wall. With a wall already selected it
+            // goes straight in; without one, the kind is chosen first and
+            // the wall is tapped after.
+            insertRow(
+                "Door or window", icon: "door.left.hand.open", enabled: true,
+                note: {
+                    if case .wall = selection { return nil }
+                    return "Choose one, then tap the wall"
+                }()
+            ) {
+                addingOpening = true
+            }
+            Divider()
+            insertRow("Note", icon: "note.text", enabled: false, note: "Not stored yet") {}
+            Divider()
+            insertRow("Photo", icon: "camera", enabled: false, note: "In the room's own inspector") {}
+            Divider()
+            insertRow("Form", icon: "list.clipboard", enabled: false, note: "No templates yet") {}
+        }
+        .frame(width: 260)
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .shadow(color: .black.opacity(0.14), radius: 10, y: 4)
+    }
+
+    private func insertRow(
+        _ title: String, icon: String, enabled: Bool, note: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            guard enabled else { return }
+            withAnimation(.snappy(duration: 0.15)) { insertMenuOpen = false }
+            action()
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 17))
+                        .foregroundStyle(enabled ? Brand.ink : Brand.inkFaint)
+                    if let note {
+                        Text(note)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+                }
+                Spacer()
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(enabled ? Brand.blue : Brand.inkFaint)
+            }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, Brand.Space.small)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
     }
 
     /// Which edges carry a live figure right now — ORD-31.
@@ -1474,6 +1829,23 @@ struct RoomEditorCore: View {
             deleteCorner(index)
         case (.delete, .opening(let index)):
             deleteOpening(index)
+        case (.rotate, .object(let id)):
+            // A quarter turn, which is what rotating a cabinet against a
+            // wall actually means. Free rotation would need a handle and a
+            // gesture; nobody has asked for one, and a stock unit sits
+            // square to a wall in every room this trade works in.
+            guard let object = objects.first(where: { $0.id == id }) else { break }
+            Task { await patchObject(id, rotation: (object.rotation + 90).truncatingRemainder(dividingBy: 360)) }
+        case (.duplicate, .object(let id)):
+            Task { await duplicateObject(id) }
+        case (.delete, .object(let id)):
+            Task { await removeObject(id) }
+        case (.replaceWith, .object):
+            // The catalogue again: "replace with" on an object means swap
+            // this cabinet for a different one, keeping where it stands.
+            placingObject = true
+        case (.insert, .none):
+            withAnimation(.snappy(duration: 0.18)) { insertMenuOpen.toggle() }
         case (.replaceWith, .opening(let index)):
             // Opens the SAME sheet the swipe-up already reaches — its Kind
             // section, at the top, is what "Replace with…" means for
@@ -1525,6 +1897,8 @@ struct RoomEditorCore: View {
         case .opening(let index):
             guard openings.indices.contains(index) else { return room.name }
             return openings[index].kind.label
+        case .object(let id):
+            return objects.first { $0.id == id }?.displayName ?? room.name
         }
     }
 

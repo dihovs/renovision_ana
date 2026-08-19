@@ -503,6 +503,88 @@ actor API {
         _ = try await request("/api/v1/areas/\(id)", method: "DELETE", body: Optional<String>.none)
     }
 
+    // MARK: - Objects in a room (S8)
+
+    /// Everything standing in this room. Excluded objects come back too —
+    /// exclusion is a claim decision, not a deletion, and the plan still
+    /// draws them.
+    func objects(roomScanId: String) async throws -> [RoomObject] {
+        let encoded = roomScanId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? roomScanId
+        return try await get(
+            "/api/v1/objects?roomScanId=\(encoded)", as: RoomObjectListResponse.self
+        ).objects
+    }
+
+    private struct NewObject: Encodable {
+        let roomScanId: String
+        let kind: String
+        let x: Double
+        let y: Double
+        let rotation: Double
+        let width: Double
+        let depth: Double
+        let height: Double
+    }
+
+    /// Place one. Dimensions are seeded from the catalogue rather than left
+    /// to the server, because the catalogue is the app's own and the server
+    /// deliberately knows nothing about slugs — see `roomObjects.ts`.
+    func createObject(
+        roomScanId: String, kind: String, at point: CGPoint, rotation: Double,
+        width: Double, depth: Double, height: Double
+    ) async throws -> String {
+        struct Created: Decodable { let id: String }
+        let data = try await request(
+            "/api/v1/objects", method: "POST",
+            body: NewObject(
+                roomScanId: roomScanId, kind: kind, x: Double(point.x), y: Double(point.y),
+                rotation: rotation, width: width, depth: depth, height: height))
+        return try decode(Created.self, from: data).id
+    }
+
+    /// Every field optional and only the mentioned ones sent. Note the trap
+    /// this file already documents at length: a `nil` in a synthesised
+    /// `Encodable` OMITS its key, and every `/api/v1` route reads an absent
+    /// key as "not mentioned" — which is exactly what is wanted here, since
+    /// nothing on an object is nullable except `name` and `notes`.
+    private struct ObjectPatch: Encodable {
+        var name: String?
+        var x: Double?
+        var y: Double?
+        var rotation: Double?
+        var width: Double?
+        var depth: Double?
+        var height: Double?
+        var disposition: String?
+        var included: Bool?
+        var quantity: Int?
+        var notes: String?
+    }
+
+    func updateObject(
+        id: String, name: String? = nil, at point: CGPoint? = nil, rotation: Double? = nil,
+        width: Double? = nil, depth: Double? = nil, height: Double? = nil,
+        disposition: String? = nil, included: Bool? = nil, quantity: Int? = nil,
+        notes: String? = nil
+    ) async throws {
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id
+        _ = try await request(
+            "/api/v1/objects?id=\(encoded)", method: "PATCH",
+            body: ObjectPatch(
+                // `CGPoint` is CGFloat-typed and the wire is Double. One
+                // explicit conversion here beats making the patch type
+                // platform-width.
+                name: name, x: point.map { Double($0.x) }, y: point.map { Double($0.y) },
+                rotation: rotation,
+                width: width, depth: depth, height: height, disposition: disposition,
+                included: included, quantity: quantity, notes: notes))
+    }
+
+    func deleteObject(id: String) async throws {
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id
+        _ = try await request("/api/v1/objects?id=\(encoded)", method: "DELETE")
+    }
+
     // MARK: - Wall details
 
     /// Every wall of this room that has a detail set on it — object-model

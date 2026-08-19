@@ -816,6 +816,118 @@ enum DamageCause: String, CaseIterable, Identifiable {
 
 struct AreaListResponse: Decodable { let areas: [AffectedArea] }
 
+/// One object standing in a room — a cabinet, a toilet, a vanity.
+///
+/// ORD-40 / ORD-36 / S8. **Not an opening**, and the app keeps the two
+/// models apart on purpose: an opening lives IN a wall, is keyed to an edge
+/// index and deducts from net wall area; this has a POSITION on the floor,
+/// keeps its own height, and deducts nothing. `PlanEditing.WallOpening` is
+/// untouched by any of this.
+///
+/// The owner set the shape of it himself when asked what an object has to do
+/// on a job: *"if replaced, if there is damage, it needs to be counted,
+/// there is installation involved also, i need to have an option to include
+/// or exclude it like any other item."* Hence `disposition`, `included` and
+/// `quantity`, none of which a purely decorative object would need.
+struct RoomObject: Decodable, Identifiable, Hashable {
+    let id: String
+    /// The catalogue slug. A STRING rather than an enum, so an object placed
+    /// by a newer build is still a drawable box with a name in an older one
+    /// — see `ObjectCatalog` for why the catalogue is a list.
+    let kind: String
+    /// What the operator renamed it to. Nil means "use the catalogue entry's
+    /// own name", so renaming an entry later does not orphan old objects on
+    /// a stale label.
+    let name: String?
+    /// The CENTRE of the footprint, in the room's own plan metres — the same
+    /// space a floor affected area's polygon is in, so it lines up with the
+    /// walls untransformed.
+    let x: Double
+    let y: Double
+    /// Degrees clockwise. One catalogue entry against four different walls
+    /// is one entry at four rotations.
+    let rotation: Double
+    let width: Double
+    let depth: Double
+    /// Its own height, standing on the floor. The owner was explicit that a
+    /// cabinet keeps it — this is the measurement an opening would instead
+    /// express as `sill + height`.
+    let height: Double
+    /// What is happening to it on this job: `none`, `remove`, `reset`,
+    /// `replace`, `protect`. The installation half — a toilet pulled to lift
+    /// flooring and a toilet thrown out are two different labour lines.
+    let disposition: String
+    /// In the claim, or not. An excluded object stays on the drawing and
+    /// leaves the count, which is what "like any other item" means.
+    let included: Bool
+    /// One row can stand for eight identical base cabinets along a run.
+    let quantity: Int
+    let notes: String?
+
+    /// The catalogue entry behind it, when this build knows the slug.
+    var entry: ObjectCatalog.Entry? { ObjectCatalog.entry(slug: kind) }
+
+    /// What to call it on screen: the operator's own name, else the
+    /// catalogue's, else the raw slug — which is what an object placed by a
+    /// newer build degrades to rather than showing nothing.
+    var displayName: String {
+        if let name, !name.isEmpty { return name }
+        return entry?.name ?? kind
+    }
+
+    /// A copy standing somewhere else. Value-type edits like this are what
+    /// let the canvas move an object every frame while the write happens
+    /// once, on lift.
+    func moved(to point: CGPoint) -> RoomObject {
+        RoomObject(
+            id: id, kind: kind, name: name, x: point.x, y: point.y, rotation: rotation,
+            width: width, depth: depth, height: height, disposition: disposition,
+            included: included, quantity: quantity, notes: notes)
+    }
+
+    func rotated(to degrees: Double) -> RoomObject {
+        RoomObject(
+            id: id, kind: kind, name: name, x: x, y: y, rotation: degrees,
+            width: width, depth: depth, height: height, disposition: disposition,
+            included: included, quantity: quantity, notes: notes)
+    }
+
+    /// Memberwise, written out because `Decodable` synthesis does not give
+    /// one to a type declared in another file's extension-free form and the
+    /// two helpers above need it.
+    init(
+        id: String, kind: String, name: String?, x: Double, y: Double, rotation: Double,
+        width: Double, depth: Double, height: Double, disposition: String, included: Bool,
+        quantity: Int, notes: String?
+    ) {
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.x = x
+        self.y = y
+        self.rotation = rotation
+        self.width = width
+        self.depth = depth
+        self.height = height
+        self.disposition = disposition
+        self.included = included
+        self.quantity = quantity
+        self.notes = notes
+    }
+
+    var dispositionLabel: String {
+        switch disposition {
+        case "remove": return "Remove & dispose"
+        case "reset": return "Remove & reset"
+        case "replace": return "Replace"
+        case "protect": return "Protect in place"
+        default: return "In place"
+        }
+    }
+}
+
+struct RoomObjectListResponse: Decodable { let objects: [RoomObject] }
+
 struct AffectedArea: Decodable, Identifiable, Hashable {
     let id: String
     let name: String

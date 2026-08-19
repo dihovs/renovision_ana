@@ -707,6 +707,65 @@ enum EditorChrome {
         }
     }
 
+    // MARK: - Objects on the floor (S8)
+
+    /// One object's footprint on the plan, in INK.
+    ///
+    /// The catalogue's illustrations are coloured because a catalogue is
+    /// browsed; this drawing is read beside a report, and `Brand.Plan` is
+    /// what keeps it reading as drafting rather than as a diagram. The owner
+    /// agreed the split, and it is the reference's own — its object library
+    /// is coloured while its floor plan is not.
+    ///
+    /// An outline, its name, and nothing else. An object is context on a
+    /// floor plan: what an adjuster needs from it is "there was a vanity
+    /// here, this big", not a portrait.
+    ///
+    /// **An EXCLUDED object is drawn dashed and pale.** It is still in the
+    /// room — the operator said so by leaving it on the plan — but it is not
+    /// in the claim, and a drawing that showed the two identically would
+    /// make the count impossible to check against the picture.
+    static func drawObject(
+        _ object: RoomObject,
+        context: GraphicsContext,
+        toScreen: (CGPoint) -> CGPoint,
+        scale: CGFloat,
+        selected: Bool
+    ) {
+        let corners = ObjectCatalog.footprint(
+            width: object.width, depth: object.depth, rotation: object.rotation
+        ).map { CGPoint(x: $0.x + object.x, y: $0.y + object.y) }
+        guard corners.count == 4 else { return }
+
+        var path = Path()
+        path.move(to: toScreen(corners[0]))
+        for corner in corners.dropFirst() { path.addLine(to: toScreen(corner)) }
+        path.closeSubpath()
+
+        let ink = selected ? Brand.blue : Brand.Plan.ink
+        context.fill(path, with: .color(Brand.Plan.floorMuted.opacity(object.included ? 0.85 : 0.4)))
+        context.stroke(
+            path, with: .color(ink.opacity(object.included ? 1 : 0.45)),
+            style: StrokeStyle(
+                lineWidth: selected ? 2.4 : 1.4,
+                dash: object.included ? [] : [5, 4]))
+
+        // The name, centred, and only when there is room for it — a label
+        // wider than the thing it names is noise, and at floor zoom a
+        // cabinet is 20 points across.
+        let centre = toScreen(CGPoint(x: object.x, y: object.y))
+        let widthPts = object.width * scale
+        guard widthPts >= 44 else { return }
+
+        let text = context.resolve(
+            Text(object.displayName)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(ink))
+        let size = text.measure(in: CGSize(width: widthPts, height: 40))
+        guard size.width <= widthPts - 4 else { return }
+        context.draw(text, at: centre, anchor: .center)
+    }
+
     // MARK: - Live dimensions during a drag (ORD-31)
 
     /// The lengths of the edges either side of the corner being dragged,
@@ -992,6 +1051,11 @@ enum EditorDepth: Equatable {
     /// the drag-engaged row's shape because it offers the same two things.
     case corner
     case opening(label: String)
+    /// Something standing ON the floor — a cabinet, a toilet, a vanity (S8).
+    /// A separate depth from `.opening` because they are separate models:
+    /// an opening lives IN a wall and deducts wall area, an object stands on
+    /// the floor and deducts nothing.
+    case object(label: String)
 
     /// What the swipe-up caption calls this — `<name>` in
     /// "Swipe up ↑ for <name> info".
@@ -1002,6 +1066,7 @@ enum EditorDepth: Equatable {
         case .wall: return "Wall"
         case .corner: return "Corner"
         case .opening(let label): return label
+        case .object(let label): return label
         }
     }
 }
@@ -1079,6 +1144,15 @@ enum EditorAction: Hashable {
                 : [.insert, .addCorner, .addWall, .splitRoom, .delete]
         case .corner:
             return [.insert, .delete]
+        case .object:
+            // The reference's own bar for a placed object, read off
+            // `interactions-editor.md` §"object inserted": `Insert ·
+            // Replace with… · Rotate · Duplicate · Delete…`. Identical to
+            // the opening bar below, and that is not a coincidence — in
+            // their model a door and a cabinet are both objects, and only
+            // ours needs to tell them apart because only ours deducts wall
+            // area for one of them.
+            return [.insert, .replaceWith, .rotate, .duplicate, .delete]
         case .opening:
             // Corrected 18 Aug 2026 against the owner's own screenshot of a
             // selected door — five verbs, `Rotate` among them, where this

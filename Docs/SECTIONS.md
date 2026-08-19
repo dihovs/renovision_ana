@@ -36,7 +36,7 @@ Commit the ledger update with the work.
 | **S5** | Plan editor parity | **DONE** — all four items shipped and confirmed on the device, build 120 | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
 | **S6** | Photo editor — blur first | **THREE MODES OF FOUR (build 123)** — Crop and the six shape tools left | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
-| **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
+| **S8** | Objects — doors, windows, catalogue | **BUILT (build 124)** — placement, catalogue, inspector; takeoff roll-up left | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift` |
 | **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
 | **S10** | Report parity | NOT STARTED | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
@@ -744,6 +744,50 @@ position and size; the catalogue itself with a recently-used rail and favourites
 
 **Note.** There is no door type and no window type — one object model, three
 dimensions, and a door is an object whose Distance to Floor is zero.
+
+### State (18 Aug 2026, build 124)
+
+**The modelling question was put to the owner and he answered it**, which
+is what unblocked the whole section: *"well if replaced, if there is damage,
+it needs to be counted, there is installation involved also, i need to have
+an option to include or exclude it like any other item."* So an object is a
+LINE ITEM, and that decided everything else — a table (migration **0037**,
+**applied to production 18 Aug** and verified, 16 columns), a `disposition`
+(none · remove · reset · replace · protect), an `included` flag, and
+`quantity` so a run of eight identical cabinets is one line.
+
+**An object is not an opening**, and the two models stay apart: an opening
+lives IN a wall, is keyed to an edge index and DEDUCTS net wall area; an
+object stands ON the floor, has a position, keeps its own height and
+deducts nothing. `OpeningKind` was not touched.
+
+**What landed.** `ObjectCatalog` — 33 entries over six sections, every size
+North American stock with its inch derivation stated, the precedent
+`OpeningKind` set. `ObjectPicker` — sections whose tiles are themselves
+illustrations, a detail grid per section, Favourites and Recently used
+rails above everything (`UserDefaults`, not a table), and search: ORD-40's
+four pieces. Placement, drag, quarter-turn Rotate, Duplicate, Delete and
+Replace with…, plus `ObjectDetailView` where include/exclude and
+disposition live.
+
+**Illustrations are coloured in the picker and INK on the plan**, the
+owner's own call and the reference's own split. `ObjectTileArt` draws the
+colour; `EditorChrome.drawObject` draws the ink. An EXCLUDED object draws
+dashed and pale — still in the room, out of the claim, and a drawing that
+showed the two identically would make the count impossible to check.
+
+**Doors and windows from the Insert menu too**, asked for mid-build: *"doors
+and windows i want to be able to choose from the insert menu itself also
+from the floorplan look, when i choose a wall and click insert."* Both
+routes now exist and end in the same `PlanEditing.placeOpening`. With a
+wall selected it goes straight in; without one, the kind is chosen first
+and a banner waits for the wall to be tapped — and `fits` is asked of every
+wall, so a 60" double door that fits the long wall is still offered.
+
+**Left:** the takeoff roll-up (S9 owns the Objects tab in Statistics —
+`countByKind` is written and unused), sill height in the placement UI, and
+editing an object's size, which wants the walls' own measurement panel
+rather than three loose text fields.
 
 **Note (from S4).** Placement puts controls over a plan canvas. Read S5's
 first note before positioning any of them — a view that aspect-fits itself
@@ -1949,3 +1993,15 @@ Newest last. One or two lines per chat.
   **Unverified by eye, all of it** — and the destructive path (Done deletes
   the original) has still never been run. Test it on a photo nobody minds
   losing.
+- **2026-08-18** — **S8 built**, build **124**. Migration 0037 written and
+  **applied to production** from here through the Supabase SQL editor,
+  verified by reading `information_schema` back — 16 columns. The section
+  was unblocked by asking the owner one question rather than guessing:
+  what an object has to DO. His answer made it a line item, not decoration,
+  and everything below follows from that. Catalogue, picker with
+  favourites/recents/search, placement and drag on the plan, the object
+  bar (Rotate · Duplicate · Delete · Replace with…), and the inspector
+  carrying disposition and include/exclude. Doors and windows now also
+  reachable from the room-depth Insert menu, at his ask mid-build, with a
+  tap-the-wall step when none is selected.
+  **Unverified by eye, all of it.** 1120 tests still passing.

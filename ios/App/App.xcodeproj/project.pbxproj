@@ -71,6 +71,8 @@
 		EF82D7C613C825D545AFB52E /* PhotoEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C697F69A9307C37B0E7FED /* PhotoEditor.swift */; };
 		FCDCD5A378E8209C853D57D2 /* ObjectCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70CD893958851C08B3F830D /* ObjectCatalog.swift */; };
 		3FA58B3CFCD329C45A6DA382 /* ObjectGlyphs.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB452753AD51DC16629EB23C /* ObjectGlyphs.swift */; };
+		12FDE45F0886FC57A524DE42 /* ObjectPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */; };
+		547F794211626CFF8CFA6570 /* ObjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -139,6 +141,8 @@
 		B7C697F69A9307C37B0E7FED /* PhotoEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhotoEditor.swift; sourceTree = "<group>"; };
 		F70CD893958851C08B3F830D /* ObjectCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectCatalog.swift; sourceTree = "<group>"; };
 		DB452753AD51DC16629EB23C /* ObjectGlyphs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectGlyphs.swift; sourceTree = "<group>"; };
+		88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectPicker.swift; sourceTree = "<group>"; };
+		6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -182,6 +186,8 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */,
+				88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */,
 				DB452753AD51DC16629EB23C /* ObjectGlyphs.swift */,
 				F70CD893958851C08B3F830D /* ObjectCatalog.swift */,
 				B7C697F69A9307C37B0E7FED /* PhotoEditor.swift */,
@@ -324,6 +330,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				547F794211626CFF8CFA6570 /* ObjectDetailView.swift in Sources */,
+				12FDE45F0886FC57A524DE42 /* ObjectPicker.swift in Sources */,
 				3FA58B3CFCD329C45A6DA382 /* ObjectGlyphs.swift in Sources */,
 				FCDCD5A378E8209C853D57D2 /* ObjectCatalog.swift in Sources */,
 				EF82D7C613C825D545AFB52E /* PhotoEditor.swift in Sources */,
