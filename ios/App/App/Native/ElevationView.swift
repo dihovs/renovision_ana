@@ -193,6 +193,15 @@ struct ElevationView: View {
 
     private var isDrawable: Bool { wallCount >= 3 && wallLength > 0.05 }
 
+    /// The longest wall in the room — what every face is scaled against, so
+    /// stepping round the room keeps one drawing at one size rather than
+    /// re-fitting each wall to the canvas on its own. See `layout`.
+    private var longestWall: Double {
+        guard wallCount >= 3 else { return max(wallLength, 0.05) }
+        let lengths = (0..<wallCount).map { PlanEditing.edgeLength(corners, $0) }
+        return max(lengths.max() ?? wallLength, 0.05)
+    }
+
     /// Damage already filed against the wall being faced.
     private var wallAreas: [AffectedArea] {
         areas.filter { $0.isWall && $0.wallIndex == edge && $0.polygon.count >= 3 }
@@ -575,32 +584,55 @@ struct ElevationView: View {
     /// the turn reads better stopping short of the degenerate angle, and it
     /// keeps the drawing legible for more of the animation.
     private static func turn(forward: Bool) -> AnyTransition {
+        // **Direction reversed 18 Aug 2026, at the owner's report:** *"I
+        // click right, animation turns left."* Build 119 brought the next
+        // wall in from the RIGHT on the right-hand arrow — defensible as
+        // "you turned your head right, so the room slides left", but it is
+        // not how the arrow reads to the hand pressing it. A right arrow
+        // means the room turns RIGHT: the drawing travels rightwards, the
+        // outgoing wall leaves by the right edge and the next one arrives
+        // from the left. His thumb is the arbiter of which one is "right",
+        // and it is one sign either way if he prefers the other.
         .asymmetric(
             insertion: .modifier(
-                active: WallTurn(degrees: forward ? 62 : -62),
-                identity: WallTurn(degrees: 0)),
+                active: WallTurn(side: forward ? -1 : 1),
+                identity: WallTurn(side: 0)),
             removal: .modifier(
-                active: WallTurn(degrees: forward ? -62 : 62),
-                identity: WallTurn(degrees: 0)))
+                active: WallTurn(side: forward ? 1 : -1),
+                identity: WallTurn(side: 0)))
     }
 
     /// One frame of the turn: a 3D rotation about the vertical axis, hinged
     /// on the side the face is travelling toward, fading as it goes edge-on.
     private struct WallTurn: ViewModifier {
-        let degrees: Double
+        /// Where this face is in the turn: `-1` fully off to the left, `0`
+        /// square on, `+1` fully off to the right. ONE number driving the
+        /// angle, the slide and the fade together, because they are one
+        /// movement — the earlier version drove the angle alone and swapped
+        /// the rotation anchor on the SIGN of it, so the pivot jumped from
+        /// one edge of the drawing to the other halfway through the turn.
+        let side: Double
 
         func body(content: Content) -> some View {
             content
                 .rotation3DEffect(
-                    .degrees(degrees),
+                    .degrees(62 * side),
                     axis: (x: 0, y: 1, z: 0),
-                    anchor: degrees > 0 ? .leading : .trailing,
+                    // Hinged in the middle, always. A wall you are turning
+                    // away from pivots about the room's centre — you are
+                    // standing in the room, not swinging the wall on a
+                    // door hinge.
+                    anchor: .center,
                     // Shallow: a strong perspective on a flat architectural
                     // drawing reads as a gimmick rather than a room.
                     perspective: 0.45)
+                // The slide is what makes it read as ONE room rather than a
+                // wall spinning in place: the drawing travels the way the
+                // arrow points while it pivots.
+                .offset(x: side * 120)
                 // Never fully transparent at the extremes — the face should
                 // look like it turned away, not like it was deleted.
-                .opacity(degrees == 0 ? 1 : 0.15)
+                .opacity(1 - 0.85 * abs(side))
         }
     }
 
@@ -763,7 +795,23 @@ struct ElevationView: View {
         let availableH = size.height - padTop - padBottom
         guard availableW > 20, availableH > 20 else { return nil }
 
-        let scale = min(availableW / CGFloat(wallLength), availableH / CGFloat(wallHeight))
+        // **One scale for the whole ROOM, not one per wall.** Fitting each
+        // face to itself made the drawing resize every time you stepped: a
+        // short wall fits on its height and comes out big, a long one fits
+        // on its width and comes out small, so the ceiling height — the one
+        // measurement every wall in a room shares — changed size from wall
+        // to wall. The owner saw exactly that, 18 Aug 2026: *"the lengths
+        // are different and they all get positioned different, doesn't look
+        // like it is the continuity of the same room."* It isn't the turn
+        // animation's fault; it is that consecutive frames were two
+        // different drawings of two different rooms.
+        //
+        // Scaled off the LONGEST wall instead, so every face in the room
+        // fits, the ceiling line lands on the same pixel on all of them,
+        // and a short wall is DRAWN short — which is what standing in a
+        // room and turning round actually looks like.
+        let longest = longestWall
+        let scale = min(availableW / CGFloat(longest), availableH / CGFloat(wallHeight))
         guard scale.isFinite, scale > 0 else { return nil }
 
         let widthPts = CGFloat(wallLength) * scale

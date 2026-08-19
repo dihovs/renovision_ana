@@ -33,7 +33,7 @@ Commit the ledger update with the work.
 | **S2** | Wall inspector | **DONE** | S1 | `PlanEditorView.swift`, new `WallDetailView.swift` |
 | **S3** | Affected areas — freehand drawing | **DONE** | — | `FloorPlanView.swift`, `PlanEditing.swift` |
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
-| **S5** | Plan editor parity | **BUILT — 3 of 4 items shipped in build 120; the dimension tap still needs one look** | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
+| **S5** | Plan editor parity | **DONE** — all four items shipped and confirmed on the device, build 120 | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
 | **S6** | Photo editor — blur first | **BLUR BUILT (build 121) — three modes still empty** | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | NOT STARTED | S5 | `OpeningGlyphs.swift`, `PlanEditing.swift` |
@@ -491,7 +491,11 @@ source on the day rather than remembered.
 Item 1 is the only one still open, and it is the one nobody can close from
 a keyboard.
 
-1. **Verify the dimension tap. STILL OPEN — ten seconds on the phone.**
+1. ~~**Verify the dimension tap**~~ — **CONFIRMED ON THE DEVICE, 18 Aug
+   2026, build 120.** The owner's own words: *"keypad opens it is good."*
+   This is the one item in the whole section that had never been seen
+   working, through however many builds; it is now seen. The account below
+   is kept because the failure mode is worth recognising.
    Built long ago, never once seen working, and 18 Aug found why: the whole
    branch sat behind `if false` from an old bisect nobody closed. Re-enabled
    in build 112. Tap a wall's length figure; the keypad should open with
@@ -1889,3 +1893,28 @@ Newest last. One or two lines per chat.
   **Unverified by eye, all of it**, and the delete half cannot work at all
   until the branch is deployed, since the phone talks to the Vercel
   preview. 1120 tests still passing.
+- **2026-08-18** — **S5 is DONE.** All four items confirmed on the device
+  by the owner within minutes of build 120 landing: *"keypad opens it is
+  good, the red numbers are there, the rest is good."* That closes the
+  dimension-tap unlock, which had been carried as unverified since the
+  ledger was written and had never once been seen working — it turned out
+  to have been dead behind an unclosed `if false` bisect, re-enabled in
+  112, and only now looked at. The wider room framing that ORD-23 forced
+  drew no complaint.
+- **2026-08-18** — **The wall-stepping turn animation, fixed on his
+  report** (build **122**). Two faults, and the interesting one is not the
+  animation. *"The lengths are different and they all get positioned
+  different, doesn't look like it is the continuity of the same room."*
+  `layout` fitted EACH FACE to the canvas on its own, so a short wall fit
+  on its height and came out big while a long one fit on its width and came
+  out small — the ceiling height, the one measurement every wall in a room
+  shares, changed size from wall to wall. Consecutive frames were two
+  drawings of two different rooms, and no transition can paper over that.
+  Every face now scales off the room's LONGEST wall, so the ceiling line
+  lands on the same pixel on all of them and a short wall is drawn short.
+  Second, *"I click right, animation turns left"* — the turn's direction is
+  reversed, and `WallTurn` rebuilt around one `side` value driving angle,
+  slide and fade together, hinged on centre. The old one swapped the
+  rotation ANCHOR on the sign of the angle, so the pivot jumped from one
+  edge of the drawing to the other halfway through. **Unverified** — shipped
+  minutes ago.

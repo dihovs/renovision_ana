@@ -204,19 +204,19 @@ and the unit fix all belong to it. Read S5's own **"State at handoff"**
 block first — it lists what is genuinely left, checked against the code
 rather than remembered, and it is short.
 
-**Three of the four are done** — items 2, 3 and 4 shipped in **build 120**,
-confirmed installed on the phone: `Set Size` hides on a non-rectangular room
+**S5 is DONE.** All four items shipped in **build 120** and confirmed on the
+device by the owner — *"keypad opens it is good, the red numbers are there,
+the rest is good."* The dimension-tap unlock, carried as unverified since
+this file was written, is finally seen working. Items 2, 3 and 4 were: `Set Size` hides on a non-rectangular room
 and comes back when it is square, ORD-31's live edge dimensions on the two
 edges adjoining a dragged corner, and ORD-23's overall bounding extent on its
 own outer line. **None of it has been looked at.**
 
-**One item remains, and it is ten seconds:**
-
-1. **Verify the dimension tap.** The one thing here already built but never
-   seen working. Disabled behind `if false` from an old bisect, re-enabled in
-   build 112; nobody has confirmed the keypad opens. Build 120 did not touch
-   the hit test — the only adjacent change is that the branch is now also
-   gated on the `Dimensions` layer being on, which is its default.
+**Next after S5:** S6, the photo editor, is under way — blur shipped alone in
+build 121 and is unverified. See its own block in `SECTIONS.md`, including
+the one thing that will bite: the new `DELETE /api/v1/photos` route does not
+exist for the phone until the `mobile-app` branch is deployed, because the
+app talks to the Vercel preview.
 
 **ORD-23 moved the camera, so read S5's item 4 before touching the
 viewport.** An outer dimension line needs space outboard of the walls and
