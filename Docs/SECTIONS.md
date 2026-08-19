@@ -2165,3 +2165,13 @@ Newest last. One or two lines per chat.
   and landing on that is a room of zero width. Build 158. Split Room's rule
   captured from the reference and filed as ORD-44; Add Wall and Merge Rooms
   seen in the bars but never watched performing anything, so not guessed.
+- **2026-08-19 (late)** — A typed wall length no longer pulls a square room
+  out of square. `setEdgeLength` moved only the typed wall's own two corners
+  about their midpoint, so shortening a left wall left the right one behind
+  and both horizontals came away slanted; the owner hit it directly. On a
+  RECTANGLE the whole outline now scales along that wall's direction, and
+  which end holds comes from the rooms next door — his rule, alone shrinks
+  equally, attached keeps the attached end. An L keeps the old wall-only
+  behaviour, since an L genuinely has two parallel walls of different
+  lengths. Build 159, ten geometry cases. Still open, his own suggestion:
+  shrinking the middle of three rooms should bring the far room with it.

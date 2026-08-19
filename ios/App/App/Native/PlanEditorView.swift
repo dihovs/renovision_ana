@@ -1602,7 +1602,9 @@ struct RoomEditorCore: View {
                 // value typed here anyway is applied the single-wall way,
                 // and any inconsistency it carries lands on the neighbours
                 // where the canvas shows it.
-                corners = PlanEditing.setEdgeLength(corners, index: run.active, to: metres)
+                corners = PlanEditing.setEdgeLength(
+                    corners, index: run.active, to: metres,
+                    anchoring: lengthAnchor(forEdge: run.active))
             } else {
                 run.typed[run.active] = metres
                 corners = PlanEditing.applyWalkLengths(
@@ -1619,6 +1621,62 @@ struct RoomEditorCore: View {
             measuring = run
             select(.wall(run.active))
         }
+    }
+
+    /// Which end of the room holds still when a wall's length is typed.
+    ///
+    /// **The owner's rule, 19 Aug 2026:** *"if a room is standing alone and
+    /// not attached to anyone, it has to shrink, like, equally. And if it's
+    /// attached to another room, we're not touching the attached part to not
+    /// deattach them. We're changing the size from the place where it's not
+    /// attached."*
+    ///
+    /// So: look along the direction the typed wall runs, and ask whether a
+    /// room next door is sitting against the low end, the high end, or both.
+    /// One neighbour pins that end and the far end does the moving. None, or
+    /// both, and it shrinks about the middle — with both attached there is no
+    /// end that can move without leaving somebody, so leaving equally is the
+    /// least surprising of the bad options, and the gap it opens is visible
+    /// on the storey where it can be closed by hand.
+    private func lengthAnchor(forEdge index: Int) -> PlanEditing.LengthAnchor {
+        guard corners.count >= 3, !neighbours.isEmpty else { return .centre }
+        let (a, b) = PlanEditing.edgeCorners(index, count: corners.count)
+        let direction = PlanEditing.normalised(PlanEditing.sub(corners[b], corners[a]))
+        let across = PlanEditing.normal(direction)
+
+        let mine = corners.map { PlanEditing.dot(PlanEditing.sub($0, corners[a]), direction) }
+        let myAcross = corners.map { PlanEditing.dot(PlanEditing.sub($0, corners[a]), across) }
+        guard let low = mine.min(), let high = mine.max(),
+            let acrossLow = myAcross.min(), let acrossHigh = myAcross.max()
+        else { return .centre }
+
+        // A wall's thickness of slack, the same figure `StoreyLayout` uses to
+        // decide what counts as touching.
+        let slack = 0.15
+        var lowAttached = false
+        var highAttached = false
+
+        for neighbour in neighbours {
+            let along = neighbour.polygon.map {
+                PlanEditing.dot(PlanEditing.sub($0, corners[a]), direction)
+            }
+            let side = neighbour.polygon.map {
+                PlanEditing.dot(PlanEditing.sub($0, corners[a]), across)
+            }
+            guard let theirLow = along.min(), let theirHigh = along.max(),
+                let theirSideLow = side.min(), let theirSideHigh = side.max()
+            else { continue }
+            // It has to be BESIDE this room across the wall, or a room three
+            // metres off to one side would pin an end it never touches.
+            guard min(acrossHigh, theirSideHigh) - max(acrossLow, theirSideLow) > 0.25
+            else { continue }
+            if abs(theirHigh - low) < slack { lowAttached = true }
+            if abs(theirLow - high) < slack { highAttached = true }
+        }
+
+        if lowAttached && !highAttached { return .low }
+        if highAttached && !lowAttached { return .high }
+        return .centre
     }
 
     /// Close the panel. Values already committed stay committed — each

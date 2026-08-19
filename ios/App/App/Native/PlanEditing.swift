@@ -151,27 +151,93 @@ enum PlanEditing {
 
     // MARK: - Typed length
 
-    /// Resize a wall to an exact length, symmetrically about its midpoint.
+    /// Which end of a room holds still while the other moves to meet a typed
+    /// length.
+    enum LengthAnchor {
+        /// Both ends move equally — a room standing on its own.
+        case centre
+        /// The low end along the wall's own direction holds.
+        case low
+        /// The high end holds.
+        case high
+    }
+
+    /// Resize a wall to an exact length.
     ///
-    /// Which end should move is a genuine choice with no right answer — no
-    /// editor documents its rule — so this moves both ends equally. The
-    /// result does not depend on which corner happened to be first, which
-    /// makes typing the same number twice idempotent.
-    static func setEdgeLength(_ polygon: [CGPoint], index: Int, to target: Double) -> [CGPoint] {
+    /// **A rectangle stays a rectangle.** This is the owner's report of 19
+    /// Aug 2026, and it was a real bug: *"when I adjusted the left side, then
+    /// after I adjusted the right side, it felt like one side got shortened
+    /// from up, and then the other side got shortened from the down, and then
+    /// the room changed the shape. So it didn't get square."* Exactly so.
+    /// This used to move the typed wall's own two corners about the wall's own
+    /// midpoint and nothing else — so shortening the left wall of a square
+    /// left the right wall where it was, and the top and bottom walls came
+    /// away slanted. Doing it again on the right wall sheared it the other
+    /// way. Two typed numbers, both landing exactly, and a room that is no
+    /// longer square.
+    ///
+    /// A typed length on a rectangle's wall is not a statement about that ONE
+    /// wall. It is a statement about how deep the room is, so the whole
+    /// rectangle takes it: the walls parallel to the typed one both become
+    /// `target`, and the walls across the ends slide without turning.
+    ///
+    /// On a room that is NOT a rectangle there is no such reading — an L has
+    /// two walls running the same way with genuinely different lengths — so
+    /// that case keeps the old midpoint behaviour, which changes only the
+    /// wall that was typed.
+    ///
+    /// `anchoring` decides which end holds still, and the caller works it out
+    /// from the rooms next door: *"if a room is standing alone and not
+    /// attached to anyone, it has to shrink equally. And if it's attached to
+    /// another room, we're not touching the attached part."*
+    static func setEdgeLength(
+        _ polygon: [CGPoint], index: Int, to target: Double,
+        anchoring: LengthAnchor = .centre
+    ) -> [CGPoint] {
         let n = polygon.count
         guard n >= 3, index >= 0, index < n, target > 0 else { return polygon }
         let (a, b) = edgeCorners(index, count: n)
-
         let direction = normalised(sub(polygon[b], polygon[a]))
-        let midpoint = CGPoint(
-            x: (polygon[a].x + polygon[b].x) / 2, y: (polygon[a].y + polygon[b].y) / 2)
-        let half = target / 2
+
+        guard isRectangle(polygon) else {
+            // Not a rectangle: move this wall's own two ends about its own
+            // midpoint, which is what this has always done. Symmetric so the
+            // answer does not depend on which corner happened to be first,
+            // and typing the same number twice is idempotent.
+            let midpoint = CGPoint(
+                x: (polygon[a].x + polygon[b].x) / 2, y: (polygon[a].y + polygon[b].y) / 2)
+            let half = target / 2
+            var result = polygon
+            result[a] = quantise(
+                CGPoint(x: midpoint.x - direction.x * half, y: midpoint.y - direction.y * half))
+            result[b] = quantise(
+                CGPoint(x: midpoint.x + direction.x * half, y: midpoint.y + direction.y * half))
+            return result
+        }
+
+        // Scale the whole outline along the typed wall's direction. Across
+        // that direction nothing changes at all, which is what keeps every
+        // corner square.
+        let projections = polygon.map { dot(sub($0, polygon[a]), direction) }
+        guard let low = projections.min(), let high = projections.max(), high - low > 1e-6
+        else { return polygon }
+
+        let hold: Double
+        switch anchoring {
+        case .centre: hold = (low + high) / 2
+        case .low: hold = low
+        case .high: hold = high
+        }
+        let factor = target / (high - low)
 
         var result = polygon
-        result[a] = quantise(
-            CGPoint(x: midpoint.x - direction.x * half, y: midpoint.y - direction.y * half))
-        result[b] = quantise(
-            CGPoint(x: midpoint.x + direction.x * half, y: midpoint.y + direction.y * half))
+        for i in polygon.indices {
+            let moved = hold + (projections[i] - hold) * factor - projections[i]
+            result[i] = quantise(
+                CGPoint(
+                    x: polygon[i].x + direction.x * moved,
+                    y: polygon[i].y + direction.y * moved))
+        }
         return result
     }
 
