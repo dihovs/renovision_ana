@@ -491,126 +491,249 @@ extension ObjectGlyphs {
         _ shape: ObjectCatalog.Shape, in box: CGRect, context: GraphicsContext,
         tones: (fill: Color, edge: Color)
     ) {
-        let line = max(1, min(box.width, box.height) * 0.04)
+        let line = max(1, min(box.width, box.height) * 0.035)
 
         func stroke(_ path: Path, fill: Color? = nil, weight: CGFloat = 1) {
             context.fill(path, with: .color(fill ?? tones.fill))
             context.stroke(path, with: .color(tones.edge), lineWidth: line * weight)
         }
+        func detail(_ path: Path, weight: CGFloat = 0.7) {
+            context.stroke(path, with: .color(tones.edge), lineWidth: line * weight)
+        }
+        func rounded(_ r: CGRect, _ radius: CGFloat) -> Path {
+            Path(roundedRect: r, cornerRadius: radius)
+        }
+        /// A horizontal line across the box at a fraction of its height.
+        func across(_ t: CGFloat, inset: CGFloat = 0) -> Path {
+            var p = Path()
+            p.move(to: CGPoint(x: box.minX + inset, y: box.minY + box.height * t))
+            p.addLine(to: CGPoint(x: box.maxX - inset, y: box.minY + box.height * t))
+            return p
+        }
+        /// A vertical line down the box at a fraction of its width.
+        func down(_ t: CGFloat, from: CGFloat = 0, to: CGFloat = 1) -> Path {
+            var p = Path()
+            let x = box.minX + box.width * t
+            p.move(to: CGPoint(x: x, y: box.minY + box.height * from))
+            p.addLine(to: CGPoint(x: x, y: box.minY + box.height * to))
+            return p
+        }
+        /// A handle: a short bar, which is what reads at elevation size.
+        func handle(x: CGFloat, from: CGFloat, to: CGFloat) {
+            var p = Path()
+            p.move(to: CGPoint(x: box.minX + box.width * x, y: box.minY + box.height * from))
+            p.addLine(to: CGPoint(x: box.minX + box.width * x, y: box.minY + box.height * to))
+            context.stroke(
+                p, with: .color(tones.edge),
+                style: StrokeStyle(lineWidth: line * 1.6, lineCap: .round))
+        }
 
         switch shape {
+        case .fridge:
+            // **A fridge is a tall cabinet with doors, not a porthole.** It
+            // was drawing the washing machine's round door — the owner saw
+            // one on a wall face and said so. A French-door fridge from the
+            // front is a split upper pair over a freezer drawer, with tall
+            // vertical handles either side of the split.
+            stroke(rounded(box, box.width * 0.06))
+            detail(across(0.62))
+            detail(down(0.5, from: 0, to: 0.62))
+            handle(x: 0.44, from: 0.12, to: 0.5)
+            handle(x: 0.56, from: 0.12, to: 0.5)
+            handle(x: 0.5, from: 0.72, to: 0.86)
+
+        case .stove:
+            // A range: control panel across the top, oven door with its
+            // window and handle below.
+            stroke(rounded(box, box.width * 0.05))
+            detail(across(0.18))
+            let oven = CGRect(
+                x: box.minX + box.width * 0.1, y: box.minY + box.height * 0.32,
+                width: box.width * 0.8, height: box.height * 0.5)
+            stroke(rounded(oven, line * 2), fill: Palette.water.opacity(0.5), weight: 0.8)
+            handle(x: 0.5, from: 0.22, to: 0.28)
+            // Burner knobs on the panel.
+            for t in [0.2, 0.4, 0.6, 0.8] {
+                let r = box.height * 0.035
+                let c = CGPoint(x: box.minX + box.width * t, y: box.minY + box.height * 0.09)
+                detail(
+                    Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)),
+                    weight: 0.9)
+            }
+
+        case .machine:
+            // Washer, dryer, dishwasher: control panel above, round door
+            // below. This one WAS right; it is only the fridge that was
+            // wearing it.
+            stroke(rounded(box, box.width * 0.05))
+            detail(across(0.2))
+            let door = min(box.width, box.height) * 0.46
+            stroke(
+                Path(
+                    ellipseIn: CGRect(
+                        x: box.midX - door / 2, y: box.minY + box.height * 0.28,
+                        width: door, height: door)),
+                fill: Palette.porcelain, weight: 0.8)
+            detail(
+                Path(
+                    ellipseIn: CGRect(
+                        x: box.midX - door / 3, y: box.minY + box.height * 0.28 + door / 6,
+                        width: door / 1.5, height: door / 1.5)))
+
         case .toilet:
-            // Tank standing at the back, bowl and pedestal in front of it.
             let tank = CGRect(
-                x: box.minX + box.width * 0.06, y: box.minY,
-                width: box.width * 0.88, height: box.height * 0.42)
-            stroke(Path(roundedRect: tank, cornerRadius: line * 2))
+                x: box.minX + box.width * 0.08, y: box.minY,
+                width: box.width * 0.84, height: box.height * 0.4)
+            stroke(rounded(tank, line * 2))
             let bowl = CGRect(
-                x: box.minX, y: box.minY + box.height * 0.40,
-                width: box.width, height: box.height * 0.28)
-            stroke(Path(roundedRect: bowl, cornerRadius: line * 2))
-            // The pedestal, narrower than the bowl — the shape that makes
-            // a toilet a toilet from the front.
+                x: box.minX, y: box.minY + box.height * 0.38,
+                width: box.width, height: box.height * 0.3)
+            stroke(rounded(bowl, line * 2))
             let foot = CGRect(
-                x: box.minX + box.width * 0.22, y: box.minY + box.height * 0.66,
-                width: box.width * 0.56, height: box.height * 0.34)
+                x: box.minX + box.width * 0.24, y: box.minY + box.height * 0.66,
+                width: box.width * 0.52, height: box.height * 0.34)
             stroke(Path(foot))
 
         case .basinInCounter:
-            // A vanity: counter slab, a basin dished into it, doors under.
-            let top = CGRect(
-                x: box.minX, y: box.minY, width: box.width, height: box.height * 0.12)
-            stroke(Path(top))
+            stroke(Path(CGRect(x: box.minX, y: box.minY, width: box.width, height: box.height * 0.1)))
             let carcass = CGRect(
-                x: box.minX + box.width * 0.03, y: box.minY + box.height * 0.12,
-                width: box.width * 0.94, height: box.height * 0.88)
+                x: box.minX + box.width * 0.03, y: box.minY + box.height * 0.1,
+                width: box.width * 0.94, height: box.height * 0.9)
             stroke(Path(carcass))
-            var split = Path()
-            split.move(to: CGPoint(x: carcass.midX, y: carcass.minY))
-            split.addLine(to: CGPoint(x: carcass.midX, y: carcass.maxY))
-            context.stroke(split, with: .color(tones.edge), lineWidth: line * 0.7)
+            detail(down(0.5, from: 0.12, to: 1))
+            handle(x: 0.44, from: 0.2, to: 0.3)
+            handle(x: 0.56, from: 0.2, to: 0.3)
 
         case .counter:
-            let top = CGRect(
-                x: box.minX, y: box.minY, width: box.width, height: box.height * 0.1)
-            stroke(Path(top))
+            stroke(Path(CGRect(x: box.minX, y: box.minY, width: box.width, height: box.height * 0.1)))
             let carcass = CGRect(
                 x: box.minX + box.width * 0.02, y: box.minY + box.height * 0.1,
-                width: box.width * 0.96, height: box.height * 0.9)
+                width: box.width * 0.96, height: box.height * 0.78)
             stroke(Path(carcass))
-            // Door splits every 600mm-ish of run, so a long counter reads
-            // as a run of units rather than one slab.
-            let doors = max(1, Int((box.width / max(box.height, 1)) * 1.6))
-            if doors > 1 {
-                var splits = Path()
-                for i in 1..<doors {
-                    let x = carcass.minX + carcass.width * CGFloat(i) / CGFloat(doors)
-                    splits.move(to: CGPoint(x: x, y: carcass.minY))
-                    splits.addLine(to: CGPoint(x: x, y: carcass.maxY))
+            // The toe kick — the recess under every base cabinet, and the
+            // detail that says "this stands on the floor".
+            stroke(
+                Path(
+                    CGRect(
+                        x: box.minX + box.width * 0.06, y: box.minY + box.height * 0.88,
+                        width: box.width * 0.88, height: box.height * 0.12)),
+                fill: tones.edge.opacity(0.15), weight: 0.6)
+            let units = max(1, Int((box.width / max(box.height, 1) * 1.4).rounded()))
+            if units > 1 {
+                for i in 1..<units {
+                    detail(down(CGFloat(i) / CGFloat(units), from: 0.12, to: 0.86))
                 }
-                context.stroke(splits, with: .color(tones.edge), lineWidth: line * 0.7)
             }
 
+        case .wallCabinet:
+            stroke(rounded(box, line))
+            detail(down(0.5))
+            handle(x: 0.44, from: 0.72, to: 0.86)
+            handle(x: 0.56, from: 0.72, to: 0.86)
+
         case .tub:
-            // Seen from the side: the rim, and the apron below it.
-            stroke(Path(roundedRect: box, cornerRadius: min(box.width, box.height) * 0.08))
-            var rim = Path()
-            rim.move(to: CGPoint(x: box.minX, y: box.minY + box.height * 0.22))
-            rim.addLine(to: CGPoint(x: box.maxX, y: box.minY + box.height * 0.22))
-            context.stroke(rim, with: .color(tones.edge), lineWidth: line * 0.8)
+            // Side on: the rim, the apron below it, and the tap at one end.
+            stroke(rounded(box, min(box.width, box.height) * 0.06))
+            detail(across(0.24))
+            var tap = Path()
+            tap.move(to: CGPoint(x: box.maxX - box.width * 0.1, y: box.minY + box.height * 0.24))
+            tap.addLine(to: CGPoint(x: box.maxX - box.width * 0.1, y: box.minY))
+            detail(tap, weight: 1.4)
 
         case .shower:
             stroke(Path(box))
-            // The head, on its riser — what says shower rather than closet.
             var riser = Path()
             riser.move(to: CGPoint(x: box.midX, y: box.minY + box.height * 0.08))
-            riser.addLine(to: CGPoint(x: box.midX, y: box.minY + box.height * 0.28))
-            context.stroke(riser, with: .color(tones.edge), lineWidth: line)
-            let head = min(box.width, box.height) * 0.12
+            riser.addLine(to: CGPoint(x: box.midX, y: box.minY + box.height * 0.3))
+            detail(riser, weight: 1.4)
+            let head = min(box.width, box.height) * 0.14
             stroke(
                 Path(
                     ellipseIn: CGRect(
-                        x: box.midX - head / 2, y: box.minY + box.height * 0.04,
-                        width: head, height: head)),
+                        x: box.midX - head / 2, y: box.minY + box.height * 0.03,
+                        width: head, height: head * 0.7)),
                 weight: 0.8)
+            // The base tray, which is where the water actually sits.
+            detail(across(0.9))
 
         case .sink:
-            stroke(Path(box))
-            let basin = box.insetBy(dx: box.width * 0.14, dy: box.height * 0.2)
-            stroke(
-                Path(roundedRect: basin, cornerRadius: min(basin.width, basin.height) * 0.2),
-                fill: Palette.water, weight: 0.8)
-
-        case .machine, .fridge, .stove:
-            stroke(Path(roundedRect: box, cornerRadius: line * 2))
-            // The round door of a washer or dryer — the one appliance
-            // detail that reads at any size. A fridge and a range get the
-            // same face here on purpose: from the front they are a box with
-            // a door, and inventing distinguishing marks nobody observed
-            // would be improvising.
-            let door = min(box.width, box.height) * 0.5
-            stroke(
-                Path(
-                    ellipseIn: CGRect(
-                        x: box.midX - door / 2, y: box.midY - door / 2,
-                        width: door, height: door)),
-                fill: Palette.porcelain, weight: 0.8)
+            stroke(rounded(box, line))
+            let basin = box.insetBy(dx: box.width * 0.12, dy: box.height * 0.22)
+            stroke(rounded(basin, line * 2), fill: Palette.water, weight: 0.8)
 
         case .cylinder:
-            // A tank standing on the floor: straight sides, domed top.
             var body = Path()
-            let shoulder = box.minY + box.height * 0.12
+            let shoulder = box.minY + box.height * 0.1
             body.move(to: CGPoint(x: box.minX, y: box.maxY))
             body.addLine(to: CGPoint(x: box.minX, y: shoulder))
             body.addQuadCurve(
                 to: CGPoint(x: box.maxX, y: shoulder),
-                control: CGPoint(x: box.midX, y: box.minY - box.height * 0.06))
+                control: CGPoint(x: box.midX, y: box.minY - box.height * 0.05))
             body.addLine(to: CGPoint(x: box.maxX, y: box.maxY))
             body.closeSubpath()
             stroke(body)
+            // The access panel every tank has on its front.
+            stroke(
+                rounded(
+                    CGRect(
+                        x: box.midX - box.width * 0.16, y: box.minY + box.height * 0.55,
+                        width: box.width * 0.32, height: box.height * 0.18),
+                    line),
+                weight: 0.7)
+
+        case .sofa:
+            // Back, seat and one arm profile — a sofa seen from the front.
+            stroke(rounded(box, box.width * 0.03))
+            detail(across(0.42))
+            let arm = box.width * 0.1
+            detail(down(arm / box.width, from: 0.42, to: 1))
+            detail(down(1 - arm / box.width, from: 0.42, to: 1))
+            let seats = max(2, Int((box.width / max(box.height, 1)).rounded()))
+            for i in 1..<seats {
+                detail(down(CGFloat(i) / CGFloat(seats), from: 0, to: 0.42))
+            }
+
+        case .bed:
+            // Headboard standing above the mattress.
+            stroke(
+                Path(
+                    CGRect(
+                        x: box.minX, y: box.minY, width: box.width, height: box.height * 0.55)))
+            stroke(
+                rounded(
+                    CGRect(
+                        x: box.minX + box.width * 0.02, y: box.minY + box.height * 0.55,
+                        width: box.width * 0.96, height: box.height * 0.3),
+                    line * 2))
+            detail(across(0.85, inset: box.width * 0.1))
+
+        case .table:
+            stroke(
+                Path(
+                    CGRect(x: box.minX, y: box.minY, width: box.width, height: box.height * 0.16)))
+            handle(x: 0.12, from: 0.16, to: 1)
+            handle(x: 0.88, from: 0.16, to: 1)
+
+        case .shelving:
+            stroke(Path(box))
+            for i in 1..<4 { detail(across(CGFloat(i) / 4)) }
+
+        case .equipment:
+            stroke(rounded(box, box.width * 0.08))
+            // The grille, which is the face of every blower and dehu.
+            let grille = CGRect(
+                x: box.minX + box.width * 0.2, y: box.minY + box.height * 0.18,
+                width: box.width * 0.6, height: box.height * 0.5)
+            stroke(rounded(grille, line), fill: Palette.porcelain, weight: 0.8)
+            for i in 1..<4 {
+                var bar = Path()
+                let y = grille.minY + grille.height * CGFloat(i) / 4
+                bar.move(to: CGPoint(x: grille.minX, y: y))
+                bar.addLine(to: CGPoint(x: grille.maxX, y: y))
+                detail(bar, weight: 0.8)
+            }
 
         case .stairs:
-            // The profile: a flight climbing away from the wall.
             var steps = Path()
             let count = 6
             steps.move(to: CGPoint(x: box.minX, y: box.maxY))
@@ -626,17 +749,11 @@ extension ObjectGlyphs {
             stroke(steps)
 
         case .panel:
-            stroke(Path(roundedRect: box, cornerRadius: line))
-            var bars = Path()
-            for i in 1...3 {
-                let y = box.minY + box.height * CGFloat(i) / 4
-                bars.move(to: CGPoint(x: box.minX + box.width * 0.12, y: y))
-                bars.addLine(to: CGPoint(x: box.maxX - box.width * 0.12, y: y))
-            }
-            context.stroke(bars, with: .color(tones.edge), lineWidth: line * 0.7)
+            stroke(rounded(box, line))
+            for i in 1...3 { detail(across(CGFloat(i) / 4, inset: box.width * 0.12)) }
 
-        case .box, .column, .wallCabinet, .sofa, .bed, .table, .shelving, .equipment:
-            stroke(Path(roundedRect: box, cornerRadius: line))
+        case .box, .column:
+            stroke(rounded(box, line))
         }
     }
 }
