@@ -7,8 +7,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Already said yes on a previous launch? Then re-register now,
+        // silently. Apple can reissue a device token at any time and a stale
+        // one is a notification that goes nowhere — see `PushRegistration`.
+        Task { @MainActor in PushRegistration.shared.refreshIfAuthorised() }
         return true
+    }
+
+    // MARK: - Push
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        Task { @MainActor in PushRegistration.shared.received(deviceToken) }
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        Task { @MainActor in PushRegistration.shared.failed(error) }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {

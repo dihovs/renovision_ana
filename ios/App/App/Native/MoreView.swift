@@ -18,6 +18,7 @@ import SwiftUI
 struct MoreView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showStatus = false
+    @StateObject private var push = PushRegistration.shared
 
     private let columns = [GridItem(.adaptive(minimum: 104), spacing: Brand.Space.small)]
 
@@ -32,6 +33,39 @@ struct MoreView: View {
                         // not the web.
                         VStack(alignment: .leading, spacing: Brand.Space.small) {
                             SectionHeading(title: "NATIVE")
+                            // ASKED HERE, not on first launch. iOS shows its
+                            // permission dialog exactly once and a refusal
+                            // is permanent until he digs through Settings —
+                            // so it is worth asking at a moment when the
+                            // answer means something, rather than in the
+                            // first ten seconds when nobody yet knows what
+                            // the app is for.
+                            Button {
+                                PushRegistration.shared.enable()
+                            } label: {
+                                Card(padding: Brand.Space.small) {
+                                    CardRow {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Label(
+                                                push.authorised
+                                                    ? "Notifications are on"
+                                                    : "Turn on notifications",
+                                                systemImage: push.authorised
+                                                    ? "bell.badge.fill" : "bell")
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundStyle(Brand.ink)
+                                            Text(
+                                                push.authorised
+                                                    ? "Leads and Ana's calls reach this phone."
+                                                    : "Get told when a lead lands or Ana takes a call."
+                                            )
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Brand.inkFaint)
+                                        }
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
                             NavigationLink {
                                 ScheduleView()
                             } label: {

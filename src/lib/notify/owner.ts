@@ -1,6 +1,29 @@
 import { SITE_PHONE_TEL } from "@/lib/constants";
 
 /**
+ * Push is loaded on DEMAND, and that is not an optimisation.
+ *
+ * `push.ts` reaches for `node:http2`, because APNs speaks HTTP/2 and Node's
+ * `fetch` does not. This file is reached from `leadStore`, which a client
+ * component imports for its types — so a static import would drag
+ * `node:http2` into a browser bundle, and Turbopack refuses to build that at
+ * all. A dynamic import keeps it in a chunk the server alone ever loads.
+ */
+async function pushIfConfigured(input: {
+  title: string;
+  body: string;
+  path?: string;
+}): Promise<void> {
+  if (typeof window !== "undefined") return;
+  try {
+    const { push } = await import("@/lib/notify/push");
+    push(input);
+  } catch (error) {
+    console.error("[notify] push unavailable:", (error as Error).message);
+  }
+}
+
+/**
  * Text the owner when something happens he would want to walk over and look
  * at: a lead lands, Ana takes a call, a job gets approved.
  *
@@ -112,11 +135,19 @@ export function notifyNewLead(input: {
   // changes what he does in the next ten minutes.
   const head = input.isEmergency ? "URGENT lead" : "New lead";
   const from = input.source && input.source !== "website" ? ` (${input.source})` : "";
-  notify(
-    [`${head}${from}: ${who}`, where ? where : null, input.phone ? input.phone : null]
-      .filter(Boolean)
-      .join(" — "),
-  );
+  const line = [where ? where : null, input.phone ? input.phone : null]
+    .filter(Boolean)
+    .join(" — ");
+  notify([`${head}${from}: ${who}`, line].filter(Boolean).join(" — "));
+  // BOTH, deliberately. A banner is better when the phone is in his hand and
+  // useless when it is on a charger in the truck; a text survives either way.
+  // Neither is a fallback for the other, and push simply does nothing until
+  // Apple's key is set.
+  void pushIfConfigured({
+    title: `${head}${from}`,
+    body: [who, line].filter(Boolean).join(" — "),
+    path: "/admin/leads",
+  });
 }
 
 /** Ana finished a call. */
@@ -144,4 +175,9 @@ export function notifyCallEnded(input: {
         ? " — became a lead"
         : "";
   notify(`Ana answered ${who}${length}${outcome}`);
+  void pushIfConfigured({
+    title: "Ana answered a call",
+    body: `${who}${length}${outcome}`,
+    path: "/admin/calls",
+  });
 }

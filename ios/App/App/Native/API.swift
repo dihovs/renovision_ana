@@ -724,6 +724,25 @@ actor API {
             body: NullablePatch(key: "livingPercent", value: percent))
     }
 
+    private struct PushToken: Encodable {
+        let token: String
+        let environment: String
+        let bundleId: String
+    }
+
+    /// Tell the server where to send this phone's notifications.
+    ///
+    /// The bundle id rides along because a token is only valid for the app it
+    /// was issued to, and sending to the wrong one is a hard refusal from
+    /// Apple rather than a silent no-op.
+    func registerPushToken(_ token: String, environment: String) async throws {
+        _ = try await request(
+            "/api/v1/push/tokens", method: "POST",
+            body: PushToken(
+                token: token, environment: environment,
+                bundleId: Bundle.main.bundleIdentifier ?? "ca.renovisionana.crm"))
+    }
+
     /// A room's own colour on the floor plan — separate from any damage
     /// colouring inside it. `nil` clears it back to the plan's ordinary grey.
     func setRoomColor(roomId: String, hex: String?) async throws {
