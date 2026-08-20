@@ -320,7 +320,12 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             ["Total area", m2(floorAreaSqm)],
             ["Floors", String(levels.length)],
             ["Rooms", String(rooms.length)],
-            ["Bathroom", String(bathroomCount)],
+            // Only when there IS one. "Bathroom 0" on a cover reads as a
+            // figure somebody failed to fill in rather than as a true count
+            // of nothing, and a cover has to look answered.
+            ...(bathroomCount > 0
+              ? [["Bathroom", String(bathroomCount)] as [string, string]]
+              : []),
           ].map(([label, value]) => (
             <div key={label}>
               <span className="figure-value">{value}</span>
@@ -836,7 +841,14 @@ function DamageTotals({
               <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
               {DAMAGE_LABEL[type]}
             </td>
-            <td className="num">{sqft(sqm)} sq ft</td>
+            {/* METRIC, like every other figure in this document. This
+                table was still printing square feet while the running
+                header above it said m² — the same "two places, two rules"
+                fault the room table had, and missed when that one was
+                fixed. An adjuster reading 29 next to 113.12 m² has to work
+                out which unit is which, and on a claim that is not a
+                cosmetic problem. */}
+            <td className="num">{m2(sqm)}</td>
           </tr>
         ))}
       </tbody>
