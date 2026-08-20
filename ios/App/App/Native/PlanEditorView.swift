@@ -103,6 +103,9 @@ struct RoomEditorCore: View {
     /// layer below would sit still while this one moved. One space, one
     /// drawing.
     var neighbours: [Neighbour] = []
+    /// Every room name already on this floor, so a duplicate can pick one
+    /// that is not taken. See `PlanEditing.copyName`.
+    var siblingNames: [String] = []
     /// Tapping a greyed neighbour goes there. Nil keeps the old behaviour,
     /// where a tap outside the room leaves for the storey.
     var onSwitchRoom: ((String) -> Void)? = nil
@@ -1568,7 +1571,7 @@ struct RoomEditorCore: View {
             // cannot end up stating an area its own outline disagrees with.
             _ = try await API.shared.saveScan(ScanUpload(
                 projectId: projectId,
-                name: "\(room.name) copy",
+                name: PlanEditing.copyName(of: room.name, avoiding: siblingNames),
                 level: room.level,
                 position: room.position + 1,
                 geometry: geometry,

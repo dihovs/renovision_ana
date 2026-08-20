@@ -1590,6 +1590,7 @@ struct FloorCanvasView: View {
                             roomOrigin: cachedLayout.room(id: room.id)?.origin ?? .zero,
                             initialLibraryItem: pendingLibraryItem,
                             neighbours: neighbourOutlines(around: room),
+                            siblingNames: rooms.map(\.name),
                             onSwitchRoom: { id in
                                 guard let next = rooms.first(where: { $0.id == id }) else { return }
                                 enterRoom(next)

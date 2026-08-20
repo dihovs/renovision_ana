@@ -149,6 +149,44 @@ enum PlanEditing {
             ?? translateEdge(polygon, index: index, offset: offset)
     }
 
+    // MARK: - Naming
+
+    /// What to call a copy of a room.
+    ///
+    /// **The owner, 19 Aug 2026:** *"when we duplicate, it says copy copy,
+    /// fix it."* Right — appending the word unconditionally stacked it, so a
+    /// third bedroom was `Bedroom copy copy` and a fourth would have been
+    /// `Bedroom copy copy copy`. The word is a marker, not part of the name,
+    /// and a marker only goes on once.
+    ///
+    /// Numbered from there, Finder's convention, because the alternative on a
+    /// job with four identical units is four rooms called the same thing on
+    /// one estimate. The number is chosen against the names actually in use,
+    /// so deleting the middle copy of three does not leave the next duplicate
+    /// colliding with one that is still there.
+    static func copyName(of name: String, avoiding taken: [String]) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        // Strip a marker this name already carries, so the count continues
+        // rather than restarting one level deeper.
+        var base = trimmed
+        if let range = base.range(of: #"\s+copy(\s+\d+)?$"#, options: [.regularExpression, .caseInsensitive]) {
+            base = String(base[base.startIndex..<range.lowerBound])
+        }
+        base = base.trimmingCharacters(in: .whitespaces)
+        // A room actually called "copy" keeps its name rather than becoming
+        // a nameless " copy".
+        if base.isEmpty { base = trimmed }
+
+        let used = Set(taken.map { $0.trimmingCharacters(in: .whitespaces).lowercased() })
+        let first = "\(base) copy"
+        if !used.contains(first.lowercased()) { return first }
+        // 2 is the first number worth printing: the unnumbered one IS the
+        // first copy.
+        var n = 2
+        while used.contains("\(base) copy \(n)".lowercased()) { n += 1 }
+        return "\(base) copy \(n)"
+    }
+
     // MARK: - Typed length
 
     /// Which end of a room holds still while the other moves to meet a typed
