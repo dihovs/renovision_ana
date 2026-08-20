@@ -2,6 +2,7 @@ import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
 import HapticLink from "@/components/ui/HapticLink";
 import { SITE_PHONE } from "@/lib/constants";
+import { listCalls, type StoredCall } from "@/lib/crm/calls";
 import { listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { countOpenOwnerTasks } from "@/lib/crm/tasks";
 import { isConfigured as isStoreConfigured, listLeads } from "@/lib/leadStore";
@@ -41,8 +42,9 @@ export default async function MobileHomePage() {
   let unreadLeads = 0;
   let todaysVisits: ScheduledVisit[] | null = null;
   let openTasks: number | null = null;
+  let anaCalls: StoredCall[] = [];
   try {
-    const [leads, visitsWindow, tasks] = await Promise.all([
+    const [leads, visitsWindow, tasks, calls] = await Promise.all([
       listLeads(500).catch(() => []),
       // ±36h then narrowed to the Montreal calendar day, same as the dense
       // dashboard — querying "today" directly needs the UTC offset, which
@@ -52,6 +54,10 @@ export default async function MobileHomePage() {
         new Date(now + 36 * 3_600_000).toISOString(),
       ).catch(() => null),
       countOpenOwnerTasks().catch(() => null),
+      // Ana's own line. Every row in `calls` is a call she answered, so
+      // "what did the AI take" is simply the most recent few — no filter,
+      // and none invented.
+      listCalls(8).catch(() => []),
     ]);
     unreadLeads = leads.filter((l) => !l.opened_at).length;
     todaysVisits =
@@ -60,6 +66,7 @@ export default async function MobileHomePage() {
           new Date(visit.starts_at).toLocaleDateString("en-CA", { timeZone: TZ }) === todayKey,
       ) ?? null;
     openTasks = tasks;
+    anaCalls = calls;
   } catch {
     // Each piece already degrades on its own above; a total failure here
     // still leaves the Ana button — the one thing this screen cannot lose.
@@ -111,7 +118,52 @@ export default async function MobileHomePage() {
             <ChevronIcon />
           </span>
         </HapticLink>
+
+        {/* Scanning is the third thing this app is for, and until now the
+            only way to it from here was the rail. The owner asked for it
+            plainly, 20 Aug 2026: *"I need the scan logo to go on the home
+            screen."* Smaller than the two above on purpose — Ana and Call
+            are what a phone in a truck is for; a scan happens once you are
+            standing in the room. */}
+        <HapticLink
+          href="/admin/scan"
+          className="group flex items-center gap-4 rounded-3xl border border-black/5 bg-white p-5 shadow-sm transition-transform active:scale-[0.98]"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-charcoal/5">
+            <ScanHeroIcon />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-heading text-base font-bold text-charcoal">Scan a room</span>
+            <span className="block text-xs text-charcoal/50">Measure with the phone, straight onto a job</span>
+          </span>
+          <span className="shrink-0 text-charcoal/25">
+            <ChevronIcon />
+          </span>
+        </HapticLink>
       </div>
+
+      {/* WHAT ANA TOOK. His ask, same day: *"display leads or calls that my
+          ai spoke."* The point is not a call log — that is its own screen —
+          it is knowing, at a glance, that the line was answered while he was
+          under a floor, and whether any of it turned into work. So each row
+          leads with WHO and ends with what came of it. */}
+      {anaCalls.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between px-1">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-charcoal/45">
+              Ana answered
+            </h3>
+            <Link href="/admin/calls" className="text-xs font-semibold text-brand-blue">
+              All calls
+            </Link>
+          </div>
+          <ul className="mt-2 space-y-2">
+            {anaCalls.slice(0, 4).map((call) => (
+              <AnaCallCard key={call.id} call={call} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Today. The one list this screen keeps, because "what's happening
           today" is a different question from "how is the pipeline doing" —
@@ -227,6 +279,88 @@ function GlanceTile({
       <p className="font-heading text-3xl font-bold text-charcoal">{value}</p>
       <p className="mt-0.5 text-xs font-semibold text-charcoal/55">{label}</p>
     </Link>
+  );
+}
+
+/** One call Ana took, as a row. */
+function AnaCallCard({ call }: { call: StoredCall }) {
+  const when = new Date(call.started_at).toLocaleTimeString("en-CA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: TZ,
+  });
+  const day = new Date(call.started_at).toLocaleDateString("en-CA", { timeZone: TZ });
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+  const stamp = day === todayKey ? when : `${day.slice(5)} ${when}`;
+
+  const minutes = call.duration_seconds ? Math.round(call.duration_seconds / 60) : 0;
+  const length =
+    call.duration_seconds == null
+      ? null
+      : minutes >= 1
+        ? `${minutes} min`
+        : `${call.duration_seconds}s`;
+
+  // What came of it, worst first: a call she had to hand over is the one he
+  // needs to look at, ahead of one that quietly became a lead.
+  const outcome = call.escalated_at
+    ? { label: "Escalated", tone: "bg-red-50 text-red-700" }
+    : call.transferred_at
+      ? { label: "Transferred", tone: "bg-amber-50 text-amber-700" }
+      : call.lead_id
+        ? { label: "New lead", tone: "bg-brand-green/10 text-brand-green" }
+        : call.status === "abandoned"
+          ? { label: "Hung up", tone: "bg-charcoal/5 text-charcoal/50" }
+          : null;
+
+  return (
+    <li>
+      <Link
+        href="/admin/calls"
+        className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition-transform active:scale-[0.98]"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-blue/10 text-brand-blue">
+          <MicIconSmall />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-charcoal">
+            {call.from_number ?? "Unknown number"}
+          </span>
+          <span className="block text-xs text-charcoal/50">
+            {stamp}
+            {length ? ` · ${length}` : ""}
+            {call.locale === "en" ? " · EN" : " · FR"}
+          </span>
+        </span>
+        {outcome && (
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${outcome.tone}`}
+          >
+            {outcome.label}
+          </span>
+        )}
+      </Link>
+    </li>
+  );
+}
+
+function MicIconSmall() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** The stairs the rail already uses for Scan, at hero weight. */
+function ScanHeroIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2B2B2B" strokeWidth="2" aria-hidden>
+      <path d="M3 20h4v-4h4v-4h4V8h6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 20V4" strokeLinecap="round" opacity="0.35" />
+    </svg>
   );
 }
 
