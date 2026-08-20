@@ -1008,9 +1008,11 @@ struct ProjectDetailView: View {
             EmptyView()
         } rail: {
             ForEach(levels, id: \.self) { level in
-                FloorPlanTile(level: level, rooms: (scans ?? []).filter { $0.level == level }) {
-                    openFloor = level
-                }
+                FloorPlanTile(
+                    level: level,
+                    rooms: (scans ?? []).filter { $0.level == level },
+                    onOpen: { openFloor = level },
+                    onDelete: { Task { await deleteFloor(level) } })
             }
             if scans != nil && levels.isEmpty {
                 // One ghost tile beside the +, so the row reads as a place
@@ -1130,6 +1132,30 @@ struct ProjectDetailView: View {
             self.error = error.localizedDescription
             if scans == nil { scans = [] }
         }
+    }
+
+    /// Delete a whole storey.
+    ///
+    /// A floor is not a row — it is a STRING on every room standing on it —
+    /// so this is the rooms, one call each. Sequentially and not
+    /// concurrently, because a half-deleted floor is far easier to
+    /// understand when it stopped at the room that failed than when four of
+    /// seven went in parallel and the rest did not. The same reasoning
+    /// `rotateDetachedRooms` records.
+    ///
+    /// `load()` runs whatever happened, so the rail shows what is really
+    /// there rather than what was intended.
+    private func deleteFloor(_ level: String) async {
+        let doomed = (scans ?? []).filter { $0.level == level }
+        for room in doomed {
+            do {
+                try await API.shared.deleteScan(id: room.id)
+            } catch {
+                self.error = "\(room.name) could not be deleted: \(error.localizedDescription)"
+                break
+            }
+        }
+        await load()
     }
 }
 

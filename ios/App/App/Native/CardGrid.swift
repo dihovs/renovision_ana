@@ -216,6 +216,11 @@ struct FloorPlanTile: View {
     let level: String
     let rooms: [RoomScan]
     let onOpen: () -> Void
+    /// Remove the whole storey. Nil leaves the tile exactly as it was — the
+    /// rail on a screen with no way to reload should not offer to delete.
+    var onDelete: (() -> Void)? = nil
+
+    @State private var confirmingDelete = false
 
     private var areaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqm } }
     private var drawable: Bool { rooms.contains { $0.geometry != nil } }
@@ -277,6 +282,60 @@ struct FloorPlanTile: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(level), \(rooms.count) rooms")
+        // The three dots the project cards have always had, on the floor
+        // card, because a whole storey could be created and never removed.
+        // The owner, 20 Aug 2026: *"let's say we have side by side two,
+        // three, five scans or whatever. I wanna get rid of one of them, the
+        // entire card. I'm not able. I think I need to have like three dots
+        // so I can click on it and remove it."*
+        //
+        // OVERLAID rather than put in the caption row: the tile is one
+        // button and the menu is a second target inside it, which is the
+        // same arrangement `ProjectCardMenu` already uses — 24pt of visible
+        // glyph inside a 44pt tap area, anchored to the corner so the extra
+        // area grows inward instead of moving the dots.
+        .overlay(alignment: .topTrailing) {
+            if let onDelete {
+                Menu {
+                    Button(role: .destructive) { confirmingDelete = true } label: {
+                        Label("Delete floor…", systemImage: "trash")
+                    }
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Color.clear
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Brand.Plan.label)
+                            .frame(width: 24, height: 24)
+                            .background(.regularMaterial, in: Circle())
+                            .overlay(
+                                Circle().strokeBorder(
+                                    Brand.Plan.dimension.opacity(0.15), lineWidth: 0.5))
+                            .padding(4)
+                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                }
+                // A floor is not a row. It is a STRING on every room that
+                // sits on it, so deleting one deletes those rooms and their
+                // measurements — which is why the question says how many
+                // rather than asking "are you sure".
+                .confirmationDialog(
+                    rooms.isEmpty
+                        ? "Delete \(level)?"
+                        : "Delete \(level) and its \(rooms.count) room\(rooms.count == 1 ? "" : "s")?",
+                    isPresented: $confirmingDelete, titleVisibility: .visible
+                ) {
+                    Button("Delete", role: .destructive, action: onDelete)
+                    Button("Keep it", role: .cancel) {}
+                } message: {
+                    Text(
+                        rooms.isEmpty
+                            ? "Nothing has been measured on this floor yet."
+                            : "Everything measured on this floor goes with it — the rooms, their walls, and the photos filed against them. This cannot be undone.")
+                }
+            }
+        }
     }
 }
 
