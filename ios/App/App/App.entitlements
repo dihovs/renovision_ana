@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push. `development` is right for every build installed by cable from
+	     Xcode, and it is not a mistake to leave it here for a release: Xcode
+	     rewrites this key to `production` when it exports an archive. Setting
+	     it to production by hand would break the sandbox tokens the phone on
+	     this desk registers, which are the only ones that exist today.
+
+	     Held back deliberately until 20 Aug 2026, when the App ID for
+	     ca.renovisionana.crm finally existed with the Push capability on it —
+	     the app had been signing under a wildcard identifier, and a wildcard
+	     App ID cannot carry Push. Adding this entitlement first would have
+	     broken signing on a working build for a feature that could not yet
+	     run. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
