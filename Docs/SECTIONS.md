@@ -42,7 +42,7 @@ Commit the ledger update with the work.
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
 | **S12** | Project and floor screens | **PROJECT DONE (amended 18 Aug) · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
-| **S15** | CRM messaging — photos in the thread | **NEXT** | — | `SmsThread.tsx`, `messages/actions.ts` |
+| **S15** | Photos to customers, by email | **NEXT** | — | `sendDocument.ts` |
 
 **Two verifications** were folded into the sections that own them: the
 dimension-tap unlock into **S5**, the project-card plan into **S12**. The
@@ -1052,46 +1052,53 @@ area its cause colour. Draw them; do not trace theirs.
 
 ---
 
-## S15 — CRM messaging: photos in the thread
+## S15 — Photos to customers, by email
 
-**This is the web CRM, not the iOS app.** Nothing to do with magicplan; the
-"match the reference exactly" rule does not apply here.
+**Decided 20 Aug 2026, by the owner: photos go by EMAIL, not MMS.**
+*"We just stick with email. If we're gonna do SMS, we can do MMS. We'd rather
+not do it, and just do email."*
 
-**Read `Docs/CRM-Messaging.md` first.** It is the whole area — the two channels,
-the CASL rules that must not be broken, where every file lives.
+So outbound MMS is **not** to be built. The `mediaUrls` parameter on `sendSms`
+stays — it is written and tested, it costs nothing to leave, and reversing this
+decision later should not mean rewriting it — but nothing in the product calls
+it.
 
-**Where it stands.** The owner asked on 20 Aug for three things. Two landed:
+**Read `Docs/CRM-Messaging.md`** for the messaging area, and note that email is
+the better-paved half: `src/lib/crm/sendDocument.ts` already sends four kinds of
+transactional mail through **Resend**, with a shared HTML shell and a French /
+English split.
 
-- **Save as client** from a thread with an unknown number — `SaveContactForm` +
-  `saveAsClientAction`. Done.
-- **Pasting a number** — `Dialer` now runs `sanitisePasted` like the other two
-  inputs. Done.
-- **Photos in the chat** — the plumbing landed, the UI did not. This section.
+**In scope.**
 
-**In scope, and it is nearly all UI.**
+1. **Attach photos to an outbound email.** Resend takes attachments; none of the
+   four existing senders uses them yet. Reuse `shell()` so a photo email looks
+   like the quotes and invoices already going out, rather than becoming a fifth
+   visual language.
+2. **Pick the photos from what the CRM already holds** — room photos, affected
+   areas, files on the job. The point is to send what has been captured, not to
+   re-upload it.
 
-1. **Render inbound media in `SmsThread.tsx`.** It draws `message.body` and
-   nothing else, so photos customers have already sent are sitting in the
-   bucket, invisible. Sign `media_paths` at render time in one batch and pass a
-   `path → url` map down — `JobThread.tsx` and `admin/inbox/page.tsx` already do
-   exactly this for WhatsApp. Copy that shape.
-2. **An attach control on the composer**, uploading into the `sms-media` bucket
-   and passing signed URLs to `sendSms({ mediaUrls })`, which already exists and
-   is tested. The URLs must be reachable **by Twilio** — a signed URL works, a
-   bare path does not.
+**Out of scope.** Outbound MMS. Inbound email — see below, it is much larger
+than it sounds and should be its own decision.
 
-**Out of scope.** WhatsApp (its own queue, its own goal). Delivery receipts.
+**Two things this decision does not settle, both worth raising with the owner:**
 
-**Cost is settled and is not a blocker.** ~$0.03 to send a photo in Canada
-(MMS $0.022 + carrier surcharge, vs $0.0083 for SMS) — about $6/month at twenty
-jobs exchanging ten photos each. The 2.6× ratio was once quoted without the
-arithmetic, which made it sound like a reason to wait. The real caution is
-deliverability: Canadian carriers are stricter about MMS on long codes, and a
-large image can be rejected or downscaled — hence the 5 MB cap in `media.ts`.
+- **Inbound MMS is already live and already storing.** The webhook reads
+  `NumMedia`, copies files into the private `sms-media` bucket and writes
+  `media_paths` (migration 0040). Customers text photos whether or not we invite
+  it. Right now `SmsThread.tsx` renders `body` and nothing else, so **those
+  photos are being collected and are invisible** — the one genuinely bad resting
+  state, because it is data held with no way to look at it. Either render them
+  (small: sign the paths in a batch and draw them, no outbound, no cost) or stop
+  capturing them. Doing neither is the current state and should not survive.
+- **Inbound email does not exist at all.** There is no `/api/**/inbound` route
+  and no parsing. A customer emailing a photo lands in the owner's own mailbox,
+  outside the CRM. Building that is a bigger job than the MMS UI that was
+  dropped — worth knowing, since "just do email" sounds like the smaller path
+  and for the *receiving* direction it is the larger one.
 
-**Done when.** A photo texted in appears in the thread; a photo attached in the
-composer arrives on a real handset. **Neither can be proved by compiling** — the
-inbound path has never been exercised against a real Twilio message.
+**Done when.** A photo held in the CRM can be emailed to a customer, and it
+arrives looking like the other mail the business sends.
 
 **Prompt.**
 > Read Docs/CRM-Messaging.md then Docs/SECTIONS.md, and do S15.

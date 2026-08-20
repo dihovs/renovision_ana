@@ -91,13 +91,25 @@ did not.
   URL from our bucket works, a bare storage path does not. An empty array is not
   the same as absent: it still sends a plain SMS.
 
+### Outbound MMS: decided against, 20 Aug 2026
+
+The owner chose email over MMS for sending photos: *"We'd rather not do it, and
+just do email."* Cost was not the reason — see below; it is about three cents a
+photo. **Do not build outbound MMS without asking him again.** `sendSms` keeps
+its `mediaUrls` parameter because it is written and tested and reversing the
+decision should not mean rewriting it.
+
+The **inbound** half is a separate question and is NOT covered by that decision.
+It is already live.
+
 ### Not built — this is the remaining work
 
 - **`SmsThread.tsx` renders `message.body` and nothing else.** Photos are
-  arriving and being stored right now and no screen shows them. This is the
-  single highest-value fix in the area.
-- **Nothing calls `sendSms` with `mediaUrls`.** The composer has no attach
-  control, so outbound MMS is reachable from code and not from the product.
+  arriving and being stored right now and no screen shows them. Customers text
+  photos regardless of which channel we prefer, so this is not resolved by the
+  decision above: it is data being collected with no way to look at it, which is
+  the one state worth nobody's defence. Either draw them or stop capturing them.
+- **Nothing calls `sendSms` with `mediaUrls`** — correct, and now deliberate.
 
 ### When you build it
 
