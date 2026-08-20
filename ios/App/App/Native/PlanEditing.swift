@@ -149,6 +149,89 @@ enum PlanEditing {
             ?? translateEdge(polygon, index: index, offset: offset)
     }
 
+    // MARK: - Mirroring
+
+    /// Which way a duplicate is flipped.
+    ///
+    /// The reference offers `Identical · Flip Horizontally · Flip Vertically`
+    /// when a room is duplicated — watched on the owner's own phone, 19 Aug
+    /// 2026 — and it is the right set for houses: a pair of bathrooms either
+    /// side of a party wall are the same room mirrored, not the same room
+    /// again.
+    enum FlipAxis {
+        /// Mirrored left to right.
+        case horizontal
+        /// Mirrored top to bottom.
+        case vertical
+    }
+
+    /// A room mirrored, with its openings carried across.
+    ///
+    /// Two things have to happen at once and neither is optional.
+    ///
+    /// **The winding is restored.** Mirroring reverses a loop's direction, and
+    /// this codebase reads inside-versus-outside from the winding — see
+    /// `EditorChrome.drawWallDimensions`. A mirrored room left wound the other
+    /// way would draw every dimension line THROUGH the room. So the points
+    /// are reversed after mirroring, which puts the winding back.
+    ///
+    /// **The openings are renumbered.** Reversing renumbers every edge, and an
+    /// opening is stored as an edge index plus a distance from that edge's
+    /// start corner. Both change: edge `e` becomes edge `n - 2 - e`, and the
+    /// distance is measured from the other end, so a door 1m from the left
+    /// jamb of a 4m wall becomes a door 2.1m along the mirrored one. Leave
+    /// either alone and the doors move to different walls.
+    static func mirrored(
+        _ polygon: [CGPoint], openings: [WallOpening], across axis: FlipAxis
+    ) -> (polygon: [CGPoint], openings: [WallOpening]) {
+        let points = withoutClosingPoint(polygon)
+        let n = points.count
+        guard n >= 3 else { return (polygon, openings) }
+
+        let flipped = points.map { p in
+            axis == .horizontal ? CGPoint(x: -p.x, y: p.y) : CGPoint(x: p.x, y: -p.y)
+        }
+        let reversed: [CGPoint] = (0..<n).map { flipped[n - 1 - $0] }
+        let minX = reversed.map(\.x).min() ?? 0
+        let minY = reversed.map(\.y).min() ?? 0
+        let placed = reversed.map { quantise(CGPoint(x: $0.x - minX, y: $0.y - minY)) }
+
+        let moved = openings.compactMap { opening -> WallOpening? in
+            guard points.indices.contains(opening.edge) else { return nil }
+            let length = edgeLength(points, opening.edge)
+            let edge = ((n - 2 - opening.edge) % n + n) % n
+            // Clamped rather than trusted: a stored opening wider than the
+            // wall it claims (an older build, a wall since shortened) would
+            // otherwise come out at a negative distance.
+            let offset = max(0, length - opening.offset - opening.width)
+            return WallOpening(
+                edge: edge, offset: offset, width: opening.width,
+                height: opening.height, sill: opening.sill, kind: opening.kind)
+        }
+        return (placed, moved)
+    }
+
+    /// Where an object standing in a room ends up when the room is mirrored.
+    ///
+    /// The position mirrors across the room's own extent, and so does the
+    /// HEADING — a cabinet against the left wall has to end up against the
+    /// right wall facing the same way into the room, and a copy that kept its
+    /// old rotation would have it facing the wall.
+    static func mirroredObject(
+        x: Double, y: Double, rotationDegrees: Double, in extent: CGSize, across axis: FlipAxis
+    ) -> (x: Double, y: Double, rotationDegrees: Double) {
+        func wrap(_ degrees: Double) -> Double {
+            let d = degrees.truncatingRemainder(dividingBy: 360)
+            return d < 0 ? d + 360 : d
+        }
+        switch axis {
+        case .horizontal:
+            return (extent.width - x, y, wrap(180 - rotationDegrees))
+        case .vertical:
+            return (x, extent.height - y, wrap(-rotationDegrees))
+        }
+    }
+
     // MARK: - Naming
 
     /// What to call a copy of a room.

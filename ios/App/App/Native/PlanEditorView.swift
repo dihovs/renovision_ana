@@ -204,6 +204,9 @@ struct RoomEditorCore: View {
     @State private var error: String?
     @State private var showDiscard = false
     @State private var confirmingRoomDelete = false
+    /// Which way to duplicate. The reference asks before it copies —
+    /// `Identical · Flip Horizontally · Flip Vertically` — and so does this.
+    @State private var duplicating = false
     /// Wall lengths the operator TYPED. A measured number and an entered one
     /// are different kinds of fact, and a claim file must be able to tell
     /// them apart.
@@ -541,6 +544,19 @@ struct RoomEditorCore: View {
                 set: { if !$0 { closeElevation() } })
         ) {
             elevationPresentation
+        }
+        .confirmationDialog(
+            "Duplicate \(room.name)", isPresented: $duplicating, titleVisibility: .visible
+        ) {
+            // The reference's own three, watched on his phone. A pair of
+            // bathrooms either side of a party wall are the same room
+            // mirrored, not the same room again — which is why a flip is a
+            // first-class choice here rather than something to fix afterwards
+            // by dragging corners.
+            Button("Identical") { Task { await duplicateRoom() } }
+            Button("Flip Horizontally") { Task { await duplicateRoom(flip: .horizontal) } }
+            Button("Flip Vertically") { Task { await duplicateRoom(flip: .vertical) } }
+            Button("Cancel", role: .cancel) {}
         }
         .confirmationDialog(
             "Discard your changes?", isPresented: $showDiscard, titleVisibility: .visible
@@ -1563,8 +1579,46 @@ struct RoomEditorCore: View {
     /// It copies what the scan MEASURED, not the corrections made in this
     /// editor — unsaved edits belong to the room being edited, and carrying
     /// them into a copy would put an unreviewed outline into a new record.
-    private func duplicateRoom() async {
-        guard let projectId = room.projectId, let geometry = room.geometry else { return }
+    /// Copy this room, optionally mirrored.
+    ///
+    /// A FLIP is written as a hand-corrected outline, which is what it is:
+    /// the sensor never saw the mirrored room. The scan's own walls ride
+    /// along underneath untouched, the same arrangement every other
+    /// correction in this editor uses — "what did the laser actually say"
+    /// stays answerable.
+    private func duplicateRoom(flip: PlanEditing.FlipAxis? = nil) async {
+        guard let projectId = room.projectId, var geometry = room.geometry else { return }
+        if let flip {
+            // The DRAWN outline, not the stored one: it is already
+            // normalised and already carries whatever corrections this room
+            // has had, which is the shape a person would expect to see
+            // mirrored.
+            let plan = FloorPlanGeometry.plan(from: geometry)
+            var source = plan.polygon
+            if source.count >= 4 { source.removeLast() }
+            guard source.count >= 3 else { return }
+            let placed = (geometry.authoredOpenings ?? []).compactMap {
+                record -> PlanEditing.WallOpening? in
+                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
+                return PlanEditing.WallOpening(
+                    edge: record.edge, offset: record.offset, width: record.width,
+                    height: record.height, sill: record.sill, kind: kind)
+            }
+            let mirrored = PlanEditing.mirrored(source, openings: placed, across: flip)
+            geometry.editedPolygon = mirrored.polygon.map {
+                ScanGeometry.EditedPoint(x: $0.x, y: $0.y)
+            }
+            geometry.authoredOpenings = mirrored.openings.map {
+                ScanGeometry.AuthoredOpening(
+                    edge: $0.edge, offset: $0.offset, width: $0.width,
+                    height: $0.height, sill: $0.sill, kind: $0.kind.rawValue)
+            }
+            // Typed lengths are dropped rather than renumbered onto mirrored
+            // edges. A padlock says a person typed THAT wall; carrying the
+            // claim onto a copy nobody measured would be a lie about where a
+            // number came from.
+            geometry.lockedEdges = nil
+        }
         do {
             // Every measurement is derived from the geometry by the
             // initialiser rather than copied field by field, so a duplicate
@@ -2376,7 +2430,7 @@ struct RoomEditorCore: View {
         case (.setSize, _):
             startMeasuring(at: 0)
         case (.duplicate, .none):
-            Task { await duplicateRoom() }
+            duplicating = true
         case (.delete, .none):
             confirmingRoomDelete = true
         case (.insert, .wall):
