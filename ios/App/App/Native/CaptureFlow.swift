@@ -85,6 +85,10 @@ struct CaptureFlow: View {
 
     /// Everything captured this visit, and the AR session tying it together.
     @StateObject private var session = ScanSession()
+    /// Held by the FLOW, not the capture screen, so an answer given while
+    /// walking is still in hand when the review sheet files the room —
+    /// the capture screen is gone by then.
+    @StateObject private var choices = ScanChoices()
     /// Rooms filed since this sheet opened — numbering and positions have to
     /// advance past them, and `existingCount` was read once at presentation.
     @State private var savedThisVisit = 0
@@ -220,6 +224,7 @@ struct CaptureFlow: View {
         .fullScreenCover(isPresented: .init(get: { stage == .capturing }, set: { _ in })) {
             RoomCaptureScreen(
                 arSession: session.arSession,
+                choices: choices,
                 previousRooms: session.capturedRoomsSoFar
             ) { outcome in
                 switch outcome {
@@ -927,6 +932,10 @@ struct CaptureFlow: View {
 /// `ScanSession` for why that is the whole multi-room feature.
 struct RoomCaptureScreen: UIViewControllerRepresentable {
     var arSession: ARSession?
+    /// What the operator settles mid-scan, held by the FLOW so it survives
+    /// the capture screen being torn down on Done and is still there when
+    /// the review sheet files the room.
+    var choices: ScanChoices?
     /// Rooms already captured this visit, for the mini-map: sharing the AR
     /// frame means the room being walked draws in true position against
     /// them.
@@ -937,6 +946,7 @@ struct RoomCaptureScreen: UIViewControllerRepresentable {
         guard #available(iOS 17.0, *) else { return UIViewController() }
         let controller = RoomScanViewController()
         controller.sharedARSession = arSession
+        controller.choices = choices
         controller.previousRooms = previousRooms
         controller.onFinish = onFinish
         return controller

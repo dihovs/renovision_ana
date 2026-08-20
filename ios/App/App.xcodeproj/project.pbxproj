@@ -76,6 +76,9 @@
 		A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */; };
 		03F8E9CA9E3AA11C291D111E /* PhotoQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */; };
 		7C1A5E20B4D3F09188A2C610 /* StoreyArranging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */; };
+		11902EFD8A938E45E72107AC /* ScanDetectionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40539A9CF5411CA82B9366D6 /* ScanDetectionOverlay.swift */; };
+		5A9AD4DEBBCCCE7E3A370548 /* ScanChoices.swift in Sources */ = {isa = PBXBuildFile; fileRef = D71C021CED84AC2254A96F38 /* ScanChoices.swift */; };
+		ECBCF487953EB990E122B099 /* ScanCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -149,6 +152,9 @@
 		D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectEmblems.swift; sourceTree = "<group>"; };
 		4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhotoQueue.swift; sourceTree = "<group>"; };
 		7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/StoreyArranging.swift; sourceTree = "<group>"; };
+		40539A9CF5411CA82B9366D6 /* ScanDetectionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanDetectionOverlay.swift; sourceTree = "<group>"; };
+		D71C021CED84AC2254A96F38 /* ScanChoices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanChoices.swift; sourceTree = "<group>"; };
+		34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanCatalogue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -192,6 +198,9 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */,
+				D71C021CED84AC2254A96F38 /* ScanChoices.swift */,
+				40539A9CF5411CA82B9366D6 /* ScanDetectionOverlay.swift */,
 				4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */,
 				7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */,
 				D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */,
@@ -339,6 +348,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				ECBCF487953EB990E122B099 /* ScanCatalogue.swift in Sources */,
+				5A9AD4DEBBCCCE7E3A370548 /* ScanChoices.swift in Sources */,
+				11902EFD8A938E45E72107AC /* ScanDetectionOverlay.swift in Sources */,
 				03F8E9CA9E3AA11C291D111E /* PhotoQueue.swift in Sources */,
 				7C1A5E20B4D3F09188A2C610 /* StoreyArranging.swift in Sources */,
 				A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */,

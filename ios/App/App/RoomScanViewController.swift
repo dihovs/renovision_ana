@@ -1,6 +1,7 @@
 import ARKit
-import UIKit
 import RoomPlan
+import SwiftUI
+import UIKit
 
 /**
  * The actual scanning screen. RoomPlan supplies the AR visualization and the
@@ -48,7 +49,19 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     }()
     private var isScanning = false
 
+    /// Answers given during this capture — see `ScanChoices`. Handed in by
+    /// the flow, so what the operator settles here survives the walk to the
+    /// review sheet that files it.
+    var choices: ScanChoices?
+
     private let miniMap = ScanMiniMapView()
+    /// The silhouettes over what has been detected, and the badges that let
+    /// the operator disagree without stopping the scan.
+    private let detections = ScanDetectionOverlay()
+    /// The last room streamed, kept so a tap can look up what it hit — the
+    /// overlay carries only identifiers and screen geometry, deliberately,
+    /// so it stays a drawing layer with no opinion about RoomPlan.
+    private var liveRoom: CapturedRoom?
     private let openWarning = PillLabel()
     /// When this capture started walking — the open-outline warning holds
     /// off this long, because every scan is "open" for its first minute and
@@ -97,6 +110,19 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         openWarning.layer.masksToBounds = true
         openWarning.isHidden = true
         openWarning.translatesAutoresizingMaskIntoConstraints = false
+
+        // UNDER the chrome and OVER the capture view: it must not cover
+        // Done, Cancel or the map, and those are the only things on this
+        // screen more important than a detection badge.
+        detections.translatesAutoresizingMaskIntoConstraints = false
+        detections.onTap = { [weak self] id in self?.askAbout(id) }
+        view.addSubview(detections)
+        NSLayoutConstraint.activate([
+            detections.topAnchor.constraint(equalTo: view.topAnchor),
+            detections.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            detections.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            detections.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
 
         view.addSubview(cancelButton)
         view.addSubview(doneButton)
@@ -168,12 +194,267 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
             // (its open question #2) — chosen so the warning appears only
             // once a real attempt at a room exists and stays quiet for the
             // first stretch of every scan, which is always open.
+            self.liveRoom = room
+            self.refreshDetections(room)
+
             let outline = FloorPlanGeometry.outlineWithClosure(segments)
             let isOpen = outline?.inferredEdge != nil || outline == nil
             let attempted = room.walls.count >= 3
             let pastGrace = now.timeIntervalSince(self.scanStart) > 15
             self.setWarningVisible(attempted && pastGrace && isOpen)
         }
+    }
+
+    // MARK: - Answering a detection
+
+    /// The operator disagrees, or the badge is a question mark. Either way
+    /// the answer is given HERE, mid-scan, with the thing still in front of
+    /// them — which is the entire reason this is not a list afterwards.
+    private func askAbout(_ id: UUID) {
+        guard let room = liveRoom, let choices else { return }
+
+        let isOpening =
+            room.doors.contains { $0.identifier == id }
+            || room.windows.contains { $0.identifier == id }
+            || room.openings.contains { $0.identifier == id }
+
+        let picker = ObjectLibraryPicker(context: isOpening ? .wall : .room) { [weak self] item in
+            guard let self else { return }
+            switch item {
+            case .opening(let kind):
+                choices.set(.opening(kind), for: id)
+            case .object(let entry):
+                choices.set(.object(entry.slug), for: id)
+            }
+            self.dismiss(animated: true) {
+                // A door earns the second question straight away, while the
+                // operator is still looking at it and knows which way it
+                // swings. Asking later, off a plan, is asking them to
+                // remember a room.
+                if case .opening(let kind) = item, kind.swings {
+                    self.askSwing(for: id)
+                }
+                if let room = self.liveRoom { self.refreshDetections(room) }
+            }
+        }
+
+        let host = UIHostingController(rootView: picker)
+        host.modalPresentationStyle = .pageSheet
+        if let sheet = host.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(host, animated: true)
+    }
+
+    /// Which way it opens, in the only words that mean anything while you
+    /// are standing in the room. His own: *"it can make an arrow. So going
+    /// from you or coming to you."*
+    private func askSwing(for id: UUID) {
+        let sheet = UIAlertController(
+            title: "Which way does it open?",
+            message: "You are standing in the room. Nothing in a scan records this — it is worth two seconds now.",
+            preferredStyle: .actionSheet)
+        sheet.addAction(
+            UIAlertAction(title: "Toward me — into this room", style: .default) { [weak self] _ in
+                self?.choices?.setSwing(inward: true, for: id)
+            })
+        sheet.addAction(
+            UIAlertAction(title: "Away from me — out of this room", style: .default) {
+                [weak self] _ in
+                self?.choices?.setSwing(inward: false, for: id)
+            })
+        sheet.addAction(UIAlertAction(title: "Skip", style: .cancel))
+        // iPad wants an anchor or it refuses to present at all.
+        sheet.popoverPresentationController?.sourceView = view
+        sheet.popoverPresentationController?.sourceRect = CGRect(
+            x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        present(sheet, animated: true)
+    }
+
+    // MARK: - Detections, live
+
+    /// Project everything RoomPlan has found onto the glass.
+    ///
+    /// Recomputed every update rather than tracked: the camera moves
+    /// constantly and a silhouette that lags is worse than none, because it
+    /// points at the wrong wall. Projection is a handful of matrix multiplies
+    /// per detection, which is cheaper than the map redraw already happening
+    /// on this same tick.
+    private func refreshDetections(_ room: CapturedRoom) {
+        guard let frame = captureView.captureSession.arSession.currentFrame else {
+            detections.marks = []
+            return
+        }
+        let orientation = view.window?.windowScene?.interfaceOrientation ?? .portrait
+        let viewport = view.bounds.size
+        guard viewport.width > 1, viewport.height > 1 else { return }
+
+        var marks: [ScanDetectionOverlay.Mark] = []
+
+        func addSurface(_ surface: CapturedRoom.Surface, isWindow: Bool, isPassage: Bool) {
+            guard
+                let quad = projectFace(
+                    surface.transform, width: Double(surface.dimensions.x),
+                    height: Double(surface.dimensions.y), frame: frame,
+                    orientation: orientation, viewport: viewport)
+            else { return }
+
+            let answered = choices?.answer(for: surface.identifier)
+            if case .ignored = answered { return }
+
+            let kind: PlanEditing.OpeningKind
+            if case .opening(let chosen) = answered {
+                kind = chosen
+            } else {
+                kind = ScanCatalogue.openingKind(
+                    width: Double(surface.dimensions.x), isWindow: isWindow,
+                    isPassage: isPassage)
+            }
+            marks.append(
+                ScanDetectionOverlay.Mark(
+                    id: surface.identifier, quad: quad, centre: centroid(quad),
+                    glyph: isWindow ? "windshield.front.and.wiper" : "door.left.hand.closed",
+                    label: kind.label,
+                    // A door or window is never a question mark: RoomPlan is
+                    // reliable about a hole being a hole, and the KIND is a
+                    // guess from a real measured width. It offers a name and
+                    // invites disagreement, which is not the same as not
+                    // knowing what it is looking at.
+                    uncertain: false, answered: answered != nil))
+        }
+
+        for surface in room.doors { addSurface(surface, isWindow: false, isPassage: false) }
+        for surface in room.windows { addSurface(surface, isWindow: true, isPassage: false) }
+        for surface in room.openings { addSurface(surface, isWindow: false, isPassage: true) }
+
+        for object in room.objects {
+            let answered = choices?.answer(for: object.identifier)
+            if case .ignored = answered { continue }
+            guard
+                let quad = projectBox(
+                    object.transform, dimensions: object.dimensions, frame: frame,
+                    orientation: orientation, viewport: viewport)
+            else { continue }
+
+            var glyph: String
+            var label: String
+            var uncertain: Bool
+            if case .object(let slug) = answered, let entry = ObjectCatalog.entry(slug: slug) {
+                glyph = entry.glyph
+                label = entry.name
+                uncertain = false
+            } else {
+                let suggestion = ScanCatalogue.suggestion(
+                    for: object.category, confidence: object.confidence)
+                glyph = ScanCatalogue.glyph(for: suggestion)
+                label = suggestion.label
+                uncertain = suggestion.uncertain
+            }
+            marks.append(
+                ScanDetectionOverlay.Mark(
+                    id: object.identifier, quad: quad, centre: centroid(quad),
+                    glyph: glyph, label: label, uncertain: uncertain,
+                    answered: answered != nil))
+        }
+
+        detections.marks = marks
+    }
+
+    /// The four corners of a flat surface — a door, a window, a cased
+    /// opening — in screen points.
+    ///
+    /// A surface's local frame is width along x, height along y, and the
+    /// wall's normal along z, so the face is the four (±w/2, ±h/2, 0)
+    /// corners. Drawn in true perspective, which is what makes it sit ON the
+    /// window rather than float in front of it.
+    private func projectFace(
+        _ transform: simd_float4x4, width: Double, height: Double, frame: ARFrame,
+        orientation: UIInterfaceOrientation, viewport: CGSize
+    ) -> [CGPoint]? {
+        let w = Float(width / 2)
+        let h = Float(height / 2)
+        let locals: [simd_float3] = [
+            simd_float3(-w, -h, 0), simd_float3(w, -h, 0),
+            simd_float3(w, h, 0), simd_float3(-w, h, 0),
+        ]
+        var screen: [CGPoint] = []
+        for local in locals {
+            guard
+                let point = project(
+                    transform, local: local, frame: frame, orientation: orientation,
+                    viewport: viewport)
+            else { return nil }
+            screen.append(point)
+        }
+        return onScreen(screen, viewport: viewport) ? screen : nil
+    }
+
+    /// An object's silhouette: its eight box corners, reduced to the screen
+    /// rectangle that holds them.
+    ///
+    /// A true projected box would be eight lines of clutter over a room the
+    /// operator is trying to look at. The bounding rectangle says the same
+    /// thing — "this, here" — and leaves the room visible, which is the
+    /// whole argument for a half-transparent overlay.
+    private func projectBox(
+        _ transform: simd_float4x4, dimensions: simd_float3, frame: ARFrame,
+        orientation: UIInterfaceOrientation, viewport: CGSize
+    ) -> [CGPoint]? {
+        let d = dimensions / 2
+        var screen: [CGPoint] = []
+        for sx in [-d.x, d.x] {
+            for sy in [-d.y, d.y] {
+                for sz in [-d.z, d.z] {
+                    guard
+                        let point = project(
+                            transform, local: simd_float3(sx, sy, sz), frame: frame,
+                            orientation: orientation, viewport: viewport)
+                    else { return nil }
+                    screen.append(point)
+                }
+            }
+        }
+        guard onScreen(screen, viewport: viewport) else { return nil }
+        let xs = screen.map(\.x)
+        let ys = screen.map(\.y)
+        guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max()
+        else { return nil }
+        return [
+            CGPoint(x: minX, y: minY), CGPoint(x: maxX, y: minY),
+            CGPoint(x: maxX, y: maxY), CGPoint(x: minX, y: maxY),
+        ]
+    }
+
+    /// One local point through the object's transform and the camera's
+    /// projection. Nil when it is BEHIND the camera — `projectPoint` will
+    /// happily return a screen point for something behind you, and drawing
+    /// it puts a mirrored silhouette on the wall you are facing.
+    private func project(
+        _ transform: simd_float4x4, local: simd_float3, frame: ARFrame,
+        orientation: UIInterfaceOrientation, viewport: CGSize
+    ) -> CGPoint? {
+        let world = transform * simd_float4(local, 1)
+        let inCamera = frame.camera.transform.inverse * world
+        guard inCamera.z < -0.05 else { return nil }
+        return frame.camera.projectPoint(
+            simd_float3(world.x, world.y, world.z), orientation: orientation,
+            viewportSize: viewport)
+    }
+
+    /// Is any of it actually on the glass? A detection two rooms away
+    /// projects to coordinates far off screen, and drawing those is work
+    /// nobody sees.
+    private func onScreen(_ points: [CGPoint], viewport: CGSize) -> Bool {
+        let bounds = CGRect(origin: .zero, size: viewport).insetBy(dx: -120, dy: -120)
+        return points.contains { bounds.contains($0) }
+    }
+
+    private func centroid(_ points: [CGPoint]) -> CGPoint {
+        guard !points.isEmpty else { return .zero }
+        let x = points.reduce(0) { $0 + $1.x } / CGFloat(points.count)
+        let y = points.reduce(0) { $0 + $1.y } / CGFloat(points.count)
+        return CGPoint(x: x, y: y)
     }
 
     private func setWarningVisible(_ visible: Bool) {
