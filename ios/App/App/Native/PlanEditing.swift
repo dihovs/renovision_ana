@@ -149,6 +149,110 @@ enum PlanEditing {
             ?? translateEdge(polygon, index: index, offset: offset)
     }
 
+    // MARK: - Adopting what the scanner found
+
+    /// The catalogue entry a measured opening most likely is.
+    ///
+    /// **The owner, 19 Aug 2026:** *"for lidar scan i need door window
+    /// autodetection, and type suggestion from our item list."* RoomPlan
+    /// reports a door as a width and a height and nothing else — it has no
+    /// idea whether it is looking at a bifold or a patio slider. Our
+    /// catalogue does know, because every entry carries the stock size that
+    /// makes it that thing, so the nearest stock width in the right family is
+    /// the best guess available and a far better starting point than "door".
+    ///
+    /// A SUGGESTION, and it must stay one: it is offered on a row the
+    /// operator can change, never written as though it were measured.
+    static func suggestedKind(category: OpeningKind.Category, width: Double, height: Double)
+        -> OpeningKind
+    {
+        let family = OpeningKind.allCases.filter { $0.category == category }
+        guard let first = family.first else { return .doorSingle }
+        // Width decides; height breaks ties, which is what separates a
+        // picture window from a standard one of the same run.
+        return family.min { a, b in
+            let da = abs(a.width - width)
+            let db = abs(b.width - width)
+            if abs(da - db) > 0.02 { return da < db }
+            return abs(a.height - height) < abs(b.height - height)
+        } ?? first
+    }
+
+    /// Turn what the scanner found into openings the editor can select,
+    /// move and re-type.
+    ///
+    /// RoomPlan's doors and windows have always been DRAWN — they are in
+    /// `Plan.openings` — but they were never anything you could touch: they
+    /// live as centres and axes in the scan's own frame, while an editable
+    /// opening is an EDGE INDEX and a distance along it. This is the
+    /// conversion between the two, and without it a scanned room's doors
+    /// could only be deleted by rescanning the room.
+    ///
+    /// Anything that cannot be sat on a wall is dropped rather than forced.
+    /// A detection floating in the middle of the room is a mis-read, and a
+    /// mis-read pinned to the nearest wall is a door in the wrong place that
+    /// looks deliberate.
+    static func adopt(
+        detected: [(segment: (CGPoint, CGPoint), category: OpeningKind.Category, height: Double)],
+        polygon: [CGPoint]
+    ) -> [WallOpening] {
+        let points = withoutClosingPoint(polygon)
+        let n = points.count
+        guard n >= 3 else { return [] }
+
+        var adopted: [WallOpening] = []
+        for item in detected {
+            let a = item.segment.0
+            let b = item.segment.1
+            let width = length(sub(b, a))
+            guard width > 0.15 else { continue }
+            let middle = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+
+            var bestEdge = -1
+            var bestDistance = 0.35
+            for i in points.indices {
+                let (ci, di) = edgeCorners(i, count: n)
+                let edgeLength = length(sub(points[di], points[ci]))
+                guard edgeLength > width * 0.8 else { continue }
+                let along = normalised(sub(points[di], points[ci]))
+                // Parallel within about 8°: a detection square to the wall it
+                // claims is a detection of something else.
+                let run = normalised(sub(b, a))
+                guard abs(along.x * run.y - along.y * run.x) < 0.14 else { continue }
+                let across = normal(along)
+                let gap = abs(dot(sub(middle, points[ci]), across))
+                guard gap < bestDistance else { continue }
+                let t = dot(sub(middle, points[ci]), along)
+                guard t > -0.1, t < edgeLength + 0.1 else { continue }
+                bestDistance = gap
+                bestEdge = i
+            }
+            guard bestEdge >= 0 else { continue }
+
+            let (ci, di) = edgeCorners(bestEdge, count: n)
+            let edgeLength = length(sub(points[di], points[ci]))
+            let along = normalised(sub(points[di], points[ci]))
+            let centre = dot(sub(middle, points[ci]), along)
+            // Held inside its own wall: a door reported wider than the wall
+            // it sits on would otherwise be stored at a negative distance.
+            let clampedWidth = min(width, edgeLength)
+            let offset = min(max(centre - clampedWidth / 2, 0), max(edgeLength - clampedWidth, 0))
+
+            let kind = suggestedKind(
+                category: item.category, width: clampedWidth, height: item.height)
+            adopted.append(
+                WallOpening(
+                    edge: bestEdge, offset: quantise(offset), width: quantise(clampedWidth),
+                    // The MEASURED height where there is one; the catalogue's
+                    // sill, because RoomPlan reports no height above the
+                    // floor and a guessed sill on a real window is better
+                    // than a window sitting on the ground.
+                    height: item.height > 0.2 ? item.height : kind.height,
+                    sill: kind.sill, kind: kind))
+        }
+        return adopted
+    }
+
     // MARK: - Interior walls
 
     /// Where a new partition should run, started from a point on one of the

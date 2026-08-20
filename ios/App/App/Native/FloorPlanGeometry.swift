@@ -190,6 +190,43 @@ enum FloorPlanGeometry {
             height: (ys.max() ?? 0) - minY)
     }
 
+    /// Every opening the scanner found, as plan-space segments with the
+    /// family and height an editable opening needs.
+    ///
+    /// Reads them back out of the SAME `plan(from:)` that draws them, in the
+    /// same order they were built (doors, then windows, then cased
+    /// openings), rather than repeating the centre-and-axis maths — a second
+    /// copy of that arithmetic is a second thing to drift, and drift here
+    /// means a door adopted onto a different wall from the one it is drawn
+    /// on.
+    static func detections(in geometry: ScanGeometry)
+        -> [(segment: (CGPoint, CGPoint), category: PlanEditing.OpeningKind.Category, height: Double)]
+    {
+        // An edited room's openings are already authored; this is only for
+        // what a scan produced.
+        guard geometry.editedPolygon == nil else { return [] }
+        let plan = plan(from: geometry)
+        let heights =
+            geometry.doors.map(\.heightMeters) + geometry.windows.map(\.heightMeters)
+            + geometry.openings.map(\.heightMeters)
+        return plan.openings.enumerated().map { index, opening in
+            let category: PlanEditing.OpeningKind.Category
+            switch opening.kind {
+            case .door: category = .door
+            case .window: category = .window
+            case .opening: category = .passage
+            }
+            return (
+                segment: (
+                    CGPoint(x: opening.segment.x1, y: opening.segment.y1),
+                    CGPoint(x: opening.segment.x2, y: opening.segment.y2)
+                ),
+                category: category,
+                height: index < heights.count ? heights[index] : 0
+            )
+        }
+    }
+
     // MARK: - Squaring
 
     /// Turn the plan so the longest wall lies flat along the page.

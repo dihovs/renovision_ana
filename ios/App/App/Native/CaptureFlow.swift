@@ -794,6 +794,13 @@ struct CaptureFlow: View {
     /// string is the contract, the server never re-derives it). The full
     /// eighteen-type list stays available in the room detail for the odd
     /// crawl space; these eight cover the walk.
+    /// The room's own closed outline, or empty when its walls never chained.
+    private func outlinePolygon(of geometry: ScanGeometry) -> [CGPoint] {
+        var polygon = FloorPlanGeometry.plan(from: geometry).polygon
+        if polygon.count >= 4 { polygon.removeLast() }
+        return polygon
+    }
+
     private static let typeChips: [TypeChip] = [
         TypeChip(label: "Kitchen", id: "kitchen"),
         TypeChip(label: "Bathroom", id: "bathroom"),
@@ -806,9 +813,37 @@ struct CaptureFlow: View {
     ]
 
     private func save() async {
-        guard let geometry else { return }
+        guard var geometry else { return }
         saving = true
         error = nil
+
+        // What the scanner found, made EDITABLE.
+        //
+        // The owner, 19 Aug 2026: *"for lidar scan i need door window
+        // autodetection, and type suggestion from our item list, and
+        // posibility to click on the window and change the type."* RoomPlan
+        // has always found them and this app has always drawn them — but as
+        // centres and axes in the scan's own frame, which is not something a
+        // finger can touch. An editable opening is an EDGE INDEX and a
+        // distance along it, so until now a scanned room's doors could only
+        // be corrected by scanning the room again.
+        //
+        // Adopting them fills `authoredOpenings`, and that ALSO unlocks
+        // `canAuthorOpenings` — the guard that stops a scanned room being
+        // given openings by hand, because deducting the same door twice is
+        // money. Once the detections are the authored list there is only one
+        // list, so the guard has nothing left to protect against.
+        if geometry.authoredOpenings == nil {
+            let adopted = PlanEditing.adopt(
+                detected: FloorPlanGeometry.detections(in: geometry), polygon: outlinePolygon(of: geometry))
+            if !adopted.isEmpty {
+                geometry.authoredOpenings = adopted.map {
+                    ScanGeometry.AuthoredOpening(
+                        edge: $0.edge, offset: $0.offset, width: $0.width,
+                        height: $0.height, sill: $0.sill, kind: $0.kind.rawValue)
+                }
+            }
+        }
 
         let outcome = await ScanQueue.shared.save(
             ScanUpload(
