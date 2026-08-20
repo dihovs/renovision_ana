@@ -675,6 +675,15 @@ struct CaptureFlow: View {
     /// That is not commentary on the capture, it IS the shape — it says which
     /// part of the outline was never walked, which is precisely what "is this
     /// the shape?" is asking.
+    /// The families this particular capture actually found, in the sheet's
+    /// own order. Asking about Plumbing on a scan that saw no plumbing is a
+    /// switch with nothing behind it.
+    private var detectedFamilies: [ScanObjectFamily] {
+        guard let geometry, let detected = geometry.detected, !detected.isEmpty else { return [] }
+        let found = Set(detected.compactMap { ScanObjectFamily.of($0.category) })
+        return ScanObjectFamily.allCases.filter { found.contains($0) }
+    }
+
     private var review: some View {
         VStack(spacing: Brand.Space.base) {
             if let analysis, !analysis.plan.isEmpty {
@@ -693,6 +702,19 @@ struct CaptureFlow: View {
                     .font(.callout)
                     .foregroundStyle(.orange)
                 Spacer()
+            }
+
+            // What the scanner recognised, and which families of it belong
+            // on this plan — the reference's `Configure Floor Plan`, asked in
+            // the same place they ask it: after the walk, before anything is
+            // written.
+            //
+            // Only when the scan actually found something. A drawn room, or
+            // a scan that recognised nothing, gets no switches for a decision
+            // it does not have to make.
+            if !detectedFamilies.isEmpty {
+                ScanObjectFamilies(families: detectedFamilies)
+                    .padding(.horizontal, Brand.Space.base)
             }
 
             if let error {
@@ -883,6 +905,7 @@ struct CaptureFlow: View {
             // A held scan has no row yet, so it keeps its measurement and
             // loses only its placement — the packed layout catches it.
             if lastWasScan { session.markLastSaved(id) }
+            await placeDetectedObjects(roomId: id, geometry: geometry)
             await finishSave(id: id, geometry: geometry, held: false)
         case .held:
             // Kept, not lost. The measurement is safe and the project
@@ -894,6 +917,61 @@ struct CaptureFlow: View {
             error = reason
         }
         saving = false
+    }
+
+    /// Put what the scanner recognised onto the plan.
+    ///
+    /// **Only once there is a room to put it in.** Objects are rows against a
+    /// room id, and a scan held offline has no row yet — so a held room keeps
+    /// its measurements and its openings and simply arrives without its
+    /// fixtures, which is the same trade `markLastSaved` already makes for
+    /// placement.
+    ///
+    /// Three filters, in this order and each for its own reason:
+    ///
+    /// 1. **What the operator said mid-scan wins outright.** Ignored means
+    ///    ignored; a chosen slug is placed as chosen.
+    /// 2. **The family switches.** His own: *"I don't want to have to adjust
+    ///    everything manually."* An operator who never wants furniture on a
+    ///    water-damage plan turns it off once.
+    /// 3. **Anything still unnamed is dropped, not guessed.** A sink might be
+    ///    a kitchen sink, a vanity or a laundry tub — three different lines on
+    ///    an estimate — and placing the wrong one silently puts a number on a
+    ///    claim that nobody chose.
+    private func placeDetectedObjects(roomId: String, geometry: ScanGeometry) async {
+        let plan = FloorPlanGeometry.plan(from: geometry)
+        guard !plan.objects.isEmpty else { return }
+        let filter = ScanObjectFilter.shared
+
+        for object in plan.objects {
+            let uuid = UUID(uuidString: object.id)
+            let answer = uuid.flatMap { choices.answer(for: $0) }
+            if case .ignored = answer { continue }
+
+            var slug: String?
+            if case .object(let chosen) = answer {
+                slug = chosen
+            } else {
+                guard filter.includes(category: object.category) else { continue }
+                slug = ScanCatalogue.suggestion(
+                    forCategoryName: object.category, lowConfidence: object.lowConfidence
+                ).slug
+            }
+            guard let slug, let entry = ObjectCatalog.entry(slug: slug) else { continue }
+
+            // MEASURED, not catalogued. RoomPlan reports this object's own
+            // box, and a measurement beats a stock size every time — the
+            // catalogue figure is what a hand-placed object starts from
+            // because nobody measured it. Guarded against a nonsense reading:
+            // a 4cm refrigerator is a bad detection, not a small appliance.
+            let width = object.width > 0.05 ? object.width : entry.width
+            let depth = object.depth > 0.05 ? object.depth : entry.depth
+            let height = object.height > 0.05 ? object.height : entry.height
+
+            try? await API.shared.createObject(
+                roomScanId: roomId, kind: slug, at: object.centre,
+                rotation: object.rotation, width: width, depth: depth, height: height)
+        }
     }
 
     /// After a room is filed: register the visit's rooms together, then
@@ -1348,6 +1426,59 @@ struct SelectRoomTypeView: View {
                     Button { dismiss() } label: { Image(systemName: "chevron.left") }
                 }
             }
+        }
+    }
+}
+
+/// The three switches from the reference's `Configure Floor Plan` sheet.
+///
+/// Checkboxes rather than toggles, and in their order — Plumbing Fixtures,
+/// Appliances, Furniture — each with the same one-line example underneath
+/// that theirs carries, because "Appliances" alone does not tell an operator
+/// whether a water heater counts.
+///
+/// `Remember my choices` is the whole point of the control. The owner:
+/// *"I can click and adjust it if I see something is wrong, but I don't want
+/// to have to adjust everything manually."* Turn Furniture off on a
+/// water-damage job and it stays off.
+@available(iOS 17.0, *)
+struct ScanObjectFamilies: View {
+    let families: [ScanObjectFamily]
+    @ObservedObject private var filter = ScanObjectFilter.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+            SectionHeading(title: "INCLUDE OBJECTS")
+            ForEach(families) { family in
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    filter.toggle(family)
+                } label: {
+                    HStack(alignment: .top, spacing: Brand.Space.small) {
+                        Image(
+                            systemName: filter.included.contains(family)
+                                ? "checkmark.square.fill" : "square")
+                            .font(.system(size: 18))
+                            .foregroundStyle(
+                                filter.included.contains(family) ? Brand.blue : Brand.inkFaint)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(family.label)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Brand.ink)
+                            Text(family.examples)
+                                .font(.system(size: 12))
+                                .foregroundStyle(Brand.inkFaint)
+                        }
+                        Spacer()
+                    }
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+            Toggle("Remember my choices", isOn: $filter.remember)
+                .font(.system(size: 14, weight: .semibold))
+                .tint(Brand.blue)
+                .padding(.top, 2)
         }
     }
 }

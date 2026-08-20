@@ -52,6 +52,28 @@ enum FloorPlanGeometry {
         let polygon: [CGPoint]
         let width: Double
         let height: Double
+        /// What the scanner recognised standing in the room, in the SAME
+        /// plan metres as everything above.
+        ///
+        /// Carried through this function rather than converted separately,
+        /// and that is not tidiness: the plan is ROTATED to square it to the
+        /// page before it is normalised, so a second copy of the maths would
+        /// put every fixture at a different angle from the walls around it.
+        /// Openings are already carried this way for the same reason.
+        var objects: [PlacedObject] = []
+
+        struct PlacedObject {
+            let id: String
+            let category: String
+            let lowConfidence: Bool
+            /// Centre of the footprint, plan metres.
+            let centre: CGPoint
+            /// Degrees clockwise, matching `RoomObject.rotation`.
+            let rotation: Double
+            let width: Double
+            let depth: Double
+            let height: Double
+        }
 
         var isEmpty: Bool { segments.isEmpty }
     }
@@ -164,11 +186,21 @@ enum FloorPlanGeometry {
                                   axisZ: gap.axisZ, length: gap.widthMeters), kind: .opening))
         }
 
+        // Every recognised object as a segment across its own width, so it
+        // rides the same rotation as the walls and comes out square to them.
+        let detected = geometry.detected ?? []
+        let rawObjects = detected.map {
+            span(centerX: $0.centerX, centerZ: $0.centerZ, axisX: $0.axisX, axisZ: $0.axisZ,
+                 length: max($0.widthMeters, 0.01))
+        }
+
         // Rotated TOGETHER, by the angle the walls imply, so a door stays in
         // the wall it was cut from.
-        let combined = squareToPage(rawWalls + rawOpenings.map(\.segment))
+        let combined = squareToPage(rawWalls + rawOpenings.map(\.segment) + rawObjects)
         let rotatedWalls = Array(combined.prefix(rawWalls.count))
-        let rotatedOpenings = Array(combined.suffix(from: rawWalls.count))
+        let rotatedOpenings = Array(
+            combined[rawWalls.count..<(rawWalls.count + rawOpenings.count)])
+        let rotatedObjects = Array(combined.suffix(rawObjects.count))
 
         let aligned = alignCollinear(walls: rotatedWalls, openings: rotatedOpenings)
 
@@ -188,12 +220,28 @@ enum FloorPlanGeometry {
             Opening(segment: shift($0.0), kind: $0.1.kind)
         }
 
+        let placed = zip(detected, rotatedObjects).map { object, segment -> Plan.PlacedObject in
+            let s = shift(segment)
+            return Plan.PlacedObject(
+                id: object.id,
+                category: object.category,
+                lowConfidence: object.lowConfidence,
+                centre: CGPoint(x: (s.x1 + s.x2) / 2, y: (s.y1 + s.y2) / 2),
+                // The segment ran along the object's own width, so its angle
+                // after the page rotation IS the object's heading.
+                rotation: atan2(s.y2 - s.y1, s.x2 - s.x1) * 180 / .pi,
+                width: object.widthMeters,
+                depth: object.depthMeters,
+                height: object.heightMeters)
+        }
+
         return Plan(
             segments: segments,
             openings: openings,
             polygon: chainIntoPolygon(segments),
             width: (xs.max() ?? 0) - minX,
-            height: (ys.max() ?? 0) - minY)
+            height: (ys.max() ?? 0) - minY,
+            objects: placed)
     }
 
     /// Every opening the scanner found, as plan-space segments with the

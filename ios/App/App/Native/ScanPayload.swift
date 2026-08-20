@@ -37,6 +37,35 @@ struct ScanGeometry: Codable {
         let areaSquareMeters: Double
     }
 
+    /// What RoomPlan recognised standing in the room — a refrigerator, a
+    /// toilet, a chair. Stored beside the walls in the SCAN's own world
+    /// frame, exactly like the surfaces above, and turned into plan
+    /// coordinates by the one pipeline that already rotates and normalises
+    /// everything else (`FloorPlanGeometry.plan(from:)`).
+    ///
+    /// Optional: every scan taken before this existed has none, and a
+    /// synthesised `Decodable` would fail those rooms outright.
+    var detected: [DetectedObject]?
+
+    struct DetectedObject: Codable {
+        /// RoomPlan's own identifier, so an answer the operator gave
+        /// mid-scan can still find this object when the room is filed.
+        let id: String
+        /// `CapturedRoom.Object.Category` as a string — text, so an unknown
+        /// future category degrades to "ask" rather than to a decode failure.
+        let category: String
+        /// True when RoomPlan itself was unsure. A low-confidence guess
+        /// placed silently is a fixture on an estimate nobody saw.
+        let lowConfidence: Bool
+        let centerX: Double
+        let centerZ: Double
+        let axisX: Double
+        let axisZ: Double
+        let widthMeters: Double
+        let depthMeters: Double
+        let heightMeters: Double
+    }
+
     let walls: [Surface]
     let floors: [Floor]
     let doors: [Surface]
@@ -345,6 +374,26 @@ struct ScanGeometry: Codable {
                     axisX: Double(axis.x),
                     axisZ: Double(axis.z))
             }
+        }
+
+        detected = room.objects.map { object in
+            let centre = object.transform.columns.3
+            let axis = object.transform.columns.0
+            return DetectedObject(
+                id: object.identifier.uuidString,
+                category: String(describing: object.category),
+                lowConfidence: object.confidence == .low,
+                centerX: Double(centre.x),
+                centerZ: Double(centre.z),
+                axisX: Double(axis.x),
+                axisZ: Double(axis.z),
+                widthMeters: Double(object.dimensions.x),
+                // RoomPlan's object box is width x height x depth in its own
+                // local frame: x across, y up, z through. On a PLAN the
+                // depth is z, which is the mistake `floors` above already
+                // records having shipped once.
+                depthMeters: Double(object.dimensions.z),
+                heightMeters: Double(object.dimensions.y))
         }
 
         walls = map(room.walls)
