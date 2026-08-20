@@ -52,6 +52,22 @@ function readOpenings(body: Record<string, unknown>): AuthoredOpenings | undefin
   };
 }
 
+/** Partitions standing inside the room, when the save declares any. Same
+    present-means-declared rule as the openings above. */
+function readInteriorWalls(body: Record<string, unknown>) {
+  if (!Array.isArray(body.interiorWalls)) return undefined;
+  return (body.interiorWalls as unknown[]).flatMap((value) => {
+    const record = value as { x1?: unknown; y1?: unknown; x2?: unknown; y2?: unknown };
+    const x1 = Number(record?.x1);
+    const y1 = Number(record?.y1);
+    const x2 = Number(record?.x2);
+    const y2 = Number(record?.y2);
+    if (![x1, y1, x2, y2].every((n) => Number.isFinite(n))) return [];
+    // A wall with no length is a click, not a wall.
+    return Math.hypot(x2 - x1, y2 - y1) > 0.05 ? [{ x1, y1, x2, y2 }] : [];
+  });
+}
+
 /** Rename a room, move it to another floor, or recolour it on the plan. The
     measurements themselves are a record of what was scanned and are
     deliberately not editable. */
@@ -84,7 +100,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             .map((n) => Number(n))
             .filter((n) => Number.isInteger(n) && n >= 0 && n < polygon.length)
         : [];
-      await saveEditedPolygon(id, polygon, locked, readOpenings(body));
+      await saveEditedPolygon(id, polygon, locked, readOpenings(body), readInteriorWalls(body));
     }
 
     await updateRoomScan(id, {

@@ -149,6 +149,101 @@ enum PlanEditing {
             ?? translateEdge(polygon, index: index, offset: offset)
     }
 
+    // MARK: - Interior walls
+
+    /// Where a new partition should run, started from a point on one of the
+    /// room's own walls.
+    ///
+    /// The reference's `Add Wall` drops a stub that is NOT an edge of the
+    /// outline — a closet divider, a knee wall, the half-wall beside a stair.
+    /// It starts on the wall you tapped and runs straight into the room,
+    /// which is how a partition is actually built: it lands on something.
+    ///
+    /// The length is cast against the room rather than assumed. A metre of
+    /// wall inside a 700mm cupboard would poke out the far side, so the ray
+    /// is measured to whatever it hits and the stub takes a fraction of that
+    /// — long enough to grab and drag, short enough to be obviously a stub
+    /// rather than a wall somebody meant to finish.
+    static func stubWall(
+        in polygon: [CGPoint], edge: Int, at point: CGPoint, maxLength: Double = 1.0
+    ) -> (CGPoint, CGPoint)? {
+        let points = withoutClosingPoint(polygon)
+        let n = points.count
+        guard n >= 3, points.indices.contains(edge) else { return nil }
+
+        let (ai, bi) = edgeCorners(edge, count: n)
+        let a = points[ai]
+        let b = points[bi]
+        let run = sub(b, a)
+        let len = length(run)
+        guard len > 0.05 else { return nil }
+        let along = normalised(run)
+
+        // Held to the wall it starts on, and off its corners: a stub landing
+        // exactly on a corner has no wall to stand on.
+        var t = dot(sub(point, a), along)
+        t = min(max(t, 0.1), len - 0.1)
+        guard t > 0 else { return nil }
+        let foot = CGPoint(x: a.x + along.x * t, y: a.y + along.y * t)
+
+        // Into the room, not out of it.
+        //
+        // Winding says which way that is — but it is CHECKED rather than
+        // trusted, because getting the sign backwards puts the wall outside
+        // the building, which is what the first version did and what a
+        // screenshot of a stub hanging in the garden showed immediately. A
+        // step off the wall either way, and whichever lands inside the room
+        // wins. The polygon is the authority on its own inside.
+        let sign = polygonWinding(points) >= 0 ? 1.0 : -1.0
+        var inward = CGPoint(x: -along.y * sign, y: along.x * sign)
+        let probe = 0.02
+        if !contains(points, point: CGPoint(x: foot.x + inward.x * probe, y: foot.y + inward.y * probe)) {
+            inward = CGPoint(x: -inward.x, y: -inward.y)
+        }
+
+        // How far before it would leave the room.
+        var clearance = Double.greatestFiniteMagnitude
+        for i in points.indices where i != edge {
+            let (ci, di) = edgeCorners(i, count: n)
+            guard
+                let hit = rayHit(
+                    origin: foot, direction: inward, segment: (points[ci], points[di]))
+            else { continue }
+            clearance = min(clearance, hit)
+        }
+        guard clearance.isFinite, clearance > 0.25 else { return nil }
+
+        let reach = min(maxLength, clearance * 0.6)
+        let tip = CGPoint(x: foot.x + inward.x * reach, y: foot.y + inward.y * reach)
+        return (quantise(foot), quantise(tip))
+    }
+
+    /// Distance from `origin` along `direction` to a segment, or nil.
+    private static func rayHit(
+        origin: CGPoint, direction: CGPoint, segment: (CGPoint, CGPoint)
+    ) -> Double? {
+        let seg = sub(segment.1, segment.0)
+        let denominator = direction.x * seg.y - direction.y * seg.x
+        guard abs(denominator) > 1e-9 else { return nil }
+        let delta = sub(segment.0, origin)
+        let t = (delta.x * seg.y - delta.y * seg.x) / denominator
+        let u = (delta.x * direction.y - delta.y * direction.x) / denominator
+        guard t > 1e-6, u >= -1e-6, u <= 1 + 1e-6 else { return nil }
+        return t
+    }
+
+    /// How far a point is from a partition, for hit-testing.
+    static func distance(to wall: ScanGeometry.InteriorWall, from point: CGPoint) -> Double {
+        let a = CGPoint(x: wall.x1, y: wall.y1)
+        let b = CGPoint(x: wall.x2, y: wall.y2)
+        let ab = sub(b, a)
+        let squared = dot(ab, ab)
+        guard squared > 1e-9 else { return length(sub(point, a)) }
+        var t = dot(sub(point, a), ab) / squared
+        t = min(1, max(0, t))
+        return length(sub(point, CGPoint(x: a.x + ab.x * t, y: a.y + ab.y * t)))
+    }
+
     // MARK: - Mirroring
 
     /// Which way a duplicate is flipped.

@@ -227,6 +227,7 @@ export async function saveEditedPolygon(
   polygon: { x: number; y: number }[],
   lockedEdges: number[] = [],
   openings?: AuthoredOpenings,
+  interiorWalls?: { x1: number; y1: number; x2: number; y2: number }[],
 ): Promise<void> {
   const client = requireDb();
 
@@ -260,6 +261,14 @@ export async function saveEditedPolygon(
           openingCount: openings.passages.length,
         }
       : {}),
+    // Partitions standing INSIDE the room - the reference's Add Wall. Only
+    // when the save declares them, same rule as the openings above, so a
+    // plain polygon correction from an older build does not wipe them.
+    //
+    // They are stored and drawn but feed no area figure: whether a partition
+    // adds one face of wall or two is a pricing decision with money on it,
+    // not something to infer from a line having been drawn.
+    ...(interiorWalls ? { interiorWalls } : {}),
     editedAt: new Date().toISOString(),
   };
 

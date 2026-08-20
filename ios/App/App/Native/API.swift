@@ -851,6 +851,10 @@ actor API {
         /// are never overwritten by a polygon correction. An empty array is a
         /// different statement: the operator removed the last one.
         let authoredOpenings: [ScanGeometry.AuthoredOpening]?
+        /// Partitions standing inside the room. Same nil-means-nothing-said
+        /// rule as the openings above: a save that does not mention them
+        /// leaves whatever is stored alone.
+        let interiorWalls: [ScanGeometry.InteriorWall]?
         let doors: [ScanGeometry.Surface]?
         let windows: [ScanGeometry.Surface]?
         let openings: [ScanGeometry.Surface]?
@@ -864,7 +868,8 @@ actor API {
     /// only for rooms whose openings are authored rather than detected.
     func saveEditedPlan(
         roomId: String, corners: [CGPoint], locked: [Int] = [],
-        openings placed: [PlanEditing.WallOpening]? = nil, ceilingHeight: Double = 0
+        openings placed: [PlanEditing.WallOpening]? = nil, ceilingHeight: Double = 0,
+        interiorWalls: [ScanGeometry.InteriorWall]? = nil
     ) async throws {
         let synthesized = placed.map {
             ScanGeometry.surfaces(
@@ -886,6 +891,7 @@ actor API {
                             sill: $0.sill, kind: $0.kind.rawValue)
                     }
                 },
+                interiorWalls: interiorWalls,
                 doors: synthesized?.doors,
                 windows: synthesized?.windows,
                 openings: synthesized?.passages,

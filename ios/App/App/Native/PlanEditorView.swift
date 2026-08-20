@@ -137,6 +137,17 @@ struct RoomEditorCore: View {
     /// opening whose edge index outlives a corner edit is a door in the
     /// wrong wall.
     @State private var openings: [PlanEditing.WallOpening] = []
+    /// Partitions standing inside the room — the reference's `Add Wall`.
+    /// Not edges of the outline, which is the whole point of them.
+    @State private var interiorWalls: [ScanGeometry.InteriorWall] = []
+    /// Which end of a partition a drag has hold of: 0, 1, or nil for the
+    /// whole wall.
+    @State private var interiorWallGrab: Int?
+    /// Where the tap that selected a partition landed, in room metres.
+    @State private var interiorWallTapPoint: CGPoint?
+    /// Where the CURRENT drag went down, in room metres — what decides which
+    /// end of a partition it has hold of.
+    @State private var dragStartModel: CGPoint?
     @State private var history: [Snapshot] = []
     @State private var future: [Snapshot] = []
 
@@ -256,6 +267,9 @@ struct RoomEditorCore: View {
         var corners: [CGPoint]
         var openings: [PlanEditing.WallOpening]
         var locked: Set<Int>
+        /// Partitions standing in the room. In the snapshot because undo has
+        /// to reach them too — a wall you cannot un-add is worse than no wall.
+        var interiorWalls: [ScanGeometry.InteriorWall] = []
     }
 
     /// Viewport. `zoom` multiplies the fit scale; `pan` slides the camera in
@@ -273,6 +287,8 @@ struct RoomEditorCore: View {
         case corner(Int)
         /// Index into `openings`.
         case opening(Int)
+        /// A partition standing in the room, by index into `interiorWalls`.
+        case interiorWall(Int)
         /// A placed object, by its server id rather than an index — objects
         /// are rows that arrive from a fetch and can be reordered by a
         /// reload, where openings are positions in this editor's own array.
@@ -777,6 +793,49 @@ struct RoomEditorCore: View {
                         }
                     }
 
+                    // Partitions standing in the room. Drawn like a wall
+                    // because that is what they are — footprint band under a
+                    // black core — but never with dimension lines: a stub is
+                    // positioned by eye against the room, and a figure
+                    // outboard of it would be measuring from nothing.
+                    for (index, partition) in interiorWalls.enumerated() {
+                        var stub = Path()
+                        stub.move(to: pt(CGPoint(x: partition.x1, y: partition.y1)))
+                        stub.addLine(to: pt(CGPoint(x: partition.x2, y: partition.y2)))
+                        let picked = selection == .interiorWall(index)
+                        let core = picked ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale)
+                        context.stroke(
+                            stub, with: .color(Brand.Plan.wallFootprint),
+                            style: StrokeStyle(lineWidth: core + 7, lineCap: .round))
+                        context.stroke(
+                            stub, with: .color(picked ? Brand.blue : Brand.Plan.ink),
+                            style: StrokeStyle(lineWidth: core, lineCap: .butt))
+                        // Both ends get a handle, ALWAYS — the same rule the
+                        // room's own corners follow just above, and for the
+                        // same reason: a handle is what says a thing can be
+                        // grabbed, and hiding it until the thing is already
+                        // selected means the first drag has to be guessed at.
+                        //
+                        // The owner, 19 Aug 2026, on a screenshot of a
+                        // partition sitting there bare: *"why we dont have the
+                        // circle things on the added wall."* Because they were
+                        // drawn only while selected. They are corners of a
+                        // wall; they look like corners.
+                        for end in [
+                            CGPoint(x: partition.x1, y: partition.y1),
+                            CGPoint(x: partition.x2, y: partition.y2),
+                        ] {
+                            let p = pt(end)
+                            let r = (picked ? handleDot + 3 : handleDot) / 2
+                            context.fill(
+                                Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
+                                with: .color(picked ? Brand.blue : .white))
+                            context.stroke(
+                                Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
+                                with: .color(Brand.blue), lineWidth: 2)
+                        }
+                    }
+
                     // Openings, cut into their walls: band break, jamb caps,
                     // our own glyphs. Drawn after the walls so the knock-out
                     // actually knocks out. A selected one gains the thin
@@ -968,6 +1027,14 @@ struct RoomEditorCore: View {
                 // One finger: edit what is selected, else select.
                 DragGesture(minimumDistance: 4)
                     .onChanged { value in
+                        // Where the finger went down, in ROOM METRES. Only
+                        // this closure has the canvas's mapping; `handleDrag`
+                        // is a method on the view and does not, which is why
+                        // a partition's grabbed END could not be worked out
+                        // there. Recorded once per drag.
+                        if dragStartModel == nil {
+                            dragStartModel = toModel(value.startLocation)
+                        }
                         handleDrag(value, scale: scale)
                     }
                     .onEnded { _ in
@@ -981,6 +1048,11 @@ struct RoomEditorCore: View {
                         dragStart = nil
                         liveLabel = nil
                         snapEngaged = false
+                        // Which end of a partition was held is decided once
+                        // per drag; leaving it set would make the NEXT drag
+                        // move whatever the last one did.
+                        interiorWallGrab = nil
+                        dragStartModel = nil
                         alignments = []
                         alignedOffset = nil
                         lastPanDrag = .zero
@@ -1166,6 +1238,25 @@ struct RoomEditorCore: View {
             return
         }
 
+        // Partitions, before the outline's own walls: a stub LANDS on a wall,
+        // so at the joint the two always compete, and the thing the finger is
+        // aiming at there is the stub — the wall behind it is reachable
+        // anywhere else along its length.
+        var bestPartition = -1
+        var bestPartitionDistance = wallBand / scale
+        for (index, partition) in interiorWalls.enumerated() {
+            let d = PlanEditing.distance(to: partition, from: point)
+            if d < bestPartitionDistance {
+                bestPartitionDistance = d
+                bestPartition = index
+            }
+        }
+        if bestPartition >= 0 {
+            interiorWallTapPoint = point
+            select(.interiorWall(bestPartition))
+            return
+        }
+
         // Objects, after openings and before walls. An object stands INSIDE
         // the room while walls are its edges, so the two rarely compete —
         // but a cabinet pushed against a wall overlaps the band, and the
@@ -1322,7 +1413,7 @@ struct RoomEditorCore: View {
         }
 
         if dragStart == nil {
-            dragStart = Snapshot(corners: corners, openings: openings, locked: locked)
+            dragStart = Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls)
             push()
             captureWallAnchors()
         }
@@ -1395,6 +1486,45 @@ struct RoomEditorCore: View {
             carryAnchoredObjects()
             let before = (index - 1 + corners.count) % corners.count
             liveLabel = "\(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, before)))  ·  \(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index)))"
+
+        case .interiorWall(let index):
+            guard let base = dragStart?.interiorWalls, base.indices.contains(index) else { return }
+            let was = base[index]
+            let delta = CGPoint(
+                x: value.translation.width / scale, y: value.translation.height / scale)
+            // Which END was grabbed is decided ONCE, at the start of the drag,
+            // from where the finger went down. Re-deciding it per frame swaps
+            // ends the moment the wall gets short.
+            if interiorWallGrab == nil {
+                // From the TAP that selected it, which handleTap already
+                // recorded in model metres — the drag's own start location is
+                // in screen points and the canvas's mapping does not reach
+                // here. Decided once: re-deciding per frame swaps ends the
+                // moment the wall gets short.
+                let reach = handleHit / scale
+                if let grab = dragStartModel ?? interiorWallTapPoint {
+                    let d1 = hypot(grab.x - was.x1, grab.y - was.y1)
+                    let d2 = hypot(grab.x - was.x2, grab.y - was.y2)
+                    interiorWallGrab = min(d1, d2) < reach ? (d1 <= d2 ? 0 : 1) : -1
+                } else {
+                    interiorWallGrab = -1
+                }
+            }
+            var moved = was
+            switch interiorWallGrab {
+            case 0:
+                moved = ScanGeometry.InteriorWall(
+                    x1: was.x1 + delta.x, y1: was.y1 + delta.y, x2: was.x2, y2: was.y2)
+            case 1:
+                moved = ScanGeometry.InteriorWall(
+                    x1: was.x1, y1: was.y1, x2: was.x2 + delta.x, y2: was.y2 + delta.y)
+            default:
+                moved = ScanGeometry.InteriorWall(
+                    x1: was.x1 + delta.x, y1: was.y1 + delta.y,
+                    x2: was.x2 + delta.x, y2: was.y2 + delta.y)
+            }
+            interiorWalls[index] = moved
+            liveLabel = UnitSettings.shared.format.format(moved.lengthM)
 
         case .opening(let index):
             guard let base = dragStart?.openings, base.indices.contains(index) else { return }
@@ -1980,6 +2110,8 @@ struct RoomEditorCore: View {
         case .wall:
             // A held drag handle collapses the bar to two (§4, D5).
             return .wall(dragging: dragStart != nil)
+        case .interiorWall:
+            return .wall(dragging: dragStart != nil)
         case .corner:
             return .corner
         case .opening(let index):
@@ -2035,12 +2167,24 @@ struct RoomEditorCore: View {
             // rooms somebody could stand in. Offering it and then refusing
             // is worse than not offering it.
             var verbs: Set<EditorAction> = canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
+            // `Add Wall` only where a stub would actually fit — against a
+            // wall with room in front of it. Offering it and then refusing is
+            // worse than not offering it, the same rule Split Room follows.
+            if let point = wallTapPoint,
+                PlanEditing.stubWall(in: corners, edge: index, at: point) != nil
+            {
+                verbs.insert(.addWall)
+            }
             if let point = wallTapPoint,
                 PlanEditing.splitRoom(corners, edge: index, at: point, openings: openings) != nil
             {
                 verbs.insert(.splitRoom)
             }
             return verbs
+        case .interiorWall:
+            // Nothing else applies yet: a stub has no openings, no corners to
+            // add and no size walk — it is positioned by dragging it.
+            return [.delete]
         case .corner:
             return corners.count > 3 ? [.delete] : []
         case .object:
@@ -2441,6 +2585,13 @@ struct RoomEditorCore: View {
             placingObject = true
         case (.addCorner, .wall(let index)):
             addCorner(on: index)
+        case (.addWall, .wall(let index)):
+            addInteriorWall(on: index)
+        case (.delete, .interiorWall(let index)):
+            guard interiorWalls.indices.contains(index) else { break }
+            push()
+            interiorWalls.remove(at: index)
+            select(.none)
         case (.splitRoom, .wall(let index)):
             guard let point = wallTapPoint,
                 let split = PlanEditing.splitRoom(
@@ -2516,6 +2667,7 @@ struct RoomEditorCore: View {
         case .none: return room.name
         case .wall: return "Wall"
         case .corner: return "Corner"
+        case .interiorWall: return "Wall"
         case .opening(let index):
             guard openings.indices.contains(index) else { return room.name }
             return openings[index].kind.label
@@ -2528,6 +2680,23 @@ struct RoomEditorCore: View {
     /// than the room itself.
     private var navSubtitle: String? {
         EditorChrome.floorSubtitle(room.level)
+    }
+
+    /// Drop a partition against the wall the finger named.
+    ///
+    /// Selected straight away, because a new wall a metre long in the middle
+    /// of a room is easy to miss and the next thing anybody wants to do is
+    /// drag its free end somewhere.
+    private func addInteriorWall(on index: Int) {
+        guard let point = wallTapPoint,
+            let stub = PlanEditing.stubWall(in: corners, edge: index, at: point)
+        else { return }
+        push()
+        interiorWalls.append(
+            ScanGeometry.InteriorWall(
+                x1: stub.0.x, y1: stub.0.y, x2: stub.1.x, y2: stub.1.y))
+        select(.interiorWall(interiorWalls.count - 1))
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 
     private func addCorner(on index: Int) {
@@ -2649,6 +2818,7 @@ struct RoomEditorCore: View {
         // is where this room's walls were when the operator walked in, not
         // where they were half way through a sequence of edits.
         openedCorners = corners
+        interiorWalls = room.geometry?.interiorWalls ?? []
         // Placed openings come back in their editable form. An unknown kind
         // (from a newer build) is left out of the editor rather than guessed
         // at — deleting it here would delete it from the record on Save.
@@ -2668,14 +2838,14 @@ struct RoomEditorCore: View {
     }
 
     private func push() {
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
         if history.count > 100 { history.removeFirst() }
         future.removeAll()
     }
 
     private func undo() {
         guard let previous = history.popLast() else { return }
-        future.append(Snapshot(corners: corners, openings: openings, locked: locked))
+        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
         corners = previous.corners
         openings = previous.openings
         locked = previous.locked
@@ -2688,7 +2858,7 @@ struct RoomEditorCore: View {
 
     private func redo() {
         guard let next = future.popLast() else { return }
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
         corners = next.corners
         openings = next.openings
         locked = next.locked
@@ -2706,7 +2876,8 @@ struct RoomEditorCore: View {
                 // A room with detected openings says nothing about openings
                 // here, so the detections survive the polygon correction.
                 openings: canAuthorOpenings ? openings : nil,
-                ceilingHeight: room.ceilingHeightM)
+                ceilingHeight: room.ceilingHeightM,
+                interiorWalls: interiorWalls)
             if openedCorners.count == corners.count, openedCorners != corners {
                 onOutlineChanged?(openedCorners, corners)
             }

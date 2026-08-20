@@ -94,6 +94,38 @@ struct ScanGeometry: Codable {
     /// measured one.
     var authoredOpenings: [AuthoredOpening]?
 
+    /// Interior stub walls — partitions standing INSIDE a room rather than
+    /// bounding it.
+    ///
+    /// The reference's `Add Wall`, watched on the owner's phone 19 Aug 2026:
+    /// it drops a wall that is not an edge of the room's outline. A closet
+    /// divider, a knee wall, the half-wall beside a stair. Every other wall
+    /// in this codebase is an edge of the polygon, which is why these need a
+    /// list of their own — modelling one as a corner in the outline would
+    /// carve the room in two, and a room with a closet in it is still one
+    /// room.
+    ///
+    /// In the room's own plan metres, the same space `authoredOpenings` and
+    /// the objects are in. Optional, because every room saved before this
+    /// existed has none.
+    ///
+    /// **They do not touch any area figure yet, on purpose.** Wall area feeds
+    /// the estimate and then the claim, and whether a partition adds one face
+    /// or two — and whether a knee wall counts at all — is a pricing decision
+    /// with money attached, not something to infer from the fact that a line
+    /// was drawn. Drawn, measured, moved and deleted first; counted when the
+    /// owner says how.
+    var interiorWalls: [InteriorWall]?
+
+    struct InteriorWall: Codable, Hashable {
+        let x1: Double
+        let y1: Double
+        let x2: Double
+        let y2: Double
+
+        var lengthM: Double { hypot(x2 - x1, y2 - y1) }
+    }
+
     struct AuthoredOpening: Codable, Hashable {
         let edge: Int
         /// Metres from the edge's start corner to the near jamb.
