@@ -1397,6 +1397,46 @@ struct FloorCanvasView: View {
                 ZStack {
                     Brand.Plan.paper.ignoresSafeArea()
 
+                    // A FLOOR WITH NOTHING TO DRAW SAYS SO.
+                    //
+                    // `cachedLayout` holds only rooms that have geometry, so
+                    // an empty layout with a non-empty floor means exactly
+                    // one thing: the rooms are filed but none of them has an
+                    // outline — typed areas, an import, a seed. The screen
+                    // used to render that as blank paper, which is
+                    // indistinguishable from a drawing that failed, and it is
+                    // what the owner reported as *"there is nothing, just an
+                    // empty card"*. He was right that it looked broken. It
+                    // was not broken; it was silent.
+                    //
+                    // The floor-plan TILE has said this properly all along.
+                    // The screen behind it did not, which is the same
+                    // mistake in the other direction: two places showing one
+                    // fact, one of them mute.
+                    if cachedLayout.rooms.isEmpty, focusedRoomID == nil {
+                        VStack(spacing: Brand.Space.tight) {
+                            Image(systemName: "square.dashed")
+                                .font(.system(size: 26))
+                                .foregroundStyle(Brand.Plan.labelSoft)
+                            Text(
+                                rooms.isEmpty
+                                    ? "Nothing drawn on this floor yet"
+                                    : "\(rooms.count) room\(rooms.count == 1 ? "" : "s") here, none measured"
+                            )
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+                            Text(
+                                rooms.isEmpty
+                                    ? "Measure a room and it appears here, to scale."
+                                    : "They have names and areas but no outline, so there is nothing to draw. Scan or draw one and it lands here."
+                            )
+                            .font(.system(size: 13))
+                            .foregroundStyle(Brand.inkSoft)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, Brand.Space.large)
+                        }
+                    }
+
                     StoreyBaseLayer(
                         layout: cachedLayout, viewport: viewport, focusedRoomID: focusedRoomID,
                         focusProgress: progress, grid: true,

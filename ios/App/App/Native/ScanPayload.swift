@@ -20,10 +20,19 @@ struct ScanGeometry: Codable {
         /// "that is a bifold, not a single" — can still be matched to the
         /// right hole when the room is filed minutes later.
         ///
-        /// Optional and decoded leniently: every scan saved before this
-        /// existed has no such key, and a synthesised `Decodable` would fail
-        /// those rooms outright rather than degrade.
-        var id: String?
+        /// **Stored as `detectionId`, not `id`, as a precaution.** A field
+        /// called `id` inside a stored blob collides with whatever that blob
+        /// already keeps under the name, and a collision here does not
+        /// produce a wrong value — it THROWS. The surface fails to decode,
+        /// the whole `ScanGeometry` fails with it, and `RoomScan` swallows
+        /// that in a `try?`, so the room arrives with `geometry == nil`: it
+        /// still lists, its area still totals, and the plan is simply blank.
+        /// A whole floor can go dark and nothing anywhere reports an error.
+        ///
+        /// This was NOT the cause of the blank floor it was written chasing
+        /// — that turned out to be seeded rooms that never had geometry —
+        /// but the hazard is real and costs nothing to avoid.
+        var detectionId: String?
         let lengthMeters: Double
         let widthMeters: Double
         let heightMeters: Double
@@ -365,7 +374,7 @@ struct ScanGeometry: Codable {
                 let centre = surface.transform.columns.3
                 let axis = surface.transform.columns.0
                 return Surface(
-                    id: surface.identifier.uuidString,
+                    detectionId: surface.identifier.uuidString,
                     lengthMeters: Double(surface.dimensions.x),
                     widthMeters: Double(surface.dimensions.x),
                     heightMeters: Double(surface.dimensions.y),

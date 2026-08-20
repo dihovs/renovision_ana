@@ -270,7 +270,8 @@ enum FloorPlanGeometry {
         // the same reason: `plan.openings` is built from doors, then windows,
         // then openings, in that order.
         let ids =
-            geometry.doors.map(\.id) + geometry.windows.map(\.id) + geometry.openings.map(\.id)
+            geometry.doors.map(\.detectionId) + geometry.windows.map(\.detectionId)
+            + geometry.openings.map(\.detectionId)
         return plan.openings.enumerated().map { index, opening in
             let category: PlanEditing.OpeningKind.Category
             switch opening.kind {
