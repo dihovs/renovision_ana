@@ -277,6 +277,61 @@ installed but not selected" although `xcode-select -p` prints
 password. It did not matter, because the device loop above is faster and
 tests the real thing.
 
+## 6b. Where the 19 Aug night session stopped
+
+Build **172** is on his phone. Everything from the magicplan verb list is in
+and confirmed: room arranging (hold to lift, move, twist, snap flush,
+alignment guides), Split Room, Merge Rooms, Add Wall, Duplicate with
+Identical/Flip H/Flip V, the neighbour-carry when a room is re-measured, and
+LiDAR detections adopted as editable openings with a type suggested from the
+catalogue.
+
+**The simulator is now a real test rig** and it is already signed in — boot
+`iPhone 17 Pro`, `simctl install` the Debug-iphonesimulator build, and drive
+the Simulator window with screen control. Two bugs were caught that way that
+would otherwise have shipped. It cannot test LiDAR (no depth sensor); that
+still needs his phone.
+
+**In progress, uncommitted-in-spirit:** `PlanEditing.WallOpening` gained
+`hingeAtStart` and `swingInward`, both optional and both currently unread —
+the foundation for door swing. Nothing else is wired to them yet.
+
+**What he asked for last, in his own words** — a MID-SCAN AR layer:
+
+> *"when you point on the window it draws a half transparent silhouette of
+> the window on the window itself, and it kind of pastes the illustration of
+> the window that it thinks it should be there. But if you don't agree, you
+> can click on that… during the scan… and choose the right one. And same
+> applies to the objects that it doesn't recognize… it shows you the question
+> mark. You click on the question mark, and you choose what is it. And for
+> the doors… it can make an arrow. So going from you or coming to you."*
+
+The shape of it, worked out but not built:
+
+1. `RoomCaptureSession`'s delegate publishes a `CapturedRoom` continuously
+   during capture. Every surface and object carries a stable `identifier`.
+2. RoomCaptureView renders its own scene and will not take SceneKit nodes —
+   so the overlay is a 2D layer ON TOP, positioned by projecting each
+   detection's corners with `arSession.currentFrame.camera.projectPoint`.
+   Silhouette = the projected quad; glyph = the catalogue illustration.
+3. Taps hit the projected quad, open the picker already built
+   (`ObjectPicker` / `OpeningKind`), and the answer is held per identifier
+   for the length of the capture, applied when the room is filed.
+4. A `?` badge where RoomPlan has no useful answer — low confidence, or the
+   `.storage` catch-all that a bifold closet lands in.
+5. Door swing: two arrows, toward/away, writing the fields above.
+
+**Also worth building, and the biggest single time-saver left in the
+scanner:** RoomPlan already classifies refrigerator, stove, oven,
+dishwasher, washer/dryer, sink, toilet, bathtub, bed, sofa, table, chair,
+television, fireplace, storage and stairs. We have a 77-entry object
+catalogue with dispositions and counts. Nothing connects the two, so every
+fixture on a scanned job is placed by hand.
+
+**Answered for him, so it is not re-litigated:** RoomPlan has NO material
+detection, and reports NO door swing direction. Neither is a gap in our
+code.
+
 ## 7. Open backlog
 
 Filed as orders in `ORDERS.md` (**ORD-22 … ORD-42**). The ones that matter:

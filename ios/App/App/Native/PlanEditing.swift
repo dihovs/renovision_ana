@@ -858,6 +858,28 @@ enum PlanEditing {
         /// the catalog every other window of that kind still starts from.
         var sill: Double
         var kind: OpeningKind
+
+        /// Which jamb the door is hinged on, and which way it opens.
+        ///
+        /// **Not detectable, which is the whole reason it is stored.** RoomPlan
+        /// reports a door's width, its height, and whether it was standing
+        /// open. It says nothing about the hinge. So this cannot be read off
+        /// a scan at any quality — the owner asked for "door opening
+        /// direction recognition", and the honest answer is that there is
+        /// nothing to recognise it from; what there can be is a control that
+        /// takes two taps and then draws the truth.
+        ///
+        /// `nil` means nobody has said, and the drawing falls back to the
+        /// convention it has always used: hinged at the jamb nearer a corner,
+        /// swinging into the room. Every door drawn before today is nil, and
+        /// a convention is not a fact — so a door somebody HAS set must look
+        /// no different from one they have not, or the plan would be claiming
+        /// knowledge it does not have. The difference lives in the record,
+        /// not in the ink.
+        var hingeAtStart: Bool?
+        /// True when the leaf swings into THIS room, false when it swings
+        /// away from it.
+        var swingInward: Bool?
     }
 
     /// The seven openings a water-damage estimate actually meets.
