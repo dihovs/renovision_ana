@@ -286,6 +286,18 @@ struct StoreyBaseLayer: View {
     var lifted: LiftedRoom? = nil
     /// Lines saying why a lifted room just jumped somewhere.
     var guides: [StoreyArranging.Guide] = []
+    /// Aiming a merge: an arrow from each room that could be absorbed,
+    /// pointing into the one wearing the target. The reference's own way of
+    /// asking WHICH neighbour, and worth copying exactly — a merge destroys
+    /// a room, so it should take a second, aimed tap.
+    var mergeArrows: [MergeArrow] = []
+
+    struct MergeArrow: Identifiable, Equatable {
+        let id: String
+        /// Floor metres, both.
+        let from: CGPoint
+        let to: CGPoint
+    }
     let onTapRoom: (RoomScan) -> Void
     /// A tap that hit no room. Nil keeps the old behaviour, where empty
     /// paper does nothing.
@@ -684,6 +696,48 @@ struct StoreyBaseLayer: View {
                 }
 
                 context.opacity = 1
+            }
+
+            // The merge target and its arrows, over everything — they are
+            // about two rooms at once and belong to neither.
+            if let lifted, let room = layout.room(id: lifted.id) {
+                let pivot = StoreyArranging.centroid(room.plan.polygon)
+                let centre = viewport.point(
+                    CGPoint(
+                        x: room.origin.x + pivot.x + lifted.offset.width,
+                        y: room.origin.y + pivot.y + lifted.offset.height))
+                if !mergeArrows.isEmpty {
+                    // Rings, ours rather than theirs — same idea, drawn in
+                    // the blue this editor already means "selected" by.
+                    for radius in [8.0, 14.0, 20.0] {
+                        context.stroke(
+                            Path(ellipseIn: CGRect(
+                                x: centre.x - radius, y: centre.y - radius,
+                                width: radius * 2, height: radius * 2)),
+                            with: .color(Brand.blue), lineWidth: radius == 14 ? 3 : 2)
+                    }
+                }
+                for arrow in mergeArrows {
+                    let from = viewport.point(arrow.from)
+                    let span = hypot(centre.x - from.x, centre.y - from.y)
+                    guard span > 30 else { continue }
+                    let ux = (centre.x - from.x) / span
+                    let uy = (centre.y - from.y) / span
+                    // Stops short of the target so the rings stay readable.
+                    let tip = CGPoint(x: centre.x - ux * 26, y: centre.y - uy * 26)
+                    var shaft = Path()
+                    shaft.move(to: from)
+                    shaft.addLine(to: tip)
+                    context.stroke(
+                        shaft, with: .color(Brand.snapGuide),
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    var head = Path()
+                    head.move(to: tip)
+                    head.addLine(to: CGPoint(x: tip.x - ux * 12 - uy * 8, y: tip.y - uy * 12 + ux * 8))
+                    head.addLine(to: CGPoint(x: tip.x - ux * 12 + uy * 8, y: tip.y - uy * 12 - ux * 8))
+                    head.closeSubpath()
+                    context.fill(head, with: .color(Brand.snapGuide))
+                }
             }
 
             // Alignment guides, over everything: they are about two rooms

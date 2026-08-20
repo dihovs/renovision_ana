@@ -2175,3 +2175,14 @@ Newest last. One or two lines per chat.
   behaviour, since an L genuinely has two parallel walls of different
   lengths. Build 159, ten geometry cases. Still open, his own suggestion:
   shrinking the middle of three rooms should bring the far room with it.
+- **2026-08-19 (night, later)** — Split Room and Merge Rooms built, both
+  watched on the reference in a scratch project first. Split cuts through the
+  point on the wall the finger touched, square to it; the room keeps the
+  larger piece and the offcut becomes a room of its own, doors travelling
+  with whichever piece holds them and any door lying across the cut reported
+  rather than dropped in silence. Merge is a targeting mode — bullseye on the
+  lifted room, green arrows on the neighbours it could absorb — and unions two
+  flush rectangles into a rectangle or a real L. Build 160, 19 geometry cases.
+  Also watched, not built: Add Wall inserts a free interior stub wall, which
+  is a model we do not have; Duplicate offers Identical / Flip Horizontally /
+  Flip Vertically and lands at the storey with the copy in hand.

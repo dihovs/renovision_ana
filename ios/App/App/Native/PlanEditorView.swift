@@ -143,6 +143,14 @@ struct RoomEditorCore: View {
     /// wall drag runs. See `PlanEditing.collinearAlignments`.
     @State private var alignments: [PlanEditing.Alignment] = []
     @State private var alignedOffset: Double?
+    /// Where on the wall the finger last landed, in the room's own metres.
+    ///
+    /// `Split Room` cuts THROUGH this point — measured on the reference, 19
+    /// Aug 2026: a 3.111 m deep kitchen tapped 0.79 m up from the bottom of
+    /// its right wall split into 2.32 and 0.79. So the tap is not just a
+    /// selection, it is an argument to the verb, and it has to survive until
+    /// the bar is pressed.
+    @State private var wallTapPoint: CGPoint?
     @State private var liveLabel: String?
     /// The wall-by-wall measurement walk, when one is running. The queue is
     /// every wall in order starting from the one the operator asked about;
@@ -1184,6 +1192,7 @@ struct RoomEditorCore: View {
                 // the dimension IS the control.
                 startMeasuring(at: best)
             } else {
+                wallTapPoint = point
                 select(.wall(best))
             }
             return
@@ -1564,6 +1573,58 @@ struct RoomEditorCore: View {
         }
     }
 
+    /// Write a split: the room keeps the larger piece, the offcut becomes a
+    /// room of its own, and both are placed so neither moves on the sheet.
+    ///
+    /// Order matters. The new room is created FIRST: if that fails there is
+    /// nothing to undo, where shrinking the original first and then failing
+    /// would leave half a room and no record of the other half.
+    private func commitSplit(_ split: PlanEditing.RoomSplit) async {
+        guard let projectId = room.projectId else { return }
+        let ceiling = room.ceilingHeightM
+
+        do {
+            let madeId = try await API.shared.saveScan(ScanUpload(
+                projectId: projectId,
+                name: room.name,
+                level: room.level,
+                position: room.position + 1,
+                geometry: ScanGeometry(
+                    polygon: split.made, ceilingHeight: ceiling, authored: split.madeOpenings),
+                roomType: room.roomType))
+
+            // Both pieces are re-based to their own corner by
+            // `plan(from:)`, so both need their position moving by the same
+            // amount — otherwise each half jumps to wherever the whole
+            // room's outline used to start.
+            try? await API.shared.placeRoom(
+                roomId: madeId,
+                x: roomOrigin.x + split.madeShift.width,
+                y: roomOrigin.y + split.madeShift.height)
+
+            // Locked lengths are dropped: every edge has renumbered, and a
+            // padlock pointing at the wrong wall is worse than no padlock.
+            try await API.shared.saveEditedPlan(
+                roomId: room.id, corners: split.kept, locked: [],
+                openings: split.keptOpenings, ceilingHeight: ceiling)
+            try? await API.shared.placeRoom(
+                roomId: room.id,
+                x: roomOrigin.x + split.keptShift.width,
+                y: roomOrigin.y + split.keptShift.height)
+
+            if split.lost > 0 {
+                error =
+                    split.lost == 1
+                    ? "One door or window lay across the cut and could not go to either room."
+                    : "\(split.lost) doors or windows lay across the cut and could not go to either room."
+            }
+            onSaved()
+            onExit()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     private func deleteRoom() async {
         do {
             try await API.shared.deleteScan(id: room.id)
@@ -1880,8 +1941,18 @@ struct RoomEditorCore: View {
             // The menu itself still shows the other four greyed with their
             // reasons, the way the floor canvas's own already does.
             return [.insert, .setSize, .duplicate, .delete]
-        case .wall:
-            return canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
+        case .wall(let index):
+            // `Split Room` only where it can actually be honoured: a
+            // rectangle, and a tap far enough from either end to leave two
+            // rooms somebody could stand in. Offering it and then refusing
+            // is worse than not offering it.
+            var verbs: Set<EditorAction> = canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
+            if let point = wallTapPoint,
+                PlanEditing.splitRoom(corners, edge: index, at: point, openings: openings) != nil
+            {
+                verbs.insert(.splitRoom)
+            }
+            return verbs
         case .corner:
             return corners.count > 3 ? [.delete] : []
         case .object:
@@ -2282,6 +2353,12 @@ struct RoomEditorCore: View {
             placingObject = true
         case (.addCorner, .wall(let index)):
             addCorner(on: index)
+        case (.splitRoom, .wall(let index)):
+            guard let point = wallTapPoint,
+                let split = PlanEditing.splitRoom(
+                    corners, edge: index, at: point, openings: openings)
+            else { break }
+            Task { await commitSplit(split) }
         case (.delete, .corner(let index)):
             deleteCorner(index)
         case (.delete, .opening(let index)):

@@ -1287,6 +1287,7 @@ enum EditorAction: Hashable {
     case addCorner
     case addWall
     case splitRoom
+    case mergeRooms
     case replaceWith
     case delete
 
@@ -1300,6 +1301,7 @@ enum EditorAction: Hashable {
         case .addCorner: return "Add Corner"
         case .addWall: return "Add Wall"
         case .splitRoom: return "Split Room"
+        case .mergeRooms: return "Merge Rooms"
         case .replaceWith: return "Replace with..."
         // The ellipsis is not decoration: §4 gives destructive labels one
         // because they confirm before they act.
@@ -1319,6 +1321,8 @@ enum EditorAction: Hashable {
         case .addCorner: return "plus.circle"
         case .addWall: return "plus.rectangle"
         case .splitRoom: return "scissors"
+        // Two shapes becoming one, which is the whole verb.
+        case .mergeRooms: return "rectangle.on.rectangle.angled"
         case .replaceWith: return "arrow.triangle.2.circlepath"
         case .delete: return "trash"
         }

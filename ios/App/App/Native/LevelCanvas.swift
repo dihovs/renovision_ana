@@ -1106,6 +1106,11 @@ struct FloorCanvasView: View {
     /// the turn handle began — a turn is measured from there, so the room does
     /// not jump to meet the finger on the first frame.
     @State private var turnGrabAngle: Double?
+    /// Aiming a merge: the lifted room wears a target and every room it
+    /// touches wears an arrow pointing into it. Watched on the reference,
+    /// 19 Aug 2026 — see `PlanEditing.mergeRooms`.
+    @State private var merging = false
+    @State private var mergeError: String?
     @State private var showingFloorViewModes = false
     @State private var switchingFloor = false
     @State private var sharing = false
@@ -1329,15 +1334,35 @@ struct FloorCanvasView: View {
                         focusProgress: progress, grid: true,
                         objects: roomObjects,
                         lifted: lifted, guides: guides,
+                        mergeArrows: merging ? mergeArrowsToDraw : [],
                         // A tap while something is in the air SETS IT DOWN
                         // rather than opening a room. Opening a room on the
                         // tap that was meant to end an arrangement is how a
                         // careful layout gets lost behind a screen the
                         // operator did not ask for.
                         onTapRoom: { room in
-                            if lifted != nil { setDown() } else { enterRoom(room) }
+                            if merging {
+                                // Aiming: this tap names the room to absorb.
+                                // Anything that is not a target sets the mode
+                                // down rather than doing something else.
+                                if mergeTargets.contains(where: { $0.id == room.id }) {
+                                    Task { await mergeLifted(with: room.id) }
+                                } else {
+                                    withAnimation(.snappy(duration: 0.15)) { merging = false }
+                                }
+                            } else if lifted != nil {
+                                setDown()
+                            } else {
+                                enterRoom(room)
+                            }
                         },
-                        onTapEmpty: { setDown() }
+                        onTapEmpty: {
+                            if merging {
+                                withAnimation(.snappy(duration: 0.15)) { merging = false }
+                            } else {
+                                setDown()
+                            }
+                        }
                     )
                     // PRESS AND HOLD to pick a room up, then keep dragging
                     // in the same motion. Sequenced rather than
@@ -1491,6 +1516,15 @@ struct FloorCanvasView: View {
                     // frame one while `RoomEditorCore`'s own chrome is
                     // still arriving.
                     floorChrome(label: label)
+                        .alert(
+                            "Could not merge those rooms",
+                            isPresented: Binding(
+                                get: { mergeError != nil }, set: { if !$0 { mergeError = nil } })
+                        ) {
+                            Button("OK", role: .cancel) { mergeError = nil }
+                        } message: {
+                            Text(mergeError ?? "")
+                        }
                         .opacity(1 - progress)
                         .allowsHitTesting(focusedRoomID == nil)
                 }
@@ -1686,8 +1720,7 @@ struct FloorCanvasView: View {
                     // whose rooms are all joined up it stays dimmed, which
                     // is now a true statement about this floor rather than
                     // an unimplemented button.
-                    supported: (rotatableRooms.isEmpty && lifted == nil)
-                        ? [.insert] : [.insert, .rotate],
+                    supported: floorVerbs,
                     onAction: { action in
                         switch action {
                         case .insert:
@@ -1704,6 +1737,13 @@ struct FloorCanvasView: View {
                             } else {
                                 Task { await rotateDetachedRooms() }
                             }
+                        case .mergeRooms:
+                            // A MODE, not an act — the reference's own
+                            // shape, and the right one: merging destroys a
+                            // room, so naming which one is a second,
+                            // deliberate tap rather than a guess about
+                            // which neighbour was meant.
+                            withAnimation(.snappy(duration: 0.15)) { merging.toggle() }
                         default:
                             break
                         }
@@ -1876,6 +1916,83 @@ struct FloorCanvasView: View {
         // there — a haptic that repeats reads as a stutter, not as contact.
         if result.flush, !wasFlush { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
         wasFlush = result.flush
+    }
+
+    /// The floor bar's verbs. `Merge Rooms` appears only with a room in the
+    /// air that actually touches another — a verb that cannot fire is worse
+    /// than a verb that is not there.
+    private var floorVerbs: Set<EditorAction> {
+        var verbs: Set<EditorAction> = [.insert]
+        if !rotatableRooms.isEmpty || lifted != nil { verbs.insert(.rotate) }
+        if !mergeTargets.isEmpty { verbs.insert(.mergeRooms) }
+        return verbs
+    }
+
+    /// The rooms the lifted one could be merged with: the ones it shares a
+    /// wall with, and whose union is a shape we can actually write.
+    private var mergeTargets: [StoreyRoom] {
+        guard let lifted, lifted.offset == .zero, lifted.angle == 0,
+            let room = cachedLayout.room(id: lifted.id)
+        else { return [] }
+        let mine = floorPolygon(room)
+        return cachedLayout.rooms.filter { other in
+            other.id != room.id
+                && PlanEditing.mergeRooms(mine, floorPolygon(other)) != nil
+        }
+    }
+
+    private var mergeArrowsToDraw: [StoreyBaseLayer.MergeArrow] {
+        guard lifted != nil else { return [] }
+        // `to` is unused: the layer already knows where the target room is,
+        // and passing it twice is a second copy to drift.
+        return mergeTargets.map { target in
+            let pivot = StoreyArranging.centroid(target.plan.polygon)
+            return StoreyBaseLayer.MergeArrow(
+                id: target.id,
+                from: CGPoint(x: target.origin.x + pivot.x, y: target.origin.y + pivot.y),
+                to: .zero)
+        }
+    }
+
+    /// Absorb one room into the lifted one.
+    ///
+    /// The LIFTED room survives — it is the one the operator picked up and
+    /// aimed from, so it is the one they are thinking of as "the room". Its
+    /// outline becomes the union, and the other row is removed.
+    ///
+    /// The union is written BEFORE the other room is deleted. If the write
+    /// fails there are still two rooms and nothing is lost; deleting first
+    /// and then failing would lose one outright.
+    private func mergeLifted(with otherId: String) async {
+        guard let lift = lifted, let room = cachedLayout.room(id: lift.id),
+            let other = cachedLayout.room(id: otherId),
+            let union = PlanEditing.mergeRooms(floorPolygon(room), floorPolygon(other))
+        else { return }
+
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        let corner = StoreyArranging.bounds(union).origin
+        let local = union.map { CGPoint(x: $0.x - corner.x, y: $0.y - corner.y) }
+
+        do {
+            // Locked lengths and authored openings are both keyed to edges
+            // that no longer exist — the outline is a different shape with a
+            // different number of walls. Openings are dropped rather than
+            // guessed at; the operator is told.
+            try await API.shared.saveEditedPlan(
+                roomId: room.id, corners: local, locked: [], openings: [],
+                ceilingHeight: room.room.ceilingHeightM)
+            try await API.shared.placeRoom(roomId: room.id, x: corner.x, y: corner.y)
+            try await API.shared.deleteScan(id: otherId)
+        } catch {
+            mergeError = error.localizedDescription
+        }
+
+        withAnimation(.snappy(duration: 0.15)) {
+            merging = false
+            lifted = nil
+            guides = []
+        }
+        await load()
     }
 
     /// Where the lifted room's centre is on screen right now — what both

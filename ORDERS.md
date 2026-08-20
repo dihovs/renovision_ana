@@ -814,6 +814,10 @@ not just in principle.
 
 ## ORD-44 — Split Room, Add Wall, Merge Rooms
 
+**Split Room and Merge Rooms BUILT 19 Aug 2026, build 160**, both watched on
+the reference first, in a scratch project the owner asked for so no real job
+was touched. `Add Wall` is still open — see the bottom of this order.
+
 **Observed on the owner's own phone, 19 Aug 2026**, in the reference's own
 two-room plan. He asked for all of them: *"ok do it."*
 
@@ -833,15 +837,27 @@ Two things this order still has to settle, neither observed:
   wrong for an L. Refuse with a sentence rather than produce a bad polygon,
   until the reference has been watched doing it.
 
-**Add Wall** — present in the wall bar, NEVER OBSERVED performing anything.
-Do not guess it. It is one tap to capture next time the phone is mirrored.
+**Add Wall** — WATCHED, not built. It inserts a free INTERIOR wall: a stub
+running into the room from the middle of the selected wall, half the room's
+width, with a round handle on its free end, and the room's dimension chain
+re-splits around where it lands. That is a wall that is not part of the room
+OUTLINE, which is a model we do not have — every wall we draw is an edge of
+the polygon. Costing it means deciding whether a stub is a wall, a room
+divider, or the first half of a Split. Left open deliberately.
 
-**Merge Rooms** — present in the STOREY's Edit Layout bar when a room is
-lifted, alongside Insert / Duplicate / Delete. Also never observed. Note
-what it implies: the reference has a real shared-wall model underneath,
-which we deliberately do not (see ORD-42, where the owner chose "rooms sit
-flush and stay two rooms"). Merging is likely the gateway to that model
-rather than a small verb, so watch it before costing it.
+**Duplicate** — theirs asks `Identical / Flip Horizontally / Flip Vertically`,
+then drops you at the STOREY with the copy already lifted and in your hand.
+Ours copies and stays put. Small, worth doing, not done.
+
+**Merge Rooms** — BUILT. It is a TARGETING MODE, not an instant verb: tap it
+and the selected room takes a bullseye while every attached neighbour grows a
+green arrow pointing into it; tapping an arrow performs the merge. Two 2.5 x
+2.0 rooms became one 5.0 x 2.0 room, shared wall gone, one row left. Copied
+exactly, because a merge destroys a room and deserves a second aimed tap.
+Ours unions two flush RECTANGLES — a rectangle where they line up, a real
+six-cornered L where they do not — and refuses anything else rather than
+inventing a polygon. Openings are dropped on merge, since every edge index
+the outline had is gone; the operator is told.
 
 ---
 

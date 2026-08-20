@@ -1382,3 +1382,234 @@ extension CGPoint {
     /// convention `RoomObject.rotation` is stored in.
     fileprivate var angleDegrees: Double { atan2(y, x) * 180 / .pi }
 }
+
+// MARK: - Splitting a room in two
+
+extension PlanEditing {
+    /// One room cut into two.
+    ///
+    /// **Measured on the reference, 19 Aug 2026**, on the owner's own
+    /// kitchen: a 2.497 x 3.111 room, its right wall selected and tapped
+    /// 0.79 m up from the bottom, became a 5.67 sq m kitchen and a new
+    /// 2.497 x 0.722 room below it, sitting flush and carrying the same
+    /// name. The fridge stayed with the piece it was standing in.
+    ///
+    /// So the rule is: cut through the point on the wall the finger touched,
+    /// on a line square to that wall. The ORIGINAL row keeps the larger
+    /// piece — the room somebody named and photographed should stay the room
+    /// — and the offcut becomes a new one.
+    struct RoomSplit {
+        let kept: [CGPoint]
+        let made: [CGPoint]
+        let keptOpenings: [WallOpening]
+        let madeOpenings: [WallOpening]
+        /// Openings the cut destroyed — a door lying across the line has no
+        /// wall left to live in. Counted so the operator can be told rather
+        /// than left to notice.
+        let lost: Int
+        /// Where each piece's own corner ended up relative to the room's, in
+        /// the room's own metres. `plan(from:)` re-bases every polygon to its
+        /// own corner, so without these the two halves would both jump to
+        /// wherever the old outline started.
+        let keptShift: CGSize
+        let madeShift: CGSize
+    }
+
+    /// Cut `polygon` square to `edge`, through `point`.
+    ///
+    /// **Rectangles only, for now.** A half-plane clip is exact on a convex
+    /// outline and quietly wrong on an L, and an L is the shape where an
+    /// operator would most want to check the answer. The reference has not
+    /// been watched splitting one, so this refuses rather than inventing a
+    /// polygon — see ORD-44.
+    static func splitRoom(
+        _ polygon: [CGPoint], edge: Int, at point: CGPoint, openings: [WallOpening]
+    ) -> RoomSplit? {
+        let n = polygon.count
+        guard n == 4, isRectangle(polygon), edge >= 0, edge < n else { return nil }
+        let (a, b) = edgeCorners(edge, count: n)
+        let direction = normalised(sub(polygon[b], polygon[a]))
+        let sideways = normal(direction)
+
+        let along = polygon.map { dot(sub($0, polygon[a]), direction) }
+        let across = polygon.map { dot(sub($0, polygon[a]), sideways) }
+        guard let low = along.min(), let high = along.max() else { return nil }
+        let cut = dot(sub(point, polygon[a]), direction)
+        // Refuse a cut that would leave a sliver nobody could work in, which
+        // is also what stops a mis-tap at a corner producing a zero-area room.
+        guard cut - low > 0.3, high - cut > 0.3 else { return nil }
+
+        func piece(_ lo: Double, _ hi: Double) -> [CGPoint] {
+            polygon.indices.map { i in
+                let clamped = min(max(along[i], lo), hi)
+                // Only the corners the CUT moved are recomputed. Every other
+                // corner is handed back exactly as it was, so splitting a
+                // 2.497 m room does not quietly make it 2.500 — a cut
+                // divides a measurement, it does not restate it.
+                guard abs(clamped - along[i]) > 1e-9 else { return polygon[i] }
+                let landed = quantise(clamped)
+                return CGPoint(
+                    x: polygon[a].x + direction.x * landed + sideways.x * across[i],
+                    y: polygon[a].y + direction.y * landed + sideways.y * across[i])
+            }
+        }
+
+        let lower = piece(low, cut)
+        let upper = piece(cut, high)
+        // The larger piece stays the room that was already there.
+        let keepLower = (cut - low) >= (high - cut)
+        let kept = keepLower ? lower : upper
+        let made = keepLower ? upper : lower
+
+        let origin = StoreyArranging.bounds(polygon).origin
+        let keptOrigin = StoreyArranging.bounds(kept).origin
+        let madeOrigin = StoreyArranging.bounds(made).origin
+
+        var keptOpenings: [WallOpening] = []
+        var madeOpenings: [WallOpening] = []
+        var lost = 0
+        for opening in openings {
+            if let moved = rehome(opening, from: polygon, to: kept) {
+                keptOpenings.append(moved)
+            } else if let moved = rehome(opening, from: polygon, to: made) {
+                madeOpenings.append(moved)
+            } else {
+                // It lay across the cut, or on a wall that is now two walls
+                // and fits neither.
+                lost += 1
+            }
+        }
+
+        return RoomSplit(
+            kept: kept, made: made,
+            keptOpenings: keptOpenings, madeOpenings: madeOpenings, lost: lost,
+            keptShift: CGSize(width: keptOrigin.x - origin.x, height: keptOrigin.y - origin.y),
+            madeShift: CGSize(width: madeOrigin.x - origin.x, height: madeOrigin.y - origin.y))
+    }
+
+    /// The same door, re-keyed onto whichever wall of the new outline it now
+    /// sits on — or nil if no single wall holds all of it.
+    ///
+    /// Done by GEOMETRY rather than by chasing edge indices through the cut.
+    /// Indices renumber, walls split in two and pieces swap which end is
+    /// which; where the door physically is does not change at all, and is the
+    /// only thing worth matching on.
+    private static func rehome(
+        _ opening: WallOpening, from polygon: [CGPoint], to piece: [CGPoint]
+    ) -> WallOpening? {
+        guard let (start, end) = openingEndpoints(polygon, opening) else { return nil }
+        for i in piece.indices {
+            let (ea, eb) = edgeCorners(i, count: piece.count)
+            let a = piece[ea]
+            let b = piece[eb]
+            let length = self.length(sub(b, a))
+            guard length > 0.05 else { continue }
+            let direction = normalised(sub(b, a))
+            let sideways = normal(direction)
+
+            // Both ends have to be ON this wall's line and WITHIN its run.
+            let offA = dot(sub(start, a), sideways)
+            let offB = dot(sub(end, a), sideways)
+            guard abs(offA) < 0.03, abs(offB) < 0.03 else { continue }
+            let alongA = dot(sub(start, a), direction)
+            let alongB = dot(sub(end, a), direction)
+            let from = min(alongA, alongB)
+            let to = max(alongA, alongB)
+            guard from > -0.02, to < length + 0.02 else { continue }
+
+            return WallOpening(
+                edge: i, offset: max(0, from), width: opening.width,
+                height: opening.height, sill: opening.sill, kind: opening.kind)
+        }
+        return nil
+    }
+}
+
+// MARK: - Merging two rooms into one
+
+extension PlanEditing {
+    /// Two rooms that share a wall, made into one.
+    ///
+    /// **Watched on the reference, 19 Aug 2026.** Its `Merge Rooms` is a
+    /// TARGETING mode, not an instant verb: the selected room takes a
+    /// bullseye, every attached neighbour grows a green arrow pointing into
+    /// it, and tapping an arrow performs the merge. Two 2.5 x 2.0 rooms
+    /// pushed together became one 5.0 x 2.0 room, the shared wall gone and a
+    /// single row left behind.
+    ///
+    /// Both rooms arrive in the SAME space — floor metres — because two
+    /// rooms have nothing to say to each other in their own local ones.
+    ///
+    /// **Rectangles only.** The union of two arbitrary polygons is a real
+    /// clipping problem; the union of two flush rectangles is a walk around
+    /// eight points, and two flush rectangles is what a merge is for. A
+    /// non-rectangle returns nil and the caller says so.
+    static func mergeRooms(_ a: [CGPoint], _ b: [CGPoint]) -> [CGPoint]? {
+        guard a.count == 4, b.count == 4, isRectangle(a), isRectangle(b) else { return nil }
+
+        // The shared wall: a pair of edges running the same way, on the same
+        // line, overlapping along it.
+        for i in a.indices {
+            let (ai, bi) = edgeCorners(i, count: 4)
+            let origin = a[ai]
+            let direction = normalised(sub(a[bi], origin))
+            let sideways = normal(direction)
+
+            let alongA = a.map { dot(sub($0, origin), direction) }
+            let acrossA = a.map { dot(sub($0, origin), sideways) }
+            let alongB = b.map { dot(sub($0, origin), direction) }
+            let acrossB = b.map { dot(sub($0, origin), sideways) }
+
+            guard let a0 = alongA.min(), let a1 = alongA.max(),
+                let b0 = alongB.min(), let b1 = alongB.max(),
+                let ac0 = acrossA.min(), let ac1 = acrossA.max(),
+                let bc0 = acrossB.min(), let bc1 = acrossB.max()
+            else { continue }
+
+            // B has to sit against A across this wall, on one side or the
+            // other, and the two have to actually share a run of it.
+            let seam: Double
+            if abs(bc0 - ac1) < 0.05 {
+                seam = (bc0 + ac1) / 2
+            } else if abs(bc1 - ac0) < 0.05 {
+                seam = (bc1 + ac0) / 2
+            } else {
+                continue
+            }
+            guard min(a1, b1) - max(a0, b0) > 0.25 else { continue }
+
+            // Walk the outline. `low` is whichever room lies on the smaller
+            // side of the seam, so one walk covers both orientations.
+            let aIsLow = ac1 <= seam + 0.001
+            let low = aIsLow ? (ac0, a0, a1) : (bc0, b0, b1)
+            let high = aIsLow ? (bc1, b0, b1) : (ac1, a0, a1)
+
+            var ring: [(Double, Double)] = [
+                (low.0, low.1), (low.0, low.2),
+                (seam, low.2), (seam, high.2),
+                (high.0, high.2), (high.0, high.1),
+                (seam, high.1), (seam, low.1),
+            ]
+            // Where the two rooms line up, the seam points are on the
+            // straight run between their neighbours and are not corners at
+            // all. Left in, they would make a "rectangle" of six points that
+            // `isRectangle` would refuse ever afterwards.
+            ring = ring.enumerated().filter { index, point in
+                let before = ring[(index + ring.count - 1) % ring.count]
+                let after = ring[(index + 1) % ring.count]
+                let d1 = (point.0 - before.0, point.1 - before.1)
+                let d2 = (after.0 - point.0, after.1 - point.1)
+                return abs(d1.0 * d2.1 - d1.1 * d2.0) > 1e-6
+            }.map(\.element)
+
+            guard ring.count >= 4 else { continue }
+            return ring.map { across, along in
+                quantise(
+                    CGPoint(
+                        x: origin.x + direction.x * along + sideways.x * across,
+                        y: origin.y + direction.y * along + sideways.y * across))
+            }
+        }
+        return nil
+    }
+}
