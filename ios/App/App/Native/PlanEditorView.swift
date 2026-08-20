@@ -262,6 +262,9 @@ struct RoomEditorCore: View {
     /// view-mode row that sets it are all wired; only the presentation itself
     /// is stubbed — see `elevationPresentation` at the bottom of this file.
     @State private var elevationWall: Int?
+    /// True when the elevation was opened by `Add New Area`, so it arrives
+    /// drawing one instead of showing a menu of four other things.
+    @State private var elevationToMarkArea = false
 
     struct Snapshot {
         var corners: [CGPoint]
@@ -519,7 +522,7 @@ struct RoomEditorCore: View {
                 WallDetailView(
                     room: room, wallIndex: index,
                     lengthM: PlanEditing.edgeLength(corners, index),
-                    onAddArea: { openElevation(atSelectedWall: true) })
+                    onAddArea: { openElevation(atSelectedWall: true, toMarkArea: true) })
             }
         }
         .sheet(
@@ -1658,8 +1661,9 @@ struct RoomEditorCore: View {
     /// The other way in: §5's Elevation row. It opens the wall already
     /// selected, or the first wall when the selection is the room — C4 makes
     /// the row available at room depth, so it must resolve to some wall.
-    private func openElevation(atSelectedWall: Bool) {
+    private func openElevation(atSelectedWall: Bool, toMarkArea: Bool = false) {
         guard corners.count >= 3 else { return }
+        elevationToMarkArea = toMarkArea
         if case .wall(let index) = selection {
             elevationWall = index
         } else {
@@ -1672,6 +1676,7 @@ struct RoomEditorCore: View {
     /// Leaving elevation is the `2D` escape where the back chevron sits (G2).
     private func closeElevation() {
         elevationWall = nil
+        elevationToMarkArea = false
         mode = .plan
     }
 
@@ -1721,6 +1726,7 @@ struct RoomEditorCore: View {
             // is what makes leaving ask before discarding.
             onWillEdit: { push() },
             wallIndex: elevationWallBinding,
+            startDrawingArea: elevationToMarkArea,
             onClose: closeElevation)
     }
 

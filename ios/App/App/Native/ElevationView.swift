@@ -102,11 +102,24 @@ struct ElevationView: View {
     /// The wall being faced. The arrows mutate this, so the caller's
     /// selection follows the view rather than going stale behind it.
     @Binding var wallIndex: Int
+    /// Arrive already drawing a damaged region.
+    ///
+    /// **The owner, 20 Aug 2026:** *"when I'm clicking on the wall and I'm
+    /// clicking add an area, it's opening the menu and asking add an area,
+    /// add an object, add a window, door, whatever. I don't wanna do this.
+    /// When I'm clicking add an area, I wanted to add area only."* Right —
+    /// `Add New Area` was landing here and then making him find `Insert →
+    /// Affected area`, which is a menu of four other things he did not ask
+    /// for. A verb that names one thing has to do that thing.
+    var startDrawingArea = false
     var onClose: () -> Void
 
     /// An outline being dragged on the face right now, in wall-face metres.
     @State private var draft: FaceRect?
     @State private var drawing = false
+    /// So arriving-to-draw arms the canvas once, not on every redraw of the
+    /// face — and not at all once the operator has drawn or cancelled.
+    @State private var armedForArea = false
     /// Index into `openings` of the one being dragged, and what its offset
     /// was when the drag began — the same snapshot-then-apply-delta shape
     /// `RoomEditorCore.handleDrag` uses, so a drag is one undoable move
@@ -338,6 +351,19 @@ struct ElevationView: View {
             }
         }
         .task { await load() }
+        // Armed after the areas have loaded, so `canMark` is answering from
+        // the real room rather than from an empty list — and once only, so
+        // stepping to the next wall does not silently start drawing on it.
+        .onChange(of: canMark) { _, ready in
+            guard startDrawingArea, ready, !armedForArea else { return }
+            armedForArea = true
+            drawing = true
+        }
+        .onAppear {
+            guard startDrawingArea, canMark, !armedForArea else { return }
+            armedForArea = true
+            drawing = true
+        }
     }
 
     // MARK: - Chrome (§1, §4)
