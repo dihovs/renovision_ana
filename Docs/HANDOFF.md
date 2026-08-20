@@ -82,7 +82,7 @@ clarity during the review.
 ## 4. State of the work
 
 **Last updated 19 Aug 2026, end of a very long live-testing session.** Build
-**163** is installed on the owner's phone and confirmed off the device.
+**164** is installed on the owner's phone and confirmed off the device.
 
 **Read the ledger's last Log entry before touching anything.** The session
 ended with the storey screen reported as empty — no rooms drawing, moving

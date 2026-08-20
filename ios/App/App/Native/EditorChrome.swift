@@ -1343,7 +1343,17 @@ enum EditorAction: Hashable {
         }
         switch depth {
         case .floor:
-            return [.insert, .rotate]
+            // `Merge Rooms` belongs to the FLOOR, because merging is about
+            // two rooms and only the floor has two rooms on it.
+            //
+            // It was missing from this list, and that is why it never
+            // appeared however correct everything behind it was: this table
+            // is the bar's whole vocabulary, and `supported` only decides
+            // which of these are LIT. A verb that is not here is not drawn
+            // at all, lit or otherwise. The owner, build 163: *"there was no
+            // button at all."* Exactly so — `floorVerbs` was enabling a verb
+            // that had nowhere to appear.
+            return [.insert, .rotate, .mergeRooms]
         case .room:
             return [.insert, .setSize, .editLayout, .duplicate, .delete]
         case .wall(let dragging):

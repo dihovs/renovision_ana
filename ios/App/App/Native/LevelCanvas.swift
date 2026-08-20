@@ -1967,10 +1967,12 @@ struct FloorCanvasView: View {
     /// The rooms the lifted one could be merged with: the ones it shares a
     /// wall with, and whose union is a shape we can actually write.
     private var mergeTargets: [StoreyRoom] {
-        guard let lifted, lifted.offset == .zero, lifted.angle == 0,
-            let room = cachedLayout.room(id: lifted.id)
-        else { return [] }
-        let mine = floorPolygon(room)
+        guard let lifted, let room = cachedLayout.room(id: lifted.id) else { return [] }
+        // The room where the FINGER has it, not where it is stored. Waiting
+        // for the save to land before offering the verb meant pushing two
+        // rooms together and watching the bar stay dark for as long as the
+        // network took — and for ever, on a phone with no signal.
+        let mine = floorPolygon(room, offset: lifted.offset, angle: lifted.angle)
         return cachedLayout.rooms.filter { other in
             other.id != room.id
                 && PlanEditing.mergeRooms(mine, floorPolygon(other)) != nil
