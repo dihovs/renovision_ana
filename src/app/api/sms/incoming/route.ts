@@ -7,6 +7,7 @@ import {
   recordOptOut,
   toE164,
 } from "@/lib/sms/send";
+import { storeInboundMedia } from "@/lib/sms/media";
 import { publicUrlVariants, readTwilioParams, verifyTwilioSignature } from "@/lib/voice/twiml";
 
 /**
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
 
   const from = toE164(params.From ?? null);
   const body = (params.Body ?? "").trim();
+  const hasMedia = Number(params.NumMedia ?? "0") > 0;
 
   if (!from) {
     console.error("[sms] inbound message with no usable From", { sid: params.MessageSid });
@@ -83,6 +85,21 @@ export async function POST(request: Request) {
       console.info("[sms] opt-out cleared on an explicit start", { sid: params.MessageSid });
     }
 
+    // Pictures first, then the row, so the message is never stored claiming
+    // to have media it does not have. Slow — Twilio has to serve each file —
+    // but this handler always answers 200 anyway, and a retry would only
+    // re-download what already arrived.
+    const mediaPaths = hasMedia ? await storeInboundMedia(params) : [];
+    if (hasMedia && mediaPaths.length === 0) {
+      // Worth saying out loud: the customer sent a photo and we have the
+      // text without it, which is exactly the failure that looked like
+      // "MMS doesn't work".
+      console.error("[sms] inbound media could not be stored", {
+        sid: params.MessageSid,
+        count: params.NumMedia,
+      });
+    }
+
     await recordInbound({
       phone: from,
       body,
@@ -90,6 +107,7 @@ export async function POST(request: Request) {
       // the same question now.
       clientId: await findClientIdForPhone(from),
       providerSid: params.MessageSid ?? null,
+      mediaPaths,
     });
   } catch (err) {
     // Logged, not retried. See the note at the top.

@@ -42,6 +42,7 @@ Commit the ledger update with the work.
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
 | **S12** | Project and floor screens | **PROJECT DONE (amended 18 Aug) · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
+| **S15** | CRM messaging — photos in the thread | **NEXT** | — | `SmsThread.tsx`, `messages/actions.ts` |
 
 **Two verifications** were folded into the sections that own them: the
 dimension-tap unlock into **S5**, the project-card plan into **S12**. The
@@ -1048,6 +1049,48 @@ renders are the one thing not copied; everything about *where* a control sits is
 
 A door glyph must show swing direction, a window its three lines, an affected
 area its cause colour. Draw them; do not trace theirs.
+
+---
+
+## S15 — CRM messaging: photos in the thread
+
+**This is the web CRM, not the iOS app.** Nothing to do with magicplan; the
+"match the reference exactly" rule does not apply here.
+
+**Read `Docs/CRM-Messaging.md` first.** It is the whole area — the two channels,
+the CASL rules that must not be broken, where every file lives.
+
+**Where it stands.** The owner asked on 20 Aug for three things. Two landed:
+
+- **Save as client** from a thread with an unknown number — `SaveContactForm` +
+  `saveAsClientAction`. Done.
+- **Pasting a number** — `Dialer` now runs `sanitisePasted` like the other two
+  inputs. Done.
+- **Photos in the chat** — the plumbing landed, the UI did not. This section.
+
+**In scope, and it is nearly all UI.**
+
+1. **Render inbound media in `SmsThread.tsx`.** It draws `message.body` and
+   nothing else, so photos customers have already sent are sitting in the
+   bucket, invisible. Sign `media_paths` at render time in one batch and pass a
+   `path → url` map down — `JobThread.tsx` and `admin/inbox/page.tsx` already do
+   exactly this for WhatsApp. Copy that shape.
+2. **An attach control on the composer**, uploading into the `sms-media` bucket
+   and passing signed URLs to `sendSms({ mediaUrls })`, which already exists and
+   is tested. The URLs must be reachable **by Twilio** — a signed URL works, a
+   bare path does not.
+
+**Out of scope.** WhatsApp (its own queue, its own goal). Delivery receipts.
+
+**Tell the owner before switching outbound MMS on:** it is billed per message
+and costs materially more than SMS.
+
+**Done when.** A photo texted in appears in the thread; a photo attached in the
+composer arrives on a real handset. **Neither can be proved by compiling** — the
+inbound path has never been exercised against a real Twilio message.
+
+**Prompt.**
+> Read Docs/CRM-Messaging.md then Docs/SECTIONS.md, and do S15.
 
 ---
 

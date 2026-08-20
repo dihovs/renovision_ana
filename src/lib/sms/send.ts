@@ -127,6 +127,7 @@ async function record(input: {
   providerSid?: string | null;
   status: "queued" | "failed" | "received";
   error?: string | null;
+  mediaPaths?: string[];
 }): Promise<void> {
   const client = db();
   if (!client) return;
@@ -140,6 +141,7 @@ async function record(input: {
     provider_sid: input.providerSid ?? null,
     status: input.status,
     error: input.error ?? null,
+    media_paths: input.mediaPaths ?? [],
   });
   if (error) console.error("[sms] could not record the message", error);
 }
@@ -160,6 +162,15 @@ export async function sendSms(input: {
   clientId?: string | null;
   leadId?: string | null;
   locale?: "fr" | "en";
+  /**
+   * Publicly reachable URLs Twilio will fetch and attach — this makes it an
+   * MMS. They have to be reachable by TWILIO, not by us: a signed URL from
+   * our own bucket works, a path does not.
+   *
+   * An empty list is not the same as none: it still sends a plain SMS, which
+   * is what a caller that found no photos should do.
+   */
+  mediaUrls?: string[];
 }): Promise<SmsResult> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -169,7 +180,12 @@ export async function sendSms(input: {
   if (!to) return { sent: false, reason: "invalid_number" };
 
   const body = input.body.trim();
-  if (!body) return { sent: false, reason: "failed", detail: "the message was empty" };
+  const media = (input.mediaUrls ?? []).filter((url) => /^https?:\/\//.test(url)).slice(0, 10);
+  // A picture with no words is a perfectly good message; only a message with
+  // NEITHER is empty.
+  if (!body && media.length === 0) {
+    return { sent: false, reason: "failed", detail: "the message was empty" };
+  }
 
   // Texting our own number would arrive back through the inbound webhook and
   // be recorded as a customer reply.
@@ -198,7 +214,14 @@ export async function sendSms(input: {
         authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
         "content-type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ To: to, From: from, Body: full }),
+      // `MediaUrl` REPEATS — one parameter per attachment, not a list in
+      // one. Twilio ignores a comma-joined value silently, which sends the
+      // text without the photo and reports success.
+      body: (() => {
+        const form = new URLSearchParams({ To: to, From: from, Body: full });
+        for (const url of media) form.append("MediaUrl", url);
+        return form;
+      })(),
       signal: controller.signal,
     });
 
@@ -247,6 +270,8 @@ export async function recordInbound(input: {
   body: string;
   clientId?: string | null;
   providerSid?: string | null;
+  /** Paths in our own bucket, already copied out of Twilio. */
+  mediaPaths?: string[];
 }): Promise<void> {
   await record({
     direction: "inbound",
@@ -255,6 +280,7 @@ export async function recordInbound(input: {
     clientId: input.clientId ?? null,
     providerSid: input.providerSid ?? null,
     status: "received",
+    mediaPaths: input.mediaPaths ?? [],
   });
 }
 

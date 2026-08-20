@@ -1,3 +1,4 @@
+import { signSmsMedia } from "@/lib/sms/media";
 import { db, isMissingTable, MigrationPendingError } from "@/lib/crm/db";
 import { toE164 } from "./send";
 
@@ -18,6 +19,15 @@ export type SmsMessage = {
   status: "queued" | "failed" | "received";
   error: string | null;
   createdAt: string;
+  /**
+   * Signed URLs for anything that arrived with the message, ready to render.
+   *
+   * Signed HERE rather than stored, because a signed URL outlives its own
+   * expiry the moment it is written into a row: the link would be in the
+   * database long after it stopped working. This is the same rule the
+   * WhatsApp thread already follows.
+   */
+  media: string[];
 };
 
 export type SmsThread = {
@@ -51,10 +61,17 @@ export async function listThread(rawPhone: string | null, limit = 50): Promise<S
     return EMPTY;
   }
 
+  // One signing call for the whole thread rather than one per message: it is
+  // a round trip to storage, and a conversation with twenty photos in it
+  // should cost one.
+  const rows = messages.data ?? [];
+  const allPaths = rows.flatMap((row) => ((row.media_paths ?? []) as string[]) ?? []);
+  const signed = allPaths.length > 0 ? await signSmsMedia(allPaths) : {};
+
   return {
     // Newest-first from the database because that is what the index serves;
     // reversed here because a conversation reads downwards.
-    messages: (messages.data ?? [])
+    messages: rows
       .map((row) => ({
         id: row.id as string,
         direction: row.direction as "outbound" | "inbound",
@@ -63,6 +80,9 @@ export async function listThread(rawPhone: string | null, limit = 50): Promise<S
         status: row.status as "queued" | "failed" | "received",
         error: (row.error ?? null) as string | null,
         createdAt: row.created_at as string,
+        media: (((row.media_paths ?? []) as string[]) ?? [])
+          .map((path) => signed[path])
+          .filter(Boolean),
       }))
       .reverse(),
     optedOut: Boolean(optOut.data),

@@ -173,3 +173,81 @@ describe("sending", () => {
     expect(inserted[0]).toMatchObject({ status: "failed", error: "unreachable" });
   });
 });
+
+describe("MMS", () => {
+  beforeEach(() => {
+    process.env.TWILIO_ACCOUNT_SID = "AC_test";
+    process.env.TWILIO_AUTH_TOKEN = "token";
+    process.env.SMS_FROM_NUMBER = "+15799995979";
+  });
+
+  /** Twilio takes one `MediaUrl` parameter PER attachment. A comma-joined
+      value is accepted and silently ignored, which sends the text without the
+      photo and reports success — the exact shape of "MMS doesn't work". */
+  it("repeats MediaUrl once per attachment", async () => {
+    const sent: string[] = [];
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      sent.push(String(init.body));
+      return new Response(JSON.stringify({ sid: "SM1" }), { status: 201 });
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await sendSms({
+      to: "+15145550101",
+      body: "Here is the damage",
+      mediaUrls: ["https://example.com/a.jpg", "https://example.com/b.jpg"],
+    });
+
+    const body = sent[0] ?? "";
+    const params = new URLSearchParams(body);
+    expect(params.getAll("MediaUrl")).toEqual([
+      "https://example.com/a.jpg",
+      "https://example.com/b.jpg",
+    ]);
+    vi.unstubAllGlobals();
+  });
+
+  /** A photo with no words is a real message. Only one with neither is empty. */
+  it("sends a picture with no text", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ sid: "SM2" }), { status: 201 }),
+    );
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const result = await sendSms({
+      to: "+15145550102",
+      body: "",
+      mediaUrls: ["https://example.com/a.jpg"],
+    });
+
+    expect(result.sent).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  it("still refuses a message with neither text nor pictures", async () => {
+    const result = await sendSms({ to: "+15145550103", body: "   ", mediaUrls: [] });
+    expect(result.sent).toBe(false);
+  });
+
+  /** A URL Twilio cannot fetch is not an attachment — dropping it early beats
+      Twilio rejecting the whole message. */
+  it("drops anything that is not an http url", async () => {
+    const sent: string[] = [];
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      sent.push(String(init.body));
+      return new Response(JSON.stringify({ sid: "SM3" }), { status: 201 });
+    });
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    await sendSms({
+      to: "+15145550104",
+      body: "hi",
+      mediaUrls: ["2026-08-20/abc.jpg", "https://example.com/ok.jpg"],
+    });
+
+    expect(new URLSearchParams(sent[0] ?? "").getAll("MediaUrl")).toEqual([
+      "https://example.com/ok.jpg",
+    ]);
+    vi.unstubAllGlobals();
+  });
+});

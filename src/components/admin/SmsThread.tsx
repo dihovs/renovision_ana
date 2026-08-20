@@ -65,7 +65,29 @@ export default function SmsThread({
                       : "rounded-bl-sm bg-black/[0.05] text-charcoal"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.body}</p>
+                  {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
+
+                  {/* The photo a customer texts at 2am is frequently the
+                      whole enquiry on this trade, so it is shown at a size
+                      worth looking at rather than as an attachment chip. The
+                      link opens the full one. */}
+                  {message.media.length > 0 && (
+                    <div
+                      className={`grid gap-1.5 ${message.media.length > 1 ? "grid-cols-2" : "grid-cols-1"} ${message.body ? "mt-2" : ""}`}
+                    >
+                      {message.media.map((url) => (
+                        <a key={url} href={url} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt="Sent with the message"
+                            className="w-full rounded-lg object-cover"
+                            style={{ maxHeight: message.media.length > 1 ? 120 : 220 }}
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   <p
                     className={`mt-1 text-[10px] ${ours ? "text-white/45" : "text-charcoal/40"}`}
                   >
