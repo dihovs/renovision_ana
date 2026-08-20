@@ -67,15 +67,13 @@ enum ScanCatalogue {
         case .bed: return ("bed_queen", "Bed", false)
         case .sofa: return ("sofa", "Sofa", false)
 
-        // Detected, but this catalogue has no entry for them — it is a
-        // RESTORATION catalogue, built around what gets wet and what gets
-        // replaced, and a dining chair is contents rather than a fixture.
-        // Marked rather than dropped: the operator can still name it as
-        // something the catalogue does carry, and a silhouette with a
-        // question mark is a truer report than silence.
-        case .television: return (nil, "Television", true)
-        case .table: return (nil, "Table", true)
-        case .chair: return (nil, "Chair", true)
+        // Contents, not fixtures — and named anyway, because RoomPlan is
+        // good at them and a question mark about a chair is work handed
+        // back to the operator for nothing. They earned catalogue entries
+        // on 20 Aug 2026 for exactly this reason.
+        case .television: return ("television", "Television", false)
+        case .table: return ("table", "Table", false)
+        case .chair: return ("chair", "Chair", false)
 
         // A sink is a kitchen sink, a bathroom vanity or a laundry tub, and
         // they are three different lines on an estimate. RoomPlan cannot

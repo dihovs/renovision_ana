@@ -181,6 +181,8 @@ enum ObjectCatalog {
             case "bed_queen": return "bed.double"
             case "desk", "table": return "table.furniture"
             case "shelving": return "books.vertical"
+            case "chair": return "chair"
+            case "television": return "tv"
             case "stairs": return "stairs"
             case "column": return "square.split.diagonal"
             case "bulkhead": return "rectangle"
@@ -449,6 +451,27 @@ enum ObjectCatalog {
             slug: "shelving", name: "Shelving unit", category: .furniture,
             width: 36 * inch, depth: 16 * inch, height: 72 * inch, shape: .shelving,
             sizeNote: "36in bay, 16in deep — basement storage racking."),
+
+        // Contents rather than fixtures, and here for ONE reason: RoomPlan
+        // finds them, reliably, and without an entry to land on the scanner
+        // had to answer "I don't know" about a chair. The owner, 20 Aug
+        // 2026: *"when it's detecting a chair, it needs to show that it's a
+        // chair, not a question mark, because it was very good with the
+        // chairs, with the tables."* He is right — refusing to name
+        // something the sensor is confident and correct about is not
+        // caution, it is just work handed back to him.
+        Entry(
+            slug: "chair", name: "Chair", category: .furniture,
+            width: 20 * inch, depth: 20 * inch, height: 32 * inch, shape: .table,
+            sizeNote: "20in seat — a dining or office chair."),
+        Entry(
+            slug: "table", name: "Table", category: .furniture,
+            width: 60 * inch, depth: 36 * inch, height: 30 * inch, shape: .table,
+            sizeNote: "60×36in, the common dining size."),
+        Entry(
+            slug: "television", name: "Television", category: .furniture,
+            width: 55 * inch, depth: 4 * inch, height: 32 * inch, shape: .shelving,
+            sizeNote: "55in diagonal, wall-hung or on a stand."),
 
         // MARK: Structural — things that are in the way and cannot move.
         Entry(
