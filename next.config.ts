@@ -1,6 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * Chromium is not bundled, it is REQUIRED at runtime.
+   *
+   * `@sparticuz/chromium` ships a ~50MB compressed browser binary and
+   * `puppeteer-core` reaches for Node internals. Left to the bundler,
+   * Turbopack tries to trace and inline the lot — a local build went from
+   * seconds to 15.9 minutes, and the function it produces would blow the
+   * serverless size limit on the way to failing at runtime anyway, because
+   * a browser executable is not something you can `import`.
+   *
+   * Listing them here leaves both as plain `require`s resolved from
+   * node_modules at run time, which is the only way either works.
+   */
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
   experimental: {
     // The marketing tree and the internal tree each own a root layout, and the
     // marketing one lives under a dynamic `[lang]` segment — the two cases the

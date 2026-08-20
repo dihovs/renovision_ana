@@ -595,7 +595,14 @@ struct AreaEditor: View {
                             TextField("Name", text: $name)
                                 .font(.system(size: 16, weight: .semibold))
                             Spacer()
-                            Text("\(Int(Measure.squareFeet(areaSqm).rounded())) sq ft")
+                            // `Measure.sqftLabel` follows the operator's own
+                            // unit setting; this printed square feet
+                            // unconditionally, so the storey said 60.9 m² and
+                            // the area sheet over it said 602 sq ft for the
+                            // same room. Same fault as the report's damage
+                            // table, found the same day — the helper existed
+                            // and one caller went round it.
+                            Text(Measure.sqftLabel(areaSqm))
                                 .font(.system(size: 18, weight: .bold))
                                 .monospacedDigit()
                                 .foregroundStyle(Brand.ink)

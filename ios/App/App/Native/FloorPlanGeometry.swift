@@ -591,10 +591,39 @@ enum FloorPlanGeometry {
                 }
             }
 
-            guard bestIndex >= 0, bestDistance <= tolerance, let end = bestEnd else { return nil }
+            // STOP HERE, do not throw the walk away.
+            //
+            // This used to `return nil` the moment one piece could not be
+            // reached — discarding every wall it had already chained
+            // correctly. The owner's living room is exactly that case: a
+            // long, real outline with a couple of orphan stubs round a
+            // doorway at the bottom, more than a tolerance away from
+            // anything. One unreachable stub threw out the whole room, the
+            // caller fell back to a bounding rectangle, and he got a plain
+            // 5.01 × 11.16 box for a stepped, notched room. He said it
+            // plainly: *"it just takes the shape of the rectangular room,
+            // but it doesn't count the lower part."*
+            //
+            // A run that covers most of the walls and closes with one
+            // guessed edge is a far better description of a room than a box
+            // that follows none of them. So the walk stops at the gap and
+            // keeps what it has; the leftovers are stubs, and they are
+            // dropped rather than allowed to veto everything.
+            guard bestIndex >= 0, bestDistance <= tolerance, let end = bestEnd else { break }
             remaining.remove(at: bestIndex)
             points.append(end)
         }
+
+        // But only if the walk actually described the room. A chain of three
+        // segments out of twenty is not an outline, it is a corner — and
+        // closing it would produce a confident little triangle with an area
+        // on it, which is the exact failure this whole function exists to
+        // avoid. Measured in LENGTH, not in count: one long wall says more
+        // about a room than four stubs.
+        let walked = zip(points, points.dropFirst())
+            .reduce(0.0) { $0 + hypot($1.1.x - $1.0.x, $1.1.y - $1.0.y) }
+        let total = segments.reduce(0.0) { $0 + $1.length }
+        guard total > 0, walked >= total * 0.6, points.count >= 4 else { return nil }
 
         guard let start = points.first, let end = points.last else { return nil }
         if hypot(end.x - start.x, end.y - start.y) <= tolerance {
