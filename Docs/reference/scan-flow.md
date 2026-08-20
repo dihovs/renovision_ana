@@ -37,3 +37,48 @@ Two things follow from that, neither of which we do:
 
 Ours by comparison: tapping Scan goes straight to the RoomPlan capture view.
 No coaching, no recording.
+
+## 2 — "Select Room Type", after the walk
+
+A sheet over the still-live camera. Title `Select Room Type`, then a
+two-segment control: **Residential | Commercial**.
+
+**We have no Commercial tab at all**, and the owner's note is that this
+particular job WAS one: *"check the categories. We don't have this. We don't
+have office, private office, but this job actually was office."* The room in
+the reference report he sent is typed `Private Office`.
+
+### Residential (as far as the screen shows)
+
+Kitchen · Dining Room · Living Room · Hall · Bedroom · Primary Bedroom ·
+Children Bedroom · Bathroom · Half Bathroom · Closet · Study · Music Room ·
+Balcony · Garage · Hallway · Laundry Room · …
+
+### Commercial (as far as the screen shows)
+
+Private Office · Shared Office · Open Space · Meeting Room · Conference Room ·
+Reception · Kitchenette · Cafeteria · Hall · Closet · Balcony · Garage ·
+Hallway · Lounge · Waiting Room · Workshop · …
+
+Both lists run past the fold; these are the entries actually visible.
+
+### What this changes
+
+`ORD-22` already called for the Residential/Commercial split and said to take
+the SPLIT but not their list, on the argument that theirs is an office
+fit-out vocabulary while a flooded commercial building needs mechanical room,
+electrical room, server room, warehouse bay, loading dock.
+
+That argument still holds for what to ADD — but it was also being used to
+delay, and this job proves the cost: he scanned an office and had nowhere to
+say so. The right reading now is that their list is the floor, not the
+ceiling: ship it, then add the ones a restoration job needs on top.
+
+Note also **where** this sits: the type is asked AFTER the walk, over the
+live camera, not before. Ours asks in the review sheet, which is the same
+moment.
+
+## Still to come
+
+The screenshots for ORD-45 items 3, 4 and 6 — what a detected door, window
+and object actually LOOK like on their overlay while scanning.
