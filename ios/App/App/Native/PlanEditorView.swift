@@ -1665,7 +1665,31 @@ struct RoomEditorCore: View {
         guard var run = measuring else { return }
         if let metres {
             push()
-            if run.isLast {
+            if PlanEditing.isRectangle(corners) {
+                // A RECTANGLE IS NOT A CHAIN. The walk below runs a tape from
+                // one trusted corner, freezing each wall's direction and
+                // letting the closing wall absorb whatever the typed numbers
+                // do not add up to — right for an irregular room, and the
+                // reason his square came apart.
+                //
+                // On a rectangle the opposite wall is not an independent
+                // measurement that can absorb anything: it IS the wall just
+                // typed. Chaining left the right wall as drawn, so a 10 foot
+                // wall typed down to 8 gave a room 8 feet on the left, 10 on
+                // the right and a bottom wall that had grown to 12 feet 2 to
+                // reach across the gap. Watched happening in the simulator,
+                // 19 Aug 2026, and exactly what he reported: *"one side got
+                // shortened from up, and then the other side got shortened
+                // from the down, and then the room changed the shape."*
+                //
+                // `setEdgeLength` takes the whole rectangle instead — which
+                // is what a typed length on a rectangle MEANS. The walk can
+                // still visit all four walls; typing the second pair simply
+                // resizes the other way.
+                corners = PlanEditing.setEdgeLength(
+                    corners, index: run.active, to: metres,
+                    anchoring: lengthAnchor(forEdge: run.active))
+            } else if run.isLast {
                 // The walk's closing wall is implied by all the others; a
                 // value typed here anyway is applied the single-wall way,
                 // and any inconsistency it carries lands on the neighbours

@@ -1194,11 +1194,21 @@ enum EditorChrome {
     /// The nav subtitle's floor name: `Ground` becomes `Ground Floor`, and
     /// the two storeys that are already nouns are left alone — "Basement
     /// Floor" is not a thing anybody says.
+    /// The storey a room is on, as a subtitle.
+    ///
+    /// The vocabulary's labels already say "Floor" wherever the word belongs
+    /// — `2nd Floor`, `Ground Floor`, `Higher Ground Floor` — so appending it
+    /// again printed "2nd Floor Floor" under every room on every upper
+    /// storey. Seen in the simulator, 19 Aug 2026. The word is added only to
+    /// a label that does not already carry it, which is why `Basement` and
+    /// `Attic` needed naming individually before and no longer do: a label
+    /// that should not gain the word simply does not have it.
     static func floorSubtitle(_ level: String) -> String {
         let label = FloorVocabulary.levels.first { $0.id == level }?.label ?? level
+        guard !label.lowercased().hasSuffix("floor") else { return label }
         switch label {
-        case "Basement", "Attic": return label
-        default: return "\(label) Floor"
+        case "Basement", "Attic", "Semi-Basement", "Land survey": return label
+        default: return label.contains("•") ? label : "\(label) Floor"
         }
     }
 }
