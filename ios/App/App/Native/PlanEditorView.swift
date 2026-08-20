@@ -526,30 +526,7 @@ struct RoomEditorCore: View {
             isPresented: Binding(
                 get: { inspectingOpening != nil }, set: { if !$0 { inspectingOpening = nil } })
         ) {
-            if let index = inspectingOpening, openings.indices.contains(index) {
-                OpeningDetailView(
-                    opening: openings[index],
-                    onKindChanged: { newKind in
-                        push()
-                        // Width resets to the new kind's own catalog figure
-                        // too — the sheet's own picker already resets its
-                        // LOCAL height/sill state the same way; this is the
-                        // STORED side of that same decision. Not run through
-                        // `placeOpening`'s own fit search, since the opening
-                        // already has a slot on this wall and is only
-                        // changing what fills it, not where.
-                        openings[index].kind = newKind
-                        openings[index].width = newKind.width
-                        openings[index].height = newKind.height
-                        openings[index].sill = newKind.sill
-                    },
-                    onDimensionsChanged: { newHeight, newSill in
-                        push()
-                        openings[index].height = newHeight
-                        openings[index].sill = newSill
-                    },
-                    onDelete: { deleteOpening(index) })
-            }
+            openingSheet
         }
         // ORD-19's elevation view, full screen over the plan. The state,
         // the double-tap and the view-mode row are all live; only what
@@ -1163,6 +1140,53 @@ struct RoomEditorCore: View {
 
     // MARK: - Gestures
 
+    /// The opening inspector, lifted out of `body`.
+    ///
+    /// Not a tidy-up: with the swing callbacks inline the type-checker gave
+    /// up on the whole view — "unable to type-check this expression in
+    /// reasonable time". A `body` that fails to compile as it grows is a
+    /// standing tax on every future edit, and the cure is to stop asking one
+    /// expression to carry five closures.
+    @ViewBuilder private var openingSheet: some View {
+
+            if let index = inspectingOpening, openings.indices.contains(index) {
+                OpeningDetailView(
+                    opening: openings[index],
+                    onKindChanged: { newKind in
+                        push()
+                        // Width resets to the new kind's own catalog figure
+                        // too — the sheet's own picker already resets its
+                        // LOCAL height/sill state the same way; this is the
+                        // STORED side of that same decision. Not run through
+                        // `placeOpening`'s own fit search, since the opening
+                        // already has a slot on this wall and is only
+                        // changing what fills it, not where.
+                        openings[index].kind = newKind
+                        openings[index].width = newKind.width
+                        openings[index].height = newKind.height
+                        openings[index].sill = newKind.sill
+                        // A swing answer belongs to the door that was asked.
+                        // Swap a single door for a slider and the hinge side
+                        // is not just unused, it is meaningless — carrying it
+                        // silently would put it back the moment the kind was
+                        // swapped again.
+                        if !newKind.hasOneLeaf { openings[index].hingeAtStart = nil }
+                        if !newKind.swings { openings[index].swingInward = nil }
+                    },
+                    onDimensionsChanged: { newHeight, newSill in
+                        push()
+                        openings[index].height = newHeight
+                        openings[index].sill = newSill
+                    },
+                    onSwingChanged: { hinge, inward in
+                        push()
+                        openings[index].hingeAtStart = hinge
+                        openings[index].swingInward = inward
+                    },
+                    onDelete: { deleteOpening(index) })
+            }
+    }
+
     private func handleTap(_ point: CGPoint, scale: CGFloat) {
         let cornerTolerance = handleHit / 2 / scale
         for i in corners.indices where PlanEditing.length(PlanEditing.sub(corners[i], point)) < cornerTolerance {
@@ -1727,22 +1751,13 @@ struct RoomEditorCore: View {
             var source = plan.polygon
             if source.count >= 4 { source.removeLast() }
             guard source.count >= 3 else { return }
-            let placed = (geometry.authoredOpenings ?? []).compactMap {
-                record -> PlanEditing.WallOpening? in
-                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
-                return PlanEditing.WallOpening(
-                    edge: record.edge, offset: record.offset, width: record.width,
-                    height: record.height, sill: record.sill, kind: kind)
-            }
+            let placed = (geometry.authoredOpenings ?? [])
+                .compactMap(PlanEditing.WallOpening.init)
             let mirrored = PlanEditing.mirrored(source, openings: placed, across: flip)
             geometry.editedPolygon = mirrored.polygon.map {
                 ScanGeometry.EditedPoint(x: $0.x, y: $0.y)
             }
-            geometry.authoredOpenings = mirrored.openings.map {
-                ScanGeometry.AuthoredOpening(
-                    edge: $0.edge, offset: $0.offset, width: $0.width,
-                    height: $0.height, sill: $0.sill, kind: $0.kind.rawValue)
-            }
+            geometry.authoredOpenings = mirrored.openings.map(\.stored)
             // Typed lengths are dropped rather than renumbered onto mirrored
             // edges. A padlock says a person typed THAT wall; carrying the
             // claim onto a copy nobody measured would be a lie about where a
@@ -2822,12 +2837,8 @@ struct RoomEditorCore: View {
         // Placed openings come back in their editable form. An unknown kind
         // (from a newer build) is left out of the editor rather than guessed
         // at — deleting it here would delete it from the record on Save.
-        openings = (room.geometry?.authoredOpenings ?? []).compactMap { record in
-            guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
-            return PlanEditing.WallOpening(
-                edge: record.edge, offset: record.offset, width: record.width,
-                height: record.height, sill: record.sill, kind: kind)
-        }
+        openings = (room.geometry?.authoredOpenings ?? [])
+            .compactMap(PlanEditing.WallOpening.init)
 
         // Freeze the viewport to the room's extent AS OPENED. `measuredBounds`
         // is now correct for `corners`, so this is the one moment to capture
@@ -2950,27 +2961,36 @@ struct OpeningDetailView: View {
     /// either one, both are already `min(_, ceiling)` clamped wherever
     /// they land — so there was nothing unsafe about shipping them today.
     let onDimensionsChanged: (Double, Double) -> Void
+    /// Which jamb it hangs on and which way it opens. Nil for either means
+    /// "nobody has said" and the plan keeps drawing its convention.
+    let onSwingChanged: (Bool?, Bool?) -> Void
     let onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var kind: PlanEditing.OpeningKind
     @State private var height: Double
     @State private var sill: Double
+    @State private var hingeAtStart: Bool?
+    @State private var swingInward: Bool?
     @State private var confirmingDelete = false
     @State private var detent: PresentationDetent = .medium
 
     init(
         opening: PlanEditing.WallOpening, onKindChanged: @escaping (PlanEditing.OpeningKind) -> Void,
         onDimensionsChanged: @escaping (Double, Double) -> Void,
+        onSwingChanged: @escaping (Bool?, Bool?) -> Void,
         onDelete: @escaping () -> Void
     ) {
         self.opening = opening
         self.onKindChanged = onKindChanged
         self.onDimensionsChanged = onDimensionsChanged
+        self.onSwingChanged = onSwingChanged
         self.onDelete = onDelete
         _kind = State(initialValue: opening.kind)
         _height = State(initialValue: opening.height)
         _sill = State(initialValue: opening.sill)
+        _hingeAtStart = State(initialValue: opening.hingeAtStart)
+        _swingInward = State(initialValue: opening.swingInward)
     }
 
     var body: some View {
@@ -3039,6 +3059,47 @@ struct OpeningDetailView: View {
                     Text("Width follows the kind above, sized to fit the wall. Height and Distance to Floor are this opening's own — the reference's own third field, for the sill height this app never had anywhere to store until now.")
                         .font(.system(size: 11))
                         .foregroundStyle(Brand.inkFaint)
+                }
+
+                // WHICH WAY IT OPENS. The owner asked for it as part of
+                // scanning — *"it can make an arrow. So going from you or
+                // coming to you. So just choose it, and it can automatically
+                // show the opening direction of the swing."* Right, and it
+                // has to live here too: a door drawn by hand needs the same
+                // answer, and this is the only place that can store one.
+                //
+                // Nothing detects this. RoomPlan reports a door's width, its
+                // height and whether it was standing open, and says nothing
+                // about the hinge. So "not set" is a real, common state and
+                // is offered as a choice rather than hidden behind a
+                // default nobody chose.
+                if kind.swings {
+                    Section {
+                        if kind.hasOneLeaf {
+                            Picker("Hinge", selection: $hingeAtStart) {
+                                Text("Not set").tag(Bool?.none)
+                                Text("Start of wall").tag(Bool?.some(true))
+                                Text("End of wall").tag(Bool?.some(false))
+                            }
+                            .onChange(of: hingeAtStart) { _, _ in
+                                onSwingChanged(hingeAtStart, swingInward)
+                            }
+                        }
+                        Picker("Opens", selection: $swingInward) {
+                            Text("Not set").tag(Bool?.none)
+                            Text("Into this room").tag(Bool?.some(true))
+                            Text("Out of this room").tag(Bool?.some(false))
+                        }
+                        .onChange(of: swingInward) { _, _ in
+                            onSwingChanged(hingeAtStart, swingInward)
+                        }
+                    } header: {
+                        Text("Swing")
+                    } footer: {
+                        Text("A scan cannot see a hinge — it reports the hole, not the hardware. Left unset, the plan draws the framer's convention: hung at the jamb nearer a corner, opening into the room. Setting it makes the drawing a record instead of a guess.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
                 }
 
                 Section {

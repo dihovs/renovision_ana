@@ -257,7 +257,13 @@ struct FloorPlanView: View {
                     func jointDistance(_ x: Double, _ y: Double) -> Double {
                         joints.map { hypot($0.x - x, $0.y - y) }.min() ?? 9
                     }
-                    let hingeAtStart = jointDistance(s.x1, s.y1) <= jointDistance(s.x2, s.y2)
+                    // Said, where somebody has said. This is the THIRD
+                    // renderer that draws a door leaf, and all three now read
+                    // the same two fields — a fact added to one of them and
+                    // not the others is how this codebase has produced one
+                    // door drawn two ways before.
+                    let hingeAtStart =
+                        opening.hingeAtStart ?? (jointDistance(s.x1, s.y1) <= jointDistance(s.x2, s.y2))
                     let (hx, hy, lx, ly) = hingeAtStart
                         ? (s.x1, s.y1, s.x2, s.y2) : (s.x2, s.y2, s.x1, s.y1)
 
@@ -267,7 +273,8 @@ struct FloorPlanView: View {
                         cx = plan.polygon.reduce(0) { $0 + $1.x } / Double(plan.polygon.count)
                         cy = plan.polygon.reduce(0) { $0 + $1.y } / Double(plan.polygon.count)
                     }
-                    let sideSign: Double = ((cx - hx) * nx + (cy - hy) * ny) >= 0 ? 1 : -1
+                    let inward: Double = ((cx - hx) * nx + (cy - hy) * ny) >= 0 ? 1 : -1
+                    let sideSign = (opening.swingInward ?? true) ? inward : -inward
 
                     let H = pt(hx + sideSign * nx * T / 2, hy + sideSign * ny * T / 2)
                     let latch = pt(lx + sideSign * nx * T / 2, ly + sideSign * ny * T / 2)

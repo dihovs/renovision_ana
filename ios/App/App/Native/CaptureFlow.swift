@@ -837,11 +837,7 @@ struct CaptureFlow: View {
             let adopted = PlanEditing.adopt(
                 detected: FloorPlanGeometry.detections(in: geometry), polygon: outlinePolygon(of: geometry))
             if !adopted.isEmpty {
-                geometry.authoredOpenings = adopted.map {
-                    ScanGeometry.AuthoredOpening(
-                        edge: $0.edge, offset: $0.offset, width: $0.width,
-                        height: $0.height, sill: $0.sill, kind: $0.kind.rawValue)
-                }
+                geometry.authoredOpenings = adopted.map(\.stored)
             }
         }
 

@@ -536,9 +536,14 @@ struct StoreyBaseLayer: View {
                         func jointDistance(_ x: Double, _ y: Double) -> Double {
                             joints.map { hypot($0.x - x, $0.y - y) }.min() ?? 9
                         }
-                        let sideSign: Double =
+                        let inward: Double =
                             ((centreX - (seg.x1 + seg.x2) / 2) * nx
                                 + (centreY - (seg.y1 + seg.y2) / 2) * ny) >= 0 ? 1 : -1
+                        // The authored swing wins where there is one. The
+                        // storey has to agree with the room editor about
+                        // which way a door opens, or the same door reads two
+                        // ways at two zoom levels.
+                        let sideSign = (opening.swingInward ?? true) ? inward : -inward
 
                         /// One leaf hinged at `h`, latching at `l`, swinging
                         /// into the room. Extracted so a double door can
@@ -606,7 +611,9 @@ struct StoreyBaseLayer: View {
 
                         default:
                             let hingeAtStart =
-                                jointDistance(seg.x1, seg.y1) <= jointDistance(seg.x2, seg.y2)
+                                opening.hingeAtStart
+                                ?? (jointDistance(seg.x1, seg.y1)
+                                    <= jointDistance(seg.x2, seg.y2))
                             let (hx, hy, lx, ly) =
                                 hingeAtStart
                                 ? (seg.x1, seg.y1, seg.x2, seg.y2)

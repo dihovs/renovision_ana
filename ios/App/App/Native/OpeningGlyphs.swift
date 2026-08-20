@@ -91,12 +91,24 @@ enum OpeningGlyphs {
             context.stroke(jamb, with: .color(ink), lineWidth: 1.4)
         }
 
+        // WHICH WAY THE LEAF SWINGS. `side` points into this room and is
+        // what the band knock-out uses — that is about which side of the
+        // wall the room is on, not about the door, so it stays as it is.
+        // The swing is its own fact and is now allowed to disagree: a door
+        // set to open outward draws its arc on the far side.
+        //
+        // Nil keeps the convention this has always drawn, into the room.
+        // RoomPlan cannot see a hinge, so every door captured or drawn
+        // before somebody said otherwise is nil, and a convention must not
+        // be dressed up as a measurement.
+        let swing: CGFloat = (opening.swingInward ?? true) ? side : -side
+
         func leafAndArc(hinge H: CGPoint, latch L: CGPoint) {
             let r = hypot(L.x - H.x, L.y - H.y)
             guard r > 2 else { return }
             let tip = CGPoint(
-                x: H.x + side * nx * r,
-                y: H.y + side * ny * r)
+                x: H.x + swing * nx * r,
+                y: H.y + swing * ny * r)
 
             var leaf = Path()
             leaf.move(to: H)
@@ -122,8 +134,13 @@ enum OpeningGlyphs {
             let (ai, bi) = PlanEditing.edgeCorners(opening.edge, count: polygon.count)
             let cornerA = toScreen(polygon[ai])
             let cornerB = toScreen(polygon[bi])
+            // Said, or inferred. The inference is the framer's habit — hang
+            // it from the jamb nearer a corner — and it is only ever a
+            // guess about a thing nothing in a scan records.
             let hingeAtA =
-                hypot(A.x - cornerA.x, A.y - cornerA.y) <= hypot(B.x - cornerB.x, B.y - cornerB.y)
+                opening.hingeAtStart
+                ?? (hypot(A.x - cornerA.x, A.y - cornerA.y)
+                    <= hypot(B.x - cornerB.x, B.y - cornerB.y))
             leafAndArc(hinge: hingeAtA ? A : B, latch: hingeAtA ? B : A)
 
         case .doorDouble, .doorFrench:

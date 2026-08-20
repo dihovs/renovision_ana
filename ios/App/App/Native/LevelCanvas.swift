@@ -2197,13 +2197,8 @@ struct FloorCanvasView: View {
             }
             originShift = CGSize(width: after.x - before.x, height: after.y - before.y)
 
-            let openings = (room.room.geometry?.authoredOpenings ?? []).compactMap {
-                record -> PlanEditing.WallOpening? in
-                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
-                return PlanEditing.WallOpening(
-                    edge: record.edge, offset: record.offset, width: record.width,
-                    height: record.height, sill: record.sill, kind: kind)
-            }
+            let openings = (room.room.geometry?.authoredOpenings ?? [])
+                .compactMap(PlanEditing.WallOpening.init)
             // Openings are keyed to an EDGE INDEX, and locked lengths to the
             // same, so both ride the rotation untouched — the polygon turned,
             // its edges did not renumber.
@@ -2289,13 +2284,8 @@ struct FloorCanvasView: View {
             guard corners.count >= 3 else { continue }
 
             let turned = PlanEditing.rotatedQuarterTurn(corners)
-            let openings = (target.room.geometry?.authoredOpenings ?? []).compactMap {
-                record -> PlanEditing.WallOpening? in
-                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
-                return PlanEditing.WallOpening(
-                    edge: record.edge, offset: record.offset, width: record.width,
-                    height: record.height, sill: record.sill, kind: kind)
-            }
+            let openings = (target.room.geometry?.authoredOpenings ?? [])
+                .compactMap(PlanEditing.WallOpening.init)
             try? await API.shared.saveEditedPlan(
                 roomId: target.id, corners: turned,
                 locked: target.room.geometry?.lockedEdges ?? [],

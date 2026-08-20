@@ -33,6 +33,12 @@ enum FloorPlanGeometry {
         /// falls back to the single-leaf convention there, which is what it
         /// drew for everything before this existed.
         var detail: PlanEditing.OpeningKind? = nil
+        /// The authored hinge and swing, carried through so the STOREY draws
+        /// the same door the room editor does. Adding a fact to one renderer
+        /// and not the other is the specific mistake this file has already
+        /// made three times.
+        var hingeAtStart: Bool? = nil
+        var swingInward: Bool? = nil
 
         enum Kind { case door, window, opening }
     }
@@ -78,10 +84,8 @@ enum FloorPlanGeometry {
             // own coordinate frame, which the corrected polygon has left.
             var openings: [Opening] = []
             for record in geometry.authoredOpenings ?? [] {
-                guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { continue }
-                let placed = PlanEditing.WallOpening(
-                    edge: record.edge, offset: record.offset, width: record.width,
-                    height: record.height, sill: record.sill, kind: kind)
+                guard let placed = PlanEditing.WallOpening(record) else { continue }
+                let kind = placed.kind
                 guard let (a, b) = PlanEditing.openingEndpoints(points, placed) else { continue }
                 let drawn: Opening.Kind
                 switch kind.category {
@@ -97,7 +101,9 @@ enum FloorPlanGeometry {
                         // Authored by hand, so the SPECIFIC kind is known —
                         // a renderer can draw two leaves for a double
                         // rather than the single-leaf fallback.
-                        detail: kind))
+                        detail: kind,
+                        hingeAtStart: placed.hingeAtStart,
+                        swingInward: placed.swingInward))
             }
 
             // The outline repeats its first point, matching what

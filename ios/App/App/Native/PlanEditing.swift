@@ -923,6 +923,31 @@ enum PlanEditing {
         /// Which of the geometry's three arrays this lands in downstream.
         enum Category { case door, window, passage }
 
+        /// Does this open on a hinge at all?
+        ///
+        /// A sliding, bypass, pocket or bifold door has no swing to draw and
+        /// no side to open toward — the panel runs in its own plane. A garage
+        /// door goes up. Asking about the swing of any of those is asking a
+        /// question with no answer, so the control is not offered.
+        var swings: Bool {
+            switch self {
+            case .doorSingle, .doorDouble, .doorFrench, .doorEntry: return true
+            default: return false
+            }
+        }
+
+        /// Is there ONE leaf, so that "which jamb" is a real question?
+        ///
+        /// A double and a French door are hinged at BOTH jambs and meet in
+        /// the middle; there is no hinge side to choose. They still have a
+        /// swing direction, which is why the two questions are separate.
+        var hasOneLeaf: Bool {
+            switch self {
+            case .doorSingle, .doorEntry: return true
+            default: return false
+            }
+        }
+
         var category: Category {
             switch self {
             case .doorSingle, .doorDouble, .doorSliding, .doorPocket, .doorBifold,

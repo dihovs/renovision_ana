@@ -884,13 +884,7 @@ actor API {
             body: EditedPlan(
                 editedPolygon: corners.map { .init(x: Double($0.x), y: Double($0.y)) },
                 lockedEdges: locked,
-                authoredOpenings: placed.map {
-                    $0.map {
-                        ScanGeometry.AuthoredOpening(
-                            edge: $0.edge, offset: $0.offset, width: $0.width, height: $0.height,
-                            sill: $0.sill, kind: $0.kind.rawValue)
-                    }
-                },
+                authoredOpenings: placed.map { $0.map(\.stored) },
                 interiorWalls: interiorWalls,
                 doors: synthesized?.doors,
                 windows: synthesized?.windows,

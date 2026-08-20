@@ -144,18 +144,29 @@ struct ScanGeometry: Codable {
         /// stays readable and an unknown future kind degrades to nothing
         /// rather than to a decoding failure.
         let kind: String
+        /// Which jamb the door is hinged on, and which way it opens — both
+        /// nil until somebody says, because nothing in a scan records
+        /// either. `PlanEditing.WallOpening`'s own header carries the
+        /// argument for why these are stored rather than detected.
+        let hingeAtStart: Bool?
+        let swingInward: Bool?
 
         enum CodingKeys: String, CodingKey {
-            case edge, offset, width, height, sill, kind
+            case edge, offset, width, height, sill, kind, hingeAtStart, swingInward
         }
 
-        init(edge: Int, offset: Double, width: Double, height: Double, sill: Double, kind: String) {
+        init(
+            edge: Int, offset: Double, width: Double, height: Double, sill: Double, kind: String,
+            hingeAtStart: Bool? = nil, swingInward: Bool? = nil
+        ) {
             self.edge = edge
             self.offset = offset
             self.width = width
             self.height = height
             self.sill = sill
             self.kind = kind
+            self.hingeAtStart = hingeAtStart
+            self.swingInward = swingInward
         }
 
         init(from decoder: Decoder) throws {
@@ -167,6 +178,8 @@ struct ScanGeometry: Codable {
             let fallback = PlanEditing.OpeningKind(rawValue: kind)
             height = try c.decodeIfPresent(Double.self, forKey: .height) ?? fallback?.height ?? 0
             sill = try c.decodeIfPresent(Double.self, forKey: .sill) ?? fallback?.sill ?? 0
+            hingeAtStart = try c.decodeIfPresent(Bool.self, forKey: .hingeAtStart)
+            swingInward = try c.decodeIfPresent(Bool.self, forKey: .swingInward)
         }
     }
 
@@ -414,5 +427,37 @@ struct ScanUpload: Codable {
         self.stairCount = geometry.stairCount
         self.geometry = geometry
         self.roomType = roomType
+    }
+}
+
+// MARK: - Openings: stored form <-> editable form
+
+/// The ONE translation between an opening as it is stored and an opening as
+/// the editors work on it.
+///
+/// It was written out by hand in seven places. Every field added since has
+/// had to be remembered in all seven, and the ones that were not remembered
+/// did not fail — they silently dropped the value on the next round trip,
+/// which is the worst way for this to go wrong: the operator sets a door's
+/// swing, saves, reopens, and it is simply back to the default with nothing
+/// to explain it. This file has already been bitten three times by the same
+/// shape of mistake (see the ledger's note on "two places drawing the same
+/// thing by two different rules"), so the translation lives once.
+extension PlanEditing.WallOpening {
+    /// Nil for a kind this build does not know — an opening placed by a
+    /// newer version. Skipped rather than guessed: a door of unknown type
+    /// drawn as a single leaf is a claim nobody made.
+    init?(_ record: ScanGeometry.AuthoredOpening) {
+        guard let kind = PlanEditing.OpeningKind(rawValue: record.kind) else { return nil }
+        self.init(
+            edge: record.edge, offset: record.offset, width: record.width,
+            height: record.height, sill: record.sill, kind: kind,
+            hingeAtStart: record.hingeAtStart, swingInward: record.swingInward)
+    }
+
+    var stored: ScanGeometry.AuthoredOpening {
+        ScanGeometry.AuthoredOpening(
+            edge: edge, offset: offset, width: width, height: height, sill: sill,
+            kind: kind.rawValue, hingeAtStart: hingeAtStart, swingInward: swingInward)
     }
 }
