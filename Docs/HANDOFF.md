@@ -89,7 +89,7 @@ clarity during the review.
 ## 4. State of the work
 
 **Last updated 19 Aug 2026, end of a very long live-testing session.** Build
-**175** is installed on the owner's phone and confirmed off the device.
+**175** is the last build confirmed on his phone; 176-181 are built and waiting on a cable.
 
 **Read the ledger's last Log entry before touching anything.** The session
 ended with the storey screen reported as empty — no rooms drawing, moving
@@ -284,60 +284,87 @@ installed but not selected" although `xcode-select -p` prints
 password. It did not matter, because the device loop above is faster and
 tests the real thing.
 
-## 6b. Where the 19 Aug night session stopped
+## 6b. Where the 20 Aug session stopped — READ THIS FIRST
 
-Build **172** is on his phone. Everything from the magicplan verb list is in
-and confirmed: room arranging (hold to lift, move, twist, snap flush,
-alignment guides), Split Room, Merge Rooms, Add Wall, Duplicate with
-Identical/Flip H/Flip V, the neighbour-carry when a room is re-measured, and
-LiDAR detections adopted as editable openings with a type suggested from the
-catalogue.
+**Build 181 exists. Build 175 is the last one actually ON HIS PHONE.** Six
+builds (176–181) are built and unshipped because his iPhone has read
+`unavailable` to `devicectl` all day — the office Wi-Fi blocks the
+peer-to-peer radio, and switching Wi-Fi does not fix it (tested, twice).
+**A cable is the only fix.** Nothing in 176–181 has been seen by him.
 
-**The simulator is now a real test rig** and it is already signed in — boot
-`iPhone 17 Pro`, `simctl install` the Debug-iphonesimulator build, and drive
-the Simulator window with screen control. Two bugs were caught that way that
-would otherwise have shipped. It cannot test LiDAR (no depth sensor); that
-still needs his phone.
+### The simulator is the test rig now
 
-**In progress, uncommitted-in-spirit:** `PlanEditing.WallOpening` gained
-`hingeAtStart` and `swingInward`, both optional and both currently unread —
-the foundation for door swing. Nothing else is wired to them yet.
+`iPhone 17 Pro` (`EB6A337F-90D6-4BB1-8E9F-0C59368E5D0E`) is booted and
+**already signed in to his live data**. Install with `simctl install`, drive
+it with screen control on the Simulator window. Two real bugs were caught
+this way today that would otherwise have shipped. It cannot test LiDAR.
 
-**What he asked for last, in his own words** — a MID-SCAN AR layer:
+The built-in simulator MCP tool still needs
+`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` — his
+password, so it stays broken until he runs it.
 
-> *"when you point on the window it draws a half transparent silhouette of
-> the window on the window itself, and it kind of pastes the illustration of
-> the window that it thinks it should be there. But if you don't agree, you
-> can click on that… during the scan… and choose the right one. And same
-> applies to the objects that it doesn't recognize… it shows you the question
-> mark. You click on the question mark, and you choose what is it. And for
-> the doors… it can make an arrow. So going from you or coming to you."*
+### Landed today
 
-The shape of it, worked out but not built:
+**iOS.** Floor cards get a three-dot menu with Delete floor. Door swing is a
+real stored, editable, drawn property — and all THREE door renderers now read
+it. The mid-scan overlay was DELETED rather than improved: Apple's own white
+massing was always underneath ours, so what is left is a type card at the
+right edge naming what you point at. Chairs, tables and televisions are
+catalogue entries, so they stop being question marks. Scanned objects are
+placed on the plan, filtered by an Include Objects sheet (Plumbing /
+Appliances / Furniture, remembered). `Add New Area` adds an area instead of
+opening a menu of four other things. A floor with rooms but no outlines now
+SAYS so instead of drawing blank paper.
 
-1. `RoomCaptureSession`'s delegate publishes a `CapturedRoom` continuously
-   during capture. Every surface and object carries a stable `identifier`.
-2. RoomCaptureView renders its own scene and will not take SceneKit nodes —
-   so the overlay is a 2D layer ON TOP, positioned by projecting each
-   detection's corners with `arSession.currentFrame.camera.projectPoint`.
-   Silhouette = the projected quad; glyph = the catalogue illustration.
-3. Taps hit the projected quad, open the picker already built
-   (`ObjectPicker` / `OpeningKind`), and the answer is held per identifier
-   for the length of the capture, applied when the room is filed.
-4. A `?` badge where RoomPlan has no useful answer — low confidence, or the
-   `.storage` catch-all that a bifold closet lands in.
-5. Door swing: two arrows, toward/away, writing the fields above.
+**CRM.** Scan on the home screen, plus an "Ana answered" list. SMS alerts to
+the owner on a new lead and on a finished call. Full APNs push, dormant until
+the key exists. MMS in both directions, with inbound photos copied into our
+own bucket.
 
-**Also worth building, and the biggest single time-saver left in the
-scanner:** RoomPlan already classifies refrigerator, stove, oven,
-dishwasher, washer/dryer, sink, toilet, bathtub, bed, sofa, table, chair,
-television, fireplace, storage and stairs. We have a 77-entry object
-catalogue with dispositions and counts. Nothing connects the two, so every
-fixture on a scanned job is placed by hand.
+### Blocked on him — all four are minutes
 
-**Answered for him, so it is not re-litigated:** RoomPlan has NO material
-detection, and reports NO door swing direction. Neither is a gap in our
-code.
+1. **A cable**, for the six builds.
+2. `OWNER_ALERT_NUMBER` in Vercel — until then the SMS alerts are off.
+3. Migrations **0039** (device tokens) and **0040** (sms media), plus a
+   private Supabase bucket named **`sms-media`**.
+4. An **APNs key** if he wants banners: `APNS_KEY_P8`, `APNS_KEY_ID`,
+   `APNS_TEAM_ID`. Needs a PAID Apple Developer membership. He asked for
+   banners and the registration page was opened for him; he had not returned
+   with the key when the session ended. **The `aps-environment` entitlement
+   is deliberately NOT added** — adding it before the App ID carries the Push
+   capability would break the signing that currently works. It goes in with
+   the key, in one step, then rebuild and send a test banner rather than
+   assuming it lands.
+
+### What he asked for next, in his own words
+
+His 20 Aug list is `ORD-45`, and the magicplan references he sent are in
+`Docs/reference/report-target.md` and `Docs/reference/scan-flow.md`. **Read
+both before touching the report or the scanner** — they are read off his own
+exports and screenshots, not remembered.
+
+Still open from that list:
+
+- **THE REPORT.** The big one, and the deliverable that reaches an adjuster.
+  His export is ONE page of 681 × 14091 pt against magicplan's five of US
+  Letter. The content paginates correctly — every `Page n/16` is present —
+  so the exporter ignores CSS page breaks outright, which means the answer
+  is a PDF this app produces itself, not one a browser is asked to render.
+- **Commercial room types.** He scanned an office and had nowhere to say so.
+  Both magicplan lists are recorded in `scan-flow.md`.
+- The rest of the scan flow: the coaching screen, the green post-room plan
+  card, the mid-scan shutter, the 2D toggle, session video (opt-in, per
+  room).
+- **Ceilings and bulkheads** — sloped ceilings from a height at each corner;
+  a bulkhead as length × width × drop, feeding ceiling area AND joint length,
+  which is what he actually gets paid for.
+
+### The thing worth saying out loud
+
+The features are there. **Nothing has been walked end to end on a real job** —
+create, scan, mark damage, photos, report, estimate, send. That is the gap
+between "it is built" and "it is a product", and most of it can now be done
+in the simulator without him.
 
 ## 7. Open backlog
 

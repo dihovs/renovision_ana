@@ -105,9 +105,15 @@ did not.
 - `JobThread.tsx` and `admin/inbox/page.tsx` already do exactly this for
   WhatsApp: collect paths, sign in one batch, pass a `path → url` map down.
   Copy that shape rather than inventing a second one.
-- **MMS is billed per message and costs materially more than SMS**, and Canadian
-  carriers are stricter about it. Worth the owner knowing before it is switched
-  on for outbound.
+- **Cost is not a reason to hold this back.** Twilio Canada, Aug 2026: outbound
+  MMS **$0.022**, inbound **$0.0165**, against $0.0083 either way for SMS, plus a
+  carrier surcharge of roughly $0.007–0.009. So ~$0.03 to send a photo. At twenty
+  jobs a month exchanging ten photos each that is **about $6/month**. The ratio
+  is 2.6× SMS; the absolute is pennies, and quoting the ratio alone once made
+  this look like a decision worth deferring. It is not.
+- **Deliverability is the real caution**, not price. Canadian carriers are
+  stricter about MMS on long codes than on SMS, and a large image can be
+  rejected or downscaled. That is why `media.ts` caps at 5 MB.
 
 ---
 

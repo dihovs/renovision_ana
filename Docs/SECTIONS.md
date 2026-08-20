@@ -1082,8 +1082,12 @@ the CASL rules that must not be broken, where every file lives.
 
 **Out of scope.** WhatsApp (its own queue, its own goal). Delivery receipts.
 
-**Tell the owner before switching outbound MMS on:** it is billed per message
-and costs materially more than SMS.
+**Cost is settled and is not a blocker.** ~$0.03 to send a photo in Canada
+(MMS $0.022 + carrier surcharge, vs $0.0083 for SMS) — about $6/month at twenty
+jobs exchanging ten photos each. The 2.6× ratio was once quoted without the
+arithmetic, which made it sound like a reason to wait. The real caution is
+deliverability: Canadian carriers are stricter about MMS on long codes, and a
+large image can be rejected or downscaled — hence the 5 MB cap in `media.ts`.
 
 **Done when.** A photo texted in appears in the thread; a photo attached in the
 composer arrives on a real handset. **Neither can be proved by compiling** — the
