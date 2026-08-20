@@ -929,3 +929,48 @@ stock width, because that width knocks the hole in the wall and comes off
 the net wall area; the artwork alone would be a picture of a door we cannot
 measure.
 
+
+---
+
+## ORD-45 — The 20 Aug list, held for magicplan references
+
+**Recorded verbatim, NOT started.** The owner's instruction with it: *"I'm
+gonna do the same thing with magic plan, and I'm gonna send you the look of
+the magic plan. So don't do anything until you get photos."* Six items, each
+with what is already known about the cause so no diagnosis is repeated.
+
+1. **The report is not good enough.** His export, read back with PDFKit:
+   `PAGES: 1`, one page **681 × 14091 pt** — the whole document as a single
+   strip — with `Projects`, `Sign out`, `Clean view for PDF`,
+   `Print or save as PDF` and both option checkboxes printed at the top. The
+   CONTENT paginates correctly (`Page 1/16` … `Page 16/16` are all present
+   and in order); the exporter simply ignores CSS page breaks. So the
+   19 Aug stylesheet work was not the fix for HIS export path, and the real
+   answer is a PDF this app produces itself rather than one a browser is
+   asked to render. Also visible: the floor's room table collides names into
+   dimensions ("1st bedroom" wrapping through its own figures), `0 Bathroom`
+   in the cover figures, and `Water 29` truncated mid-number.
+2. **`Add area` on a wall opens the whole Insert menu.** *"When I'm clicking
+   add an area, I wanted to add area only."*
+3. **Scan silhouettes: white, and shaped like the thing.** Not blue, not a
+   plain rectangle — *"it needs to have a shape and the design of a door."*
+4. **Silhouettes do not stick.** *"When I move the camera… they're jumping
+   with it… this animation part is not smooth."* **Cause known:** the
+   overlay is redrawn from `captureSession(_:didUpdate:)`, which is
+   throttled to one update every 0.15s and only fires when RoomPlan has new
+   GEOMETRY. The camera moves every frame. It has to be driven off the AR
+   frame clock (`ARSessionDelegate.session(_:didUpdate frame:)` or a
+   `CADisplayLink`) so the projection is recomputed at 60fps against the
+   latest pose, with the detections themselves still refreshed on the slow
+   clock.
+5. **A floor plan card cannot be deleted.** He wants the three-dot menu the
+   project cards already have, on the floor card, with Delete in it.
+6. **Object marks are ugly, and ask too often.** *"When it's detecting a
+   chair, it needs to show that it's a chair, not a question mark, because
+   it was very good with the chairs, with the tables… I can click and adjust
+   it if I see something is wrong, but I don't want to have to adjust
+   everything manually."* Note this REVERSES part of `ScanCatalogue`: chair,
+   table and television currently return `nil` because the restoration
+   catalogue has no entry for them. The right fix is to add the entries, not
+   to keep answering "I don't know" about something RoomPlan is confident
+   and correct about. The orange treatment goes with it.
