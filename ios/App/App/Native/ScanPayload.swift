@@ -15,6 +15,15 @@ import RoomPlan
 /// imperial figure in either app is derived on the way out.
 struct ScanGeometry: Codable {
     struct Surface: Codable {
+        /// RoomPlan's own identifier for this detection, when it came from a
+        /// scan. Carried so an answer the operator gave DURING the walk —
+        /// "that is a bifold, not a single" — can still be matched to the
+        /// right hole when the room is filed minutes later.
+        ///
+        /// Optional and decoded leniently: every scan saved before this
+        /// existed has no such key, and a synthesised `Decodable` would fail
+        /// those rooms outright rather than degrade.
+        var id: String?
         let lengthMeters: Double
         let widthMeters: Double
         let heightMeters: Double
@@ -327,6 +336,7 @@ struct ScanGeometry: Codable {
                 let centre = surface.transform.columns.3
                 let axis = surface.transform.columns.0
                 return Surface(
+                    id: surface.identifier.uuidString,
                     lengthMeters: Double(surface.dimensions.x),
                     widthMeters: Double(surface.dimensions.x),
                     heightMeters: Double(surface.dimensions.y),

@@ -193,14 +193,17 @@ enum PlanEditing {
     /// mis-read pinned to the nearest wall is a door in the wrong place that
     /// looks deliberate.
     static func adopt(
-        detected: [(segment: (CGPoint, CGPoint), category: OpeningKind.Category, height: Double)],
+        detected: [(
+            segment: (CGPoint, CGPoint), category: OpeningKind.Category, height: Double,
+            id: String?
+        )],
         polygon: [CGPoint]
-    ) -> [WallOpening] {
+    ) -> [(opening: WallOpening, id: String?)] {
         let points = withoutClosingPoint(polygon)
         let n = points.count
         guard n >= 3 else { return [] }
 
-        var adopted: [WallOpening] = []
+        var adopted: [(opening: WallOpening, id: String?)] = []
         for item in detected {
             let a = item.segment.0
             let b = item.segment.1
@@ -240,15 +243,15 @@ enum PlanEditing {
 
             let kind = suggestedKind(
                 category: item.category, width: clampedWidth, height: item.height)
-            adopted.append(
-                WallOpening(
-                    edge: bestEdge, offset: quantise(offset), width: quantise(clampedWidth),
-                    // The MEASURED height where there is one; the catalogue's
-                    // sill, because RoomPlan reports no height above the
-                    // floor and a guessed sill on a real window is better
-                    // than a window sitting on the ground.
-                    height: item.height > 0.2 ? item.height : kind.height,
-                    sill: kind.sill, kind: kind))
+            let opening = WallOpening(
+                edge: bestEdge, offset: quantise(offset), width: quantise(clampedWidth),
+                // The MEASURED height where there is one; the catalogue's
+                // sill, because RoomPlan reports no height above the floor
+                // and a guessed sill on a real window is better than a
+                // window sitting on the ground.
+                height: item.height > 0.2 ? item.height : kind.height,
+                sill: kind.sill, kind: kind)
+            adopted.append((opening, item.id))
         }
         return adopted
     }

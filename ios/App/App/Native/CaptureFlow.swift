@@ -840,9 +840,31 @@ struct CaptureFlow: View {
         // list, so the guard has nothing left to protect against.
         if geometry.authoredOpenings == nil {
             let adopted = PlanEditing.adopt(
-                detected: FloorPlanGeometry.detections(in: geometry), polygon: outlinePolygon(of: geometry))
+                detected: FloorPlanGeometry.detections(in: geometry),
+                polygon: outlinePolygon(of: geometry))
             if !adopted.isEmpty {
-                geometry.authoredOpenings = adopted.map(\.stored)
+                // WHAT HE SAID WHILE WALKING WINS. The overlay asked about
+                // each detection with the thing in front of him; this is
+                // where the answer lands. Matched by RoomPlan's own
+                // identifier rather than by position, because `adopt` drops
+                // detections it cannot fit to a wall and an index would
+                // then slide every later answer onto the wrong door.
+                geometry.authoredOpenings = adopted.map { item in
+                    var opening = item.opening
+                    if let id = item.id.flatMap(UUID.init(uuidString:)) {
+                        if case .opening(let chosen) = choices.answer(for: id) {
+                            opening.kind = chosen
+                            // The kind carries its own stock width and
+                            // height; a bifold is not a single door with a
+                            // different name.
+                            opening.width = min(opening.width, chosen.width)
+                            opening.height = chosen.height
+                            opening.sill = chosen.sill
+                        }
+                        if let inward = choices.swing(for: id) { opening.swingInward = inward }
+                    }
+                    return opening.stored
+                }
             }
         }
 

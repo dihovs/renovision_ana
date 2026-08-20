@@ -206,7 +206,10 @@ enum FloorPlanGeometry {
     /// means a door adopted onto a different wall from the one it is drawn
     /// on.
     static func detections(in geometry: ScanGeometry)
-        -> [(segment: (CGPoint, CGPoint), category: PlanEditing.OpeningKind.Category, height: Double)]
+        -> [(
+            segment: (CGPoint, CGPoint), category: PlanEditing.OpeningKind.Category,
+            height: Double, id: String?
+        )]
     {
         // An edited room's openings are already authored; this is only for
         // what a scan produced.
@@ -215,6 +218,11 @@ enum FloorPlanGeometry {
         let heights =
             geometry.doors.map(\.heightMeters) + geometry.windows.map(\.heightMeters)
             + geometry.openings.map(\.heightMeters)
+        // The same positional trick the heights already use, and it holds for
+        // the same reason: `plan.openings` is built from doors, then windows,
+        // then openings, in that order.
+        let ids =
+            geometry.doors.map(\.id) + geometry.windows.map(\.id) + geometry.openings.map(\.id)
         return plan.openings.enumerated().map { index, opening in
             let category: PlanEditing.OpeningKind.Category
             switch opening.kind {
@@ -228,7 +236,8 @@ enum FloorPlanGeometry {
                     CGPoint(x: opening.segment.x2, y: opening.segment.y2)
                 ),
                 category: category,
-                height: index < heights.count ? heights[index] : 0
+                height: index < heights.count ? heights[index] : 0,
+                id: index < ids.count ? ids[index] : nil
             )
         }
     }
