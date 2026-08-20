@@ -1,6 +1,6 @@
 "use client";
 
-import { metersToFeet, toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
+import { toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
 
 /**
  * A scanned room drawn as an actual floor plan.
@@ -409,7 +409,7 @@ function Dimension({
   const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const head = 0.12;
   const grey = "#8a8a8e";
-  const label = formatFeetInches(Math.abs(span));
+  const label = formatPlanLength(Math.abs(span));
   // Where the label ends, near enough: ~0.15 per character at this font
   // size. Only used to place the padlock clear of the text.
   const halfLabel = label.length * 0.075;
@@ -500,13 +500,26 @@ function Padlock({ x, baseline }: { x: number; baseline: number }) {
   );
 }
 
-/** Alternating black and white metre-ish blocks, as on a drawing. Feet
-    here, to match every other measurement on this screen. */
+/**
+ * Alternating black and white blocks, as on a drawing — and THE one place
+ * the unit is written.
+ *
+ * Metric, because every dimension on the plan and every figure in the
+ * report is. It used to be feet while the cover said m², and the comment
+ * here claimed it matched "every other measurement on this screen", which
+ * had stopped being true.
+ *
+ * The bar carries the unit precisely so the dimensions do not have to: a
+ * plan repeats a number twenty times, and twenty `m` suffixes crowd the
+ * short walls until the figures collide. Stated once, under the drawing,
+ * where a reader looks for it.
+ */
 function ScaleBar({ y, width }: { y: number; width: number }) {
-  const totalFt = metersToFeet(width);
-  // A round number of feet that fits comfortably under the plan.
-  const step = totalFt > 40 ? 10 : totalFt > 16 ? 5 : 2;
-  const blockM = step / 3.28084;
+  // A round number of METRES that fits comfortably under the plan — the
+  // 0.5 step is what the reference uses on a small room, where whole metres
+  // would give a two-block bar that says nothing about scale.
+  const step = width > 12 ? 3 : width > 6 ? 1 : 0.5;
+  const blockM = step;
   // Never draw a scale wider than the plan it measures — a bar running past
   // the room reads as part of the drawing.
   const blocks = Math.max(2, Math.min(4, Math.floor(width / blockM)));
@@ -527,11 +540,11 @@ function ScaleBar({ y, width }: { y: number; width: number }) {
       ))}
       {Array.from({ length: blocks + 1 }).map((_, i) => (
         <text key={i} x={i * blockM} y={y - 0.12} textAnchor="middle" fontSize={0.22} fill="#8a8a8e">
-          {i * step}
+          {Number.isInteger(step) ? i * step : (i * step).toFixed(1)}
         </text>
       ))}
       <text x={blocks * blockM + 0.14} y={y + 0.12} fontSize={0.22} fill="#8a8a8e">
-        ft
+        m
       </text>
     </g>
   );
@@ -598,16 +611,23 @@ function Door({
 }
 
 /**
- * 17'-1" — the drafted convention, to the half inch. Whole feet keep their
- * -0" (a drawing writes 4'-0", never a bare 4'); under a foot drops the
- * zero-feet prefix entirely.
+ * A dimension on the plan, in the SAME unit as the document around it.
+ *
+ * The report prints 113.12 m² on its cover and used to print 18'-1 1/2" on
+ * every dimension of every plan inside it. One document, two systems, and a
+ * reader left to convert. The reference does not do this: its plans carry
+ * bare metric numbers — `4.654`, `1.434` — with the unit stated once, on the
+ * scale bar.
+ *
+ * Bare, deliberately. A drawing repeats a dimension twenty times and the
+ * unit does not change between them; printing `m` on each one is noise that
+ * crowds short walls until the numbers overlap. The scale bar says which
+ * unit, once, which is what a drawing has always done.
  */
-function formatFeetInches(meters: number): string {
-  const half = Math.round((meters / 0.0254) * 2) / 2;
-  const feet = Math.floor(half / 12);
-  const rem = half - feet * 12;
-  const whole = Math.floor(rem);
-  const frac = rem % 1 === 0.5 ? " 1/2" : "";
-  if (feet === 0) return `${whole}${frac}"`;
-  return `${feet}'-${whole}${frac}"`;
+function formatPlanLength(meters: number): string {
+  // Millimetre precision, the reference's own: 4.654, not 4.65. On a claim
+  // the third decimal is the difference between a wall measured and a wall
+  // rounded.
+  return meters.toFixed(3);
 }
+
