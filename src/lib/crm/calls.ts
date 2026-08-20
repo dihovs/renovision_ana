@@ -1,3 +1,4 @@
+import { notifyCallEnded } from "@/lib/notify/owner";
 import { db, isMissingTable, MigrationPendingError } from "./db";
 import type { ProjectBrief } from "@/lib/projectBrief";
 
@@ -205,6 +206,25 @@ export async function endCall(
 
   const { error } = await supabase.from("calls").update(patch).eq("call_sid", callSid);
   if (error) console.error("[calls] could not end:", error.message);
+
+  // He asked to hear when Ana takes a call. Read back rather than assumed:
+  // `endCall` is often given no lead id because the extraction that finds one
+  // runs seconds later (`attachLeadToCall`), and the escalation was stamped
+  // during the call by someone else entirely.
+  const { data } = await supabase
+    .from("calls")
+    .select("from_number, duration_seconds, lead_id, escalated_at, transferred_at")
+    .eq("call_sid", callSid)
+    .maybeSingle();
+  if (data) {
+    notifyCallEnded({
+      from: data.from_number as string | null,
+      seconds: data.duration_seconds as number | null,
+      becameLead: Boolean(data.lead_id),
+      escalated: Boolean(data.escalated_at),
+      transferred: Boolean(data.transferred_at),
+    });
+  }
 }
 
 /**

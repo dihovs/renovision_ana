@@ -1,3 +1,4 @@
+import { notifyNewLead } from "@/lib/notify/owner";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { ProjectBrief } from "./projectBrief";
 
@@ -150,7 +151,19 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
   };
 
   const first = await db.from("leads").insert(row).select("id").single();
-  if (!first.error) return first.data.id as string;
+  if (!first.error) {
+    // Tell him it landed. Fire-and-forget by design — a slow Twilio must not
+    // add latency to a customer's form submission, and a failed text must
+    // never cost the enquiry that caused it.
+    notifyNewLead({
+      name: lead.name,
+      phone: lead.phone,
+      address: lead.address,
+      isEmergency: lead.isEmergency,
+      source: lead.source,
+    });
+    return first.data.id as string;
+  }
 
   // A column added by a migration that hasn't run yet fails the WHOLE insert,
   // which would cost a real customer's enquiry over a deploy-order mistake.
@@ -175,6 +188,15 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
 
   const retry = await db.from("leads").insert(reduced).select("id").single();
   if (retry.error) throw new Error(`Supabase insert failed: ${retry.error.message}`);
+  // The reduced insert is still a real lead, and a pending migration is not a
+  // reason for him not to hear about it.
+  notifyNewLead({
+    name: lead.name,
+    phone: lead.phone,
+    address: lead.address,
+    isEmergency: lead.isEmergency,
+    source: lead.source,
+  });
   return retry.data.id as string;
 }
 
