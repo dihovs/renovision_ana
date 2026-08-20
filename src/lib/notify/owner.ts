@@ -1,124 +1,36 @@
-import { SITE_PHONE_TEL } from "@/lib/constants";
 
 /**
- * Push is loaded on DEMAND, and that is not an optimisation.
+ * Tell the owner when something happens he would walk over and look at: a
+ * lead lands, Ana takes a call, a job gets approved.
  *
- * `push.ts` reaches for `node:http2`, because APNs speaks HTTP/2 and Node's
- * `fetch` does not. This file is reached from `leadStore`, which a client
- * component imports for its types — so a static import would drag
- * `node:http2` into a browser bundle, and Turbopack refuses to build that at
- * all. A dynamic import keeps it in a chunk the server alone ever loads.
+ * **Push only.** This began as SMS, because push needed an APNs key out of
+ * his Apple Developer account and nothing could be done until he produced
+ * one. He was clear once he had it: *"I don't want SMS alerts, I want push
+ * notifications."* So the text path is gone rather than left switched off —
+ * a second delivery route that nobody wants is a second thing to keep
+ * working, and an alert arriving twice is worse than arriving once.
+ *
+ * **Never throws, never blocks.** Every caller is in the middle of something
+ * that matters more — saving a lead, closing a call — and an alert that cost
+ * a real customer enquiry because Apple was slow would be a bad trade.
+ *
+ * Push is loaded ON DEMAND, and that is not an optimisation. `push.ts`
+ * reaches for `node:http2`, because APNs speaks HTTP/2 and Node's `fetch`
+ * does not. This file is reached from `leadStore`, which a client component
+ * imports for its types — so a static import would drag `node:http2` into a
+ * browser bundle, and Turbopack refuses to build that at all. A dynamic
+ * import keeps it in a chunk the server alone ever loads.
  */
-async function pushIfConfigured(input: {
-  title: string;
-  body: string;
-  path?: string;
-}): Promise<void> {
+function notify(input: { title: string; body: string; path?: string }): void {
   if (typeof window !== "undefined") return;
-  try {
-    const { push } = await import("@/lib/notify/push");
-    push(input);
-  } catch (error) {
-    console.error("[notify] push unavailable:", (error as Error).message);
-  }
-}
-
-/**
- * Text the owner when something happens he would want to walk over and look
- * at: a lead lands, Ana takes a call, a job gets approved.
- *
- * **Why SMS and not a push notification.** He asked for notifications on his
- * phone, 20 Aug 2026 — *"I want more notifications when I get leads… or when
- * someone calls and my AI answers. I wanna get notifications so I can go and
- * actually check what's going on."* Push is the right long answer and needs
- * an APNs key out of his Apple Developer account, which nobody but him can
- * produce. This needs nothing: Twilio is already sending, and a text reaches
- * a pocket in a wet basement exactly as well as a banner does.
- *
- * **This is NOT the customer SMS path, and the difference is legal, not
- * stylistic.** `sendSms` checks the opt-out list, appends a CASL footer on
- * first contact, and files the message into the customer thread it belongs
- * to — all correct for a message to a consumer, all wrong for an operational
- * alert a business sends to its own owner. Consent law governs commercial
- * electronic messages to other people; this is the system telling its
- * operator that his phone rang. Footing it with "reply STOP to unsubscribe"
- * and filing it under his own number as a customer conversation would be
- * both wrong and confusing.
- *
- * **Never throws, never blocks.** Every caller is in the middle of doing
- * something that matters more — saving a lead, closing a call — and an alert
- * that cost a real customer enquiry because Twilio was slow would be a bad
- * trade. Failures are logged and swallowed.
- */
-
-const TWILIO_API = "https://api.twilio.com/2010-04-01";
-const TIMEOUT_MS = 8_000;
-
-/** Where alerts go. Unset means alerts are off, which is a valid state. */
-function alertNumber(): string | null {
-  const raw = process.env.OWNER_ALERT_NUMBER?.trim();
-  if (!raw) return null;
-  const digits = raw.replace(/[^\d+]/g, "");
-  if (digits.startsWith("+")) return digits;
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return null;
-}
-
-/**
- * Send one alert. Fire-and-forget: callers should NOT await this in a request
- * path they care about — see `notify()` below.
- */
-async function send(body: string): Promise<void> {
-  const to = alertNumber();
-  if (!to) return;
-
-  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
-  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-  const from = (process.env.SMS_FROM_NUMBER?.trim() || SITE_PHONE_TEL).trim();
-  if (!accountSid || !authToken) return;
-
-  // Texting the business line from the business line arrives back through the
-  // inbound webhook and is recorded as a customer reply — the same trap
-  // `sendSms` guards.
-  if (from.replace(/[^\d]/g, "") === to.replace(/[^\d]/g, "")) {
-    console.error("[notify] OWNER_ALERT_NUMBER is the business line — not sending");
-    return;
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const response = await fetch(`${TWILIO_API}/Accounts/${accountSid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
-        "content-type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: to, From: from, Body: body.trim().slice(0, 600) }),
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-      console.error("[notify] Twilio refused:", payload?.message ?? response.status);
+  void (async () => {
+    try {
+      const { push } = await import("@/lib/notify/push");
+      push(input);
+    } catch (error) {
+      console.error("[notify] push unavailable:", (error as Error).message);
     }
-  } catch (error) {
-    console.error("[notify] could not send:", (error as Error).message);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/**
- * Alert the owner, without making him wait for it.
- *
- * The `void` is deliberate and the reason is worth keeping: this runs inside
- * request handlers that are finishing something important. Awaiting a text
- * message before returning a saved lead adds Twilio's latency to a customer's
- * form submission, and Twilio's failures to its failure modes.
- */
-export function notify(body: string): void {
-  void send(body);
+  })();
 }
 
 /** A lead just landed. */
@@ -138,12 +50,7 @@ export function notifyNewLead(input: {
   const line = [where ? where : null, input.phone ? input.phone : null]
     .filter(Boolean)
     .join(" — ");
-  notify([`${head}${from}: ${who}`, line].filter(Boolean).join(" — "));
-  // BOTH, deliberately. A banner is better when the phone is in his hand and
-  // useless when it is on a charger in the truck; a text survives either way.
-  // Neither is a fallback for the other, and push simply does nothing until
-  // Apple's key is set.
-  void pushIfConfigured({
+  notify({
     title: `${head}${from}`,
     body: [who, line].filter(Boolean).join(" — "),
     path: "/admin/leads",
@@ -174,8 +81,7 @@ export function notifyCallEnded(input: {
       : input.becameLead
         ? " — became a lead"
         : "";
-  notify(`Ana answered ${who}${length}${outcome}`);
-  void pushIfConfigured({
+  notify({
     title: "Ana answered a call",
     body: `${who}${length}${outcome}`,
     path: "/admin/calls",
