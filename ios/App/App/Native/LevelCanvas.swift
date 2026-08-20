@@ -1274,6 +1274,66 @@ struct FloorCanvasView: View {
         }
     }
 
+    /// Move the rooms next door after a room's own outline changed.
+    ///
+    /// **His case, and his instinct was right:** *"let's say there is, like,
+    /// three rooms and then the middle room we're trying to make it smaller.
+    /// So I think in this case, it has to bring the other room with it."*
+    /// The rooms were measured one at a time and pushed together; a middle
+    /// room re-measured shorter really does bring the far end of the house
+    /// closer. See `StoreyArranging.carry`.
+    ///
+    /// The edited room moves too, and that is not the same thing. Its stored
+    /// polygon is re-based to its own corner on the way back out
+    /// (`FloorPlanGeometry.plan(from:)`), so an edit that moved the outline's
+    /// low corner would slide the room across the sheet unless its position
+    /// takes the same step back. Both are worked out against ONE offset:
+    /// before and after share the frame `origin - minBefore`.
+    private func carryNeighbours(of roomId: String, from before: [CGPoint], to after: [CGPoint])
+        async
+    {
+        guard let room = cachedLayout.room(id: roomId) else { return }
+        let minBefore = StoreyArranging.bounds(before).origin
+        let minAfter = StoreyArranging.bounds(after).origin
+        let frame = CGPoint(x: room.origin.x - minBefore.x, y: room.origin.y - minBefore.y)
+        func onFloor(_ polygon: [CGPoint]) -> [CGPoint] {
+            polygon.map { CGPoint(x: frame.x + $0.x, y: frame.y + $0.y) }
+        }
+
+        let others = cachedLayout.rooms.filter { $0.id != roomId }
+            .map { (id: $0.id, polygon: floorPolygon($0)) }
+        let shifts = StoreyArranging.carry(
+            edited: onFloor(before), to: onFloor(after), others: others)
+
+        let ownShift = CGSize(
+            width: minAfter.x - minBefore.x, height: minAfter.y - minBefore.y)
+        let ownMoved = abs(ownShift.width) + abs(ownShift.height) > 0.001
+        guard ownMoved || !shifts.isEmpty else { return }
+
+        // Every room's position, for the same reason `commitPlacement` writes
+        // them all: a floor that has been arranged by hand must stop being
+        // re-packed, and a shifted room whose neighbours still have no stored
+        // position would be re-packed away from it on the next load.
+        for other in cachedLayout.rooms {
+            var x = other.origin.x
+            var y = other.origin.y
+            if other.id == roomId {
+                x += ownShift.width
+                y += ownShift.height
+            } else if let shift = shifts[other.id] {
+                x += shift.width
+                y += shift.height
+            }
+            let unchanged =
+                other.room.planX != nil && other.room.planY != nil
+                && abs((other.room.planX ?? 0) - x) < 0.005
+                && abs((other.room.planY ?? 0) - y) < 0.005
+            guard !unchanged else { continue }
+            try? await API.shared.placeRoom(roomId: other.id, x: x, y: y)
+        }
+        await load()
+    }
+
     /// Leave the focused room — tap outside it, discard, Save, Duplicate,
     /// Delete, all funnel here through `RoomEditorCore`'s own `onExit`.
     ///
@@ -1533,6 +1593,9 @@ struct FloorCanvasView: View {
                             onSwitchRoom: { id in
                                 guard let next = rooms.first(where: { $0.id == id }) else { return }
                                 enterRoom(next)
+                            },
+                            onOutlineChanged: { before, after in
+                                Task { await carryNeighbours(of: room.id, from: before, to: after) }
                             },
                             onSaved: { Task { await load() } }
                         )

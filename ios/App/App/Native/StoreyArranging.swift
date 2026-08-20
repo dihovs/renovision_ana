@@ -200,6 +200,129 @@ enum StoreyArranging {
         return best
     }
 
+    // MARK: - Carrying the neighbours
+
+    /// How the rooms around one room have to move when its outline changes.
+    ///
+    /// **The owner's own case, 19 Aug 2026:** *"let's say there is, like,
+    /// three rooms and then the middle room we're trying to make it smaller.
+    /// So I think in this case, it has to bring the other room with it."*
+    ///
+    /// He is right, and the reason is about buildings rather than about
+    /// editors. The rooms were measured one at a time and pushed together;
+    /// if the middle one is re-measured shorter, the rooms beyond it really
+    /// are closer to this end of the house. Leaving them where they were
+    /// would draw a gap that exists in no building — and worse, it would be
+    /// a gap nobody asked for, appearing after an edit that was about
+    /// something else.
+    ///
+    /// Attachment is read from the outline BEFORE the edit, which is the only
+    /// frame in which "these two were touching" is still a fact. A room
+    /// touching a room that has moved moves too, all the way out — that is
+    /// what makes the far room of three follow the middle one.
+    ///
+    /// Everything is FLOOR metres. `before` and `after` must have the same
+    /// corner count: with a corner added or removed there is no edge that is
+    /// the same edge afterwards, and guessing one would move a wall of the
+    /// house on the strength of an index.
+    static func carry(
+        edited before: [CGPoint], to after: [CGPoint],
+        others: [(id: String, polygon: [CGPoint])], tolerance: Double = 0.15
+    ) -> [String: CGSize] {
+        let from = withoutClosingPoint(before)
+        let to = withoutClosingPoint(after)
+        guard from.count == to.count, from.count >= 3, !others.isEmpty else { return [:] }
+
+        var shifts: [String: CGSize] = [:]
+
+        /// What a room sitting against `polygon` has to do when that outline
+        /// becomes `moved` — nil when they were not touching.
+        func shift(of polygon: [CGPoint], against outline: [CGPoint], moved: [CGPoint]?) -> CGVector? {
+            var best: CGVector?
+            var bestGap = tolerance
+            for i in outline.indices {
+                let a = outline[i]
+                let b = outline[(i + 1) % outline.count]
+                let length = hypot(b.x - a.x, b.y - a.y)
+                guard length > 0.3 else { continue }
+                let u = CGVector(dx: (b.x - a.x) / length, dy: (b.y - a.y) / length)
+                let n = CGVector(dx: -u.dy, dy: u.dx)
+
+                for j in polygon.indices {
+                    let c = polygon[j]
+                    let d = polygon[(j + 1) % polygon.count]
+                    let theirLength = hypot(d.x - c.x, d.y - c.y)
+                    guard theirLength > 0.3 else { continue }
+                    let v = CGVector(dx: (d.x - c.x) / theirLength, dy: (d.y - c.y) / theirLength)
+                    guard abs(u.dx * v.dy - u.dy * v.dx) < 0.0698 else { continue }
+
+                    // Their wall has to lie ON mine, and the two have to share
+                    // a real run of it rather than meeting at a corner.
+                    let gap = abs((c.x - a.x) * n.dx + (c.y - a.y) * n.dy)
+                    guard gap < bestGap else { continue }
+                    let t0 = (c.x - a.x) * u.dx + (c.y - a.y) * u.dy
+                    let t1 = (d.x - a.x) * u.dx + (d.y - a.y) * u.dy
+                    guard min(max(t0, t1), length) - max(min(t0, t1), 0) > 0.25 else { continue }
+
+                    bestGap = gap
+                    guard let moved else {
+                        best = CGVector(dx: 0, dy: 0)
+                        continue
+                    }
+                    // How far MY wall travelled across itself. Only the
+                    // perpendicular part: a wall that slid along its own line
+                    // is the same wall in the same place.
+                    let a2 = moved[i]
+                    let travel = (a2.x - a.x) * n.dx + (a2.y - a.y) * n.dy
+                    best = CGVector(dx: n.dx * travel, dy: n.dy * travel)
+                }
+            }
+            return best
+        }
+
+        // First ring: whoever was against the edited room.
+        for other in others {
+            guard let move = shift(of: withoutClosingPoint(other.polygon), against: from, moved: to),
+                abs(move.dx) + abs(move.dy) > 0.001
+            else { continue }
+            shifts[other.id] = CGSize(width: move.dx, height: move.dy)
+        }
+
+        // Then outward: anyone against a room that moved moves the same way.
+        // Bounded by the room count — each pass has to place at least one
+        // more room or there is nothing left to find.
+        var settled = Set(shifts.keys)
+        for _ in 0..<others.count {
+            var added = false
+            for other in others where !settled.contains(other.id) {
+                for (movedID, movedBy) in shifts {
+                    guard let neighbour = others.first(where: { $0.id == movedID }) else { continue }
+                    guard
+                        shift(
+                            of: withoutClosingPoint(other.polygon),
+                            against: withoutClosingPoint(neighbour.polygon), moved: nil) != nil
+                    else { continue }
+                    shifts[other.id] = movedBy
+                    settled.insert(other.id)
+                    added = true
+                    break
+                }
+            }
+            if !added { break }
+        }
+        return shifts
+    }
+
+    private static func withoutClosingPoint(_ polygon: [CGPoint]) -> [CGPoint] {
+        var points = polygon
+        if points.count > 1, let f = points.first, let l = points.last,
+            abs(f.x - l.x) < 1e-9, abs(f.y - l.y) < 1e-9
+        {
+            points.removeLast()
+        }
+        return points
+    }
+
     // MARK: - Turning
 
     /// How far a twist should ACTUALLY turn the room.

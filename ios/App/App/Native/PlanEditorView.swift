@@ -106,6 +106,12 @@ struct RoomEditorCore: View {
     /// Tapping a greyed neighbour goes there. Nil keeps the old behaviour,
     /// where a tap outside the room leaves for the storey.
     var onSwitchRoom: ((String) -> Void)? = nil
+    /// The outline as it was when this room was opened, and as it is being
+    /// saved — reported so the storey can carry the rooms next door.
+    ///
+    /// Reported rather than acted on: this editor knows one room, and which
+    /// OTHER rooms have to move is a question only the floor can answer.
+    var onOutlineChanged: (([CGPoint], [CGPoint]) -> Void)? = nil
     let onSaved: () -> Void
 
     struct Neighbour: Equatable {
@@ -205,6 +211,7 @@ struct RoomEditorCore: View {
     /// floor area under the canvas most of all — is a guess until the
     /// operator drags it onto the real walls and saves.
     @State private var outlineGuessed = false
+    @State private var openedCorners: [CGPoint] = []
 
     /// Which projection the canvas is drawing (§3/§5). The plan editor opens
     /// in 2D and, in this build, stays there — see `threeDBlocked` below.
@@ -2556,6 +2563,11 @@ struct RoomEditorCore: View {
             ]
             outlineGuessed = true
         }
+        // The baseline the storey's carry is measured against. Taken at OPEN,
+        // not at the start of each drag: what the rooms next door care about
+        // is where this room's walls were when the operator walked in, not
+        // where they were half way through a sequence of edits.
+        openedCorners = corners
         // Placed openings come back in their editable form. An unknown kind
         // (from a newer build) is left out of the editor rather than guessed
         // at — deleting it here would delete it from the record on Save.
@@ -2614,6 +2626,9 @@ struct RoomEditorCore: View {
                 // here, so the detections survive the polygon correction.
                 openings: canAuthorOpenings ? openings : nil,
                 ceilingHeight: room.ceilingHeightM)
+            if openedCorners.count == corners.count, openedCorners != corners {
+                onOutlineChanged?(openedCorners, corners)
+            }
             onSaved()
             onExit()
         } catch {
