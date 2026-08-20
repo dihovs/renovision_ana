@@ -2827,7 +2827,41 @@ struct RoomEditorCore: View {
         if scan.polygon.count >= 4 {
             corners = Array(scan.polygon.dropLast())
             outlineGuessed = false
+        } else if let inferred = FloorPlanGeometry.outlineWithClosure(scan.segments),
+            inferred.points.count >= 4
+        {
+            // THE REAL WALLS, with the one gap closed.
+            //
+            // This used to jump straight to a bounding rectangle, and the
+            // owner caught what that costs, 20 Aug 2026: the storey drew his
+            // living room with its notch and its stepped left wall, and
+            // opening that same room showed a plain 5.01 × 11.16 box. Two
+            // drawings of one room, two areas — 60.9 m² on one screen and
+            // 55.9 on the next — and nothing saying which was which.
+            //
+            // Worse, the editor is the screen whose own warning says "drag
+            // the corners onto the real walls". It was the one place that
+            // did not draw them. You cannot drag a corner onto a wall you
+            // cannot see.
+            //
+            // `outlineWithClosure` walks the scanned segments end to end and
+            // guesses exactly ONE edge — the stretch nobody walked. Every
+            // other corner is where the sensor put it. That is a shape worth
+            // correcting; a bounding box is not.
+            var points = inferred.points
+            if let f = points.first, let l = points.last,
+                hypot(f.x - l.x, f.y - l.y) < 0.001
+            {
+                points.removeLast()
+            }
+            corners = points
+            // Still not a measurement — one of these edges was invented —
+            // so the warning and the "placeholder, not measured" label stay.
+            outlineGuessed = true
         } else {
+            // The walls did not even chain: fragments, not an open room.
+            // There is nothing to correct here, so the box is all that is
+            // left — and it is flagged exactly as loudly.
             corners = [
                 CGPoint(x: 0, y: 0), CGPoint(x: scan.width, y: 0),
                 CGPoint(x: scan.width, y: scan.height), CGPoint(x: 0, y: scan.height),

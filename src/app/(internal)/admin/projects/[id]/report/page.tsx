@@ -136,6 +136,18 @@ export default async function ReportPage({
             {equipment.length > 0 && ` · ${equipment.length} equipment record${equipment.length === 1 ? "" : "s"}`}
           </p>
         </div>
+        {/* THE button, not one of three. It hands back the same document
+            every time, laid out by a real browser on the server — see
+            lib/report/pdf.ts for why that had to stop depending on which
+            export route the reader happened to use. */}
+        <a
+          href={`/admin/projects/${project.id}/report/pdf${
+            onlyLockedDimensions ? "?dimensions=locked" : ""
+          }${floorsOnly ? (onlyLockedDimensions ? "&" : "?") + "layout=floors" : ""}`}
+          className="rounded-xl bg-brand-blue px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-blue/90"
+        >
+          Download PDF
+        </a>
         <PrintButton />
         {/* A clean view, for any export route that renders the screen
             rather than the print stylesheet. */}

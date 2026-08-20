@@ -538,6 +538,8 @@ struct AreaEditor: View {
         switch mode {
         case .points where selected == nil:
             return "Tap to adjust points. Tap a midpoint to add one."
+        case .points where corners.count > 3:
+            return "Drag to move it, or remove it. Tap the plan to deselect."
         case .points:
             return "Drag to move it. Tap the plan to deselect."
         case .freehand:
@@ -618,9 +620,41 @@ struct AreaEditor: View {
                             }
                         }
 
-                        Text(instructions)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Brand.inkFaint)
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(instructions)
+                                .font(.system(size: 11))
+                                .foregroundStyle(Brand.inkFaint)
+                            Spacer(minLength: Brand.Space.small)
+
+                            // REMOVING a point, which adding one has always
+                            // needed and never had. His ask, 20 Aug 2026:
+                            // *"we should be able to delete points and also
+                            // add points. If it's a hard shape, we have to be
+                            // able to add points."* A wet patch traced round
+                            // a stair and a chimney takes a dozen corrections
+                            // to get right, and every one of them that went
+                            // in wrong had to stay.
+                            //
+                            // Only with a corner selected, and only above
+                            // three: a polygon with two corners is a line,
+                            // and an area editor must not be able to produce
+                            // one. Below four the button goes rather than
+                            // greys — there is no state in which it could be
+                            // pressed, so offering it would be a lie.
+                            if mode == .points, let index = selected, corners.count > 3 {
+                                Button {
+                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                                    push()
+                                    corners.remove(at: index)
+                                    selected = nil
+                                } label: {
+                                    Label("Remove point", systemImage: "minus.circle.fill")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                     .padding(Brand.Space.base)
                     .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
@@ -877,21 +911,42 @@ struct AreaEditor: View {
         selected = nil
     }
 
-    /// Opens covering the room: its outline when the walls closed into one,
-    /// otherwise the bounding box, which is still a sane thing to pull in
-    /// from when a scan left the room open.
+    /// Opens covering the room — the ROOM, never a box drawn round it.
+    ///
+    /// **This one had money on it.** The fallback used to be the bounding
+    /// rectangle, and the owner spotted what that does, 20 Aug 2026: on a
+    /// living room with a stepped left wall and a notch, the blue region ran
+    /// straight down the outside of the step, over floor that is not in the
+    /// room, and reported 602 sq ft for it. Affected floor area is what a
+    /// claim is priced from. A rectangle laid over an L-shaped room does not
+    /// merely look wrong — it over-states the number an adjuster pays, and
+    /// it is visibly wrong on the drawing, because the shaded edge crosses
+    /// the black wall underneath it.
+    ///
+    /// So: the closed outline where there is one; the CHAINED walls with
+    /// their single inferred edge where the scan stopped short — the same
+    /// shape the editor now corrects, so the two agree by construction.
+    ///
+    /// And where the walls never chained at all, nothing is seeded. An empty
+    /// start makes the operator draw the wet patch, which is the honest
+    /// answer when the app does not know the shape of the room; inventing a
+    /// rectangle and putting a square-foot figure on it is not.
     private func seed() {
         guard corners.isEmpty else { return }
         if plan.polygon.count >= 4 {
             corners = Array(plan.polygon.dropLast())
-        } else {
-            corners = [
-                CGPoint(x: 0, y: 0),
-                CGPoint(x: plan.width, y: 0),
-                CGPoint(x: plan.width, y: plan.height),
-                CGPoint(x: 0, y: plan.height),
-            ]
+            return
         }
+        guard let inferred = FloorPlanGeometry.outlineWithClosure(plan.segments),
+            inferred.points.count >= 4
+        else { return }
+        var points = inferred.points
+        if let f = points.first, let l = points.last,
+            hypot(f.x - l.x, f.y - l.y) < 0.001
+        {
+            points.removeLast()
+        }
+        corners = points
     }
 }
 
