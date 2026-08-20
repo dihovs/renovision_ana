@@ -1099,6 +1099,14 @@ struct FloorCanvasView: View {
     /// the plain move gesture does not also claim the same finger and apply
     /// the travel twice.
     @State private var lifting = false
+    /// How far the finger had already travelled when the hold completed, so
+    /// the drift inside `maximumDistance` is not applied as a move.
+    @State private var liftGrabTranslation: CGSize = .zero
+    /// Where the finger currently is, and how far it has come — kept by the
+    /// observing drag so the long press has somewhere to aim when it
+    /// matures. `LongPressGesture` carries no location of its own.
+    @State private var touchDown: CGPoint?
+    @State private var touchTravel: CGSize = .zero
     /// Whether a wall was against a wall on the last frame, so the snap gets
     /// exactly one haptic rather than one per frame it stays snapped.
     @State private var wasFlush = false
@@ -1365,31 +1373,59 @@ struct FloorCanvasView: View {
                         }
                     )
                     // PRESS AND HOLD to pick a room up, then keep dragging
-                    // in the same motion. Sequenced rather than
-                    // simultaneous: a drag that starts before the press
-                    // completes is a drag of the SHEET, which is the
-                    // gesture that was here first and the one used far more
-                    // often. Holding still for a moment is the whole signal
-                    // that this drag means something else.
+                    // in the same motion.
+                    //
+                    // TWO gestures side by side, and the split is the whole
+                    // point. The drag only WATCHES — it records where the
+                    // finger went down and how far it has come. The long
+                    // press decides, on its `onEnded`, that the hold has
+                    // been earned.
+                    //
+                    // Both halves are bugs the owner hit, one build apart.
+                    //
+                    // Build 160: `sequenced` publishes its second value only
+                    // once the DRAG produces one, so a finger resting
+                    // perfectly still — which is exactly what a long press
+                    // IS — never lifted anything.
+                    //
+                    // Build 162, fixing that the wrong way: `LongPressGesture`
+                    // reports `onChanged(true)` the instant the finger lands,
+                    // not when the duration is met. `onChanged` means "the
+                    // press began", and only `onEnded` means "the press
+                    // succeeded". Reading the first as the second turned
+                    // every tap into a lift, and his report was exact:
+                    // *"when I tap on it, I expect it to go to the editor
+                    // mode, but it doesn't. Instead it's giving me the mode
+                    // to pull the room."*
                     .simultaneousGesture(
-                        LongPressGesture(minimumDuration: 0.4, maximumDistance: 12)
-                            .sequenced(before: DragGesture(minimumDistance: 0))
+                        DragGesture(minimumDistance: 0)
                             .onChanged { value in
-                                guard focusedRoomID == nil else { return }
-                                switch value {
-                                case .first:
-                                    break
-                                case .second(_, let drag):
-                                    guard let drag else { return }
-                                    if !lifting { pickUp(at: drag.startLocation, viewport: viewport) }
-                                    guard lifting else { return }
-                                    moveLifted(by: drag.translation, viewport: viewport)
-                                }
+                                touchDown = value.startLocation
+                                touchTravel = value.translation
+                                guard lifting else { return }
+                                moveLifted(
+                                    by: CGSize(
+                                        width: value.translation.width - liftGrabTranslation.width,
+                                        height: value.translation.height - liftGrabTranslation.height),
+                                    viewport: viewport)
                             }
                             .onEnded { _ in
+                                touchDown = nil
+                                touchTravel = .zero
                                 guard lifting else { return }
                                 lifting = false
+                                liftGrabTranslation = .zero
                                 Task { await commitPlacement() }
+                            }
+                    )
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.4, maximumDistance: 12)
+                            .onEnded { _ in
+                                guard focusedRoomID == nil, !lifting, let touchDown else { return }
+                                pickUp(at: touchDown, viewport: viewport)
+                                // Whatever the finger drifted DURING the hold
+                                // is not a drag of the room.
+                                liftGrabTranslation = touchTravel
                             }
                     )
                     // Dragging a room that is ALREADY in the air. Same

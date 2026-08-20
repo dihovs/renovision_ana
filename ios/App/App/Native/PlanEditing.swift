@@ -449,6 +449,19 @@ enum PlanEditing {
     /// dragging can sit 0.57° off square while being as square as this app
     /// can represent. A hair over one degree keeps that case, and a shape a
     /// hand deliberately pulled out of square is always far past it.
+    /// A polygon without the repeated first point some of them carry.
+    ///
+    /// `FloorPlanGeometry.Plan.polygon` closes its loop by repeating the
+    /// first corner; `PlanEditorView.corners` does not. Anything that counts
+    /// corners has to say which it means, and the answer is always "the real
+    /// ones".
+    static func withoutClosingPoint(_ polygon: [CGPoint]) -> [CGPoint] {
+        guard polygon.count > 1, let first = polygon.first, let last = polygon.last,
+            abs(first.x - last.x) < 1e-9, abs(first.y - last.y) < 1e-9
+        else { return polygon }
+        return Array(polygon.dropLast())
+    }
+
     static func isRectangle(_ polygon: [CGPoint], tolerance: Double = 1.2 * .pi / 180) -> Bool {
         guard polygon.count == 4 else { return false }
         let limit = sin(tolerance)
@@ -1423,8 +1436,9 @@ extension PlanEditing {
     /// been watched splitting one, so this refuses rather than inventing a
     /// polygon — see ORD-44.
     static func splitRoom(
-        _ polygon: [CGPoint], edge: Int, at point: CGPoint, openings: [WallOpening]
+        _ raw: [CGPoint], edge: Int, at point: CGPoint, openings: [WallOpening]
     ) -> RoomSplit? {
+        let polygon = withoutClosingPoint(raw)
         let n = polygon.count
         guard n == 4, isRectangle(polygon), edge >= 0, edge < n else { return nil }
         let (a, b) = edgeCorners(edge, count: n)
@@ -1544,7 +1558,13 @@ extension PlanEditing {
     /// clipping problem; the union of two flush rectangles is a walk around
     /// eight points, and two flush rectangles is what a merge is for. A
     /// non-rectangle returns nil and the caller says so.
-    static func mergeRooms(_ a: [CGPoint], _ b: [CGPoint]) -> [CGPoint]? {
+    static func mergeRooms(_ rawA: [CGPoint], _ rawB: [CGPoint]) -> [CGPoint]? {
+        // `Plan.polygon` repeats its first point to close the loop and the
+        // editor's own `corners` do not. Both reach here, and a five-point
+        // square is not a rectangle to any test that checks a count — which
+        // is exactly how Merge Rooms shipped in 160 and never once appeared.
+        let a = withoutClosingPoint(rawA)
+        let b = withoutClosingPoint(rawB)
         guard a.count == 4, b.count == 4, isRectangle(a), isRectangle(b) else { return nil }
 
         // The shared wall: a pair of edges running the same way, on the same
