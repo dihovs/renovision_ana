@@ -136,3 +136,72 @@ hit-testing — none of which need to exist.
    mini-map; theirs is a full switch.
 4. The **coaching plate**: "Scanning… Stop after every room".
 5. **Stop is a red square**, because the session is a recording.
+
+## 4 — Stopping a room
+
+Camera still live, pointed at the floor. A dark rounded card in the middle
+holding the room just walked, drawn as a **green filled outline** with a
+**green pose wedge** at the corner showing where the operator is standing.
+
+Under it: **"Scan another room"**. Under that: the **red record button**
+again. Top-left: **Done**.
+
+So stopping does not end the visit — it ends a ROOM. You see what you just
+caught, and the same red button starts the next one. `Done` is the way out.
+
+Ours shows a mini-map DURING the walk and nothing after it; this is the
+reverse, and it is the moment the reference chooses to give feedback: after
+the room, when you can still walk back.
+
+## 5 — "Configure Floor Plan", after Done
+
+A sheet. `X` top-left.
+
+```
+Include Objects
+  ☑ Plumbing Fixtures   Like Bathtub, Sink, Toilet, etc.
+  ☑ Appliances          Like Oven, Dishwasher, etc.
+  ☑ Furniture           Like Sofa, Bed, Table, Chair, etc.
+
+  Remember my choices                                    [on]
+
+Session Replay
+  Save Video recording                                   [off]
+  When enabled, a video of each room's scan will be saved and attached
+  to the corresponding room. If disabled, the recordings will be
+  discarded after the scan.
+
+              [ Generate Floor Plan ]
+```
+
+**Two things settled here.**
+
+**This is how they avoid the clutter.** Objects are filtered by FAMILY at
+generate time — three checkboxes, remembered between scans. Not a question
+mark per detection. A restoration operator who never wants furniture turns
+Furniture off once and never sees it again.
+
+**And the video is opt-in, off by default, attached PER ROOM.** The whole
+session is recorded regardless — that is why the button is red — but it is
+discarded unless this is on. So the recording is a scanning aid first and
+evidence second, and the storage cost is a deliberate choice rather than a
+surprise.
+
+## 6 — The finished plan
+
+`Ground Floor`, then the room: **Private Office · 26.63 m²**.
+
+Walls solid black and thick. Doors cut in with a real swing arc. Grid of pale
+blue `+` crosshairs, which is what we already draw.
+
+**The objects are line drawings, in plan, at true size and position** — five
+chairs along a table, a desk run, an armchair at an angle, a mat by the door.
+Simple white fills with a thin black outline. Nothing shaded, nothing
+coloured, no badges, no labels on them at all.
+
+That is the answer to *"the design is very ugly"*: theirs are quiet outline
+figures that read as furniture at a glance and disappear into the drawing.
+
+Bottom bar is a single **Insert**, plus `Swipe up ↑ for Ground Floor info`.
+Top bar: back chevron, `Ground Floor`, `?`, share. Undo/redo top-left of the
+canvas, layers and `2D` top-right — all of which we already have.
