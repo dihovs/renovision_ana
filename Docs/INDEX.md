@@ -13,6 +13,9 @@ file, then `ORDERS.md`.
 order, prefixed with the id. If an order's premise turns out to be wrong, stop and report;
 do not improvise a substitute.
 
+**The CRM website, not the iOS app:** `CRM-Messaging.md` (texting, MMS, WhatsApp,
+and the CASL rules) and `Twilio-Wiring.md` (the account, voice, env vars).
+
 **What is already built:** `REFERENCE-STATUS.md` — this source audited against the magicplan
 reference. BUILT 12 / PARTIAL 16 / ABSENT 25, every claim citing a file and symbol. Check here
 before building anything; several things that look missing are already done.

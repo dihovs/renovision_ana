@@ -51,6 +51,13 @@ renders are substituted with equivalents **in the identical position and role**.
 Position and behaviour are what a hand learns; the glyph inside a button does
 not change where you tap.
 
+**The CRM website is a separate area with its own rules.** Messaging — texting,
+MMS, WhatsApp, the inbox — is `Docs/CRM-Messaging.md`; the Twilio account and
+voice are `Docs/Twilio-Wiring.md`. The magicplan instruction above does NOT
+apply there: it governs the iOS app's screens, not the web CRM. Messaging has
+its own governing constraint instead, which is CASL — read that doc's §2 before
+touching the send path.
+
 **Where the reference lives:** `Docs/reference/magicplan/object-model.md` is the
 authority — observed on the owner's own device, values read off screen, gaps
 marked as gaps. `editor-chrome-design.md` covers the plan-editor chrome.
