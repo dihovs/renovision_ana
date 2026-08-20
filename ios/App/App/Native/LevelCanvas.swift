@@ -1742,6 +1742,32 @@ struct FloorCanvasView: View {
                     .padding(.bottom, Brand.Space.small)
                 }
 
+                // Aiming a merge. Same shape as the pill above and for the
+                // same reason: the bullseye and the arrows say a choice is
+                // being asked for, but not WHICH end of the arrow to press.
+                // The owner sent a screenshot of exactly this state asking
+                // what he was looking at.
+                if merging {
+                    HStack(spacing: Brand.Space.small) {
+                        Text(
+                            mergeTargets.count == 1
+                                ? "Tap the room the arrow comes from"
+                                : "Tap the room to merge in"
+                        )
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        Button("Cancel") {
+                            withAnimation(.snappy(duration: 0.15)) { merging = false }
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .tint(.white)
+                    }
+                    .padding(.horizontal, Brand.Space.base)
+                    .padding(.vertical, Brand.Space.small)
+                    .background(Brand.blue, in: .capsule)
+                    .padding(.bottom, Brand.Space.small)
+                }
+
                 if insertOpen {
                     insertMenu
                         .padding(.horizontal, Brand.Space.base)
