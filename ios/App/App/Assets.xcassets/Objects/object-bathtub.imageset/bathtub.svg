@@ -1,12 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-<ellipse cx="50" cy="80" rx="36" ry="7" fill="#CFCFCB" opacity="0.35"/>
-<path d="M18 43 L58 21 L83 35 L43 58 Z" fill="#F4F6F8" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M18 43 L43 58 L43 73 L18 59 Z" fill="#E7E9EC" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M43 58 L83 35 L83 50 L43 73 Z" fill="#F4F6F8" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M25 43 L58 25 L76 35 L43 53 Z" fill="#DCE8F2" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M31 43 L58 29 L70 35 L43 49 Z" fill="#F4F6F8" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M30 45 L44 53 L70 39 L58 32 Z" fill="#DCE8F2" opacity="0.85"/>
-<circle cx="35" cy="47" r="2.2" fill="#E7E9EC" stroke="#2E3238" stroke-width="1.5"/>
-<path d="M26 38 L26 30 L30 28 L30 36" fill="none" stroke="#2E3238" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M30 28 L36 31" fill="none" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-19.19 -19.12 52.23 52.23"><ellipse cx="6.93" cy="13.00" rx="15.60" ry="7.80" fill="#0B1220" opacity="0.10"/><polygon points="0.00,-12.00 29.44,5.00 13.86,14.00 -15.59,-3.00" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="29.44,17.00 13.86,26.00 13.86,14.00 29.44,5.00" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="-15.59,9.00 13.86,26.00 13.86,14.00 -15.59,-3.00" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="0.00,-9.70 25.29,4.90 13.86,11.50 -11.43,-3.10" fill="#9CC6E8" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/><ellipse cx="-2.60" cy="-4.70" rx="1.83" ry="1.06" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5"/><line x1="19.92" y1="8.50" x2="19.92" y2="1.50" stroke="#C3CAD2" stroke-width="2.6" stroke-linecap="round"/><line x1="19.92" y1="1.50" x2="16.45" y2="-0.50" stroke="#C3CAD2" stroke-width="2.6" stroke-linecap="round"/></svg>

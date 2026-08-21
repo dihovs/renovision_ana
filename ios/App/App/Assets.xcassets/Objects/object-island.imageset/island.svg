@@ -1,12 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-<ellipse cx="50" cy="82" rx="35" ry="6" fill="#CFCFCB" opacity="0.35"/>
-<path d="M18 40 L57 18 L82 32 L43 55 Z" fill="#CFCFCB" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M22 44 L43 56 L43 72 L22 60 Z" fill="#F4F6F8" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M43 56 L78 36 L78 53 L43 72 Z" fill="#E7E9EC" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<line x1="34" y1="50" x2="34" y2="65" stroke="#2E3238" stroke-width="1.5"/>
-<line x1="55" y1="49" x2="55" y2="65" stroke="#2E3238" stroke-width="1.5"/>
-<line x1="67" y1="42" x2="67" y2="58" stroke="#2E3238" stroke-width="1.5"/>
-<path d="M31 72 L31 78" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-<path d="M57 64 L57 75" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-<path d="M66 59 L66 71" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-21.24 -24.01 49.42 49.42"><ellipse cx="3.46" cy="12.00" rx="14.40" ry="7.20" fill="#0B1220" opacity="0.10"/><polygon points="0.00,-16.00 20.78,-4.00 6.93,4.00 -13.86,-8.00" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="20.78,14.00 6.93,22.00 6.93,4.00 20.78,-4.00" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="-13.86,10.00 6.93,22.00 6.93,4.00 -13.86,-8.00" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="0.00,-20.60 24.25,-6.60 6.93,3.40 -17.32,-10.60" fill="#6E7884" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="24.25,-4.00 6.93,6.00 6.93,3.40 24.25,-6.60" fill="#5E6772" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="-17.32,-8.00 6.93,6.00 6.93,3.40 -17.32,-10.60" fill="#4E5661" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="-11.26,9.50 -3.46,14.00 -3.46,0.00 -11.26,-4.50" fill="#EEF1F5" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/><polygon points="-2.60,14.50 5.20,19.00 5.20,5.00 -2.60,0.50" fill="#EEF1F5" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/></svg>

@@ -1,14 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-<ellipse cx="50" cy="84" rx="27" ry="6" fill="#CFCFCB" opacity="0.35"/>
-<path d="M27 36 L50 23 L74 36 L51 50 Z" fill="#F4F6F8" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M27 36 L51 50 L51 70 L30 58 Z" fill="#E7E9EC" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M51 50 L74 36 L71 58 L51 70 Z" fill="#F4F6F8" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<path d="M33 37 L50 28 L68 37 L51 46 Z" fill="#DCE8F2" stroke="#2E3238" stroke-width="2" stroke-linejoin="round"/>
-<circle cx="51" cy="40" r="2" fill="#E7E9EC" stroke="#2E3238" stroke-width="1.5"/>
-<path d="M35 60 L35 79" stroke="#2E3238" stroke-width="3" stroke-linecap="round"/>
-<path d="M65 62 L65 79" stroke="#2E3238" stroke-width="3" stroke-linecap="round"/>
-<path d="M30 79 L40 79" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-<path d="M60 79 L70 79" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-<path d="M48 26 L48 18 C48 15 53 15 55 18 L55 26" fill="none" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-<path d="M55 26 L60 29" fill="none" stroke="#2E3238" stroke-width="2" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-18.56 -20.68 38.86 38.86"><ellipse cx="0.87" cy="8.50" rx="10.20" ry="5.10" fill="#0B1220" opacity="0.10"/><polygon points="0.00,-18.00 15.59,-9.00 1.73,-1.00 -13.86,-10.00" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="15.59,5.00 1.73,13.00 1.73,-1.00 15.59,-9.00" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="-13.86,4.00 1.73,13.00 1.73,-1.00 -13.86,-10.00" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="0.00,-16.10 12.12,-9.10 1.73,-3.10 -10.39,-10.10" fill="#9CC6E8" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/><line x1="0.00" y1="-2.50" x2="0.00" y2="1.50" stroke="#252A31" stroke-width="2.2" stroke-linecap="round"/><line x1="12.99" y1="5.00" x2="12.99" y2="9.00" stroke="#252A31" stroke-width="2.2" stroke-linecap="round"/><line x1="1.73" y1="11.50" x2="1.73" y2="15.50" stroke="#252A31" stroke-width="2.2" stroke-linecap="round"/><line x1="-11.26" y1="4.00" x2="-11.26" y2="8.00" stroke="#252A31" stroke-width="2.2" stroke-linecap="round"/></svg>
