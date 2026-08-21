@@ -47,7 +47,15 @@ export async function GET(request: Request) {
       : await listProjectFiles(projectId!);
     // Signed per request and never persisted — a stored URL outlives its own
     // expiry and starts serving 403s to a report nobody can regenerate.
-    const urls = await signProjectFileUrls(files.map((file) => file.storage_path));
+    // Thumbnails are signed in the SAME batch as the main files, not a
+    // second round trip — one request, whichever paths exist.
+    const thumbnailPaths = files
+      .map((file) => file.thumbnail_path)
+      .filter((path): path is string => Boolean(path));
+    const urls = await signProjectFileUrls([
+      ...files.map((file) => file.storage_path),
+      ...thumbnailPaths,
+    ]);
     return {
       photos: files.map((file) => ({
         id: file.id,
@@ -55,6 +63,9 @@ export async function GET(request: Request) {
         note: file.note,
         uploadedAt: file.uploaded_at,
         url: urls[file.storage_path] ?? null,
+        contentType: file.content_type,
+        durationSeconds: file.duration_seconds,
+        thumbnailUrl: file.thumbnail_path ? (urls[file.thumbnail_path] ?? null) : null,
       })),
     };
   });

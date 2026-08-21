@@ -67,6 +67,10 @@ export type ReportStrings = {
   affectedWallAreaCount: (count: number) => string;
   photosOf: (room: string) => string;
   photoNumber: (n: number) => string;
+  /** Videos are numbered in their own series — `Video 1`, `Video 2` — never
+      merged with the photo count, so a room's third attachment overall can
+      still be captioned `Video 1` if the first two were photos. */
+  videoNumber: (n: number) => string;
   photoUnavailable: string;
   staircase: string;
   staircaseNote: string;
@@ -151,6 +155,7 @@ const en: ReportStrings = {
     `${count} AFFECTED WALL AREA${count === 1 ? "" : "S"}`,
   photosOf: (room) => `Photos / ${room}`,
   photoNumber: (n) => `Photo ${n}`,
+  videoNumber: (n) => `Video ${n}`,
   photoUnavailable: "Photo unavailable",
   staircase: "Staircase",
   staircaseNote: "priced separately, not in the floor area",

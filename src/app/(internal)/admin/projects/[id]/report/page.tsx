@@ -95,9 +95,13 @@ export default async function ReportPage({
         listRoomFiles(scan.id).catch(() => []),
         listRoomWalls(scan.id).catch(() => []),
       ]);
-      const urls = await signProjectFileUrls(files.map((file) => file.storage_path)).catch(
-        () => ({}) as Record<string, string>,
-      );
+      const thumbnailPaths = files
+        .map((file) => file.thumbnail_path)
+        .filter((path): path is string => Boolean(path));
+      const urls = await signProjectFileUrls([
+        ...files.map((file) => file.storage_path),
+        ...thumbnailPaths,
+      ]).catch(() => ({}) as Record<string, string>);
 
       return {
         id: scan.id,
@@ -149,6 +153,8 @@ export default async function ReportPage({
           id: file.id,
           url: urls[file.storage_path] ?? null,
           note: file.note,
+          contentType: file.content_type,
+          thumbnailUrl: file.thumbnail_path ? (urls[file.thumbnail_path] ?? null) : null,
         })),
         wallDisplayElevation: new Map(walls.map((w) => [w.wall_index, w.display_elevation])),
       };

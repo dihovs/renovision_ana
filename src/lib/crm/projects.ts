@@ -58,6 +58,12 @@ export type ProjectFile = {
   content_type: string;
   note: string | null;
   uploaded_at: string;
+  /** Set on a video row only — the clip's length, for the grid's duration
+      badge and the report's own video/photo caption numbering. */
+  duration_seconds: number | null;
+  /** A video's poster frame, as its own storage object — never a second
+      `project_files` row (see migration 0041). */
+  thumbnail_path: string | null;
 };
 
 export type ProjectListItem = Project & {
@@ -859,6 +865,94 @@ export async function addProjectFile(
   }
 
   // Touch the project so the list's "last activity" reflects the upload.
+  await client
+    .from("projects")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", projectId);
+
+  return data.id as string;
+}
+
+/**
+ * Reserve a spot in the bucket for a file the CLIENT will upload directly —
+ * a video, which routinely runs past the ~4.5 MB a route handler's request
+ * body can carry (`MAX_PROJECT_FILE_BYTES` exists for exactly that ceiling).
+ * Supabase's signed upload URL is the standard way around it: the bytes go
+ * straight from the phone to Storage, this server never touches them, and
+ * the returned URL already carries everything needed to authorize the PUT —
+ * no API key travels to the client.
+ *
+ * Deliberately separate from `addProjectFile`'s upload — that function both
+ * uploads AND records in one call because it holds the bytes already; this
+ * one only reserves the PATH, and `recordUploadedFile` below records the row
+ * once the client confirms its own upload succeeded.
+ */
+export async function createUploadTarget(
+  projectId: string,
+  filename: string,
+): Promise<{ path: string; uploadUrl: string }> {
+  const client = requireDb();
+  const clean = sanitizeFilename(filename);
+  const path = `${projectId}/${randomUUID()}-${clean}`;
+
+  const { data, error } = await client.storage.from(FILE_BUCKET).createSignedUploadUrl(path);
+  if (error) throw new Error(`Could not prepare the upload: ${error.message}`);
+  return { path, uploadUrl: data.signedUrl };
+}
+
+/**
+ * Record a `project_files` row for bytes that are ALREADY in the bucket —
+ * the other half of `createUploadTarget`. The size and duration are trusted
+ * from the client here, unlike `addProjectFile`'s byte count, because this
+ * server never received the bytes to measure them itself; the trade a
+ * direct-to-storage upload makes.
+ */
+export async function recordUploadedFile(
+  projectId: string,
+  input: {
+    path: string;
+    filename: string;
+    sizeBytes: number;
+    contentType?: string | null;
+    note?: string | null;
+    roomScanId?: string | null;
+    affectedAreaId?: string | null;
+    wallIndex?: number | null;
+    durationSeconds?: number | null;
+    thumbnailPath?: string | null;
+  },
+): Promise<string> {
+  const client = requireDb();
+  const filename = sanitizeFilename(input.filename);
+  const contentType = sanitizeContentType(input.contentType);
+  const sizeBytes = Number.isFinite(input.sizeBytes) ? Math.max(0, Math.round(input.sizeBytes)) : 0;
+
+  const { data, error } = await client
+    .from("project_files")
+    .insert({
+      project_id: projectId,
+      storage_path: input.path,
+      filename,
+      size_bytes: sizeBytes,
+      content_type: contentType,
+      note: orNull(input.note),
+      room_scan_id: input.roomScanId ?? null,
+      affected_area_id: input.affectedAreaId ?? null,
+      wall_index: input.wallIndex ?? null,
+      duration_seconds:
+        input.durationSeconds != null && Number.isFinite(input.durationSeconds)
+          ? Math.max(0, Math.round(input.durationSeconds))
+          : null,
+      thumbnail_path: orNull(input.thumbnailPath),
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("project_files", error.message);
+    throw new Error(`Could not record the file: ${error.message}`);
+  }
+
   await client
     .from("projects")
     .update({ updated_at: new Date().toISOString() })
