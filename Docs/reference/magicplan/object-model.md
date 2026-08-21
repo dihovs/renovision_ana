@@ -1025,3 +1025,46 @@ every count, but the only complete item list captured is Doors (17, above).
 Listing the rest needs a screenshot per category. Nothing in this repo should
 state what is inside Plumbing or Furniture until that exists — the counts are
 evidence, the contents are not yet.
+
+---
+
+## What their own help centre publishes
+
+`https://help.magicplan.app/the-magicplan-object-library`, fetched 21 Aug 2026.
+
+**No complete item list is published anywhere.** The help page gives each
+category and a handful of representative items, not the 666. The community
+forum has an "Object list" thread with no catalogue attached, and support
+does not publish a PDF or spreadsheet. So the exhaustive names can only come
+from the app itself — a screenshot per category.
+
+What the page DOES give is a sourced set of real item names per category,
+which is enough to build a first pass against:
+
+| Category | Named on their site |
+|---|---|
+| Annotations | Text Box · Shapes & Lines · 360 Panorama |
+| Doors | Hinged & Double Hinged · Pocket & Double Pocket · Folding & Double Folding · Garage |
+| Windows | French · Casement · Hung & Awning · **Skylight** |
+| Structural | **Partition Wall** · Staircases · Kitchen Counter & Island · Column & Pillar · Fireplace |
+| Plumbing | **Copper & PVC pipe** · Electrical/Oil/Gas Furnace · Oil/Electrical/Gas Water Heater · Sinks, toilet & shower |
+| Appliances | Electric & Gas Stove · Refrigerator & **Freezer** · Washer & Dryer / **Stacked** · TV |
+| Kitchen Cabinets | Fixed & **Resizable** Base · **Left/Right/Carousel Corner Base** · Single & Double Wall · **Corner Wall** |
+| Furniture | **Left & Right Arm** Chair & Sofa · **Couch set 4 pieces** · King/Queen/Full Bed · Dining & Coffee Table |
+| Electrical | Fixed & Mounted Lights · **Wiring / Outlets / Switches** / Panels · **Ceiling Fans** |
+| Outdoors | Fencing · Swimming Pool & Deck · Plants |
+| HVAC | **Rectangular & Circular Duct** · Heater/Furnace/**Radiator** · Portable & Wall-Mounted A/C |
+| Garage | Garage Door · **Electric Charger** · Breaker Panel · Car/Truck/Bus · Work Station |
+| Fire & Safety | **Exit & Evacuation Path** · **Eyewash Station & Safety Shower** · Water/CO2/Dry Powder Extinguisher · "No" and "Warning" signs |
+| Restoration | Air Mover · Air Scrubber · **Floor & Wall Drying System** · Dehumidifier · **Humidity/Temp Measurer** |
+
+**And the page lists SEVEN categories the app's own sheet did not show** —
+Durable Medical Equipment, School, Office, Alarm & Security, Retail Store,
+Flat Roof, COVID-19 Response. These are almost certainly optional libraries
+enabled per account rather than part of the 666 counted in the app. Worth
+knowing before anybody treats 666 as the ceiling.
+
+**Bold entries above are things we do not have in any form** and are the
+cheapest wins: a partition wall, a skylight, ducting, a radiator, corner
+cabinets, stacked laundry, a freezer, outlets and switches, and the two
+Restoration items that are literally this company's own kit.
