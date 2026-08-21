@@ -318,6 +318,538 @@
   color: var(--ink);
 }
 
+.report .room-body {
+  display: grid;
+  /* Their arrangement: the locator hard left, the drawing beside it, the
+     numbered key last. `auto` rather than a fixed track so a storey with one
+     room — where there is no locator to draw — closes the column up instead
+     of printing 38mm of white. */
+  grid-template-columns: auto 1.6fr minmax(0, 0.9fr);
+  gap: 6mm;
+  align-items: start;
+  margin-top: 5mm;
+}
+@media (max-width: 640px) {
+  .report .room-body { grid-template-columns: 1fr; }
+  .report .locator { width: 100%; }
+}
+
+.report .photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.report .photos img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* ----------------------------------------------------------------- print */
+@media print {
+  /* The app chrome is not part of the document. */
+  .no-print,
+  nav,
+  header.app-header,
+  footer.app-footer { display: none !important; }
+
+  @page { size: letter portrait; margin: 2cm; }
+
+  html, body { background: #fff !important; }
+  .report-shell { padding: 0 !important; }
+
+  .report .page {
+    border: none;
+    border-radius: 0;
+    /* The @page margin does the insetting when printing, so the sheet
+       itself goes back to filling the paper. */
+    width: auto;
+    /* **Letter, less the @page margins, less 5mm of slack.** This was `0`,
+       which collapsed the sheet to its content — and a collapsed sheet is a
+       flex container with no spare height, so `margin-top: auto` on the
+       footer had nothing to push against and every short page printed its
+       footer tight under the last line instead of at the foot of the paper.
+       The 5mm is deliberate: filling the box exactly is how a rounding
+       error becomes a blank page between every real one. */
+    min-height: 23.4cm;
+    padding: 0;
+    margin: 0;
+    /* Each section is a page. break-after rather than page-break-after: the
+       older property is honoured inconsistently inside grid containers. */
+    break-after: page;
+  }
+  .report .page:last-child { break-after: auto; }
+
+  /* On paper the @page margin insets the content, so the on-screen
+     margins are removed rather than doubled. */
+  .report .page > *,
+  .report .page > .running,
+  .report .page > .page-foot {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .report .page > .running { margin-top: 0; }
+
+  /* A room's plan and its measurements must not be split from each other —
+     a table of figures on a page without the drawing they describe is worse
+     than a slightly shorter page. */
+  .report .room-body,
+  .report figure,
+  .report .listing { break-inside: avoid; }
+
+  .report .running { position: running(header); }
+
+  /* Photographs are the evidence; printers default to dropping backgrounds
+     and flattening colour, which would grey out the damage swatches too. */
+  .report, .report * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ---------------------------------------------------------------- S10 */
+
+/* Photos on their own pages, six to a page in two columns — the
+   reference's own grid, read off a real export. Fixed tile height so a
+   page of six is always the same page, whatever shape the photos are. */
+.photo-grid {
+  display: grid;
+  /* THREE across, two rows — read off his own export rather than off the
+     text-extraction order, which listed them column-first and had me build
+     two columns of three. Six to a page either way; three across is the one
+     that fills the sheet. */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6mm;
+  margin-top: 6mm;
+  /* A page of six is six, or it is not a page of six. Without this the
+     grid was free to split, and a rendered probe came back with photos
+     1-4 on one sheet, 5 and 6 on the next and the signature pushed to a
+     sixth — five sections printing as six pages, with `Page 4/5` on the
+     fifth of them. */
+  break-inside: avoid;
+}
+.photo-grid figure {
+  margin: 0;
+}
+.photo-grid img,
+.photo-grid .missing {
+  width: 100%;
+  /* **Measured against the sheet, not chosen.** Letter less the 2cm
+     margins is 239.4mm. The running header, the section marker, the grid's
+     own top margin and the footer take about 42mm of it; two 8mm gutters
+     take 12; the captions take about 7mm a row. That leaves three rows of
+     47mm, measured back off a rendered page rather than guessed: the
+     section comes out 231.7mm against the 239.4mm it has. 62mm — what this
+     was — made it 250.6mm, so every photo page was followed by a blank
+     one carrying nothing but the overflow. */
+  /* 3 across on a 176mm measure is ~55mm wide; at 74mm tall a portrait
+     phone photograph is barely cropped, and two rows plus a gutter come to
+     154mm of the 197mm the page has under its header. */
+  height: 74mm;
+  object-fit: cover;
+  border: 0.75pt solid var(--rule);
+  border-radius: 1mm;
+  background: #f2f4f6;
+}
+.photo-grid .missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9pt;
+  color: #8e939b;
+}
+/* **The caption goes ON the photograph.** Theirs prints two small chips in
+   the top-left corner of every frame — the room, then which number it is —
+   and it is the better idea: a caption under a tile is attached to it by
+   proximity alone, and proximity breaks the moment a page is cropped,
+   screenshotted or pasted into an email. A chip on the image travels with
+   the image. Amber because it has to hold against a photograph of anything.
+
+   Ours also carry the moment they were taken, burned into the frame by the
+   camera itself — see `PhotoQueue.stamped`. */
+.photo-grid figure { position: relative; }
+.photo-grid figcaption {
+  position: absolute;
+  top: 2mm;
+  left: 2mm;
+  right: 2mm;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2mm;
+  pointer-events: none;
+}
+.photo-grid .chip {
+  display: inline-block;
+  padding: 0.6mm 1.6mm;
+  border-radius: 0.8mm;
+  background: #f2b134;
+  color: #241a05;
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.photo-grid .chip.note {
+  background: rgba(20, 22, 26, 0.72);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* The pointer left on the room page where the photos used to be. */
+.photo-pointer {
+  margin-top: 4mm;
+  font-size: 9pt;
+  color: #62666d;
+}
+
+/* Scale bar: ticked in whole metres so a ruler can check it. */
+.scalebar {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  margin-top: 3mm;
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+
+/* The signature page — four blanks and nothing else. */
+.signature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18mm 12mm;
+  margin-top: 24mm;
+}
+.signature-grid .rule {
+  border-bottom: 0.75pt solid var(--ink-2);
+  height: 16mm;
+}
+.signature-grid span {
+  display: block;
+  margin-top: 2.5mm;
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* ------------------------------------------------ header, markers, figures */
+
+/* The band that identifies the claim on every page after the cover. Theirs
+   is three lines of the same grey; this steps the ink down line by line, so
+   the project reads first and the totals sit where they can be checked
+   rather than competing to be read. */
+.report .running {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  border-bottom: 0.75pt solid var(--rule);
+  padding-bottom: 3mm;
+  margin-bottom: 5mm;
+  /* The accent, second of its three appearances: a short tick sitting on
+     the rule under the header, aligned to the left margin. */
+  position: relative;
+}
+.report .running::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -0.75pt;
+  width: 14mm;
+  border-bottom: 1.5pt solid var(--accent);
+}
+.report .running-project {
+  font-size: 11pt;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.report .running-address {
+  font-size: 8pt;
+  color: var(--ink-3);
+  margin-top: 0.6mm;
+}
+.report .running-totals {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+  margin-top: 1.4mm;
+}
+
+/* **The section device, in place of their `▼`.**
+   A triangle is a disclosure control — it belongs to a screen where things
+   open and close, and on paper it says "tap me" to nobody. What it was
+   doing, though, was worth keeping: marking where one section stops and the
+   next begins, at a glance, down a nineteen-page file. So the job goes to a
+   rule in the firm's green, set on the baseline of the title. */
+.report .marker {
+  font-size: 12pt;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 5mm 0 0;
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+}
+.report .marker::before {
+  content: "";
+  width: 2.2mm;
+  height: 2.2mm;
+  flex: none;
+  background: var(--accent);
+  border-radius: 0.4mm;
+}
+.report .marker-sub {
+  font-size: 8.5pt;
+  color: var(--ink-3);
+  margin: 0.8mm 0 3mm;
+  /* Padding, not margin: `.report .page > *` sets the side margins of every
+     direct child of a sheet and outranks this rule, so a margin-left here
+     is simply discarded — and only on the elements that happen to be direct
+     children, which is how an indent ends up applying on some pages and not
+     others. */
+  padding-left: 4.7mm;
+}
+
+/* A floor's name on the left, its own totals right — their arrangement. */
+.report .section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8mm;
+  flex-wrap: wrap;
+}
+.report .section-head .figures { margin: 0; padding-left: 0; }
+/* Their room page sets the five figures hard right, opposite the name, and
+   lets them wrap onto a second line rather than squeezing the title. */
+.report .figures-right {
+  justify-content: flex-end;
+  text-align: right;
+  max-width: 108mm;
+}
+
+/* Label and value, not one grey string. See the `Figures` component. */
+.report .figures {
+  margin: 2mm 0 0;
+  padding-left: 4.7mm;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5mm 6mm;
+  font-size: 9pt;
+}
+.report .figures .figure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1.8mm;
+  white-space: nowrap;
+}
+.report .figures .k {
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.report .figures .v {
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.report .page-foot {
+  margin-top: 6mm;
+  padding-top: 2.5mm;
+  border-top: 0.75pt solid var(--rule);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8mm;
+}
+.report .page-foot p {
+  font-size: 6pt;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--ink-4);
+  margin: 0;
+  max-width: 132mm;
+}
+.report .page-foot span {
+  font-size: 7.5pt;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* **The cover, as a page rather than a stack.** Theirs is mostly empty:
+   the project and its two facts at the top, the figures a third of the way
+   down, and the firm at the very foot. That emptiness is the design — a
+   cover that fills itself with tables reads as the first page of a table,
+   not as a cover — so the space below the figures is given away with an
+   auto margin rather than guessed at with a fixed one. */
+.report .page.cover { display: flex; flex-direction: column; }
+
+/* `CREATED ON` and `LOCATION`, each a small grey label with its value or
+   its stacked address lines under it. */
+.report .cover-facts {
+  display: flex;
+  gap: 26mm;
+  margin-top: 16mm;
+}
+.report .cover-label {
+  margin: 0 0 2mm;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.report .cover-value {
+  margin: 0;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* The cover's four figures, in the reference's order — and in their
+   arrangement: the LABEL above and the value under it, cells separated by
+   hairlines, the whole strip ruled top and bottom. */
+/* The key plan: the storey, small and quiet, in the space their cover
+   leaves empty. Capped hard — it is an orientation, not the drawing. */
+.report .cover-plan {
+  margin: 12mm 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4mm;
+}
+.report .cover-plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8mm;
+  max-height: 74mm;
+}
+.report .cover-plan-row figure {
+  margin: 0;
+  height: 34mm;
+  flex: 0 1 auto;
+}
+.report .cover-plan-row figure > *,
+.report .cover-plan-row svg { height: 100%; width: auto; max-width: 52mm; }
+.report .cover-plan-caption {
+  margin: 0;
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* The second-level section title — a block INSIDE a room's page rather than
+   the page's own subject, so it steps down a size. */
+.report .marker.marker-2 { font-size: 10pt; margin-top: 6mm; }
+.report .marker.marker-2::before { width: 1.8mm; height: 1.8mm; }
+
+.report .cover-figures {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 24mm 0 0;
+  border-top: 0.75pt solid var(--rule-strong);
+  border-bottom: 0.75pt solid var(--rule-strong);
+}
+.report .cover-figures > div {
+  padding: 4mm 5mm;
+  border-left: 0.75pt solid var(--rule);
+}
+.report .cover-figures > div:first-child { border-left: 0; padding-left: 0; }
+.report .cover-figures .figure-label {
+  display: block;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.report .cover-figures .figure-value {
+  display: block;
+  margin-top: 2mm;
+  font-size: 14pt;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* **The affected-area block, and the photo pointer above it.** Label and
+   value, not a table column — theirs prints the whole of a note as a
+   sentence, and a sentence in a four-column table either wraps into a
+   stripe or squeezes the figures beside it. */
+.report .area-count {
+  margin: 5mm 0 2.5mm;
+  padding-left: 4.7mm;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+/* Each area is one block, held together by a hairline down its left edge —
+   the cheapest way to say "these five rows are one thing" on a page that
+   may carry four of them. */
+.report .area-block {
+  display: grid;
+  grid-template-columns: 30mm 1fr;
+  gap: 1.8mm 6mm;
+  margin: 0 0 4mm;
+  padding-left: 4.7mm;
+  font-size: 9pt;
+  border-left: 0.75pt solid var(--rule);
+}
+.report .area-block dt {
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  align-self: baseline;
+  padding-top: 0.6mm;
+}
+.report .area-block dd {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------- storey plans */
+
+/* One drawing of a whole floor. Capped in height for the same reason the
+   room plan is: an unconstrained SVG grows to fill whatever it is given, and
+   a plan is an illustration of the figures beside it, not the page. */
+.report .storey-plan svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 150mm;
+}
+.report .storey-note {
+  margin: 3mm 0 0;
+  font-size: 7pt;
+  line-height: 1.55;
+  color: var(--ink-4);
+  max-width: 130mm;
+}
+
+/* **The locator.** The same storey, drawn faint with this room in ink, at
+   the size of a postage stamp beside the room's own drawing. Small on
+   purpose: it is an answer to "which one is this", not a second plan. */
+.report .locator { width: 38mm; flex: none; }
+.report .locator svg { max-height: 42mm; }
+
 .report .room-body { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: start; }
 @media (max-width: 640px) {
   .report .room-body { grid-template-columns: 1fr; }

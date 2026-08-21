@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { CauseTag, PlanLegend } from "./ReportSymbols";
+import ReportStoreyPlan from "./ReportStoreyPlan";
 import FloorPlan from "./FloorPlan";
 import { RoomElevations } from "./WallElevation";
 import {
@@ -57,6 +58,11 @@ export type ReportRoom = {
       the type has to reach the report. */
   roomType?: string | null;
   notes: string | null;
+  /** Where the operator dragged this room on the storey canvas. Null means
+      never placed — see `ReportStoreyPlan` for why that changes what the
+      drawing is allowed to claim. */
+  planX?: number | null;
+  planY?: number | null;
   geometry: ScanGeometry;
   areas: AffectedArea[];
   readings: MoistureReading[];
@@ -630,24 +636,30 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 ]}
               />
             </div>
-            <div className="plan-grid">
-              {onLevel.map((room) => (
-                <figure key={room.id}>
-                  <div className="plan">
-                    <FloorPlan result={room.geometry} name={room.name} variant="thumb" />
-                  </div>
-                  <figcaption>
-                    {/* Their caption: name, area, and the extent in
-                        brackets under it. */}
-                    <strong>{room.name}</strong>
-                    <span>
-                      {m2(room.floorAreaSqm)} ({m(planExtent(room.geometry).width)} ×{" "}
-                      {m(planExtent(room.geometry).height)})
-                    </span>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
+            {/* **One building, not nine boxes.** This was a grid of room
+                thumbnails, each in its own card with a caption underneath.
+                Beside the reference's page 2 — a single connected floor,
+                walls joined, doors swinging into the rooms they open, every
+                room named where it stands — the difference is not taste. A
+                grid says *here are the rooms we measured*; a floor plan says
+                *here is the property*. */}
+            <ReportStoreyPlan
+              rooms={onLevel.map((room) => ({
+                id: room.id,
+                name: room.name,
+                geometry: room.geometry,
+                floorAreaSqm: room.floorAreaSqm,
+                planX: room.planX ?? null,
+                planY: room.planY ?? null,
+                areas: room.areas
+                  .filter((area) => area.surface !== "wall" && area.polygon.length >= 3)
+                  .map((area) => ({
+                    id: area.id,
+                    polygon: area.polygon,
+                    color: areaColor(area),
+                  })),
+              }))}
+            />
             <PlanLegend causes={causesInUse} />
             <PageFoot n={levelPages.get(level) ?? 0} of={totalPages} company={company} />
           </section>
@@ -665,44 +677,56 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               on two rows. `WIDTH` and `LENGTH` are the drawing's extent,
               not the longest wall — which is why an L-shaped room's width
               is bigger than any single wall it has. */}
-          <p className="marker">{room.name}</p>
-          <p className="marker-sub">{floorLabel(room.level)}</p>
-          <Figures
-            pairs={[
-              ["WIDTH", m(planExtent(room.geometry).width)],
-              ["LENGTH", m(planExtent(room.geometry).height)],
-              ["CEILING HEIGHT", m(room.ceilingHeightM)],
-              ["AREA", m2(room.floorAreaSqm)],
-              ["PERIMETER", m(room.wallLengthM)],
-            ]}
-          />
-
-          {/* **The locator**: this room picked out in its own floor, so a
-              reader knows WHERE the drawing they are looking at sits. A
-              room page without one is a rectangle with no address — and an
-              adjuster reading nine of them in a row has no way to tell the
-              2nd bedroom from the 3rd except by the label. */}
-          {roomsOnLevel(rooms, room.level).length > 1 && (
-            <div className="locator">
-              {/* Every room on the storey at thumbnail size, THIS one
-                  filled. Not a packed floor plan: the report has no
-                  positions for rooms measured on separate visits, and
-                  drawing a floor whose rooms are placed by guesswork would
-                  be inventing a building. A row of outlines with one picked
-                  out says exactly what it knows and nothing more. */}
-              {roomsOnLevel(rooms, room.level).map((other) => (
-                <figure
-                  key={other.id}
-                  className={other.id === room.id ? "here" : undefined}
-                >
-                  <FloorPlan result={other.geometry} name={other.name} variant="thumb" />
-                </figure>
-              ))}
-              <figcaption>{floorLabel(room.level)} — this room shaded</figcaption>
+          <div className="section-head">
+            <div>
+              <p className="marker">{room.name}</p>
+              <p className="marker-sub">{floorLabel(room.level)}</p>
             </div>
-          )}
+            <Figures
+              align="right"
+              pairs={[
+                ["WIDTH", m(planExtent(room.geometry).width)],
+                ["LENGTH", m(planExtent(room.geometry).height)],
+                ["CEILING HEIGHT", m(room.ceilingHeightM)],
+                ["AREA", m2(room.floorAreaSqm)],
+                ["PERIMETER", m(room.wallLengthM)],
+              ]}
+            />
+          </div>
 
           <div className="room-body">
+            {/* **The locator, and it is the best thing on their page.** His
+                words looking at it, 21 Aug: *"do you see how it shows the
+                room separate but at the same time showing what part of the
+                house it is in on the left with greyed out plan? that is
+                amazing."*
+
+                It is, and for a nameable reason: a room page is a rectangle
+                with a name on it, and nine of them in a row are nine
+                rectangles. This answers the question the reader actually has
+                — *which one is this?* — without a word, using the drawing
+                already on the storey page rather than a new one.
+
+                Ours used to be a ROW of separate room outlines with one
+                shaded, because the report had no assembled floor to draw
+                from. It has one now. */}
+            {roomsOnLevel(rooms, room.level).length > 1 && (
+              <div className="locator">
+                <ReportStoreyPlan
+                  highlight={room.id}
+                  rooms={roomsOnLevel(rooms, room.level).map((other) => ({
+                    id: other.id,
+                    name: other.name,
+                    geometry: other.geometry,
+                    floorAreaSqm: other.floorAreaSqm,
+                    planX: other.planX ?? null,
+                    planY: other.planY ?? null,
+                    areas: [],
+                  }))}
+                />
+              </div>
+            )}
+
             {/* Wrapped so the plan and its note share one grid cell. */}
             <div>
               <div className="plan large">
@@ -950,9 +974,20 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   ) : (
                     <div className="missing">Photo unavailable</div>
                   )}
+                  {/* Two chips on the frame, theirs exactly: the room, then
+                      which number it is. A caption printed under a tile is
+                      attached to it by proximity alone, and proximity breaks
+                      the moment the page is cropped, screenshotted or pasted
+                      into an email — a chip on the image travels with the
+                      image. The note, when there is one, gets a third in a
+                      quieter colour so it never competes with the two that
+                      identify the photograph. */}
                   <figcaption>
-                    {room.name} Photo {index * PHOTOS_PER_PAGE + offset + 1}
-                    {photo.note ? ` — ${photo.note}` : ""}
+                    <span className="chip">{room.name}</span>
+                    <span className="chip">
+                      Photo {index * PHOTOS_PER_PAGE + offset + 1}
+                    </span>
+                    {photo.note && <span className="chip note">{photo.note}</span>}
                   </figcaption>
                 </figure>
               ))}
@@ -1118,9 +1153,16 @@ function DamageTotals({
  * set. Same words, same order, same line; a reader looking for the area now
  * finds it without reading.
  */
-function Figures({ pairs }: { pairs: [string, string][] }) {
+function Figures({
+  pairs,
+  align = "left",
+}: {
+  pairs: [string, string][];
+  /** Their room page sets these hard right, opposite the room's name. */
+  align?: "left" | "right";
+}) {
   return (
-    <p className="figures">
+    <p className={align === "right" ? "figures figures-right" : "figures"}>
       {pairs.map(([label, value]) => (
         <span className="figure" key={label}>
           <span className="k">{label}</span>

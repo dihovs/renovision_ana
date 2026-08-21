@@ -107,6 +107,12 @@ export default async function ReportPage({
         livingAreaPercent:
           scan.living_percent == null ? null : Number(scan.living_percent),
         notes: scan.notes,
+        // Where the operator dragged this room on the storey canvas. The
+        // report draws the floor from these, so what he arranged is what
+        // prints — and where they are null it says so rather than implying a
+        // building it has no positions for.
+        planX: scan.plan_x === null || scan.plan_x === undefined ? null : Number(scan.plan_x),
+        planY: scan.plan_y === null || scan.plan_y === undefined ? null : Number(scan.plan_y),
         geometry: scan.geometry as unknown as ScanGeometry,
         areas,
         // Oldest first here, unlike the phone: a drying log reads as a
