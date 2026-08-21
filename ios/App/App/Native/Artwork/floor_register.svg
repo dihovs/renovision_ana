@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-9.52 -7.11 25.11 25.11"><ellipse cx="3.03" cy="6.25" rx="7.50" ry="3.75" fill="#0B1220" opacity="0.10"/><polygon points="0.00,-1.60 13.86,6.40 6.06,10.90 -7.79,2.90" fill="#C3CAD2" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="13.86,8.00 6.06,12.50 6.06,10.90 13.86,6.40" fill="#AEB6BF" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><polygon points="-7.79,4.50 6.06,12.50 6.06,10.90 -7.79,2.90" fill="#98A2AD" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/><line x1="0.09" y1="-0.15" x2="11.17" y2="6.25" stroke="#6E7884" stroke-width="1.5" stroke-linecap="round"/><line x1="-1.21" y1="0.60" x2="9.87" y2="7.00" stroke="#6E7884" stroke-width="1.5" stroke-linecap="round"/><line x1="-2.51" y1="1.35" x2="8.57" y2="7.75" stroke="#6E7884" stroke-width="1.5" stroke-linecap="round"/><line x1="-3.81" y1="2.10" x2="7.27" y2="8.50" stroke="#6E7884" stroke-width="1.5" stroke-linecap="round"/><line x1="-5.11" y1="2.85" x2="5.98" y2="9.25" stroke="#6E7884" stroke-width="1.5" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.14 0.14 119.71 119.71">
+<polygon points="73.38,27.56 111.60,49.63 46.62,87.14 8.40,65.08" fill="#C3CAD2" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="111.60,54.92 46.62,92.44 46.62,87.14 111.60,49.63" fill="#AEB6BF" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="8.40,70.37 46.62,92.44 46.62,87.14 8.40,65.08" fill="#AEB6BF" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="73.38,32.64 102.04,49.19 46.62,81.18 17.96,64.63" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="71.85" y1="34.40" x2="97.84" y2="49.41" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="64.20" y1="38.82" x2="90.20" y2="53.82" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="56.56" y1="43.23" x2="82.55" y2="58.23" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="48.92" y1="47.64" x2="74.91" y2="62.65" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="41.27" y1="52.06" x2="67.26" y2="67.06" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="33.63" y1="56.47" x2="59.62" y2="71.48" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="25.98" y1="60.88" x2="51.97" y2="75.89" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
