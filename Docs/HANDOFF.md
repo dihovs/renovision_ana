@@ -210,42 +210,26 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
 
 ## 5. Next task
 
-**See `Docs/SECTIONS.md`.** Sections are listed with status, dependencies, and the
-files each one owns — that last column matters, because two chats editing the same
-Swift file will collide.
+**In this order. The first is five minutes and unblocks a build.**
 
-**The next one is S5 — plan editor parity**, and most of 18 Aug was already
-spent inside it without the section being formally opened: the canvas merge,
-one-finger pan, the corner snap, the opening inspector, elevation dragging
-and the unit fix all belong to it. Read S5's own **"State at handoff"**
-block first — it lists what is genuinely left, checked against the code
-rather than remembered, and it is short.
-
-**S5 is DONE.** All four items shipped in **build 120** and confirmed on the
-device by the owner — *"keypad opens it is good, the red numbers are there,
-the rest is good."* The dimension-tap unlock, carried as unverified since
-this file was written, is finally seen working. Items 2, 3 and 4 were: `Set Size` hides on a non-rectangular room
-and comes back when it is square, ORD-31's live edge dimensions on the two
-edges adjoining a dragged corner, and ORD-23's overall bounding extent on its
-own outer line. **None of it has been looked at.**
-
-**Next after S5:** S6, the photo editor, is under way — blur shipped alone in
-build 121 and is unverified. See its own block in `SECTIONS.md`, including
-the one thing that will bite: the new `DELETE /api/v1/photos` route does not
-exist for the phone until the `mobile-app` branch is deployed, because the
-app talks to the Vercel preview.
-
-**ORD-23 moved the camera, so read S5's item 4 before touching the
-viewport.** An outer dimension line needs space outboard of the walls and
-there was none, so the standalone editor's fit inset grew and
-`LevelCanvas.cameraBounds` now pads the focused room by 22% each side — in
-METRES, as a fraction of the room, because `bounds` is what
-`AnimatedStoreyViewport` interpolates and an inset changed at focus would pop
-the base layer on the transition's first frame. Entering a room frames
-slightly wider than build 118 did.
-
-Anything the owner reports live outranks this list — that is how the whole
-of 18 Aug went, and it worked.
+1. **Compile `SiteCamera.swift`.** It has never been through a build. It is
+   the camera every site photo now goes through, so nothing else can be tested
+   on device until it compiles.
+2. **Move the viewBox fitter into `scripts/fit-artwork.mjs`** and note it in
+   the artwork pipeline above. It has been rewritten from memory twice.
+3. **Get a build onto his phone.** `devicectl` has read `unavailable` all
+   session — the tunnel sleeps; this is NOT a Wi-Fi-disabled problem, which I
+   told him three times and was wrong about. A cable settles it.
+4. **Verify the PDF actually renders.** `Download PDF` drives a headless
+   browser server-side and has never once been run end to end — the preview
+   origin has no session and I will not type his password. Either he signs in,
+   or press it from a signed-in browser and check the file.
+5. **Round 2 of the icons** when the 178 arrive: land in `Native/Artwork`,
+   fit, install, add `Entry(...)` for each — **a drawing with no entry is
+   invisible in the picker**, which is how 55 of them sat unreachable.
+6. **Guided protocol Phase 1**, starting with the rules table as pure data
+   plus tests, and no interface at all. The rules ARE the design and he can
+   review them before a screen exists.
 
 ## 6. Never verified on device
 
@@ -284,87 +268,108 @@ installed but not selected" although `xcode-select -p` prints
 password. It did not matter, because the device loop above is faster and
 tests the real thing.
 
-## 6b. Where the 20 Aug session stopped — READ THIS FIRST
+## 6b. Where the 21 Aug session stopped — READ THIS FIRST
 
-**Build 181 exists. Build 175 is the last one actually ON HIS PHONE.** Six
-builds (176–181) are built and unshipped because his iPhone has read
-`unavailable` to `devicectl` all day — the office Wi-Fi blocks the
-peer-to-peer radio, and switching Wi-Fi does not fix it (tested, twice).
-**A cable is the only fix.** Nothing in 176–181 has been seen by him.
+**Long session, three strands: the report, the object library, and two specs
+written but not built.** Everything below is committed and pushed on
+`mobile-app`. Working tree clean.
 
-### The simulator is the test rig now
+### The report — largely rebuilt, and it is the strand furthest along
 
-`iPhone 17 Pro` (`EB6A337F-90D6-4BB1-8E9F-0C59368E5D0E`) is booted and
-**already signed in to his live data**. Install with `simctl install`, drive
-it with screen control on the Simulator window. Two real bugs were caught
-this way today that would otherwise have shipped. It cannot test LiDAR.
+Put beside his own 19-page magicplan export, ours had a grid of room
+thumbnails where theirs had a building. That is fixed and a good deal more:
 
-The built-in simulator MCP tool still needs
-`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` — his
-password, so it stays broken until he runs it.
+- **`ReportStoreyPlan.tsx` (new)** draws a storey as ONE assembled floor from
+  `plan_x`/`plan_y` — the same `resolvePlacements` the phone's canvas uses, so
+  what he arranged is what prints. Where a room was never placed the packer
+  arranges it and the page SAYS so, and no dimension is taken across a packed
+  layout.
+- **The locator** — the storey drawn faint with this room in ink, beside the
+  room's own plan. His words: *"that is amazing."* It is the best idea on
+  their page.
+- **`PlanObjects.tsx` (new)** draws the fixtures — bath, WC, counter run,
+  beds, appliances — on both the storey and the room plan, at each object's
+  measured footprint.
+- **The outer dimension chain**, computed: a wall is outer when a point
+  stepped off its face lands in no other room.
+- **The room plan's chain splits at its openings** — pier, door, pier.
+- **Roboto**, self-hosted. Read out of his export's embedded font table, not
+  guessed.
+- **A cover map**, proxied through `api/admin/staticmap` so the Maps key never
+  reaches the markup.
+- **LANGUAGE PICKER.** `?lang=fr|en`, chosen on the export screen, defaulting
+  to French. The app stays English — his explicit ask. Numbers, dates and
+  ordinals are localised too (`80,53 m²`, `21 août 2026`, `2e étage`), because
+  a page of figures translated only in its labels is half-translated.
 
-### Landed today
+**Three bugs found only by rendering, worth remembering as a method:**
 
-**iOS.** Floor cards get a three-dot menu with Delete floor. Door swing is a
-real stored, editable, drawn property — and all THREE door renderers now read
-it. The mid-scan overlay was DELETED rather than improved: Apple's own white
-massing was always underneath ours, so what is left is a type card at the
-right edge naming what you point at. Chairs, tables and televisions are
-catalogue entries, so they stop being question marks. Scanned objects are
-placed on the plan, filtered by an Include Objects sheet (Plumbing /
-Appliances / Furniture, remembered). `Add New Area` adds an area instead of
-opening a menu of four other things. A floor with rooms but no outlines now
-SAYS so instead of drawing blank paper.
+1. **`report.css` contained a stale duplicate of itself** — 1558 lines, three
+   overlapping generations, and CSS gives the LAST one the win. Changes I had
+   "made" were being silently overridden. 338 lines removed.
+2. **17 sections were printing as 19 sheets.** Room pages came out 288mm on a
+   239mm page.
+3. **`Scale 1:21` printed under a drawing at nearer 1:55** — the ratio was
+   computed against a hard-coded width, but an SVG fitted with
+   `preserveAspectRatio` is scaled by whichever dimension runs out first.
 
-**CRM.** Scan on the home screen, plus an "Ana answered" list. SMS alerts to
-the owner on a new lead and on a finished call. Full APNs push, dormant until
-the key exists. MMS in both directions, with inbound photos copied into our
-own bucket.
+**Read the file with PDFKit and LOOK at the render.** Reading the source
+would have caught none of those three.
 
-### Blocked on him — all four are minutes
+### The object library — 163 icons, and the pipeline around them
 
-1. **A cable**, for the six builds.
-2. `OWNER_ALERT_NUMBER` in Vercel — until then the SMS alerts are off.
-3. Migrations **0039** (device tokens) and **0040** (sms media), plus a
-   private Supabase bucket named **`sms-media`**.
-4. An **APNs key** if he wants banners: `APNS_KEY_P8`, `APNS_KEY_ID`,
-   `APNS_TEAM_ID`. Needs a PAID Apple Developer membership. He asked for
-   banners and the registration page was opened for him; he had not returned
-   with the key when the session ended. **The `aps-environment` entitlement
-   is deliberately NOT added** — adding it before the App ID carries the Push
-   capability would break the signing that currently works. It goes in with
-   the key, in one step, then rebuild and send a test banner rather than
-   assuming it lands.
+He commissioned the artwork from another AI and it is **better than what I
+drew** — verified icon by icon across all 94 of the first batch, not assumed.
+Mine are in git history; the generator `scripts/draw-object-artwork.py`
+survives as the fallback and as the source of the viewBox fitter.
 
-### What he asked for next, in his own words
+- **163 drawings** in `ios/App/App/Native/Artwork/`, every one fitted to
+  0.862 of its tile, dead centre.
+- **`ObjectCatalog.swift` is 144 entries**, up from 72. Every entry has
+  artwork; every drawing but five aliases is reachable in the picker.
+- **`Docs/Object-Catalogue-Target.md`** is the 296-item target. **178 still
+  missing** — Electrical 25, Furniture 27, Cabinets 16, Fire & Safety 16,
+  Structural 16, Appliances 14, Outdoors 14, Windows 12.
 
-His 20 Aug list is `ORD-45`, and the magicplan references he sent are in
-`Docs/reference/report-target.md` and `Docs/reference/scan-flow.md`. **Read
-both before touching the report or the scanner** — they are read off his own
-exports and screenshots, not remembered.
+**THE PIPELINE, and the thing that has now cost time four times:**
 
-Still open from that list:
+```
+ios/App/App/Native/Artwork/*.svg     ← deliveries land HERE, nowhere else
+        │  node <fitter>             ← viewBox → own bbox, 16% pad, centred
+        │  python3 scripts/install-object-artwork.py
+        ▼
+ios/App/App/Assets.xcassets/Objects/ ← GENERATED. never hand-edit.
+```
 
-- **THE REPORT.** The big one, and the deliverable that reaches an adjuster.
-  His export is ONE page of 681 × 14091 pt against magicplan's five of US
-  Letter. The content paginates correctly — every `Page n/16` is present —
-  so the exporter ignores CSS page breaks outright, which means the answer
-  is a PDF this app produces itself, not one a browser is asked to render.
-- **Commercial room types.** He scanned an office and had nowhere to say so.
-  Both magicplan lists are recorded in `scan-flow.md`.
-- The rest of the scan flow: the coaching screen, the green post-room plan
-  card, the mid-scan shutter, the 2D toggle, session video (opt-in, per
-  room).
-- **Ceilings and bulkheads** — sloped ceilings from a height at each corner;
-  a bulkhead as length × width × drop, feeding ceiling area AND joint length,
-  which is what he actually gets paid for.
+Every batch has arrived with `viewBox="0 0 120 120"` and one landed straight
+in the generated catalogue, overwriting fitted files. The fitter is a small
+puppeteer script; it was rewritten twice because it lived in `/tmp`. **Move it
+into `scripts/` next session** — that is a five-minute job that stops the
+sixth repetition.
 
-### The thing worth saying out loud
+### Specified, NOT built
 
-The features are there. **Nothing has been walked end to end on a real job** —
-create, scan, mark damage, photos, report, estimate, send. That is the gap
-between "it is built" and "it is a product", and most of it can now be done
-in the simulator without him.
+- **`Docs/Guided-Protocol-Spec.md`** — Phase 1 of the on-site checklist. A
+  list the job writes for itself from what has been marked; completion derived
+  from records that already exist so it can never disagree with the job;
+  explicit taps STORED, because a dated attributed assertion that somebody
+  looked is a far stronger thing on a claim than the absence of a finding.
+  Rules table first, with tests, before any screen. **He approved the
+  direction.**
+- **`ios/App/App/Native/SiteCamera.swift` (new, NEVER COMPILED)** — a real
+  `AVCaptureSession` camera with the reference's chrome: mode strip, lens
+  buttons, grid, and the timestamp burned into the frame while you aim. It is
+  wired into `RoomPhotosSection` in place of `UIImagePickerController`. **It
+  has not been through a build once.** Compile it before anything else.
+
+### magicplan reference — a correction worth carrying
+
+Their library is **666 items in 14 categories**, not the 465 in 11 this repo
+recorded. The old figure came from a screenshot that stopped scrolling at
+Electrical, missing Outdoors 52, Garage 13 and **Fire and Safety 136** — their
+second largest category, which this repo had written off as holding "nothing
+this trade would place." No complete item list is published anywhere; only the
+17 door names are transcribed.
 
 ## 7. Open backlog
 
