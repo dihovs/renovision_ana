@@ -791,6 +791,23 @@ struct RoomScan: Decodable, Identifiable, Hashable {
         wallLengthM * averageWallHeightM + partitionAreaSqm
     }
 
+    /// Net wall area: gross with the doors, windows and cased openings the
+    /// scan found taken out — the figure paint and drywall are actually
+    /// priced from, since nobody paints a doorway.
+    ///
+    /// The TypeScript twin is `wallAreaSquareMeters`/`savedWallAreaSquareMeters`
+    /// in `src/lib/roomScan.ts`, which this otherwise matches: same
+    /// `width × height` per opening, same clamp at zero for a scan whose
+    /// openings somehow outsize the wall they sit in. It does NOT yet fold in
+    /// `partitionAreaSqm`/`averageWallHeightM` — those are a Swift-only 20 Aug
+    /// addition for half-height partitions that the TS side has not been
+    /// given yet, so this and the web figure can differ on a room with one.
+    var wallAreaNetSqm: Double {
+        let openings = (geometry?.doors ?? []) + (geometry?.windows ?? []) + (geometry?.openings ?? [])
+        let openingAreaSqm = openings.reduce(0) { $0 + $1.widthMeters * $1.heightMeters }
+        return max(0, wallAreaGrossSqm - openingAreaSqm)
+    }
+
     /// Partitions standing inside the room, both faces, each at its own
     /// height. A storage closet built into an office is drywall somebody has
     /// to hang, tape and paint, and until now it counted for nothing at all.

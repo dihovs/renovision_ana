@@ -852,6 +852,19 @@ struct RoomStatisticsSheet: View {
     /// The objects standing in this room — the takeoff `room_objects` was
     /// built for, and until now the only part of it with no screen.
     @State private var objects: [RoomObject] = []
+    /// **S9 — ORD-36.** The reference gives objects their own tab rather than
+    /// folding a bare count list into the measurements scroll; this does the
+    /// same, and the doors/windows/staircases rows that used to sit alone
+    /// under a stray "Objects" section move in here as "Openings" — they are
+    /// counted the same way as everything else on this tab, just not part of
+    /// the `room_objects` table (an opening lives IN a wall, an object stands
+    /// ON the floor — see `Models.swift`'s own note on that split).
+    private enum Tab: String, CaseIterable, Identifiable {
+        case measurements = "Measurements"
+        case objects = "Objects"
+        var id: String { rawValue }
+    }
+    @State private var tab: Tab = .measurements
 
     private var measurements: [ProjectStats.Row] {
         [
@@ -861,6 +874,10 @@ struct RoomStatisticsSheet: View {
             .init(
                 id: "wallArea", label: "Wall area (gross)",
                 value: Measure.sqftLabel(room.wallAreaGrossSqm),
+                meaning: .wallArea),
+            .init(
+                id: "wallAreaNet", label: "Wall area (net)",
+                value: Measure.sqftLabel(room.wallAreaNetSqm),
                 meaning: .wallArea),
             .init(
                 id: "perimeter", label: "Perimeter",
@@ -883,7 +900,10 @@ struct RoomStatisticsSheet: View {
         ]
     }
 
-    private var counts: [ProjectStats.Row] {
+    /// Doors, windows and staircases — counted, not from `room_objects`
+    /// (openings deduct wall area and stand in a wall; a staircase is
+    /// neither). This is the "Openings" block of the Objects tab.
+    private var openingCounts: [ProjectStats.Row] {
         var rows: [ProjectStats.Row] = [
             .init(id: "doors", label: "Doors", value: "\(room.doorCount)", meaning: nil),
             .init(id: "windows", label: "Windows", value: "\(room.windowCount)", meaning: nil),
@@ -951,51 +971,65 @@ struct RoomStatisticsSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("Measurements") {
-                    ForEach(measurements) { StatisticRowView(row: $0) }
+            VStack(spacing: 0) {
+                Picker("", selection: $tab) {
+                    ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, Brand.Space.small)
 
-                if !takeoff.isEmpty {
-                    Section {
-                        ForEach(takeoff) { StatisticRowView(row: $0) }
-                    } header: {
-                        Text("Objects in this room")
-                    } footer: {
-                        if excluded > 0 {
-                            Text(
-                                "\(excluded) more \(excluded == 1 ? "is" : "are") on the plan but excluded from the claim."
-                            )
+                List {
+                    switch tab {
+                    case .measurements:
+                        Section("Measurements") {
+                            ForEach(measurements) { StatisticRowView(row: $0) }
+                        }
+                        Section {
+                            Text("""
+                                Every measurement here is taken to the wall faces the scan detected. \
+                                Where an outline was corrected by hand, the corrected outline is what \
+                                was measured.
+                                """)
+                                .font(.footnote)
+                                .foregroundStyle(Brand.inkFaint)
+                        }
+
+                    case .objects:
+                        Section {
+                            ForEach(openingCounts) { StatisticRowView(row: $0) }
+                        } header: {
+                            Text("Openings")
+                        } footer: {
+                            if room.stairCount > 0 {
+                                Text("Treads and risers are not in the floor area — price them separately.")
+                            }
+                        }
+
+                        if !takeoff.isEmpty {
+                            Section {
+                                ForEach(takeoff) { StatisticRowView(row: $0) }
+                            } header: {
+                                Text("Objects in this room")
+                            } footer: {
+                                if excluded > 0 {
+                                    Text(
+                                        "\(excluded) more \(excluded == 1 ? "is" : "are") on the plan but excluded from the claim."
+                                    )
+                                }
+                            }
+                        }
+
+                        if !work.isEmpty {
+                            Section {
+                                ForEach(work) { StatisticRowView(row: $0) }
+                            } header: {
+                                Text("Work on those objects")
+                            } footer: {
+                                Text("Removing, resetting and replacing are different labour lines — they are counted apart rather than totalled together.")
+                            }
                         }
                     }
-                }
-
-                if !work.isEmpty {
-                    Section {
-                        ForEach(work) { StatisticRowView(row: $0) }
-                    } header: {
-                        Text("Work on those objects")
-                    } footer: {
-                        Text("Removing, resetting and replacing are different labour lines — they are counted apart rather than totalled together.")
-                    }
-                }
-                Section {
-                    ForEach(counts) { StatisticRowView(row: $0) }
-                } header: {
-                    Text("Objects")
-                } footer: {
-                    if room.stairCount > 0 {
-                        Text("Treads and risers are not in the floor area — price them separately.")
-                    }
-                }
-                Section {
-                    Text("""
-                        Every measurement here is taken to the wall faces the scan detected. \
-                        Where an outline was corrected by hand, the corrected outline is what \
-                        was measured.
-                        """)
-                        .font(.footnote)
-                        .foregroundStyle(Brand.inkFaint)
                 }
             }
             .navigationTitle("Statistics")

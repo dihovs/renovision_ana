@@ -43,6 +43,12 @@ enum ProjectStats {
         sum(rooms) { $0.wallAreaGrossSqm }
     }
 
+    /// Net wall area, summed the same way — doors, windows and cased
+    /// openings taken out of every room before the totals are added.
+    static func netWallSqm(_ rooms: [RoomScan]) -> Double {
+        sum(rooms) { $0.wallAreaNetSqm }
+    }
+
     static func floorAreaSqm(_ rooms: [RoomScan]) -> Double { sum(rooms) { $0.floorAreaSqmTrusted } }
     static func perimeterM(_ rooms: [RoomScan]) -> Double { sum(rooms) { $0.wallLengthM } }
 
@@ -79,6 +85,8 @@ enum ProjectStats {
                 value: Measure.sqftLabel(floorAreaSqm(rooms)), meaning: .floorArea),
             Row(id: "wallArea", label: "Wall area (gross)",
                 value: Measure.sqftLabel(grossWallSqm(rooms)), meaning: .wallArea),
+            Row(id: "wallAreaNet", label: "Wall area (net)",
+                value: Measure.sqftLabel(netWallSqm(rooms)), meaning: .wallArea),
             Row(id: "perimeter", label: "Perimeter",
                 value: Measure.ftLabel(perimeterM(rooms)), meaning: .perimeter),
             Row(id: "volume", label: "Volume",

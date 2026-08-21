@@ -37,10 +37,10 @@ Commit the ledger update with the work.
 | **S6** | Photo editor — blur first | **DONE (build 145)** — all four modes; `Path` tool alone left greyed | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
 | **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
 | **S8** | Objects — doors, windows, catalogue | **DONE (build 155)** — 77 entries, 14 sections, sizes, takeoff both levels | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectEmblems.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift`, `Artwork/` |
-| **S9** | Statistics and takeoff | NOT STARTED | S1 | `Measure`, `measureDefinitions.ts` |
+| **S9** | Statistics and takeoff | **PARTIAL (unverified)** — net wall area + Objects tab landed; ground-surface trio and living-area rows still open | S1 | `Models.swift`, `ProjectStatistics.swift`, `RoomDetailView.swift` |
 | **S10** | Report parity | **BUILT (unverified)** — every listed item; needs one export read against theirs | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
-| **S12** | Project and floor screens | **PROJECT DONE (amended 18 Aug) · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
+| **S12** | Project and floor screens | **PROJECT DONE · FLOOR SHELL DONE (built 18-20 Aug, this row was stale)** — one duplicate screen to retire | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
 | **S15** | Photos to customers, by email | **BUILT (unverified) — build succeeded, never sent live** | — | `sendDocument.ts`, `projects.ts`, `SendPhotosPicker.tsx` |
 
@@ -824,6 +824,60 @@ not quietly swap which one the 4-up leads with.
 `ProjectStatistics.swift`'s `StatisticRowView` is no longer private — it is the
 shared ⓘ row, used by both statistics sheets.
 
+**What landed (21 Aug 2026) — a slice of this section, not all of it.**
+Scoped down from the full reference list to what was a real, checked-in gap
+rather than already-decided-against (`footprintInterior`/`footprintGross`,
+the reference's ground-surface trio, are dead `MEASURE_DEFINITIONS` entries
+on the TS side with a documented reason they're not computed — no wall
+thickness on a scan — and that reasoning stands untouched).
+
+- **`RoomScan.wallAreaNetSqm`** (`Models.swift`) — new. Gross minus the
+  doors/windows/openings the scan found, `width × height` each, clamped at
+  zero. Mirrors `wallAreaSquareMeters` in `roomScan.ts`, which already had
+  both figures — Swift only had gross. **Does NOT yet fold in
+  `partitionAreaSqm`/`averageWallHeightM`**, the 20 Aug half-height-partition
+  fix — that's Swift-only and hasn't been given to the TS side either, so a
+  room with an interior partition can show a different net figure on the
+  phone than a report/web screen would compute today. Pre-existing drift,
+  not introduced by this pass, but worth closing before it's trusted for
+  billing.
+- **`ProjectStats.netWallSqm`** (`ProjectStatistics.swift`) — same formula,
+  summed across rooms, added as its own row in the project-level `See All`
+  right after gross. Closes a Swift/TS drift: `projectStatistics.ts` already
+  had both.
+- **`RoomStatisticsSheet` is now two tabs**, `Measurements` / `Objects`,
+  replacing the single scrolling list. This is the literal ORD-36 ask —
+  "add the Objects tab... rather than the plain count rows it has." The
+  Objects tab holds, in order: an "Openings" section (doors/windows/
+  staircases — these were the bare `counts` rows, renamed and moved rather
+  than left orphaned at the bottom of Measurements), then the existing
+  object takeoff (by `displayName`) and the work-by-disposition breakdown,
+  both of which were already correct and just moved under the new tab.
+  `ProjectStatisticsSheet` was left as its own single scroll — its
+  Summary/Measurements/Objects split already reads fine and S9's tab
+  complaint was specifically about the room sheet's orphaned counts.
+
+**Left, deliberately out of this pass:** the ground-surface trio (needs a
+wall-thickness field nothing here has — same blocker S12's floor table
+notes); the living-area rows (`livingAreaAbove`/`Below`/`total`) the
+reference's floor sheet shows, which live in a separate `livingArea.ts`
+module not touched this session; wiring or retiring the orphaned TS
+`countByKind` in `roomObjects.ts` (unused, and duplicative of what both
+Swift sheets already compute inline by `displayName` — a real
+consolidation opportunity, just not one this pass forced).
+
+**Verification.** `xcodebuild … build` → `BUILD SUCCEEDED`. `tsc --noEmit`
+and `npx vitest run` clean (no TS files touched, so unsurprising — 1127
+still passing). Installed and launched on the simulator via `xcrun simctl`
+directly, since the dedicated simulator tool still reports "Xcode is
+installed but not selected" — same `sudo xcode-select` blocker as before,
+and this chat's account has no sudo, so it cannot be run from here at all,
+not just deferred. App launched clean to the sign-in wall; **the new tab
+has not been seen** — no admin password was available to get past it.
+First thing next chat, if it has the password: open a room's Statistics →
+See All, confirm the segmented control, and that Openings/takeoff/work all
+still render under Objects.
+
 ---
 
 ## S10 — Report parity
@@ -985,32 +1039,52 @@ only its 1.5pt outline took a tap. Also fixed: + created a project on tap
 creates), and favouriting bumped `updated_at`, shuffling starred jobs to
 the top of a grid ordered by it.
 
-**THE FLOOR HALF IS NOT BUILT, and here is exactly what it is.** Choosing a
-storey in `Add Floor` currently opens the SCANNER on that floor. The
-reference opens an empty **floor editor**: nav `‹ ⊞ Ground Floor ? ⇪`,
-undo/redo pill top-left, the layers and `2D` steppers top-right, a dotted
-drafting grid, a bottom action bar carrying a single `+ Insert`, and the
-caption `Swipe up ↑ for Ground Floor info`. That is `PlanEditorView`'s
-chrome at FLOOR depth — `editor-chrome-design.md` §4 already lists it
-(`Floor level | Insert · Rotate`). What exists today is `StoreyPlanView`,
-which DRAWS a storey's rooms but has none of that chrome and cannot insert.
-**The drawing canvas already exists — do not build a second one.** The
-owner's words: *"it is the same thing when we manually create a room, we
-have that function already, just the placement is wrong."* He is right.
-`RoomSketchView` is that canvas, reached today through `CaptureFlow` in
-`.draw` mode (`stage == .drawing`). So the floor screen's `+ Insert` should
-open the flow that already exists, not a new surface. What is genuinely
-missing is only the SHELL around it: the floor-depth chrome and an empty
-canvas to land on.
+**THE FLOOR SHELL — MARKED "NOT BUILT" ABOVE, ACTUALLY BUILT 18-20 Aug 2026,
+found stale 21 Aug.** This paragraph originally described choosing a storey
+in `Add Floor` as opening the scanner, with `StoreyPlanView` drawing rooms
+but carrying none of the reference's chrome. That is no longer true and
+apparently hadn't been for a session — nobody flipped this section's status
+after the work landed, which is exactly the "a whole session was once
+spent arguing about a change that had shipped" mistake `HANDOFF.md` §4
+warns about, just against a doc instead of a device.
 
-Building that shell means either lifting the chrome out of
-`PlanEditorView` so both depths share it, or giving `StoreyPlanView` its
-own — worth deciding deliberately, because two copies of that chrome is
-exactly the kind of drift `PlanTransform` was written to end. **S5 owns the
-chrome; this section owns the screen; neither owns a new canvas, because
-there does not need to be one.**
+**What's actually there now.** `Add Floor` and the Floor Plans rail both
+route to `FloorCanvasView` (`ProjectsView.swift`'s `openFloor` destination,
+`LevelCanvas.swift:1042`), which has the full floor-depth chrome pulled out
+into the shared `EditorChrome.swift` this section originally called for:
+`EditorUndoRedoPill`, two `EditorStepperPill`s (floor switch, 2D/3D),
+`EditorActionBar(depth: .floor(name:))` with its `+ Insert` popover
+(Room/Object/Note/Form/Photo), and swipe-up opening `FloorDetailView`
+(`LevelCanvas.swift:2570`) — tabs, header, a 4-up Statistics band, exactly
+the shell described below. Insert → Room routes into the SAME draw/scan
+flow (`CaptureFlow`, `RoomSketchView`) rather than a second canvas, as
+asked. `EditorChrome.swift`'s own header makes the shared-chrome reasoning
+explicit — same philosophy `PlanTransform` set for geometry, applied here
+to layout.
 
-**A `floors` table is the next real blocker on this section.** The floor
+**One genuine loose end, not yet closed.** `StoreyPlanView` (still in
+`LevelCanvas.swift:562`) is a SECOND, older, unchromed floor screen —
+hand-rolled nav bar, a bespoke single "Add Room" action tile instead of
+`EditorActionBar`, its own simpler `StoreyInfoSheet` instead of
+`FloorDetailView`. It never got upgraded when `FloorCanvasView` was built;
+it just moved to a narrower job. `ProjectsView.swift`'s `landing`
+destination (set only when a capture finishes, so the newly filed rooms can
+be spotlit in white — `arrivals: [FiledRoom]`, `StoreyPlanView`'s own init)
+still routes there, while every other floor entry point routes to
+`FloorCanvasView`. **This is now the exact "two copies of that chrome"
+drift this section always warned against** — just realized as an
+un-upgraded old screen rather than a hand-copied new one. Retiring it means
+giving `FloorCanvasView` an `arrivals` parameter and the same spotlight
+behaviour, then deleting `StoreyPlanView`/`StoreyInfoSheet` and the
+`landing` destination in favour of `openFloor`. Not done this pass —
+flagged rather than rushed, since the spotlight behaviour has its own
+built-in-review logic (`concerns`, `StoreyPlanView.swift` — actually
+`LevelCanvas.swift` — around the `pending`/`spotlight` properties) worth
+reading in full before touching it, and this section's own remaining
+blocker below still stands regardless.
+
+**A `floors` table is the next real blocker on the REST of this section —
+the floor inspector's fields, not the shell above.** The floor
 inspector (swipe up from the Insert bar) is built and matches §2c's shell —
 tabs, header, Statistics 4-up — but every figure on it is DERIVED and
 read-only, because a storey is a string on `room_scans.level` rather than a
@@ -2307,3 +2381,27 @@ Newest last. One or two lines per chat.
   none of `sendDocument.ts`'s other four senders have one either. Full
   account in S15 above, including what it deliberately left alone: outbound
   MMS (owner declined it 20 Aug) and inbound MMS/email, both still open.
+- **2026-08-21 (later)** — S9 started: `RoomScan.wallAreaNetSqm` (Swift
+  finally has the net figure the TS side already had), the same summed into
+  `ProjectStats.netWallSqm`, and `RoomStatisticsSheet` split into
+  Measurements/Objects tabs — the literal ORD-36 ask, the old bare
+  doors/windows/stairs counts folded into the Objects tab as "Openings"
+  rather than left orphaned. `xcodebuild` → `BUILD SUCCEEDED`, installed and
+  launched via `xcrun simctl` directly (the dedicated simulator tool is
+  still blocked on a `sudo xcode-select` this account cannot run at all).
+  **Not seen** — no admin password in reach to get past the sign-in wall.
+  Deliberately left for a later pass: the ground-surface trio (needs wall
+  thickness, same blocker as S12's floor table), living-area rows, and the
+  orphaned TS `countByKind`. Full account in S9 above.
+- **2026-08-21 (later still)** — Went looking to build S12's "floor shell"
+  (the empty floor editor S12 says is "NOT BUILT") and found it already
+  built — `FloorCanvasView`, `EditorChrome.swift`, `FloorDetailView`, all
+  landed and wired 18-20 Aug, several sessions after this section's own
+  text was last written and never flipped to reflect it. No code changed;
+  corrected the ledger instead, since shipping a second copy of an
+  already-shipped screen would have been strictly worse than doing nothing.
+  Found one real, still-open loose end while confirming this: `StoreyPlanView`,
+  an older unchromed floor screen, is still used for the post-capture
+  landing and never got retired when `FloorCanvasView` replaced its other
+  job — flagged in S12 rather than fixed, since closing it means giving
+  `FloorCanvasView` the same newly-filed-rooms spotlight behaviour first.

@@ -298,8 +298,14 @@ struct LibraryTile: View {
             ZStack(alignment: .topTrailing) {
                 ZStack {
                     Brand.surfaceRaised
+                    // **The drawings are square and the tile was not.** At
+                    // 100x80 with 10pt of padding the art was height-limited
+                    // to 60pt with 20pt of white either side of it — the
+                    // icons read as small in their own tiles. The SVGs
+                    // already carry a 16% margin of their own from the
+                    // fitter, so a second generous one here is padding twice.
                     LibraryArt(item: item)
-                        .padding(Brand.Space.small)
+                        .padding(5)
                 }
                 // The star sits ON the tile, exactly as his screenshot has
                 // it — filled when it is a favourite, hollow when it is not,
@@ -313,7 +319,7 @@ struct LibraryTile: View {
                 }
                 .buttonStyle(.plain)
             }
-            .frame(width: 100, height: 80)
+            .frame(width: 100, height: 86)
             .clipShape(.rect(cornerRadius: Brand.Radius.tile))
 
             Text(item.name)
