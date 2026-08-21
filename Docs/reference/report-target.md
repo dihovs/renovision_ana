@@ -130,3 +130,89 @@ Photos grouped under the room, captioned by what they are of.
 4. Plan dimensions are bare numbers; the unit lives on the scale bar.
 5. Affected areas are a labelled block on the room's own page, notes in
    full, photos cross-referenced to a later page.
+
+---
+
+# Second reference: `My New Project Report 6.pdf`
+
+Sent 20 Aug 2026, the same job he is about to run through ours for a
+side-by-side. **6 pages, all 612 × 792.** Three things this one shows that
+the five-page export did not.
+
+## 1. There is a SIGNATURE page
+
+Page 6, and it is the last page every time:
+
+```
+Signature                    Signature Date
+Printed Full Name            Phone
+```
+
+Four ruled fields and nothing else. We have no such page. On a restoration
+job that page is the customer's authorisation to proceed — the reason the
+rest of the document is admissible as an agreed scope rather than as our
+own opinion of it.
+
+## 2. Photos have their own pages, captioned, and are cross-referenced twice
+
+Page 4 is `▼ Photos/Living Room`, six photos, captioned by ROOM and NUMBER:
+
+```
+Living Room Photo 1    Living Room Photo 2
+Living Room Photo 3    Living Room Photo 4
+Living Room Photo 5    Living Room Photo 6
+```
+
+Two columns, three rows — six to a page. Page 5 is a SECOND photos page for
+the affected area's own photo, headed `1 Affected Area`.
+
+And the room page points at both rather than inlining either:
+
+```
+Photos     6 Photos (see photos page)
+```
+
+## 3. The affected-area block, with real content
+
+```
+▼ Living Room/Ground Floor
+Photos            6 Photos (see photos page)
+1 AFFECTED AREA
+Area              15.56 m²
+Name              Water damage the entire floor needs to be replaced
+Photo             1 Photo (see photos page)
+```
+
+Note what he actually typed: the **Name** field is carrying the whole
+description — *"Water damage the entire floor needs to be replaced"*. So on
+a real job the name IS the scope note. Ours offers a name and notes
+separately; theirs has one field and he uses it as a sentence.
+
+## 4. A correction to something I changed
+
+Their cover prints **`Bathroom 0`**. I hid ours when the count is zero,
+reasoning that a zero reads as an unfilled field. His instruction on this
+document was explicit, 19 Aug: *"just duplicate whatever I send you. Don't
+try to be creative whatever."* Theirs prints the zero, so ours should.
+
+## 5. Confirmed again, from a second document
+
+- Room stats are five figures as running text, in two rows, and **no wall
+  area**: `WIDTH • LENGTH • CEILING HEIGHT` then `AREA • PERIMETER`.
+- Floor-page room labels carry area and dimensions: `Living Room 23.39 m²
+  (5.195 × 7.633)`, and a small room gets them without brackets: `Other
+  2.23 m² 1.608 × 1.384`.
+- Plan dimensions are bare metric to three decimals; the unit appears once,
+  on the scale bar (`0.0 0.5 1.0 1.5 2.0m`) beside a ratio (`1:42`). The
+  room page uses a coarser bar for a bigger scale (`0 1 2 3m`, `1:80`).
+
+## What ours still owes, in order
+
+1. **The signature page.** Absent entirely.
+2. **Photo pages captioned `<Room> Photo <n>`**, six to a page, two columns —
+   and the room page carrying `Photos — n Photos (see photos page)` rather
+   than the photos themselves.
+3. **The affected-area block** as label/value rows on the room's own page:
+   Area, Name, Photo.
+4. **Room stats without wall area**, as text rather than a four-cell strip.
+5. **`Bathroom 0` restored.**
