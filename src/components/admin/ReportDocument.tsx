@@ -79,7 +79,18 @@ export type ReportRoom = {
   geometry: ScanGeometry;
   areas: AffectedArea[];
   readings: MoistureReading[];
-  photos: { id: string; url: string | null; note: string | null }[];
+  photos: {
+    id: string;
+    url: string | null;
+    note: string | null;
+    /** Present for every row now; absent only from a caller that hasn't
+        been updated to send it. Undefined and `"image/..."` are treated
+        the same — video is the one value that changes anything. */
+    contentType?: string | null;
+    /** A video's poster frame. `url` above still points at the video
+        itself — this is what actually gets drawn on paper. */
+    thumbnailUrl?: string | null;
+  }[];
   /** Wall index → "Display Elevation in Report", for the walls that have it
       set at all. Additive on top of the damaged-walls-only default. */
   wallDisplayElevation?: Map<number, boolean>;
@@ -229,6 +240,26 @@ function planExtent(geometry: ScanGeometry): { width: number; height: number } {
 function planWidthM(geometry: ScanGeometry): number {
   const plan = toFloorPlan(geometry);
   return plan.width > 0 ? plan.width : 0;
+}
+
+function isVideo(photo: { contentType?: string | null }): boolean {
+  return Boolean(photo.contentType?.startsWith("video/"));
+}
+
+/** Every attachment's caption number, WITHIN ITS OWN KIND — a photo counts
+    against other photos, a video against other videos, so the room's third
+    attachment overall can still print as `Video 1` if the first two were
+    photos. Videos do print (`<room> Video n`), per the reference's own
+    numbering — see `Docs/reference/magicplan/object-model.md` §2e. */
+function captionNumbers(room: ReportRoom): Map<string, number> {
+  const numbers = new Map<string, number>();
+  let photoCount = 0;
+  let videoCount = 0;
+  for (const photo of room.photos) {
+    if (isVideo(photo)) numbers.set(photo.id, ++videoCount);
+    else numbers.set(photo.id, ++photoCount);
+  }
+  return numbers;
 }
 
 /** One room's photos, split into pages of six. */

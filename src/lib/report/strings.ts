@@ -258,6 +258,7 @@ const fr: ReportStrings = {
     `${count} ZONE${count === 1 ? "" : "S"} DE MUR SINISTRÉE${count === 1 ? "" : "S"}`,
   photosOf: (room) => `Photos / ${room}`,
   photoNumber: (n) => `Photo ${n}`,
+  videoNumber: (n) => `Vidéo ${n}`,
   photoUnavailable: "Photo indisponible",
   staircase: "Escalier",
   staircaseNote: "facturé séparément, non compris dans la superficie de plancher",

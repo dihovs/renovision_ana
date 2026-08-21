@@ -212,8 +212,30 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
 
 **In this order. The first is five minutes and unblocks a build.**
 
-1. **Get a build onto his phone.** This is now the only thing standing between
-   the work and his hands. `devicectl` has read `unavailable` all
+1. ~~Get a build onto his phone.~~ **DONE 21 Aug — the first install to the
+   device since build 175.** How, because the project does not record it and a
+   device build FAILS without it:
+
+       cd ios/App && xcodebuild -project App.xcodeproj -scheme App \
+         -destination 'id=73E8F9E5-0BC7-53C2-B9E5-41377E9D51E2' \
+         -derivedDataPath /tmp/ddev -allowProvisioningUpdates \
+         DEVELOPMENT_TEAM=P34VX5R85A build
+       xcrun devicectl device install app \
+         --device 73E8F9E5-0BC7-53C2-B9E5-41377E9D51E2 \
+         /tmp/ddev/Build/Products/Debug-iphoneos/App.app
+
+   **`DEVELOPMENT_TEAM` is not in `project.pbxproj`.** Signing is Automatic
+   with no team, so a device build stops with "requires a development team"
+   until it is passed on the command line. `P34VX5R85A` is the OU of his
+   signing certificate, which is where the value came from.
+
+   **And the phone was simply reachable** — `tunnelState: connected`,
+   `transportType: localNetwork`. Earlier sessions in this repo concluded the
+   office Wi-Fi blocked the peer-to-peer radio and that only a cable would
+   work. That was wrong. The tunnel sleeps and wakes; check before assuming.
+
+   `devicectl device process launch` then dropped the connection, which does
+   not matter — the install landed and the icon launches by hand. `devicectl` has read `unavailable` all
    session — the tunnel sleeps; this is NOT a Wi-Fi-disabled problem, which I
    told him three times and was wrong about. A cable settles it.
 2. **Verify the PDF actually renders.** `Download PDF` drives a headless
