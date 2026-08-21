@@ -983,3 +983,45 @@ So the gap worth closing is:
    theirs and is a good constraint regardless of the list.
 
 Not built. Offered 21 Aug and declined for now.
+
+---
+
+## The object library in full — 14 categories, 666 items
+
+Read off `screens/54-object-library-categories.jpg`, which shows the whole
+list without scrolling. **This supersedes the partial count quoted elsewhere
+in this repo** — including the header comment in `ObjectCatalog.swift`, which
+cites a list that stopped at Electrical and therefore missed three categories
+and 201 items.
+
+| Category | Items | Ours |
+|---|---:|---:|
+| Annotations | 25 | 5 |
+| Doors | 17 | 11 |
+| Windows | 15 | 9 |
+| Structural | 27 | 4 |
+| Plumbing | 57 | 8 |
+| Appliances | 29 | 5 |
+| Kitchen Cabinets | 37 | 5 |
+| Furniture | 126 | 8 |
+| Electrical | 69 | 2 |
+| **Outdoors** | **52** | 5 |
+| HVAC | 34 | 2 |
+| **Garage** | **13** | 5 |
+| **Fire and Safety** | **136** | 8 |
+| Restoration | 29 | 15 |
+| **Total** | **666** | **92** |
+
+**Fire and Safety at 136 is the surprise** — the second largest category in
+their library, larger than Electrical, and one this repo had recorded as
+having "nothing to put in it that this trade would place." That judgement was
+made against a category list that did not include it.
+
+The sheet also ends with **`+ New Object`**: the library is user-extensible,
+which is part of why it can be this large.
+
+**What is NOT recorded here: the item names.** We have every category and
+every count, but the only complete item list captured is Doors (17, above).
+Listing the rest needs a screenshot per category. Nothing in this repo should
+state what is inside Plumbing or Furniture until that exists — the counts are
+evidence, the contents are not yet.

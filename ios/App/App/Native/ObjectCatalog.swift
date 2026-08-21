@@ -31,15 +31,22 @@ enum ObjectCatalog {
     private static let inch = 0.0254
 
     /// **Their order and their names**, taken off the owner's own
-    /// screenshots of the library, 18 Aug 2026 — `Doors 17 · Windows 15 ·
-    /// Structural 27 · Plumbing 57 · Appliances 29 · Kitchen Cabinets 37 ·
-    /// Furniture 126 · Electrical 69 · HVAC 34 · Restoration 29`. The
+    /// screenshots of the library — the FULL list, 14 categories and 666
+    /// items: `Annotations 25 · Doors 17 · Windows 15 · Structural 27 ·
+    /// Plumbing 57 · Appliances 29 · Kitchen Cabinets 37 · Furniture 126 ·
+    /// Electrical 69 · Outdoors 52 · HVAC 34 · Garage 13 · Fire and Safety
+    /// 136 · Restoration 29`. An earlier version of this comment quoted a
+    /// list that stopped at Electrical, which is why it under-counted by 201
+    /// and why the note below about their missing categories was wrong. The
     /// standing instruction is that the list he scrolls is the list he
     /// already knows, so the sections sit in his order rather than in one
     /// sorted by how often this trade meets them.
     ///
-    /// Their `Annotations`, `Outdoors`, `Garage` and `Fire and Safety` are
-    /// not here yet — nothing to put in them that this trade would place.
+    /// `Annotations`, `Outdoors`, `Garage` and `Fire and Safety` are thin
+    /// here. That was once justified as "nothing this trade would place" —
+    /// a judgement made against a category list that did not include them.
+    /// Theirs holds 136 items under Fire and Safety alone, the second
+    /// largest category they ship.
     /// **`Restoration` is theirs too** and is the one section we can fill
     /// better than they can: it is this company's own equipment.
     ///
