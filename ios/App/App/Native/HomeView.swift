@@ -16,7 +16,7 @@ struct HomeView: View {
 
     @State private var summary: DashboardSummary?
     @State private var error: String?
-    @State private var scanning = false
+    @State private var showLeads = false
     @State private var showMore = false
     @State private var phoning = false
     @State private var texting = false
@@ -46,7 +46,7 @@ struct HomeView: View {
                         if let summary {
                             todaySection(summary)
                             attentionSection(summary)
-                            quickActions
+                            quickActions(summary)
                             figuresSection(summary)
                         }
                     }
@@ -185,24 +185,57 @@ struct HomeView: View {
         }
     }
 
-    private var quickActions: some View {
+    /// **The three things that are waiting for him.**
+    ///
+    /// `Scan a room` was here and is not any more — his instruction, 21 Aug,
+    /// pointing at the tile: *"this needs to bring leads here instead."* He
+    /// is right, and the reason is what this row is for. Scanning is
+    /// something you start when you are already standing in a room with a
+    /// project open, and it is one tap from every project; leads, calls and
+    /// texts are things that arrive while the phone is in a pocket. A home
+    /// screen should say what came in, not offer a shortcut to work already
+    /// in hand.
+    ///
+    /// **And they carry counts, the way an iPhone does** — his second
+    /// instruction the same evening: *"messages and calls also should show
+    /// like on the iPhone the number of incoming calls and messages, if they
+    /// are unread."* Which means the badge has to CLEAR, or within a week it
+    /// is a red circle nobody reads. Opening a sheet marks that surface seen.
+    private func quickActions(_ summary: DashboardSummary) -> some View {
         VStack(alignment: .leading, spacing: Brand.Space.small) {
             SectionHeading(title: "QUICK")
             HStack(spacing: Brand.Space.small) {
-                QuickAction(icon: "camera.viewfinder", label: "Scan a room", tint: Brand.blue) {
-                    scanning = true
+                QuickAction(
+                    icon: "sparkles", label: "Leads", tint: Brand.blue,
+                    badge: summary.leadBadge, badgeNoun: "new lead"
+                ) {
+                    showLeads = true
                 }
-                QuickAction(icon: "phone.fill", label: "Phone", tint: Brand.green) {
+                QuickAction(
+                    icon: "phone.fill", label: "Phone", tint: Brand.green,
+                    badge: summary.callBadge, badgeNoun: "missed call"
+                ) {
                     phoning = true
+                    Task { await API.shared.markSeen("calls") }
                 }
-                QuickAction(icon: "message.fill", label: "Messages", tint: Brand.blueDark) {
+                QuickAction(
+                    icon: "message.fill", label: "Messages", tint: Brand.blueDark,
+                    badge: summary.messageBadge, badgeNoun: "unread message"
+                ) {
                     texting = true
+                    Task { await API.shared.markSeen("messages") }
                 }
             }
         }
-        .sheet(isPresented: $scanning) { ScanEntryView() }
+        .sheet(isPresented: $showLeads) { NavigationStack { LeadsView() } }
         .sheet(isPresented: $phoning) { PhoneView() }
         .sheet(isPresented: $texting) { NavigationStack { MessagesView() } }
+        // Marking a surface seen changes a number this screen is drawing, so
+        // the screen has to ask again — otherwise the badge sits there until
+        // the next pull-to-refresh and the tap looks like it did nothing.
+        .onChange(of: phoning) { _, open in if !open { Task { await load() } } }
+        .onChange(of: texting) { _, open in if !open { Task { await load() } } }
+        .onChange(of: showLeads) { _, open in if !open { Task { await load() } } }
     }
 
     private func figuresSection(_ summary: DashboardSummary) -> some View {
@@ -232,6 +265,12 @@ private struct QuickAction: View {
     let icon: String
     let label: String
     let tint: Color
+    /// How many are waiting. Zero draws nothing at all — a badge showing `0`
+    /// is a claim that something is there.
+    var badge: Int = 0
+    /// The singular noun the count is of, for the screen reader: a red dot
+    /// with a number in it says nothing out loud.
+    var badgeNoun: String = "new item"
     let action: () -> Void
 
     var body: some View {
@@ -250,7 +289,39 @@ private struct QuickAction: View {
             .overlay(
                 RoundedRectangle(cornerRadius: Brand.Radius.card)
                     .strokeBorder(Brand.hairline, lineWidth: 0.5))
+            .overlay(alignment: .topTrailing) { badgeView }
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            badge > 0
+                ? "\(label), ^[\(badge) \(badgeNoun)](inflect: true)"
+                : label)
+        .accessibilityAddTraits(.isButton)
+    }
+
+    /// **The system's badge, not an approximation of it.**
+    ///
+    /// A capsule rather than a circle so `12` does not squeeze; a minimum
+    /// width so `1` is still round; monospaced digits so the thing does not
+    /// jump a pixel as the count changes under a glance. `99+` because four
+    /// digits on a 100-point tile is a smear, and past ninety-nine the exact
+    /// number has stopped being the point.
+    ///
+    /// It sits ON the corner, half outside the card, which is what makes it
+    /// read as attached to the tile rather than printed inside it.
+    @ViewBuilder private var badgeView: some View {
+        if badge > 0 {
+            Text(badge > 99 ? "99+" : "\(badge)")
+                .font(.system(size: 11, weight: .bold).monospacedDigit())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .frame(minWidth: 18, minHeight: 18)
+                .background(Color.red, in: .capsule)
+                .overlay(Capsule().strokeBorder(Brand.canvas, lineWidth: 1.5))
+                .offset(x: 6, y: -6)
+                .transition(.scale.combined(with: .opacity))
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: badge)
+        }
     }
 }

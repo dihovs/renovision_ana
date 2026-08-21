@@ -712,6 +712,19 @@ actor API {
         let name: String
     }
 
+    private struct SeenMark: Encodable {
+        let what: String
+    }
+
+    /// "I have looked at this." Clears the home screen's badge for one
+    /// surface — `messages` or `calls`. Fire-and-forget by design: a failed
+    /// mark leaves a badge showing, which is the harmless direction to fail
+    /// in, and blocking a sheet from opening on a network write would be the
+    /// harmful one.
+    func markSeen(_ what: String) async {
+        _ = try? await request("/api/v1/seen", method: "POST", body: SeenMark(what: what))
+    }
+
     private struct RoomNotesPatch: Encodable {
         let notes: String?
     }

@@ -160,7 +160,7 @@ export const CLAIM_FIELD_TEMPLATE: CustomFieldDef[] = [
   { id: "date_contacted", label: "Date contacted", type: "date" },
 ];
 
-async function readSetting<T>(key: string, fallback: T): Promise<T> {
+export async function readSetting<T>(key: string, fallback: T): Promise<T> {
   const client = db();
   if (!client) return fallback;
   const { data, error } = await client

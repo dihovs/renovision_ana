@@ -78,6 +78,27 @@ struct MoreView: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            // **The measurement taken before the job exists.**
+                            // Home's `Scan a room` used to be the only way in;
+                            // that tile is Leads now, and a scan started
+                            // without a project is still a real thing to do —
+                            // he measures a room on a first visit and files it
+                            // against the job afterwards. It lives here rather
+                            // than back on Home because it is the rarer of the
+                            // two: a scan inside a job starts from the + in
+                            // that job's Floor Plans rail.
+                            NavigationLink {
+                                ScanEntryView()
+                            } label: {
+                                Card(padding: Brand.Space.small) {
+                                    CardRow {
+                                        Label("Scan a room", systemImage: "camera.viewfinder")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(Brand.ink)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
                             NavigationLink {
                                 LeadsView()
                             } label: {

@@ -81,9 +81,9 @@ struct MainTabs: View {
             // button that used to sit on a project. Scanning is a step inside
             // a job, not a destination beside it — the reference starts a
             // floor plan from the + in a project's Floor Plans rail, and so
-            // does this now. `ScanEntryView` still exists and is still
-            // reachable from Home's "Scan a room" for a measurement taken
-            // before anybody has made the job.
+            // does this now. `ScanEntryView` still exists, for a measurement
+            // taken before anybody has made the job — it moved to More on
+            // 21 Aug when Home's third tile became Leads.
         }
         .tint(Brand.blue)
     }

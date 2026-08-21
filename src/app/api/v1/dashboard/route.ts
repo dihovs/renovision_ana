@@ -4,6 +4,7 @@ import { listProjects } from "@/lib/crm/projects";
 import { listQuotes } from "@/lib/crm/quotes";
 import { listInvoices } from "@/lib/crm/invoices";
 import { unitDays, type EquipmentPlacement } from "@/lib/crm/dryingLog";
+import { readSetting } from "@/lib/crm/settings";
 
 /**
  * What the day looks like, in one request.
@@ -77,6 +78,53 @@ export async function GET() {
       missedCalls = count ?? 0;
     }
 
+    /**
+     * **The three badge counts, and why they are not the three counts above.**
+     *
+     * A badge means *new since you last looked* — that is the whole of what
+     * makes an iPhone's red circle worth glancing at, and why it goes away
+     * when you open the app. `missedCalls` is a different question: today's
+     * unanswered calls, which stay a task after they have been read. Both
+     * are wanted, so both are sent, and the home screen uses each where it
+     * belongs — the badge for "new", the attention list for "outstanding".
+     *
+     * The seen marks live in `app_settings` rather than in a new column on
+     * every message: one operator, one mark per surface, no migration.
+     */
+    const EPOCH = "1970-01-01T00:00:00.000Z";
+    const [messagesSeenAt, callsSeenAt] = await Promise.all([
+      readSetting<string>("messages_seen_at", EPOCH),
+      readSetting<string>("calls_seen_at", EPOCH),
+    ]);
+
+    let unreadMessages = 0;
+    let unseenCalls = 0;
+    let newLeads = 0;
+    if (client) {
+      const [messages, calls, leadRows] = await Promise.all([
+        client
+          .from("sms_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("direction", "inbound")
+          .gt("created_at", messagesSeenAt),
+        client
+          .from("calls")
+          .select("id", { count: "exact", head: true })
+          .neq("status", "completed")
+          .gt("started_at", callsSeenAt),
+        // A lead nobody has opened yet. `opened_at` has been the read mark
+        // since migration 0003 — the pipeline `status` answers a different
+        // question and a lead can be unread and already contacted.
+        client
+          .from("leads")
+          .select("id", { count: "exact", head: true })
+          .is("opened_at", null),
+      ]);
+      unreadMessages = messages.count ?? 0;
+      unseenCalls = calls.count ?? 0;
+      newLeads = leadRows.count ?? 0;
+    }
+
     const awaiting = quotes.filter((quote) =>
       ["sent", "viewed", "changes_requested"].includes(quote.status),
     );
@@ -108,6 +156,9 @@ export async function GET() {
       },
       visits,
       missedCalls,
+      unreadMessages,
+      unseenCalls,
+      newLeads,
     };
   });
 }

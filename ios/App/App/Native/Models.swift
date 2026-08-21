@@ -346,6 +346,25 @@ struct DashboardSummary: Decodable {
     let visits: [Visit]
     let missedCalls: Int
 
+    /// **The badge counts — "new since you last looked".**
+    ///
+    /// Deliberately not the same question as `missedCalls`, which is today's
+    /// unanswered calls and stays a task after it has been read. A badge that
+    /// never clears is decoration: after a week of ignoring it nobody reads
+    /// it, and then it cannot tell them anything.
+    ///
+    /// Optional because a phone can be pointed at a deployment older than the
+    /// field. Absent means zero, which is the honest reading of "this server
+    /// cannot tell me" — a badge invented from a missing number would be
+    /// worse than no badge.
+    let unreadMessages: Int?
+    let unseenCalls: Int?
+    let newLeads: Int?
+
+    var messageBadge: Int { unreadMessages ?? 0 }
+    var callBadge: Int { unseenCalls ?? 0 }
+    var leadBadge: Int { newLeads ?? 0 }
+
     /// Only the things that are a task. A figure needing no action belongs in
     /// the numbers, not in a list headed "needs you".
     var attentionItems: [Attention] {
