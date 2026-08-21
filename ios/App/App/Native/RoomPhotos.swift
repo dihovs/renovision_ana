@@ -1,4 +1,5 @@
 import PhotosUI
+import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -105,7 +106,7 @@ struct RoomPhotosSection: View {
 
             HStack(spacing: Brand.Space.base) {
                 Button {
-                    takingPhoto = true
+                    openCamera()
                 } label: {
                     Label("Camera", systemImage: "camera.fill")
                         .font(.system(size: 15, weight: .semibold))
@@ -176,6 +177,41 @@ struct RoomPhotosSection: View {
                 if let image { Task { await upload(image) } }
             }
             .ignoresSafeArea()
+        }
+    }
+
+    /// Ask for the camera BEFORE presenting one.
+    ///
+    /// **His report, 20 Aug 2026:** *"when I click on the camera, the camera
+    /// opens and closes one time first. And then the second time when I
+    /// click, it opens."*
+    ///
+    /// That is the signature of presenting `UIImagePickerController` with
+    /// `.camera` before iOS has granted access. The picker comes up, the
+    /// permission alert comes up over it, and the picker — which has no
+    /// camera to show — tears itself down. By the second tap permission has
+    /// been granted, so it works, and the fault looks intermittent.
+    ///
+    /// `requestAccess` returns immediately when the answer is already known,
+    /// so this costs nothing after the first time.
+    private func openCamera() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            takingPhoto = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                Task { @MainActor in
+                    if granted {
+                        takingPhoto = true
+                    } else {
+                        // Not an error to retry — a decision, and the only
+                        // place it can be changed is Settings.
+                        error = "Camera access is off for this app. Settings › Renovision › Camera."
+                    }
+                }
+            }
+        default:
+            error = "Camera access is off for this app. Settings › Renovision › Camera."
         }
     }
 

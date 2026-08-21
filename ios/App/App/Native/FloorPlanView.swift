@@ -663,19 +663,6 @@ struct AreaEditor: View {
                             // one. Below four the button goes rather than
                             // greys — there is no state in which it could be
                             // pressed, so offering it would be a lie.
-                            if mode == .points, let index = selected, corners.count > 3 {
-                                Button {
-                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-                                    push()
-                                    corners.remove(at: index)
-                                    selected = nil
-                                } label: {
-                                    Label("Remove point", systemImage: "minus.circle.fill")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
                         }
                     }
                     .padding(Brand.Space.base)
@@ -696,6 +683,34 @@ struct AreaEditor: View {
                         Text("Prints on the report, under this area's row.")
                             .font(.system(size: 11))
                             .foregroundStyle(Brand.inkFaint)
+                    }
+
+                    // **One bar, one verb, decided by what was tapped** —
+                    // the reference's own shape and better than what was
+                    // here. A corner offers Delete; the outline between two
+                    // corners offers Add Corner. Nothing is offered when
+                    // nothing is chosen, so the bar is never a row of greyed
+                    // buttons nobody can explain.
+                    //
+                    // It replaces a small "Remove point" link beside the
+                    // instructions, which was findable only by somebody who
+                    // already knew it was there.
+                    if mode == .points, let index = selected, corners.count > 3 {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                            push()
+                            corners.remove(at: index)
+                            selected = nil
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(
+                                    Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.card))
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     Button(saving ? "Saving…" : "Save area") {
@@ -866,15 +881,27 @@ struct AreaEditor: View {
             let isSelected = selected == index
             ZStack {
                 Circle()
-                    .fill(isSelected ? Color.red : colour)
-                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                    .fill(isSelected ? Color.white : Color.white)
+                    .overlay(Circle().strokeBorder(colour, lineWidth: 2))
                 if isSelected {
+                    // **The big four-way arrow**, which he asked for by name:
+                    // *"you see, like, four arrow tingy blue. I want that
+                    // because that's very useful."*
+                    //
+                    // And it is, for a reason worth writing down: the handle
+                    // a thumb is dragging is the handle the thumb is
+                    // covering. A 32pt dot under a fingertip is invisible
+                    // exactly while it matters. An arrow big enough to stick
+                    // out past the finger keeps the grabbed point findable
+                    // through the whole drag.
                     Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(colour)
+                        .shadow(color: .white, radius: 2)
+                        .shadow(color: .white, radius: 2)
                 }
             }
-            .frame(width: isSelected ? 32 : 24, height: isSelected ? 32 : 24)
+            .frame(width: isSelected ? 58 : 22, height: isSelected ? 58 : 22)
             .position(x: at.x, y: at.y)
             .onTapGesture { selected = isSelected ? nil : index }
             .gesture(
