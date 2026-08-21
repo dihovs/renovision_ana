@@ -929,3 +929,57 @@ nobody "fixes" it back.
 - **ORD-29 — 360 photo and video capture.** Their `+` offers Photo, 360 or
   Video; we offer stills only. Sizing not yet done. §2.
 - Set Size should **hide** on a non-rectangular room, not grey. §3.
+
+---
+
+## The Doors category in full — 17 items
+
+Read off the owner's own screenshots of the library, 21 Aug 2026, scrolled end
+to end. Earlier notes in this file and in `interactions-editor.md` recorded the
+category and its count but only the first half of the names; this is the
+complete list, against what we already have.
+
+Every tile in his screenshots is dimmed with a circle-slash and the overlay
+**"Only available in rooms"** — their library gates door placement to inside a
+room, so you cannot drop one at storey level. Each tile also carries a
+favourite star.
+
+| Theirs | Ours (`OpeningKind`) | Note |
+|---|---|---|
+| Hinged Door | `doorSingle` | |
+| Double Hinged Door | `doorDouble` | |
+| Sliding Wood Door | `doorSliding` | |
+| Opening | `doorCased` | |
+| Pocket Door | `doorPocket` | |
+| Folding Door | `doorBifold` | |
+| Bypass Door | `doorBypass` | |
+| French Door | `doorFrench` | |
+| Patio Door | `doorPatio` | |
+| Garage Door | `doorGarage` | |
+| Glass Door | — | material variant of Hinged |
+| Glass Bypass Door | — | material variant of Bypass |
+| Door with Window | — | hinged with a lite; `doorEntry` is the near neighbour |
+| Arch Door | — | hinged in an arched opening |
+| Swing Door | — | double-acting, swings both ways |
+| Double Folding Door | — | bifold pair |
+| Double Pocket Door | — | pocket pair |
+| — | `doorEntry` | ours; theirs splits this into Glass / Door with Window |
+
+**Where we actually stand.** 17 against 11 overstates the gap: their seventeen
+collapse to about **eight distinct plan symbols**, and we draw eight. Glass
+Door and Hinged Door are the same swing arc; Glass Bypass and Bypass are the
+same two panels.
+
+**Where they genuinely beat us** is that a glass door and a wood door are
+different replacement costs, and their list carries that distinction while
+ours does not. On a restoration estimate that is money, not catalogue padding.
+So the gap worth closing is:
+
+1. **The material distinction** — glass vs wood on hinged and bypass, which is
+   a property on the existing kinds rather than four new ones.
+2. **Four real mechanisms we do not have**: Arch, Swing (double-acting),
+   Double Folding, Double Pocket.
+3. **The room gating** — refusing door placement outside a room, which is
+   theirs and is a good constraint regardless of the list.
+
+Not built. Offered 21 Aug and declined for now.
