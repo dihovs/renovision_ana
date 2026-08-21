@@ -86,6 +86,28 @@ def line(a, b, stroke=INK, w=SWT, cap="round"):
     return (f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}" '
             f'stroke="{stroke}" stroke-width="{w}" stroke-linecap="{cap}"/>')
 
+def cyl(x, y, z, r, h, top=TOP, side=RIGHT, sw=SW):
+    """An upright cylinder. A water heater IS one, and drawing it as a box
+       made it a filing cabinet with pipes."""
+    cx, cy = iso(x, y, z + h)
+    bx, by = iso(x, y, z)
+    rx, ry = r * K * 1.41, r * 0.71
+    out = (f'<path d="M {cx-rx:.2f} {cy:.2f} L {bx-rx:.2f} {by:.2f} '
+           f'A {rx:.2f} {ry:.2f} 0 0 0 {bx+rx:.2f} {by:.2f} '
+           f'L {cx+rx:.2f} {cy:.2f} Z" fill="{side}" stroke="{INK}" stroke-width="{sw}"/>')
+    out += (f'<ellipse cx="{cx:.2f}" cy="{cy:.2f}" rx="{rx:.2f}" ry="{ry:.2f}" '
+            f'fill="{top}" stroke="{INK}" stroke-width="{sw}"/>')
+    return out
+
+
+def duct(x, y, z, w, d, h, top=METAL, right="#AEB6BF", left="#98A2AD"):
+    """A pipe or flue drawn as a SOLID. They were `line`s with round caps,
+       which float as grey lozenges near the thing they are meant to join —
+       a pipe that does not touch its tank is the detail that makes an
+       illustration look broken."""
+    return box(x, y, z, w, d, h, top=top, right=right, left=left, sw=1.7)
+
+
 def shadow(x, y, w, d):
     cx, cy = iso(x + w / 2, y + d / 2, 0)
     return (f'<ellipse cx="{cx:.2f}" cy="{cy:.2f}" rx="{(w+d)*0.30:.2f}" ry="{(w+d)*0.15:.2f}" '
@@ -189,7 +211,15 @@ def _():
     return s
 
 @recipe("dishwasher")
-def _():  return appliance(19, 20, 22, door="panel", vent=0) + face_l(3, 20, 19.5, 13, 1.6, DARK)
+def _():
+    # The control strip used to be a 1.6-unit band drawn over the box's own
+    # top edge, which came out as a dark splinter hanging off the corner.
+    # It sits inside the door now, where a fascia actually is.
+    s = shadow(0, 0, 19, 20) + box(0, 0, 0, 19, 20, 22)
+    s += face_l(2, 20, 2.4, 15, 14.6, WHITEISH)               # the door
+    s += face_l(2, 20, 17.6, 15, 2.6, DARK)                   # the fascia
+    s += line((3.4, 20, 16.4), (15.6, 20, 16.4), DARK, 2.4)   # the handle
+    return s
 
 @recipe("refrigerator")
 def _():
@@ -202,38 +232,67 @@ def _():
 @recipe("range")
 def _():
     s = shadow(0, 0, 20, 20) + box(0, 0, 0, 20, 20, 22)
-    for bx, by in ((6, 6), (14, 6), (6, 14), (14, 14)):
-        s += disc_t(bx, by, 22.2, 2.6, DARK)
-    s += face_l(3, 20, 4, 14, 12, GLASS)                     # oven window
-    s += line((3, 20, 17.5), (17, 20, 17.5), DARK, 2.4)
+    # Four burners, bigger and ringed so they read as hobs rather than as
+    # specks, plus the backguard the controls live on.
+    for bx, by in ((5.6, 5.6), (14.4, 5.6), (5.6, 14.4), (14.4, 14.4)):
+        s += disc_t(bx, by, 22.2, 3.4, "#9AA3AD")
+        s += disc_t(bx, by, 22.3, 1.9, DARK, INK, 1.1)
+    s += box(0, 0, 22, 20, 3.4, 5, top=TOP)                  # backguard
+    s += face_l(2.6, 20, 3, 14.8, 12.5, WHITEISH)            # oven door
+    s += face_l(4.4, 20, 5, 11.2, 8.5, GLASS)                # its window
+    s += line((3.2, 20, 16.6), (16.8, 20, 16.6), DARK, 2.6)  # handle
     return s
 
 @recipe("oven")
-def _():  return RECIPES["range"]()
+def _():
+    # A WALL oven, so it is not the range drawn twice: taller, no hobs, two
+    # cavities and a fascia between them.
+    s = shadow(0, 0, 18, 18) + box(0, 0, 0, 18, 18, 34)
+    s += face_l(2, 18, 18, 14, 12, WHITEISH)
+    s += face_l(3.6, 18, 19.6, 10.8, 8.4, GLASS)
+    s += line((2.6, 18, 31.4), (15.4, 18, 31.4), DARK, 2.4)
+    s += face_l(2, 18, 3, 14, 12, WHITEISH)
+    s += face_l(3.6, 18, 4.6, 10.8, 8.4, GLASS)
+    s += line((2.6, 18, 16.4), (15.4, 18, 16.4), DARK, 2.4)
+    return s
 
 @recipe("water_heater")
 def _():
-    s = shadow(0, 0, 18, 18)
-    s += box(0, 0, 0, 18, 18, 34, top=TOP)
-    s += face_l(4, 18, 10, 10, 8, WHITEISH)
-    s += line((18, 4, 34), (18, 4, 40), METAL, 3.0)
-    s += line((0, 14, 30), (-6, 14, 30), METAL, 3.0)
+    # A tank is a cylinder, and the two pipes are the whole point — cold in,
+    # hot out. Drawn as solids standing ON the tank rather than as capped
+    # lines hovering beside it.
+    s = shadow(1, 1, 16, 16)
+    s += cyl(9, 9, 0, 9, 32)
+    # Set apart along the tank's own diagonal, or the two projections overlap
+    # into one lump and stop reading as an inlet and an outlet.
+    s += duct(3.4, 4.2, 32, 3.0, 3.0, 7)
+    s += duct(12.0, 12.8, 32, 3.0, 3.0, 7)
+    cx, cy = iso(9, 9, 12)
+    s += (f'<rect x="{cx-5:.2f}" y="{cy-4:.2f}" width="10" height="8" rx="1.2" '
+          f'fill="{WHITEISH}" stroke="{INK}" stroke-width="{SWT}"/>')
     return s
 
 @recipe("furnace")
 def _():
     s = shadow(0, 0, 20, 20) + box(0, 0, 0, 20, 20, 30)
-    s += face_l(3, 20, 16, 14, 11, WHITEISH)
-    s += face_l(3, 20, 4, 14, 9, DARK)
-    s += line((10, 0, 30), (10, 0, 38), METAL, 3.4)
+    s += face_l(3, 20, 15, 14, 12, WHITEISH)                  # access panel
+    s += face_l(6, 20, 4, 8, 8, DARK)                         # burner box
+    s += duct(7.4, 3.4, 30, 5.2, 5.2, 8)                      # flue, out
+    s += duct(20, 6, 12, 5, 8, 8)                             # return, in
     return s
 
 @recipe("air_handler")
 def _():
-    s = shadow(0, 0, 22, 18) + box(0, 0, 0, 22, 18, 20)
-    for i in range(4):
-        s += line((3 + i * 4.6, 18, 3), (3 + i * 4.6, 18, 17), DARK, 1.6)
-    s += line((11, 0, 20), (11, 0, 27), METAL, 3.4)
+    # **In one side, out the top** — which is the whole of what this unit is,
+    # and what the barcode of loose vertical lines never said. The return
+    # duct enters the right face and the supply leaves the crown, both as
+    # solids joined to the body.
+    s = shadow(0, 0, 22, 18) + box(0, 0, 0, 22, 18, 22)
+    s += face_l(2.6, 18, 3, 16.8, 12, WHITEISH)               # access panel
+    for i in range(5):                                        # louvres on it
+        s += line((4.2, 18, 5 + i * 2.1), (17.6, 18, 5 + i * 2.1), DARK, 1.2)
+    s += duct(7.4, 5, 22, 7.2, 7.2, 8)                        # supply, out
+    s += duct(22, 5.4, 8, 6, 7.2, 7.2)                        # return, in
     return s
 
 @recipe("air_mover")
