@@ -8,6 +8,7 @@ import {
   savedPerimeterMeters,
   squareMetersToSquareFeet,
   toFloorPlan,
+  polygonAreaSquareMeters,
   totalFloorAreaSquareMeters,
   totalWallLengthMeters,
   wallAreaSquareMeters,
@@ -327,5 +328,57 @@ describe("planCorners", () => {
   it("leaves a degenerate outline alone rather than emptying it", () => {
     expect(planCorners({ polygon: [] })).toEqual([]);
     expect(planCorners({ polygon: [{ x: 1, y: 1 }] })).toEqual([{ x: 1, y: 1 }]);
+  });
+});
+
+describe("floor area comes from the outline, not the patches", () => {
+  /** A 4×3 room whose walls close, reported by RoomPlan as TWO overlapping
+      floor patches — which is what it actually does, and what used to be
+      summed. */
+  const room = (): RoomScanResult => ({
+    walls: [
+      { lengthMeters: 4, widthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 0, axisX: 1, axisZ: 0 },
+      { lengthMeters: 3, widthMeters: 3, heightMeters: 2.4, centerX: 4, centerZ: 1.5, axisX: 0, axisZ: 1 },
+      { lengthMeters: 4, widthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 3, axisX: 1, axisZ: 0 },
+      { lengthMeters: 3, widthMeters: 3, heightMeters: 2.4, centerX: 0, centerZ: 1.5, axisX: 0, axisZ: 1 },
+    ],
+    floors: [{ areaSquareMeters: 12 }, { areaSquareMeters: 11 }],
+    doors: [],
+    windows: [],
+    openings: [],
+    doorCount: 0,
+    windowCount: 0,
+    openingCount: 0,
+    stairCount: 0,
+  });
+
+  it("measures the outline rather than adding the patches up", () => {
+    // Summing gives 23 for a room that is plainly 12.
+    expect(totalFloorAreaSquareMeters(room())).toBeCloseTo(12, 1);
+  });
+
+  it("never reports more floor than the room's own extent", () => {
+    // No outline at all — fragments — so the patches are all there is, and
+    // the extent is the only sanity left.
+    const fragments: RoomScanResult = {
+      ...room(),
+      walls: [
+        { lengthMeters: 4, widthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 0, axisX: 1, axisZ: 0 },
+        { lengthMeters: 3, widthMeters: 3, heightMeters: 2.4, centerX: 9, centerZ: 9, axisX: 0, axisZ: 1 },
+      ],
+      floors: [{ areaSquareMeters: 500 }],
+    };
+    const area = totalFloorAreaSquareMeters(fragments);
+    const plan = toFloorPlan(fragments);
+    expect(area).toBeLessThanOrEqual(plan.width * plan.height + 0.01);
+  });
+
+  it("shoelaces an L correctly", () => {
+    expect(
+      polygonAreaSquareMeters([
+        { x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 2 },
+        { x: 2, y: 2 }, { x: 2, y: 4 }, { x: 0, y: 4 },
+      ]),
+    ).toBeCloseTo(12, 5);
   });
 });

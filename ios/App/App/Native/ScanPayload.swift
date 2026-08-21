@@ -431,8 +431,38 @@ struct ScanGeometry: Codable {
 
     /// Every floor surface added up. A room RoomPlan split into two floor
     /// planes is still one floor.
+    /// The floor, in square metres.
+    ///
+    /// **From the OUTLINE, not from RoomPlan's floor patches.** Summing the
+    /// patches is what shipped, and it double-counts: RoomPlan reports the
+    /// floor as several overlapping rectangles, not as one polygon, so a
+    /// room can come back with more floor than its own bounding box
+    /// contains — which is impossible for any real floor and is exactly how
+    /// this was caught. The owner's report showed `AREA: 87.21 m²` beside
+    /// `WIDTH: 7.559 m • LENGTH: 5.137 m`, and 7.559 × 5.137 is 38.8.
+    ///
+    /// Floor area is the headline figure on a claim. It is also the one an
+    /// adjuster can check with a tape in thirty seconds.
+    ///
+    /// So: the corrected outline where a person has drawn one, the chained
+    /// walls where the scan closed on its own, and only then the patches —
+    /// clamped to the extent, because nothing can cover more ground than it
+    /// stands on.
     var floorAreaSquareMeters: Double {
-        floors.reduce(0) { $0 + $1.areaSquareMeters }
+        if let edited = editedPolygon, edited.count >= 3 {
+            let area = FloorPlanGeometry.polygonArea(
+                edited.map { CGPoint(x: $0.x, y: $0.y) })
+            if area > 0.5 { return area }
+        }
+        let plan = FloorPlanGeometry.plan(from: self)
+        if plan.polygon.count >= 4 {
+            let area = FloorPlanGeometry.polygonArea(
+                Array(plan.polygon.dropLast()))
+            if area > 0.5 { return area }
+        }
+        let summed = floors.reduce(0) { $0 + $1.areaSquareMeters }
+        let extent = plan.width * plan.height
+        return extent > 0.5 ? min(summed, extent) : summed
     }
 
     /// Perimeter — what baseboard and trim are priced against.

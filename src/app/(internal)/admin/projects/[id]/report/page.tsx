@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AdminNotice from "@/components/admin/AdminNotice";
 import ReportDocument, { type ReportRoom } from "@/components/admin/ReportDocument";
-import PrintButton from "@/components/admin/PrintButton";
 import { isConfigured } from "@/lib/crm/db";
 import { getProject, listRoomFiles, signProjectFileUrls } from "@/lib/crm/projects";
 import { listRoomScans } from "@/lib/crm/roomScans";
@@ -148,17 +147,6 @@ export default async function ReportPage({
         >
           Download PDF
         </a>
-        <PrintButton />
-        {/* A clean view, for any export route that renders the screen
-            rather than the print stylesheet. */}
-        <Link
-          href={`/admin/projects/${project.id}/report?bare=1${
-            onlyLockedDimensions ? "&dimensions=locked" : ""
-          }${floorsOnly ? "&layout=floors" : ""}`}
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-charcoal transition-colors hover:border-brand-blue/40"
-        >
-          Clean view for PDF
-        </Link>
       </div>
 
       {/* Report options. A link rather than client state: toggling reloads

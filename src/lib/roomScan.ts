@@ -327,7 +327,38 @@ export function baseboardLengthMeters(result: RoomScanResult): number {
 }
 
 export function totalFloorAreaSquareMeters(result: RoomScanResult): number {
-  return result.floors.reduce((sum, floor) => sum + floor.areaSquareMeters, 0);
+  // FROM THE OUTLINE where there is one. Summing RoomPlan's floor patches
+  // double-counts: it reports the floor as several overlapping rectangles
+  // rather than one polygon, so a room can come back holding more floor than
+  // its own bounding box — impossible for a real floor, and how this was
+  // found. A live report showed AREA 87.21 m² beside WIDTH 7.559 × LENGTH
+  // 5.137, which multiply to 38.8.
+  //
+  // The Swift twin is ScanGeometry.floorAreaSquareMeters, and the two must
+  // agree: the phone writes this column on save and the server recomputes it
+  // on a correction, so a difference between them would show up as a room
+  // whose area changed when somebody touched a wall.
+  const plan = toFloorPlan(result);
+  if (plan.polygon.length >= 3) {
+    const area = polygonAreaSquareMeters(plan.polygon);
+    if (area > 0.5) return area;
+  }
+  const summed = result.floors.reduce((sum, floor) => sum + floor.areaSquareMeters, 0);
+  // Nothing covers more ground than it stands on.
+  const extent = plan.width * plan.height;
+  return extent > 0.5 ? Math.min(summed, extent) : summed;
+}
+
+/** Shoelace. Absolute, so winding does not change the answer. */
+export function polygonAreaSquareMeters(points: { x: number; y: number }[]): number {
+  if (points.length < 3) return 0;
+  let sum = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    sum += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(sum) / 2;
 }
 
 /** The tallest wall. A room with a raked ceiling is priced off the height
