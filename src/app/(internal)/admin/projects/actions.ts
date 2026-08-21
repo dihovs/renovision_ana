@@ -8,11 +8,13 @@ import {
   createProject,
   deleteProjectFile,
   detachJob,
+  getProject,
   PROJECT_STATUSES,
   updateProjectCustom,
   updateProjectStatus,
   type ProjectStatus,
 } from "@/lib/crm/projects";
+import { emailPhotos, type SendPhotosResult } from "@/lib/crm/sendDocument";
 
 export type ProjectFormState = { error?: string };
 
@@ -108,4 +110,33 @@ export async function saveProjectCustomAction(
   }
   await updateProjectCustom(projectId, custom);
   revalidatePath(`/admin/projects/${projectId}`);
+}
+
+/**
+ * Email a hand-picked set of the project's photos to a customer.
+ *
+ * Unlike `sendQuoteAction`, the email here is not a best-effort side effect —
+ * it is the entire point of pressing the button — so a transport failure
+ * propagates instead of being swallowed, and the picker screen shows it.
+ */
+export async function emailPhotosAction(
+  projectId: string,
+  payload: {
+    to: string[];
+    photos: Array<{ path: string; filename: string }>;
+    note: string;
+    language: "fr" | "en";
+  },
+): Promise<SendPhotosResult> {
+  await requireSession();
+  const project = await getProject(projectId);
+  if (!project) throw new Error("This project no longer exists.");
+
+  return emailPhotos({
+    to: payload.to,
+    projectName: project.name,
+    photos: payload.photos,
+    note: payload.note,
+    language: payload.language,
+  });
 }

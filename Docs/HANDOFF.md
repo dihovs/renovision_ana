@@ -224,9 +224,13 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
    browser server-side and has never once been run end to end — the preview
    origin has no session and I will not type his password. Either he signs in,
    or press it from a signed-in browser and check the file.
-5. **Round 2 of the icons** when the 178 arrive: land in `Native/Artwork`,
-   fit, install, add `Entry(...)` for each — **a drawing with no entry is
-   invisible in the picker**, which is how 55 of them sat unreachable.
+5. **Seven windows still have no `OpeningKind` case**, so their drawings sit
+   in `Native/Artwork` unreachable: `window-awning`, `window-bow`,
+   `window-glass-block`, `window-half-round`, `window-skylight`,
+   `window-storm`, `window-transom`. Adding a case means adding it to every
+   `switch` over `OpeningKind` — label, stock width and height, glyph, and the
+   three renderers — so it needs a compile, not a blind edit at the end of a
+   session. Rename each file to `door-window<Kind>.svg` once its case exists.
 6. **Guided protocol Phase 1**, starting with the rules table as pure data
    plus tests, and no interface at all. The rules ARE the design and he can
    review them before a screen exists.
@@ -323,13 +327,20 @@ drew** — verified icon by icon across all 94 of the first batch, not assumed.
 Mine are in git history; the generator `scripts/draw-object-artwork.py`
 survives as the fallback and as the source of the viewBox fitter.
 
-- **163 drawings** in `ios/App/App/Native/Artwork/`, every one fitted to
+- **341 drawings** in `ios/App/App/Native/Artwork/`, every one fitted to
   0.862 of its tile, dead centre.
-- **`ObjectCatalog.swift` is 144 entries**, up from 72. Every entry has
-  artwork; every drawing but five aliases is reachable in the picker.
-- **`Docs/Object-Catalogue-Target.md`** is the 296-item target. **178 still
-  missing** — Electrical 25, Furniture 27, Cabinets 16, Fire & Safety 16,
-  Structural 16, Appliances 14, Outdoors 14, Windows 12.
+- **`ObjectCatalog.swift` is 304 entries**, up from 72 at the start of the
+  day. Every entry has artwork. Only five drawings are unreachable and all
+  five are aliases of entries that already exist.
+- **The 296-item target in `Docs/Object-Catalogue-Target.md` is met and
+  passed.** What is left is the seven windows in §5.
+
+**The catalogue entries were generated, and the generator had two bugs worth
+knowing about:** joining the rows with a literal `\n` rather than a newline
+produced a file that would not parse, and one slug was already present so the
+list carried a duplicate. `swiftc -parse` caught the first; a `Counter` over
+the slugs caught the second. **Run both after any bulk edit to that file** —
+neither is visible by reading the diff.
 
 **THE PIPELINE, and the thing that has now cost time four times:**
 

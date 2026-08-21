@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-86.57 -30.98 116.00 116.00">
+<line x1="7.14" y1="7.42" x2="-64.29" y2="48.66" stroke="#6E7884" stroke-width="2.4" stroke-linecap="round"/>
+<polygon points="7.14,-3.71 21.43,4.54 7.14,12.78 -7.14,4.54" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="21.43,8.25 7.14,16.50 7.14,12.78 21.43,4.54" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-7.14,8.25 7.14,16.50 7.14,12.78 -7.14,4.54" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-64.29,37.53 -50.00,45.78 -64.29,54.02 -78.57,45.78" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-50.00,49.49 -64.29,57.74 -64.29,54.02 -50.00,45.78" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-78.57,49.49 -64.29,57.74 -64.29,54.02 -78.57,45.78" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="0.00" y1="10.31" x2="21.43" y2="22.68" stroke="#D14836" stroke-width="2.4" stroke-linecap="round"/>
+<polygon points="21.43,22.68 7.50,22.07 13.93,10.92" fill="#D14836" stroke="#D14836" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="-57.14" y1="43.30" x2="-35.71" y2="55.67" stroke="#D14836" stroke-width="2.4" stroke-linecap="round"/>
+<polygon points="-35.71,55.67 -49.65,55.06 -43.21,43.92" fill="#D14836" stroke="#D14836" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

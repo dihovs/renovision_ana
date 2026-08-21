@@ -42,7 +42,7 @@ Commit the ledger update with the work.
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
 | **S12** | Project and floor screens | **PROJECT DONE (amended 18 Aug) · FLOOR OPEN** | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
-| **S15** | Photos to customers, by email | **NEXT** | — | `sendDocument.ts` |
+| **S15** | Photos to customers, by email | **BUILT (unverified) — build succeeded, never sent live** | — | `sendDocument.ts`, `projects.ts`, `SendPhotosPicker.tsx` |
 
 **Two verifications** were folded into the sections that own them: the
 dimension-tap unlock into **S5**, the project-card plan into **S12**. The
@@ -1102,6 +1102,63 @@ arrives looking like the other mail the business sends.
 
 **Prompt.**
 > Read Docs/CRM-Messaging.md then Docs/SECTIONS.md, and do S15.
+
+**What landed (21 Aug 2026).** Both in-scope items, built as a new picker
+screen rather than an extension of the report page — the report aggregates
+photos for printing, not for picking, and its data shape (one `ReportRoom`
+per room, files nested inside) doesn't want to also be a flat, checkable
+list. Kept the report page untouched.
+
+- **`listAllProjectPhotos(projectId)`** (`src/lib/crm/projects.ts`) — new,
+  aggregates the project's own files with every room's own photos (via
+  `listRoomScans` + `listRoomFiles`, same loop the report page already runs),
+  filtered to `content_type.startsWith("image/")`, newest first. A room whose
+  photos fail to load is skipped, not fatal, matching the report's own
+  degrade-per-room behaviour.
+- **`downloadProjectFiles(paths)`** (same file) — pulls bytes straight off
+  the private `project-files` bucket via `.storage.download()`, not through
+  a signed URL. A signed URL is for a browser to follow; minting one just to
+  `fetch()` it server-side would be a same-process detour through the CDN.
+  Paths that fail to download are dropped, not fatal — the caller learns
+  which filenames didn't make it.
+- **`emailPhotos(...)`** (`src/lib/crm/sendDocument.ts`) — new, alongside
+  the quote/invoice senders. Reuses `shell()` so it looks like the same
+  business's other mail. **Does not use `recipientsFor`** — that filters by
+  the `receivesQuotes`/`receivesInvoices` per-contact flags, which model a
+  standing preference; a photo send is a one-off, operator-chosen recipient
+  list each time, so no new `receivesPhotos` flag was added. Returns
+  `{ attached, missing }` alongside the usual `SendResult` so the UI can say
+  when some selected photos couldn't be read.
+- **`emailPhotosAction(projectId, payload)`** (`admin/projects/actions.ts`)
+  — unlike `sendQuoteAction`, the email is NOT best-effort here: it is the
+  entire point of the button, so a transport failure throws and the picker
+  screen shows it, rather than being logged and swallowed.
+- **`/admin/projects/[id]/photos`** (new page) + **`SendPhotosPicker.tsx`**
+  (new client component) — a checkbox grid grouped by room (`"Project
+  files"` for the ones with no room), recipients pre-populated from the
+  client's own email list with an optional ad-hoc address, a French/English
+  toggle (defaulting French, same convention the report and invoices use),
+  and an optional note. Linked from the project page next to "Open report".
+
+**Not done, and worth flagging to the owner rather than building blind:**
+outbound MMS stays refused per his 20 Aug decision; the **inbound MMS
+photos are still invisible** in `SmsThread.tsx` (§3 of `CRM-Messaging.md`)
+and inbound email doesn't exist at all — neither was in this section's
+scope but both are still true after it.
+
+**Verification — read before trusting the above.** `tsc --noEmit` clean,
+`next build` succeeded (the route compiles, `/admin/projects/[id]/photos`
+is in the route list), `npx vitest run` — 1127 passing, none new (this file
+has never had its own test — `sendDocument.ts` has none of its existing
+four senders under test either, so this follows the file's own convention
+rather than leaving a gap only this feature has). **Nothing here has been
+clicked, and no email has actually been sent** — there was no live Resend
+key or a real project with photos and a client in reach this session.
+First ten minutes of the next chat on this screen: open a project that has
+both a client and room photos, select a few, send to a real inbox, and
+confirm the attachments open (not just that the email arrives) — an image
+Resend has quietly downsized or a `contentType` it guessed wrong from the
+filename would only show up by actually opening one.
 
 ---
 
@@ -2240,3 +2297,13 @@ Newest last. One or two lines per chat.
   Also watched, not built: Add Wall inserts a free interior stub wall, which
   is a model we do not have; Duplicate offers Identical / Flip Horizontally /
   Flip Vertically and lands at the storey with the copy in hand.
+- **2026-08-21** — S15 built: `listAllProjectPhotos`/`downloadProjectFiles`
+  in `projects.ts`, `emailPhotos` in `sendDocument.ts` (ad-hoc recipients,
+  not the `receivesQuotes`-style flags — a photo send is a one-off, not a
+  standing preference), a new `/admin/projects/[id]/photos` picker screen
+  and `SendPhotosPicker.tsx`, linked from the project page. `tsc`, `next
+  build` and all 1127 tests clean. **Not verified live — no email actually
+  sent, nothing clicked.** No dedicated test file, matching the fact that
+  none of `sendDocument.ts`'s other four senders have one either. Full
+  account in S15 above, including what it deliberately left alone: outbound
+  MMS (owner declined it 20 Aug) and inbound MMS/email, both still open.

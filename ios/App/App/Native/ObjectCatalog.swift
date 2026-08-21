@@ -755,6 +755,653 @@ enum ObjectCatalog {
             width: 24 * inch, depth: 18 * inch, height: 32 * inch, shape: .table,
             sizeNote: "Rolling cart."),
 
+        // MARK: Round two of the commissioned library.
+        //
+        // 178 drawings arrived and 177 of them had nowhere to be placed from.
+        // A drawing with no Entry is a file the picker cannot offer — the same
+        // fault that left 55 unreachable a delivery earlier, at ten times the
+        // scale. Sizes are North American stock throughout.
+        Entry(
+            slug: "outlet", name: "Outlet", category: .electrical,
+            width: 4 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: "Duplex receptacle."),
+        Entry(
+            slug: "outlet_gfci", name: "GFCI outlet", category: .electrical,
+            width: 4 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: "Test and reset — code requires one within 6ft of water."),
+        Entry(
+            slug: "outlet_240", name: "240V outlet", category: .electrical,
+            width: 4 * inch, depth: 1 * inch, height: 5 * inch, shape: .panel,
+            sizeNote: "Range or dryer."),
+        Entry(
+            slug: "switch", name: "Switch", category: .electrical,
+            width: 3 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "switch_three_way", name: "Three-way switch", category: .electrical,
+            width: 3 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "dimmer", name: "Dimmer", category: .electrical,
+            width: 3 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "junction_box", name: "Junction box", category: .electrical,
+            width: 4 * inch, depth: 3 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "subpanel", name: "Sub-panel", category: .electrical,
+            width: 14 * inch, depth: 4 * inch, height: 20 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "meter_base", name: "Meter base", category: .electrical,
+            width: 8 * inch, depth: 5 * inch, height: 12 * inch, shape: .panel,
+            sizeNote: "Where the utility's responsibility ends."),
+        Entry(
+            slug: "disconnect", name: "Disconnect", category: .electrical,
+            width: 8 * inch, depth: 4 * inch, height: 12 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "ceiling_light", name: "Ceiling light", category: .electrical,
+            width: 12 * inch, depth: 12 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "recessed_light", name: "Recessed light", category: .electrical,
+            width: 6 * inch, depth: 6 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "pendant_light", name: "Pendant", category: .electrical,
+            width: 8 * inch, depth: 8 * inch, height: 16 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "track_light", name: "Track light", category: .electrical,
+            width: 36 * inch, depth: 4 * inch, height: 5 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "fluorescent_fixture", name: "Fluorescent fixture", category: .electrical,
+            width: 48 * inch, depth: 12 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "led_strip", name: "LED strip", category: .electrical,
+            width: 36 * inch, depth: 1 * inch, height: 1 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "wall_sconce", name: "Wall sconce", category: .electrical,
+            width: 6 * inch, depth: 5 * inch, height: 10 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "ceiling_fan", name: "Ceiling fan", category: .electrical,
+            width: 52 * inch, depth: 52 * inch, height: 12 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "bath_fan_light", name: "Bath fan / light", category: .electrical,
+            width: 12 * inch, depth: 12 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: "A dead one is why the mould is there."),
+        Entry(
+            slug: "doorbell", name: "Doorbell", category: .electrical,
+            width: 3 * inch, depth: 1 * inch, height: 5 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "thermostat_low_voltage", name: "Thermostat, low voltage", category: .electrical,
+            width: 5 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "data_jack", name: "Data jack", category: .electrical,
+            width: 3 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "tv_jack", name: "TV jack", category: .electrical,
+            width: 3 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "ev_charger", name: "EV charger", category: .electrical,
+            width: 14 * inch, depth: 8 * inch, height: 18 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "generator_inlet", name: "Generator inlet", category: .electrical,
+            width: 6 * inch, depth: 4 * inch, height: 8 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "bed_twin", name: "Twin bed", category: .furniture,
+            width: 39 * inch, depth: 75 * inch, height: 24 * inch, shape: .bed,
+            sizeNote: "39x75in."),
+        Entry(
+            slug: "bed_double", name: "Double bed", category: .furniture,
+            width: 54 * inch, depth: 75 * inch, height: 24 * inch, shape: .bed,
+            sizeNote: "54x75in."),
+        Entry(
+            slug: "bed_king", name: "King bed", category: .furniture,
+            width: 76 * inch, depth: 80 * inch, height: 24 * inch, shape: .bed,
+            sizeNote: "76x80in."),
+        Entry(
+            slug: "bunk_bed", name: "Bunk bed", category: .furniture,
+            width: 42 * inch, depth: 80 * inch, height: 66 * inch, shape: .bed,
+            sizeNote: ""),
+        Entry(
+            slug: "crib", name: "Crib", category: .furniture,
+            width: 30 * inch, depth: 54 * inch, height: 36 * inch, shape: .bed,
+            sizeNote: ""),
+        Entry(
+            slug: "nightstand", name: "Nightstand", category: .furniture,
+            width: 20 * inch, depth: 16 * inch, height: 26 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "wardrobe", name: "Wardrobe", category: .furniture,
+            width: 48 * inch, depth: 24 * inch, height: 72 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "chest_of_drawers", name: "Chest of drawers", category: .furniture,
+            width: 32 * inch, depth: 18 * inch, height: 44 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "sofa_sectional", name: "Sectional", category: .furniture,
+            width: 100 * inch, depth: 64 * inch, height: 34 * inch, shape: .sofa,
+            sizeNote: ""),
+        Entry(
+            slug: "loveseat", name: "Loveseat", category: .furniture,
+            width: 58 * inch, depth: 36 * inch, height: 34 * inch, shape: .sofa,
+            sizeNote: ""),
+        Entry(
+            slug: "armchair", name: "Armchair", category: .furniture,
+            width: 35 * inch, depth: 35 * inch, height: 34 * inch, shape: .sofa,
+            sizeNote: ""),
+        Entry(
+            slug: "recliner", name: "Recliner", category: .furniture,
+            width: 38 * inch, depth: 38 * inch, height: 40 * inch, shape: .sofa,
+            sizeNote: ""),
+        Entry(
+            slug: "ottoman", name: "Ottoman", category: .furniture,
+            width: 24 * inch, depth: 24 * inch, height: 18 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "coffee_table", name: "Coffee table", category: .furniture,
+            width: 48 * inch, depth: 24 * inch, height: 18 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "side_table", name: "Side table", category: .furniture,
+            width: 22 * inch, depth: 22 * inch, height: 24 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "console_table", name: "Console table", category: .furniture,
+            width: 48 * inch, depth: 16 * inch, height: 30 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "tv_stand", name: "TV stand", category: .furniture,
+            width: 60 * inch, depth: 18 * inch, height: 24 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "dining_table", name: "Dining table", category: .furniture,
+            width: 72 * inch, depth: 36 * inch, height: 30 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "dining_table_round", name: "Dining table, round", category: .furniture,
+            width: 48 * inch, depth: 48 * inch, height: 30 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "bar_stool", name: "Bar stool", category: .furniture,
+            width: 16 * inch, depth: 16 * inch, height: 30 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "desk_corner", name: "Corner desk", category: .furniture,
+            width: 60 * inch, depth: 60 * inch, height: 30 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "office_chair", name: "Office chair", category: .furniture,
+            width: 26 * inch, depth: 26 * inch, height: 40 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "filing_cabinet", name: "Filing cabinet", category: .furniture,
+            width: 18 * inch, depth: 24 * inch, height: 52 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "piano", name: "Piano", category: .furniture,
+            width: 58 * inch, depth: 24 * inch, height: 48 * inch, shape: .box,
+            sizeNote: "Upright. Moving one is its own line on an estimate."),
+        Entry(
+            slug: "treadmill", name: "Treadmill", category: .furniture,
+            width: 34 * inch, depth: 72 * inch, height: 55 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "mirror", name: "Mirror", category: .furniture,
+            width: 30 * inch, depth: 2 * inch, height: 42 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "rug", name: "Rug", category: .furniture,
+            width: 96 * inch, depth: 60 * inch, height: 1 * inch, shape: .panel,
+            sizeNote: "Contents, and often the first thing out."),
+        Entry(
+            slug: "base_cabinet_drawer", name: "Drawer base", category: .cabinets,
+            width: 24 * inch, depth: 24 * inch, height: 34.5 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "base_corner_left", name: "Corner base, left", category: .cabinets,
+            width: 36 * inch, depth: 36 * inch, height: 34.5 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "base_corner_right", name: "Corner base, right", category: .cabinets,
+            width: 36 * inch, depth: 36 * inch, height: 34.5 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "base_corner_carousel", name: "Corner base, carousel", category: .cabinets,
+            width: 36 * inch, depth: 36 * inch, height: 34.5 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "base_sink_cabinet", name: "Sink base", category: .cabinets,
+            width: 36 * inch, depth: 24 * inch, height: 34.5 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "wall_cabinet_double", name: "Wall cabinet, double", category: .cabinets,
+            width: 36 * inch, depth: 12 * inch, height: 30 * inch, shape: .wallCabinet,
+            sizeNote: ""),
+        Entry(
+            slug: "wall_corner_left", name: "Corner wall, left", category: .cabinets,
+            width: 24 * inch, depth: 24 * inch, height: 30 * inch, shape: .wallCabinet,
+            sizeNote: ""),
+        Entry(
+            slug: "wall_corner_right", name: "Corner wall, right", category: .cabinets,
+            width: 24 * inch, depth: 24 * inch, height: 30 * inch, shape: .wallCabinet,
+            sizeNote: ""),
+        Entry(
+            slug: "wall_open_shelf", name: "Open wall shelf", category: .cabinets,
+            width: 30 * inch, depth: 12 * inch, height: 30 * inch, shape: .shelving,
+            sizeNote: ""),
+        Entry(
+            slug: "tall_oven_cabinet", name: "Oven housing", category: .cabinets,
+            width: 30 * inch, depth: 24 * inch, height: 84 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "tall_broom_cabinet", name: "Broom cabinet", category: .cabinets,
+            width: 18 * inch, depth: 24 * inch, height: 84 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "countertop_peninsula", name: "Peninsula", category: .cabinets,
+            width: 72 * inch, depth: 25 * inch, height: 36 * inch, shape: .counter,
+            sizeNote: ""),
+        Entry(
+            slug: "backsplash", name: "Backsplash", category: .cabinets,
+            width: 96 * inch, depth: 1 * inch, height: 18 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "toe_kick", name: "Toe kick", category: .cabinets,
+            width: 96 * inch, depth: 3 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "crown_moulding", name: "Crown moulding", category: .cabinets,
+            width: 96 * inch, depth: 4 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "cabinet_filler", name: "Filler strip", category: .cabinets,
+            width: 3 * inch, depth: 24 * inch, height: 34.5 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "extinguisher_co2", name: "Extinguisher, CO2", category: .safety,
+            width: 8 * inch, depth: 8 * inch, height: 24 * inch, shape: .cylinder,
+            sizeNote: ""),
+        Entry(
+            slug: "extinguisher_water", name: "Extinguisher, water", category: .safety,
+            width: 8 * inch, depth: 8 * inch, height: 24 * inch, shape: .cylinder,
+            sizeNote: ""),
+        Entry(
+            slug: "fire_blanket", name: "Fire blanket", category: .safety,
+            width: 8 * inch, depth: 4 * inch, height: 12 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "smoke_detector", name: "Smoke detector", category: .safety,
+            width: 6 * inch, depth: 6 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "heat_detector", name: "Heat detector", category: .safety,
+            width: 6 * inch, depth: 6 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "co_detector", name: "CO detector", category: .safety,
+            width: 6 * inch, depth: 6 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "sprinkler_head", name: "Sprinkler head", category: .safety,
+            width: 3 * inch, depth: 3 * inch, height: 3 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "fire_alarm_pull", name: "Alarm pull station", category: .safety,
+            width: 5 * inch, depth: 2 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "fire_alarm_horn", name: "Alarm horn / strobe", category: .safety,
+            width: 6 * inch, depth: 4 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "emergency_light", name: "Emergency light", category: .safety,
+            width: 12 * inch, depth: 5 * inch, height: 7 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "evacuation_path", name: "Evacuation path", category: .safety,
+            width: 12 * inch, depth: 1 * inch, height: 9 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "first_aid_kit", name: "First aid kit", category: .safety,
+            width: 12 * inch, depth: 5 * inch, height: 14 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "eyewash_station", name: "Eyewash station", category: .safety,
+            width: 18 * inch, depth: 14 * inch, height: 20 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "safety_shower", name: "Safety shower", category: .safety,
+            width: 24 * inch, depth: 24 * inch, height: 90 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "aed", name: "AED", category: .safety,
+            width: 12 * inch, depth: 4 * inch, height: 14 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "defibrillator_cabinet", name: "AED cabinet", category: .safety,
+            width: 14 * inch, depth: 6 * inch, height: 16 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "beam", name: "Beam", category: .structural,
+            width: 120 * inch, depth: 8 * inch, height: 10 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "post", name: "Post", category: .structural,
+            width: 6 * inch, depth: 6 * inch, height: 96 * inch, shape: .column,
+            sizeNote: ""),
+        Entry(
+            slug: "partition_wall", name: "Partition wall", category: .structural,
+            width: 96 * inch, depth: 4 * inch, height: 96 * inch, shape: .panel,
+            sizeNote: "A stud wall, which is what makes an office storage room its own room."),
+        Entry(
+            slug: "stairs_spiral", name: "Spiral stairs", category: .structural,
+            width: 60 * inch, depth: 60 * inch, height: 108 * inch, shape: .stairs,
+            sizeNote: ""),
+        Entry(
+            slug: "stairs_landing", name: "Landing", category: .structural,
+            width: 48 * inch, depth: 48 * inch, height: 8 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "handrail", name: "Handrail", category: .structural,
+            width: 96 * inch, depth: 3 * inch, height: 3 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "railing", name: "Railing", category: .structural,
+            width: 96 * inch, depth: 3 * inch, height: 36 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "fireplace_insert", name: "Fireplace insert", category: .structural,
+            width: 30 * inch, depth: 20 * inch, height: 26 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "chimney_breast", name: "Chimney breast", category: .structural,
+            width: 48 * inch, depth: 18 * inch, height: 96 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "chimney", name: "Chimney", category: .structural,
+            width: 24 * inch, depth: 24 * inch, height: 48 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "hearth", name: "Hearth", category: .structural,
+            width: 54 * inch, depth: 20 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "niche", name: "Niche", category: .structural,
+            width: 24 * inch, depth: 6 * inch, height: 30 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "attic_hatch", name: "Attic hatch", category: .structural,
+            width: 24 * inch, depth: 30 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "crawlspace_hatch", name: "Crawlspace hatch", category: .structural,
+            width: 24 * inch, depth: 24 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "floor_opening", name: "Floor opening", category: .structural,
+            width: 36 * inch, depth: 36 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "ceiling_opening", name: "Ceiling opening", category: .structural,
+            width: 36 * inch, depth: 36 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "threshold", name: "Threshold", category: .structural,
+            width: 36 * inch, depth: 5 * inch, height: 1 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "ramp", name: "Ramp", category: .structural,
+            width: 36 * inch, depth: 96 * inch, height: 6 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "oven_wall_double", name: "Double wall oven", category: .appliances,
+            width: 30 * inch, depth: 24 * inch, height: 50 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "cooktop", name: "Cooktop", category: .appliances,
+            width: 30 * inch, depth: 21 * inch, height: 4 * inch, shape: .stove,
+            sizeNote: ""),
+        Entry(
+            slug: "microwave", name: "Microwave", category: .appliances,
+            width: 22 * inch, depth: 16 * inch, height: 13 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "microwave_otr", name: "Over-range microwave", category: .appliances,
+            width: 30 * inch, depth: 17 * inch, height: 17 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "range_hood", name: "Range hood", category: .appliances,
+            width: 30 * inch, depth: 20 * inch, height: 30 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "range_hood_insert", name: "Range hood insert", category: .appliances,
+            width: 28 * inch, depth: 18 * inch, height: 10 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "refrigerator_french", name: "Fridge, French door", category: .appliances,
+            width: 36 * inch, depth: 32 * inch, height: 70 * inch, shape: .fridge,
+            sizeNote: ""),
+        Entry(
+            slug: "freezer", name: "Freezer, upright", category: .appliances,
+            width: 30 * inch, depth: 30 * inch, height: 66 * inch, shape: .fridge,
+            sizeNote: ""),
+        Entry(
+            slug: "freezer_chest", name: "Freezer, chest", category: .appliances,
+            width: 50 * inch, depth: 26 * inch, height: 34 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "dishwasher_drawer", name: "Dishwasher drawer", category: .appliances,
+            width: 24 * inch, depth: 24 * inch, height: 17 * inch, shape: .machine,
+            sizeNote: ""),
+        Entry(
+            slug: "washer_dryer_stacked", name: "Washer / dryer, stacked", category: .appliances,
+            width: 27 * inch, depth: 32 * inch, height: 76 * inch, shape: .machine,
+            sizeNote: ""),
+        Entry(
+            slug: "washer_dryer_combo", name: "Washer / dryer combo", category: .appliances,
+            width: 27 * inch, depth: 32 * inch, height: 39 * inch, shape: .machine,
+            sizeNote: ""),
+        Entry(
+            slug: "wine_cooler", name: "Wine cooler", category: .appliances,
+            width: 24 * inch, depth: 24 * inch, height: 34 * inch, shape: .fridge,
+            sizeNote: ""),
+        Entry(
+            slug: "garbage_disposal", name: "Garbage disposal", category: .appliances,
+            width: 8 * inch, depth: 8 * inch, height: 14 * inch, shape: .cylinder,
+            sizeNote: ""),
+        Entry(
+            slug: "trash_compactor", name: "Trash compactor", category: .appliances,
+            width: 15 * inch, depth: 24 * inch, height: 34 * inch, shape: .machine,
+            sizeNote: ""),
+        Entry(
+            slug: "deck_stairs", name: "Deck stairs", category: .outdoors,
+            width: 48 * inch, depth: 48 * inch, height: 36 * inch, shape: .stairs,
+            sizeNote: ""),
+        Entry(
+            slug: "patio", name: "Patio", category: .outdoors,
+            width: 144 * inch, depth: 120 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "porch", name: "Porch", category: .outdoors,
+            width: 120 * inch, depth: 72 * inch, height: 12 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "fence", name: "Fence", category: .outdoors,
+            width: 96 * inch, depth: 4 * inch, height: 72 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "gate", name: "Gate", category: .outdoors,
+            width: 42 * inch, depth: 3 * inch, height: 72 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "gutter", name: "Gutter", category: .outdoors,
+            width: 120 * inch, depth: 5 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "hose_reel", name: "Hose reel", category: .outdoors,
+            width: 18 * inch, depth: 12 * inch, height: 18 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "shed", name: "Shed", category: .outdoors,
+            width: 96 * inch, depth: 72 * inch, height: 84 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "pool", name: "Pool", category: .outdoors,
+            width: 192 * inch, depth: 120 * inch, height: 48 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "hot_tub", name: "Hot tub", category: .outdoors,
+            width: 84 * inch, depth: 84 * inch, height: 36 * inch, shape: .tub,
+            sizeNote: ""),
+        Entry(
+            slug: "ac_pad", name: "A/C pad", category: .outdoors,
+            width: 36 * inch, depth: 36 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "plants", name: "Planting", category: .outdoors,
+            width: 24 * inch, depth: 24 * inch, height: 30 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "tree", name: "Tree", category: .outdoors,
+            width: 60 * inch, depth: 60 * inch, height: 144 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "duct_flex", name: "Flexible duct", category: .hvac,
+            width: 48 * inch, depth: 8 * inch, height: 8 * inch, shape: .cylinder,
+            sizeNote: ""),
+        Entry(
+            slug: "wall_register", name: "Wall register", category: .hvac,
+            width: 12 * inch, depth: 4 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "return_grille", name: "Return grille", category: .hvac,
+            width: 20 * inch, depth: 4 * inch, height: 20 * inch, shape: .panel,
+            sizeNote: "Bigger and blanker than a supply register."),
+        Entry(
+            slug: "humidifier", name: "Humidifier", category: .hvac,
+            width: 14 * inch, depth: 10 * inch, height: 16 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "air_exchanger", name: "Air exchanger / HRV", category: .hvac,
+            width: 24 * inch, depth: 16 * inch, height: 28 * inch, shape: .box,
+            sizeNote: "Standard in Québec construction."),
+        Entry(
+            slug: "heat_recovery_unit", name: "Heat recovery unit", category: .hvac,
+            width: 24 * inch, depth: 16 * inch, height: 28 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "flue_pipe", name: "Flue pipe", category: .hvac,
+            width: 6 * inch, depth: 6 * inch, height: 48 * inch, shape: .cylinder,
+            sizeNote: ""),
+        Entry(
+            slug: "garage_door", name: "Garage door", category: .garage,
+            width: 108 * inch, depth: 6 * inch, height: 84 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "tool_chest", name: "Tool chest", category: .garage,
+            width: 42 * inch, depth: 20 * inch, height: 40 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "workbench_garage", name: "Workbench", category: .garage,
+            width: 60 * inch, depth: 30 * inch, height: 36 * inch, shape: .table,
+            sizeNote: ""),
+        Entry(
+            slug: "truck", name: "Truck", category: .garage,
+            width: 80 * inch, depth: 230 * inch, height: 76 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "motorcycle", name: "Motorcycle", category: .garage,
+            width: 30 * inch, depth: 84 * inch, height: 50 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "bicycle", name: "Bicycle", category: .garage,
+            width: 20 * inch, depth: 68 * inch, height: 42 * inch, shape: .box,
+            sizeNote: ""),
+        Entry(
+            slug: "ev_charger_garage", name: "EV charger", category: .garage,
+            width: 14 * inch, depth: 8 * inch, height: 18 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "breaker_panel_garage", name: "Breaker panel", category: .garage,
+            width: 14 * inch, depth: 4 * inch, height: 20 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "floor_drain_garage", name: "Floor drain", category: .garage,
+            width: 8 * inch, depth: 8 * inch, height: 1 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "injectidry", name: "Injectidry", category: .restoration,
+            width: 18 * inch, depth: 12 * inch, height: 14 * inch, shape: .equipment,
+            sizeNote: "A manifold of hoses into a wall cavity."),
+        Entry(
+            slug: "negative_air_machine", name: "Negative air machine", category: .restoration,
+            width: 26 * inch, depth: 16 * inch, height: 20 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "containment_zipper", name: "Containment zipper", category: .restoration,
+            width: 4 * inch, depth: 2 * inch, height: 84 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "thermal_camera", name: "Thermal camera", category: .restoration,
+            width: 4 * inch, depth: 3 * inch, height: 9 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "hygrometer", name: "Hygrometer", category: .restoration,
+            width: 4 * inch, depth: 2 * inch, height: 6 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "air_filter_device", name: "Air filter device", category: .restoration,
+            width: 20 * inch, depth: 14 * inch, height: 20 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "water_softener", name: "Water softener", category: .plumbing,
+            width: 12 * inch, depth: 12 * inch, height: 48 * inch, shape: .cylinder,
+            sizeNote: ""),
+        Entry(
+            slug: "note_photo", name: "Photo marker", category: .annotations,
+            width: 8 * inch, depth: 8 * inch, height: 8 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "note_number", name: "Number badge", category: .annotations,
+            width: 8 * inch, depth: 8 * inch, height: 8 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "note_dimension", name: "Dimension note", category: .annotations,
+            width: 24 * inch, depth: 1 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "note_callout", name: "Callout", category: .annotations,
+            width: 24 * inch, depth: 1 * inch, height: 10 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "note_section", name: "Section mark", category: .annotations,
+            width: 12 * inch, depth: 1 * inch, height: 12 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "note_hazard", name: "Hazard note", category: .annotations,
+            width: 10 * inch, depth: 10 * inch, height: 14 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "note_text", name: "Text", category: .annotations,
+            width: 24 * inch, depth: 1 * inch, height: 8 * inch, shape: .panel,
+            sizeNote: ""),
+
         // MARK: Furniture — what was in the room, for the record.
         Entry(
             slug: "sofa", name: "Sofa", category: .furniture,

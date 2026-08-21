@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { db } from "./db";
 import { formatMoney } from "./money";
 import { copyFor, type QuoteLocale } from "./quoteCopy";
+import { downloadProjectFiles } from "./projects";
 import { getCompany, type CompanySetting } from "./settings";
 import { SITE_EMAIL, SITE_NAME, SITE_URL } from "@/lib/constants";
 
@@ -210,6 +211,98 @@ export async function emailInvoice(invoice: {
 
   if (error) throw new Error(`Could not send the email: ${error.message}`);
   return { sent: to, skipped: "" };
+}
+
+export type SendPhotosResult = SendResult & {
+  /** How many of the selected photos actually made it into the email. */
+  attached: number;
+  /** Filenames that were selected but could not be read from storage —
+      dropped from the send rather than failing the whole email, since the
+      operator has already committed to the rest by pressing Send. */
+  missing: string[];
+};
+
+/**
+ * Email a hand-picked set of the project's photos to a customer.
+ *
+ * Unlike a quote or invoice, there is no persistent, interactive page to
+ * link to — the point is to hand over exactly what was captured, so the
+ * photos travel as real attachments rather than a link. Recipients are
+ * whatever the operator chose on the form, not `recipientsFor` — a photo
+ * send is a one-off decision each time, not a standing preference like
+ * "this address gets every invoice".
+ */
+export async function emailPhotos(params: {
+  to: string[];
+  projectName: string;
+  photos: Array<{ path: string; filename: string }>;
+  note: string;
+  language: "fr" | "en";
+}): Promise<SendPhotosResult> {
+  if (!process.env.RESEND_API_KEY) {
+    return {
+      sent: [],
+      skipped: "Email is not configured (RESEND_API_KEY is missing).",
+      attached: 0,
+      missing: [],
+    };
+  }
+
+  const to = params.to.map((address) => address.trim()).filter(Boolean);
+  if (to.length === 0) {
+    return { sent: [], skipped: "No recipient address given.", attached: 0, missing: [] };
+  }
+  if (params.photos.length === 0) {
+    return { sent: [], skipped: "No photos selected.", attached: 0, missing: [] };
+  }
+
+  const company = await getCompany();
+  const fr = params.language === "fr";
+
+  const downloaded = await downloadProjectFiles(params.photos.map((photo) => photo.path));
+  const bytesByPath = new Map(downloaded.map((entry) => [entry.path, entry.bytes]));
+
+  const attachments = params.photos
+    .filter((photo) => bytesByPath.has(photo.path))
+    .map((photo) => ({ filename: photo.filename, content: bytesByPath.get(photo.path)! }));
+  const missing = params.photos
+    .filter((photo) => !bytesByPath.has(photo.path))
+    .map((photo) => photo.filename);
+
+  if (attachments.length === 0) {
+    return {
+      sent: [],
+      skipped: "None of the selected photos could be read from storage.",
+      attached: 0,
+      missing,
+    };
+  }
+
+  const subject = fr
+    ? `Photos — ${params.projectName} — ${company.tradeName || SITE_NAME}`
+    : `Photos — ${params.projectName} — ${company.tradeName || SITE_NAME}`;
+
+  const count = attachments.length;
+  const body = `
+    <p>${fr ? "Bonjour," : "Hello,"}</p>
+    <p>${
+      fr
+        ? `Voici ${count > 1 ? `${count} photos` : "une photo"} de votre dossier — ${escapeHtml(params.projectName)}.`
+        : `Here ${count > 1 ? `are ${count} photos` : "is a photo"} from your job — ${escapeHtml(params.projectName)}.`
+    }</p>
+    ${params.note.trim() ? `<p style="white-space:pre-wrap;">${escapeHtml(params.note.trim())}</p>` : ""}`;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: process.env.LEADS_FROM_EMAIL || `${SITE_NAME} <${SITE_EMAIL}>`,
+    to,
+    subject,
+    html: shell(company, body, fr ? "Merci de votre confiance." : "Thank you for your business."),
+    attachments,
+  });
+
+  if (error) throw new Error(`Could not send the email: ${error.message}`);
+  return { sent: to, skipped: "", attached: attachments.length, missing };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,16 @@
+{
+  "images": [
+    {
+      "filename": "chest_of_drawers.svg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true,
+    "template-rendering-intent": "original"
+  }
+}

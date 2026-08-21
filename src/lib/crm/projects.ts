@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { db, isEmbedFailure, isMissingTable, MigrationPendingError } from "./db";
 import { clientDisplayName } from "./types";
+import { listRoomScans } from "./roomScans";
 
 /**
  * Projects and their file library.
@@ -1007,4 +1008,65 @@ export async function signProjectFileUrls(paths: string[]): Promise<Record<strin
     if (entry.path && entry.signedUrl) out[entry.path] = entry.signedUrl;
   }
   return out;
+}
+
+export type ProjectPhoto = ProjectFile & {
+  /** The room this was taken in, or null for a project-level file (permit,
+      street photo). Carried through so a picker can group or caption by it. */
+  roomName: string | null;
+};
+
+/**
+ * Every image on the job — project-level files plus every room's own photos
+ * — in one list, newest first. This is what "email these photos to the
+ * customer" is built from: the operator should not have to know a photo was
+ * filed under a room to find it.
+ *
+ * A room whose photos fail to load (a migration not yet run) is skipped
+ * rather than failing the whole list, same as the report page's own
+ * aggregation.
+ */
+export async function listAllProjectPhotos(projectId: string): Promise<ProjectPhoto[]> {
+  const [projectFiles, scans] = await Promise.all([
+    listProjectFiles(projectId),
+    listRoomScans(projectId).catch(() => []),
+  ]);
+
+  const roomFiles = await Promise.all(
+    scans.map(async (scan) => {
+      const files = await listRoomFiles(scan.id).catch(() => []);
+      return files.map((file) => ({ ...file, roomName: scan.name }));
+    }),
+  );
+
+  const all: ProjectPhoto[] = [
+    ...projectFiles.map((file) => ({ ...file, roomName: null })),
+    ...roomFiles.flat(),
+  ].filter((file) => file.content_type.startsWith("image/"));
+
+  all.sort((a, b) => (a.uploaded_at < b.uploaded_at ? 1 : -1));
+  return all;
+}
+
+/**
+ * Fetch file bytes straight from the private bucket — for attaching to an
+ * email, not for showing on a page. A signed URL is the wrong tool here: it
+ * is meant for a browser to follow, and minting one just to immediately
+ * `fetch()` it server-side is a detour through the CDN for no reason.
+ *
+ * A path that fails to download is dropped rather than failing the batch —
+ * the caller reports which filenames made it into the email.
+ */
+export async function downloadProjectFiles(
+  paths: string[],
+): Promise<Array<{ path: string; bytes: Buffer }>> {
+  const client = requireDb();
+  const results = await Promise.all(
+    paths.map(async (path) => {
+      const { data, error } = await client.storage.from(FILE_BUCKET).download(path);
+      if (error || !data) return null;
+      return { path, bytes: Buffer.from(await data.arrayBuffer()) };
+    }),
+  );
+  return results.filter((entry): entry is NonNullable<(typeof results)[number]> => entry !== null);
 }
