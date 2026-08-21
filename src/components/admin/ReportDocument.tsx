@@ -320,12 +320,14 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             ["Total area", m2(floorAreaSqm)],
             ["Floors", String(levels.length)],
             ["Rooms", String(rooms.length)],
-            // Only when there IS one. "Bathroom 0" on a cover reads as a
-            // figure somebody failed to fill in rather than as a true count
-            // of nothing, and a cover has to look answered.
-            ...(bathroomCount > 0
-              ? [["Bathroom", String(bathroomCount)] as [string, string]]
-              : []),
+            // THE ZERO PRINTS. I hid it, reasoning that "Bathroom 0" reads
+            // as a field somebody failed to fill in — a decent argument, and
+            // not the one that was asked for. His instruction on this
+            // document, 19 Aug: *"just duplicate whatever I send you. Don't
+            // try to be creative whatever."* Their cover prints the zero, so
+            // this does. It is also defensible on its own terms: on a claim,
+            // "no bathrooms" is a fact worth stating rather than a gap.
+            ["Bathroom", String(bathroomCount)],
           ].map(([label, value]) => (
             <div key={label}>
               <span className="figure-value">{value}</span>
@@ -558,24 +560,17 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               </table>
             )}
 
+            {/* **What the two lines above do NOT already say.**
+                This table used to repeat Floor, Perimeter and Ceiling height
+                — all three of which are printed as running text at the top
+                of this very page. The same figure twice on one page is worse
+                than useless: a reader stops reading and starts checking
+                whether the two agree.
+                Wall area goes with them. The reference does not print it on
+                a room page at all, and it is on the cover, where a total
+                belongs. What is left is what nothing else states. */}
             <table className="measure">
               <tbody>
-                <tr>
-                  <th>Floor</th>
-                  <td className="num">{m2(room.floorAreaSqm)}</td>
-                </tr>
-                <tr>
-                  <th>Wall area (gross)</th>
-                  <td className="num">{m2(room.wallLengthM * room.ceilingHeightM)}</td>
-                </tr>
-                <tr>
-                  <th>Perimeter</th>
-                  <td className="num">{m(room.wallLengthM)}</td>
-                </tr>
-                <tr>
-                  <th>Ceiling height</th>
-                  <td className="num">{m(room.ceilingHeightM)}</td>
-                </tr>
                 {room.stairCount > 0 && (
                   <tr>
                     <th>Staircase</th>

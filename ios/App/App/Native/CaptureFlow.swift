@@ -245,7 +245,7 @@ struct CaptureFlow: View {
                         // Still judged before the review appears: the analysis
                         // now feeds the marks on the storey plan (ORD-16)
                         // rather than a card the operator taps past.
-                        analysis = ReviewAnalysis(geometry: captured)
+                        analysis = ReviewAnalysis(geometry: captured, room: name.trimmed)
                         lastWasScan = true
                         stage = .review
                     }
@@ -767,7 +767,13 @@ struct CaptureFlow: View {
                 // The reject path (INT-S11): destructive, present, and
                 // visually subordinate — a bad capture must be as easy to
                 // throw away as a good one is to keep.
-                Button("Discard") {
+                // "Discard" alone says what is lost and not what happens
+                // next. This button has always gone back to the briefing for
+                // the SAME room, name and type intact, because the usual
+                // reason to reject a capture is to walk it again — so the
+                // longer label is not a promise, it is a description of what
+                // the code already does.
+                Button("Discard & rescan") {
                     // A rejected capture must leave the merge set, or the
                     // builder would register a room the operator threw away.
                     if lastWasScan { session.discardLastUnsaved() }
@@ -1234,7 +1240,15 @@ struct ReviewAnalysis {
     /// guessed but the guess is small enough to stand.
     let inferredNote: String?
 
-    init(geometry: ScanGeometry) {
+    /// `room` names the room in every message this produces.
+    ///
+    /// The reference does this and it reads markedly better: *"Kitchen" had
+    /// an opening*, not *the walls did not join up*. By the third room of a
+    /// visit the operator has seen this sheet twice already, and the first
+    /// question is always which room it is about.
+    init(geometry: ScanGeometry, room: String = "") {
+        let named = room.trimmingCharacters(in: .whitespaces)
+        let subject = named.isEmpty ? "This room" : "“\(named)”"
         let plan = FloorPlanGeometry.plan(from: geometry)
         self.plan = plan
         let outline = FloorPlanGeometry.outlineWithClosure(plan.segments)
@@ -1272,16 +1286,16 @@ struct ReviewAnalysis {
                     let fraction = perimeter > 0 ? edge.length / perimeter : 1
                     if fraction > 0.3 {
                         problems.append(
-                            "\(Int((fraction * 100).rounded()))% of this outline is guessed, not walked — the dashed edge below. The area is not a measurement at that point."
+                            "\(subject): \(Int((fraction * 100).rounded()))% of this outline is guessed, not walked — the dashed edge below. The area is not a measurement at that point."
                         )
                     } else {
                         inferredNote =
-                            "One edge was never walked. The dashed line closes the shape so the room is not lost — it is a guess, not a measurement."
+                            "\(subject) had an opening, so one edge was never walked. The dashed line closes the shape to keep the room — it is a guess, not a measurement."
                     }
                 }
             } else {
                 problems.append(
-                    "The walls do not join up into one room — the shape below is pieces, and the floor figure is a sum of what was caught, not a closed room."
+                    "\(subject): the walls do not join up into one room — the shape below is pieces, and the floor figure is a sum of what was caught, not a closed room."
                 )
             }
         }

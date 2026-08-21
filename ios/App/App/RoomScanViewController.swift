@@ -465,8 +465,12 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         let context = CIContext()
         guard let cgImage = context.createCGImage(image, from: image.extent) else { return }
 
+        // Stamped at the moment of capture, not at upload: a photo held on
+        // a phone overnight in a basement with no signal must carry the time
+        // it was TAKEN, not the time it finally reached the server.
+        let stamped = UIImage(cgImage: cgImage).stamped()
         Task { @MainActor in
-            choices?.addPhoto(UIImage(cgImage: cgImage))
+            choices?.addPhoto(stamped)
         }
 
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()

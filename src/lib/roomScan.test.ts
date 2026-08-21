@@ -337,10 +337,10 @@ describe("floor area comes from the outline, not the patches", () => {
       summed. */
   const room = (): RoomScanResult => ({
     walls: [
-      { lengthMeters: 4, widthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 0, axisX: 1, axisZ: 0 },
-      { lengthMeters: 3, widthMeters: 3, heightMeters: 2.4, centerX: 4, centerZ: 1.5, axisX: 0, axisZ: 1 },
-      { lengthMeters: 4, widthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 3, axisX: 1, axisZ: 0 },
-      { lengthMeters: 3, widthMeters: 3, heightMeters: 2.4, centerX: 0, centerZ: 1.5, axisX: 0, axisZ: 1 },
+      { lengthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 0, axisX: 1, axisZ: 0 },
+      { lengthMeters: 3, heightMeters: 2.4, centerX: 4, centerZ: 1.5, axisX: 0, axisZ: 1 },
+      { lengthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 3, axisX: 1, axisZ: 0 },
+      { lengthMeters: 3, heightMeters: 2.4, centerX: 0, centerZ: 1.5, axisX: 0, axisZ: 1 },
     ],
     floors: [{ areaSquareMeters: 12 }, { areaSquareMeters: 11 }],
     doors: [],
@@ -363,8 +363,8 @@ describe("floor area comes from the outline, not the patches", () => {
     const fragments: RoomScanResult = {
       ...room(),
       walls: [
-        { lengthMeters: 4, widthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 0, axisX: 1, axisZ: 0 },
-        { lengthMeters: 3, widthMeters: 3, heightMeters: 2.4, centerX: 9, centerZ: 9, axisX: 0, axisZ: 1 },
+        { lengthMeters: 4, heightMeters: 2.4, centerX: 2, centerZ: 0, axisX: 1, axisZ: 0 },
+        { lengthMeters: 3, heightMeters: 2.4, centerX: 9, centerZ: 9, axisX: 0, axisZ: 1 },
       ],
       floors: [{ areaSquareMeters: 500 }],
     };

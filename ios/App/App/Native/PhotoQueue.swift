@@ -207,3 +207,60 @@ final class PhotoQueue: ObservableObject {
             .sorted { $0.queuedAt < $1.queuedAt }
     }
 }
+
+extension UIImage {
+    /// Burn the moment it was taken into the corner of the photograph.
+    ///
+    /// **The owner, 20 Aug 2026, on the reference's own scan photos:** *"if
+    /// you see on the photos, there is a time stamp… these photos get
+    /// uploaded with the time stamp. So this is very important to know."*
+    ///
+    /// He is right, and the reason is specific to this trade. A restoration
+    /// photograph is evidence of a condition that will not exist tomorrow —
+    /// the water is being extracted, the drywall is coming out — and its
+    /// value to an adjuster depends entirely on *when* it was taken. A date
+    /// in a database column proves when a ROW was written. A date drawn into
+    /// the pixels travels with the image: into the report, into a PDF, into
+    /// an email forwarded three times, onto a printout in a file. It cannot
+    /// be separated from the thing it describes, which is the whole point.
+    ///
+    /// Only for photographs this app TAKES. A picture chosen from the
+    /// library was taken at some other time, and stamping it with now would
+    /// be a false statement of exactly the kind this exists to prevent.
+    func stamped(at moment: Date = Date()) -> UIImage {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let text = formatter.string(from: moment) as NSString
+
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { context in
+            draw(at: .zero)
+
+            // Sized off the image rather than fixed: the same photo is read
+            // on a phone and printed a third of a page wide, and a 12pt
+            // stamp disappears at one of those.
+            let fontSize = max(18, size.height * 0.022)
+            let font = UIFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: UIColor.white,
+            ]
+            let textSize = text.size(withAttributes: attributes)
+            let pad = fontSize * 0.5
+            let plate = CGRect(
+                x: pad,
+                y: size.height - textSize.height - pad * 2.5,
+                width: textSize.width + pad * 2,
+                height: textSize.height + pad)
+
+            // A plate behind it, because a white stamp on a white ceiling is
+            // no stamp at all — and half these photographs are of ceilings.
+            UIColor.black.withAlphaComponent(0.55).setFill()
+            UIBezierPath(roundedRect: plate, cornerRadius: pad * 0.6).fill()
+            text.draw(
+                at: CGPoint(x: plate.minX + pad, y: plate.minY + pad * 0.5),
+                withAttributes: attributes)
+            _ = context
+        }
+    }
+}
