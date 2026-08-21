@@ -506,23 +506,39 @@ def _():
     # The flight runs along +x, so the RISERS face the viewer and the treads
     # sit on top. Running it along +y put the risers away from the camera and
     # the whole thing read as a ribbed wedge.
-    # DESCENDING toward the viewer, and drawn back to front. Ascending that
-    # way put each taller step in front of the one behind it and buried every
-    # tread — the flight came out as a plain wedge with fins.
-    s = shadow(0, 0, 28, 14)
-    for i in range(6):
-        s += box(i * 4.4, 0, 0, 4.6, 14, 4.4 * (6 - i))
+    # **The flight climbs AWAY from the viewer.** Both earlier attempts had it
+    # climbing toward the camera, which puts the tallest step nearest and
+    # buries every tread behind it — a plain wedge with fins, twice.
+    #
+    # Climbing away, the nearest step is the shortest and occludes nothing, so
+    # each tread top and each riser stays visible and the flight reads as a
+    # flight. Drawn far-to-near for the same reason.
+    W, D, H = 16.0, 4.6, 4.6
+    s = shadow(0, 0, W, D * 6)
+    for i in range(6):                      # i = 0 is the TOP step, furthest
+        y = i * D
+        s += box(0, y, 0, W, D, H * (6 - i))
     return s
 
 @recipe("bulkhead")
 def _():
-    # A soffit BOXED INTO a corner — the two wall planes are what say it is up
-    # at the ceiling rather than lying on the floor.
-    s = poly([iso(0, 0, 0), iso(32, 0, 0), iso(32, 0, 26), iso(0, 0, 26)],
-             "#EDF1F5", INK, 1.6)
-    s += poly([iso(0, 0, 0), iso(0, 18, 0), iso(0, 18, 26), iso(0, 0, 26)],
-              "#E1E7ED", INK, 1.6)
-    s += box(0, 0, 14, 32, 18, 12, top=TOP)
+    # **A soffit is only a soffit because of where it is.** A box on its own is
+    # a box — it read as a table, and before that as a countertop. What names
+    # it is the corner it is boxed into and the wall running down past it, so
+    # the walls are the drawing and the box is the detail.
+    #
+    # No shadow: a shadow on the floor is the one mark that would say this
+    # thing is standing on it.
+    WALL_A, WALL_B = "#E8EDF2", "#DAE1E8"
+    s = poly([iso(0, 0, 0), iso(34, 0, 0), iso(34, 0, 34), iso(0, 0, 34)],
+             WALL_A, INK, 1.8)
+    s += poly([iso(0, 0, 0), iso(0, 20, 0), iso(0, 20, 34), iso(0, 0, 34)],
+              WALL_B, INK, 1.8)
+    # The ceiling line, so the top of the walls is unmistakably the ceiling.
+    s += line((34, 0, 34), (0, 0, 34), INK, 2.0)
+    s += line((0, 0, 34), (0, 20, 34), INK, 2.0)
+    # The soffit itself, hung in the corner under that line.
+    s += box(0, 0, 22, 34, 9, 12, top=TOP)
     return s
 
 @recipe("baseboard_heater")
