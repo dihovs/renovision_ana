@@ -1,10 +1,13 @@
 import {
   areaColor,
+  damageLabel,
   wallLengthM,
   DAMAGE_LABEL,
   type AffectedArea,
   type AreaPoint,
 } from "@/lib/crm/areaShapes";
+import { formatArea, formatLength } from "@/lib/report/strings";
+import type { Locale } from "@/i18n/translations";
 
 /**
  * One wall, drawn straight on, with the damage marked on it.
@@ -31,12 +34,15 @@ export default function WallElevation({
   wallIndex,
   ceilingHeightM,
   areas,
+  locale = "en",
 }: {
   /** The room polygon in plan metres, without its closing point — what
       `planCorners` returns. Wall indices count against this. */
   corners: AreaPoint[];
   wallIndex: number;
   ceilingHeightM: number;
+  /** The document's language — the two edge figures are formatted in it. */
+  locale?: Locale;
   /** Areas on THIS wall. The caller filters; this draws what it is given. */
   areas: AffectedArea[];
 }) {
@@ -98,10 +104,10 @@ export default function WallElevation({
         dominantBaseline="middle"
         transform={`rotate(-90 ${-padLeft + 0.06} ${height / 2})`}
       >
-        {height.toFixed(3)} m
+        {formatLength(locale, height)}
       </text>
       <text x={length / 2} y={height + 0.3} fontSize={type} fill="#6b6b73" textAnchor="middle">
-        {length.toFixed(3)} m
+        {formatLength(locale, length)}
       </text>
     </svg>
   );
@@ -125,6 +131,9 @@ export function RoomElevations({
   areas,
   wallFlags,
   onlyFlagged = false,
+  locale = "en",
+  contextLabel,
+  wallWord = "Wall",
 }: {
   corners: AreaPoint[];
   ceilingHeightM: number;
@@ -144,6 +153,12 @@ export function RoomElevations({
    * it is damaged.
    */
   onlyFlagged?: boolean;
+  locale?: Locale;
+  /** What to say under a wall drawn for context, in the document's
+      language. */
+  contextLabel?: string;
+  /** `Wall` or `Mur`. */
+  wallWord?: string;
 }) {
   if (corners.length < 3) return null;
 
@@ -183,15 +198,16 @@ export function RoomElevations({
                 wallIndex={index}
                 ceilingHeightM={ceilingHeightM}
                 areas={onWall}
+                locale={locale}
               />
               <figcaption>
-                <strong>Wall {index + 1}</strong>
+                <strong>{wallWord} {index + 1}</strong>
                 <span>
                   {onWall.length > 0
-                    ? `${sqm.toFixed(2)} m² · ${onWall
-                        .map((area) => DAMAGE_LABEL[area.damage_type])
+                    ? `${formatArea(locale, sqm)} · ${onWall
+                        .map((area) => damageLabel(area.damage_type, locale))
                         .join(", ")}`
-                    : "Shown for context — no damage marked"}
+                    : contextLabel ?? "Shown for context — no damage marked"}
                 </span>
               </figcaption>
             </figure>

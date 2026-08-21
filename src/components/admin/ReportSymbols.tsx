@@ -1,4 +1,5 @@
-import { DAMAGE_COLOR, DAMAGE_LABEL, type DamageType } from "@/lib/crm/areaShapes";
+import { DAMAGE_COLOR, damageLabel, type DamageType } from "@/lib/crm/areaShapes";
+import type { Locale } from "@/i18n/translations";
 
 /**
  * The report's own signage.
@@ -82,13 +83,21 @@ export function CauseGlyph({ cause, size = 11 }: { cause: DamageType; size?: num
 }
 
 /** The cause, tinted, glyphed and named — the atom the legend is built from. */
-export function CauseTag({ cause }: { cause: DamageType }) {
+export function CauseTag({
+  cause,
+  locale = "en",
+}: {
+  cause: DamageType;
+  /** The document's language. `Dégât d'eau`, not `Eau` — see
+      `DAMAGE_LABEL_FR` for why the insurance term is the right one. */
+  locale?: Locale;
+}) {
   return (
     <span className="cause-tag">
       <span className="cause-mark" style={{ color: DAMAGE_COLOR[cause] }}>
         <CauseGlyph cause={cause} />
       </span>
-      {DAMAGE_LABEL[cause] ?? cause}
+      {damageLabel(cause, locale)}
     </span>
   );
 }
@@ -115,10 +124,28 @@ const THIN = { fill: "none", stroke: "#1b1c1f", strokeWidth: 1 };
  * will also read this. Six rows at the foot of the storey page cost almost
  * nothing and mean nobody has to ask.
  */
-export function PlanLegend({ causes }: { causes: DamageType[] }) {
+export function PlanLegend({
+  causes,
+  locale = "en",
+  t,
+}: {
+  causes: DamageType[];
+  locale?: Locale;
+  /** The legend's own six lines, in the document's language. */
+  t: {
+    keyToDrawing: string;
+    legendDoor: string;
+    legendWindow: string;
+    legendOpening: string;
+    legendFloorArea: string;
+    legendWallArea: string;
+    legendKeyed: string;
+    legendNote: string;
+  };
+}) {
   return (
     <div className="plan-legend">
-      <p className="legend-title">Key to the drawing</p>
+      <p className="legend-title">{t.keyToDrawing}</p>
       <div className="legend-row">
         <span className="legend-item">
           <PlanSymbol>
@@ -126,21 +153,21 @@ export function PlanLegend({ causes }: { causes: DamageType[] }) {
             <path d="M8 8v-6.5" {...THIN} />
             <path d="M8 1.5A6.5 6.5 0 0 1 14.5 8" {...THIN} strokeDasharray="1.6 1.4" />
           </PlanSymbol>
-          Door, opening as drawn
+          {t.legendDoor}
         </span>
         <span className="legend-item">
           <PlanSymbol>
             <path d="M1 8h8M21 8h8" {...WALL} />
             <path d="M9 6.4h12M9 9.6h12" {...THIN} />
           </PlanSymbol>
-          Window
+          {t.legendWindow}
         </span>
         <span className="legend-item">
           <PlanSymbol>
             <path d="M1 8h8M21 8h8" {...WALL} />
             <path d="M9 4.5v7M21 4.5v7" {...THIN} />
           </PlanSymbol>
-          Opening, no door
+          {t.legendOpening}
         </span>
       </div>
       <div className="legend-row">
@@ -149,7 +176,7 @@ export function PlanLegend({ causes }: { causes: DamageType[] }) {
             <rect x="2" y="3" width="26" height="10" rx="1.5" fill="#6fb0e8" opacity="0.32" />
             <rect x="2" y="3" width="26" height="10" rx="1.5" fill="none" stroke="#6fb0e8" strokeWidth="1.2" />
           </PlanSymbol>
-          Affected floor area
+          {t.legendFloorArea}
         </span>
         <span className="legend-item">
           <PlanSymbol>
@@ -157,7 +184,7 @@ export function PlanLegend({ causes }: { causes: DamageType[] }) {
             <rect x="6" y="3" width="15" height="5" rx="1" fill="#6fb0e8" opacity="0.45" />
             <rect x="6" y="3" width="15" height="5" rx="1" fill="none" stroke="#6fb0e8" strokeWidth="1.2" />
           </PlanSymbol>
-          Affected wall area, shown on its elevation
+          {t.legendWallArea}
         </span>
         <span className="legend-item">
           <PlanSymbol>
@@ -174,21 +201,17 @@ export function PlanLegend({ causes }: { causes: DamageType[] }) {
             </text>
             <path d="M18 8h11" {...THIN} strokeDasharray="2 1.6" />
           </PlanSymbol>
-          Keyed to the list beside the plan
+          {t.legendKeyed}
         </span>
       </div>
       {causes.length > 0 && (
         <div className="legend-row legend-causes">
           {causes.map((cause) => (
-            <CauseTag key={cause} cause={cause} />
+            <CauseTag key={cause} cause={cause} locale={locale} />
           ))}
         </div>
       )}
-      <p className="legend-note">
-        Every plan is turned square to the page, so north is not implied.
-        Dimensions are metres; the scale bar under each drawing is the one it
-        was drawn to.
-      </p>
+      <p className="legend-note">{t.legendNote}</p>
     </div>
   );
 }

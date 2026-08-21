@@ -11,6 +11,7 @@ import { listProjectObjects } from "@/lib/crm/roomObjects";
 import { listEquipment, listMoistureReadings } from "@/lib/crm/dryingLog";
 import { CLAIM_FIELD_TEMPLATE, getCompany, getCustomFields } from "@/lib/crm/settings";
 import { trustedFloorAreaSquareMeters, type ScanGeometry } from "@/lib/roomScan";
+import { reportLocale } from "@/lib/report/strings";
 import "./report.css";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,12 @@ export default async function ReportPage({
   // The document alone, no app chrome — so any way of turning this into a
   // PDF produces the same clean pages.
   const bare = query.bare === "1";
+  // **The language of the document, not of the app.** He runs the app in
+  // English and his clients read French, so this is a property of the export
+  // rather than a setting — chosen in the export sheet, carried in the URL,
+  // and defaulting to French because that is the version a Québec job needs
+  // to have.
+  const locale = reportLocale(query.lang);
 
   if (!isConfigured) {
     return (
@@ -274,6 +281,7 @@ export default async function ReportPage({
           generatedAt: new Date().toISOString(),
           onlyLockedDimensions,
           layout: floorsOnly ? ("onlyFloors" as const) : ("full" as const),
+          locale,
         }}
       />
     </div>

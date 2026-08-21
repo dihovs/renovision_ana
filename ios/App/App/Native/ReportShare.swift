@@ -14,11 +14,29 @@ struct ReportShareView: View {
     let projectId: String
     let projectName: String
 
+    /// **The language of the DOCUMENT, remembered between exports.**
+    ///
+    /// His ask, 21 Aug 2026: *"our reports need to be in French. But me,
+    /// personally, I want to use the app in English. So when we create a
+    /// report, I wanna have an option to choose the language of the report
+    /// right when we're creating it."*
+    ///
+    /// Two separate decisions, so this never touches the interface. Stored
+    /// rather than reset each time because a Laval restoration firm sends
+    /// French reports on most jobs and English on some — the choice repeats,
+    /// so making it once should stick.
+    ///
+    /// Defaults to French: under Bill 96 the French version is the one a
+    /// Québec job has to have.
+    @AppStorage("report.language") private var language = "fr"
+
     @State private var pdf: Data?
     @State private var rendering = false
     @State private var error: String?
     @State private var webView: WKWebView?
     @State private var pageLoaded = false
+    /// Bumped to force the web view to load the other language's URL.
+    @State private var reloadToken = 0
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -35,9 +53,21 @@ struct ReportShareView: View {
                     pageLoaded = true
                 },
                 onError: { error = $0 })
+            .id(reloadToken)
             .ignoresSafeArea(edges: .bottom)
 
             VStack(spacing: Brand.Space.tight) {
+                // The choice sits with the button that acts on it, which is
+                // the whole of what he asked for: the language is decided at
+                // the moment the document is made, not in a settings screen
+                // somebody has to remember to visit.
+                Picker("Language", selection: $language) {
+                    Text("Français").tag("fr")
+                    Text("English").tag("en")
+                }
+                .pickerStyle(.segmented)
+                .disabled(rendering)
+
                 if let error {
                     Text(error)
                         .font(.footnote)
@@ -47,8 +77,11 @@ struct ReportShareView: View {
 
                 if let pdf {
                     ShareLink(
-                        item: PDFFile(data: pdf, name: "\(projectName) — report.pdf"),
-                        preview: SharePreview("\(projectName) — report")
+                        item: PDFFile(
+                            data: pdf,
+                            name: "\(projectName) — \(language == "fr" ? "rapport" : "report").pdf"),
+                        preview: SharePreview(
+                            "\(projectName) — \(language == "fr" ? "rapport" : "report")")
                     ) {
                         Label("Send the PDF", systemImage: "square.and.arrow.up")
                             .font(.system(size: 16, weight: .bold))
@@ -71,6 +104,15 @@ struct ReportShareView: View {
             }
             .padding(Brand.Space.base)
             .background(.thinMaterial)
+        }
+        .onChange(of: language) { _, _ in
+            // A PDF already made is a PDF in the OTHER language. Throwing it
+            // away is the only honest thing to do — leaving the share button
+            // live would send a French client an English report, which is
+            // the exact failure this feature exists to prevent.
+            pdf = nil
+            pageLoaded = false
+            reloadToken += 1
         }
         .navigationTitle("Report")
         .navigationBarTitleDisplayMode(.inline)

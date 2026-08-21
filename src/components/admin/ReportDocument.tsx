@@ -1,5 +1,14 @@
 import { Fragment } from "react";
 import { CauseTag, PlanLegend } from "./ReportSymbols";
+import {
+  REPORT_STRINGS,
+  formatArea,
+  formatBare,
+  formatDate,
+  formatLength,
+} from "@/lib/report/strings";
+import type { Locale } from "@/i18n/translations";
+import type { ReportStrings } from "@/lib/report/strings";
 import ReportStoreyPlan from "./ReportStoreyPlan";
 import { type PlanObject } from "./PlanObjects";
 import FloorPlan from "./FloorPlan";
@@ -15,6 +24,7 @@ import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
 import { FLOOR_LEVELS } from "@/lib/crm/floors";
 import {
   areaColor,
+  damageLabel,
   floorAreas,
   totalsBySurface,
   wallAreas,
@@ -104,6 +114,23 @@ export type ReportData = {
    * file gets set aside unread.
    */
   layout?: "full" | "onlyFloors";
+  /**
+   * **The language of the DOCUMENT, not of the app.**
+   *
+   * His ask, 21 Aug 2026: *"our reports need to be in French. But me,
+   * personally, I want to use the app in English. So when we create a
+   * report, I wanna have an option to choose the language of the report
+   * right when we're creating it."*
+   *
+   * Two separate decisions, so two separate settings. This one is chosen at
+   * the moment of export and rides in the URL, like `layout` and
+   * `dimensions`, because the page is server-rendered for print and a link
+   * that says what the document shows can be shared showing the same thing.
+   *
+   * Defaults to French: the reports go to Québec clients and carriers, and
+   * under Bill 96 the French version is the one that has to exist.
+   */
+  locale?: Locale;
 };
 
 /**
@@ -123,11 +150,14 @@ function ScaleBar({
   metresTall,
   boxWidthMm,
   boxHeightMm,
+  label,
 }: {
   metresWide: number;
   metresTall: number;
   boxWidthMm: number;
   boxHeightMm: number;
+  /** `Scale` or `Échelle`. */
+  label: string;
 }) {
   if (!(metresWide > 0) || !(metresTall > 0)) return null;
 
@@ -149,7 +179,7 @@ function ScaleBar({
 
   return (
     <div className="scalebar">
-      <span>Scale 1:{ratio}</span>
+      <span>{label} 1:{ratio}</span>
     </div>
   );
 }
@@ -168,20 +198,19 @@ const PHOTOS_PER_PAGE = 6;
  * The report printed the id, so a page headed "▼ 2nd" read as a fragment.
  * One vocabulary, `floors.ts`, decides both.
  */
-function floorLabel(level: string): string {
+function floorLabel(level: string, t: ReportStrings): string {
   const known = FLOOR_LEVELS.find((entry) => entry.id === level)?.label;
   if (known) return known;
-  // A bare number is a storey, not a name. Without this a page headed
-  // `2` reads as a fragment of something — and `▼ 2` beside `▼ Kitchen`
-  // looks like a bug, which is exactly what a reader will report it as.
+  // A bare number is a storey, not a name. Without this a page headed `2`
+  // reads as a fragment of something — and `▼ 2` beside `▼ Kitchen` looks
+  // like a bug, which is what a reader will report it as. In French the
+  // ordinal is `1er` then `2e`, which is the one place a dictionary swap
+  // would have produced `1st étage`.
   if (/^-?\d+$/.test(level)) {
     const n = Number(level);
-    if (n === 0) return "Ground floor";
-    if (n < 0) return `Basement${n < -1 ? ` ${Math.abs(n)}` : ""}`;
-    const suffix = n % 10 === 1 && n % 100 !== 11 ? "st"
-      : n % 10 === 2 && n % 100 !== 12 ? "nd"
-      : n % 10 === 3 && n % 100 !== 13 ? "rd" : "th";
-    return `${n}${suffix} floor`;
+    if (n === 0) return t.groundFloor;
+    if (n < 0) return `${t.basement}${n < -1 ? ` ${Math.abs(n)}` : ""}`;
+    return t.nthFloor(n);
   }
   return level;
 }
@@ -260,22 +289,10 @@ function wallAreaGross(room: {
   return room.wallLengthM * room.ceilingHeightM;
 }
 
-const m2 = (sqm: number) => `${sqm.toFixed(2)} m²`;
-const m = (metres: number) => `${metres.toFixed(3)} m`;
 
 const sqft = (sqm: number) => Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA");
 const ft = (m: number) => Math.round(metersToFeet(m)).toLocaleString("en-CA");
 
-function date(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const bare = /^\d{4}-\d{2}-\d{2}$/.test(iso);
-  return new Date(bare ? `${iso}T12:00:00` : iso).toLocaleDateString("en-CA", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    ...(bare ? {} : { timeZone: "America/Toronto" }),
-  });
-}
 
 export default function ReportDocument({ data }: { data: ReportData }) {
   const {
@@ -291,7 +308,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     generatedAt,
     onlyLockedDimensions = false,
     layout = "full",
+    locale = "fr",
   } = data;
+  const t = REPORT_STRINGS[locale];
+  // Every figure in the document goes through these, so a French report
+  // prints `78,64 m²` rather than `78.64 m²`. On a page that is mostly
+  // numbers, getting that wrong is most of the page.
+  const m2 = (sqm: number) => formatArea(locale, sqm);
+  const m = (metres: number) => formatLength(locale, metres);
+  const date = (iso: string | null | undefined) => formatDate(locale, iso);
   const floorsOnly = layout === "onlyFloors";
 
   const floorAreaSqm = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
@@ -396,13 +421,13 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   const levelPages = new Map<string, number>();
   for (const level of levels) {
     if (!rooms.some((room) => room.level === level)) continue;
-    levelPages.set(level, push("level", floorLabel(level)));
+    levelPages.set(level, push("level", floorLabel(level, t)));
   }
 
   const roomPages = new Map<string, { page: number; photos: number[] }>();
   if (!floorsOnly) {
     for (const room of rooms) {
-      const page = push("room", room.name, floorLabel(room.level));
+      const page = push("room", room.name, floorLabel(room.level, t));
       const photos = photoPages(room).map((_, index) =>
         push("photos", `Photos — ${room.name}`, `${index + 1}`),
       );
@@ -414,7 +439,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     !floorsOnly && equipment.length > 0 ? push("equipment", "Drying record") : null;
   const signaturePage = push("signature", "Signature");
   const definitionsPage =
-    !floorsOnly && rooms.length > 0 ? push("definitions", "How each figure is measured") : null;
+    !floorsOnly && rooms.length > 0 ? push("definitions", t.howMeasured) : null;
 
   const totalPages = plan.length;
   void coverPage;
@@ -428,10 +453,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   ).length;
 
   const headerTotals = [
-    `TOTAL AREA: ${m2(floorAreaSqm)}`,
-    `LIVING AREA: ${m2(livingAreaSqm)}`,
-    `FLOORS: ${levels.length}`,
-    `ROOMS: ${rooms.length}`,
+    `${t.totalArea.toUpperCase()}: ${m2(floorAreaSqm)}`,
+    `${t.livingArea.toUpperCase()}: ${m2(livingAreaSqm)}`,
+    `${t.floors.toUpperCase()}: ${levels.length}`,
+    `${t.rooms.toUpperCase()}: ${rooms.length}`,
   ].join(" • ");
 
   return (
@@ -464,12 +489,12 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             he is putting ours beside. */}
         <div className="cover-facts">
           <div>
-            <p className="cover-label">CREATED ON</p>
+            <p className="cover-label">{t.createdOn}</p>
             <p className="cover-value">{date(generatedAt)}</p>
           </div>
           {addressLines.length > 0 && (
             <div>
-              <p className="cover-label">LOCATION</p>
+              <p className="cover-label">{t.location}</p>
               {addressLines.map((line) => (
                 <p className="cover-value" key={line}>
                   {line}
@@ -493,7 +518,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <img
               className="cover-map"
               src={`/api/admin/staticmap?address=${encodeURIComponent(property)}`}
-              alt={`Map of ${property}`}
+              alt={`${t.location} — ${property}`}
             />
           )}
         </div>
@@ -506,9 +531,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             else. We store `room_type`, so we can answer it. */}
         <div className="cover-figures">
           {[
-            ["Total area", m2(floorAreaSqm)],
-            ["Floors", String(levels.length)],
-            ["Rooms", String(rooms.length)],
+            [t.totalArea, m2(floorAreaSqm)],
+            [t.floors, String(levels.length)],
+            [t.rooms, String(rooms.length)],
             // THE ZERO PRINTS. I hid it, reasoning that "Bathroom 0" reads
             // as a field somebody failed to fill in — a decent argument, and
             // not the one that was asked for. His instruction on this
@@ -516,7 +541,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             // try to be creative whatever."* Their cover prints the zero, so
             // this does. It is also defensible on its own terms: on a claim,
             // "no bathrooms" is a fact worth stating rather than a gap.
-            ["Bathroom", String(bathroomCount)],
+            [t.bathroom, String(bathroomCount)],
           ].map(([label, value]) => (
             <div key={label}>
               {/* Label ABOVE the value, as theirs prints it. */}
@@ -544,6 +569,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 showing five disconnected rectangles says less about the
                 property than no drawing at all. */}
             <ReportStoreyPlan
+              locale={locale}
               rooms={coverPlanRooms.map((room) => ({
                 id: room.id,
                 name: room.name,
@@ -555,7 +581,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               }))}
             />
             <p className="cover-plan-caption">
-              {floorLabel(levels[0])} — {coverPlanRooms.length} room
+              {floorLabel(levels[0], t)} — {coverPlanRooms.length} room
               {coverPlanRooms.length === 1 ? "" : "s"}
             </p>
           </div>
@@ -587,24 +613,24 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {!floorsOnly && hasSummary && (
         <section className="page">
           <Running project={project.name} address={property} totals={headerTotals} />
-          <p className="marker">Summary</p>
+          <p className="marker">{t.summary}</p>
           <div className="cover-grid">
             <dl>
-              <dt>Insured</dt>
+              <dt>{t.insured}</dt>
               <dd>{client?.name ?? "—"}</dd>
-              <dt>Property</dt>
+              <dt>{t.property}</dt>
               <dd>{property ?? "—"}</dd>
-              <dt>Work started</dt>
+              <dt>{t.workStarted}</dt>
               <dd>{date(project.started_on)}</dd>
-              <dt>Report prepared</dt>
+              <dt>{t.reportPrepared}</dt>
               <dd>{date(generatedAt)}</dd>
             </dl>
 
             <dl>
               {shownClaim.length === 0 ? (
                 <>
-                  <dt>Claim details</dt>
-                  <dd className="muted">Not recorded</dd>
+                  <dt>{t.claimDetails}</dt>
+                  <dd className="muted">{t.notRecorded}</dd>
                 </>
               ) : (
                 shownClaim.map((field) => (
@@ -624,7 +650,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <thead>
               <tr>
                 {/* Named gross so the definitions appendix maps onto it. */}
-                <th>Wall area (gross)</th>
+                <th>{t.wallAreaGross}</th>
               </tr>
             </thead>
             <tbody>
@@ -637,10 +663,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           {/* Two tables, never one. Named by surface, not just "affected
               area": both of these are affected area, and an adjuster must be
               able to tell which surface a figure priced. */}
-          <DamageTotals title="Affected floor area by cause" totals={damage.floor} />
-          <DamageTotals title="Affected wall area by cause" totals={damage.wall} />
+          <DamageTotals locale={locale} title={t.affectedFloorByCause} totals={damage.floor} />
+          <DamageTotals locale={locale} title={t.affectedWallByCause} totals={damage.wall} />
           {project.description && <p className="desc">{project.description}</p>}
-          <PageFoot n={summaryPage ?? 0} of={totalPages} company={company} />
+          <PageFoot n={summaryPage ?? 0} of={totalPages} company={company} t={t} />
         </section>
       )}
 
@@ -657,7 +683,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {contentsPage !== null && (
         <section className="page">
           <Running project={project.name} address={property} totals={headerTotals} />
-          <p className="marker">Contents</p>
+          <p className="marker">{t.contents}</p>
           <ul className="contents">
             {plan
               .filter((entry) => entry.kind !== "cover" && entry.kind !== "contents")
@@ -677,7 +703,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 </li>
               ))}
           </ul>
-          <PageFoot n={contentsPage} of={totalPages} company={company} />
+          <PageFoot n={contentsPage} of={totalPages} company={company} t={t} />
         </section>
       )}
 
@@ -691,7 +717,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <section className="page" key={level}>
             <Running project={project.name} address={property} totals={headerTotals} />
             <div className="section-head">
-              <p className="marker">{floorLabel(level)}</p>
+              <p className="marker">{floorLabel(level, t)}</p>
               <Figures
                 pairs={[
                   ["TOTAL AREA", m2(levelArea)],
@@ -707,6 +733,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 grid says *here are the rooms we measured*; a floor plan says
                 *here is the property*. */}
             <ReportStoreyPlan
+              locale={locale}
+              note={t.unregisteredStoreyNote}
               rooms={onLevel.map((room) => ({
                 id: room.id,
                 name: room.name,
@@ -724,8 +752,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   })),
               }))}
             />
-            <PlanLegend causes={causesInUse} />
-            <PageFoot n={levelPages.get(level) ?? 0} of={totalPages} company={company} />
+            <PlanLegend causes={causesInUse} locale={locale} t={t} />
+            <PageFoot n={levelPages.get(level) ?? 0} of={totalPages} company={company} t={t} />
           </section>
         );
       })}
@@ -744,16 +772,16 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <div className="section-head">
             <div>
               <p className="marker">{room.name}</p>
-              <p className="marker-sub">{floorLabel(room.level)}</p>
+              <p className="marker-sub">{floorLabel(room.level, t)}</p>
             </div>
             <Figures
               align="right"
               pairs={[
-                ["WIDTH", m(planExtent(room.geometry).width)],
-                ["LENGTH", m(planExtent(room.geometry).height)],
-                ["CEILING HEIGHT", m(room.ceilingHeightM)],
-                ["AREA", m2(room.floorAreaSqm)],
-                ["PERIMETER", m(room.wallLengthM)],
+                [t.width, m(planExtent(room.geometry).width)],
+                [t.length, m(planExtent(room.geometry).height)],
+                [t.ceilingHeight, m(room.ceilingHeightM)],
+                [t.area, m2(room.floorAreaSqm)],
+                [t.perimeter, m(room.wallLengthM)],
               ]}
             />
           </div>
@@ -777,6 +805,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             {roomsOnLevel(rooms, room.level).length > 1 && (
               <div className="locator">
                 <ReportStoreyPlan
+                  locale={locale}
                   highlight={room.id}
                   rooms={roomsOnLevel(rooms, room.level).map((other) => ({
                     id: other.id,
@@ -797,6 +826,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 <FloorPlan
                   result={room.geometry}
                   name={room.name}
+                  locale={locale}
                   objects={room.objects}
                   dimensions={onlyLockedDimensions ? "locked" : "all"}
                   // Floor areas only — a wall area's polygon is in its
@@ -814,8 +844,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   dimensions missing and no explanation reads as an error. */}
               {onlyLockedDimensions && (
                 <p className="fineprint">
-                  Only dimensions that were set by hand are shown on this plan.
-                  A room with none shows no dimensions.
+                  {t.lockedDimensionsNote}
                 </p>
               )}
               {/* **The ratio comes from the box the drawing is fitted INTO**,
@@ -825,6 +854,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 metresTall={planExtent(room.geometry).height}
                 boxWidthMm={ROOM_PLAN_BOX.width}
                 boxHeightMm={ROOM_PLAN_BOX.height}
+                label={t.scale}
               />
 
             {/* **The numbered key.** Badges on the drawing against an
@@ -857,7 +887,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                         {m2(Number(area.area_sqm))}
                         <span className="cause">
                           {" "}
-                          {DAMAGE_LABEL[area.damage_type] ?? area.damage_type}
+                          {damageLabel(area.damage_type, locale)}
                           {area.surface === "wall" ? " · wall" : " · floor"}
                         </span>
                       </td>
@@ -880,9 +910,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               <tbody>
                 {room.stairCount > 0 && (
                   <tr>
-                    <th>Staircase</th>
+                    <th>{t.staircase}</th>
                     <td className="num">
-                      {room.stairCount} — priced separately, not in the floor area
+                      {room.stairCount} — {t.staircaseNote}
                     </td>
                   </tr>
                 )}
@@ -900,6 +930,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               did not have it. */}
           <RoomElevations
             onlyFlagged
+            locale={locale}
+            wallWord={t.wall}
+            contextLabel={t.shownForContext}
             corners={planCorners(toFloorPlan(room.geometry))}
             ceilingHeightM={room.ceilingHeightM}
             areas={wallAreas(room.areas)}
@@ -910,9 +943,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <table className="listing">
               <thead>
                 <tr>
-                  <th>Reading</th>
-                  <th>Location</th>
-                  <th>Material</th>
+                  <th>{t.reading}</th>
+                  <th>{t.location}</th>
+                  <th>{t.material}</th>
                   <th className="num">MC</th>
                   <th className="num">RH</th>
                   <th className="num">Temp</th>
@@ -965,14 +998,13 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               their own idiom, not a structure they do not have. */}
           {(room.photos.length > 0 || room.areas.length > 0) && (
             <>
-              <p className="marker marker-2">{room.name} / {floorLabel(room.level)}</p>
+              <p className="marker marker-2">{room.name} / {floorLabel(room.level, t)}</p>
               {room.photos.length > 0 && (
                 <dl className="area-block">
-                  <dt>Photos</dt>
-                  <dd>
-                    {room.photos.length}{" "}
-                    {room.photos.length === 1 ? "Photo" : "Photos"} (see photos page)
-                  </dd>
+                  <dt>{t.photos}</dt>
+                  {/* `seePhotosPage` already carries the count — printing
+                      `{length}` in front of it as well gave `7 7 photos`. */}
+                  <dd>{t.seePhotosPage(room.photos.length)}</dd>
                 </dl>
               )}
               {([
@@ -982,29 +1014,31 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 list.length === 0 ? null : (
                   <Fragment key={surface}>
                     <p className="area-count">
-                      {list.length} AFFECTED {surface} AREA
+                      {surface === "WALL"
+                        ? t.affectedWallAreaCount(list.length)
+                        : t.affectedFloorAreaCount(list.length)}
                       {list.length === 1 ? "" : "S"}
                     </p>
                     {list.map((area) => (
                       <div className="area-entry" key={area.id}>
                       <dl className="area-block">
-                        <dt>Area</dt>
+                        <dt>{t.area}</dt>
                         <dd>{m2(Number(area.area_sqm))}</dd>
-                        <dt>Name</dt>
+                        <dt>{t.name}</dt>
                         <dd>{area.name}</dd>
-                        <dt>Cause</dt>
+                        <dt>{t.cause}</dt>
                         <dd>
-                          <CauseTag cause={area.damage_type} />
+                          <CauseTag cause={area.damage_type} locale={locale} />
                         </dd>
                         {area.surface === "wall" && (
                           <>
-                            <dt>Wall</dt>
-                            <dd>Wall {(area.wall_index ?? 0) + 1}</dd>
+                            <dt>{t.wall}</dt>
+                            <dd>{(area.wall_index ?? 0) + 1}</dd>
                           </>
                         )}
                         {area.notes && (
                           <>
-                            <dt>Notes</dt>
+                            <dt>{t.notes}</dt>
                             <dd>{area.notes}</dd>
                           </>
                         )}
@@ -1020,6 +1054,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                       {area.surface === "wall" && area.wall_index !== null && (
                         <div className="area-figure">
                           <WallElevation
+                            locale={locale}
                             corners={planCorners(toFloorPlan(room.geometry))}
                             wallIndex={area.wall_index}
                             ceilingHeightM={room.ceilingHeightM}
@@ -1038,6 +1073,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             n={roomPages.get(room.id)?.page ?? 0}
             of={totalPages}
             company={company}
+            t={t}
           />
         </section>
 
@@ -1058,7 +1094,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <Running project={project.name} address={property} totals={headerTotals} />
             {/* Their section marker, without the glyph — see `.marker` in
                 report.css for what replaced it. */}
-            <p className="marker">Photos / {room.name}</p>
+            <p className="marker">{t.photosOf(room.name)}</p>
             <div className="photo-grid">
               {batch.map((photo, offset) => (
                 <figure key={photo.id}>
@@ -1066,7 +1102,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={photo.url} alt={photo.note ?? room.name} />
                   ) : (
-                    <div className="missing">Photo unavailable</div>
+                    <div className="missing">{t.photoUnavailable}</div>
                   )}
                   {/* Two chips on the frame, theirs exactly: the room, then
                       which number it is. A caption printed under a tile is
@@ -1079,7 +1115,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   <figcaption>
                     <span className="chip">{room.name}</span>
                     <span className="chip">
-                      Photo {index * PHOTOS_PER_PAGE + offset + 1}
+                      {t.photoNumber(index * PHOTOS_PER_PAGE + offset + 1)}
                     </span>
                     {photo.note && <span className="chip note">{photo.note}</span>}
                   </figcaption>
@@ -1090,6 +1126,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               n={roomPages.get(room.id)?.photos[index] ?? 0}
               of={totalPages}
               company={company}
+              t={t}
             />
           </section>
         ))}
@@ -1103,11 +1140,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <table className="listing">
             <thead>
               <tr>
-                <th>Equipment</th>
+                <th>{t.equipment}</th>
                 <th className="num">Qty</th>
-                <th>In service</th>
-                <th>Out of service</th>
-                <th className="num">Unit-days</th>
+                <th>{t.inService}</th>
+                <th>{t.outOfService}</th>
+                <th className="num">{t.unitDays}</th>
               </tr>
             </thead>
             <tbody>
@@ -1116,12 +1153,12 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   <td>{item.kind}</td>
                   <td className="num">{item.quantity}</td>
                   <td>{date(item.in_service_at)}</td>
-                  <td>{item.out_of_service_at ? date(item.out_of_service_at) : "Still on site"}</td>
+                  <td>{item.out_of_service_at ? date(item.out_of_service_at) : t.stillOnSite}</td>
                   <td className="num">{unitDays(item, now)}</td>
                 </tr>
               ))}
               <tr className="total">
-                <td colSpan={4}>Total</td>
+                <td colSpan={4}>{t.total}</td>
                 <td className="num">
                   {equipment.reduce((sum, item) => sum + unitDays(item, now), 0)}
                 </td>
@@ -1129,14 +1166,12 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             </tbody>
           </table>
           <p className="fineprint">
-            Equipment is billed per unit per day on site. The day of delivery
-            and the day of collection are both counted. Units shown as still on
-            site are counted to {date(generatedAt)}.
+            {t.equipmentNote(date(generatedAt))}
           </p>
           {/* This page and the definitions page printed no footer at all —
               no disclaimer, no page number — which made them read as
               something stapled on rather than as part of the document. */}
-          <PageFoot n={equipmentPage ?? 0} of={totalPages} company={company} />
+          <PageFoot n={equipmentPage ?? 0} of={totalPages} company={company} t={t} />
         </section>
       )}
 
@@ -1147,18 +1182,17 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       <section className="page signature">
         <Running project={project.name} address={property} totals={headerTotals} />
         <p className="fineprint">
-          Signing acknowledges that the areas, measurements and photographs in
-          this report were taken at the property on the dates shown.
+          {t.signingAcknowledges}
         </p>
         <div className="signature-grid">
-          {["Signature", "Signature date", "Printed full name", "Phone"].map((label) => (
+          {[t.signature, t.signatureDate, t.printedFullName, t.phone].map((label) => (
             <div key={label}>
               <div className="rule" />
               <span>{label}</span>
             </div>
           ))}
         </div>
-        <PageFoot n={signaturePage} of={totalPages} company={company} />
+        <PageFoot n={signaturePage} of={totalPages} company={company} t={t} />
       </section>
 
       {/* --------------------------------------- measurement definitions */}
@@ -1181,11 +1215,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             </tbody>
           </table>
           <p className="fineprint">
-            All measurements are taken and printed in metres. Lengths are
-            given to the millimetre and areas to the hundredth of a square
-            metre, which is the precision the scan itself carries.
+            {t.measurementNote}
           </p>
-          <PageFoot n={definitionsPage ?? 0} of={totalPages} company={company} />
+          <PageFoot n={definitionsPage ?? 0} of={totalPages} company={company} t={t} />
         </section>
       )}
     </article>
@@ -1200,9 +1232,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
  * dry, which is a claim this report has no basis to make.
  */
 function DamageTotals({
+  locale,
   title,
   totals,
 }: {
+  locale: Locale;
   title: string;
   totals: { type: DamageType; sqm: number }[];
 }) {
@@ -1219,7 +1253,7 @@ function DamageTotals({
           <tr key={type}>
             <td>
               <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
-              {DAMAGE_LABEL[type]}
+              {damageLabel(type, locale)}
             </td>
             {/* METRIC, like every other figure in this document. This
                 table was still printing square feet while the running
@@ -1228,7 +1262,7 @@ function DamageTotals({
                 fixed. An adjuster reading 29 next to 113.12 m² has to work
                 out which unit is which, and on a claim that is not a
                 cosmetic problem. */}
-            <td className="num">{m2(sqm)}</td>
+            <td className="num">{formatArea(locale, sqm)}</td>
           </tr>
         ))}
       </tbody>
@@ -1305,18 +1339,21 @@ function Running({
  * disclaiming — and putting a competitor's name in the foot of our report
  * would be absurd.
  */
-function PageFoot({ n, of, company }: { n: number; of: number; company: CompanySetting }) {
+function PageFoot({
+  n,
+  of,
+  company,
+  t,
+}: {
+  n: number;
+  of: number;
+  company: CompanySetting;
+  t: ReportStrings;
+}) {
   return (
     <footer className="page-foot">
-      <p>
-        THIS FLOOR PLAN IS PROVIDED WITHOUT WARRANTY OF ANY KIND.{" "}
-        {(company.tradeName || company.legalName || "").toUpperCase()} DISCLAIMS ANY
-        WARRANTY INCLUDING, WITHOUT LIMITATION, SATISFACTORY QUALITY OR ACCURACY OF
-        DIMENSIONS.
-      </p>
-      <span>
-        Page {n}/{of}
-      </span>
+      <p>{t.disclaimer((company.tradeName || company.legalName || "").toUpperCase())}</p>
+      <span>{t.page(n, of)}</span>
     </footer>
   );
 }

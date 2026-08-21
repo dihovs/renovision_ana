@@ -1,6 +1,8 @@
 import { resolvePlacements } from "@/lib/floorLayout";
 import { toFloorPlan, type FloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
+import { formatArea, formatBare } from "@/lib/report/strings";
+import type { Locale } from "@/i18n/translations";
 
 /**
  * A storey as ONE drawing.
@@ -45,8 +47,31 @@ type StoreyRoom = {
   objects?: PlanObject[];
 };
 
-const m2 = (sqm: number) => `${sqm.toFixed(2)} m²`;
-const m = (metres: number) => metres.toFixed(3);
+/** **Set once per drawing, from the document's language.** A French report
+    that labels a room `Cuisine` and then dimensions it `5.524` has only
+    half-translated itself: the comma IS the decimal mark in French, and a
+    page of figures is mostly figures. */
+/**
+ * **The document's language, threaded rather than stashed.**
+ *
+ * The first cut of this held the two formatters in module-level `let`s and
+ * set them from the component. That works exactly until two reports render
+ * at once — a French export and an English one on the same server — and then
+ * whichever set them last formats both. Passing them down is a few more
+ * characters and cannot go wrong.
+ *
+ * A French report that labels a room `Cuisine` and then dimensions it
+ * `5.524` has only half-translated itself: the comma IS the decimal mark in
+ * French, and a page of figures is mostly figures.
+ */
+type Format = { area: (sqm: number) => string; bare: (metres: number) => string };
+
+function formatter(locale: Locale): Format {
+  return {
+    area: (sqm) => formatArea(locale, sqm),
+    bare: (metres) => formatBare(locale, metres),
+  };
+}
 
 /**
  * The wall band as one path, with each end extended half a thickness where
@@ -108,8 +133,10 @@ function inside(point: { x: number; y: number }, ring: { x: number; y: number }[
  */
 function OuterChain({
   rooms,
+  fmt,
 }: {
   rooms: { plan: FloorPlan; at: { x: number; y: number } }[];
+  fmt: Format;
 }) {
   /** How far off the wall the dimension line sits, in plan metres. */
   const OFFSET = 0.42;
@@ -165,7 +192,7 @@ function OuterChain({
         y1: y1 + out.ny * OFFSET,
         x2: x2 + out.nx * OFFSET,
         y2: y2 + out.ny * OFFSET,
-        label: m(length),
+        label: fmt.bare(length),
       });
     }
   }
@@ -252,9 +279,11 @@ function Room({
   plan,
   at,
   areaStart,
+  fmt,
   tone = "full",
 }: {
   room: StoreyRoom;
+  fmt: Format;
   plan: FloorPlan;
   at: { x: number; y: number };
   areaStart: number;
@@ -262,7 +291,7 @@ function Room({
       the storey drawn faint with one room in black. */
   tone?: "full" | "pale" | "ink";
 }) {
-  const label = `${m(plan.width)} × ${m(plan.height)}`;
+  const label = `${fmt.bare(plan.width)} × ${fmt.bare(plan.height)}`;
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? "#c9ccd2" : "#111111";
   const fill = tone === "pale" ? "#f6f7f8" : tone === "ink" ? "#e9eaec" : "#efeff0";
@@ -467,7 +496,7 @@ function Room({
               fontSize={nameSize * 0.84}
               fill="#40454d"
             >
-              {m2(room.floorAreaSqm)} ({label})
+              {fmt.area(room.floorAreaSqm)} ({label})
             </text>
           )}
         </>
@@ -479,8 +508,15 @@ function Room({
 export default function ReportStoreyPlan({
   rooms,
   highlight,
+  locale = "fr",
+  note,
 }: {
   rooms: StoreyRoom[];
+  /** The document's language — the dimensions are formatted in it. */
+  locale?: Locale;
+  /** The line printed under an arrangement that was packed rather than
+      placed, already in the document's language. */
+  note?: string;
   /**
    * **The locator, which is the best idea on their page.** His words looking
    * at it, 21 Aug: *"do you see how it shows the room separate but at the
@@ -499,6 +535,7 @@ export default function ReportStoreyPlan({
    */
   highlight?: string;
 }) {
+  const fmt = formatter(locale);
   const drawable = rooms.filter((room) => toFloorPlan(room.geometry).segments.length > 0);
   if (drawable.length === 0) return null;
 
@@ -543,6 +580,7 @@ export default function ReportStoreyPlan({
             plan={plans[index]}
             at={layout.placed[index]}
             areaStart={starts[index]}
+            fmt={fmt}
             tone={
               !isLocator ? "full" : room.id === highlight ? "ink" : "pale"
             }
@@ -555,6 +593,7 @@ export default function ReportStoreyPlan({
               plan: plans[index],
               at: layout.placed[index],
             }))}
+            fmt={fmt}
           />
         )}
 
@@ -589,7 +628,7 @@ export default function ReportStoreyPlan({
               fontSize={0.3}
               fill="#40454d"
             >
-              {m(layout.width)}
+              {fmt.bare(layout.width)}
             </text>
             <text
               x={layout.width + 1.25}
@@ -600,19 +639,14 @@ export default function ReportStoreyPlan({
               fill="#40454d"
               transform={`rotate(-90 ${layout.width + 1.25} ${layout.height / 2})`}
             >
-              {m(layout.height)}
+              {fmt.bare(layout.height)}
             </text>
           </>
         )}
       </svg>
 
-      {!registered && !isLocator && (
-        <p className="storey-note">
-          Rooms measured on separate visits carry no true position relative to
-          one another. They are arranged here so that none overlaps; each room
-          is drawn to its own scan, and no dimension is taken across the
-          arrangement.
-        </p>
+      {!registered && !isLocator && note && (
+        <p className="storey-note">{note}</p>
       )}
     </div>
   );

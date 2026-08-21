@@ -2,6 +2,8 @@
 
 import { toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
+import { formatBare, formatNumber } from "@/lib/report/strings";
+import type { Locale } from "@/i18n/translations";
 
 /**
  * A scanned room drawn as an actual floor plan.
@@ -70,9 +72,15 @@ export default function FloorPlan({
   dimensions = "all",
   areas,
   objects,
+  locale = "en",
 }: {
   result: ScanGeometry;
   name: string;
+  /** The document's language. Dimensions on a drawing are figures, and
+      French writes figures with a comma — see `formatBare`. Defaults to
+      English because this component is also the app's own screen, and the
+      app is English by the owner's choice. */
+  locale?: Locale;
   /** Fixtures standing in the room, in the same plan metres the walls use.
       See `PlanObjects` for why a plan without them is worth less than it
       looks. */
@@ -338,10 +346,10 @@ export default function FloorPlan({
         {/* Outer tier: the overall span, top and right. Inner tier: each
             wall on that side, but only when there is more than one — a
             single wall would just repeat the overall figure. */}
-        <Dimension from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.6} axis="x" />
+        <Dimension locale={locale} from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.6} axis="x" />
         {!dense && horizontal.length > 1 &&
           horizontal.map((s, i) => (
-            <Dimension
+            <Dimension locale={locale}
               key={`hx${i}`}
               from={{ x: Math.min(s.x1, s.x2), y: 0 }}
               to={{ x: Math.max(s.x1, s.x2), y: 0 }}
@@ -365,7 +373,7 @@ export default function FloorPlan({
               )
               .map((o) => ({ a: o.x1, b: o.x2 }));
             return splitAtOpenings(lo, hi, on).map((run, k) => (
-              <Dimension
+              <Dimension locale={locale}
                 key={`hs${i}-${k}`}
                 from={{ x: run.lo, y: 0 }}
                 to={{ x: run.hi, y: 0 }}
@@ -375,10 +383,10 @@ export default function FloorPlan({
             ));
           })}
 
-        <Dimension from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.6} axis="y" />
+        <Dimension locale={locale} from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.6} axis="y" />
         {!dense && vertical.length > 1 &&
           vertical.map((s, i) => (
-            <Dimension
+            <Dimension locale={locale}
               key={`vy${i}`}
               from={{ x: width, y: Math.min(s.y1, s.y2) }}
               to={{ x: width, y: Math.max(s.y1, s.y2) }}
@@ -399,7 +407,7 @@ export default function FloorPlan({
               )
               .map((o) => ({ a: o.y1, b: o.y2 }));
             return splitAtOpenings(lo, hi, on).map((run, k) => (
-              <Dimension
+              <Dimension locale={locale}
                 key={`vs${i}-${k}`}
                 from={{ x: width, y: run.lo }}
                 to={{ x: width, y: run.hi }}
@@ -409,7 +417,7 @@ export default function FloorPlan({
             ));
           })}
 
-        <ScaleBar y={height + 1.35} width={width} />
+        <ScaleBar locale={locale} y={height + 1.35} width={width} />
           </>
         )}
 
@@ -424,7 +432,7 @@ export default function FloorPlan({
             {horizontal
               .filter((s) => locked.has(s.index))
               .map((s, i) => (
-                <Dimension
+                <Dimension locale={locale}
                   key={`lhx${i}`}
                   from={{ x: Math.min(s.x1, s.x2), y: 0 }}
                   to={{ x: Math.max(s.x1, s.x2), y: 0 }}
@@ -436,7 +444,7 @@ export default function FloorPlan({
             {vertical
               .filter((s) => locked.has(s.index))
               .map((s, i) => (
-                <Dimension
+                <Dimension locale={locale}
                   key={`lvy${i}`}
                   from={{ x: width, y: Math.min(s.y1, s.y2) }}
                   to={{ x: width, y: Math.max(s.y1, s.y2) }}
@@ -445,7 +453,7 @@ export default function FloorPlan({
                   locked
                 />
               ))}
-            <ScaleBar y={height + 1.35} width={width} />
+            <ScaleBar locale={locale} y={height + 1.35} width={width} />
           </>
         )}
 
@@ -485,6 +493,7 @@ function Dimension({
   offset,
   axis,
   locked = false,
+  locale,
 }: {
   from: { x: number; y: number };
   to: { x: number; y: number };
@@ -492,6 +501,7 @@ function Dimension({
   axis: "x" | "y";
   /** Draw the hand-set provenance mark beside the figure. */
   locked?: boolean;
+  locale: Locale;
 }) {
   const span = axis === "x" ? to.x - from.x : to.y - from.y;
   // Anything under ~30cm has a label wider than the run it describes.
@@ -503,7 +513,7 @@ function Dimension({
   const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const head = 0.12;
   const grey = "#8a8a8e";
-  const label = formatPlanLength(Math.abs(span));
+  const label = formatPlanLength(Math.abs(span), locale);
   // Where the label ends, near enough: ~0.15 per character at this font
   // size. Only used to place the padlock clear of the text.
   const halfLabel = label.length * 0.075;
@@ -608,7 +618,7 @@ function Padlock({ x, baseline }: { x: number; baseline: number }) {
  * short walls until the figures collide. Stated once, under the drawing,
  * where a reader looks for it.
  */
-function ScaleBar({ y, width }: { y: number; width: number }) {
+function ScaleBar({ y, width, locale }: { y: number; width: number; locale: Locale }) {
   // A round number of METRES that fits comfortably under the plan — the
   // 0.5 step is what the reference uses on a small room, where whole metres
   // would give a two-block bar that says nothing about scale.
@@ -634,7 +644,7 @@ function ScaleBar({ y, width }: { y: number; width: number }) {
       ))}
       {Array.from({ length: blocks + 1 }).map((_, i) => (
         <text key={i} x={i * blockM} y={y - 0.12} textAnchor="middle" fontSize={0.22} fill="#8a8a8e">
-          {Number.isInteger(step) ? i * step : (i * step).toFixed(1)}
+          {formatNumber(locale, i * step, Number.isInteger(step) ? 0 : 1)}
         </text>
       ))}
       <text x={blocks * blockM + 0.14} y={y + 0.12} fontSize={0.22} fill="#8a8a8e">
@@ -718,10 +728,10 @@ function Door({
  * crowds short walls until the numbers overlap. The scale bar says which
  * unit, once, which is what a drawing has always done.
  */
-function formatPlanLength(meters: number): string {
+function formatPlanLength(meters: number, locale: Locale): string {
   // Millimetre precision, the reference's own: 4.654, not 4.65. On a claim
   // the third decimal is the difference between a wall measured and a wall
   // rounded.
-  return meters.toFixed(3);
+  return formatBare(locale, meters);
 }
 

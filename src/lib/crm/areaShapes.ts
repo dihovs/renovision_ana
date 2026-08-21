@@ -20,6 +20,27 @@ export const DAMAGE_LABEL: Record<DamageType, string> = {
 };
 
 /**
+ * The same causes in French, for a report generated in French.
+ *
+ * **`Dégât d'eau` rather than `Eau`.** In Québec insurance the peril has a
+ * name and that is it — an adjuster reading `Eau` under a heading called
+ * `Cause` would parse it, but `dégât d'eau` is the line item they are going
+ * to open in their own system. `Moisissure` likewise: it is the word on the
+ * remediation protocols this trade works to.
+ */
+export const DAMAGE_LABEL_FR: Record<DamageType, string> = {
+  water: "Dégât d'eau",
+  fire: "Incendie / fumée",
+  mould: "Moisissure",
+  impact: "Impact",
+  other: "Autre",
+};
+
+export function damageLabel(type: DamageType, locale: "en" | "fr"): string {
+  return (locale === "fr" ? DAMAGE_LABEL_FR : DAMAGE_LABEL)[type] ?? type;
+}
+
+/**
  * The default colour per cause. Chosen to stay apart from each other and
  * from the plan's own black-on-grey, and to read at the size an area is
  * actually drawn — a thumbnail, over a floor, under a dimension line.
