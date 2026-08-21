@@ -150,11 +150,11 @@ struct RoomDetailView: View {
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .sheet(isPresented: $drawing) {
             if let plan {
-                AreaEditor(plan: plan, existing: drawnAreas) { name, type, polygon in
+                AreaEditor(plan: plan, existing: drawnAreas) { name, type, polygon, notes in
                     Task {
                         _ = try? await API.shared.createArea(
                             roomScanId: room.id, name: name, damageType: type,
-                            surface: "floor", polygon: polygon)
+                            surface: "floor", polygon: polygon, notes: notes)
                         drawing = false
                         await load()
                     }

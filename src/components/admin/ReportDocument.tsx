@@ -600,7 +600,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               </thead>
               <tbody>
                 {[...floorAreas(room.areas), ...wallAreas(room.areas)].map((area) => (
-                  <tr key={area.id}>
+                  <Fragment key={area.id}>
+                  <tr>
                     <td>
                       <span className="swatch" style={{ background: areaColor(area) }} />
                       {area.name}
@@ -611,8 +612,26 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                         : "Floor"}
                     </td>
                     <td>{DAMAGE_LABEL[area.damage_type]}</td>
-                    <td className="num">{sqft(Number(area.area_sqm))} sq ft</td>
+                    {/* The LAST imperial figure in this document. Three
+                        separate tables have now been caught printing square
+                        feet under a header that says m² — the cover's damage
+                        totals, the room's measure table, and this. Fixing
+                        them one at a time is how the third one survived two
+                        rounds of fixing the first two. */}
+                    <td className="num">{m2(Number(area.area_sqm))}</td>
                   </tr>
+                  {area.notes && (
+                    /* What is actually wrong here, in his words — the field
+                       the app could never write to until today. It goes
+                       UNDER its own row rather than in a column: a sentence
+                       in a four-column table either wraps into a stripe or
+                       squeezes the figures, and this one is the part an
+                       adjuster reads. */
+                    <tr key={`${area.id}-note`} className="note-row">
+                      <td colSpan={4}>{area.notes}</td>
+                    </tr>
+                  )}
+                </Fragment>
                 ))}
               </tbody>
             </table>

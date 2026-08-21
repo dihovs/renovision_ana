@@ -413,6 +413,9 @@ actor API {
         /// recolouring the category later moves every area with it.
         let color: String?
         let polygon: [Point]
+        /// What is wrong here, in the operator's words. The column has
+        /// existed since the table was made; nothing ever sent it.
+        let notes: String?
     }
 
     /// File a damaged region.
@@ -425,7 +428,7 @@ actor API {
     func createArea(
         roomScanId: String, name: String, damageType: String,
         surface: String = "floor", wallIndex: Int? = nil, color: String? = nil,
-        polygon: [CGPoint]
+        polygon: [CGPoint], notes: String? = nil
     ) async throws -> String {
         struct Created: Decodable { let id: String }
         let onWall = surface == "wall"
@@ -436,7 +439,8 @@ actor API {
                 surface: onWall ? "wall" : "floor",
                 wallIndex: onWall ? (wallIndex ?? 0) : nil,
                 name: name, damageType: damageType, color: color,
-                polygon: polygon.map { .init(x: Double($0.x), y: Double($0.y)) }))
+                polygon: polygon.map { .init(x: Double($0.x), y: Double($0.y)) },
+                notes: (notes?.isEmpty ?? true) ? nil : notes))
         return try decode(Created.self, from: data).id
     }
 

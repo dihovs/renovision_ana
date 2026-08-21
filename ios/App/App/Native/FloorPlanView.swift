@@ -504,7 +504,8 @@ struct FloorPlanView: View {
 struct AreaEditor: View {
     let plan: FloorPlanGeometry.Plan
     let existing: [DrawnArea]
-    let onSave: (String, String, [CGPoint]) -> Void
+    /// name, cause, shape, notes.
+    let onSave: (String, String, [CGPoint], String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var corners: [CGPoint] = []
@@ -516,6 +517,20 @@ struct AreaEditor: View {
     @State private var history: [[CGPoint]] = []
     @State private var future: [[CGPoint]] = []
     @State private var name = "Affected area"
+    /// What is actually wrong here, in his own words.
+    ///
+    /// **His report, 20 Aug 2026:** *"in our application, we cannot take
+    /// notes in the damaged areas."* Right, and the omission was worse than
+    /// a missing field — the column has existed on `affected_areas` since
+    /// the table was made, the model decodes it, and nothing anywhere let
+    /// anyone type into it.
+    ///
+    /// The reference has ONE field here, called Name, and his own export
+    /// shows what he does with it: *"Water damage the entire floor needs to
+    /// be replaced."* A whole sentence. So this is the sentence field, and
+    /// the short label stays automatic — asking for both a name and a note
+    /// is asking a man in a wet basement to invent a title.
+    @State private var notes = ""
     @State private var cause: DamageCause = .water
     @State private var saving = false
     @State private var confirmingDiscard = false
@@ -666,9 +681,26 @@ struct AreaEditor: View {
                     .padding(Brand.Space.base)
                     .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
 
+                    VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                        SectionHeading(title: "WHAT IS DAMAGED HERE?")
+                        TextField(
+                            "Water damage, the whole floor needs replacing…",
+                            text: $notes, axis: .vertical)
+                            .lineLimit(2...5)
+                            .font(.system(size: 15))
+                            .padding(Brand.Space.small)
+                            .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Brand.Radius.card)
+                                    .strokeBorder(Brand.hairline, lineWidth: 0.5))
+                        Text("Prints on the report, under this area's row.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Brand.inkFaint)
+                    }
+
                     Button(saving ? "Saving…" : "Save area") {
                         saving = true
-                        onSave(name.trimmed, cause.rawValue, corners)
+                        onSave(name.trimmed, cause.rawValue, corners, notes.trimmed)
                     }
                     .buttonStyle(PrimaryButtonStyle(enabled: !saving && areaSqm > 0))
                     .disabled(saving || areaSqm <= 0)

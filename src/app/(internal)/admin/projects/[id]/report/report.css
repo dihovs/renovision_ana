@@ -480,3 +480,15 @@ html:has(.report-bare) .report-shell {
   padding: 0 !important;
 }
 
+
+/* An affected area's own note, on the line under its row.
+   Indented and quieter than the figures above it: it is the operator's
+   sentence about the damage, not another measurement, and it must not read
+   as a fifth column. */
+.report .listing tr.note-row td {
+  padding-top: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-style: italic;
+  border-top: 0;
+}
