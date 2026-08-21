@@ -906,7 +906,7 @@ private struct StoreyInfoSheet: View {
         rooms.reduce(0) { $0 + $1.floorAreaSqm } + pending.reduce(0) { $0 + $1.floorAreaSqm }
     }
     private var wallAreaSqm: Double {
-        rooms.reduce(0) { $0 + $1.wallLengthM * $1.ceilingHeightM }
+        rooms.reduce(0) { $0 + $1.wallAreaGrossSqm }
     }
 
     /// Held rooms are included: a floor's footprint should not jump when a
@@ -2572,7 +2572,7 @@ struct FloorDetailView: View {
 
     private var floorAreaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqm } }
     private var wallAreaSqm: Double {
-        rooms.reduce(0) { $0 + $1.wallLengthM * $1.ceilingHeightM }
+        rooms.reduce(0) { $0 + $1.wallAreaGrossSqm }
     }
     private var volumeCuM: Double {
         rooms.reduce(0) { $0 + $1.floorAreaSqm * $1.ceilingHeightM }

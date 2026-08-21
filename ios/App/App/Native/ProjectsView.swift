@@ -651,7 +651,7 @@ struct ProjectDetailView: View {
 
     private var floorAreaSqm: Double { (scans ?? []).reduce(0) { $0 + $1.floorAreaSqm } }
     private var wallAreaSqm: Double {
-        (scans ?? []).reduce(0) { $0 + $1.wallLengthM * $1.ceilingHeightM }
+        (scans ?? []).reduce(0) { $0 + $1.wallAreaGrossSqm }
     }
 
     var body: some View {

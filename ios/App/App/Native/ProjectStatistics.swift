@@ -40,7 +40,7 @@ enum ProjectStats {
     /// Gross wall area: perimeter × ceiling height, the same definition the
     /// room sheet and the report already use.
     static func grossWallSqm(_ rooms: [RoomScan]) -> Double {
-        sum(rooms) { $0.wallLengthM * $0.ceilingHeightM }
+        sum(rooms) { $0.wallAreaGrossSqm }
     }
 
     static func floorAreaSqm(_ rooms: [RoomScan]) -> Double { sum(rooms) { $0.floorAreaSqm } }

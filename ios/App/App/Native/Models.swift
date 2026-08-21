@@ -707,6 +707,48 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     let floorAreaSqm: Double
     let wallLengthM: Double
     let ceilingHeightM: Double
+
+    /// Gross wall area — and NOT perimeter × the tallest wall.
+    ///
+    /// **The owner's office, 20 Aug 2026:** a storage closet built inside a
+    /// larger room, two partition walls and a door, about eight feet high in
+    /// a room a good deal taller. *"These walls, they don't get up to the
+    /// ceiling."* Commercial buildings are full of them — half-height
+    /// partitions, knee walls, boxed runs.
+    ///
+    /// `ceilingHeightM` is the TALLEST wall, which is the right answer for
+    /// the room's height and the wrong multiplier for its walls: it prices
+    /// every partition as though it reached the ceiling. Two partitions of
+    /// five metres in a room 60cm taller than they are is three square
+    /// metres of drywall and paint that does not exist, on every estimate,
+    /// silently.
+    ///
+    /// The scan already knows better — RoomPlan reports each wall's own
+    /// height and we store all of them. So this weights by them, and applies
+    /// the result to the CORRECTED perimeter rather than to the raw walls:
+    /// a person who dragged the outline onto the real walls changed the
+    /// length, and their correction must survive.
+    ///
+    /// Falls back to the old figure when there is nothing better — a drawn
+    /// room has no per-wall heights, and one uniform height is exactly right
+    /// for it.
+    var wallAreaGrossSqm: Double {
+        wallLengthM * averageWallHeightM
+    }
+
+    /// Height weighted by how much wall stands at it. A one-metre stub at
+    /// half height should not pull the average as hard as a six-metre wall.
+    var averageWallHeightM: Double {
+        guard let walls = geometry?.walls, !walls.isEmpty else { return ceilingHeightM }
+        let length = walls.reduce(0) { $0 + $1.lengthMeters }
+        guard length > 0.5 else { return ceilingHeightM }
+        let area = walls.reduce(0) { $0 + $1.lengthMeters * $1.heightMeters }
+        let average = area / length
+        // A nonsense reading must not quietly halve an estimate: anything
+        // outside a builder's range means the heights are not trustworthy,
+        // and the room's own ceiling is the safer answer.
+        return (average > 1.5 && average <= ceilingHeightM + 0.01) ? average : ceilingHeightM
+    }
     let doorCount: Int
     let windowCount: Int
     let stairCount: Int

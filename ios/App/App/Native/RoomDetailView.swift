@@ -318,7 +318,7 @@ struct RoomDetailView: View {
                     value: Measure.sqftLabel(room.floorAreaSqm), unit: nil,
                     meaning: .floorArea)
                 DefinedFigure(
-                    value: Measure.sqftLabel(room.wallLengthM * room.ceilingHeightM),
+                    value: Measure.sqftLabel(room.wallAreaGrossSqm),
                     unit: "gross", meaning: .wallArea)
                 DefinedFigure(
                     value: Measure.ftLabel(room.wallLengthM), unit: nil, meaning: .perimeter)
@@ -858,7 +858,7 @@ struct RoomStatisticsSheet: View {
                 value: Measure.sqftLabel(room.floorAreaSqm), meaning: .floorArea),
             .init(
                 id: "wallArea", label: "Wall area (gross)",
-                value: Measure.sqftLabel(room.wallLengthM * room.ceilingHeightM),
+                value: Measure.sqftLabel(room.wallAreaGrossSqm),
                 meaning: .wallArea),
             .init(
                 id: "perimeter", label: "Perimeter",

@@ -180,6 +180,43 @@ function photoPages(room: ReportRoom) {
  * Three decimals on a length and two on an area — theirs, and the precision
  * a scan actually has.
  */
+/**
+ * Gross wall area for one room — perimeter × the height the wall actually
+ * stands at, not × the tallest wall in the room.
+ *
+ * The twin of `RoomScan.wallAreaGrossSqm` on the phone, and it exists for
+ * the same reason: a commercial room commonly contains partitions that stop
+ * short of the ceiling — a storage closet inside an office, a knee wall, a
+ * boxed run. Pricing those to full height invents drywall and paint that
+ * are not there, on every estimate, silently.
+ *
+ * RoomPlan reports each wall's own height and the geometry keeps all of
+ * them, so the average is weighted by how much wall stands at each height —
+ * a one-metre stub must not pull as hard as a six-metre wall. Applied to
+ * the stored perimeter so that a corrected outline survives.
+ */
+function wallAreaGross(room: {
+  wallLengthM: number;
+  ceilingHeightM: number;
+  geometry: ScanGeometry;
+}): number {
+  const walls = room.geometry?.walls ?? [];
+  const length = walls.reduce((sum, w) => sum + (w.lengthMeters ?? 0), 0);
+  if (length > 0.5) {
+    const area = walls.reduce(
+      (sum, w) => sum + (w.lengthMeters ?? 0) * (w.heightMeters ?? 0),
+      0,
+    );
+    const average = area / length;
+    // Outside a builder's range the heights are not trustworthy, and a
+    // nonsense reading must not quietly halve an estimate.
+    if (average > 1.5 && average <= room.ceilingHeightM + 0.01) {
+      return room.wallLengthM * average;
+    }
+  }
+  return room.wallLengthM * room.ceilingHeightM;
+}
+
 const m2 = (sqm: number) => `${sqm.toFixed(2)} m²`;
 const m = (metres: number) => `${metres.toFixed(3)} m`;
 
@@ -223,10 +260,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     (sum, room) => sum + room.floorAreaSqm * ((room.livingAreaPercent ?? 100) / 100),
     0,
   );
-  const wallAreaSqm = rooms.reduce(
-    (sum, room) => sum + room.wallLengthM * room.ceilingHeightM,
-    0,
-  );
+  const wallAreaSqm = rooms.reduce((sum, room) => sum + wallAreaGross(room), 0);
 
   // By cause, never one grand total: causes do not share a trade or a rate,
   // and areas may overlap, so a single sum would double-count the square
