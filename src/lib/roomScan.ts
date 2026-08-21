@@ -349,6 +349,43 @@ export function totalFloorAreaSquareMeters(result: RoomScanResult): number {
   return extent > 0.5 ? Math.min(summed, extent) : summed;
 }
 
+/**
+ * The stored floor area, distrusted.
+ *
+ * **The column is the record, and normally it is right** — the phone writes
+ * it on save and the server recomputes it when an outline is corrected. But
+ * rooms filed before 20 Aug 2026 carry a figure summed from RoomPlan's floor
+ * PATCHES, which overlap, and no floor covers more ground than the box it
+ * sits in. Fixing the calculation fixed new scans; it could not reach a
+ * number already written down, and the report was still printing one:
+ * `Total area 87.21 m²` on a room the same app measures at 38.8.
+ *
+ * So the drawing's own extent is used as a ceiling, not as the answer. A
+ * figure that exceeds it is impossible rather than merely surprising, and an
+ * impossible number on a claim is worse than a rough one — the total area is
+ * the first thing an adjuster checks with a tape.
+ *
+ * The Swift twin is `RoomScan.floorAreaSqmTrusted`, and the two must agree.
+ */
+export function trustedFloorAreaSquareMeters(
+  stored: number,
+  geometry: ScanGeometry | null | undefined,
+): number {
+  if (!Number.isFinite(stored) || stored <= 0) return 0;
+  if (!geometry) return stored;
+  const plan = toFloorPlan(geometry);
+  if (!(plan.width > 0.5) || !(plan.height > 0.5)) return stored;
+  const extent = plan.width * plan.height;
+  // A 2% allowance: an L-shaped room legitimately fills less than its box,
+  // never more, and rounding should not trip the guard.
+  if (stored <= extent * 1.02) return stored;
+  if (plan.polygon.length >= 3) {
+    const area = polygonAreaSquareMeters(plan.polygon);
+    if (area > 0.5) return area;
+  }
+  return extent;
+}
+
 /** Shoelace. Absolute, so winding does not change the answer. */
 export function polygonAreaSquareMeters(points: { x: number; y: number }[]): number {
   if (points.length < 3) return 0;

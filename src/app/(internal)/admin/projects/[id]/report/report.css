@@ -15,6 +15,15 @@
   color: var(--ink);
   font-size: 12px;
   line-height: 1.45;
+  /* **Stated, not inherited.** This document is rendered in three places —
+     the browser, a webview inside the phone, and a headless Chromium on a
+     Linux server — and an inherited font resolves differently in each, which
+     moves every page break. Ending in `sans-serif` keeps it a sans wherever
+     the named faces are missing. */
+  font-family:
+    ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    "Noto Sans", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
 /*
@@ -90,7 +99,16 @@
   justify-content: space-between;
   gap: 16px;
 }
-.report .cover h1 { font-size: 22px; font-weight: 700; margin: 0; }
+/* Black, and the document's own face. This inherited the admin's heading
+   font and brand blue, which made the cover read as a page of the CRM; the
+   reference's cover title is plain and dark, like everything else on it. */
+.report .cover h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: #1b1c1f;
+  font-family: inherit;
+}
 .report .cover .addr { margin: 3px 0 0; color: var(--muted); }
 .report .brand { text-align: right; font-size: 10px; color: var(--muted); }
 /* The mark, on the cover and in the corner of every page after — small,

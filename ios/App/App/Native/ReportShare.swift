@@ -23,7 +23,13 @@ struct ReportShareView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             ReportWebView(
-                path: "/admin/projects/\(projectId)/report",
+                // **`bare=1`, the same view the PDF route renders.** Without
+                // it this webview showed the whole CRM around the document —
+                // the Projects nav, a Sign out link, a second `Download PDF`
+                // button and two option checkboxes — inside a screen whose
+                // own button says `Make the PDF`. Two buttons that do nearly
+                // the same thing is how he pressed the wrong one last time.
+                path: "/admin/projects/\(projectId)/report?bare=1",
                 onReady: { view in
                     webView = view
                     pageLoaded = true

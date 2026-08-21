@@ -9,7 +9,7 @@ import { listAffectedAreas } from "@/lib/crm/affectedAreas";
 import { listRoomWalls } from "@/lib/crm/roomWalls";
 import { listEquipment, listMoistureReadings } from "@/lib/crm/dryingLog";
 import { CLAIM_FIELD_TEMPLATE, getCompany, getCustomFields } from "@/lib/crm/settings";
-import type { ScanGeometry } from "@/lib/roomScan";
+import { trustedFloorAreaSquareMeters, type ScanGeometry } from "@/lib/roomScan";
 import "./report.css";
 
 export const dynamic = "force-dynamic";
@@ -91,7 +91,13 @@ export default async function ReportPage({
         id: scan.id,
         name: scan.name,
         level: scan.level,
-        floorAreaSqm: Number(scan.floor_area_sqm),
+        // Capped by the drawing's own extent — see
+        // `trustedFloorAreaSquareMeters`. A live report was printing
+        // `Total area 87.21 m²` for a room whose own plan measures 38.8.
+        floorAreaSqm: trustedFloorAreaSquareMeters(
+          Number(scan.floor_area_sqm),
+          scan.geometry as unknown as ScanGeometry | null,
+        ),
         wallLengthM: Number(scan.wall_length_m),
         ceilingHeightM: Number(scan.ceiling_height_m),
         stairCount: scan.stair_count,
