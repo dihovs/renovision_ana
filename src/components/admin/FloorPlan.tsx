@@ -26,6 +26,42 @@ import PlanObjects, { type PlanObject } from "./PlanObjects";
  * projected dimension tiers and is not drawn — stated here rather than
  * approximated.
  */
+
+/**
+ * A wall, cut at its openings.
+ *
+ * **The reference's third tier of dimensions**, read off his own export:
+ * `1.688 · 0.788 · 2.966` along one wall of a bedroom — pier, door, pier.
+ * Ours printed `5.442` and stopped, which says how long the wall is and
+ * nothing about where the door is in it. That is the figure somebody
+ * ordering trim or framing a rough opening actually needs, and it is the
+ * one measurement on a plan you cannot recover from the others.
+ *
+ * Returns the runs along the wall's own axis, or an empty array when the
+ * wall has no openings and there is therefore nothing to split.
+ */
+function splitAtOpenings(
+  lo: number,
+  hi: number,
+  openings: { a: number; b: number }[],
+): { lo: number; hi: number }[] {
+  const cuts = openings
+    .map((o) => ({ a: Math.max(lo, Math.min(o.a, o.b)), b: Math.min(hi, Math.max(o.a, o.b)) }))
+    .filter((o) => o.b - o.a > 0.03)
+    .sort((x, y) => x.a - y.a);
+  if (cuts.length === 0) return [];
+
+  const runs: { lo: number; hi: number }[] = [];
+  let at = lo;
+  for (const cut of cuts) {
+    if (cut.a - at > 0.03) runs.push({ lo: at, hi: cut.a });
+    runs.push({ lo: cut.a, hi: cut.b });
+    at = Math.max(at, cut.b);
+  }
+  if (hi - at > 0.03) runs.push({ lo: at, hi });
+  return runs.length > 1 ? runs : [];
+}
+
 export default function FloorPlan({
   result,
   name,
@@ -115,8 +151,8 @@ export default function FloorPlan({
   // and their rotated text needs more room than the bare left margin does.
   // A thumbnail has none of that, so it gets a tight even margin instead.
   const padLeft = thumb ? 0.4 : 1.1;
-  const padRight = thumb ? 0.4 : 2.0;
-  const padTop = thumb ? 0.4 : 1.5;
+  const padRight = thumb ? 0.4 : 2.6;
+  const padTop = thumb ? 0.4 : 2.1;
   const padBottom = thumb ? 0.4 : 2.2;
   const { width, height } = plan;
 
@@ -302,29 +338,76 @@ export default function FloorPlan({
         {/* Outer tier: the overall span, top and right. Inner tier: each
             wall on that side, but only when there is more than one — a
             single wall would just repeat the overall figure. */}
-        <Dimension from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.05} axis="x" />
+        <Dimension from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.6} axis="x" />
         {!dense && horizontal.length > 1 &&
           horizontal.map((s, i) => (
             <Dimension
               key={`hx${i}`}
               from={{ x: Math.min(s.x1, s.x2), y: 0 }}
               to={{ x: Math.max(s.x1, s.x2), y: 0 }}
-              offset={-0.5}
+              offset={-1.05}
               axis="x"
             />
           ))}
 
-        <Dimension from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.05} axis="y" />
+        {/* The third tier, nearest the drawing: each wall cut at its
+            openings. Only walls that HAVE openings appear here — a wall
+            with none would repeat the tier above it. */}
+        {!dense &&
+          horizontal.flatMap((s, i) => {
+            const lo = Math.min(s.x1, s.x2);
+            const hi = Math.max(s.x1, s.x2);
+            const on = plan.openings
+              .filter(
+                (o) =>
+                  Math.abs((o.y1 + o.y2) / 2 - (s.y1 + s.y2) / 2) < 0.3 &&
+                  Math.abs(o.y2 - o.y1) < Math.abs(o.x2 - o.x1),
+              )
+              .map((o) => ({ a: o.x1, b: o.x2 }));
+            return splitAtOpenings(lo, hi, on).map((run, k) => (
+              <Dimension
+                key={`hs${i}-${k}`}
+                from={{ x: run.lo, y: 0 }}
+                to={{ x: run.hi, y: 0 }}
+                offset={-0.5}
+                axis="x"
+              />
+            ));
+          })}
+
+        <Dimension from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.6} axis="y" />
         {!dense && vertical.length > 1 &&
           vertical.map((s, i) => (
             <Dimension
               key={`vy${i}`}
               from={{ x: width, y: Math.min(s.y1, s.y2) }}
               to={{ x: width, y: Math.max(s.y1, s.y2) }}
-              offset={0.5}
+              offset={1.05}
               axis="y"
             />
           ))}
+
+        {!dense &&
+          vertical.flatMap((s, i) => {
+            const lo = Math.min(s.y1, s.y2);
+            const hi = Math.max(s.y1, s.y2);
+            const on = plan.openings
+              .filter(
+                (o) =>
+                  Math.abs((o.x1 + o.x2) / 2 - (s.x1 + s.x2) / 2) < 0.3 &&
+                  Math.abs(o.x2 - o.x1) < Math.abs(o.y2 - o.y1),
+              )
+              .map((o) => ({ a: o.y1, b: o.y2 }));
+            return splitAtOpenings(lo, hi, on).map((run, k) => (
+              <Dimension
+                key={`vs${i}-${k}`}
+                from={{ x: width, y: run.lo }}
+                to={{ x: width, y: run.hi }}
+                offset={0.5}
+                axis="y"
+              />
+            ));
+          })}
 
         <ScaleBar y={height + 1.35} width={width} />
           </>
