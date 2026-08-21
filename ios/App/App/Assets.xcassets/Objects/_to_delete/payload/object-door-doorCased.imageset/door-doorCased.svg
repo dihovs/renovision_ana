@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+<ellipse cx="60.00" cy="94.40" rx="27.52" ry="9.08" fill="#0B1220" opacity="0.1"/>
+<polygon points="83.95,15.15 89.79,18.52 83.95,21.89 78.11,18.52" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="89.79,80.57 83.95,83.95 83.95,21.89 89.79,18.52" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="78.11,80.57 83.95,83.95 83.95,21.89 78.11,18.52" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="36.05,42.80 41.89,46.17 36.05,49.55 30.21,46.17" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="41.89,108.23 36.05,111.60 36.05,49.55 41.89,46.17" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="30.21,108.23 36.05,111.60 36.05,49.55 30.21,46.17" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="83.95,8.40 89.79,11.77 36.05,42.80 30.21,39.43" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="89.79,18.52 36.05,49.55 36.05,42.80 89.79,11.77" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="30.21,46.17 36.05,49.55 36.05,42.80 30.21,39.43" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="78.11,76.80 83.95,80.17 41.89,104.45 36.05,101.08" fill="#C79A68" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="83.95,83.95 41.89,108.23 41.89,104.45 83.95,80.17" fill="#C79A68" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="36.05,104.85 41.89,108.23 41.89,104.45 36.05,101.08" fill="#A87C4E" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="81.03,78.21 38.97,102.49 38.97,45.84 81.03,21.55" fill="#CBD3DC" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="83.95" y1="23.24" x2="41.89" y2="47.52" stroke="#252A31" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

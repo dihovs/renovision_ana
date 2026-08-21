@@ -546,6 +546,215 @@ enum ObjectCatalog {
             width: 5 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
             sizeNote: "Small, but it records what the room was doing."),
 
+        // MARK: The commissioned library's own additions.
+        //
+        // Fifty drawings arrived that this catalogue had no entry for, so the
+        // artwork existed and the picker could not offer any of it. Sizes are
+        // North American stock; the bathroom items in particular are what a
+        // Québec condo actually holds, which is why there are six water
+        // heaters — electric, gas and oil, each floor-standing or wall-hung,
+        // and the fuel decides who is called out to disconnect it.
+        Entry(
+            slug: "corner_bathtub", name: "Corner tub", category: .plumbing,
+            width: 60 * inch, depth: 60 * inch, height: 24 * inch, shape: .tub,
+            sizeNote: "60x60in corner unit."),
+        Entry(
+            slug: "corner_bathtub_round", name: "Corner tub, round", category: .plumbing,
+            width: 60 * inch, depth: 60 * inch, height: 24 * inch, shape: .tub,
+            sizeNote: "60in round corner unit."),
+        Entry(
+            slug: "oval_bathtub", name: "Oval tub", category: .plumbing,
+            width: 66 * inch, depth: 36 * inch, height: 24 * inch, shape: .tub,
+            sizeNote: "66x36in drop-in oval."),
+        Entry(
+            slug: "space_saving_bathtub", name: "Space-saving tub", category: .plumbing,
+            width: 48 * inch, depth: 30 * inch, height: 26 * inch, shape: .tub,
+            sizeNote: "48x30in, the short tub in a tight bathroom."),
+        Entry(
+            slug: "rectangular_shower", name: "Shower, rectangular", category: .plumbing,
+            width: 48 * inch, depth: 32 * inch, height: 78 * inch, shape: .shower,
+            sizeNote: "48x32in base."),
+        Entry(
+            slug: "square_shower", name: "Shower, square", category: .plumbing,
+            width: 36 * inch, depth: 36 * inch, height: 78 * inch, shape: .shower,
+            sizeNote: "36in square base."),
+        Entry(
+            slug: "corner_shower_angled", name: "Corner shower, angled", category: .plumbing,
+            width: 36 * inch, depth: 36 * inch, height: 78 * inch, shape: .shower,
+            sizeNote: "36in neo-angle."),
+        Entry(
+            slug: "corner_shower_round", name: "Corner shower, round", category: .plumbing,
+            width: 36 * inch, depth: 36 * inch, height: 78 * inch, shape: .shower,
+            sizeNote: "36in quadrant."),
+        Entry(
+            slug: "shower_door", name: "Shower door", category: .plumbing,
+            width: 30 * inch, depth: 2 * inch, height: 72 * inch, shape: .panel,
+            sizeNote: "30in hinged glass panel."),
+        Entry(
+            slug: "shower_curtain", name: "Shower curtain", category: .plumbing,
+            width: 60 * inch, depth: 2 * inch, height: 72 * inch, shape: .panel,
+            sizeNote: "60in rail and curtain."),
+        Entry(
+            slug: "shower_head_set", name: "Shower set", category: .plumbing,
+            width: 10 * inch, depth: 10 * inch, height: 48 * inch, shape: .equipment,
+            sizeNote: "Riser rail, head and valve."),
+        Entry(
+            slug: "corner_sink", name: "Corner basin", category: .plumbing,
+            width: 18 * inch, depth: 18 * inch, height: 33 * inch, shape: .sink,
+            sizeNote: "18in corner basin."),
+        Entry(
+            slug: "single_sink", name: "Single sink", category: .plumbing,
+            width: 24 * inch, depth: 20 * inch, height: 33 * inch, shape: .sink,
+            sizeNote: "24x20in single bowl."),
+        Entry(
+            slug: "double_sink", name: "Double sink", category: .plumbing,
+            width: 48 * inch, depth: 20 * inch, height: 33 * inch, shape: .sink,
+            sizeNote: "48in twin bowl."),
+        Entry(
+            slug: "oval_sink", name: "Oval basin", category: .plumbing,
+            width: 20 * inch, depth: 16 * inch, height: 8 * inch, shape: .sink,
+            sizeNote: "20x16in drop-in oval."),
+        Entry(
+            slug: "rectangular_sink_wall", name: "Wall basin, rectangular", category: .plumbing,
+            width: 24 * inch, depth: 18 * inch, height: 8 * inch, shape: .sink,
+            sizeNote: "24x18in wall-hung."),
+        Entry(
+            slug: "sink_semi_pedestal", name: "Semi-pedestal basin", category: .plumbing,
+            width: 22 * inch, depth: 18 * inch, height: 33 * inch, shape: .sink,
+            sizeNote: "22x18in on a half pedestal."),
+        Entry(
+            slug: "sink_cabinet", name: "Sink cabinet", category: .plumbing,
+            width: 30 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
+            sizeNote: "30in vanity with a bowl."),
+        Entry(
+            slug: "double_sink_cabinet", name: "Double sink cabinet", category: .plumbing,
+            width: 60 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
+            sizeNote: "60in twin-bowl vanity."),
+        Entry(
+            slug: "sink_drainer", name: "Sink with drainer", category: .plumbing,
+            width: 36 * inch, depth: 20 * inch, height: 33 * inch, shape: .sink,
+            sizeNote: "36in bowl and drainer."),
+        Entry(
+            slug: "double_sink_drainer", name: "Double sink with drainer", category: .plumbing,
+            width: 60 * inch, depth: 20 * inch, height: 33 * inch, shape: .sink,
+            sizeNote: "60in twin bowl and drainer."),
+        Entry(
+            slug: "vanity_cabinet", name: "Vanity cabinet", category: .plumbing,
+            width: 36 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
+            sizeNote: "36in vanity."),
+        Entry(
+            slug: "mirror_cabinet", name: "Mirror cabinet", category: .plumbing,
+            width: 24 * inch, depth: 6 * inch, height: 30 * inch, shape: .wallCabinet,
+            sizeNote: "24in mirrored wall unit."),
+        Entry(
+            slug: "wall_hung_toilet", name: "Wall-hung WC", category: .plumbing,
+            width: 15 * inch, depth: 22 * inch, height: 15 * inch, shape: .toilet,
+            sizeNote: "15x22in, carrier in the wall."),
+        Entry(
+            slug: "urinal", name: "Urinal", category: .plumbing,
+            width: 14 * inch, depth: 14 * inch, height: 24 * inch, shape: .toilet,
+            sizeNote: "14in wall-hung."),
+        Entry(
+            slug: "toilet_flush_plate", name: "Flush plate", category: .plumbing,
+            width: 9 * inch, depth: 1 * inch, height: 6 * inch, shape: .panel,
+            sizeNote: "9x6in concealed-cistern plate."),
+        Entry(
+            slug: "toilet_roll_holder", name: "Roll holder", category: .plumbing,
+            width: 6 * inch, depth: 3 * inch, height: 3 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "towel_rail", name: "Towel rail", category: .plumbing,
+            width: 24 * inch, depth: 4 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: "24in rail."),
+        Entry(
+            slug: "towel_radiator", name: "Towel radiator", category: .plumbing,
+            width: 24 * inch, depth: 4 * inch, height: 40 * inch, shape: .panel,
+            sizeNote: "24x40in ladder rail."),
+        Entry(
+            slug: "wall_towel_radiator", name: "Towel radiator, wall", category: .plumbing,
+            width: 24 * inch, depth: 4 * inch, height: 40 * inch, shape: .panel,
+            sizeNote: "24x40in wall-mounted ladder."),
+        Entry(
+            slug: "grab_bar", name: "Grab bar", category: .plumbing,
+            width: 24 * inch, depth: 3 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: "24in bar."),
+        Entry(
+            slug: "soap_dispenser", name: "Soap dispenser", category: .plumbing,
+            width: 4 * inch, depth: 4 * inch, height: 7 * inch, shape: .equipment,
+            sizeNote: ""),
+        Entry(
+            slug: "paper_towel_dispenser", name: "Paper towel dispenser", category: .plumbing,
+            width: 11 * inch, depth: 4 * inch, height: 15 * inch, shape: .panel,
+            sizeNote: ""),
+        Entry(
+            slug: "water_drain", name: "Drain", category: .plumbing,
+            width: 6 * inch, depth: 6 * inch, height: 1 * inch, shape: .panel,
+            sizeNote: "Floor gully."),
+        Entry(
+            slug: "electric_water_heater", name: "Water heater, electric", category: .plumbing,
+            width: 20 * inch, depth: 20 * inch, height: 60 * inch, shape: .cylinder,
+            sizeNote: "40-gallon upright."),
+        Entry(
+            slug: "gas_water_heater", name: "Water heater, gas", category: .plumbing,
+            width: 20 * inch, depth: 20 * inch, height: 60 * inch, shape: .cylinder,
+            sizeNote: "40-gallon, flued."),
+        Entry(
+            slug: "oil_water_heater", name: "Water heater, oil", category: .plumbing,
+            width: 22 * inch, depth: 22 * inch, height: 60 * inch, shape: .cylinder,
+            sizeNote: "Oil-fired."),
+        Entry(
+            slug: "wall_electric_water_heater", name: "Water heater, wall electric", category: .plumbing,
+            width: 16 * inch, depth: 12 * inch, height: 24 * inch, shape: .panel,
+            sizeNote: "Point-of-use, wall-hung."),
+        Entry(
+            slug: "wall_gas_water_heater", name: "Water heater, wall gas", category: .plumbing,
+            width: 16 * inch, depth: 12 * inch, height: 28 * inch, shape: .panel,
+            sizeNote: "Wall-hung, flued."),
+        Entry(
+            slug: "wall_oil_water_heater", name: "Water heater, wall oil", category: .plumbing,
+            width: 18 * inch, depth: 14 * inch, height: 30 * inch, shape: .panel,
+            sizeNote: "Wall-hung, oil."),
+        Entry(
+            slug: "electric_radiator", name: "Radiator, electric", category: .hvac,
+            width: 30 * inch, depth: 4 * inch, height: 24 * inch, shape: .panel,
+            sizeNote: "30in electric panel."),
+        Entry(
+            slug: "water_radiator", name: "Radiator, hot water", category: .hvac,
+            width: 30 * inch, depth: 8 * inch, height: 25 * inch, shape: .panel,
+            sizeNote: "30in section."),
+        Entry(
+            slug: "wall_electric_radiator", name: "Radiator, wall electric", category: .hvac,
+            width: 30 * inch, depth: 4 * inch, height: 24 * inch, shape: .panel,
+            sizeNote: "Wall-mounted electric."),
+        Entry(
+            slug: "wall_water_radiator", name: "Radiator, wall hot water", category: .hvac,
+            width: 30 * inch, depth: 8 * inch, height: 25 * inch, shape: .panel,
+            sizeNote: "Wall-mounted hot water."),
+        Entry(
+            slug: "portable_heater", name: "Heater, portable", category: .hvac,
+            width: 14 * inch, depth: 10 * inch, height: 24 * inch, shape: .equipment,
+            sizeNote: "On castors."),
+        Entry(
+            slug: "wall_portable_heater", name: "Heater, wall", category: .hvac,
+            width: 20 * inch, depth: 6 * inch, height: 14 * inch, shape: .panel,
+            sizeNote: "Wall-mounted fan heater."),
+        Entry(
+            slug: "high_cabinet", name: "High cabinet", category: .cabinets,
+            width: 24 * inch, depth: 24 * inch, height: 84 * inch, shape: .box,
+            sizeNote: "24in full-height unit."),
+        Entry(
+            slug: "shelf_unit", name: "Shelf unit", category: .cabinets,
+            width: 30 * inch, depth: 12 * inch, height: 72 * inch, shape: .shelving,
+            sizeNote: "30in open shelving."),
+        Entry(
+            slug: "corner_shelf_unit", name: "Corner shelf unit", category: .cabinets,
+            width: 24 * inch, depth: 24 * inch, height: 72 * inch, shape: .shelving,
+            sizeNote: "24in corner shelving."),
+        Entry(
+            slug: "cart", name: "Cart", category: .furniture,
+            width: 24 * inch, depth: 18 * inch, height: 32 * inch, shape: .table,
+            sizeNote: "Rolling cart."),
+
         // MARK: Furniture — what was in the room, for the record.
         Entry(
             slug: "sofa", name: "Sofa", category: .furniture,

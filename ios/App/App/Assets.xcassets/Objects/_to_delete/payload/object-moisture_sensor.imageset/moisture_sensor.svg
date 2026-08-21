@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+<ellipse cx="60.00" cy="105.67" rx="17.97" ry="5.93" fill="#0B1220" opacity="0.1"/>
+<path d="M 63.60 78.36 L 63.60 102.32 A 2.20 1.27 0 0 0 68.01 102.32 L 68.01 78.36 A 2.20 1.27 0 0 1 63.60 78.36 Z" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="65.81" cy="78.36" rx="2.20" ry="1.27" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5"/>
+<path d="M 51.98 85.07 L 51.98 109.02 A 2.20 1.27 0 0 0 56.39 109.02 L 56.39 85.07 A 2.20 1.27 0 0 1 51.98 85.07 Z" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="54.19" cy="85.07" rx="2.20" ry="1.27" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5"/>
+<polygon points="64.15,12.23 80.75,21.82 55.85,36.19 39.25,26.61" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="80.75,79.32 55.85,93.69 55.85,36.19 80.75,21.82" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="39.25,84.11 55.85,93.69 55.85,36.19 39.25,26.61" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="78.05,47.81 59.38,58.59 59.38,39.43 78.05,28.64" fill="#9CC6E8" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="76.08,44.52 61.97,52.66 61.97,43.08 76.08,34.93" fill="#7DAFD9" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="76.18,75.24 61.24,83.87 61.24,64.70 76.18,56.08" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="64.15,8.40 76.60,15.59 55.85,27.57 43.40,20.38" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="76.60,21.82 55.85,33.80 55.85,27.57 76.60,15.59" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="43.40,26.61 55.85,33.80 55.85,27.57 43.40,20.38" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

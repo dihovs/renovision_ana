@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+<polygon points="68.61,8.40 96.16,24.30 51.39,50.15 23.84,34.25" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="96.16,83.95 51.39,109.79 51.39,50.15 96.16,24.30" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="23.84,93.89 51.39,109.79 51.39,50.15 23.84,34.25" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="91.16,83.05 56.73,102.93 56.73,91.01 91.16,71.12" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="86.17,84.15 62.07,98.06 62.07,90.11 86.17,76.19" fill="#9CC6E8" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="92.11,66.70 55.95,87.58 55.95,51.79 92.11,30.92" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M 69.38 80.97 L 69.38 91.90 A 4.37 2.52 0 0 0 78.15 91.90 L 78.15 80.97 A 4.37 2.52 0 0 1 69.38 80.97 Z" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="73.77" cy="80.97" rx="4.38" ry="2.53" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5"/>
+<path d="M 55.63 88.92 L 55.63 99.85 A 4.37 2.52 0 0 0 64.37 99.85 L 64.37 88.92 A 4.37 2.52 0 0 1 55.63 88.92 Z" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="60.00" cy="88.92" rx="4.38" ry="2.53" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5"/>
+<path d="M 41.85 96.87 L 41.85 107.80 A 4.37 2.52 0 0 0 50.62 107.80 L 50.62 96.87 A 4.37 2.52 0 0 1 41.85 96.87 Z" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="46.23" cy="96.87" rx="4.38" ry="2.53" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5"/>
+<polygon points="73.30,84.13 38.87,104.01 43.25,111.60 77.69,91.72" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="41.06" cy="107.80" rx="4.38" ry="2.53" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" transform="rotate(60 41.06 107.80)"/>
+</svg>
