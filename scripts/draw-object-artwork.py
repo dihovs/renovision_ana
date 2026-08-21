@@ -708,6 +708,250 @@ def _():
     s += line((8.5, 4, 4), (8.5, 4, 0), METAL, 2.6)
     return s
 
+
+# --- plumbing, the rest of it -----------------------------------------------
+# Theirs holds 57 against our 8, and plumbing is where a water loss starts:
+# the object placed here is often the reason there is a claim.
+
+@recipe("pedestal_sink")
+def _():
+    s = shadow(4, 4, 10, 10)
+    s += box(6, 6, 0, 6, 6, 20, top=RIGHT)                    # pedestal
+    s += box(0, 1, 20, 18, 14, 6, top=TOP)                    # basin body
+    s += face_t(2, 3, 26.1, 14, 10, GLASS, INK, SWT)
+    s += disc_t(9, 8, 26.2, 1.3, WHITEISH)
+    s += line((9, 2, 26), (9, 2, 32), METAL, 2.6)
+    s += line((9, 2, 32), (9, 6, 32), METAL, 2.6)
+    return s
+
+@recipe("double_vanity")
+def _():
+    s = shadow(0, 0, 34, 16) + box(0, 0, 0, 34, 16, 20)
+    s += face_l(2, 16, 3, 14, 14, WHITEISH)
+    s += face_l(18, 16, 3, 14, 14, WHITEISH)
+    s += box(-1, -1, 20, 36, 18, 2, top=WHITEISH)             # counter
+    for cx_ in (8.5, 25.5):
+        s += face_t(cx_ - 4, 4, 22.1, 8, 8, GLASS, INK, SWT)
+        s += line((cx_, 2, 22), (cx_, 2, 27), METAL, 2.2)
+    return s
+
+@recipe("shower_tub_combo")
+def _():
+    s = shadow(0, 0, 32, 16)
+    # The surround behind it is what separates this from a plain tub.
+    s += poly([iso(0, 0, 0), iso(32, 0, 0), iso(32, 0, 34), iso(0, 0, 34)],
+              "#E6EEF6", INK, SWT, ' opacity="0.92"')
+    s += poly([iso(0, 0, 0), iso(0, 16, 0), iso(0, 16, 34), iso(0, 0, 34)],
+              "#D8E4EF", INK, SWT, ' opacity="0.92"')
+    s += line((2, 0, 30), (2, 0, 26), METAL, 2.4)
+    s += disc_t(3, 3, 30, 2.0, METAL)
+    s += box(0, 0, 0, 32, 16, 12)
+    s += face_t(2.2, 2.2, 12.1, 27.6, 11.6, GLASS, INK, SWT)
+    s += disc_t(5, 8, 12.2, 1.4, WHITEISH)
+    return s
+
+@recipe("bidet")
+def _():
+    s = shadow(3, 3, 10, 12)
+    s += box(6, 5, 0, 4, 6, 8, top=RIGHT)                     # foot
+    c = iso(8, 8, 8)
+    s += (f'<ellipse cx="{c[0]:.2f}" cy="{c[1]:.2f}" rx="11" ry="6.6" fill="{TOP}" '
+          f'stroke="{INK}" stroke-width="{SW}"/>')
+    s += (f'<ellipse cx="{c[0]:.2f}" cy="{c[1]:.2f}" rx="6.6" ry="3.9" fill="{GLASS}" '
+          f'stroke="{INK}" stroke-width="{SWT}"/>')
+    s += line((8, 1.4, 8), (8, 1.4, 13), METAL, 2.4)
+    return s
+
+@recipe("water_heater_tankless")
+def _():
+    s = box(0, 0, 6, 14, 7, 22, top=TOP)
+    s += face_l(2, 7, 14, 10, 6, DARK)
+    s += duct(3.4, 2.4, 28, 2.6, 2.6, 5)
+    s += duct(8.0, 2.4, 28, 2.6, 2.6, 5)
+    s += line((7, 3.5, 6), (7, 3.5, 0), METAL, 2.4)
+    return s
+
+@recipe("sump_pump")
+def _():
+    s = shadow(3, 3, 10, 10)
+    s += cyl(8, 8, 0, 6, 12, top=RIGHT, side=LEFT)
+    s += duct(6.6, 6.6, 12, 2.8, 2.8, 8)
+    s += line((8, 8, 20), (16, 8, 20), METAL, 2.6)
+    return s
+
+@recipe("laundry_box")
+def _():
+    # The recessed valve box behind a washer — a burst hose here empties a
+    # floor before anybody is home, which is why it earns its own object.
+    s = box(0, 0, 8, 12, 5, 12, top=RIGHT)
+    s += face_l(1.6, 5, 9.6, 8.8, 8.8, WHITEISH)
+    for cx_ in (4.2, 7.8):
+        c = iso(cx_, 5, 15)
+        s += f'<circle cx="{c[0]:.2f}" cy="{c[1]:.2f}" r="1.6" fill="{WARN}" stroke="{INK}" stroke-width="1.2"/>'
+    s += line((6, 5, 11), (6, 5, 9), METAL, 2.2)
+    return s
+
+@recipe("water_shutoff")
+def _():
+    s = _pipe(7.0, METAL, "#AEB6BF", length=26.0)
+    s += box(9, 0.4, 0.4, 8, 6.2, 6.2, top=METAL, right="#AEB6BF", left="#98A2AD", sw=1.8)
+    s += duct(11.6, 2.2, 6.6, 2.6, 2.6, 4)
+    c = iso(12.9, 3.5, 11)
+    s += (f'<ellipse cx="{c[0]:.2f}" cy="{c[1]:.2f}" rx="6.2" ry="3.6" fill="{WARN}" '
+          f'stroke="{INK}" stroke-width="{SWT}"/>')
+    s += (f'<ellipse cx="{c[0]:.2f}" cy="{c[1]:.2f}" rx="2.1" ry="1.2" fill="{TOP}" '
+          f'stroke="{INK}" stroke-width="1.1"/>')
+    return s
+
+@recipe("water_meter")
+def _():
+    s = shadow(1, 1, 12, 8)
+    s += cyl(6, 4, 2, 4.6, 8)
+    s += duct(0, 2.6, 2, 12, 2.8, 2.8)
+    c = iso(6, 4, 10)
+    s += (f'<ellipse cx="{c[0]:.2f}" cy="{c[1]:.2f}" rx="4.4" ry="2.6" fill="{GLASS}" '
+          f'stroke="{INK}" stroke-width="{SWT}"/>')
+    return s
+
+@recipe("spigot")
+def _():
+    s = poly([iso(0, 0, 0), iso(14, 0, 0), iso(14, 0, 16), iso(0, 0, 16)],
+             "#E8EDF2", INK, 1.4)                              # the wall behind it
+    s += box(5.2, 0, 6.4, 3.6, 3.6, 3.6, top=METAL, right="#AEB6BF", left="#98A2AD", sw=1.8)
+    s += duct(6.2, 3.6, 5.0, 1.8, 3.4, 1.8)                    # the spout, coming out
+    s += duct(6.4, 4.6, 2.0, 1.4, 1.4, 3.2)                    # its drop
+    c = iso(7.0, 1.8, 11.4)
+    s += (f'<ellipse cx="{c[0]:.2f}" cy="{c[1]:.2f}" rx="4.2" ry="2.4" fill="{WARN}" '
+          f'stroke="{INK}" stroke-width="{SWT}"/>')            # the handle
+    return s
+
+def _pipe(diameter, fill, side, length=26.0):
+    """A horizontal run, drawn fat enough to be a pipe.
+
+    A circle standing in the y-z plane projects to an ellipse of
+    rx = 0.866r and ry = 1.118r under this isometric — not to a flat disc,
+    which is what made the first version look like a lollipop."""
+    r = diameter / 2
+    rx, ry = r * 0.866, r * 1.118
+    s = shadow(0, 0, length, diameter)
+    a = iso(0, r, r)
+    b = iso(length, r, r)
+    out = (f'<path d="M {a[0]:.2f} {a[1]-ry:.2f} L {b[0]:.2f} {b[1]-ry:.2f} '
+           f'A {rx:.2f} {ry:.2f} 0 0 0 {b[0]:.2f} {b[1]+ry:.2f} '
+           f'L {a[0]:.2f} {a[1]+ry:.2f} Z" fill="{side}" stroke="{INK}" stroke-width="{SW}"/>')
+    out += (f'<ellipse cx="{b[0]:.2f}" cy="{b[1]:.2f}" rx="{rx:.2f}" ry="{ry:.2f}" '
+            f'fill="{fill}" stroke="{INK}" stroke-width="{SW}"/>')
+    return s + out
+
+@recipe("copper_pipe")
+def _():  return _pipe(9.0, "#D79A6A", "#B87A4E")
+@recipe("pvc_pipe")
+def _():  return _pipe(11.0, TOP, RIGHT)
+
+# --- HVAC, the rest of it ---------------------------------------------------
+
+@recipe("boiler")
+def _():
+    s = shadow(0, 0, 20, 20) + box(0, 0, 0, 20, 20, 28)
+    s += face_l(2.6, 20, 12, 14.8, 13, WHITEISH)
+    s += face_l(5, 20, 3, 10, 7, DARK)
+    s += duct(7.4, 3.4, 28, 5.2, 5.2, 7)
+    s += duct(20, 4, 18, 5, 4, 4)
+    s += duct(20, 12, 18, 5, 4, 4)
+    return s
+
+@recipe("radiator")
+def _():
+    s = shadow(0, 0, 30, 8)
+    s += box(0, 0, 3, 30, 7, 18, top=TOP)
+    for i in range(9):
+        s += line((1.6 + i * 3.3, 7, 4.5), (1.6 + i * 3.3, 7, 19.5), DARK, 1.6)
+    for fx in (2, 28):
+        s += line((fx, 3.5, 3), (fx, 3.5, 0), INK, 2.2)
+    s += duct(29, 2.4, 4, 4, 2.4, 2.4)
+    return s
+
+def _outdoor_unit(w, d, h):
+    # Pad FIRST. Drawn last it sits over the unit it is meant to stand under,
+    # and the whole icon becomes a grey diamond with a fan on it.
+    s = shadow(-1, -1, w + 2, d + 2)
+    s += box(-1, -1, 0, w + 2, d + 2, 2, top=LEFT)
+    s += box(0, 0, 2, w, d, h)
+    cx, cy = iso(w / 2, d / 2, h + 2)
+    s += (f'<ellipse cx="{cx:.2f}" cy="{cy:.2f}" rx="{w*0.32:.2f}" ry="{w*0.19:.2f}" '
+          f'fill="{DARK}" stroke="{INK}" stroke-width="{SWT}"/>')
+    s += (f'<ellipse cx="{cx:.2f}" cy="{cy:.2f}" rx="{w*0.11:.2f}" ry="{w*0.065:.2f}" '
+          f'fill="{METAL}"/>')
+    for i in range(5):
+        s += line((1.6, d, 4 + i * (h - 6) / 5), (w - 1.6, d, 4 + i * (h - 6) / 5), DARK, 1.3)
+    return s
+
+@recipe("heat_pump")
+def _():  return _outdoor_unit(22, 20, 20)
+@recipe("ac_condenser")
+def _():  return _outdoor_unit(20, 20, 18)
+
+@recipe("ac_wall")
+def _():
+    s = box(0, 0, 0, 30, 8, 11, top=TOP)
+    s += face_l(1.6, 8, 1.6, 26.8, 4, DARK)
+    s += line((2, 8, 8.5), (28, 8, 8.5), DARK, 1.4)
+    return s
+
+@recipe("ac_portable")
+def _():
+    s = shadow(0, 0, 16, 14) + box(0, 0, 2, 16, 14, 26)
+    s += face_l(2, 14, 14, 12, 9, WHITEISH)
+    for i in range(4):
+        s += line((2.4, 14, 4 + i * 2.2), (13.6, 14, 4 + i * 2.2), DARK, 1.3)
+    s += duct(16, 4, 22, 8, 6, 6)
+    for fx, fy in ((2, 2), (14, 2)):
+        s += line((fx, fy, 2), (fx, fy, 0), INK, 2.0)
+    return s
+
+@recipe("duct_rectangular")
+def _():
+    s = shadow(0, 0, 34, 16)
+    s += box(0, 0, 4, 34, 16, 8, top=METAL, right="#AEB6BF", left="#98A2AD")
+    for x in (11, 23):
+        s += line((x, 0, 4), (x, 16, 4), DARK, 1.4)
+        s += line((x, 16, 4), (x, 16, 12), DARK, 1.4)
+    return s
+
+@recipe("duct_round")
+def _():
+    s = _pipe(13.0, METAL, "#AEB6BF", length=30.0)
+    for t in (0.34, 0.66):
+        c = iso(30 * t, 6.5, 6.5)
+        s += (f'<ellipse cx="{c[0]:.2f}" cy="{c[1]:.2f}" rx="{6.5*0.866:.2f}" '
+              f'ry="{6.5*1.118:.2f}" fill="none" stroke="{DARK}" stroke-width="1.3"/>')
+    return s
+
+def _grille(w, d, round_=False):
+    s = box(0, 0, 0, w, d, 1.6, top=METAL, right="#AEB6BF", left="#98A2AD")
+    if round_:
+        s += disc_t(w / 2, d / 2, 1.7, w * 0.30, DARK)
+        s += disc_t(w / 2, d / 2, 1.8, w * 0.16, METAL)
+    else:
+        for i in range(5):
+            s += line((1.6, d * (i + 1) / 6, 1.7), (w - 1.6, d * (i + 1) / 6, 1.7), DARK, 1.5)
+    return s
+
+@recipe("floor_register")
+def _():  return shadow(0, 0, 16, 9) + _grille(16, 9)
+@recipe("ceiling_diffuser")
+def _():  return _grille(14, 14)
+@recipe("exhaust_fan")
+def _():  return _grille(13, 13, round_=True)
+
+@recipe("thermostat")
+def _():
+    s = poly([iso(0, 0, 0), iso(16, 0, 0), iso(16, 0, 16), iso(0, 0, 16)],
+             "#E8EDF2", INK, 1.4)
+    s += box(4, 0, 5, 8, 1.8, 7, top=TOP)
+    s += face_l(4.9, 1.8, 6.4, 6.2, 4.2, GLASS)
+    return s
+
 # --- doors and windows -----------------------------------------------------
 # Drawn frontally, not isometrically. A door is read by its LEAF and its
 # SWING, and the old set drew them as isometric frames that came out looking

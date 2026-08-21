@@ -437,6 +437,115 @@ enum ObjectCatalog {
             width: 24 * inch, depth: 24 * inch, height: 36 * inch, shape: .box,
             sizeNote: "24in square cabinet, hung or floor-standing."),
 
+        // MARK: Plumbing, the rest of it.
+        //
+        // **This is the category to fill first and it is not close.** Theirs
+        // holds 57 and ours held 8 — and plumbing is where a water loss
+        // starts. The object placed here is frequently the reason there is a
+        // claim at all, so a crew that cannot find the right one writes "sink"
+        // and the report loses the fact.
+        Entry(
+            slug: "pedestal_sink", name: "Pedestal sink", category: .plumbing,
+            width: 22 * inch, depth: 18 * inch, height: 33 * inch, shape: .sink,
+            sizeNote: "22x18in bowl on a pedestal, 33in to the rim."),
+        Entry(
+            slug: "double_vanity", name: "Double vanity", category: .plumbing,
+            width: 60 * inch, depth: 21 * inch, height: 34.5 * inch, shape: .basinInCounter,
+            sizeNote: "60in twin-basin, the stock size above a 48in single.",
+            stock: [
+                Stock(label: "60\"", width: 60 * inch, depth: 21 * inch, height: 34.5 * inch),
+                Stock(label: "72\"", width: 72 * inch, depth: 21 * inch, height: 34.5 * inch),
+            ]),
+        Entry(
+            slug: "shower_tub_combo", name: "Tub / shower", category: .plumbing,
+            width: 60 * inch, depth: 32 * inch, height: 78 * inch, shape: .tub,
+            sizeNote: "60x32in alcove tub under a surround — the commonest bathroom in the trade."),
+        Entry(
+            slug: "bidet", name: "Bidet", category: .plumbing,
+            width: 15 * inch, depth: 25 * inch, height: 15 * inch, shape: .toilet,
+            sizeNote: "15x25in floor-mounted."),
+        Entry(
+            slug: "water_heater_tankless", name: "Tankless water heater", category: .plumbing,
+            width: 14 * inch, depth: 9 * inch, height: 24 * inch, shape: .panel,
+            sizeNote: "14x24in wall unit — no tank to fail, but the supply lines still do."),
+        Entry(
+            slug: "sump_pump", name: "Sump pump", category: .plumbing,
+            width: 8 * inch, depth: 8 * inch, height: 14 * inch, shape: .cylinder,
+            sizeNote: "The pump itself, which is a separate item from the pit it stands in."),
+        Entry(
+            slug: "laundry_box", name: "Laundry box", category: .plumbing,
+            width: 8 * inch, depth: 4 * inch, height: 8 * inch, shape: .panel,
+            sizeNote: "The recessed valve box behind a washer. A burst hose here floods a floor before anybody is home."),
+        Entry(
+            slug: "water_meter", name: "Water meter", category: .plumbing,
+            width: 10 * inch, depth: 6 * inch, height: 8 * inch, shape: .equipment,
+            sizeNote: "Beside the shut-off, and what proves how much water ran."),
+        Entry(
+            slug: "spigot", name: "Hose bib", category: .plumbing,
+            width: 5 * inch, depth: 5 * inch, height: 6 * inch, shape: .equipment,
+            sizeNote: "Exterior tap. Freezes, splits, and empties into the wall it passes through."),
+        Entry(
+            slug: "copper_pipe", name: "Copper pipe", category: .plumbing,
+            width: 48 * inch, depth: 2 * inch, height: 2 * inch, shape: .cylinder,
+            sizeNote: "A run of supply, drawn where it is exposed."),
+        Entry(
+            slug: "pvc_pipe", name: "PVC / ABS pipe", category: .plumbing,
+            width: 48 * inch, depth: 3 * inch, height: 3 * inch, shape: .cylinder,
+            sizeNote: "A run of drain, 3in stack size."),
+
+        // MARK: HVAC, the rest of it — 34 theirs against 2 ours.
+        //
+        // A furnace in a flooded basement is scope AND safety, and the ducting
+        // is how a loss on one storey becomes a loss on three.
+        Entry(
+            slug: "boiler", name: "Boiler", category: .hvac,
+            width: 24 * inch, depth: 24 * inch, height: 40 * inch, shape: .box,
+            sizeNote: "24in cabinet — hot water heat, which is most older Montréal housing stock."),
+        Entry(
+            slug: "radiator", name: "Radiator", category: .hvac,
+            width: 30 * inch, depth: 8 * inch, height: 25 * inch, shape: .panel,
+            sizeNote: "30in cast-iron section, 8in deep.",
+            stock: [
+                Stock(label: "30\"", width: 30 * inch, depth: 8 * inch, height: 25 * inch),
+                Stock(label: "48\"", width: 48 * inch, depth: 8 * inch, height: 25 * inch),
+            ]),
+        Entry(
+            slug: "heat_pump", name: "Heat pump", category: .hvac,
+            width: 34 * inch, depth: 34 * inch, height: 36 * inch, shape: .equipment,
+            sizeNote: "Outdoor unit on a pad."),
+        Entry(
+            slug: "ac_wall", name: "Wall-mounted A/C", category: .hvac,
+            width: 32 * inch, depth: 8 * inch, height: 12 * inch, shape: .panel,
+            sizeNote: "Mini-split head, high on a wall."),
+        Entry(
+            slug: "ac_portable", name: "Portable A/C", category: .hvac,
+            width: 18 * inch, depth: 16 * inch, height: 30 * inch, shape: .equipment,
+            sizeNote: "On castors, with a hose to a window."),
+        Entry(
+            slug: "duct_rectangular", name: "Rectangular duct", category: .hvac,
+            width: 48 * inch, depth: 20 * inch, height: 8 * inch, shape: .box,
+            sizeNote: "20x8in trunk, drawn where it runs exposed under a floor."),
+        Entry(
+            slug: "duct_round", name: "Round duct", category: .hvac,
+            width: 48 * inch, depth: 8 * inch, height: 8 * inch, shape: .cylinder,
+            sizeNote: "8in branch."),
+        Entry(
+            slug: "floor_register", name: "Floor register", category: .hvac,
+            width: 12 * inch, depth: 6 * inch, height: 1 * inch, shape: .panel,
+            sizeNote: "12x6in. Sits in the floor, so it is the first thing a spill runs into and the route the water takes downstairs."),
+        Entry(
+            slug: "ceiling_diffuser", name: "Ceiling diffuser", category: .hvac,
+            width: 12 * inch, depth: 12 * inch, height: 2 * inch, shape: .panel,
+            sizeNote: "12in square, and where a leak from above shows first."),
+        Entry(
+            slug: "exhaust_fan", name: "Exhaust fan", category: .hvac,
+            width: 10 * inch, depth: 10 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: "Bathroom fan. A dead one is why the mould is there."),
+        Entry(
+            slug: "thermostat", name: "Thermostat", category: .hvac,
+            width: 5 * inch, depth: 1 * inch, height: 4 * inch, shape: .panel,
+            sizeNote: "Small, but it records what the room was doing."),
+
         // MARK: Furniture — what was in the room, for the record.
         Entry(
             slug: "sofa", name: "Sofa", category: .furniture,
