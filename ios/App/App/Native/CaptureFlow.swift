@@ -582,13 +582,19 @@ struct CaptureFlow: View {
 
                 Card {
                     VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                        Text(mode == .scan ? "Before you start" : "How drawing works")
+                        Text(mode == .scan ? "For best results…" : "How drawing works")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(Brand.ink)
-                        ForEach(briefingPoints, id: \.self) { point in
-                            HStack(alignment: .top, spacing: Brand.Space.tight) {
-                                Text("·").foregroundStyle(Brand.inkFaint)
-                                Text(point)
+                        // An icon each rather than a bullet each: this is
+                        // read standing up, in a doorway, once. A glyph is
+                        // findable again after looking away; a dot is not.
+                        ForEach(briefingPoints, id: \.text) { point in
+                            HStack(alignment: .top, spacing: Brand.Space.small) {
+                                Image(systemName: point.icon)
+                                    .font(.system(size: 15))
+                                    .foregroundStyle(Brand.inkFaint)
+                                    .frame(width: 22, alignment: .center)
+                                Text(point.text)
                                     .font(.system(size: 13))
                                     .foregroundStyle(Brand.inkSoft)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -641,17 +647,44 @@ struct CaptureFlow: View {
             ?? roomType
     }
 
-    private var briefingPoints: [String] {
+    /// What to do before the camera opens, and why.
+    ///
+    /// **The owner asked for this after seeing the reference's own version,
+    /// 20 Aug 2026:** *"I think this is a very good idea. This appears right
+    /// after we connect on the AutoScan LiDAR."* He is right, and the reason
+    /// is stronger here than there: every one of these is a scan that comes
+    /// out wrong, and the two most common ways a scan goes wrong in this app
+    /// — an outline that never closes, and rooms that will not place against
+    /// each other — are both named below. Warning afterwards costs a second
+    /// walk; this costs a glance.
+    ///
+    /// Written in our own words rather than copied. Same advice, our voice,
+    /// and one of theirs deliberately changed: they send an open-concept
+    /// room to "Manual AR Scan", which we do not have. We have drawing,
+    /// which is better for that case anyway.
+    private var briefingPoints: [(icon: String, text: String)] {
         mode == .scan
             ? [
-                "Stand inside the room and hold the phone up, screen towards you.",
-                "Walk the whole perimeter, pointing at every wall in turn — the green outline closes when the room does.",
-                "The white circle takes a photo mid-scan and files it against this room, so nothing has to be photographed twice.",
+                ("lightbulb",
+                 "Put the lights on. The sensor needs to see the walls, and a dark basement is where this fails first."),
+                ("figure.walk.motion",
+                 "Walk the whole perimeter with the phone up, pointing at every wall in turn."),
+                ("door.left.hand.closed",
+                 "Close the doors. The outline can only close if the room does — an open door leaves a gap the walls never join across."),
+                ("square.split.bottomrightquarter",
+                 "One room per scan, and stay on this floor. Rooms scanned in one walk line up against each other; a trip upstairs breaks that."),
+                ("pencil.and.ruler",
+                 "Open plan, or bigger than about 2000 sq ft? Draw it instead — the scanner drifts over long distances."),
+                ("camera",
+                 "The white shutter takes a photo mid-scan and files it against this room, so nothing has to be photographed twice."),
             ]
             : [
-                "Start from a rectangle and pull the corners into the shape of the room.",
-                "Type a wall's length to set it exactly — a typed length is marked as hand-set, and stays that way.",
-                "Doors and windows go on afterwards, so the wall area is net of them.",
+                ("rectangle.dashed",
+                 "Start from a rectangle and pull the corners into the shape of the room."),
+                ("ruler",
+                 "Type a wall's length to set it exactly — a typed length is marked as hand-set, and stays that way."),
+                ("door.left.hand.open",
+                 "Doors and windows go on afterwards, so the wall area is net of them."),
             ]
     }
 
