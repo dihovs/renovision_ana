@@ -707,6 +707,11 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     let floorAreaSqm: Double
     let wallLengthM: Double
     let ceilingHeightM: Double
+    /// What the operator wrote about this room. The column has existed on
+    /// the server all along and the report has always printed it; the phone
+    /// simply never read it back, so the one device standing in the room had
+    /// no way to say what was wrong with it.
+    let notes: String?
 
     /// Gross wall area — and NOT perimeter × the tallest wall.
     ///
@@ -806,7 +811,7 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     let roomColor: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, level, position, geometry
+        case id, name, level, position, geometry, notes
         case roomType = "room_type"
         case livingPercent = "living_percent"
         case roomColor = "room_color"
@@ -843,6 +848,7 @@ struct RoomScan: Decodable, Identifiable, Hashable {
         roomType = try? c.decodeIfPresent(String.self, forKey: .roomType)
         livingPercent = try? c.decodeIfPresent(Double.self, forKey: .livingPercent)
         roomColor = try? c.decodeIfPresent(String.self, forKey: .roomColor)
+        notes = try? c.decodeIfPresent(String.self, forKey: .notes)
     }
 
     // Identity is the id, not the wall coordinates. Synthesising Hashable

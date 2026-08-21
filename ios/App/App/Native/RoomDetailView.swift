@@ -618,13 +618,15 @@ struct RoomDetailView: View {
 
     // MARK: - Photos & Notes
 
-    /// The evidence. Photos only for now: room notes live in the web's
-    /// RoomEvidence panel and there is no native endpoint for them yet —
-    /// when one exists it belongs in this tab, under the photos, not on a
-    /// fourth tab (the tab set is fixed; reference §6.1).
+    /// The evidence — photographs, and what the operator has to say about
+    /// them. The notes half was missing for months while the tab was called
+    /// `Photos & Notes`: `PATCH /api/v1/scans/{id}` has always taken a
+    /// `notes` field and the report has always printed it, so the only thing
+    /// absent was a box on the phone standing in the room.
     @ViewBuilder private var photosTab: some View {
         if let projectId = room.projectId {
             RoomPhotosSection(projectId: projectId, roomScanId: room.id)
+            RoomNotesSection(roomId: room.id, initial: room.notes)
         } else {
             // A scan not yet attached to a project has nowhere to file a
             // photo. Said plainly rather than showing a camera that fails.

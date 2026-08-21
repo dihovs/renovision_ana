@@ -228,9 +228,13 @@ extension UIImage {
     /// library was taken at some other time, and stamping it with now would
     /// be a false statement of exactly the kind this exists to prevent.
     func stamped(at moment: Date = Date()) -> UIImage {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        let text = formatter.string(from: moment) as NSString
+        // **Their words and their corner**, read off his screenshot of the
+        // reference's own camera: `Aug 20, 2026 • 10:53 PM`, bottom right.
+        // This used to print `2026-08-20 22:53` bottom left behind a black
+        // plate. Both were defensible and neither was what he is comparing
+        // ours against — and on a claim file where the two documents sit
+        // side by side, a different date format reads as a different tool.
+        let text = SiteCameraController.stampText(moment) as NSString
 
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { context in
@@ -240,25 +244,27 @@ extension UIImage {
             // on a phone and printed a third of a page wide, and a 12pt
             // stamp disappears at one of those.
             let fontSize = max(18, size.height * 0.022)
-            let font = UIFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
+            let font = UIFont.systemFont(ofSize: fontSize, weight: .semibold)
+
+            // A shadow rather than a plate. Theirs is plain white text, and
+            // it survives a white ceiling — half these photographs are of
+            // ceilings — because the glyphs carry their own dark edge.
+            let shadow = NSShadow()
+            shadow.shadowColor = UIColor.black.withAlphaComponent(0.75)
+            shadow.shadowBlurRadius = fontSize * 0.25
+            shadow.shadowOffset = CGSize(width: 0, height: fontSize * 0.06)
+
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: font,
                 .foregroundColor: UIColor.white,
+                .shadow: shadow,
             ]
             let textSize = text.size(withAttributes: attributes)
-            let pad = fontSize * 0.5
-            let plate = CGRect(
-                x: pad,
-                y: size.height - textSize.height - pad * 2.5,
-                width: textSize.width + pad * 2,
-                height: textSize.height + pad)
-
-            // A plate behind it, because a white stamp on a white ceiling is
-            // no stamp at all — and half these photographs are of ceilings.
-            UIColor.black.withAlphaComponent(0.55).setFill()
-            UIBezierPath(roundedRect: plate, cornerRadius: pad * 0.6).fill()
+            let pad = fontSize * 0.9
             text.draw(
-                at: CGPoint(x: plate.minX + pad, y: plate.minY + pad * 0.5),
+                at: CGPoint(
+                    x: size.width - textSize.width - pad,
+                    y: size.height - textSize.height - pad),
                 withAttributes: attributes)
             _ = context
         }

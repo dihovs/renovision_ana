@@ -28,8 +28,10 @@
 	<string>Site photos for a project's file library are taken with the camera and attached directly to the job.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Shows where you are on the map when setting a project address, so you can drop the pin on the property you are standing at.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Videos recorded on site are saved to this phone's own photo library rather than uploaded, because a walkthrough video is far too large to send from a basement.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>The in-app phone places calls from the business number and needs the microphone to carry your voice.</string>
+	<string>The in-app phone places calls from the business number, and site videos record sound, so both need the microphone.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

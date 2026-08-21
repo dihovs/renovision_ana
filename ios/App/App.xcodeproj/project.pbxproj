@@ -76,6 +76,7 @@
 		A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */ = {isa = PBXBuildFile; fileRef = D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */; };
 		03F8E9CA9E3AA11C291D111E /* PhotoQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */; };
 		7C1A5E20B4D3F09188A2C610 /* StoreyArranging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */; };
+		7C1A5E30B4D3F09188A2C620 /* SiteCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1A5E31B4D3F09188A2C621 /* SiteCamera.swift */; };
 		5A9AD4DEBBCCCE7E3A370548 /* ScanChoices.swift in Sources */ = {isa = PBXBuildFile; fileRef = D71C021CED84AC2254A96F38 /* ScanChoices.swift */; };
 		ECBCF487953EB990E122B099 /* ScanCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */; };
 		63A1A72230F81F66907C3D97 /* ScanTypeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */; };
@@ -153,6 +154,7 @@
 		D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectEmblems.swift; sourceTree = "<group>"; };
 		4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhotoQueue.swift; sourceTree = "<group>"; };
 		7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/StoreyArranging.swift; sourceTree = "<group>"; };
+		7C1A5E31B4D3F09188A2C621 /* SiteCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/SiteCamera.swift; sourceTree = "<group>"; };
 		D71C021CED84AC2254A96F38 /* ScanChoices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanChoices.swift; sourceTree = "<group>"; };
 		34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanCatalogue.swift; sourceTree = "<group>"; };
 		96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypeCard.swift; sourceTree = "<group>"; };
@@ -206,6 +208,7 @@
 				D71C021CED84AC2254A96F38 /* ScanChoices.swift */,
 				4AF5714E743AFCB92E081E15 /* PhotoQueue.swift */,
 				7C1A5E21B4D3F09188A2C611 /* StoreyArranging.swift */,
+				7C1A5E31B4D3F09188A2C621 /* SiteCamera.swift */,
 				D83DF6CACBECE7D64687FC5A /* ObjectEmblems.swift */,
 				6AF7B171E69DD85EC5BB14EB /* ObjectDetailView.swift */,
 				88E7676DEF5F9A695D19A561 /* ObjectPicker.swift */,
@@ -357,6 +360,7 @@
 				5A9AD4DEBBCCCE7E3A370548 /* ScanChoices.swift in Sources */,
 				03F8E9CA9E3AA11C291D111E /* PhotoQueue.swift in Sources */,
 				7C1A5E20B4D3F09188A2C610 /* StoreyArranging.swift in Sources */,
+				7C1A5E30B4D3F09188A2C620 /* SiteCamera.swift in Sources */,
 				A85BE585B04A3AE23394B6B6 /* ObjectEmblems.swift in Sources */,
 				547F794211626CFF8CFA6570 /* ObjectDetailView.swift in Sources */,
 				12FDE45F0886FC57A524DE42 /* ObjectPicker.swift in Sources */,

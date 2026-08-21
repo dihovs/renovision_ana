@@ -712,6 +712,22 @@ actor API {
         let name: String
     }
 
+    private struct RoomNotesPatch: Encodable {
+        let notes: String?
+    }
+
+    /// What is wrong with this room, in the operator's own words.
+    ///
+    /// An empty box travels as `null` rather than as `""` — clearing a note
+    /// is deleting it, and a row holding an empty string prints an empty
+    /// line in the report where nothing should print at all.
+    func setRoomNotes(roomId: String, notes: String) async throws {
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = try await request(
+            "/api/v1/scans/\(roomId)", method: "PATCH",
+            body: RoomNotesPatch(notes: trimmed.isEmpty ? nil : trimmed))
+    }
+
     /// Rename a room. What was measured does not change — only what the room
     /// is called on the plan, in the list and in the report.
     func renameRoom(roomId: String, name: String) async throws {

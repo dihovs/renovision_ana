@@ -29,6 +29,9 @@ struct RoomPhotosSection: View {
     @State private var photos: [RoomPhoto]?
     @State private var takingPhoto = false
     @State private var pickedItem: PhotosPickerItem?
+    /// The library sheet, opened from the `+` menu rather than by its own
+    /// button — a `PhotosPicker` cannot be a row inside a `Menu`.
+    @State private var choosingFromLibrary = false
     @State private var uploading = false
     @State private var error: String?
     /// The photo open full-screen, if any — the route to the editor.
@@ -44,88 +47,83 @@ struct RoomPhotosSection: View {
             roomScanId: roomScanId, wallIndex: wallIndex, affectedAreaId: affectedAreaId)
     }
 
+    /// Four across, as theirs is.
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
+
     var body: some View {
         Section {
-            if (photos.map { !$0.isEmpty } ?? false) || !waiting.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Brand.Space.tight) {
-                        ForEach(photos ?? []) { photo in
-                            // Tappable, which they were not until S6. A
-                            // photo that can be uploaded and never looked
-                            // at again on the phone that took it is half a
-                            // feature — and the reference reaches its
-                            // editor from the viewer's `Edit`, so there was
-                            // nowhere for blur to live either.
-                            Button {
-                                viewing = photo
-                            } label: {
-                                AsyncImage(url: photo.url.flatMap(URL.init)) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image.resizable().scaledToFill()
-                                    default:
-                                        Brand.surfaceRaised
-                                    }
-                                }
-                                .frame(width: 96, height: 96)
-                                .clipShape(.rect(cornerRadius: Brand.Radius.tile))
-                            }
-                            .buttonStyle(.plain)
-                        }
+            // **Their photo well, duplicated.** One card, four tiles across,
+            // `+` in the first slot and DASHED empty slots filling out the
+            // grid. The dashes are not decoration: they say how many
+            // photographs this thing is expecting, and a room that shows
+            // eight empty slots gets eight photographs. The horizontal strip
+            // this replaced showed nothing at all until the first one was
+            // taken, so there was never anything on screen asking for one.
+            LazyVGrid(columns: columns, spacing: 8) {
+                addTile
 
-                        // Held on this phone: drawn exactly like the rest,
-                        // with a cloud mark. A photo that has been taken IS
-                        // in the record as far as the operator is concerned,
-                        // and hiding it until the server agrees would make
-                        // them take it twice.
-                        ForEach(waiting) { held in
-                            ZStack(alignment: .bottomTrailing) {
-                                if let image = queue.image(for: held) {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 96, height: 96)
-                                        .clipShape(.rect(cornerRadius: Brand.Radius.tile))
-                                } else {
-                                    Brand.surfaceRaised
-                                        .frame(width: 96, height: 96)
-                                        .clipShape(.rect(cornerRadius: Brand.Radius.tile))
+                ForEach(photos ?? []) { photo in
+                    // Tappable, which they were not until S6. A photo that
+                    // can be uploaded and never looked at again on the phone
+                    // that took it is half a feature — and the reference
+                    // reaches its editor from the viewer's `Edit`, so there
+                    // was nowhere for blur to live either.
+                    Button {
+                        viewing = photo
+                    } label: {
+                        square {
+                            AsyncImage(url: photo.url.flatMap(URL.init)) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image.resizable().scaledToFill()
+                                default:
+                                    Brand.surface
                                 }
-                                Image(systemName: "icloud.and.arrow.up")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(4)
-                                    .background(Brand.charcoal.opacity(0.75), in: .capsule)
-                                    .padding(5)
                             }
                         }
                     }
+                    .buttonStyle(.plain)
                 }
-                .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+
+                // Held on this phone: drawn exactly like the rest, with a
+                // cloud mark. A photo that has been taken IS in the record as
+                // far as the operator is concerned, and hiding it until the
+                // server agrees would make them take it twice.
+                ForEach(waiting) { held in
+                    ZStack(alignment: .bottomTrailing) {
+                        square {
+                            if let image = queue.image(for: held) {
+                                Image(uiImage: image).resizable().scaledToFill()
+                            } else {
+                                Brand.surface
+                            }
+                        }
+                        Image(systemName: "icloud.and.arrow.up")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(4)
+                            .background(Brand.charcoal.opacity(0.75), in: .capsule)
+                            .padding(5)
+                    }
+                }
+
+                ForEach(0..<emptySlots, id: \.self) { _ in
+                    Color.clear
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: Brand.Radius.tile)
+                                .strokeBorder(
+                                    Brand.inkFaint.opacity(0.45),
+                                    style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                        }
+                }
             }
+            .padding(Brand.Space.small)
+            .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.card))
+            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
 
-            HStack(spacing: Brand.Space.base) {
-                Button {
-                    openCamera()
-                } label: {
-                    Label("Camera", systemImage: "camera.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.blue)
-                }
-                .buttonStyle(.plain)
-
-                // The library too, because the useful photo is sometimes the
-                // one taken an hour ago before the app was open.
-                PhotosPicker(selection: $pickedItem, matching: .images) {
-                    Label("Library", systemImage: "photo.on.rectangle")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Brand.blue)
-                }
-                .buttonStyle(.plain)
-
-                if uploading {
-                    ProgressView().controlSize(.small)
-                }
+            if uploading {
+                ProgressView().controlSize(.small)
             }
 
             if let error {
@@ -171,13 +169,71 @@ struct RoomPhotosSection: View {
                 // than patch: the list is the server's answer, not ours.
                 onReplaced: { Task { await load() } })
         }
+        .photosPicker(isPresented: $choosingFromLibrary, selection: $pickedItem, matching: .images)
         .fullScreenCover(isPresented: $takingPhoto) {
-            CameraCapture { image in
-                takingPhoto = false
-                if let image { Task { await upload(image) } }
-            }
-            .ignoresSafeArea()
+            // Ours, not the system's — the reference's camera stamps the
+            // frame as you aim and offers the lens buttons, and neither is
+            // possible inside `UIImagePickerController`.
+            SiteCameraView(
+                onPhoto: { image in Task { await upload(image) } },
+                onVideo: { })
+                .ignoresSafeArea()
         }
+    }
+
+    /// One tile of the well. `Color.clear` at a 1:1 fit is what makes a
+    /// flexible grid column square — a photograph told to fill a square
+    /// resizes the square instead, and the row grows to whatever the tallest
+    /// picture wanted to be.
+    private func square<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay { content() }
+            .clipShape(.rect(cornerRadius: Brand.Radius.tile))
+    }
+
+    /// **The `+`, and the menu it opens.** His screenshot of the reference:
+    /// tapping it raises two rows — `Camera / Take Photo, 360 or Video` and
+    /// `Photo Library / Choose Photo or Video` — rather than jumping
+    /// straight into a camera. That matters on site: half the useful
+    /// photographs were taken an hour before the app was open, and a `+`
+    /// that always opens a viewfinder makes those unreachable.
+    ///
+    /// Ours says `Take a photo or video`, without the 360 — see
+    /// `SiteCameraView` for why that mode is not here.
+    private var addTile: some View {
+        Menu {
+            Button {
+                openCamera()
+            } label: {
+                Text("Camera")
+                Text("Take a photo or video")
+                Image(systemName: "camera")
+            }
+            Button {
+                choosingFromLibrary = true
+            } label: {
+                Text("Photo Library")
+                Text("Choose a photo")
+                Image(systemName: "photo.on.rectangle")
+            }
+        } label: {
+            square {
+                Brand.surface.overlay {
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundStyle(Brand.inkSoft)
+                }
+            }
+        }
+    }
+
+    /// Enough dashed slots to fill the grid out to two full rows, and to
+    /// complete whatever row the real photographs end on after that.
+    private var emptySlots: Int {
+        let used = 1 + (photos?.count ?? 0) + waiting.count
+        let rows = max(2, Int((Double(used) / 4).rounded(.up)))
+        return max(0, rows * 4 - used)
     }
 
     /// Ask for the camera BEFORE presenting one.
@@ -370,4 +426,191 @@ struct RoomTypePicker: View {
             }
         }
     }
+}
+
+/// The other half of `Photos & Notes`.
+///
+/// **This tab was called `Photos & Notes` and had no notes in it.** The
+/// column has been on the server all along and the report has always printed
+/// it under the room; what was missing was any way to write it from the one
+/// device that is actually standing in the room. So a note about a room got
+/// typed at a desk hours later, from memory, or not at all.
+///
+/// The reference's own box, from his screenshot: a `Notes` heading and a
+/// grey field reading `Add note…`. Ours adds `Tidy up`, which the affected
+/// area's notes already have and for the same reason he asked for it: *"I'm
+/// just saying whatever I can with my language, and it doesn't sound
+/// professional."*
+struct RoomNotesSection: View {
+    let roomId: String
+    /// What the room arrived carrying. Read once — after that this view owns
+    /// the text, and a reload that overwrote a half-typed sentence would be
+    /// the worst bug this screen could have.
+    let initial: String?
+
+    @State private var notes = ""
+    @State private var loaded = false
+    @State private var saving = false
+    @State private var error: String?
+    @State private var suggestion: String?
+    @State private var polishing = false
+    /// The last text the server accepted, so an unchanged box never PATCHes.
+    @State private var onServer = ""
+    @State private var saveTask: Task<Void, Never>?
+    @FocusState private var writing: Bool
+
+    var body: some View {
+        Section {
+            ZStack(alignment: .topLeading) {
+                if notes.isEmpty {
+                    Text("Add note…")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Brand.inkFaint)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: $notes)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Brand.ink)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 96)
+                    .focused($writing)
+            }
+            .padding(Brand.Space.tight)
+            .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.card))
+            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12))
+
+            if !notes.trimmed.isEmpty {
+                HStack(spacing: Brand.Space.base) {
+                    // It SUGGESTS. The rewrite appears below his own words
+                    // with a button to take it — it never replaces what he
+                    // typed, because what he typed is what he saw.
+                    Button {
+                        polishing = true
+                        error = nil
+                        Task {
+                            do {
+                                suggestion = try await API.shared.polish(note: notes.trimmed)
+                            } catch {
+                                self.error = error.localizedDescription
+                            }
+                            polishing = false
+                        }
+                    } label: {
+                        Label(
+                            polishing ? "Tidying…" : "Tidy up",
+                            systemImage: "wand.and.sparkles")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.blue)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(polishing)
+
+                    Spacer()
+                    if saving { ProgressView().controlSize(.small) }
+                }
+            }
+
+            if let suggestion {
+                VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                    Text(suggestion)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Brand.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Button("Use this") {
+                            notes = suggestion
+                            self.suggestion = nil
+                            // The debounce below would catch this anyway;
+                            // taking a suggestion is deliberate enough to
+                            // write straight away.
+                            Task { await save() }
+                        }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Brand.blue)
+                        Spacer()
+                        Button("Keep mine") { self.suggestion = nil }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.inkSoft)
+                    }
+                }
+                .padding(Brand.Space.small)
+                .background(Brand.surfaceRaised, in: .rect(cornerRadius: Brand.Radius.tile))
+            }
+
+            if let error {
+                Text(error).font(.footnote).foregroundStyle(.red)
+            }
+        } header: {
+            Text("Notes")
+        }
+        .onAppear {
+            guard !loaded else { return }
+            // A draft written earlier in this session beats the room the
+            // panel was handed: the inspector is rebuilt from a room list
+            // fetched when the storey opened, so after one edit that list is
+            // already out of date and would show an empty box over the
+            // operator's own sentence.
+            notes = RoomNoteDrafts.shared.note(for: roomId) ?? initial ?? ""
+            onServer = notes
+            loaded = true
+        }
+        // **Saved on a pause in typing, not on losing focus.**
+        //
+        // Focus was the first attempt and it silently lost a note in
+        // testing: the keyboard went away, the text stayed on screen, and
+        // nothing was written — a tap that dismisses a keyboard does not
+        // always travel back through `@FocusState`. A note that looks saved
+        // and is not is the worst possible failure for this box, so the
+        // trigger is now the text itself. A second of quiet, then a PATCH.
+        .onChange(of: notes) { _, _ in
+            guard loaded else { return }
+            saveTask?.cancel()
+            saveTask = Task {
+                try? await Task.sleep(for: .milliseconds(900))
+                guard !Task.isCancelled else { return }
+                await save()
+            }
+        }
+        // And again on the way out, in case the last keystroke was recent.
+        .onDisappear {
+            saveTask?.cancel()
+            let text = notes
+            guard loaded, text != onServer else { return }
+            RoomNoteDrafts.shared.remember(text, for: roomId)
+            Task { try? await API.shared.setRoomNotes(roomId: roomId, notes: text) }
+        }
+    }
+
+    private func save() async {
+        let text = notes
+        guard text != onServer else { return }
+        saving = true
+        error = nil
+        do {
+            try await API.shared.setRoomNotes(roomId: roomId, notes: text)
+            onServer = text
+            RoomNoteDrafts.shared.remember(text, for: roomId)
+        } catch {
+            self.error = "That note did not save: \(error.localizedDescription)"
+        }
+        saving = false
+    }
+}
+
+/// What this phone has written about a room since it launched.
+///
+/// The same idea as `PhotoQueue`, one field wide: the inspector is rebuilt
+/// from a room list that was fetched when the storey opened, so the moment a
+/// note is saved that list is stale. Without this the operator writes a
+/// sentence, closes the panel, opens it again and sees an empty box — and
+/// the reasonable conclusion from that is that the app lost their note.
+@MainActor
+final class RoomNoteDrafts {
+    static let shared = RoomNoteDrafts()
+    private var byRoom: [String: String] = [:]
+
+    func note(for roomId: String) -> String? { byRoom[roomId] }
+    func remember(_ text: String, for roomId: String) { byRoom[roomId] = text }
 }
