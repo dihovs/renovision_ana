@@ -222,7 +222,7 @@ struct FloorPlanTile: View {
 
     @State private var confirmingDelete = false
 
-    private var areaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqm } }
+    private var areaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted } }
     private var drawable: Bool { rooms.contains { $0.geometry != nil } }
 
     var body: some View {

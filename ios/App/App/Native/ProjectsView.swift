@@ -649,7 +649,7 @@ struct ProjectDetailView: View {
         return Self.order.filter(found.contains) + found.subtracting(Self.order).sorted()
     }
 
-    private var floorAreaSqm: Double { (scans ?? []).reduce(0) { $0 + $1.floorAreaSqm } }
+    private var floorAreaSqm: Double { (scans ?? []).reduce(0) { $0 + $1.floorAreaSqmTrusted } }
     private var wallAreaSqm: Double {
         (scans ?? []).reduce(0) { $0 + $1.wallAreaGrossSqm }
     }
@@ -1036,7 +1036,7 @@ struct ProjectDetailView: View {
     /// put the whole expression past what the type checker will solve.
     @ViewBuilder private func storeySection(_ level: String) -> some View {
                     let rooms = (scans ?? []).filter { $0.level == level }
-                    let area = rooms.reduce(0) { $0 + $1.floorAreaSqm }
+                    let area = rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted }
 
                     CollectionShell(
                         title: level.uppercased(),
@@ -1083,7 +1083,7 @@ struct ProjectDetailView: View {
                                                     .foregroundStyle(Brand.inkFaint)
                                             }
                                             Spacer()
-                                            Text(Measure.sqftLabel(room.floorAreaSqm))
+                                            Text(Measure.sqftLabel(room.floorAreaSqmTrusted))
                                                 .font(.system(size: 14, weight: .bold))
                                                 .monospacedDigit()
                                                 .foregroundStyle(Brand.inkSoft)
@@ -1193,7 +1193,7 @@ private struct RoomRailCard: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Brand.ink)
                 .lineLimit(1)
-            Text(Measure.sqftLabel(room.floorAreaSqm))
+            Text(Measure.sqftLabel(room.floorAreaSqmTrusted))
                 .font(.system(size: 11, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(Brand.inkSoft)

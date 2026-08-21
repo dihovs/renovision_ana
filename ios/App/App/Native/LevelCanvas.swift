@@ -140,7 +140,7 @@ struct LevelCanvas: View {
             guard !plan.isEmpty else { continue }
             pieces.append(
                 Piece(
-                    id: room.id, name: room.name, areaSqm: room.floorAreaSqm, plan: plan,
+                    id: room.id, name: room.name, areaSqm: room.floorAreaSqmTrusted, plan: plan,
                     planX: room.planX, planY: room.planY, room: room, filed: nil))
         }
         // A held room that has since landed arrives twice — once from the API,
@@ -903,7 +903,13 @@ private struct StoreyInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private var floorAreaSqm: Double {
-        rooms.reduce(0) { $0 + $1.floorAreaSqm } + pending.reduce(0) { $0 + $1.floorAreaSqm }
+        // Split rather than one expression: with two reduces and a `+` the
+        // type-checker gives up on the whole property.
+        let filed: Double = rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted }
+        // A held room has no row yet, so it has only what the capture
+        // measured — there is no stored column for it to disagree with.
+        let held: Double = pending.reduce(0) { $0 + $1.floorAreaSqm }
+        return filed + held
     }
     private var wallAreaSqm: Double {
         rooms.reduce(0) { $0 + $1.wallAreaGrossSqm }
@@ -913,7 +919,7 @@ private struct StoreyInfoSheet: View {
     /// phone finds a bar. They carry an area and a perimeter like any other.
     private var surfaces: WallThickness.Surfaces {
         WallThickness.groundSurfaces(
-            rooms: rooms.map { (floorAreaSqm: $0.floorAreaSqm, perimeterM: $0.wallLengthM) }
+            rooms: rooms.map { (floorAreaSqm: $0.floorAreaSqmTrusted, perimeterM: $0.wallLengthM) }
                 + pending.map {
                     // A held room has no row to read a perimeter column from,
                     // but it carries the geometry the perimeter comes from.
@@ -2570,12 +2576,12 @@ struct FloorDetailView: View {
     @State private var detent: PresentationDetent = .medium
     @State private var tab = 0
 
-    private var floorAreaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqm } }
+    private var floorAreaSqm: Double { rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted } }
     private var wallAreaSqm: Double {
         rooms.reduce(0) { $0 + $1.wallAreaGrossSqm }
     }
     private var volumeCuM: Double {
-        rooms.reduce(0) { $0 + $1.floorAreaSqm * $1.ceilingHeightM }
+        rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted * $1.ceilingHeightM }
     }
     /// The tallest room's, not an average: a storey's ceiling height is a
     /// property of the building, and averaging two rooms that disagree

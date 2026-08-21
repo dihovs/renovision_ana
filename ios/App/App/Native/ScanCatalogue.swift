@@ -147,7 +147,37 @@ enum ScanCatalogue {
     static func openingKind(width: Double, isWindow: Bool, isPassage: Bool)
         -> PlanEditing.OpeningKind
     {
-        if isPassage { return .doorCased }
+        // AN OPEN DOOR IS STILL A DOOR.
+        //
+        // **His report, 20 Aug 2026:** *"when the door is open, it takes it
+        // as an opening. That's wrong, because usually openings are bigger
+        // than doors. So it needs to understand: if it's open and this
+        // opening is approximately the size of a door, it should understand
+        // it's a door."*
+        //
+        // Exactly right, and RoomPlan cannot help — it reports the hole it
+        // sees, and a doorway standing open IS a hole. But width tells them
+        // apart, because the two are built to different sizes. A cased
+        // opening is a design decision, cut wide enough to read as one room
+        // flowing into another: five feet and up. A door is a manufactured
+        // leaf in a stock frame, and in this market that is 24 to 36 inches
+        // with 30 and 32 doing most of the work.
+        //
+        // Getting this wrong costs money in a specific direction: a cased
+        // opening has no door to replace, no hardware, and no casing on a
+        // leaf. Calling a doorway an opening quietly drops a door from the
+        // estimate.
+        if isPassage {
+            // 0.6–1.15 m — a 24in closet door at the bottom, a 42in leaf at
+            // the top, with room for the frame. Anything wider was framed as
+            // an opening on purpose.
+            if width >= 0.6, width <= 1.15 { return .doorSingle }
+            // A pair of doors standing open reads as one wide hole. Still
+            // narrower than a real cased opening, which is why the band ends
+            // where it does.
+            if width > 1.15, width <= 1.9 { return .doorDouble }
+            return .doorCased
+        }
         if isWindow {
             if width >= 1.7 { return .windowBay }
             if width >= 1.2 { return .windowWide }

@@ -140,6 +140,8 @@ struct RoomEditorCore: View {
     /// Partitions standing inside the room — the reference's `Add Wall`.
     /// Not edges of the outline, which is the whole point of them.
     @State private var interiorWalls: [ScanGeometry.InteriorWall] = []
+    /// Which partition's height is being set, if any.
+    @State private var partitionHeight: Int?
     /// Which end of a partition a drag has hold of: 0, 1, or nil for the
     /// whole wall.
     @State private var interiorWallGrab: Int?
@@ -2203,9 +2205,11 @@ struct RoomEditorCore: View {
             }
             return verbs
         case .interiorWall:
-            // Nothing else applies yet: a stub has no openings, no corners to
-            // add and no size walk — it is positioned by dragging it.
-            return [.delete]
+            // `Set Size` opens its height, which is the measurement that
+            // makes a partition different from a wall. Its LENGTH is set by
+            // dragging it, the way it always has been — a number typed for a
+            // stub the operator is looking at is slower than moving the end.
+            return [.setSize, .delete]
         case .corner:
             return corners.count > 3 ? [.delete] : []
         case .object:
@@ -2592,6 +2596,11 @@ struct RoomEditorCore: View {
     /// existing operation and ignores nothing silently.
     private func perform(_ action: EditorAction) {
         switch (action, selection) {
+        case (.setSize, .interiorWall(let index)):
+            // Its height, not its length. A partition that stops short of
+            // the ceiling is the whole reason this verb is here.
+            guard interiorWalls.indices.contains(index) else { break }
+            partitionHeight = index
         case (.setSize, _):
             startMeasuring(at: 0)
         case (.duplicate, .none):

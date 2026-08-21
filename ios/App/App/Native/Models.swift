@@ -732,8 +732,47 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     /// Falls back to the old figure when there is nothing better — a drawn
     /// room has no per-wall heights, and one uniform height is exactly right
     /// for it.
+    /// The floor, as a figure worth printing.
+    ///
+    /// **The stored column is preferred, and distrusted.** `floor_area_sqm`
+    /// is the record — written when the room was filed, recomputed by the
+    /// server when an outline is corrected — and normally it is right.
+    ///
+    /// But rooms filed before 20 Aug 2026 carry a figure summed from
+    /// RoomPlan's floor PATCHES, which overlap: his living room shows
+    /// 87.2 m² beside its own 7.56 × 5.14 m dimensions, and no floor can
+    /// cover more ground than the box it sits in. Fixing the calculation
+    /// fixed new scans; it could not reach a number already written down.
+    ///
+    /// So the extent is used as a ceiling, not as the answer. A figure that
+    /// exceeds it is impossible rather than merely surprising, and an
+    /// impossible number on a claim is worse than a slightly rough one —
+    /// this is the first thing an adjuster can check with a tape.
+    var floorAreaSqmTrusted: Double {
+        guard let geometry else { return floorAreaSqm }
+        let plan = FloorPlanGeometry.plan(from: geometry)
+        guard plan.width > 0.5, plan.height > 0.5 else { return floorAreaSqm }
+        let extent = plan.width * plan.height
+        guard floorAreaSqm > extent * 1.02 else { return floorAreaSqm }
+        // Impossible. Prefer the outline, which is what the dimensions
+        // printed beside it were measured from.
+        if plan.polygon.count >= 4 {
+            let area = FloorPlanGeometry.polygonArea(Array(plan.polygon.dropLast()))
+            if area > 0.5 { return area }
+        }
+        return extent
+    }
+
     var wallAreaGrossSqm: Double {
-        wallLengthM * averageWallHeightM
+        wallLengthM * averageWallHeightM + partitionAreaSqm
+    }
+
+    /// Partitions standing inside the room, both faces, each at its own
+    /// height. A storage closet built into an office is drywall somebody has
+    /// to hang, tape and paint, and until now it counted for nothing at all.
+    var partitionAreaSqm: Double {
+        (geometry?.interiorWalls ?? [])
+            .reduce(0) { $0 + $1.areaSqm(ceilingHeight: ceilingHeightM) }
     }
 
     /// Height weighted by how much wall stands at it. A one-metre stub at

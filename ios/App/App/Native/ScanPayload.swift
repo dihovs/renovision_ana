@@ -170,7 +170,38 @@ struct ScanGeometry: Codable {
         let x2: Double
         let y2: Double
 
+        /// How high it stands. **Nil means full ceiling height**, which is
+        /// what a plain interior wall is.
+        ///
+        /// **The owner's office, 20 Aug 2026:** a storage closet built inside
+        /// a larger room from two partitions and a door, about eight feet
+        /// high in a taller room. *"We should be able to add a wall, and we
+        /// should be able to customize the height and the length of the
+        /// wall, and the app needs to understand that it doesn't reach the
+        /// ceiling."*
+        ///
+        /// Optional rather than defaulted to the ceiling, because those are
+        /// different statements: nil is "nobody said, so assume it goes all
+        /// the way", and a number is "somebody measured this". A claim has
+        /// to be able to tell them apart, exactly as a typed wall length is
+        /// distinguished from a scanned one.
+        var heightM: Double?
+
+        /// Whether both sides get finished. A partition standing IN a room
+        /// has two faces in that room and both get drywall, tape and paint —
+        /// which is why this defaults to true and a room's own perimeter
+        /// wall, with its far side in another room, does not get counted
+        /// twice.
+        var bothFaces: Bool?
+
         var lengthM: Double { hypot(x2 - x1, y2 - y1) }
+
+        /// Finished surface this partition contributes, given the room it
+        /// stands in.
+        func areaSqm(ceilingHeight: Double) -> Double {
+            let height = heightM ?? ceilingHeight
+            return lengthM * height * ((bothFaces ?? true) ? 2 : 1)
+        }
     }
 
     struct AuthoredOpening: Codable, Hashable {

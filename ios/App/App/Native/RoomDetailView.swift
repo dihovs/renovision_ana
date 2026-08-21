@@ -213,7 +213,7 @@ struct RoomDetailView: View {
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(Brand.ink)
                     .lineLimit(1)
-                Text("\(room.level) · \(Measure.sqftLabel(room.floorAreaSqm))")
+                Text("\(room.level) · \(Measure.sqftLabel(room.floorAreaSqmTrusted))")
                     .font(.system(size: 12))
                     .foregroundStyle(Brand.inkFaint)
             }
@@ -271,7 +271,7 @@ struct RoomDetailView: View {
                     ZStack(alignment: .bottomTrailing) {
                         FloorPlanView(
                             plan: plan, areas: drawnAreas,
-                            label: (roomName, Int(Measure.squareFeet(room.floorAreaSqm).rounded()))
+                            label: (roomName, Int(Measure.squareFeet(room.floorAreaSqmTrusted).rounded()))
                         )
                         // The only signal left that this drawing is a
                         // button now that the row under it is gone — a
@@ -315,7 +315,7 @@ struct RoomDetailView: View {
         Section {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
                 DefinedFigure(
-                    value: Measure.sqftLabel(room.floorAreaSqm), unit: nil,
+                    value: Measure.sqftLabel(room.floorAreaSqmTrusted), unit: nil,
                     meaning: .floorArea)
                 DefinedFigure(
                     value: Measure.sqftLabel(room.wallAreaGrossSqm),
@@ -323,7 +323,7 @@ struct RoomDetailView: View {
                 DefinedFigure(
                     value: Measure.ftLabel(room.wallLengthM), unit: nil, meaning: .perimeter)
                 DefinedFigure(
-                    value: Measure.cuftLabel(room.floorAreaSqm * room.ceilingHeightM),
+                    value: Measure.cuftLabel(room.floorAreaSqmTrusted * room.ceilingHeightM),
                     unit: nil, meaning: .volume)
             }
             .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
@@ -855,7 +855,7 @@ struct RoomStatisticsSheet: View {
         [
             .init(
                 id: "floorArea", label: "Floor area",
-                value: Measure.sqftLabel(room.floorAreaSqm), meaning: .floorArea),
+                value: Measure.sqftLabel(room.floorAreaSqmTrusted), meaning: .floorArea),
             .init(
                 id: "wallArea", label: "Wall area (gross)",
                 value: Measure.sqftLabel(room.wallAreaGrossSqm),
@@ -876,7 +876,7 @@ struct RoomStatisticsSheet: View {
                 meaning: .ceiling),
             .init(
                 id: "volume", label: "Volume",
-                value: Measure.cuftLabel(room.floorAreaSqm * room.ceilingHeightM),
+                value: Measure.cuftLabel(room.floorAreaSqmTrusted * room.ceilingHeightM),
                 meaning: .volume),
         ]
     }

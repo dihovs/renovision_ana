@@ -43,14 +43,14 @@ enum ProjectStats {
         sum(rooms) { $0.wallAreaGrossSqm }
     }
 
-    static func floorAreaSqm(_ rooms: [RoomScan]) -> Double { sum(rooms) { $0.floorAreaSqm } }
+    static func floorAreaSqm(_ rooms: [RoomScan]) -> Double { sum(rooms) { $0.floorAreaSqmTrusted } }
     static func perimeterM(_ rooms: [RoomScan]) -> Double { sum(rooms) { $0.wallLengthM } }
 
     /// Summed PER ROOM. A basement and a stairwell have different ceilings,
     /// and multiplying one blended height by the total floor area describes
     /// neither of them.
     static func volumeCbm(_ rooms: [RoomScan]) -> Double {
-        sum(rooms) { $0.floorAreaSqm * $0.ceilingHeightM }
+        sum(rooms) { $0.floorAreaSqmTrusted * $0.ceilingHeightM }
     }
 
     static func volumeLabel(_ rooms: [RoomScan]) -> String {
