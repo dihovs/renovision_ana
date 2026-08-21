@@ -187,7 +187,7 @@ export default function AdminShell({
           type="button"
           aria-label="Close navigation"
           onClick={() => setMobileNavOpen(false)}
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          className="app-chrome fixed inset-0 z-30 bg-black/50 lg:hidden"
         />
       )}
 
@@ -198,7 +198,7 @@ export default function AdminShell({
           rail is permanently visible rather than a drawer. */}
       <aside
         inert={!mobileNavOpen && !isDesktop}
-        className={`fixed inset-y-0 left-0 z-40 flex w-[232px] flex-col bg-charcoal-dark transition-transform duration-300 ease-out lg:static lg:translate-x-0 ${
+        className={`app-chrome fixed inset-y-0 left-0 z-40 flex w-[232px] flex-col bg-charcoal-dark transition-transform duration-300 ease-out lg:static lg:translate-x-0 ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -335,7 +335,7 @@ export default function AdminShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-black/10 bg-white px-4 sm:px-6">
+        <header className="app-chrome sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-black/10 bg-white px-4 sm:px-6">
           {/* The bottom tab bar's "More" button opens this same drawer
               natively, so the top hamburger — a web pattern the tab bar
               already replaces — has nothing left to do there. */}
@@ -378,7 +378,7 @@ export default function AdminShell({
       {isNative && (
         <nav
           aria-label="Primary"
-          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-black/10 bg-white pb-[env(safe-area-inset-bottom)]"
+          className="app-chrome fixed inset-x-0 bottom-0 z-30 flex border-t border-black/10 bg-white pb-[env(safe-area-inset-bottom)]"
         >
           {tabBarItems.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);

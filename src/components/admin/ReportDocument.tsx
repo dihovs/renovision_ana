@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { CauseTag, PlanLegend } from "./ReportSymbols";
 import FloorPlan from "./FloorPlan";
 import { RoomElevations } from "./WallElevation";
 import {
@@ -305,6 +306,20 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     .map((part) => part.trim())
     .filter(Boolean);
 
+  // Only the causes this job actually has. A legend listing five kinds of
+  // damage on a job with one is a legend nobody reads twice.
+  const causesInUse = Array.from(
+    new Set(rooms.flatMap((room) => room.areas.map((area) => area.damage_type))),
+  );
+
+  // The rooms the cover's key plan draws: the first storey, and only the
+  // ones whose walls actually closed into an outline. A scan that stopped
+  // short has no shape to show and would print as a stray line.
+  const coverPlanRooms = rooms
+    .filter((room) => room.level === levels[0])
+    .filter((room) => toFloorPlan(room.geometry).polygon.length >= 3)
+    .slice(0, 6);
+
   // Everything that used to crowd the cover now has a page of its own, and
   // that page only exists when it has something on it.
   const hasSummary =
@@ -313,28 +328,54 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     damage.floor.length + damage.wall.length > 0 ||
     Boolean(project.description);
 
-  const photoPageCount = rooms.reduce((sum, room) => sum + photoPages(room).length, 0);
-  // **Only pages that are actually rendered may be counted.** A level with
-  // no rooms returns null below; the claim block, the damage totals and the
-  // moisture readings all live on pages that already exist and add none.
-  // This sum used to add up to three phantom pages, so every footer in the
-  // document printed `Page 4/22` of a nineteen-page file — and a page count
-  // is a claim about completeness, which makes a wrong one worse than none.
-  const levelPageCount = levels.filter((level) =>
-    rooms.some((room) => room.level === level),
-  ).length;
-  const totalPages = floorsOnly
-    ? 1 + levelPageCount + 1
-    : 1 // cover
-      + (hasSummary ? 1 : 0)
-      + levelPageCount
-      + rooms.length
-      + photoPageCount
-      + (equipment.length > 0 ? 1 : 0)
-      + 1 // signature
-      + (rooms.length > 0 ? 1 : 0); // definitions
-  let pageNo = 0;
-  const nextPage = () => ++pageNo;
+  /**
+   * **The whole document, numbered before a line of it is drawn.**
+   *
+   * This used to be two independent things: a sum that guessed the total,
+   * and a counter incremented inline as sections rendered. They disagreed —
+   * the sum counted three kinds of page that are never rendered, and the
+   * counter skipped the cover — so every footer in a nineteen-page file
+   * said something else. Worse, neither could answer the question a long
+   * report actually raises: *what page is the kitchen on?*
+   *
+   * Laying the pages out first fixes both. The footers read from this, the
+   * contents page reads from this, and the total is the length of it.
+   */
+  const plan: { kind: string; label: string; sub?: string; page: number }[] = [];
+  const push = (kind: string, label: string, sub?: string) => {
+    plan.push({ kind, label, sub, page: plan.length + 1 });
+    return plan.length;
+  };
+
+  const coverPage = push("cover", project.name);
+  const summaryPage = !floorsOnly && hasSummary ? push("summary", "Summary") : null;
+  const contentsPage = !floorsOnly && rooms.length > 1 ? push("contents", "Contents") : null;
+
+  const levelPages = new Map<string, number>();
+  for (const level of levels) {
+    if (!rooms.some((room) => room.level === level)) continue;
+    levelPages.set(level, push("level", floorLabel(level)));
+  }
+
+  const roomPages = new Map<string, { page: number; photos: number[] }>();
+  if (!floorsOnly) {
+    for (const room of rooms) {
+      const page = push("room", room.name, floorLabel(room.level));
+      const photos = photoPages(room).map((_, index) =>
+        push("photos", `Photos — ${room.name}`, `${index + 1}`),
+      );
+      roomPages.set(room.id, { page, photos });
+    }
+  }
+
+  const equipmentPage =
+    !floorsOnly && equipment.length > 0 ? push("equipment", "Drying record") : null;
+  const signaturePage = push("signature", "Signature");
+  const definitionsPage =
+    !floorsOnly && rooms.length > 0 ? push("definitions", "How each figure is measured") : null;
+
+  const totalPages = plan.length;
+  void coverPage;
 
   // The three-line header the reference repeats on every page from two.
   // A bathroom by its type, however the operator spelled it. `room_type`
@@ -424,6 +465,33 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           ))}
         </div>
 
+        {/* **The key plan.** Their cover is half a page of nothing, and so was
+            ours — theirs by convention, ours by copying it. A cover with a
+            dead middle reads as unfinished rather than as considered, and
+            the obvious thing to put there is the building: an adjuster
+            opening this file sees what the claim is about before reading a
+            word. Drawn small and quiet, because it is an orientation, not
+            the drawing — page two prints the floor at scale with its
+            dimension chain.
+
+            Only when there is something real to draw. A row of empty boxes
+            where a plan should be is worse than the empty space it filled. */}
+        {coverPlanRooms.length > 0 && (
+          <div className="cover-plan">
+            <div className="cover-plan-row">
+              {coverPlanRooms.map((room) => (
+                <figure key={room.id}>
+                  <FloorPlan result={room.geometry} name={room.name} variant="thumb" />
+                </figure>
+              ))}
+            </div>
+            <p className="cover-plan-caption">
+              {floorLabel(levels[0])} — {coverPlanRooms.length} room
+              {coverPlanRooms.length === 1 ? "" : "s"}
+            </p>
+          </div>
+        )}
+
         <footer className="cover-foot">
           <span>
             <strong>{company.tradeName || company.legalName}</strong>
@@ -437,7 +505,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <span>
             {company.phone}
             <br />
-            Page {nextPage()}/{totalPages}
+            Page 1/{totalPages}
           </span>
         </footer>
       </section>
@@ -450,7 +518,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {!floorsOnly && hasSummary && (
         <section className="page">
           <Running project={project.name} address={property} totals={headerTotals} />
-          <p className="marker">▼ Summary</p>
+          <p className="marker">Summary</p>
           <div className="cover-grid">
             <dl>
               <dt>Insured</dt>
@@ -503,7 +571,44 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <DamageTotals title="Affected floor area by cause" totals={damage.floor} />
           <DamageTotals title="Affected wall area by cause" totals={damage.wall} />
           {project.description && <p className="desc">{project.description}</p>}
-          <PageFoot n={nextPage()} of={totalPages} company={company} />
+          <PageFoot n={summaryPage ?? 0} of={totalPages} company={company} />
+        </section>
+      )}
+
+      {/* ----------------------------------------------------- contents */}
+      {/* **A nineteen-page document with no way into it.** Theirs has none
+          either, and on five pages that is defensible; on nineteen it means
+          finding the kitchen is a flick through every sheet. An adjuster
+          checking one room, a contractor pricing one floor and a homeowner
+          looking for their own photographs all arrive with a different
+          question, and this is the page that answers all three in a second.
+
+          Numbered from the same list the footers are, so the two cannot
+          disagree. */}
+      {contentsPage !== null && (
+        <section className="page">
+          <Running project={project.name} address={property} totals={headerTotals} />
+          <p className="marker">Contents</p>
+          <ul className="contents">
+            {plan
+              .filter((entry) => entry.kind !== "cover" && entry.kind !== "contents")
+              .map((entry) => (
+                <li
+                  key={`${entry.kind}-${entry.page}`}
+                  className={`contents-${entry.kind}`}
+                >
+                  <span className="contents-label">
+                    {entry.label}
+                    {entry.sub && entry.kind === "room" && (
+                      <span className="contents-sub"> · {entry.sub}</span>
+                    )}
+                  </span>
+                  <span className="lead" />
+                  <span className="contents-page">{entry.page}</span>
+                </li>
+              ))}
+          </ul>
+          <PageFoot n={contentsPage} of={totalPages} company={company} />
         </section>
       )}
 
@@ -516,10 +621,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
         return (
           <section className="page" key={level}>
             <Running project={project.name} address={property} totals={headerTotals} />
-            <p className="totals">
-              ▼ {floorLabel(level)} — {m2(levelArea)} · {onLevel.length} room
-              {onLevel.length === 1 ? "" : "s"}
-            </p>
+            <div className="section-head">
+              <p className="marker">{floorLabel(level)}</p>
+              <Figures
+                pairs={[
+                  ["TOTAL AREA", m2(levelArea)],
+                  ["ROOMS", String(onLevel.length)],
+                ]}
+              />
+            </div>
             <div className="plan-grid">
               {onLevel.map((room) => (
                 <figure key={room.id}>
@@ -538,7 +648,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 </figure>
               ))}
             </div>
-            <PageFoot n={nextPage()} of={totalPages} company={company} />
+            <PlanLegend causes={causesInUse} />
+            <PageFoot n={levelPages.get(level) ?? 0} of={totalPages} company={company} />
           </section>
         );
       })}
@@ -554,16 +665,17 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               on two rows. `WIDTH` and `LENGTH` are the drawing's extent,
               not the longest wall — which is why an L-shaped room's width
               is bigger than any single wall it has. */}
-          <p className="marker">▼ {room.name}</p>
+          <p className="marker">{room.name}</p>
           <p className="marker-sub">{floorLabel(room.level)}</p>
-          <p className="figures">
-            WIDTH: {m(planExtent(room.geometry).width)} • LENGTH:{" "}
-            {m(planExtent(room.geometry).height)} • CEILING HEIGHT:{" "}
-            {m(room.ceilingHeightM)}
-          </p>
-          <p className="figures">
-            AREA: {m2(room.floorAreaSqm)} • PERIMETER: {m(room.wallLengthM)}
-          </p>
+          <Figures
+            pairs={[
+              ["WIDTH", m(planExtent(room.geometry).width)],
+              ["LENGTH", m(planExtent(room.geometry).height)],
+              ["CEILING HEIGHT", m(room.ceilingHeightM)],
+              ["AREA", m2(room.floorAreaSqm)],
+              ["PERIMETER", m(room.wallLengthM)],
+            ]}
+          />
 
           {/* **The locator**: this room picked out in its own floor, so a
               reader knows WHERE the drawing they are looking at sits. A
@@ -755,7 +867,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               their own idiom, not a structure they do not have. */}
           {(room.photos.length > 0 || room.areas.length > 0) && (
             <>
-              <p className="marker">▼ {room.name}/{floorLabel(room.level)}</p>
+              <p className="marker marker-2">{room.name} / {floorLabel(room.level)}</p>
               {room.photos.length > 0 && (
                 <dl className="area-block">
                   <dt>Photos</dt>
@@ -782,7 +894,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                         <dt>Name</dt>
                         <dd>{area.name}</dd>
                         <dt>Cause</dt>
-                        <dd>{DAMAGE_LABEL[area.damage_type] ?? area.damage_type}</dd>
+                        <dd>
+                          <CauseTag cause={area.damage_type} />
+                        </dd>
                         {area.surface === "wall" && (
                           <>
                             <dt>Wall</dt>
@@ -802,7 +916,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               )}
             </>
           )}
-          <PageFoot n={nextPage()} of={totalPages} company={company} />
+          <PageFoot
+            n={roomPages.get(room.id)?.page ?? 0}
+            of={totalPages}
+            company={company}
+          />
         </section>
 
         {/* --------------------------------- this room's photos, interleaved
@@ -820,8 +938,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
         {photoPages(room).map((batch, index) => (
           <section className="page" key={`${room.id}-photos-${index}`}>
             <Running project={project.name} address={property} totals={headerTotals} />
-            {/* Their section marker: `▼ Photos/1st bedroom`. */}
-            <p className="marker">▼ Photos/{room.name}</p>
+            {/* Their section marker, without the glyph — see `.marker` in
+                report.css for what replaced it. */}
+            <p className="marker">Photos / {room.name}</p>
             <div className="photo-grid">
               {batch.map((photo, offset) => (
                 <figure key={photo.id}>
@@ -838,7 +957,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 </figure>
               ))}
             </div>
-            <PageFoot n={nextPage()} of={totalPages} company={company} />
+            <PageFoot
+              n={roomPages.get(room.id)?.photos[index] ?? 0}
+              of={totalPages}
+              company={company}
+            />
           </section>
         ))}
         </Fragment>
@@ -881,6 +1004,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             and the day of collection are both counted. Units shown as still on
             site are counted to {date(generatedAt)}.
           </p>
+          {/* This page and the definitions page printed no footer at all —
+              no disclaimer, no page number — which made them read as
+              something stapled on rather than as part of the document. */}
+          <PageFoot n={equipmentPage ?? 0} of={totalPages} company={company} />
         </section>
       )}
 
@@ -902,7 +1029,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             </div>
           ))}
         </div>
-        <PageFoot n={nextPage()} of={totalPages} company={company} />
+        <PageFoot n={signaturePage} of={totalPages} company={company} />
       </section>
 
       {/* --------------------------------------- measurement definitions */}
@@ -929,6 +1056,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             given to the millimetre and areas to the hundredth of a square
             metre, which is the precision the scan itself carries.
           </p>
+          <PageFoot n={definitionsPage ?? 0} of={totalPages} company={company} />
         </section>
       )}
     </article>
@@ -976,6 +1104,30 @@ function DamageTotals({
         ))}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * A run of label-and-value figures.
+ *
+ * **The reference prints these as one grey string** — `WIDTH: 5.205 m •
+ * LENGTH: 3.300 m • …` — where the label and the measurement carry the same
+ * weight and colour, so the eye has to read the words to find the numbers.
+ * Splitting them lets the labels recede to a small letterspaced grey and the
+ * figures lead in the document's own ink, which is how a technical sheet is
+ * set. Same words, same order, same line; a reader looking for the area now
+ * finds it without reading.
+ */
+function Figures({ pairs }: { pairs: [string, string][] }) {
+  return (
+    <p className="figures">
+      {pairs.map(([label, value]) => (
+        <span className="figure" key={label}>
+          <span className="k">{label}</span>
+          <span className="v">{value}</span>
+        </span>
+      ))}
+    </p>
   );
 }
 

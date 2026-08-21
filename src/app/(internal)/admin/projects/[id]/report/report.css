@@ -9,9 +9,24 @@
  */
 
 .report {
-  --ink: #141414;
-  --muted: #6b6b70;
-  --rule: #d8d8dc;
+  /* **One palette, four inks, two rules, one accent.**
+     Their export is a single flat grey on white, which is honest and a
+     little lifeless — everything on the page shouts at the same volume, so
+     a reader hunting for the area reads the labels too. Four levels of ink
+     do the work instead: figures in the darkest, prose one step back,
+     labels two, fine print three. The accent appears three times in the
+     whole document — a rule at the head of the cover, a tick under the
+     running header, and the bar beside a section title — and never on a
+     measurement, because a coloured number is a number somebody will ask
+     about. It is the firm's own green, so the paper matches the mark. */
+  --ink: #14161a;
+  --ink-2: #40454d;
+  --ink-3: #767c85;
+  --ink-4: #9aa0a8;
+  --rule: #e2e5e9;
+  --rule-strong: #c2c7ce;
+  --accent: #3D7D24;
+  --muted: var(--ink-3);
   color: var(--ink);
   font-size: 12px;
   line-height: 1.45;
@@ -98,15 +113,25 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  padding-top: 6mm;
+  /* The one piece of colour on the cover: a short bar at the top edge, the
+     firm's green. It is the difference between a document that came from a
+     company and a document that came out of a tool. */
+  border-top: 2.5pt solid var(--accent);
 }
 /* Black, and the document's own face. This inherited the admin's heading
    font and brand blue, which made the cover read as a page of the CRM; the
    reference's cover title is plain and dark, like everything else on it. */
 .report .cover h1 {
-  font-size: 22px;
+  font-size: 26pt;
   font-weight: 700;
+  /* Display sizes need the tracking pulled in; at 26pt the default spacing
+     reads as a word-processor heading rather than as a title. */
+  letter-spacing: -0.02em;
+  line-height: 1.12;
   margin: 0;
-  color: #1b1c1f;
+  max-width: 120mm;
+  color: var(--ink);
   font-family: inherit;
 }
 .report .cover .addr { margin: 3px 0 0; color: var(--muted); }
@@ -149,34 +174,60 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px solid var(--rule);
+  border-top: 0.75pt solid var(--rule);
   margin-top: 22px;
-  padding-top: 8px;
-  font-size: 9px;
-  color: var(--muted);
+  padding-top: 3mm;
+  font-size: 7.5pt;
+  line-height: 1.5;
+  color: var(--ink-3);
 }
+.report .cover-foot strong { color: var(--ink-2); font-weight: 600; }
 
 /* ---------------------------------------------------------------- tables */
-.report table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-.report .stats { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
-.report .stats th {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--muted); text-align: left; padding: 6px 8px 2px;
+/* **Hairlines and air, no boxes.** A ruled grid makes a claim document look
+   like a spreadsheet somebody printed; what a reader needs is the column to
+   hold together, which row padding does better than a border. Every rule in
+   the document is now 0.75pt of the same two greys. */
+.report table { width: 100%; border-collapse: collapse; margin-top: 5mm; }
+.report .stats {
+  border-top: 0.75pt solid var(--rule-strong);
+  border-bottom: 0.75pt solid var(--rule-strong);
 }
-.report .stats td { padding: 0 8px 7px; font-size: 13px; font-weight: 700; }
-.report .stats.damage td { font-size: 12px; font-weight: 500; padding: 5px 8px; }
+.report .stats th {
+  font-size: 6.8pt; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--ink-4); text-align: left;
+  padding: 2.5mm 3mm 0.8mm;
+}
+.report .stats td {
+  padding: 0 3mm 2.5mm; font-size: 11pt; font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.report .stats.damage td { font-size: 9.5pt; font-weight: 500; padding: 1.8mm 3mm; }
 
 .report .listing th {
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--muted); text-align: left; padding: 5px 6px;
-  border-bottom: 1px solid var(--rule);
+  font-size: 6.8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-4); text-align: left; padding: 0 2mm 1.5mm;
+  border-bottom: 0.75pt solid var(--rule-strong);
 }
-.report .listing td { padding: 5px 6px; border-bottom: 1px solid #eee; }
-.report .listing .total td { font-weight: 700; border-bottom: none; }
-.report .num { text-align: right; font-variant-numeric: tabular-nums; }
+.report .listing td {
+  padding: 2mm; font-size: 9pt; color: var(--ink-2);
+  border-bottom: 0.75pt solid var(--rule);
+}
+.report .listing tr:last-child td { border-bottom: none; }
+.report .listing .total td { font-weight: 700; color: var(--ink); border-bottom: none; }
+.report .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  color: var(--ink);
+  font-weight: 600;
+}
 
-.report .measure th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 6px; }
-.report .measure td { padding: 4px 6px; font-weight: 700; }
+.report .measure th {
+  text-align: left; font-weight: 400; font-size: 9pt;
+  color: var(--ink-3); padding: 1.5mm 2mm;
+}
+.report .measure td { padding: 1.5mm 2mm; font-size: 9pt; font-weight: 600; }
 
 /* The definitions appendix: the term is the emphatic column and the prose is
    ordinary text — the reverse of a measurement row, where the number leads. */
@@ -194,7 +245,7 @@
   margin-right: 6px; vertical-align: middle;
 }
 .report .totals { margin: 0; font-size: 10px; color: var(--muted); }
-.report .fineprint { margin-top: 10px; font-size: 9px; color: var(--muted); }
+.report .fineprint { margin-top: 4mm; font-size: 7.5pt; line-height: 1.55; color: var(--ink-3); }
 .report .notes { margin-top: 12px; white-space: pre-wrap; }
 
 /* ----------------------------------------------------------------- plans */
@@ -363,9 +414,9 @@
      one carrying nothing but the overflow. */
   height: 47mm;
   object-fit: cover;
-  border: 1px solid #d8dade;
-  border-radius: 2px;
-  background: #f4f5f7;
+  border: 0.75pt solid var(--rule);
+  border-radius: 1mm;
+  background: #f2f4f6;
 }
 .photo-grid .missing {
   display: flex;
@@ -376,8 +427,10 @@
 }
 .photo-grid figcaption {
   margin-top: 2mm;
-  font-size: 8.5pt;
-  color: #62666d;
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
 }
 
 /* The pointer left on the room page where the photos used to be. */
@@ -393,8 +446,10 @@
   align-items: center;
   gap: 3mm;
   margin-top: 3mm;
-  font-size: 8pt;
-  color: #333;
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
 }
 
 /* The signature page — four blanks and nothing else. */
@@ -405,37 +460,161 @@
   margin-top: 24mm;
 }
 .signature-grid .rule {
-  border-bottom: 1px solid #333;
-  height: 14mm;
+  border-bottom: 0.75pt solid var(--ink-2);
+  height: 16mm;
 }
 .signature-grid span {
   display: block;
-  margin-top: 2mm;
-  font-size: 9pt;
-  color: #62666d;
+  margin-top: 2.5mm;
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-4);
 }
 
-/* The reference's own header, footer and section markers. */
-.report .running { display: block; border-bottom: none; padding-bottom: 4mm; }
-.report .running-project { font-size: 11pt; font-weight: 600; }
-.report .running-address { font-size: 8.5pt; color: #62666d; }
-.report .running-totals { font-size: 8.5pt; color: #62666d; letter-spacing: 0.01em; }
+/* ------------------------------------------------ header, markers, figures */
 
-.report .marker { font-size: 11pt; font-weight: 600; margin: 4mm 0 0; }
-.report .marker-sub { font-size: 9pt; color: #62666d; margin: 0 0 2mm; }
-.report .figures { font-size: 9pt; color: #333; margin: 0 0 1mm; letter-spacing: 0.01em; }
+/* The band that identifies the claim on every page after the cover. Theirs
+   is three lines of the same grey; this steps the ink down line by line, so
+   the project reads first and the totals sit where they can be checked
+   rather than competing to be read. */
+.report .running {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  border-bottom: 0.75pt solid var(--rule);
+  padding-bottom: 3mm;
+  margin-bottom: 5mm;
+  /* The accent, second of its three appearances: a short tick sitting on
+     the rule under the header, aligned to the left margin. */
+  position: relative;
+}
+.report .running::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -0.75pt;
+  width: 14mm;
+  border-bottom: 1.5pt solid var(--accent);
+}
+.report .running-project {
+  font-size: 11pt;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.report .running-address {
+  font-size: 8pt;
+  color: var(--ink-3);
+  margin-top: 0.6mm;
+}
+.report .running-totals {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+  margin-top: 1.4mm;
+}
+
+/* **The section device, in place of their `▼`.**
+   A triangle is a disclosure control — it belongs to a screen where things
+   open and close, and on paper it says "tap me" to nobody. What it was
+   doing, though, was worth keeping: marking where one section stops and the
+   next begins, at a glance, down a nineteen-page file. So the job goes to a
+   rule in the firm's green, set on the baseline of the title. */
+.report .marker {
+  font-size: 12pt;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 5mm 0 0;
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+}
+.report .marker::before {
+  content: "";
+  width: 2.2mm;
+  height: 2.2mm;
+  flex: none;
+  background: var(--accent);
+  border-radius: 0.4mm;
+}
+.report .marker-sub {
+  font-size: 8.5pt;
+  color: var(--ink-3);
+  margin: 0.8mm 0 3mm;
+  /* Padding, not margin: `.report .page > *` sets the side margins of every
+     direct child of a sheet and outranks this rule, so a margin-left here
+     is simply discarded — and only on the elements that happen to be direct
+     children, which is how an indent ends up applying on some pages and not
+     others. */
+  padding-left: 4.7mm;
+}
+
+/* A floor's name on the left, its own totals right — their arrangement. */
+.report .section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8mm;
+  flex-wrap: wrap;
+}
+.report .section-head .figures { margin: 0; padding-left: 0; }
+
+/* Label and value, not one grey string. See the `Figures` component. */
+.report .figures {
+  margin: 2mm 0 0;
+  padding-left: 4.7mm;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5mm 6mm;
+  font-size: 9pt;
+}
+.report .figures .figure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1.8mm;
+  white-space: nowrap;
+}
+.report .figures .k {
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.report .figures .v {
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: var(--ink);
+}
 
 .report .page-foot {
   margin-top: 6mm;
-  padding-top: 2mm;
-  border-top: 1px solid #e4e6ea;
+  padding-top: 2.5mm;
+  border-top: 0.75pt solid var(--rule);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 8mm;
 }
-.report .page-foot p { font-size: 6.5pt; color: #8e939b; margin: 0; max-width: 140mm; }
-.report .page-foot span { font-size: 8pt; color: #62666d; white-space: nowrap; }
+.report .page-foot p {
+  font-size: 6pt;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--ink-4);
+  margin: 0;
+  max-width: 132mm;
+}
+.report .page-foot span {
+  font-size: 7.5pt;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
 
 /* **The cover, as a page rather than a stack.** Theirs is mostly empty:
    the project and its two facts at the top, the figures a third of the way
@@ -449,44 +628,91 @@
    its stacked address lines under it. */
 .report .cover-facts {
   display: flex;
-  gap: 24mm;
-  margin-top: 12mm;
+  gap: 26mm;
+  margin-top: 16mm;
 }
 .report .cover-label {
-  margin: 0 0 1.5mm;
-  font-size: 7.5pt;
+  margin: 0 0 2mm;
+  font-size: 7pt;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: #8e939b;
+  color: var(--ink-4);
 }
-.report .cover-value { margin: 0; font-size: 10pt; line-height: 1.45; }
+.report .cover-value {
+  margin: 0;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
 
 /* The cover's four figures, in the reference's order — and in their
    arrangement: the LABEL above and the value under it, cells separated by
    hairlines, the whole strip ruled top and bottom. */
+/* The key plan: the storey, small and quiet, in the space their cover
+   leaves empty. Capped hard — it is an orientation, not the drawing. */
+.report .cover-plan {
+  margin: 12mm 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4mm;
+}
+.report .cover-plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8mm;
+  max-height: 74mm;
+}
+.report .cover-plan-row figure {
+  margin: 0;
+  height: 34mm;
+  flex: 0 1 auto;
+}
+.report .cover-plan-row figure > *,
+.report .cover-plan-row svg { height: 100%; width: auto; max-width: 52mm; }
+.report .cover-plan-caption {
+  margin: 0;
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* The second-level section title — a block INSIDE a room's page rather than
+   the page's own subject, so it steps down a size. */
+.report .marker.marker-2 { font-size: 10pt; margin-top: 6mm; }
+.report .marker.marker-2::before { width: 1.8mm; height: 1.8mm; }
+
 .report .cover-figures {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  margin: 22mm 0 auto;
-  border-top: 1px solid #c9ccd2;
-  border-bottom: 1px solid #c9ccd2;
+  margin: 24mm 0 0;
+  border-top: 0.75pt solid var(--rule-strong);
+  border-bottom: 0.75pt solid var(--rule-strong);
 }
 .report .cover-figures > div {
-  padding: 3mm 4mm;
-  border-left: 1px solid #e4e6ea;
+  padding: 4mm 5mm;
+  border-left: 0.75pt solid var(--rule);
 }
 .report .cover-figures > div:first-child { border-left: 0; padding-left: 0; }
 .report .cover-figures .figure-label {
   display: block;
-  font-size: 8pt;
-  color: #8e939b;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-4);
 }
 .report .cover-figures .figure-value {
   display: block;
-  margin-top: 1mm;
-  font-size: 11pt;
+  margin-top: 2mm;
+  font-size: 14pt;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 /* **The affected-area block, and the photo pointer above it.** Label and
@@ -494,21 +720,39 @@
    sentence, and a sentence in a four-column table either wraps into a
    stripe or squeezes the figures beside it. */
 .report .area-count {
-  margin: 4mm 0 2mm;
-  font-size: 8.5pt;
+  margin: 5mm 0 2.5mm;
+  padding-left: 4.7mm;
+  font-size: 7pt;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #33333a;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
 }
+/* Each area is one block, held together by a hairline down its left edge —
+   the cheapest way to say "these five rows are one thing" on a page that
+   may carry four of them. */
 .report .area-block {
   display: grid;
-  grid-template-columns: 32mm 1fr;
-  gap: 1.5mm 6mm;
-  margin: 0 0 3mm;
+  grid-template-columns: 30mm 1fr;
+  gap: 1.8mm 6mm;
+  margin: 0 0 4mm;
+  padding-left: 4.7mm;
   font-size: 9pt;
+  border-left: 0.75pt solid var(--rule);
 }
-.report .area-block dt { color: #62666d; }
-.report .area-block dd { margin: 0; color: #1b1c1f; }
+.report .area-block dt {
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  align-self: baseline;
+  padding-top: 0.6mm;
+}
+.report .area-block dd {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.5;
+}
 
 /* The locator: the storey's rooms in a row, this one shaded. */
 .report .locator {
@@ -569,16 +813,25 @@
  * and cannot be reached any other way without threading a flag through the
  * whole admin layout.
  */
-html:has(.report-bare) nav,
-html:has(.report-bare) header.app-header,
-html:has(.report-bare) footer.app-footer,
+/* **Bare: the document and nothing else.**
+   `.app-chrome` is on the admin's sidebar, its top bar and the native tab
+   bar. This used to name `header.app-header` and a bare `nav`, neither of
+   which the shell has ever rendered — so the phone's own report preview
+   arrived wrapped in the Projects rail and a Sign out link. */
+html:has(.report-bare) .app-chrome,
 .report-bare .no-print {
   display: none !important;
 }
 html:has(.report-bare) body,
 html:has(.report-bare) .report-shell {
-  background: #f4f5f7 !important;
+  background: #eceef1 !important;
   padding: 0 !important;
+}
+html:has(.report-bare) main {
+  padding: 0 !important;
+}
+html:has(.report-bare) main > div {
+  max-width: none !important;
 }
 
 
@@ -592,4 +845,126 @@ html:has(.report-bare) .report-shell {
   color: var(--muted);
   font-style: italic;
   border-top: 0;
+}
+
+
+/* ================================================================ signage */
+
+/* The document's own glyphs — see components/admin/ReportSymbols.tsx. */
+.report .glyph {
+  display: inline-block;
+  vertical-align: -0.12em;
+  flex: none;
+}
+.report .cause-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.6mm;
+  white-space: nowrap;
+}
+.report .cause-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.6mm;
+  height: 4.6mm;
+  flex: none;
+  border-radius: 50%;
+  /* The cause's own colour at a tenth, so the glyph sits on a tint of
+     itself and reads as a chip rather than as a loose drawing. */
+  background: color-mix(in srgb, currentColor 14%, white);
+}
+
+/* -------------------------------------------------- key to the drawing */
+.report .plan-legend {
+  margin-top: 6mm;
+  padding-top: 3mm;
+  border-top: 0.75pt solid var(--rule);
+}
+.report .legend-title {
+  margin: 0 0 2.5mm;
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.report .legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2mm 9mm;
+  margin-bottom: 2mm;
+}
+.report .legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2mm;
+  font-size: 7.5pt;
+  color: var(--ink-2);
+}
+.report .legend-causes { gap: 2mm 7mm; font-size: 7.5pt; color: var(--ink-2); }
+.report .legend-note {
+  margin: 2.5mm 0 0;
+  font-size: 6.5pt;
+  line-height: 1.5;
+  color: var(--ink-4);
+  max-width: 120mm;
+}
+
+/* ------------------------------------------------------------- contents */
+.report .contents {
+  list-style: none;
+  margin: 5mm 0 0;
+  padding: 0;
+}
+.report .contents li {
+  display: flex;
+  align-items: baseline;
+  gap: 2.5mm;
+  padding: 1.6mm 0;
+  font-size: 9.5pt;
+  color: var(--ink);
+}
+/* Leader dots. The oldest trick in book design and still the only one that
+   carries an eye across 15cm of white to a two-digit number. */
+.report .contents .lead {
+  flex: 1;
+  border-bottom: 0.75pt dotted var(--rule-strong);
+  transform: translateY(-0.9mm);
+  min-width: 8mm;
+}
+.report .contents-page {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink-2);
+  min-width: 6mm;
+  text-align: right;
+}
+.report .contents-sub { color: var(--ink-4); font-weight: 400; }
+
+/* The hierarchy of the document, said with indentation and weight rather
+   than with a second list. A floor is a heading; its rooms sit under it;
+   a room's photographs sit under the room. */
+.report .contents-level {
+  font-weight: 700;
+  margin-top: 3mm;
+  border-top: 0.75pt solid var(--rule);
+  padding-top: 3mm;
+}
+.report .contents-room { padding-left: 6mm; }
+.report .contents-photos {
+  padding-left: 12mm;
+  font-size: 8.5pt;
+  color: var(--ink-3);
+}
+.report .contents-photos .contents-page { color: var(--ink-3); font-weight: 400; }
+.report .contents-summary,
+.report .contents-equipment,
+.report .contents-signature,
+.report .contents-definitions {
+  font-weight: 600;
+}
+.report .contents-definitions,
+.report .contents-signature {
+  color: var(--ink-2);
 }
