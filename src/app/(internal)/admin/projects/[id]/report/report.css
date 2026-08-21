@@ -457,22 +457,13 @@
 .photo-grid img,
 .photo-grid .missing {
   width: 100%;
-  /* **Measured against the sheet, not chosen.** Letter less the 2cm
-     margins is 239.4mm. The running header, the section marker, the grid's
-     own top margin and the footer take about 42mm of it; two 8mm gutters
-     take 12; the captions take about 7mm a row. That leaves three rows of
-     47mm, measured back off a rendered page rather than guessed: the
-     section comes out 231.7mm against the 239.4mm it has. 62mm — what this
-     was — made it 250.6mm, so every photo page was followed by a blank
-     one carrying nothing but the overflow. */
-  /* 3 across on a 176mm measure is ~55mm wide; at 74mm tall a portrait
-     phone photograph is barely cropped, and two rows plus a gutter come to
-     154mm of the 197mm the page has under its header. */
+  /* The same 74mm the photographs get. A placeholder taller than the tile
+     it stands in makes a page of five photos and one gap taller than a page
+     of six photos, which is how a photo page acquires a blank sheet behind
+     it. */
   height: 74mm;
-  object-fit: cover;
-  border: 0.75pt solid var(--rule);
+  background: #f2f3f5;
   border-radius: 1mm;
-  background: #f2f4f6;
 }
 .photo-grid .missing {
   display: flex;
@@ -718,6 +709,16 @@
 
 /* `CREATED ON` and `LOCATION`, each a small grey label with its value or
    its stacked address lines under it. */
+/* Their cover puts the map to the right of the two label blocks, about a
+   third of the measure wide and a shade under square. */
+.report .cover-map {
+  width: 72mm;
+  height: 45mm;
+  object-fit: cover;
+  border: 0.3mm solid var(--rule);
+  border-radius: 1mm;
+  margin-left: auto;
+}
 .report .cover-facts {
   display: flex;
   gap: 26mm;
@@ -878,10 +879,6 @@
 .report .locator { width: 38mm; flex: none; }
 .report .locator svg { max-height: 42mm; }
 
-.report .room-body { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: start; }
-@media (max-width: 640px) {
-  .report .room-body { grid-template-columns: 1fr; }
-}
 
 .report .photos {
   display: grid;
@@ -963,92 +960,12 @@
 /* Photos on their own pages, six to a page in two columns — the
    reference's own grid, read off a real export. Fixed tile height so a
    page of six is always the same page, whatever shape the photos are. */
-.photo-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6mm;
-  margin-top: 6mm;
-  /* A page of six is six, or it is not a page of six. Without this the
-     grid was free to split, and a rendered probe came back with photos
-     1-4 on one sheet, 5 and 6 on the next and the signature pushed to a
-     sixth — five sections printing as six pages, with `Page 4/5` on the
-     fifth of them. */
-  break-inside: avoid;
-}
-.photo-grid figure {
-  margin: 0;
-}
-.photo-grid img,
-.photo-grid .missing {
-  width: 100%;
-  /* **Measured against the sheet, not chosen.** Letter less the 2cm
-     margins is 239.4mm. The running header, the section marker, the grid's
-     own top margin and the footer take about 42mm of it; two 8mm gutters
-     take 12; the captions take about 7mm a row. That leaves three rows of
-     47mm, measured back off a rendered page rather than guessed: the
-     section comes out 231.7mm against the 239.4mm it has. 62mm — what this
-     was — made it 250.6mm, so every photo page was followed by a blank
-     one carrying nothing but the overflow. */
-  height: 47mm;
-  object-fit: cover;
-  border: 0.75pt solid var(--rule);
-  border-radius: 1mm;
-  background: #f2f4f6;
-}
-.photo-grid .missing {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9pt;
-  color: #8e939b;
-}
-.photo-grid figcaption {
-  margin-top: 2mm;
-  font-size: 7.5pt;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--ink-3);
-}
 
 /* The pointer left on the room page where the photos used to be. */
-.photo-pointer {
-  margin-top: 4mm;
-  font-size: 9pt;
-  color: #62666d;
-}
 
 /* Scale bar: ticked in whole metres so a ruler can check it. */
-.scalebar {
-  display: flex;
-  align-items: center;
-  gap: 3mm;
-  margin-top: 3mm;
-  font-size: 7pt;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
-}
 
 /* The signature page — four blanks and nothing else. */
-.signature-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18mm 12mm;
-  margin-top: 24mm;
-}
-.signature-grid .rule {
-  border-bottom: 0.75pt solid var(--ink-2);
-  height: 16mm;
-}
-.signature-grid span {
-  display: block;
-  margin-top: 2.5mm;
-  font-size: 6.8pt;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
 
 /* ------------------------------------------------ header, markers, figures */
 
@@ -1056,44 +973,6 @@
    is three lines of the same grey; this steps the ink down line by line, so
    the project reads first and the totals sit where they can be checked
    rather than competing to be read. */
-.report .running {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8mm;
-  border-bottom: 0.75pt solid var(--rule);
-  padding-bottom: 3mm;
-  margin-bottom: 5mm;
-  /* The accent, second of its three appearances: a short tick sitting on
-     the rule under the header, aligned to the left margin. */
-  position: relative;
-}
-.report .running::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -0.75pt;
-  width: 14mm;
-  border-bottom: 1.5pt solid var(--accent);
-}
-.report .running-project {
-  font-size: 11pt;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.report .running-address {
-  font-size: 8pt;
-  color: var(--ink-3);
-  margin-top: 0.6mm;
-}
-.report .running-totals {
-  font-size: 7pt;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--ink-4);
-  margin-top: 1.4mm;
-}
 
 /* **The section device, in place of their `▼`.**
    A triangle is a disclosure control — it belongs to a screen where things
@@ -1101,97 +980,11 @@
    doing, though, was worth keeping: marking where one section stops and the
    next begins, at a glance, down a nineteen-page file. So the job goes to a
    rule in the firm's green, set on the baseline of the title. */
-.report .marker {
-  font-size: 12pt;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  margin: 5mm 0 0;
-  display: flex;
-  align-items: center;
-  gap: 2.5mm;
-}
-.report .marker::before {
-  content: "";
-  width: 2.2mm;
-  height: 2.2mm;
-  flex: none;
-  background: var(--accent);
-  border-radius: 0.4mm;
-}
-.report .marker-sub {
-  font-size: 8.5pt;
-  color: var(--ink-3);
-  margin: 0.8mm 0 3mm;
-  /* Padding, not margin: `.report .page > *` sets the side margins of every
-     direct child of a sheet and outranks this rule, so a margin-left here
-     is simply discarded — and only on the elements that happen to be direct
-     children, which is how an indent ends up applying on some pages and not
-     others. */
-  padding-left: 4.7mm;
-}
 
 /* A floor's name on the left, its own totals right — their arrangement. */
-.report .section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8mm;
-  flex-wrap: wrap;
-}
-.report .section-head .figures { margin: 0; padding-left: 0; }
 
 /* Label and value, not one grey string. See the `Figures` component. */
-.report .figures {
-  margin: 2mm 0 0;
-  padding-left: 4.7mm;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5mm 6mm;
-  font-size: 9pt;
-}
-.report .figures .figure {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 1.8mm;
-  white-space: nowrap;
-}
-.report .figures .k {
-  font-size: 6.8pt;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-.report .figures .v {
-  font-size: 9.5pt;
-  font-weight: 600;
-  color: var(--ink);
-}
 
-.report .page-foot {
-  margin-top: 6mm;
-  padding-top: 2.5mm;
-  border-top: 0.75pt solid var(--rule);
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8mm;
-}
-.report .page-foot p {
-  font-size: 6pt;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
-  color: var(--ink-4);
-  margin: 0;
-  max-width: 132mm;
-}
-.report .page-foot span {
-  font-size: 7.5pt;
-  font-weight: 600;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
 
 /* **The cover, as a page rather than a stack.** Theirs is mostly empty:
    the project and its two facts at the top, the figures a third of the way
@@ -1199,163 +992,29 @@
    cover that fills itself with tables reads as the first page of a table,
    not as a cover — so the space below the figures is given away with an
    auto margin rather than guessed at with a fixed one. */
-.report .page.cover { display: flex; flex-direction: column; }
 
 /* `CREATED ON` and `LOCATION`, each a small grey label with its value or
    its stacked address lines under it. */
-.report .cover-facts {
-  display: flex;
-  gap: 26mm;
-  margin-top: 16mm;
-}
-.report .cover-label {
-  margin: 0 0 2mm;
-  font-size: 7pt;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-.report .cover-value {
-  margin: 0;
-  font-size: 10.5pt;
-  line-height: 1.5;
-  color: var(--ink-2);
-}
 
 /* The cover's four figures, in the reference's order — and in their
    arrangement: the LABEL above and the value under it, cells separated by
    hairlines, the whole strip ruled top and bottom. */
 /* The key plan: the storey, small and quiet, in the space their cover
    leaves empty. Capped hard — it is an orientation, not the drawing. */
-.report .cover-plan {
-  margin: 12mm 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4mm;
-}
-.report .cover-plan-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8mm;
-  max-height: 74mm;
-}
-.report .cover-plan-row figure {
-  margin: 0;
-  height: 34mm;
-  flex: 0 1 auto;
-}
-.report .cover-plan-row figure > *,
-.report .cover-plan-row svg { height: 100%; width: auto; max-width: 52mm; }
-.report .cover-plan-caption {
-  margin: 0;
-  font-size: 6.8pt;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
 
 /* The second-level section title — a block INSIDE a room's page rather than
    the page's own subject, so it steps down a size. */
-.report .marker.marker-2 { font-size: 10pt; margin-top: 6mm; }
-.report .marker.marker-2::before { width: 1.8mm; height: 1.8mm; }
 
-.report .cover-figures {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin: 24mm 0 0;
-  border-top: 0.75pt solid var(--rule-strong);
-  border-bottom: 0.75pt solid var(--rule-strong);
-}
-.report .cover-figures > div {
-  padding: 4mm 5mm;
-  border-left: 0.75pt solid var(--rule);
-}
-.report .cover-figures > div:first-child { border-left: 0; padding-left: 0; }
-.report .cover-figures .figure-label {
-  display: block;
-  font-size: 7pt;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-.report .cover-figures .figure-value {
-  display: block;
-  margin-top: 2mm;
-  font-size: 14pt;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
 
 /* **The affected-area block, and the photo pointer above it.** Label and
    value, not a table column — theirs prints the whole of a note as a
    sentence, and a sentence in a four-column table either wraps into a
    stripe or squeezes the figures beside it. */
-.report .area-count {
-  margin: 5mm 0 2.5mm;
-  padding-left: 4.7mm;
-  font-size: 7pt;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--ink-3);
-}
 /* Each area is one block, held together by a hairline down its left edge —
    the cheapest way to say "these five rows are one thing" on a page that
    may carry four of them. */
-.report .area-block {
-  display: grid;
-  grid-template-columns: 30mm 1fr;
-  gap: 1.8mm 6mm;
-  margin: 0 0 4mm;
-  padding-left: 4.7mm;
-  font-size: 9pt;
-  border-left: 0.75pt solid var(--rule);
-}
-.report .area-block dt {
-  font-size: 6.8pt;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-  align-self: baseline;
-  padding-top: 0.6mm;
-}
-.report .area-block dd {
-  margin: 0;
-  color: var(--ink);
-  line-height: 1.5;
-}
 
 /* The locator: the storey's rooms in a row, this one shaded. */
-.report .locator {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 3mm;
-  margin: 0 0 4mm;
-}
-.report .locator figure {
-  width: 16mm;
-  height: 14mm;
-  margin: 0;
-  opacity: 0.35;
-}
-.report .locator figure.here {
-  opacity: 1;
-  outline: 1px solid #2b5c9e;
-  outline-offset: 1px;
-  border-radius: 2px;
-}
-.report .locator figcaption {
-  flex-basis: 100%;
-  font-size: 8pt;
-  color: #62666d;
-}
 
 /* The numbered key's badges, matching the circles drawn on the plan. */
 .report .measure.key .badge {

@@ -1,5 +1,6 @@
 import { resolvePlacements } from "@/lib/floorLayout";
 import { toFloorPlan, type FloorPlan, type ScanGeometry } from "@/lib/roomScan";
+import PlanObjects, { type PlanObject } from "./PlanObjects";
 
 /**
  * A storey as ONE drawing.
@@ -39,6 +40,9 @@ type StoreyRoom = {
   planX: number | null;
   planY: number | null;
   areas: { id: string; polygon: { x: number; y: number }[]; color: string }[];
+  /** The bath, the toilet, the counter run — what makes a floor plan a
+      drawing of a property rather than of five empty rectangles. */
+  objects?: PlanObject[];
 };
 
 const m2 = (sqm: number) => `${sqm.toFixed(2)} m²`;
@@ -71,6 +75,177 @@ function wallPath(plan: FloorPlan): string {
     .join(" ");
 }
 
+
+/** Is a point inside this ring? Ray casting, the usual way. */
+function inside(point: { x: number; y: number }, ring: { x: number; y: number }[]): boolean {
+  let hit = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
+    ) {
+      hit = !hit;
+    }
+  }
+  return hit;
+}
+
+/**
+ * The dimension chain, hugging the outside of the building.
+ *
+ * **Only the walls that face outdoors get one.** The reference runs its chain
+ * around the outside of the floor and leaves the party walls between rooms
+ * bare, and the reason is legibility: a nine-room storey has forty-odd wall
+ * segments, and dimensioning every one buries the drawing under its own
+ * numbers. Which wall is "outside" is not guessed — a wall is outer when a
+ * point stepped off its face lands in no other room on the storey.
+ *
+ * The whole chain is suppressed when any room on the floor was never placed,
+ * for the reason `ReportStoreyPlan` states: a packed slot is a layout, and
+ * dimensions taken across one measure the packing.
+ */
+function OuterChain({
+  rooms,
+}: {
+  rooms: { plan: FloorPlan; at: { x: number; y: number } }[];
+}) {
+  /** How far off the wall the dimension line sits, in plan metres. */
+  const OFFSET = 0.42;
+  /** Below this a segment is a jamb return or a stub, not a wall worth a
+      number — and its label would not fit beside it anyway. */
+  const SHORTEST = 0.55;
+
+  // Every room's outline in STOREY coordinates, which is what the
+  // inside-test has to run against: a wall of the kitchen is only an outer
+  // wall if no OTHER room is on the far side of it.
+  const rings = rooms
+    .filter((room) => room.plan.polygon.length >= 3)
+    .map((room) => room.plan.polygon.map((p) => ({ x: p.x + room.at.x, y: p.y + room.at.y })));
+
+  const marks: { x1: number; y1: number; x2: number; y2: number; label: string }[] = [];
+
+  for (const room of rooms) {
+    for (const segment of room.plan.segments) {
+      const x1 = segment.x1 + room.at.x;
+      const y1 = segment.y1 + room.at.y;
+      const x2 = segment.x2 + room.at.x;
+      const y2 = segment.y2 + room.at.y;
+      const length = Math.hypot(x2 - x1, y2 - y1);
+      if (length < SHORTEST) continue;
+
+      const ux = (x2 - x1) / length;
+      const uy = (y2 - y1) / length;
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+
+      // Which way is out? The normal whose step leaves this room's own
+      // outline. A wall with no outline to test against is skipped rather
+      // than guessed at.
+      const step = 0.2;
+      const candidates = [
+        { nx: -uy, ny: ux },
+        { nx: uy, ny: -ux },
+      ];
+      const own = rings[rooms.indexOf(room)];
+      const out = own
+        ? candidates.find(
+            (n) => !inside({ x: midX + n.nx * step, y: midY + n.ny * step }, own),
+          )
+        : undefined;
+      if (!out) continue;
+
+      // An outer wall is one with nothing on the far side of it.
+      const beyond = { x: midX + out.nx * step, y: midY + out.ny * step };
+      if (rings.some((ring) => inside(beyond, ring))) continue;
+
+      marks.push({
+        x1: x1 + out.nx * OFFSET,
+        y1: y1 + out.ny * OFFSET,
+        x2: x2 + out.nx * OFFSET,
+        y2: y2 + out.ny * OFFSET,
+        label: m(length),
+      });
+    }
+  }
+
+  // **Two faces of the same gap get one number.** Where rooms sit apart —
+  // scanned separately, or genuinely separated by a chase — the wall on each
+  // side of the gap is legitimately an outer wall, and both were being
+  // dimensioned. The drawing then carries `3.900` twice, 200mm apart, which
+  // reads as two different measurements that happen to agree.
+  const kept: typeof marks = [];
+  for (const mark of marks) {
+    const midX = (mark.x1 + mark.x2) / 2;
+    const midY = (mark.y1 + mark.y2) / 2;
+    const near = kept.some((other) => {
+      if (other.label !== mark.label) return false;
+      const ox = (other.x1 + other.x2) / 2;
+      const oy = (other.y1 + other.y2) / 2;
+      return Math.hypot(ox - midX, oy - midY) < 1.1;
+    });
+    if (!near) kept.push(mark);
+  }
+  marks.length = 0;
+  marks.push(...kept);
+
+  if (marks.length === 0) return null;
+
+  return (
+    <g className="outer-chain" stroke="#8a8f97" fill="none">
+      {marks.map((mark, index) => {
+        const dx = mark.x2 - mark.x1;
+        const dy = mark.y2 - mark.y1;
+        const length = Math.hypot(dx, dy) || 1;
+        const ux = dx / length;
+        const uy = dy / length;
+        const nx = -uy;
+        const ny = ux;
+        const midX = (mark.x1 + mark.x2) / 2;
+        const midY = (mark.y1 + mark.y2) / 2;
+        // Text always reads left-to-right and never upside down, which is
+        // what the flip is for.
+        let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+        if (angle > 90 || angle < -90) angle += 180;
+        return (
+          <g key={index}>
+            <line x1={mark.x1} y1={mark.y1} x2={mark.x2} y2={mark.y2} strokeWidth={0.012} />
+            {[0, 1].map((end) => {
+              const px = end === 0 ? mark.x1 : mark.x2;
+              const py = end === 0 ? mark.y1 : mark.y2;
+              return (
+                <line
+                  key={end}
+                  x1={px - nx * 0.07}
+                  y1={py - ny * 0.07}
+                  x2={px + nx * 0.07}
+                  y2={py + ny * 0.07}
+                  strokeWidth={0.012}
+                />
+              );
+            })}
+            <text
+              x={midX - nx * 0.13}
+              y={midY - ny * 0.13}
+              transform={`rotate(${angle} ${midX - nx * 0.13} ${midY - ny * 0.13})`}
+              textAnchor="middle"
+              fontSize={0.21}
+              fill="#5c626b"
+              stroke="#ffffff"
+              strokeWidth={0.07}
+              strokeLinejoin="round"
+              paintOrder="stroke"
+            >
+              {mark.label}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 /** One room, drawn where it stands. */
 function Room({
   room,
@@ -94,10 +269,37 @@ function Room({
   // Sized off the room's SMALLER side: a long thin closet has plenty of
   // length and no width, and it is the width that the text runs out of.
   const short = Math.min(plan.width, plan.height);
-  const nameSize = Math.max(0.15, Math.min(0.3, short * 0.13));
-  // Below this the two lines cannot both fit inside the room at any size a
-  // person could read.
-  const tiny = short < 1.5;
+  const nameSize = Math.max(0.16, Math.min(0.3, short * 0.13));
+  // Below this the two lines cannot both fit inside the room at a size
+  // anybody could read — and now that fixtures are drawn, the middle of a
+  // small room is where the bath is.
+  const tiny = short < 1.9;
+  // Smaller still and even the name does not fit: it goes outside, to the
+  // right of the room, where the reference puts the labels it cannot fit
+  // either.
+  const outside = short < 1.15;
+  // The CENTROID, not the middle of the bounding box. An L-shaped kitchen's
+  // bounding-box centre can fall in the notch — outside the room entirely —
+  // which is how a label ends up sitting on somebody else's floor.
+  const centre =
+    plan.polygon.length >= 3
+      ? plan.polygon.reduce(
+          (acc, point, index, all) => {
+            // The ring repeats its first corner; averaging it twice pulls
+            // the label toward that corner.
+            const last = index === all.length - 1 &&
+              Math.hypot(point.x - all[0].x, point.y - all[0].y) < 1e-6;
+            if (last) return acc;
+            acc.x += point.x / (all.length - 1);
+            acc.y += point.y / (all.length - 1);
+            return acc;
+          },
+          { x: 0, y: 0 },
+        )
+      : { x: plan.width / 2, y: plan.height / 2 };
+  const labelX = outside ? plan.width + 0.25 : centre.x;
+  const labelY = centre.y;
+  const anchor = outside ? "start" : "middle";
   return (
     <g transform={`translate(${at.x},${at.y})`}>
       {plan.polygon.length > 0 && (
@@ -217,6 +419,14 @@ function Room({
         );
       })}
 
+      {/* Fixtures over the wall band, under the label: a vanity drawn
+          beneath the walls would have its back edge eaten by the wall it
+          stands against, and one drawn over the label would strike the
+          room's name through. */}
+      {!locator && room.objects && room.objects.length > 0 && (
+        <PlanObjects objects={room.objects} />
+      )}
+
       {/* The room named where it stands, with its area and extent under it —
           the reference's own label, and the reason its plan reads without a
           legend. A white halo behind the glyphs because a label sits at the
@@ -231,9 +441,9 @@ function Room({
               kept, because a name half-legible is still a name and two
               overlapping lines of numbers are neither. */}
           <text
-            x={plan.width / 2}
-            y={plan.height / 2 - (tiny ? 0 : 0.12)}
-            textAnchor="middle"
+            x={labelX}
+            y={labelY - (tiny ? 0 : 0.12)}
+            textAnchor={anchor}
             dominantBaseline={tiny ? "central" : undefined}
             stroke="#ffffff"
             strokeWidth={nameSize * 0.45}
@@ -247,9 +457,9 @@ function Room({
           </text>
           {!tiny && (
             <text
-              x={plan.width / 2}
-              y={plan.height / 2 + nameSize * 0.95}
-              textAnchor="middle"
+              x={labelX}
+              y={labelY + nameSize * 0.95}
+              textAnchor={anchor}
               stroke="#ffffff"
               strokeWidth={nameSize * 0.4}
               strokeLinejoin="round"
@@ -316,7 +526,7 @@ export default function ReportStoreyPlan({
 
   // Enough margin for the outer chain and for the wall band itself, which is
   // drawn centred on the segment and so overhangs the extent by half.
-  const pad = isLocator ? 0.35 : registered ? 1.6 : 0.5;
+  const pad = isLocator ? 0.35 : registered ? 1.9 : 0.5;
 
   return (
     <div className={isLocator ? "storey-plan locator-plan" : "storey-plan"}>
@@ -338,6 +548,15 @@ export default function ReportStoreyPlan({
             }
           />
         ))}
+
+        {registered && !isLocator && (
+          <OuterChain
+            rooms={drawable.map((_, index) => ({
+              plan: plans[index],
+              at: layout.placed[index],
+            }))}
+          />
+        )}
 
         {registered && !isLocator && (
           <>

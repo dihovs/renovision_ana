@@ -1,6 +1,7 @@
 "use client";
 
 import { toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
+import PlanObjects, { type PlanObject } from "./PlanObjects";
 
 /**
  * A scanned room drawn as an actual floor plan.
@@ -32,9 +33,14 @@ export default function FloorPlan({
   sections,
   dimensions = "all",
   areas,
+  objects,
 }: {
   result: ScanGeometry;
   name: string;
+  /** Fixtures standing in the room, in the same plan metres the walls use.
+      See `PlanObjects` for why a plan without them is worth less than it
+      looks. */
+  objects?: PlanObject[];
   variant?: "full" | "thumb";
   /** Room labels from a merged structure, drawn at their centres. */
   sections?: { label: string; centerX: number; centerZ: number }[];
@@ -282,6 +288,11 @@ export default function FloorPlan({
             </g>
           );
         })}
+
+        {/* Fixtures over the wall band, under the dimensions. */}
+        {!thumb && objects && objects.length > 0 && (
+          <PlanObjects objects={objects} labels />
+        )}
 
         {/* Dimensions and the scale bar are dropped at thumbnail size:
             none of it is legible on a card, and the outline alone is what

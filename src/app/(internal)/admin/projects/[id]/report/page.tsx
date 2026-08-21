@@ -7,6 +7,7 @@ import { getProject, listRoomFiles, signProjectFileUrls } from "@/lib/crm/projec
 import { listRoomScans } from "@/lib/crm/roomScans";
 import { listAffectedAreas } from "@/lib/crm/affectedAreas";
 import { listRoomWalls } from "@/lib/crm/roomWalls";
+import { listProjectObjects } from "@/lib/crm/roomObjects";
 import { listEquipment, listMoistureReadings } from "@/lib/crm/dryingLog";
 import { CLAIM_FIELD_TEMPLATE, getCompany, getCustomFields } from "@/lib/crm/settings";
 import { trustedFloorAreaSquareMeters, type ScanGeometry } from "@/lib/roomScan";
@@ -74,6 +75,10 @@ export default async function ReportPage({
   // drying — and each failure narrows the report rather than breaking it.
   const scans = await listRoomScans(project.id).catch(() => []);
   const equipment = await listEquipment(project.id).catch(() => []);
+  // The bath, the toilet, the counter run. One query for the whole project
+  // rather than one per room: a nine-room job is nine round trips otherwise,
+  // and the report already waits on enough of them.
+  const objects = await listProjectObjects(project.id).catch(() => []);
 
   const rooms: ReportRoom[] = await Promise.all(
     scans.map(async (scan) => {
@@ -113,6 +118,21 @@ export default async function ReportPage({
         // building it has no positions for.
         planX: scan.plan_x === null || scan.plan_x === undefined ? null : Number(scan.plan_x),
         planY: scan.plan_y === null || scan.plan_y === undefined ? null : Number(scan.plan_y),
+        // Excluded objects are off the claim, but they are still standing in
+        // the room — a vanity nobody is charging for is still in the way of
+        // the floor, and a plan that hides it is a plan of a different room.
+        objects: objects
+          .filter((object) => object.roomScanId === scan.id)
+          .map((object) => ({
+            id: object.id,
+            kind: object.kind,
+            name: object.name,
+            x: object.x,
+            y: object.y,
+            rotation: object.rotation,
+            widthM: object.width,
+            depthM: object.depth,
+          })),
         geometry: scan.geometry as unknown as ScanGeometry,
         areas,
         // Oldest first here, unlike the phone: a drying log reads as a

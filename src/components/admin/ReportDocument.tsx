@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { CauseTag, PlanLegend } from "./ReportSymbols";
 import ReportStoreyPlan from "./ReportStoreyPlan";
+import { type PlanObject } from "./PlanObjects";
 import FloorPlan from "./FloorPlan";
 import WallElevation, { RoomElevations } from "./WallElevation";
 import {
@@ -63,6 +64,8 @@ export type ReportRoom = {
       drawing is allowed to claim. */
   planX?: number | null;
   planY?: number | null;
+  /** Fixtures standing in this room — see `PlanObjects`. */
+  objects?: PlanObject[];
   geometry: ScanGeometry;
   areas: AffectedArea[];
   readings: MoistureReading[];
@@ -474,6 +477,25 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               ))}
             </div>
           )}
+
+          {/* **The map, as theirs prints it** — beside the address, not
+              instead of it. A claim file crosses several desks, and an
+              address means nothing to an adjuster three cities away until
+              they can see which building it is and what is around it.
+
+              Proxied through our own route so the Maps key is never in the
+              document's markup; see `api/admin/staticmap`. If it fails —
+              no key, no network, no session — the image simply does not
+              draw and the cover is the cover it was yesterday. A report
+              must not depend on Google being up. */}
+          {property && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className="cover-map"
+              src={`/api/admin/staticmap?address=${encodeURIComponent(property)}`}
+              alt={`Map of ${property}`}
+            />
+          )}
         </div>
 
         {/* **Their four cover figures, in their order.** Total area,
@@ -692,6 +714,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 floorAreaSqm: room.floorAreaSqm,
                 planX: room.planX ?? null,
                 planY: room.planY ?? null,
+                objects: room.objects,
                 areas: room.areas
                   .filter((area) => area.surface !== "wall" && area.polygon.length >= 3)
                   .map((area) => ({
@@ -774,6 +797,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 <FloorPlan
                   result={room.geometry}
                   name={room.name}
+                  objects={room.objects}
                   dimensions={onlyLockedDimensions ? "locked" : "all"}
                   // Floor areas only — a wall area's polygon is in its
                   // wall's own face space and belongs on the elevation.
