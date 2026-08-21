@@ -5,7 +5,6 @@ import {
   type AffectedArea,
   type AreaPoint,
 } from "@/lib/crm/areaShapes";
-import { metersToFeet, squareMetersToSquareFeet } from "@/lib/roomScan";
 
 /**
  * One wall, drawn straight on, with the damage marked on it.
@@ -99,10 +98,10 @@ export default function WallElevation({
         dominantBaseline="middle"
         transform={`rotate(-90 ${-padLeft + 0.06} ${height / 2})`}
       >
-        {metersToFeet(height).toFixed(1)} ft
+        {height.toFixed(3)} m
       </text>
       <text x={length / 2} y={height + 0.3} fontSize={type} fill="#6b6b73" textAnchor="middle">
-        {metersToFeet(length).toFixed(1)} ft
+        {length.toFixed(3)} m
       </text>
     </svg>
   );
@@ -125,6 +124,7 @@ export function RoomElevations({
   ceilingHeightM,
   areas,
   wallFlags,
+  onlyFlagged = false,
 }: {
   corners: AreaPoint[];
   ceilingHeightM: number;
@@ -132,11 +132,23 @@ export function RoomElevations({
   areas: AffectedArea[];
   /** Wall index → whether "Display Elevation in Report" is on for it. */
   wallFlags?: Map<number, boolean>;
+  /**
+   * Draw ONLY the walls somebody turned on by hand.
+   *
+   * The report used to print an elevation of every damaged wall here AND a
+   * block for every affected area below — the same wall twice on one page,
+   * which is how a room page came out 253mm tall on a 239mm sheet. The
+   * reference solves it by putting a small figure of the patch inside the
+   * area's own block, and so do we now. What is left for this section is the
+   * case the flag exists for: a wall the operator wants shown whether or not
+   * it is damaged.
+   */
+  onlyFlagged?: boolean;
 }) {
   if (corners.length < 3) return null;
 
   const walls = new Map<number, AffectedArea[]>();
-  for (const area of areas) {
+  for (const area of onlyFlagged ? [] : areas) {
     // An area whose wall was deleted from the plan since it was drawn has no
     // face left to sit on. It still counts in the wall total above — the
     // damage was real — but there is nothing honest to draw it against.
@@ -149,7 +161,10 @@ export function RoomElevations({
   // flag's whole purpose is to reach the walls this loop would otherwise skip.
   for (const [index, on] of wallFlags ?? []) {
     if (on && index >= 0 && index < corners.length && !walls.has(index)) {
-      walls.set(index, []);
+      walls.set(
+        index,
+        areas.filter((area) => area.wall_index === index && area.polygon.length >= 3),
+      );
     }
   }
   if (walls.size === 0) return null;
@@ -173,7 +188,7 @@ export function RoomElevations({
                 <strong>Wall {index + 1}</strong>
                 <span>
                   {onWall.length > 0
-                    ? `${Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA")} sq ft · ${onWall
+                    ? `${sqm.toFixed(2)} m² · ${onWall
                         .map((area) => DAMAGE_LABEL[area.damage_type])
                         .join(", ")}`
                     : "Shown for context — no damage marked"}

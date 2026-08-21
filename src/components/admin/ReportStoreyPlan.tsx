@@ -91,6 +91,13 @@ function Room({
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? "#c9ccd2" : "#111111";
   const fill = tone === "pale" ? "#f6f7f8" : tone === "ink" ? "#e9eaec" : "#efeff0";
+  // Sized off the room's SMALLER side: a long thin closet has plenty of
+  // length and no width, and it is the width that the text runs out of.
+  const short = Math.min(plan.width, plan.height);
+  const nameSize = Math.max(0.15, Math.min(0.3, short * 0.13));
+  // Below this the two lines cannot both fit inside the room at any size a
+  // person could read.
+  const tiny = short < 1.5;
   return (
     <g transform={`translate(${at.x},${at.y})`}>
       {plan.polygon.length > 0 && (
@@ -216,33 +223,43 @@ function Room({
           centre of the bounding box and a wall can run through that point. */}
       {!locator && (
         <>
-      <text
-        x={plan.width / 2}
-        y={plan.height / 2 - 0.12}
-        textAnchor="middle"
-        stroke="#ffffff"
-        strokeWidth={0.14}
-        strokeLinejoin="round"
-        paintOrder="stroke"
-        fontSize={0.3}
-        fontWeight={600}
-        fill="#14161a"
-      >
-        {room.name}
-      </text>
-      <text
-        x={plan.width / 2}
-        y={plan.height / 2 + 0.26}
-        textAnchor="middle"
-        stroke="#ffffff"
-        strokeWidth={0.12}
-        strokeLinejoin="round"
-        paintOrder="stroke"
-        fontSize={0.25}
-        fill="#40454d"
-      >
-        {m2(room.floorAreaSqm)} ({label})
-      </text>
+          {/* **The label is sized by the room it is in.** At one fixed size
+              a laundry room 0.8m wide printed its name and its dimensions
+              straight through the bathroom next door. Scaled to the room's
+              smaller side and floored so it never becomes unreadable —
+              below that floor the figures are dropped and only the name is
+              kept, because a name half-legible is still a name and two
+              overlapping lines of numbers are neither. */}
+          <text
+            x={plan.width / 2}
+            y={plan.height / 2 - (tiny ? 0 : 0.12)}
+            textAnchor="middle"
+            dominantBaseline={tiny ? "central" : undefined}
+            stroke="#ffffff"
+            strokeWidth={nameSize * 0.45}
+            strokeLinejoin="round"
+            paintOrder="stroke"
+            fontSize={nameSize}
+            fontWeight={600}
+            fill="#14161a"
+          >
+            {room.name}
+          </text>
+          {!tiny && (
+            <text
+              x={plan.width / 2}
+              y={plan.height / 2 + nameSize * 0.95}
+              textAnchor="middle"
+              stroke="#ffffff"
+              strokeWidth={nameSize * 0.4}
+              strokeLinejoin="round"
+              paintOrder="stroke"
+              fontSize={nameSize * 0.84}
+              fill="#40454d"
+            >
+              {m2(room.floorAreaSqm)} ({label})
+            </text>
+          )}
         </>
       )}
     </g>

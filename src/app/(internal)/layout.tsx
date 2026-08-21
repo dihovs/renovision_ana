@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
+import { Poppins, Plus_Jakarta_Sans, Roboto } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "../globals.css";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
@@ -29,6 +29,26 @@ const jakarta = Plus_Jakarta_Sans({
   // Same display strategy as the marketing layout: the swap repaint was the
   // site's LCP; `optional` removes it. See src/app/[lang]/layout.tsx.
   display: "optional",
+});
+
+/**
+ * **The report's own face, and only the report's.**
+ *
+ * Read out of his magicplan export's embedded font table rather than guessed
+ * at: `Roboto-Regular` and `Roboto-Bold`. He is right that it is the correct
+ * kind of face for this document — a neutral grotesque with even colour at
+ * 7pt, unambiguous digits and a proper tabular set, which is what a page of
+ * measurements needs and what the CRM's display faces are not for.
+ *
+ * Self-hosted through next/font rather than linked, because the PDF is laid
+ * out by a headless browser on a server: a webfont fetched over the network
+ * at render time is a page break that moves when a CDN is slow.
+ */
+const roboto = Roboto({
+  variable: "--font-roboto",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 /**
@@ -88,7 +108,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${poppins.variable} ${jakarta.variable} h-full antialiased [overscroll-behavior:none]`}
+      className={`${poppins.variable} ${jakarta.variable} ${roboto.variable} h-full antialiased [overscroll-behavior:none]`}
     >
       <body className="min-h-full flex flex-col bg-white text-charcoal font-body [overscroll-behavior:none]">
         <LocalBusinessSchema />

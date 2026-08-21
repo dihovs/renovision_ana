@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { CauseTag, PlanLegend } from "./ReportSymbols";
 import ReportStoreyPlan from "./ReportStoreyPlan";
 import FloorPlan from "./FloorPlan";
-import { RoomElevations } from "./WallElevation";
+import WallElevation, { RoomElevations } from "./WallElevation";
 import {
   planCorners,
   squareMetersToSquareFeet,
@@ -115,18 +115,34 @@ export type ReportData = {
  * The bar itself is ticked in whole metres, so a reader can lay a ruler on
  * it and check.
  */
-function ScaleBar({ metresWide, pixelsWide }: { metresWide: number; pixelsWide: number }) {
-  if (!(metresWide > 0) || !(pixelsWide > 0)) return null;
-  // **The BAR is `FloorPlan`'s, not ours.** It has drawn a ticked scale in
-  // feet since long before this, and the first version of this component
-  // printed a second one underneath — two scale bars under one drawing,
-  // which is worse than none: a reader has to work out which to trust.
-  // What was genuinely missing is the RATIO, so that is all this prints.
+function ScaleBar({
+  metresWide,
+  metresTall,
+  boxWidthMm,
+  boxHeightMm,
+}: {
+  metresWide: number;
+  metresTall: number;
+  boxWidthMm: number;
+  boxHeightMm: number;
+}) {
+  if (!(metresWide > 0) || !(metresTall > 0)) return null;
 
-  // A printed page is 96 CSS px to the inch, and an inch is 25.4mm, so the
-  // ratio is metres-on-paper against metres-in-the-world.
-  const metresOnPaper = (pixelsWide / 96) * 0.0254;
-  const ratio = Math.round(metresWide / metresOnPaper);
+  // **The BAR is `FloorPlan`'s, not ours.** It has drawn a ticked scale
+  // since long before this, and the first version of this printed a second
+  // one underneath — two scale bars under one drawing is worse than none,
+  // because a reader has to work out which to trust. What was missing is the
+  // RATIO, so that is all this prints.
+  //
+  // And the ratio has to come from the box the drawing is fitted INTO. An
+  // SVG with `preserveAspectRatio` fills whichever dimension runs out first,
+  // so a tall room in a wide box is scaled by its height and a wide one by
+  // its width. Taking the width every time printed `Scale 1:21` under a
+  // drawing at nearer 1:55 — a number an adjuster can measure and disprove,
+  // which is the worst kind of error this document can carry.
+  const scale = Math.min(boxWidthMm / (metresWide * 1000), boxHeightMm / (metresTall * 1000));
+  const ratio = Math.round(1 / scale);
+  if (!Number.isFinite(ratio) || ratio <= 0) return null;
 
   return (
     <div className="scalebar">
@@ -135,7 +151,10 @@ function ScaleBar({ metresWide, pixelsWide }: { metresWide: number; pixelsWide: 
   );
 }
 
-/** Six to a page, two columns — the reference's own grid. */
+/** The box `.plan.large` gives the room drawing, in millimetres — the two
+    numbers `ScaleBar` divides by, kept beside the CSS that sets them. */
+const ROOM_PLAN_BOX = { width: 118, height: 66 };
+
 const PHOTOS_PER_PAGE = 6;
 
 /** A room's bounding extent — what the reference calls WIDTH and LENGTH. */
@@ -147,7 +166,21 @@ const PHOTOS_PER_PAGE = 6;
  * One vocabulary, `floors.ts`, decides both.
  */
 function floorLabel(level: string): string {
-  return FLOOR_LEVELS.find((entry) => entry.id === level)?.label ?? level;
+  const known = FLOOR_LEVELS.find((entry) => entry.id === level)?.label;
+  if (known) return known;
+  // A bare number is a storey, not a name. Without this a page headed
+  // `2` reads as a fragment of something — and `▼ 2` beside `▼ Kitchen`
+  // looks like a bug, which is exactly what a reader will report it as.
+  if (/^-?\d+$/.test(level)) {
+    const n = Number(level);
+    if (n === 0) return "Ground floor";
+    if (n < 0) return `Basement${n < -1 ? ` ${Math.abs(n)}` : ""}`;
+    const suffix = n % 10 === 1 && n % 100 !== 11 ? "st"
+      : n % 10 === 2 && n % 100 !== 12 ? "nd"
+      : n % 10 === 3 && n % 100 !== 13 ? "rd" : "th";
+    return `${n}${suffix} floor`;
+  }
+  return level;
 }
 
 /** The rooms sharing a storey, in the order the report prints them. */
@@ -484,13 +517,21 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             where a plan should be is worse than the empty space it filled. */}
         {coverPlanRooms.length > 0 && (
           <div className="cover-plan">
-            <div className="cover-plan-row">
-              {coverPlanRooms.map((room) => (
-                <figure key={room.id}>
-                  <FloorPlan result={room.geometry} name={room.name} variant="thumb" />
-                </figure>
-              ))}
-            </div>
+            {/* The assembled storey, not a row of loose rooms — the same
+                drawing page two prints at scale, small and quiet. A cover
+                showing five disconnected rectangles says less about the
+                property than no drawing at all. */}
+            <ReportStoreyPlan
+              rooms={coverPlanRooms.map((room) => ({
+                id: room.id,
+                name: room.name,
+                geometry: room.geometry,
+                floorAreaSqm: room.floorAreaSqm,
+                planX: room.planX ?? null,
+                planY: room.planY ?? null,
+                areas: [],
+              }))}
+            />
             <p className="cover-plan-caption">
               {floorLabel(levels[0])} — {coverPlanRooms.length} room
               {coverPlanRooms.length === 1 ? "" : "s"}
@@ -753,11 +794,14 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   A room with none shows no dimensions.
                 </p>
               )}
-              {/* 620px is what `.plan.large` is given in report.css; the
-                  drawing is fitted to it, so that is the width the ratio is
-                  computed against. */}
-              <ScaleBar metresWide={planWidthM(room.geometry)} pixelsWide={620} />
-            </div>
+              {/* **The ratio comes from the box the drawing is fitted INTO**,
+                  not from a guessed width — see `ScaleBar`. */}
+              <ScaleBar
+                metresWide={planWidthM(room.geometry)}
+                metresTall={planExtent(room.geometry).height}
+                boxWidthMm={ROOM_PLAN_BOX.width}
+                boxHeightMm={ROOM_PLAN_BOX.height}
+              />
 
             {/* **The numbered key.** Badges on the drawing against an
                 itemised legend beside it, so a figure in the table can be
@@ -820,12 +864,18 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* The damaged walls, seen straight on. The plan above cannot show
               them: it is a view from overhead, where a wall is a line with no
               height, and the height is the whole of what was marked. */}
+          {/* Only the walls somebody asked for. Every damaged wall used to
+              print here as well as inside its own affected-area block below
+              — the same wall twice on one page, and 34mm of a sheet that
+              did not have it. */}
           <RoomElevations
+            onlyFlagged
             corners={planCorners(toFloorPlan(room.geometry))}
             ceilingHeightM={room.ceilingHeightM}
             areas={wallAreas(room.areas)}
@@ -912,7 +962,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                       {list.length === 1 ? "" : "S"}
                     </p>
                     {list.map((area) => (
-                      <dl className="area-block" key={area.id}>
+                      <div className="area-entry" key={area.id}>
+                      <dl className="area-block">
                         <dt>Area</dt>
                         <dd>{m2(Number(area.area_sqm))}</dd>
                         <dt>Name</dt>
@@ -934,6 +985,25 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                           </>
                         )}
                       </dl>
+                      {/* **The patch, drawn where it is.** Theirs prints a
+                          small figure of the marked shape at the right of
+                          this block, and it is the right place for it: a
+                          wall area is a number until somebody can see that
+                          the bottom metre is wet and the damage stops under
+                          the window, which is the line a drywall price is
+                          built on. Beside the block rather than in a section
+                          of its own, so it costs the page nothing. */}
+                      {area.surface === "wall" && area.wall_index !== null && (
+                        <div className="area-figure">
+                          <WallElevation
+                            corners={planCorners(toFloorPlan(room.geometry))}
+                            wallIndex={area.wall_index}
+                            ceilingHeightM={room.ceilingHeightM}
+                            areas={[area]}
+                          />
+                        </div>
+                      )}
+                      </div>
                     ))}
                   </Fragment>
                 ),

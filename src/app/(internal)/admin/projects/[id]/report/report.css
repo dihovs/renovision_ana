@@ -35,9 +35,13 @@
      Linux server — and an inherited font resolves differently in each, which
      moves every page break. Ending in `sans-serif` keeps it a sans wherever
      the named faces are missing. */
+  /* Roboto, self-hosted — the face his own reference is set in, read out of
+     that PDF's embedded font table rather than guessed at. The fallbacks are
+     the nearest metric neighbours on each platform so a missed load shifts
+     the page as little as possible. */
   font-family:
-    ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    "Noto Sans", Arial, sans-serif;
+    var(--font-roboto), "Roboto", ui-sans-serif, -apple-system, "Segoe UI",
+    "Helvetica Neue", "Noto Sans", Arial, sans-serif;
   font-variant-numeric: tabular-nums;
 }
 
@@ -188,7 +192,7 @@
    like a spreadsheet somebody printed; what a reader needs is the column to
    hold together, which row padding does better than a border. Every rule in
    the document is now 0.75pt of the same two greys. */
-.report table { width: 100%; border-collapse: collapse; margin-top: 5mm; }
+.report table { width: 100%; border-collapse: collapse; margin-top: 4mm; }
 .report .stats {
   border-top: 0.75pt solid var(--rule-strong);
   border-bottom: 0.75pt solid var(--rule-strong);
@@ -223,6 +227,8 @@
   font-weight: 600;
 }
 
+.report .measure.key { margin-top: 4mm; }
+.report .measure.key th { font-weight: 500; color: var(--ink); }
 .report .measure th {
   text-align: left; font-weight: 400; font-size: 9pt;
   color: var(--ink-3); padding: 1.5mm 2mm;
@@ -263,12 +269,23 @@
      white with a thin drawing lost in the middle, pushing the measurements
      into a corner. A plan is an illustration of the figures beside it, not
      the page. */
-  height: 320px;
+  /* 72mm, for the same reason the storey plan is 132: a room page also
+     carries a locator, an elevation of every damaged wall and a block per
+     affected area, and at 320px (85mm) the page came out 288mm against the
+     239.4mm it has — so every room printed a blank sheet behind it. */
+  height: 66mm;
   background: #fff;
   padding: 0;
 }
 .report .plan.large > * { height: 100%; }
-.report .plan.large svg { max-height: 320px; }
+/* `!important` because `FloorPlan` carries an inline `max-height: 56vh` for
+   its use on screen, and an inline style outranks any selector. In print a
+   viewport unit is meaningless — 56vh measured 156mm against a page with
+   239.4 — so the printed document has to overrule it. */
+.report .plan.large svg { max-height: 66mm !important; }
+.report .elevations .elevation svg,
+.report .locator svg,
+.report .storey-plan svg { max-height: inherit; }
 /* Name over figures, not name beside figures. `space-between` looked tidy
    on a wide card and broke the moment six rooms shared a row: `1st bedroom`
    wrapped to two lines while its area sat alongside the first of them. */
@@ -291,22 +308,22 @@
    as large as the plan claims an importance it does not have. */
 .report .elevations {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(44mm, 1fr));
+  gap: 3mm;
+  margin-top: 4mm;
 }
 .report .elevations figure { margin: 0; }
 .report .elevations .elevation {
   width: 100%;
   /* Capped for the same reason .plan.large is: a long low wall left to grow
      would otherwise take a page to say one thing. */
-  max-height: 130px;
-  background: #f6f6f7;
-  border-radius: 6px;
-  padding: 6px;
+  max-height: 20mm;
+  background: #f6f7f8;
+  border-radius: 1mm;
+  padding: 1.5mm;
 }
 .report .elevations figcaption {
-  margin-top: 2.5mm;
+  margin-top: 1.5mm;
   font-size: 7.5pt;
   line-height: 1.4;
   color: var(--ink-3);
@@ -324,10 +341,14 @@
      numbered key last. `auto` rather than a fixed track so a storey with one
      room — where there is no locator to draw — closes the column up instead
      of printing 38mm of white. */
-  grid-template-columns: auto 1.6fr minmax(0, 0.9fr);
-  gap: 6mm;
+  /* Two columns, not three. The numbered key used to have a column of its
+     own, which meant a room with no key — most rooms — printed a third of
+     the page as white and squeezed the drawing into the middle. It sits
+     under the plan now, where it is next to the thing it keys. */
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8mm;
   align-items: start;
-  margin-top: 5mm;
+  margin-top: 4mm;
 }
 @media (max-width: 640px) {
   .report .room-body { grid-template-columns: 1fr; }
@@ -509,7 +530,7 @@
   display: flex;
   align-items: center;
   gap: 3mm;
-  margin-top: 3mm;
+  margin-top: 2mm;
   font-size: 7pt;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -593,7 +614,7 @@
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
-  margin: 5mm 0 0;
+  margin: 4mm 0 0;
   display: flex;
   align-items: center;
   gap: 2.5mm;
@@ -729,21 +750,8 @@
   align-items: center;
   gap: 4mm;
 }
-.report .cover-plan-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8mm;
-  max-height: 74mm;
-}
-.report .cover-plan-row figure {
-  margin: 0;
-  height: 34mm;
-  flex: 0 1 auto;
-}
-.report .cover-plan-row figure > *,
-.report .cover-plan-row svg { height: 100%; width: auto; max-width: 52mm; }
+.report .cover-plan .storey-plan { width: 100%; }
+.report .cover-plan .storey-plan svg { max-height: 62mm; }
 .report .cover-plan-caption {
   margin: 0;
   font-size: 6.8pt;
@@ -755,7 +763,7 @@
 
 /* The second-level section title — a block INSIDE a room's page rather than
    the page's own subject, so it steps down a size. */
-.report .marker.marker-2 { font-size: 10pt; margin-top: 6mm; }
+.report .marker.marker-2 { font-size: 10pt; margin-top: 5mm; }
 .report .marker.marker-2::before { width: 1.8mm; height: 1.8mm; }
 
 .report .cover-figures {
@@ -791,7 +799,7 @@
    sentence, and a sentence in a four-column table either wraps into a
    stripe or squeezes the figures beside it. */
 .report .area-count {
-  margin: 5mm 0 2.5mm;
+  margin: 4mm 0 2mm;
   padding-left: 4.7mm;
   font-size: 7pt;
   font-weight: 700;
@@ -801,11 +809,26 @@
 /* Each area is one block, held together by a hairline down its left edge —
    the cheapest way to say "these five rows are one thing" on a page that
    may carry four of them. */
+/* The block and its figure, side by side. */
+.report .area-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6mm;
+  break-inside: avoid;
+}
+.report .area-entry .area-block { flex: 1; }
+.report .area-figure {
+  width: 42mm;
+  flex: none;
+  margin-bottom: 3mm;
+}
+.report .area-figure svg { max-height: 24mm !important; width: 100%; height: auto; }
+
 .report .area-block {
   display: grid;
   grid-template-columns: 30mm 1fr;
-  gap: 1.8mm 6mm;
-  margin: 0 0 4mm;
+  gap: 1.4mm 6mm;
+  margin: 0 0 3mm;
   padding-left: 4.7mm;
   font-size: 9pt;
   border-left: 0.75pt solid var(--rule);
@@ -834,7 +857,12 @@
   display: block;
   width: 100%;
   height: auto;
-  max-height: 150mm;
+  /* Measured back off a rendered page, not chosen: the running header,
+     the section head, the key to the drawing and the footer take 97mm of
+     the 239.4mm a sheet has, so this is what is left with a margin of
+     safety. At 150mm the storey page came out 247.5mm and printed a blank
+     sheet after every floor. */
+  max-height: 138mm;
 }
 .report .storey-note {
   margin: 3mm 0 0;
