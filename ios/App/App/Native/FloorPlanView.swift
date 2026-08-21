@@ -531,6 +531,10 @@ struct AreaEditor: View {
     /// the short label stays automatic — asking for both a name and a note
     /// is asking a man in a wet basement to invent a title.
     @State private var notes = ""
+    /// The rewrite, while he decides. Never written into `notes` without a tap.
+    @State private var suggestion: String?
+    @State private var polishing = false
+    @State private var polishError: String?
     @State private var cause: DamageCause = .water
     @State private var saving = false
     @State private var confirmingDiscard = false
@@ -680,9 +684,79 @@ struct AreaEditor: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: Brand.Radius.card)
                                     .strokeBorder(Brand.hairline, lineWidth: 0.5))
-                        Text("Prints on the report, under this area's row.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Brand.inkFaint)
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("Prints on the report, under this area's row.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Brand.inkFaint)
+                            Spacer(minLength: Brand.Space.tight)
+
+                            // TIDY UP. His ask: *"I'm just saying whatever I
+                            // can with my language, and it doesn't sound
+                            // professional."* He dictates these one-handed in
+                            // a wet basement, often in his second language,
+                            // and they go verbatim to an insurer.
+                            //
+                            // It SUGGESTS. The rewrite appears below his own
+                            // words with a button to take it — it never
+                            // replaces what he typed, because what he typed
+                            // is what he saw, and the server is under orders
+                            // to add nothing. Two guards on one worry: a
+                            // claim note that gains a fact nobody observed is
+                            // worse than a clumsy one.
+                            if !notes.trimmed.isEmpty {
+                                Button {
+                                    polishing = true
+                                    polishError = nil
+                                    Task {
+                                        do {
+                                            suggestion = try await API.shared.polish(
+                                                note: notes.trimmed)
+                                        } catch {
+                                            polishError = error.localizedDescription
+                                        }
+                                        polishing = false
+                                    }
+                                } label: {
+                                    Label(
+                                        polishing ? "Tidying…" : "Tidy up",
+                                        systemImage: "wand.and.sparkles")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Brand.blue)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(polishing)
+                            }
+                        }
+
+                        if let suggestion {
+                            VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                                Text(suggestion)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(Brand.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                HStack {
+                                    Button("Use this") {
+                                        notes = suggestion
+                                        self.suggestion = nil
+                                    }
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(Brand.blue)
+                                    Spacer()
+                                    Button("Keep mine") { self.suggestion = nil }
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Brand.inkSoft)
+                                }
+                            }
+                            .padding(Brand.Space.small)
+                            .background(
+                                Brand.blue.opacity(0.06), in: .rect(cornerRadius: Brand.Radius.card))
+                        }
+
+                        if let polishError {
+                            Text(polishError)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.orange)
+                        }
                     }
 
                     // **One bar, one verb, decided by what was tapped** —

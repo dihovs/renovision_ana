@@ -728,6 +728,20 @@ actor API {
             body: NullablePatch(key: "livingPercent", value: percent))
     }
 
+    private struct NoteToPolish: Encodable { let note: String }
+    private struct PolishedNote: Decodable { let polished: String; let original: String }
+
+    /// Tidy a site note for the report.
+    ///
+    /// Returns the suggestion; it is NEVER applied here. What the operator
+    /// wrote is what he saw, and a claim note is evidence — the choice to
+    /// use a rewrite has to be his, made with both versions in front of him.
+    func polish(note: String) async throws -> String {
+        let data = try await request(
+            "/api/v1/notes/polish", method: "POST", body: NoteToPolish(note: note))
+        return try decode(PolishedNote.self, from: data).polished
+    }
+
     private struct PushToken: Encodable {
         let token: String
         let environment: String
