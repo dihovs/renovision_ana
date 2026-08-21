@@ -63,6 +63,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     /// overlay carries only identifiers and screen geometry, deliberately,
     /// so it stays a drawing layer with no opinion about RoomPlan.
     private var liveRoom: CapturedRoom?
+    private weak var shutter: UIButton?
     private let openWarning = PillLabel()
     /// When this capture started walking — the open-outline warning holds
     /// off this long, because every scan is "open" for its first minute and
@@ -90,6 +91,36 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         let cancelButton = chromeButton(title: "Cancel", action: #selector(cancelTapped))
         let doneButton = chromeButton(title: "Done", action: #selector(doneTapped))
         doneButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.9)
+
+        // THE SHUTTER. A white disc inside a white ring, which is what a
+        // camera button looks like on this platform and what the reference
+        // puts beside its own stop button.
+        //
+        // The briefing screen has promised this for longer than it has
+        // existed — "the white circle takes a photo mid-scan" — which is the
+        // worse half of it being missing: the app was describing a button
+        // nobody could find.
+        //
+        // Why it earns the space: the operator is already standing in front
+        // of the damage with the phone up. Making them finish the walk, find
+        // the room, and photograph it again is asking for the same trip
+        // twice, and the second trip is the one that gets skipped.
+        let shutter = UIButton(type: .custom)
+        shutter.translatesAutoresizingMaskIntoConstraints = false
+        shutter.backgroundColor = .white
+        shutter.layer.cornerRadius = 27
+        shutter.layer.borderColor = UIColor.white.cgColor
+        shutter.layer.borderWidth = 3
+        shutter.accessibilityLabel = "Take a photo"
+        shutter.addTarget(self, action: #selector(shutterTapped), for: .touchUpInside)
+
+        let shutterRing = UIView()
+        shutterRing.translatesAutoresizingMaskIntoConstraints = false
+        shutterRing.backgroundColor = .clear
+        shutterRing.layer.cornerRadius = 34
+        shutterRing.layer.borderColor = UIColor.white.cgColor
+        shutterRing.layer.borderWidth = 3
+        shutterRing.isUserInteractionEnabled = false
 
         // Top-leading, small: Apple's coaching text owns the top centre and
         // its live model preview owns the bottom, so this corner is the one
@@ -125,6 +156,8 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
             typeCard.widthAnchor.constraint(equalToConstant: 96),
         ])
 
+        view.addSubview(shutterRing)
+        view.addSubview(shutter)
         view.addSubview(cancelButton)
         view.addSubview(doneButton)
         view.addSubview(miniMap)
@@ -141,7 +174,19 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
             openWarning.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             openWarning.bottomAnchor.constraint(equalTo: doneButton.topAnchor, constant: -14),
             openWarning.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, constant: -48),
+
+            // Centred between Cancel and Done, which is the one piece of the
+            // bottom bar nothing else claims.
+            shutterRing.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            shutterRing.centerYAnchor.constraint(equalTo: doneButton.centerYAnchor),
+            shutterRing.widthAnchor.constraint(equalToConstant: 68),
+            shutterRing.heightAnchor.constraint(equalToConstant: 68),
+            shutter.centerXAnchor.constraint(equalTo: shutterRing.centerXAnchor),
+            shutter.centerYAnchor.constraint(equalTo: shutterRing.centerYAnchor),
+            shutter.widthAnchor.constraint(equalToConstant: 54),
+            shutter.heightAnchor.constraint(equalToConstant: 54),
         ])
+        self.shutter = shutter
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -398,6 +443,42 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
             captureView.captureSession.stop(pauseARSession: false)
         } else {
             captureView.captureSession.stop()
+        }
+    }
+
+    /// Take the frame that is on screen right now.
+    ///
+    /// Straight off the AR session rather than through `AVCapturePhotoOutput`:
+    /// a second capture pipeline cannot have the camera while RoomPlan is
+    /// using it, and the frame the operator is looking at IS the photograph
+    /// they mean to take.
+    ///
+    /// Held by `ScanChoices` until the room is filed, because a photograph is
+    /// a row against a ROOM and the room has no id yet.
+    @objc private func shutterTapped() {
+        guard let frame = captureView.captureSession.arSession.currentFrame else { return }
+
+        // ARKit hands the buffer in the sensor's own landscape orientation.
+        // `.right` is what turns that into the portrait the operator is
+        // holding — without it every scan photo arrives on its side.
+        let image = CIImage(cvPixelBuffer: frame.capturedImage).oriented(.right)
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(image, from: image.extent) else { return }
+
+        Task { @MainActor in
+            choices?.addPhoto(UIImage(cgImage: cgImage))
+        }
+
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        // The shutter blink every camera does — the only confirmation there
+        // is room for, and the operator is looking at the wall rather than
+        // at the button.
+        let flash = UIView(frame: view.bounds)
+        flash.backgroundColor = .white
+        flash.isUserInteractionEnabled = false
+        view.addSubview(flash)
+        UIView.animate(withDuration: 0.28, animations: { flash.alpha = 0 }) { _ in
+            flash.removeFromSuperview()
         }
     }
 

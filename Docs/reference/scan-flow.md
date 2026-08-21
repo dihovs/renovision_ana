@@ -205,3 +205,76 @@ figures that read as furniture at a glance and disappear into the drawing.
 Bottom bar is a single **Insert**, plus `Swipe up ↑ for Ground Floor info`.
 Top bar: back chevron, `Ground Floor`, `?`, share. Undo/redo top-left of the
 canvas, layers and `2D` top-right — all of which we already have.
+
+## 7 — Stopping: "Review Scan"
+
+The red square opens a sheet, and it is better than ours in one specific way.
+
+```
+        (green tick with a warning badge)
+        Room scan complete, but…
+  "Kitchen" had an opening. To prevent data loss,
+  we tried to close the room shape as shown below.
+
+        [ the room, green, on a dark card ]
+        · solid green edge  = walls it actually walked
+        · DASHED green edge = the stretch it guessed
+        · ORANGE segment    = the opening it closed across
+        · green wedge       = where the operator stood
+
+             [ Confirm Scan ]   (blue, primary)
+             Discard & Rescan   (red text)
+```
+
+**We already draw the dashed guessed edge** — that decision was made and is
+right. What theirs does better is everything around it:
+
+- It **names the room** and says what went wrong: *had an opening*.
+- It says **what the app did about it**: *we tried to close the room shape*.
+- It marks **where** in a colour of its own, so the guess has a location
+  rather than being a dash somewhere on the loop.
+- `Discard & Rescan` says what happens next; our `Discard` does not.
+
+## 8 — Video: the toggle, and the consent behind it
+
+`Save Video recording` on the Configure sheet is **off by default**. Turning
+it on raises:
+
+```
+        Save videos of your scan?
+  magicplan can save videos of your room scans to help with
+  documentation and dispute resolution. Videos may include
+  surroundings, so ensure permission before recording.
+
+        [ Continue without videos ]   (BLUE, primary)
+        [ Save videos ]               (secondary)
+```
+
+**Read the button order.** The primary, highlighted, easy button is the one
+that does NOT record. Recording someone's home is the sensitive act, so the
+safe choice is the one under the thumb — and the copy tells the operator to
+get permission from whoever lives there. That is a deliberate piece of
+design and worth copying exactly.
+
+### Where ours differs, on the owner's instruction
+
+He was explicit, 20 Aug: *"this video shouldn't go to our server because
+it's heavy… when the scan is done, we have to prompt a user to save it on
+their phone… when they click to not save, it's gonna prompt them like, okay,
+if you don't wanna save, you're gonna lose the video."*
+
+So theirs attaches the video to the room (their storage); **ours saves to the
+phone's own Photos library and never uploads**. That is the cheaper and, for
+a one-operator business, the more useful arrangement — a few hundred MB per
+room would dominate everything else the storage bill has in it.
+
+Two consequences that follow and are not optional:
+
+1. **Add-only Photos permission**, not full access. The app never reads his
+   library; it only puts something in it, and iOS has a narrower permission
+   for exactly that. Asking for more than is needed is how an app gets
+   refused the thing it does need.
+2. **The prompt is the last moment the video exists.** Once the capture
+   session ends the frames are gone, so "save it later" is not offered
+   because it cannot be honoured. That is what makes his second prompt —
+   *you will lose it* — a true statement rather than a scare.

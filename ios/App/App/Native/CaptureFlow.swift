@@ -938,6 +938,15 @@ struct CaptureFlow: View {
             // A held scan has no row yet, so it keeps its measurement and
             // loses only its placement — the packed layout catches it.
             if lastWasScan { session.markLastSaved(id) }
+            // Photographs taken during the walk, now that there is a room to
+            // file them against. Through `PhotoQueue`, so a basement with no
+            // signal keeps them on disk and sends them when there is one —
+            // the same promise every other photo in this app gets.
+            for photo in choices.takePhotos() {
+                _ = PhotoQueue.shared.enqueue(
+                    photo, projectId: projectId, roomScanId: id,
+                    affectedAreaId: nil, wallIndex: nil, note: nil)
+            }
             await placeDetectedObjects(roomId: id, geometry: geometry)
             await finishSave(id: id, geometry: geometry, held: false)
         case .held:

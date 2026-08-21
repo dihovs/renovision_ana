@@ -1,6 +1,7 @@
 import Foundation
 import RoomPlan
 import SwiftUI
+import UIKit
 
 /// What the operator settled DURING a scan, before anything was filed.
 ///
@@ -38,6 +39,30 @@ final class ScanChoices: ObservableObject {
     /// and *"it can make an arrow. So going from you or coming to you."*
     @Published private(set) var swings: [UUID: Bool] = [:]
 
+    /// Photographs taken DURING the walk, waiting for the room to exist.
+    ///
+    /// **His ask, 20 Aug 2026**, pointing at the reference's own shutter
+    /// beside its stop button: *"you can see a take a picture button."* And
+    /// the briefing screen has been promising this for longer than the
+    /// button has existed.
+    ///
+    /// Held in memory rather than filed immediately, because a photograph is
+    /// a row against a ROOM and the room has no id until the capture is
+    /// saved. They go to `PhotoQueue` at that moment, which is also what
+    /// gets them uploaded from a basement with no signal.
+    @Published private(set) var photos: [UIImage] = []
+
+    func addPhoto(_ image: UIImage) { photos.append(image) }
+
+    /// Handed over once the room has a row. Cleared in the same breath: a
+    /// second room in the same visit must not inherit the first one's
+    /// photographs.
+    func takePhotos() -> [UIImage] {
+        let taken = photos
+        photos = []
+        return taken
+    }
+
     func answer(for id: UUID) -> Answer? { answers[id] }
 
     func set(_ answer: Answer, for id: UUID) { answers[id] = answer }
@@ -52,5 +77,6 @@ final class ScanChoices: ObservableObject {
     func reset() {
         answers = [:]
         swings = [:]
+        photos = []
     }
 }
