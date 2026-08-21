@@ -216,3 +216,139 @@ try to be creative whatever."* Theirs prints the zero, so ours should.
    Area, Name, Photo.
 4. **Room stats without wall area**, as text rather than a four-cell strip.
 5. **`Bathroom 0` restored.**
+
+---
+
+# Third reference: `My New Project Report 7.pdf`
+
+Sent 20 Aug 2026 — the **Palerme job**, the one he is running through ours
+for the side-by-side. **19 pages, all 612 × 792.** Read with PDFKit, page by
+page. This is the fullest export we have and it settles several things the
+five- and six-page ones left open.
+
+## The document's order, exactly
+
+| Page | What |
+|---|---|
+| 1 | Cover |
+| 2 | The storey — one page per floor |
+| 3, 5, 8, 11, 13, 15, 17 | A room: stats, plan, then its photo count and its affected areas |
+| 4, 6–7, 9–10, 12, 14, 16, 18 | That room's photos, immediately behind it |
+| 19 | Signature — always last |
+
+**Rooms named `Other` get no page at all.** Nine rooms are counted on the
+cover; seven have room pages. The two the scanner could not name are drawn
+on the storey plan and nowhere else.
+
+## The cover, in full
+
+```
+My New Project
+CREATED ON
+July 12, 2026
+LOCATION
+4489 Rue de Palerme
+H1S 3B9 Montréal
+Québec
+CA
+
+Total area 78.64 m² | Floors 1 | Rooms 9 | Bathroom 0
+
+Renovision AnA / artush@renovisionana.ca
+68 boul cartier Ouesr, Laval, Qc, Canada / renovisionana.ca
+5799903077 / Page 1/19
+```
+
+**`LOCATION` is a stacked block, a line per part** — street, postal code and
+city, province, country. Not one comma-joined line.
+
+**The four figures print the LABEL above the value**, in cells separated by
+hairlines with a rule above and below.
+
+**`Page 1/19` is on the cover**, in the right-hand foot column. Ours never
+numbered the cover at all, which is why every page after it was off by one.
+
+And the cover carries **nothing else**. No insured, no claim block, no
+totals, no damage tables. Most of the sheet is white.
+
+## The running header carries the ADDRESS
+
+Three lines on every page from two:
+
+```
+My New Project
+4489 Rue de Palerme, H1S 3B9 Montréal, Québec, CA
+TOTAL AREA: 78.64 m² • LIVING AREA: 78.64 m² • FLOORS: 1 • ROOMS: 9
+```
+
+Here the address IS one joined line. Stacked on the cover, joined in the
+header.
+
+## The block a room page ends on
+
+```
+▼ 2nd bedroom/2nd Floor
+Photos            7 Photos (see photos page)
+1 AFFECTED WALL AREA
+Area              2.59 m²
+Name              Water damage
+Photo             1 Photo (see photos page)
+Notes             This area is heavily damaged
+```
+
+1. The heading **counts and names the surface** — `1 AFFECTED WALL AREA`.
+   Floors and walls are never merged into one heading or one table.
+2. Every field is **label and value**, never a table column. The note prints
+   as a sentence.
+3. Photos are a **pointer**, both for the room and for the area.
+4. Affected areas carry photos of their own. We have no per-area photo yet,
+   so that row is omitted rather than faked.
+
+## Photo pages
+
+**Six to a page, two columns by three rows**, captioned `<Room> Photo <n>`,
+overflowing to a second page behind the same room. **Videos are in the
+report too**, captioned `<Room> Video <n>` — magicplan prints a poster frame
+and counts it in the same sequence.
+
+## The scale bar is computed per drawing
+
+`1:70` on the storey, then `1:54`, `1:64`, `1:49`, `1:41`, `1:86`, `1:45` on
+the room pages — and the bar's own ticks change with it: `0 1 2 3m` on one
+page, `0.0 0.5 1.0 1.5 2.0 2.5m` on the next. Already how ours works.
+
+## What was built from this, 20 Aug
+
+- Cover rebuilt to theirs: `CREATED ON`, stacked `LOCATION`, labels above
+  values, hairline cells, `Page 1/19` on the foot. The insured, the claim
+  block, the wall total and the damage tables moved to a **summary page**
+  behind it — kept, because a claim without its number is not a shorter
+  report, but off the cover, because theirs has none of it.
+- Affected areas rewritten as their label/value block, grouped and counted
+  by surface. One row is ours: `Cause`. Magicplan has no equivalent because
+  it is not a restoration tool, and water, fire and mould are different
+  trades at different rates.
+- The firm's mark on the cover and in the corner of every page.
+
+## Three bugs the rendered probe found — none of which reasoning had
+
+The report was never rendered to paper before today. A five-section probe
+built from the real stylesheet and driven through the same headless Chrome
+the export uses came back wrong three times:
+
+1. **`Page n/N` counted pages that do not exist.** The total added a claim
+   page, a damage-totals page and a readings page, all of which render
+   inside pages that already exist. A nineteen-page file said `/22`.
+2. **The cover was never counted**, so page two called itself page one.
+3. **A photo page was 250.6mm of content in a 239.4mm page.** Six photos
+   printed across two sheets, and the signature was pushed onto a sixth.
+   Tiles were 62mm; the page affords 47mm. Now measured back off a rendered
+   page rather than chosen.
+
+And a fourth, from the same probe: `min-height: 0` in the print block
+collapsed each sheet to its content, so `margin-top: auto` on the footer had
+nothing to push against and short pages printed their footer tight under the
+last line instead of at the foot of the paper.
+
+**Five sections now render as five 612 × 792 pages**, footers at the foot,
+`Page n/5` correct on every one.

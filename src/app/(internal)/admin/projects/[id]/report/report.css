@@ -93,6 +93,16 @@
 .report .cover h1 { font-size: 22px; font-weight: 700; margin: 0; }
 .report .cover .addr { margin: 3px 0 0; color: var(--muted); }
 .report .brand { text-align: right; font-size: 10px; color: var(--muted); }
+/* The mark, on the cover and in the corner of every page after — small,
+   because a logo that competes with the project name is a letterhead. */
+.report .brand-mark {
+  display: block;
+  margin-left: auto;
+  width: 11mm;
+  height: auto;
+  margin-bottom: 1.5mm;
+}
+.report .running .brand-mark { width: 8mm; margin-bottom: 0; flex: none; }
 .report .brand strong { display: block; font-size: 12px; color: var(--ink); }
 
 .report .cover-grid {
@@ -259,7 +269,14 @@
     /* The @page margin does the insetting when printing, so the sheet
        itself goes back to filling the paper. */
     width: auto;
-    min-height: 0;
+    /* **Letter, less the @page margins, less 5mm of slack.** This was `0`,
+       which collapsed the sheet to its content — and a collapsed sheet is a
+       flex container with no spare height, so `margin-top: auto` on the
+       footer had nothing to push against and every short page printed its
+       footer tight under the last line instead of at the foot of the paper.
+       The 5mm is deliberate: filling the box exactly is how a rounding
+       error becomes a blank page between every real one. */
+    min-height: 23.4cm;
     padding: 0;
     margin: 0;
     /* Each section is a page. break-after rather than page-break-after: the
@@ -303,8 +320,14 @@
 .photo-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10mm 8mm;
+  gap: 6mm;
   margin-top: 6mm;
+  /* A page of six is six, or it is not a page of six. Without this the
+     grid was free to split, and a rendered probe came back with photos
+     1-4 on one sheet, 5 and 6 on the next and the signature pushed to a
+     sixth — five sections printing as six pages, with `Page 4/5` on the
+     fifth of them. */
+  break-inside: avoid;
 }
 .photo-grid figure {
   margin: 0;
@@ -312,7 +335,15 @@
 .photo-grid img,
 .photo-grid .missing {
   width: 100%;
-  height: 62mm;
+  /* **Measured against the sheet, not chosen.** Letter less the 2cm
+     margins is 239.4mm. The running header, the section marker, the grid's
+     own top margin and the footer take about 42mm of it; two 8mm gutters
+     take 12; the captions take about 7mm a row. That leaves three rows of
+     47mm, measured back off a rendered page rather than guessed: the
+     section comes out 231.7mm against the 239.4mm it has. 62mm — what this
+     was — made it 250.6mm, so every photo page was followed by a blank
+     one carrying nothing but the overflow. */
+  height: 47mm;
   object-fit: cover;
   border: 1px solid #d8dade;
   border-radius: 2px;
@@ -388,26 +419,78 @@
 .report .page-foot p { font-size: 6.5pt; color: #8e939b; margin: 0; max-width: 140mm; }
 .report .page-foot span { font-size: 8pt; color: #62666d; white-space: nowrap; }
 
-/* The cover's four figures, in the reference's order. */
+/* **The cover, as a page rather than a stack.** Theirs is mostly empty:
+   the project and its two facts at the top, the figures a third of the way
+   down, and the firm at the very foot. That emptiness is the design — a
+   cover that fills itself with tables reads as the first page of a table,
+   not as a cover — so the space below the figures is given away with an
+   auto margin rather than guessed at with a fixed one. */
+.report .page.cover { display: flex; flex-direction: column; }
+
+/* `CREATED ON` and `LOCATION`, each a small grey label with its value or
+   its stacked address lines under it. */
+.report .cover-facts {
+  display: flex;
+  gap: 24mm;
+  margin-top: 12mm;
+}
+.report .cover-label {
+  margin: 0 0 1.5mm;
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8e939b;
+}
+.report .cover-value { margin: 0; font-size: 10pt; line-height: 1.45; }
+
+/* The cover's four figures, in the reference's order — and in their
+   arrangement: the LABEL above and the value under it, cells separated by
+   hairlines, the whole strip ruled top and bottom. */
 .report .cover-figures {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8mm;
-  margin: 10mm 0;
-  padding: 6mm 0;
-  border-top: 1px solid #e4e6ea;
-  border-bottom: 1px solid #e4e6ea;
+  margin: 22mm 0 auto;
+  border-top: 1px solid #c9ccd2;
+  border-bottom: 1px solid #c9ccd2;
+}
+.report .cover-figures > div {
+  padding: 3mm 4mm;
+  border-left: 1px solid #e4e6ea;
+}
+.report .cover-figures > div:first-child { border-left: 0; padding-left: 0; }
+.report .cover-figures .figure-label {
+  display: block;
+  font-size: 8pt;
+  color: #8e939b;
 }
 .report .cover-figures .figure-value {
   display: block;
-  font-size: 16pt;
+  margin-top: 1mm;
+  font-size: 11pt;
   font-weight: 600;
 }
-.report .cover-figures .figure-label {
-  display: block;
+
+/* **The affected-area block, and the photo pointer above it.** Label and
+   value, not a table column — theirs prints the whole of a note as a
+   sentence, and a sentence in a four-column table either wraps into a
+   stripe or squeezes the figures beside it. */
+.report .area-count {
+  margin: 4mm 0 2mm;
   font-size: 8.5pt;
-  color: #62666d;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #33333a;
 }
+.report .area-block {
+  display: grid;
+  grid-template-columns: 32mm 1fr;
+  gap: 1.5mm 6mm;
+  margin: 0 0 3mm;
+  font-size: 9pt;
+}
+.report .area-block dt { color: #62666d; }
+.report .area-block dd { margin: 0; color: #1b1c1f; }
 
 /* The locator: the storey's rooms in a row, this one shaded. */
 .report .locator {

@@ -297,19 +297,42 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   // still — and a report that says "Page 4 of 19" is making a claim about
   // completeness that has to be right. Everything here is generated from
   // one list, so the count is arithmetic rather than a guess.
+  // **Their cover stacks the address, a line per part** — street, then
+  // postal code and city, then province, then country. Ours arrives as one
+  // joined string, so it is split back on the commas it was joined with.
+  const addressLines = (property ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  // Everything that used to crowd the cover now has a page of its own, and
+  // that page only exists when it has something on it.
+  const hasSummary =
+    shownClaim.length > 0 ||
+    client !== null ||
+    damage.floor.length + damage.wall.length > 0 ||
+    Boolean(project.description);
+
   const photoPageCount = rooms.reduce((sum, room) => sum + photoPages(room).length, 0);
+  // **Only pages that are actually rendered may be counted.** A level with
+  // no rooms returns null below; the claim block, the damage totals and the
+  // moisture readings all live on pages that already exist and add none.
+  // This sum used to add up to three phantom pages, so every footer in the
+  // document printed `Page 4/22` of a nineteen-page file — and a page count
+  // is a claim about completeness, which makes a wrong one worse than none.
+  const levelPageCount = levels.filter((level) =>
+    rooms.some((room) => room.level === level),
+  ).length;
   const totalPages = floorsOnly
-    ? 1 + levels.length + 1
+    ? 1 + levelPageCount + 1
     : 1 // cover
-      + (shownClaim.length > 0 || client ? 1 : 0)
-      + levels.length
+      + (hasSummary ? 1 : 0)
+      + levelPageCount
       + rooms.length
       + photoPageCount
-      + (damage.floor.length + damage.wall.length > 0 ? 1 : 0)
-      + (rooms.some((room) => room.readings.length > 0) ? 1 : 0)
       + (equipment.length > 0 ? 1 : 0)
       + 1 // signature
-      + 1; // definitions
+      + (rooms.length > 0 ? 1 : 0); // definitions
   let pageNo = 0;
   const nextPage = () => ++pageNo;
 
@@ -333,15 +356,45 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {/* ---------------------------------------------------- cover */}
       <section className="page cover">
         <header className="cover-head">
-          <div>
-            <h1>{project.name}</h1>
-            {property && <p className="addr">{property}</p>}
-          </div>
+          <h1>{project.name}</h1>
           <div className="brand">
+            {/* Theirs prints the firm's MARK here, and again in the corner of
+                every page after — which is what makes an export read as a
+                document from a company rather than as output from a tool.
+                Ours has a mark; it was only ever missing from the paper. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/renovision-logo.png" alt="" className="brand-mark" />
             <strong>{company.tradeName || company.legalName}</strong>
             {company.rbqLicence && <span>RBQ {company.rbqLicence}</span>}
           </div>
         </header>
+
+        {/* **Their cover, in their order and nothing else on it** — read off
+            the nineteen-page export: the project, `CREATED ON` with the date
+            under it, `LOCATION` with the address stacked a line per part,
+            then the four figures and the firm.
+
+            What used to sit between them — the insured, the claim block, the
+            wall total and the two damage tables — has not been thrown away.
+            It is on the summary page that follows, which is where a total
+            belongs anyway. A cover carrying eight blocks is not the document
+            he is putting ours beside. */}
+        <div className="cover-facts">
+          <div>
+            <p className="cover-label">CREATED ON</p>
+            <p className="cover-value">{date(generatedAt)}</p>
+          </div>
+          {addressLines.length > 0 && (
+            <div>
+              <p className="cover-label">LOCATION</p>
+              {addressLines.map((line) => (
+                <p className="cover-value" key={line}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* **Their four cover figures, in their order.** Total area,
             Floors, Rooms — and BATHROOM, which is a room TYPE counted
@@ -364,65 +417,12 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             ["Bathroom", String(bathroomCount)],
           ].map(([label, value]) => (
             <div key={label}>
-              <span className="figure-value">{value}</span>
+              {/* Label ABOVE the value, as theirs prints it. */}
               <span className="figure-label">{label}</span>
+              <span className="figure-value">{value}</span>
             </div>
           ))}
         </div>
-
-        <div className="cover-grid">
-          <dl>
-            <dt>Insured</dt>
-            <dd>{client?.name ?? "—"}</dd>
-            <dt>Property</dt>
-            <dd>{property ?? "—"}</dd>
-            <dt>Work started</dt>
-            <dd>{date(project.started_on)}</dd>
-            <dt>Report prepared</dt>
-            <dd>{date(generatedAt)}</dd>
-          </dl>
-
-          <dl>
-            {shownClaim.length === 0 ? (
-              <>
-                <dt>Claim details</dt>
-                <dd className="muted">Not recorded</dd>
-              </>
-            ) : (
-              shownClaim.map((field) => (
-                <span key={field.id} style={{ display: "contents" }}>
-                  <dt>{field.label}</dt>
-                  <dd>{claim[field.id]}</dd>
-                </span>
-              ))
-            )}
-          </dl>
-        </div>
-
-        {/* Wall area alone here: floor area, floors and rooms are already
-            in the four figures above, and printing them twice on one cover
-            — as this did — makes a reader check whether the two agree. */}
-        <table className="stats">
-          <thead>
-            <tr>
-              {/* Named gross so the definitions appendix maps onto it. */}
-              <th>Wall area (gross)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>{m2(wallAreaSqm)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Two tables, never one. Named by surface, not just "affected
-            area": both of these are affected area, and an adjuster must be
-            able to tell which surface a figure priced. */}
-        <DamageTotals title="Affected floor area by cause" totals={damage.floor} />
-        <DamageTotals title="Affected wall area by cause" totals={damage.wall} />
-
-        {project.description && <p className="desc">{project.description}</p>}
 
         <footer className="cover-foot">
           <span>
@@ -434,9 +434,78 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               .filter(Boolean)
               .join(", ")}
           </span>
-          <span>{company.phone}</span>
+          <span>
+            {company.phone}
+            <br />
+            Page {nextPage()}/{totalPages}
+          </span>
         </footer>
       </section>
+
+      {/* ------------------------------------------------------ summary */}
+      {/* The blocks the cover used to carry. Kept, because a claim without
+          its number and a scope without its damage totals is not a smaller
+          report — it is an unusable one. Moved, because their cover has
+          none of it and this one is being read side by side with theirs. */}
+      {!floorsOnly && hasSummary && (
+        <section className="page">
+          <Running project={project.name} address={property} totals={headerTotals} />
+          <p className="marker">▼ Summary</p>
+          <div className="cover-grid">
+            <dl>
+              <dt>Insured</dt>
+              <dd>{client?.name ?? "—"}</dd>
+              <dt>Property</dt>
+              <dd>{property ?? "—"}</dd>
+              <dt>Work started</dt>
+              <dd>{date(project.started_on)}</dd>
+              <dt>Report prepared</dt>
+              <dd>{date(generatedAt)}</dd>
+            </dl>
+
+            <dl>
+              {shownClaim.length === 0 ? (
+                <>
+                  <dt>Claim details</dt>
+                  <dd className="muted">Not recorded</dd>
+                </>
+              ) : (
+                shownClaim.map((field) => (
+                  <span key={field.id} style={{ display: "contents" }}>
+                    <dt>{field.label}</dt>
+                    <dd>{claim[field.id]}</dd>
+                  </span>
+                ))
+              )}
+            </dl>
+          </div>
+
+          {/* Wall area alone here: floor area, floors and rooms are on the
+              cover, and the same figure twice in one document makes a reader
+              stop reading and start checking whether the two agree. */}
+          <table className="stats">
+            <thead>
+              <tr>
+                {/* Named gross so the definitions appendix maps onto it. */}
+                <th>Wall area (gross)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{m2(wallAreaSqm)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Two tables, never one. Named by surface, not just "affected
+              area": both of these are affected area, and an adjuster must be
+              able to tell which surface a figure priced. */}
+          <DamageTotals title="Affected floor area by cause" totals={damage.floor} />
+          <DamageTotals title="Affected wall area by cause" totals={damage.wall} />
+          {project.description && <p className="desc">{project.description}</p>}
+          <PageFoot n={nextPage()} of={totalPages} company={company} />
+        </section>
+      )}
 
       {/* ------------------------------------------- one page per floor */}
       {levels.map((level) => {
@@ -617,60 +686,6 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             </table>
           </div>
 
-          {room.areas.length > 0 && (
-            /* Floor rows first, then the walls in wall order — and every row
-               says which surface it measured. Without that column the table
-               puts 40 sq ft of floor and 40 sq ft of wall in the same column
-               under the same heading, and the two are priced by different
-               trades. */
-            <table className="listing">
-              <thead>
-                <tr>
-                  <th>Affected area</th>
-                  <th>Surface</th>
-                  <th>Cause</th>
-                  <th className="num">Measured</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...floorAreas(room.areas), ...wallAreas(room.areas)].map((area) => (
-                  <Fragment key={area.id}>
-                  <tr>
-                    <td>
-                      <span className="swatch" style={{ background: areaColor(area) }} />
-                      {area.name}
-                    </td>
-                    <td>
-                      {area.surface === "wall"
-                        ? `Wall ${(area.wall_index ?? 0) + 1}`
-                        : "Floor"}
-                    </td>
-                    <td>{DAMAGE_LABEL[area.damage_type]}</td>
-                    {/* The LAST imperial figure in this document. Three
-                        separate tables have now been caught printing square
-                        feet under a header that says m² — the cover's damage
-                        totals, the room's measure table, and this. Fixing
-                        them one at a time is how the third one survived two
-                        rounds of fixing the first two. */}
-                    <td className="num">{m2(Number(area.area_sqm))}</td>
-                  </tr>
-                  {area.notes && (
-                    /* What is actually wrong here, in his words — the field
-                       the app could never write to until today. It goes
-                       UNDER its own row rather than in a column: a sentence
-                       in a four-column table either wraps into a stripe or
-                       squeezes the figures, and this one is the part an
-                       adjuster reads. */
-                    <tr key={`${area.id}-note`} className="note-row">
-                      <td colSpan={4}>{area.notes}</td>
-                    </tr>
-                  )}
-                </Fragment>
-                ))}
-              </tbody>
-            </table>
-          )}
-
           {/* The damaged walls, seen straight on. The plan above cannot show
               them: it is a view from overhead, where a wall is a line with no
               height, and the height is the whole of what was marked. */}
@@ -716,16 +731,75 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 
           {room.notes && <p className="notes">{room.notes}</p>}
 
-          {/* The photos are NOT here. They follow, on their own pages —
-              see below. What stays is the pointer the reference prints, so
-              a reader on the plan page knows they exist and where. */}
-          {room.photos.length > 0 && (
+          {/* **The block their room page ends on, duplicated.** Read off
+              page 5 of the nineteen-page export, in this exact order:
+
+                  ▼ 2nd bedroom/2nd Floor
+                  Photos            7 Photos (see photos page)
+                  1 AFFECTED WALL AREA
+                  Area              2.59 m²
+                  Name              Water damage
+                  Notes             This area is heavily damaged
+
+              Three things it settles. The photos are a POINTER, not the
+              photographs — those follow on their own pages. The heading
+              counts and names the surface, so `1 AFFECTED WALL AREA` and
+              `2 AFFECTED FLOOR AREAS` never get read as the same figure.
+              And each area is label-and-value rows, not a table column, so
+              a sentence of notes prints as a sentence.
+
+              One row is ours: `Cause`. Theirs has no equivalent because
+              magicplan is not a restoration tool — but water, fire and mould
+              are different trades at different rates, and an area whose
+              cause is not stated cannot be priced. It is one more row in
+              their own idiom, not a structure they do not have. */}
+          {(room.photos.length > 0 || room.areas.length > 0) && (
             <>
-              <p className="marker">▼ {room.name}/{room.level}</p>
-              <p className="photo-pointer">
-                Photos — {room.photos.length}{" "}
-                {room.photos.length === 1 ? "Photo" : "Photos"} (see photos page)
-              </p>
+              <p className="marker">▼ {room.name}/{floorLabel(room.level)}</p>
+              {room.photos.length > 0 && (
+                <dl className="area-block">
+                  <dt>Photos</dt>
+                  <dd>
+                    {room.photos.length}{" "}
+                    {room.photos.length === 1 ? "Photo" : "Photos"} (see photos page)
+                  </dd>
+                </dl>
+              )}
+              {([
+                ["FLOOR", floorAreas(room.areas)],
+                ["WALL", wallAreas(room.areas)],
+              ] as const).map(([surface, list]) =>
+                list.length === 0 ? null : (
+                  <Fragment key={surface}>
+                    <p className="area-count">
+                      {list.length} AFFECTED {surface} AREA
+                      {list.length === 1 ? "" : "S"}
+                    </p>
+                    {list.map((area) => (
+                      <dl className="area-block" key={area.id}>
+                        <dt>Area</dt>
+                        <dd>{m2(Number(area.area_sqm))}</dd>
+                        <dt>Name</dt>
+                        <dd>{area.name}</dd>
+                        <dt>Cause</dt>
+                        <dd>{DAMAGE_LABEL[area.damage_type] ?? area.damage_type}</dd>
+                        {area.surface === "wall" && (
+                          <>
+                            <dt>Wall</dt>
+                            <dd>Wall {(area.wall_index ?? 0) + 1}</dd>
+                          </>
+                        )}
+                        {area.notes && (
+                          <>
+                            <dt>Notes</dt>
+                            <dd>{area.notes}</dd>
+                          </>
+                        )}
+                      </dl>
+                    ))}
+                  </Fragment>
+                ),
+              )}
             </>
           )}
           <PageFoot n={nextPage()} of={totalPages} company={company} />
@@ -851,8 +925,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             </tbody>
           </table>
           <p className="fineprint">
-            All measurements are taken in metres and converted for display.
-            Figures in this report are rounded to the foot and the square foot.
+            All measurements are taken and printed in metres. Lengths are
+            given to the millimetre and areas to the hundredth of a square
+            metre, which is the precision the scan itself carries.
           </p>
         </section>
       )}
@@ -923,9 +998,13 @@ function Running({
   // the phone.
   return (
     <header className="running">
-      <div className="running-project">{project}</div>
-      {address && <div className="running-address">{address}</div>}
-      <div className="running-totals">{totals}</div>
+      <div>
+        <div className="running-project">{project}</div>
+        {address && <div className="running-address">{address}</div>}
+        <div className="running-totals">{totals}</div>
+      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/renovision-logo.png" alt="" className="brand-mark" />
     </header>
   );
 }
