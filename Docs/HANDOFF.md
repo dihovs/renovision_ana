@@ -212,26 +212,22 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
 
 **In this order. The first is five minutes and unblocks a build.**
 
-1. **Compile `SiteCamera.swift`.** It has never been through a build. It is
-   the camera every site photo now goes through, so nothing else can be tested
-   on device until it compiles.
-2. **Move the viewBox fitter into `scripts/fit-artwork.mjs`** and note it in
-   the artwork pipeline above. It has been rewritten from memory twice.
-3. **Get a build onto his phone.** `devicectl` has read `unavailable` all
+1. **Get a build onto his phone.** This is now the only thing standing between
+   the work and his hands. `devicectl` has read `unavailable` all
    session — the tunnel sleeps; this is NOT a Wi-Fi-disabled problem, which I
    told him three times and was wrong about. A cable settles it.
-4. **Verify the PDF actually renders.** `Download PDF` drives a headless
+2. **Verify the PDF actually renders.** `Download PDF` drives a headless
    browser server-side and has never once been run end to end — the preview
    origin has no session and I will not type his password. Either he signs in,
    or press it from a signed-in browser and check the file.
-5. **Seven windows still have no `OpeningKind` case**, so their drawings sit
+3. **Seven windows still have no `OpeningKind` case**, so their drawings sit
    in `Native/Artwork` unreachable: `window-awning`, `window-bow`,
    `window-glass-block`, `window-half-round`, `window-skylight`,
    `window-storm`, `window-transom`. Adding a case means adding it to every
    `switch` over `OpeningKind` — label, stock width and height, glyph, and the
    three renderers — so it needs a compile, not a blind edit at the end of a
    session. Rename each file to `door-window<Kind>.svg` once its case exists.
-6. **Guided protocol Phase 1**, starting with the rules table as pure data
+4. **Guided protocol Phase 1**, starting with the rules table as pure data
    plus tests, and no interface at all. The rules ARE the design and he can
    review them before a screen exists.
 
@@ -367,11 +363,11 @@ sixth repetition.
   looked is a far stronger thing on a claim than the absence of a finding.
   Rules table first, with tests, before any screen. **He approved the
   direction.**
-- **`ios/App/App/Native/SiteCamera.swift` (new, NEVER COMPILED)** — a real
-  `AVCaptureSession` camera with the reference's chrome: mode strip, lens
-  buttons, grid, and the timestamp burned into the frame while you aim. It is
-  wired into `RoomPhotosSection` in place of `UIImagePickerController`. **It
-  has not been through a build once.** Compile it before anything else.
+- **`ios/App/App/Native/SiteCamera.swift` (new)** — a real `AVCaptureSession`
+  camera with the reference's chrome: mode strip, lens buttons, grid, and the
+  timestamp burned into the frame while you aim. It replaces
+  `UIImagePickerController` in `RoomPhotosSection`. **It compiles** — the whole
+  app was built at the end of the session. It has never been RUN.
 
 ### magicplan reference — a correction worth carrying
 
