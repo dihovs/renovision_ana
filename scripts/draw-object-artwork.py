@@ -119,6 +119,55 @@ def appliance(w, d, h, *, door=None, dial=False, vent=0, feet=False):
             s += line((w * fx, d * fy, 0), (w * fx, d * fy, -h * 0.10), INK, 2.0)
     return s
 
+
+def panel(x1, y1, x2, y2, z0, h, t=1.0, top=TOP, face=RIGHT, back=LEFT, sw=SW):
+    """
+    A vertical panel from (x1,y1) to (x2,y2), `h` tall and `t` thick.
+
+    The door leaves need this: `box` can only stand square to the axes, and a
+    door that is not ajar is not a door — it is a rectangle. Whichever of the
+    two broad faces points toward the camera is drawn in the lighter ink.
+    """
+    dx, dy = x2 - x1, y2 - y1
+    L = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / L, dy / L
+    nx, ny = -uy * t / 2, ux * t / 2
+    # The viewer sits toward (+x, +y); the face whose normal agrees is nearer.
+    near = 1 if (-uy + ux) > 0 else -1
+    a = (x1 + nx * near, y1 + ny * near)
+    b = (x2 + nx * near, y2 + ny * near)
+    c = (x2 - nx * near, y2 - ny * near)
+    d = (x1 - nx * near, y1 - ny * near)
+    out = poly([iso(a[0], a[1], z0 + h), iso(b[0], b[1], z0 + h),
+                iso(c[0], c[1], z0 + h), iso(d[0], d[1], z0 + h)], top, INK, sw)
+    out += poly([iso(a[0], a[1], z0), iso(b[0], b[1], z0),
+                 iso(b[0], b[1], z0 + h), iso(a[0], a[1], z0 + h)], face, INK, sw)
+    out += poly([iso(b[0], b[1], z0), iso(c[0], c[1], z0),
+                 iso(c[0], c[1], z0 + h), iso(b[0], b[1], z0 + h)], back, INK, sw)
+    return out
+
+
+def swing_arrow(hx, hy, r, a0, a1, z=0.4):
+    """The red arc a door sweeps, drawn on the floor — their convention, and
+       the only mark that says which way the thing opens."""
+    steps = 18
+    pts_ = []
+    for i in range(steps + 1):
+        a = math.radians(a0 + (a1 - a0) * i / steps)
+        pts_.append(iso(hx + r * math.cos(a), hy + r * math.sin(a), z))
+    d = "M " + " L ".join(f"{x:.2f} {y:.2f}" for x, y in pts_)
+    out = f'<path d="{d}" fill="none" stroke="{WARN}" stroke-width="1.9" stroke-linecap="round"/>'
+    # Head, aimed along the tangent at the far end.
+    a = math.radians(a1)
+    tip = iso(hx + r * math.cos(a), hy + r * math.sin(a), z)
+    back_a = math.radians(a1 - 13 * (1 if a1 > a0 else -1))
+    bx, by = iso(hx + r * 0.90 * math.cos(back_a), hy + r * 0.90 * math.sin(back_a), z)
+    sx, sy = iso(hx + r * 1.10 * math.cos(back_a), hy + r * 1.10 * math.sin(back_a), z)
+    out += (f'<path d="M {tip[0]:.2f} {tip[1]:.2f} L {bx:.2f} {by:.2f} '
+            f'L {sx:.2f} {sy:.2f} Z" fill="{WARN}"/>')
+    return out
+
+
 RECIPES = {}
 def recipe(name):
     def wrap(fn):
@@ -590,77 +639,119 @@ def _():
 # like hexagons — which is what the owner meant by not being able to see them.
 
 def _opening(kind):
-    F = INK
-    body = []
-    body.append(f'<rect x="-30" y="-38" width="60" height="6" rx="1.5" fill="{WOOD_D}" stroke="{F}" stroke-width="{SW}"/>')
-    # jambs and head
-    body.append(f'<path d="M -26 32 L -26 -32 L 26 -32 L 26 32" fill="none" stroke="{F}" stroke-width="{SW*1.6}" stroke-linecap="square"/>')
-    body.append(f'<rect x="-30" y="30" width="60" height="6" rx="1.5" fill="{WOOD}" stroke="{F}" stroke-width="{SW}"/>')
+    """
+    A door or a window, in the SAME isometric space as every object.
 
-    def leaf(x, w, fill=TOP, knob=None):
-        out = [f'<rect x="{x}" y="-30" width="{w}" height="60" rx="1" fill="{fill}" stroke="{F}" stroke-width="{SW}"/>']
-        if knob is not None:
-            out.append(f'<circle cx="{knob}" cy="2" r="2.2" fill="{DARK}"/>')
-        return "".join(out)
+    The previous set drew these flat and frontally, which is why they sat
+    apart from the rest of the library like a different product. The owner's
+    reference draws them in three dimensions with the leaf ajar, and he is
+    right that it reads better — a door standing shut is a rectangle, and a
+    door standing open is unmistakably a door.
 
-    def arrow(x1, x2, y=14):
-        d = 1 if x2 > x1 else -1
-        return (f'<path d="M {x1} {y} L {x2} {y}" stroke="{WARN}" stroke-width="3.4" stroke-linecap="round"/>'
-                f'<path d="M {x2} {y} L {x2-6*d} {y-4.5} L {x2-6*d} {y+4.5} Z" fill="{WARN}"/>')
+    Drawn here, not copied. The isometric view, the wood threshold and the
+    red swing arc are how the trade draws an opening; the drawing is ours.
+    """
+    # **The wall is context, not the subject.** The first cut drew it at full
+    # outline weight, and six stacked 2.4pt strokes turned the whole tile into
+    # a black slab with the door lost inside it. Hairlines and pale fills put
+    # the leaf back in front.
+    WALL_F, WALL_B, WALL_T = "#E7ECF1", "#D3DBE3", "#F1F4F7"
+    WSW = 1.3
+    W = 26.0          # the wall run this piece of wall shows
+    OP = 15.0         # the opening in it
+    TH = 2.6          # wall thickness
+    H = 30.0          # wall height
+    x0 = (W - OP) / 2
 
-    if kind == "doorSingle":
-        body.append(leaf(-22, 44, TOP, knob=14))
-        body.append(arrow(6, -14))
-    elif kind == "doorDouble":
-        body.append(leaf(-23, 22, TOP, knob=-4))
-        body.append(leaf(1, 22, TOP, knob=4))
-        body.append(arrow(-4, -18)); body.append(arrow(4, 18))
-    elif kind == "doorSliding":
-        body.append(leaf(-24, 24, GLASS))
-        body.append(leaf(0, 24, GLASS))
-        body.append(arrow(6, 20))
+    # The wall, in two returns either side of the opening.
+    s = poly([iso(0, 0, 0), iso(W, 0, 0), iso(W, TH, 0), iso(0, TH, 0)],
+             WOOD, INK, WSW)                                   # threshold
+    s += panel(0, TH / 2, x0, TH / 2, 0, H, TH, top=WALL_T, face=WALL_F, back=WALL_B, sw=WSW)
+    s += panel(x0 + OP, TH / 2, W, TH / 2, 0, H, TH, top=WALL_T, face=WALL_F, back=WALL_B, sw=WSW)
+    s += panel(x0, TH / 2, x0 + OP, TH / 2, H - 3.4, 3.4, TH,
+               top=WALL_T, face=WALL_F, back=WALL_B, sw=WSW)
+
+    hx, hy = x0, TH / 2                                        # the hinge
+    # **Which way the leaf swings is a geometry problem, not a taste one.**
+    # A leaf at +52° has a face normal of (-sin a, cos a), which dotted with
+    # the camera direction (+1, +1) comes out NEGATIVE — the face points away
+    # and all you see is its edge, drawn at full outline weight, which is why
+    # the door came out as a black bar. Swinging it the other way turns the
+    # face to the camera and the door reads as a door.
+    ang = -50.0
+
+    def leaf(hinge_x, deg, length=OP, fill=TOP, glass=False, thick=2.4):
+        a = math.radians(deg)
+        tx = hinge_x + length * math.cos(a)
+        ty = hy + length * math.sin(a)
+        return panel(hinge_x, hy, tx, ty, 0, H - 3.4, thick,
+                     top=TOP, face=GLASS if glass else fill,
+                     back=GLASS_D if glass else RIGHT, sw=1.7)
+
+    if kind in ("doorSingle", "doorEntry"):
+        s += leaf(hx, ang)
+        s += swing_arrow(hx, hy, OP * 0.66, ang, -3)
+    elif kind in ("doorDouble", "doorFrench"):
+        g = kind == "doorFrench"
+        s += leaf(hx, ang, OP / 2, glass=g)
+        s += leaf(x0 + OP, 180 - ang, OP / 2, glass=g)
+        s += swing_arrow(hx, hy, OP * 0.40, ang, -4)
+        s += swing_arrow(x0 + OP, hy, OP * 0.40, 180 - ang, 184)
+    elif kind in ("doorSliding", "doorPatio", "doorBypass"):
+        g = kind != "doorBypass"
+        # Two leaves in the plane of the wall, one slid past the other.
+        s += panel(x0, TH / 2 + 0.9, x0 + OP * 0.55, TH / 2 + 0.9, 0, H - 3.4, 1.0,
+                   top=TOP, face=GLASS if g else RIGHT, back=GLASS_D if g else LEFT, sw=SW)
+        s += panel(x0 + OP * 0.45, TH / 2 - 0.9, x0 + OP, TH / 2 - 0.9, 0, H - 3.4, 1.0,
+                   top=TOP, face=GLASS if g else TOP, back=GLASS_D if g else RIGHT, sw=SW)
+        s += (f'<path d="M {iso(x0+OP*0.62, TH/2+2.6, 8)[0]:.2f} {iso(x0+OP*0.62, TH/2+2.6, 8)[1]:.2f} '
+              f'L {iso(x0+OP*1.02, TH/2+2.6, 8)[0]:.2f} {iso(x0+OP*1.02, TH/2+2.6, 8)[1]:.2f}" '
+              f'stroke="{WARN}" stroke-width="2.8" stroke-linecap="round" fill="none"/>')
+        tipx, tipy = iso(x0 + OP * 1.10, TH / 2 + 2.6, 8)
+        b1 = iso(x0 + OP * 0.98, TH / 2 + 2.6, 10.4)
+        b2 = iso(x0 + OP * 0.98, TH / 2 + 2.6, 5.6)
+        s += f'<path d="M {tipx:.2f} {tipy:.2f} L {b1[0]:.2f} {b1[1]:.2f} L {b2[0]:.2f} {b2[1]:.2f} Z" fill="{WARN}"/>'
     elif kind == "doorPocket":
-        body.append(f'<rect x="2" y="-30" width="24" height="60" fill="{LEFT}" stroke="{F}" stroke-width="{SWT}" stroke-dasharray="4 3"/>')
-        body.append(leaf(-24, 26, TOP, knob=-16))
-        body.append(arrow(-6, 14))
+        s += panel(x0 + OP * 0.42, TH / 2, x0 + OP, TH / 2, 0, H - 3.4, 1.0, sw=SW)
+        s += (f'<path d="M {iso(x0+OP*0.40, TH/2, 6)[0]:.2f} {iso(x0+OP*0.40, TH/2, 6)[1]:.2f} '
+              f'L {iso(x0+0.6, TH/2, 6)[0]:.2f} {iso(x0+0.6, TH/2, 6)[1]:.2f}" '
+              f'stroke="{WARN}" stroke-width="2.8" stroke-linecap="round" fill="none"/>')
+        tipx, tipy = iso(x0 - 0.6, TH / 2, 6)
+        b1 = iso(x0 + 1.6, TH / 2, 8.4); b2 = iso(x0 + 1.6, TH / 2, 3.6)
+        s += f'<path d="M {tipx:.2f} {tipy:.2f} L {b1[0]:.2f} {b1[1]:.2f} L {b2[0]:.2f} {b2[1]:.2f} Z" fill="{WARN}"/>'
     elif kind == "doorBifold":
-        body.append(f'<path d="M -24 -30 L -4 -24 L -4 24 L -24 30 Z" fill="{TOP}" stroke="{F}" stroke-width="{SW}" stroke-linejoin="round"/>')
-        body.append(f'<path d="M -4 -24 L 16 -30 L 16 30 L -4 24 Z" fill="{RIGHT}" stroke="{F}" stroke-width="{SW}" stroke-linejoin="round"/>')
-        body.append(arrow(2, -14))
-    elif kind == "doorBypass":
-        body.append(leaf(-24, 26, RIGHT))
-        body.append(leaf(-4, 26, TOP, knob=16))
-        body.append(arrow(6, 20))
-    elif kind == "doorFrench":
-        body.append(leaf(-23, 22, GLASS, knob=-4))
-        body.append(leaf(1, 22, GLASS, knob=4))
-        body.append(arrow(-4, -18)); body.append(arrow(4, 18))
-    elif kind == "doorPatio":
-        body.append(leaf(-24, 24, GLASS))
-        body.append(leaf(0, 24, GLASS))
-        body.append(f'<rect x="-24" y="-30" width="24" height="60" fill="none" stroke="{F}" stroke-width="{SWT}"/>')
-        body.append(arrow(6, 20))
-    elif kind == "doorEntry":
-        body.append(leaf(-22, 44, TOP, knob=14))
-        body.append(f'<rect x="-12" y="-24" width="24" height="18" rx="1" fill="{GLASS}" stroke="{F}" stroke-width="{SWT}"/>')
-        body.append(arrow(6, -14))
+        s += leaf(hx, -58, OP / 2)
+        a = math.radians(-58)
+        s += leaf(hx + (OP / 2) * math.cos(a), -14, OP / 2)
+        s += swing_arrow(hx, hy, OP * 0.60, -56, -8)
     elif kind == "doorGarage":
-        for i in range(5):
-            body.append(f'<rect x="-25" y="{-30 + i*12}" width="50" height="11" rx="1" fill="{TOP if i%2 else RIGHT}" stroke="{F}" stroke-width="{SWT}"/>')
-        body.append(f'<path d="M 0 6 L 0 -16" stroke="{WARN}" stroke-width="3.4" stroke-linecap="round"/>')
-        body.append(f'<path d="M 0 -16 L -4.5 -10 L 4.5 -10 Z" fill="{WARN}"/>')
+        for i in range(4):
+            s += panel(x0, TH / 2, x0 + OP, TH / 2, i * 6.4, 6.0, 1.2,
+                       top=TOP, face=TOP if i % 2 else RIGHT, back=LEFT, sw=SW)
+        s += (f'<path d="M {iso(x0+OP/2, TH/2-3, 8)[0]:.2f} {iso(x0+OP/2, TH/2-3, 8)[1]:.2f} '
+              f'L {iso(x0+OP/2, TH/2-3, 24)[0]:.2f} {iso(x0+OP/2, TH/2-3, 24)[1]:.2f}" '
+              f'stroke="{WARN}" stroke-width="2.8" stroke-linecap="round" fill="none"/>')
+        tipx, tipy = iso(x0 + OP / 2, TH / 2 - 3, 27)
+        b1 = iso(x0 + OP / 2 - 2.4, TH / 2 - 3, 23); b2 = iso(x0 + OP / 2 + 2.4, TH / 2 - 3, 23)
+        s += f'<path d="M {tipx:.2f} {tipy:.2f} L {b1[0]:.2f} {b1[1]:.2f} L {b2[0]:.2f} {b2[1]:.2f} Z" fill="{WARN}"/>'
     elif kind == "doorCased":
-        body.append(f'<rect x="-22" y="-30" width="44" height="60" fill="{LEFT}" opacity="0.35" stroke="none"/>')
-    # windows: a sill, a sash, glass
+        pass                                                   # the hole IS the drawing
     elif kind.startswith("window"):
-        w = {"windowSmall": 26, "windowStandard": 40, "windowWide": 52}.get(kind, 40)
-        h = 34 if kind == "windowSmall" else 40
-        body = [f'<rect x="{-w/2-4}" y="{h/2}" width="{w+8}" height="6" rx="1.5" fill="{WOOD}" stroke="{F}" stroke-width="{SW}"/>']
-        body.insert(0, f'<rect x="{-w/2}" y="{-h/2}" width="{w}" height="{h}" rx="1" fill="{GLASS}" stroke="{F}" stroke-width="{SW}"/>')
-        body.append(f'<path d="M {-w/2} 0 L {w/2} 0" stroke="{F}" stroke-width="{SWT}"/>')
-        body.append(f'<path d="M 0 {-h/2} L 0 {h/2}" stroke="{F}" stroke-width="{SWT}"/>')
-        body.append(f'<path d="M {-w/2+3} {-h/2+3} L {-w/2+9} {-h/2+3}" stroke="#FFFFFF" stroke-width="2.4" opacity="0.75" stroke-linecap="round"/>')
-    return "".join(body)
+        op = {"windowSmall": 13.0, "windowStandard": 17.0, "windowWide": 21.0}[kind]
+        sill, hgt = 7.0, 17.0
+        x0 = (W - op) / 2
+        s = poly([iso(0, 0, 0), iso(W, 0, 0), iso(W, TH, 0), iso(0, TH, 0)], WOOD, INK, WSW)
+        s += panel(0, TH / 2, x0, TH / 2, 0, H, TH, top=WALL_T, face=WALL_F, back=WALL_B, sw=WSW)
+        s += panel(x0 + op, TH / 2, W, TH / 2, 0, H, TH, top=WALL_T, face=WALL_F, back=WALL_B, sw=WSW)
+        s += panel(x0, TH / 2, x0 + op, TH / 2, 0, sill, TH, top=WALL_T, face=WALL_F, back=WALL_B, sw=WSW)
+        s += panel(x0, TH / 2, x0 + op, TH / 2, sill + hgt, H - sill - hgt, TH,
+                   top=WALL_T, face=WALL_F, back=WALL_B, sw=WSW)
+        s += panel(x0, TH / 2, x0 + op, TH / 2, sill, hgt, 0.9,
+                   top=TOP, face=GLASS, back=GLASS_D, sw=SW)
+        s += line((x0, TH / 2 - 0.5, sill + hgt / 2), (x0 + op, TH / 2 - 0.5, sill + hgt / 2), INK, 1.4)
+        s += panel(x0 - 1.2, TH / 2, x0 + op + 1.2, TH / 2, sill - 1.2, 1.2, TH * 1.5,
+                   top=WOOD, face=WOOD_D, back=WOOD_D)          # the sill board
+    return s
 
 for _k in ("doorSingle", "doorDouble", "doorSliding", "doorCased", "doorPocket",
            "doorBifold", "doorBypass", "doorFrench", "doorPatio", "doorEntry",
