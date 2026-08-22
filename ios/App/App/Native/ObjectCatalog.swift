@@ -518,6 +518,11 @@ enum ObjectCatalog {
             width: 32 * inch, depth: 8 * inch, height: 12 * inch, shape: .panel,
             sizeNote: "Mini-split head, high on a wall."),
         Entry(
+            slug: "ac_window", name: "Window A/C", category: .hvac,
+            width: 22 * inch, depth: 20 * inch, height: 15 * inch, shape: .equipment,
+            sizeNote:
+                "22x15in sash unit, 20in deep because most of it hangs outside. Added 22 Aug 2026 — the owner: window units are 'very, very popular here in Canada'. It sits IN a window and deducts nothing on its own; the window it occupies already took its own area out of the wall."),
+        Entry(
             slug: "ac_portable", name: "Portable A/C", category: .hvac,
             width: 18 * inch, depth: 16 * inch, height: 30 * inch, shape: .equipment,
             sizeNote: "On castors, with a hose to a window."),

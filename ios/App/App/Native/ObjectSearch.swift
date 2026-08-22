@@ -119,11 +119,10 @@ enum ObjectSearch {
     /// exactly as it did before this file existed — this can only ever ADD
     /// results, never remove one.
     ///
-    /// Expansion is on the WHOLE trimmed query, not word by word. "tv stand"
-    /// is its own phrase and expanding the `tv` inside it to `television
-    /// stand` would be guessing at a compound this table knows nothing about;
-    /// the raw query still matches "TV stand" by substring if such an entry
-    /// exists.
+    /// The whole query is tried as one term FIRST, because several terms in
+    /// the table are themselves multi-word — "air conditioner" is two words
+    /// and one concept, and splitting it before looking it up would lose that.
+    /// Only a query that is not itself a known term gets split.
     static func needles(for query: String) -> [String] {
         let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !needle.isEmpty else { return [] }
@@ -133,18 +132,40 @@ enum ObjectSearch {
         return synonyms.sorted()
     }
 
-    /// Does any expansion of `query` appear in any of `fields`?
+    /// Does `query` match this entry?
     ///
     /// `fields` are the entry's own searchable strings — its name, its
     /// category, its slug. The slug is included because it carries words the
     /// display name drops: `water_heater_tankless` is findable by "tankless"
-    /// even though the name reads "Water heater".
+    /// even though the name reads "Water heater", and `ac_wall` is findable by
+    /// "ac" even though its name reads "Wall-mounted A/C" — which contains the
+    /// letters `a/c`, not `ac`, and so could not be found at all before this.
+    ///
+    /// ## Whole phrase first, then every word
+    ///
+    /// A query that IS a known term matches on any of its synonyms — "ac"
+    /// finds the wall unit, "climatiseur" finds it too.
+    ///
+    /// A query that is not falls back to **every word must match**, each word
+    /// expanded on its own. That is what makes "wall ac" work: `wall` hits the
+    /// name, `ac` expands and hits the slug, and both are required. AND across
+    /// words is the right default for a picker — typing a second word should
+    /// narrow the list, never widen it, or search gets less useful the more
+    /// the operator tells it.
     static func matches(query: String, fields: [String]) -> Bool {
-        let needles = needles(for: query)
-        guard !needles.isEmpty else { return false }
         let haystack = fields.map { $0.lowercased().replacingOccurrences(of: "_", with: " ") }
-        return needles.contains { needle in
+        func present(_ needle: String) -> Bool {
             haystack.contains { $0.contains(needle) }
+        }
+
+        let phrase = needles(for: query)
+        guard !phrase.isEmpty else { return false }
+        if phrase.contains(where: present) { return true }
+
+        let words = query.lowercased().split(whereSeparator: { $0 == " " }).map(String.init)
+        guard words.count > 1 else { return false }
+        return words.allSatisfy { word in
+            needles(for: word).contains(where: present)
         }
     }
 }

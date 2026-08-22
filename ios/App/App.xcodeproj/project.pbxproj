@@ -82,6 +82,7 @@
 		63A1A72230F81F66907C3D97 /* ScanTypeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */; };
 		AB95FF289219BCC31E38113D /* PushRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */; };
 		A2E3648251EAA6D23C456902 /* ObjectSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */; };
+		775AF37D68AC763C57A87C5C /* ScanCaptureFeel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -161,6 +162,7 @@
 		96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypeCard.swift; sourceTree = "<group>"; };
 		7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PushRegistration.swift; sourceTree = "<group>"; };
 		6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectSearch.swift; sourceTree = "<group>"; };
+		B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanCaptureFeel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -204,6 +206,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */,
 				6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */,
 				7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */,
 				96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */,
@@ -357,6 +360,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				775AF37D68AC763C57A87C5C /* ScanCaptureFeel.swift in Sources */,
 				A2E3648251EAA6D23C456902 /* ObjectSearch.swift in Sources */,
 				AB95FF289219BCC31E38113D /* PushRegistration.swift in Sources */,
 				63A1A72230F81F66907C3D97 /* ScanTypeCard.swift in Sources */,

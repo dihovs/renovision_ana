@@ -2725,3 +2725,42 @@ Newest last. One or two lines per chat.
   drawn symbol, same pre-existing gap `windowPicture` has.
   **Neither is tapped.** `BUILD SUCCEEDED`; the device was in his hands scanning
   and installing would have killed a scan in progress.
+- **2026-08-22 (S7/S8, Polycam borrowings)** — Three things off the owner's
+  Polycam session, plus a correction worth carrying.
+  **The wall A/C he asked for ALREADY EXISTED.** `ac_wall` ("Wall-mounted A/C",
+  mini-split head) has been in the catalogue all along — he could not FIND it,
+  because its name reads `Wall-mounted A/C` and that contains the letters `a/c`,
+  not `ac`, so neither "ac" nor "air conditioner" matched anything. The synonym
+  work earlier the same day fixes it, and this is the clearest evidence yet that
+  an unfindable entry is indistinguishable from a missing one. `ObjectSearch`
+  gained multi-word AND semantics for the same reason ("wall ac" must narrow,
+  not widen); 19 cases now run against it with `swiftc`, all passing.
+  **`ac_window` added** — genuinely missing, and his words were *"window units
+  are very, very popular here in Canada."* 22×15in sash unit, 20in deep because
+  most of it hangs outside. It deducts nothing on its own: the window it sits in
+  already took its own area out of the wall.
+  **Scan-capture haptics** (`Native/ScanCaptureFeel.swift`, new) — his ask after
+  feeling Polycam's: *"my phone vibrates tick tick tick… the app feels alive."*
+  Polycam ticks on POINTS; RoomPlan does not stream points, so ours ticks when a
+  piece of the room becomes KNOWN — `.light` for a new surface, `.medium` for a
+  new object. That is the better signal and worth defending: a tick on points
+  says "the sensor is on", which the operator can already see, while a tick on
+  recognition answers the question they actually have — *did it get that one?*
+  One tick per update maximum, 0.12s floor, silent on the first update so a
+  resumed scan does not announce a room it already had. `UserDefaults`-gated,
+  default on, deliberately not a screen yet.
+  **A torch button on the scan screen** — Polycam's, and it earns more here than
+  there, because this trade scans unlit basements and ARKit's tracking degrades
+  in the dark long before the LiDAR does. Top-trailing, 44pt, and forced OFF in
+  `viewDidDisappear`: it outlives the screen otherwise and there is no other
+  control for it anywhere in the app.
+  **The lens question is settled and the answer is no.** He noticed Polycam uses
+  the ultra-wide and asked whether we should pick it or offer a choice. Read off
+  the SDK, not from memory: `RoomCaptureSession.Configuration` has exactly ONE
+  property, `isCoachingEnabled`. There is no camera or lens selection, and
+  RoomPlan owns its own ARSession. Choosing a lens means leaving RoomPlan, which
+  means giving up the wall/door/window/object detection this whole app is built
+  on. Not a trade worth making for field of view.
+  **Nothing here is tapped** — `BUILD SUCCEEDED`, device was in his hands. The
+  haptics and the torch in particular are device-only: the Simulator has neither
+  a taptic engine nor a torch.

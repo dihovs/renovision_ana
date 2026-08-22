@@ -73,6 +73,8 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     /// and redrawing a Canvas that fast burns battery for no visible gain.
     private var lastMapUpdate = Date.distantPast
     private var poseTimer: Timer?
+    private weak var torchButton: UIButton?
+    private let capture = ScanCaptureFeel()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -156,6 +158,35 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
             typeCard.widthAnchor.constraint(equalToConstant: 96),
         ])
 
+        // **Borrowed from Polycam**, 22 Aug 2026, at the owner's ask: *"I like
+        // the small flash button there."* Small, circular, out of the way —
+        // and it earns far more here than it would in a photo app, because
+        // this trade scans unlit basements. The LiDAR does not need light but
+        // the RGB camera does, and ARKit's tracking degrades in the dark long
+        // before the depth does.
+        //
+        // Top-trailing: `typeCard` owns the right edge but centres its content
+        // vertically, so the corner is free.
+        let torch = UIButton(type: .custom)
+        torch.translatesAutoresizingMaskIntoConstraints = false
+        torch.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        torch.layer.cornerRadius = 22
+        torch.tintColor = .white
+        torch.setImage(UIImage(systemName: "bolt.slash.fill"), for: .normal)
+        torch.accessibilityLabel = "Torch"
+        torch.addTarget(self, action: #selector(torchTapped), for: .touchUpInside)
+        torch.isHidden = !ScanTorch.isAvailable
+        view.addSubview(torch)
+        NSLayoutConstraint.activate([
+            torch.trailingAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            torch.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            torch.widthAnchor.constraint(equalToConstant: 44),
+            torch.heightAnchor.constraint(equalToConstant: 44),
+        ])
+        torchButton = torch
+
         view.addSubview(shutterRing)
         view.addSubview(shutter)
         view.addSubview(cancelButton)
@@ -214,6 +245,25 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         poseTimer = nil
         // Never leave it off: the whole phone stops sleeping otherwise.
         UIApplication.shared.isIdleTimerDisabled = false
+        // And never leave the torch ON. It survives this screen, drains the
+        // battery the rest of the visit depends on, and the operator has no
+        // control for it anywhere else in the app.
+        ScanTorch.set(on: false)
+        refreshTorchButton()
+    }
+
+    @objc private func torchTapped() {
+        ScanTorch.set(on: !ScanTorch.isOn)
+        refreshTorchButton()
+    }
+
+    private func refreshTorchButton() {
+        let on = ScanTorch.isOn
+        torchButton?.setImage(
+            UIImage(systemName: on ? "bolt.fill" : "bolt.slash.fill"), for: .normal)
+        torchButton?.backgroundColor =
+            on ? UIColor.white.withAlphaComponent(0.9) : UIColor.black.withAlphaComponent(0.55)
+        torchButton?.tintColor = on ? .black : .white
     }
 
     // MARK: - Live geometry
@@ -226,6 +276,13 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let now = Date()
+
+            // BEFORE the map throttle, deliberately. The tick is the answer to
+            // "did it see that?" and holding it back a sixth of a second to
+            // share a clock with a redraw would break the one thing it is for:
+            // arriving while the phone is still pointed at what caused it.
+            self.capture.felt(room, at: now)
+
             guard now.timeIntervalSince(self.lastMapUpdate) > 0.15 else { return }
             self.lastMapUpdate = now
 
