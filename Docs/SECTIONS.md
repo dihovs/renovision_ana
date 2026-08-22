@@ -2791,3 +2791,35 @@ Newest last. One or two lines per chat.
   built on top of the assumption in either direction — no lens picker exists,
   deliberately, because a control with nothing to control is worse than the
   question staying open.
+- **2026-08-22 (S7, LiDAR range — a warning we were discarding)** — The owner
+  asked what can be done about LiDAR range. At the sensor, nothing: Apple's
+  LiDAR is good for roughly five metres and no API changes it. The useful half
+  of the question turned out to be what happens when you EXCEED it, and there
+  the finding is embarrassing and cheap to fix.
+  **`RoomCaptureSessionDelegate` has seven methods and this class implemented
+  one.** `didProvide instruction:` fires continuously with `moveCloseToWall`,
+  `moveAwayFromWall`, `slowDown`, `turnOnLight`, `lowTexture`, `normal` — and
+  `moveCloseToWall` IS the range warning. Every one of them was being thrown
+  away. The sensor has been diagnosing this the entire time.
+  `Native/ScanQuality.swift` (new) now counts them, plus the low-confidence wall
+  count off the final room — a number `ScanMiniMapView` already USED (it draws
+  low-confidence walls dashed) but never counted or reported.
+  **It records rather than displays, deliberately.** `RoomCaptureView` draws
+  Apple's own coaching, so a second pill would be two labels competing for the
+  one glance the operator can spare. The gap is not that nobody is told — it is
+  that being told is TRANSIENT, and a warning that appears while you are walking
+  backwards holding a phone up is gone before you look. The value is at Done,
+  on site, with the room still behind you.
+  **One instruction is handled live: `turnOnLight` pulses the torch button** —
+  and only because as of today there IS a torch. Saying "it is dark in here" is
+  advice; lighting up the button they can press is help. Throttled to once per
+  ten seconds so a dark room does not throb for the whole scan.
+  **Thresholds are ours and deliberately insensitive** (`isWorthReporting`): one
+  "move closer" crossing a big basement is how that scan goes, and a prompt that
+  fires every time is one that gets dismissed unread, which spends the
+  operator's trust for nothing.
+  **NOT finished, and this is the honest part:** the summary currently only goes
+  to the log. The thing that makes it worth anything — asking the operator at
+  Done whether to re-walk, while re-walking still costs two minutes instead of a
+  second visit — is not built, because it puts a dialog in the middle of his
+  tested flow and that is his call. `BUILD SUCCEEDED`, not tapped.

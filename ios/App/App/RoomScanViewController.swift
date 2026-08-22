@@ -75,6 +75,11 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     private var poseTimer: Timer?
     private weak var torchButton: UIButton?
     private let capture = ScanCaptureFeel()
+    /// What the scan knew was going wrong — see `ScanQuality`. RoomPlan has
+    /// been reporting this all along through a delegate method this class
+    /// never implemented.
+    private var quality = ScanQuality()
+    private var lastTorchNudge = Date.distantPast
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -276,6 +281,43 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     /// data source Apple's UI never surfaces flat: from it the map draws
     /// what has been caught, and the closure test says whether the walls
     /// join up yet.
+    /// **RoomPlan telling us what is wrong, which until 22 Aug 2026 nobody
+    /// listened to.** `moveCloseToWall` is the LiDAR range warning; the sensor
+    /// reaches about five metres and this is what exceeding it sounds like.
+    ///
+    /// Deliberately does NOT draw a message. `RoomCaptureView` already shows
+    /// Apple's own coaching, and a second label repeating it would compete for
+    /// the one glance the operator can spare. The value is in keeping the
+    /// count until Done, when it can be acted on — see `ScanQuality`.
+    ///
+    /// The exception is `turnOnLight`, because today there is finally
+    /// something to press. Saying "it is dark in here" is advice; lighting up
+    /// the torch button is help.
+    func captureSession(
+        _ session: RoomCaptureSession, didProvide instruction: RoomCaptureSession.Instruction
+    ) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.quality.record(instruction)
+            if case .turnOnLight = instruction, !ScanTorch.isOn {
+                self.nudgeTorch()
+            }
+        }
+    }
+
+    /// Draw attention to the torch without stealing the screen: a short pulse
+    /// on the button itself, at most once every ten seconds so a persistently
+    /// dark room does not throb for the whole scan.
+    private func nudgeTorch() {
+        guard let torch = torchButton, !torch.isHidden else { return }
+        guard Date().timeIntervalSince(lastTorchNudge) > 10 else { return }
+        lastTorchNudge = Date()
+        UIView.animate(
+            withDuration: 0.4, delay: 0, options: [.autoreverse, .curveEaseInOut],
+            animations: { torch.transform = CGAffineTransform(scaleX: 1.18, y: 1.18) },
+            completion: { _ in torch.transform = .identity })
+    }
+
     func captureSession(_ session: RoomCaptureSession, didUpdate room: CapturedRoom) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -556,6 +598,10 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     }
 
     @objc private func doneTapped() {
+        // The last streamed room is the best read on wall confidence we get
+        // before RoomPlan's own processing; record it while it is still here.
+        if let room = liveRoom { quality.record(room: room) }
+        print(quality.summary)
         // Stopping hands the final, processed CapturedRoom to
         // captureView(didPresent:error:) below — not to a completion here.
         stopCapture()
