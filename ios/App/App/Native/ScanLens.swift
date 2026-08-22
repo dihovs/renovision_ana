@@ -82,6 +82,44 @@ enum ScanLens {
     /// The formats that would let a scan run ultra-wide, if any.
     static var ultraWideFormats: [Format] { worldTrackingFormats.filter(\.isUltraWide) }
 
+    /// **Where a diagnostic has to land to actually be readable.**
+    ///
+    /// Three routes were tried, in this order, and only the third works here:
+    ///
+    /// 1. `print` — goes to stderr on a device and is seen only by an attached
+    ///    debugger. Produces nothing for anyone reading after the fact.
+    /// 2. `Logger` — lands in the system log, but reading it off a device
+    ///    needs `log collect` or `log stream`, and **both require an admin
+    ///    account**. The owner's Mac is a standard account with no sudo, so
+    ///    this Mac cannot read its own phone's log.
+    /// 3. **A file in the app's Documents container**, which
+    ///    `xcrun devicectl device copy from --domain-type appDataContainer`
+    ///    pulls as an ordinary user.
+    ///
+    /// So it writes a file. The `Logger` line stays alongside it because it
+    /// costs nothing and works for anyone who does have admin.
+    ///
+    /// Appends rather than replaces, with a timestamp: several scans in a
+    /// session is the normal case, and the interesting comparison is usually
+    /// between two of them.
+    static func appendToDiagnostics(_ text: String) {
+        guard
+            let dir = FileManager.default.urls(
+                for: .documentDirectory, in: .userDomainMask
+            ).first
+        else { return }
+        let file = dir.appendingPathComponent("scan-diagnostics.txt")
+        let stamped = "[\(ISO8601DateFormatter().string(from: Date()))]\n\(text)\n"
+        guard let data = stamped.data(using: .utf8) else { return }
+        if let handle = try? FileHandle(forWritingTo: file) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        } else {
+            try? data.write(to: file)
+        }
+    }
+
     /// A single block of text answering the owner's question, written to the
     /// log at scan start.
     ///

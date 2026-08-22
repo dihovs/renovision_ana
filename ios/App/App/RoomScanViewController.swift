@@ -269,6 +269,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         // whether an ultra-wide scan is even offered by ARKit on this device
         // before anybody builds a lens picker for it.
         Self.log.notice("\(ScanLens.report, privacy: .public)")
+        ScanLens.appendToDiagnostics(ScanLens.report)
         // Walking a room is minutes of holding the phone up without touching
         // the screen, which is exactly what the idle timer counts as idle —
         // and a scan that sleeps halfway through is a scan started again.
@@ -695,6 +696,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         // before RoomPlan's own processing; record it while it is still here.
         if let room = liveRoom { quality.record(room: room) }
         Self.log.notice("\(self.quality.summary, privacy: .public)")
+        ScanLens.appendToDiagnostics(quality.summary)
         // Stopping hands the final, processed CapturedRoom to
         // captureView(didPresent:error:) below — not to a completion here.
         stopCapture()
