@@ -39,6 +39,7 @@ observation beats inference.
 | What does magicplan's *web* app do | `Magicplan-Workflow.md` | Observed in cloud.magicplan.app. Complements `reference/`, which is iOS |
 | Overall screen chain and data rules to build toward | `Magicplan-Screen-Spec.md` | Self-described as "a model to build against, not a description of our current app" — a target, not evidence |
 | How should an operator add an object the catalogue lacks | `Custom-Objects-Spec.md` | **BRAINSTORM, nothing built.** Written 22 Aug 2026 at the owner's ask; ends in three questions only he can answer |
+| What does a **competitor's** report contain, and what is worth taking | `reference/polycam-spatial-report.md` | Read from the owner's own Polycam export of his condo, 22 Aug 2026. A real artefact, like the magicplan export — but the free tier, so it shows what they REPORT and never what their numbers are |
 | What is true of **our** code right now | `REFERENCE-STATUS.md` | Read from the source on branch `mobile-app` |
 
 **Rule of thumb:** `reference/` says what magicplan *does*. The older `Magicplan-*.md` specs
