@@ -140,18 +140,15 @@ struct ObjectLibraryPicker: View {
     /// own row.
     private func sectionRow(_ section: LibrarySection) -> some View {
         HStack(spacing: Brand.Space.base) {
-            // An isometric EMBLEM, not the section's first item drawn flat.
+            // **The section's own artwork, not a second set of drawings.**
             //
-            // The owner's screenshot of the reference's own section list
-            // settled this: their row icons are little three-quarter line
-            // drawings — a stair flight, a basin and tap, a washing machine,
-            // an armchair, a plug, a fan, a toolbox. A row icon has a
-            // different job from a plan symbol: it has to be recognised in a
-            // list at 38 points, and a small drawing of the thing does that
-            // where its floor outline does not. The top-down rule still
-            // governs the TILES, where the picture teaches the symbol that
-            // will land on the plan.
-            SectionEmblem(section: section)
+            // These rows carried `SectionEmblem` — emblems hand-drawn in
+            // `Canvas` back when there was no artwork to point at. Next to
+            // 341 commissioned icons they read as a different product, and
+            // several were unrecognisable at this size. The row now shows a
+            // real item from the section, chosen for its silhouette; see
+            // `LibrarySection.emblemSlug`.
+            SectionEmblemArt(slug: section.emblemSlug)
                 .frame(width: 40, height: 40)
             Text(section.title)
                 .font(.system(size: 17))
@@ -360,6 +357,25 @@ struct LibraryArt: View {
             } else {
                 OpeningTileArt(kind: kind)
             }
+        }
+    }
+}
+
+/// The drawing that stands for a whole section in the list.
+///
+/// Falls back to the hand-drawn `SectionEmblem` only if the asset is missing,
+/// so a section whose chosen item has no artwork still shows something rather
+/// than a hole. With 341 icons installed that fallback should never fire —
+/// it exists because a silent blank row is the worst of the three outcomes.
+struct SectionEmblemArt: View {
+    let slug: String
+    var body: some View {
+        if ObjectArtwork.exists(slug) {
+            ObjectArtwork(slug: slug)
+        } else {
+            Image(systemName: "square.on.square")
+                .font(.system(size: 20))
+                .foregroundStyle(Brand.inkFaint)
         }
     }
 }

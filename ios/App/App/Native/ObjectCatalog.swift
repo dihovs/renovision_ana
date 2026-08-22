@@ -1832,6 +1832,40 @@ enum LibrarySection: Identifiable, Hashable, CaseIterable {
         }
     }
 
+    /// **The item whose drawing stands for the whole section in the list.**
+    ///
+    /// The rows used to carry `SectionEmblem`, a set of emblems hand-drawn in
+    /// `Canvas` before there was any artwork to use. Beside 341 commissioned
+    /// icons they read as a different product: paler, a different line weight,
+    /// and several of them unrecognisable at 40 points — Annotations was a
+    /// flat plaque seen almost edge-on, Structural an ambiguous grey tube.
+    ///
+    /// Picked for the SILHOUETTE rather than for being the most common item.
+    /// A stair flight, a toilet, an extinguisher and a sofa are each
+    /// unmistakable in a list; a cabinet, a duct and a panel are three grey
+    /// boxes. That is the only rule here.
+    var emblemSlug: String {
+        switch self {
+        case .doors: return "door-doorSingle"
+        case .windows: return "door-windowStandard"
+        case .catalogue(let category):
+            switch category {
+            case .annotations: return "note_flag"
+            case .structural: return "stairs"
+            case .plumbing: return "toilet"
+            case .appliances: return "range"
+            case .cabinets: return "base_cabinet"
+            case .furniture: return "sofa"
+            case .electrical: return "ceiling_fan"
+            case .hvac: return "radiator"
+            case .restoration: return "air_mover"
+            case .safety: return "extinguisher"
+            case .outdoors: return "fence"
+            case .garage: return "car"
+            }
+        }
+    }
+
     /// Free text across every section — ORD-40's fourth piece.
     static func search(_ term: String) -> [LibraryItem] {
         let needle = term.trimmingCharacters(in: .whitespaces).lowercased()
