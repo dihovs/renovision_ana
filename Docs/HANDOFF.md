@@ -212,8 +212,20 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
 
 **In this order. The first is five minutes and unblocks a build.**
 
-1. ~~Get a build onto his phone.~~ **DONE 21 Aug — the first install to the
-   device since build 175.** How, because the project does not record it and a
+1. **S7 setup — apply migration 0041 before video upload can work at
+   all.** `supabase/migrations/0041_video_files.sql` adds
+   `project_files.duration_seconds` and `.thumbnail_path` — written and
+   committed 21-22 Aug, **not yet run against production**. Paste it into
+   the Supabase SQL editor and run it, ending (it already does)
+   `notify pgrst, 'reload schema';`, or the new `/api/v1/videos` finalize
+   route will fail on every call with a missing-column error the moment
+   anyone taps "Keep on job" after recording a clip. The owner is signed
+   into Supabase in Chrome per §"The SQL editor can be driven from here" —
+   this can be run from a chat rather than handed over as a chore.
+2. ~~Get a build onto his phone.~~ **DONE 21 Aug, done again 22 Aug** — the
+   second is what actually matters here: two real fixes went to the device
+   the same day they were found, not left for a future session to
+   rediscover. How, because the project does not record it and a
    device build FAILS without it:
 
        cd ios/App && xcodebuild -project App.xcodeproj -scheme App \
@@ -234,22 +246,44 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
    office Wi-Fi blocked the peer-to-peer radio and that only a cable would
    work. That was wrong. The tunnel sleeps and wakes; check before assuming.
 
+   **22 Aug: `xcodebuild -destination id=...` itself timed out on the first
+   try** ("Timed out waiting for all destinations... to become available"),
+   even though `xcrun devicectl list devices` showed the phone as
+   `available (paired)` the whole time — `xctrace list devices` in the same
+   moment showed it Offline. Same tunnel-sleeps-and-wakes symptom as above,
+   just caught by a different tool's destination resolution. Retrying the
+   identical command a few seconds later succeeded outright — no special
+   handling needed, just try again.
+
    `devicectl device process launch` then dropped the connection, which does
    not matter — the install landed and the icon launches by hand. `devicectl` has read `unavailable` all
    session — the tunnel sleeps; this is NOT a Wi-Fi-disabled problem, which I
    told him three times and was wrong about. A cable settles it.
-2. **Verify the PDF actually renders.** `Download PDF` drives a headless
+
+   **22 Aug's install carries two fixes, both found live with the owner
+   testing on the actual app**: `SiteCameraController.startRecording`
+   crashed outright (uncaught `NSException`, uncatchable in Swift) when the
+   video connection wasn't active — found on the Simulator, which has no
+   camera at all, but the same crash could hit a real device too if that
+   connection were ever left inactive for any other reason; and correcting
+   a wrongly-detected door mid-scan was closing the ENTIRE capture session
+   instead of just the correction sheet, a double-dismiss bug in
+   `RoomScanViewController.askAbout` — his own live repro. Full accounts in
+   `Docs/SECTIONS.md`, S7 and S8. **The door-correction fix specifically
+   needs his own retest**: reproduce the exact repro (scan, wrong door
+   detected, correct it) and confirm the scan keeps running.
+3. **Verify the PDF actually renders.** `Download PDF` drives a headless
    browser server-side and has never once been run end to end — the preview
    origin has no session and I will not type his password. Either he signs in,
    or press it from a signed-in browser and check the file.
-3. **Seven windows still have no `OpeningKind` case**, so their drawings sit
+4. **Seven windows still have no `OpeningKind` case**, so their drawings sit
    in `Native/Artwork` unreachable: `window-awning`, `window-bow`,
    `window-glass-block`, `window-half-round`, `window-skylight`,
    `window-storm`, `window-transom`. Adding a case means adding it to every
    `switch` over `OpeningKind` — label, stock width and height, glyph, and the
    three renderers — so it needs a compile, not a blind edit at the end of a
    session. Rename each file to `door-window<Kind>.svg` once its case exists.
-4. **Guided protocol Phase 1**, starting with the rules table as pure data
+5. **Guided protocol Phase 1**, starting with the rules table as pure data
    plus tests, and no interface at all. The rules ARE the design and he can
    review them before a screen exists.
 
