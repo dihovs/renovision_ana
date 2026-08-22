@@ -2764,3 +2764,30 @@ Newest last. One or two lines per chat.
   **Nothing here is tapped** — `BUILD SUCCEEDED`, device was in his hands. The
   haptics and the torch in particular are device-only: the Simulator has neither
   a taptic engine nor a torch.
+- **2026-08-22 (S7, lens — a wrong answer corrected)** — Earlier the same day I
+  told the owner an ultra-wide scan was impossible, citing
+  `RoomCaptureSession.Configuration` having only `isCoachingEnabled`. **That was
+  too strong and it was the wrong place to look.** The lens is not chosen
+  through RoomPlan's configuration at all — it would be chosen through the
+  ARSession's `ARWorldTrackingConfiguration.videoFormat`, and iOS 17's
+  `RoomCaptureSession(arSession:)` lets a caller supply that session. **This app
+  already supplies one** (`ScanSession.arSession`, threaded through
+  `CaptureFlow` so a visit's rooms share a world frame). The door was never
+  locked; it was never tried. `CaptureError.invalidARConfiguration` existing at
+  all says RoomPlan validates what it is handed rather than refusing to be
+  handed anything.
+  `Native/ScanLens.swift` is a **probe, not a feature**, and the distinction is
+  the point: it prints, once at scan start, every video format ARKit will run
+  world tracking with on this device, each with its `captureDeviceType`, and
+  whether the hardware has an ultra-wide at all. Those two answers separately
+  are what tells "this phone cannot" apart from "ARKit will not" — only the
+  second is a limitation worth trying to work around.
+  **`ARVideoFormat.captureDeviceType` is READ-ONLY.** You do not set a camera;
+  you pick a format that happens to use one. So if no supported format reports
+  `.builtInUltraWideCamera`, it is a hard no and step two is moot. Step two, if
+  step one passes, is running RoomPlan against a session configured that way and
+  watching for `.invalidARConfiguration`.
+  **Needs one install and one scan start**, then the log answers it. Nothing was
+  built on top of the assumption in either direction — no lens picker exists,
+  deliberately, because a control with nothing to control is worse than the
+  question staying open.

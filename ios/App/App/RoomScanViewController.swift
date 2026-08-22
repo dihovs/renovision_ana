@@ -225,6 +225,10 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         guard !isScanning else { return }
         isScanning = true
         scanStart = Date()
+        // One-shot measurement, not a feature — see `ScanLens`. Answers
+        // whether an ultra-wide scan is even offered by ARKit on this device
+        // before anybody builds a lens picker for it.
+        print(ScanLens.report)
         // Walking a room is minutes of holding the phone up without touching
         // the screen, which is exactly what the idle timer counts as idle —
         // and a scan that sleeps halfway through is a scan started again.

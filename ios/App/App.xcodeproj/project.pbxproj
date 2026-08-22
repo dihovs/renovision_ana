@@ -83,6 +83,7 @@
 		AB95FF289219BCC31E38113D /* PushRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */; };
 		A2E3648251EAA6D23C456902 /* ObjectSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */; };
 		775AF37D68AC763C57A87C5C /* ScanCaptureFeel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */; };
+		86CA178EB3CF2A476F8678EA /* ScanLens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A15229A30ECEF5E7DE5A37 /* ScanLens.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -163,6 +164,7 @@
 		7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PushRegistration.swift; sourceTree = "<group>"; };
 		6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectSearch.swift; sourceTree = "<group>"; };
 		B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanCaptureFeel.swift; sourceTree = "<group>"; };
+		D0A15229A30ECEF5E7DE5A37 /* ScanLens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanLens.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -206,6 +208,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				D0A15229A30ECEF5E7DE5A37 /* ScanLens.swift */,
 				B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */,
 				6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */,
 				7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */,
@@ -360,6 +363,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				86CA178EB3CF2A476F8678EA /* ScanLens.swift in Sources */,
 				775AF37D68AC763C57A87C5C /* ScanCaptureFeel.swift in Sources */,
 				A2E3648251EAA6D23C456902 /* ObjectSearch.swift in Sources */,
 				AB95FF289219BCC31E38113D /* PushRegistration.swift in Sources */,
