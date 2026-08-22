@@ -2851,3 +2851,43 @@ Newest last. One or two lines per chat.
   `BUILD SUCCEEDED`, not tapped. **If the pill turns out to duplicate something
   Apple is already drawing, it is one property to remove** — but the evidence
   says it is not.
+- **2026-08-22 (S12 + S8, the two screens the owner could not stand)** — *"We
+  have to change this selection. I don't like the look. We have to make it like
+  magicplan… I don't like these icons here, auto scan, manual scan. They are,
+  like, very, very basic."* Build **183**.
+  **The room-type screen was a DUPLICATE, and S12 had already filed it as one.**
+  `SelectRoomTypeView` — segmented `Residential | Commercial`, grouped rows,
+  blue `See more`, matching `interactions-editor.md` INT-E09 exactly — has
+  existed for weeks, and was reachable only from behind `More…`. The screen the
+  operator hits on EVERY room drew its own grid of pills under a
+  `WHAT KIND OF ROOM?` heading. So the one that looked like the reference was
+  the one nobody saw. Extracted `RoomTypeList` (no `NavigationStack`, no
+  toolbar) the same way the editor made `RoomEditorCore` and the inspectors made
+  `InspectorFormsTab`; both the sheet and the capture flow render it now.
+  `commercial`/`expanded` became bindings so the flow keeps the operator's place
+  across a redraw. The explainer paragraph went with the chips — the reference
+  has no such paragraph, and what it said was true of every row and needed on
+  none.
+  The flow now loads the full type list itself, **falling back to the eight
+  built-in types if the fetch fails**, because the normal condition in the
+  basements this app works in is no signal.
+  **The method icons: two of the four were literally SF Symbols.**
+  `square.dashed` and `hand.draw` for Add Square Room and Draw Room, plus
+  `photo.on.rectangle.angled` for Import & Draw. `ScanMethodArt` grew from two
+  flat outline drawings to five shaded isometric ones — floors, walls extruded
+  from their own footprints, three tones (lit face, shade face, slab) so a room
+  reads as a volume rather than a wireframe, and the phone drawn into the two
+  scan cards because it is what the operator is holding.
+  **Each drawing shows the METHOD, not the name.** `square.dashed` says
+  "square"; the new drawing shows a rectangle with corner handles and a ghost of
+  where a drag is going. Draw Room is deliberately an **L** — a shape you could
+  not have got from the rectangle above it — with three edges committed and the
+  fourth still following the finger. That difference is the entire reason both
+  rows exist.
+  **A `print` bug found and fixed in passing.** `ScanLens.report` and
+  `ScanQuality.summary` were both written to be read off the owner's phone after
+  a real scan, and both used `print` — which on a device goes to stderr and is
+  seen only by an attached debugger. They would have produced NOTHING. Now
+  `Logger(subsystem: "ca.renovisionana.crm", category: "scan")` with
+  `privacy: .public`, readable with `log collect --device`.
+  Installed and **verified 183 on the device**; not yet looked at by eye.

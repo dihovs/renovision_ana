@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-88.02 -67.79 116.28 116.28">
+<ellipse cx="-29.88" cy="20.18" rx="32.28" ry="10.65" fill="#0B1220" opacity="0.1"/>
+<polygon points="0.00,-53.80 5.06,-50.88 0.00,-47.95 -5.06,-50.88" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="5.06,2.92 0.00,5.85 0.00,-47.95 5.06,-50.88" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-5.06,2.92 0.00,5.85 0.00,-47.95 -5.06,-50.88" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-59.76,-19.30 -54.70,-16.37 -59.76,-13.45 -64.83,-16.37" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-54.70,37.43 -59.76,40.35 -59.76,-13.45 -54.70,-16.37" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-64.83,37.43 -59.76,40.35 -59.76,-13.45 -64.83,-16.37" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="0.00,-59.65 5.06,-56.73 -59.76,-19.30 -64.83,-22.22" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="5.06,-50.88 -59.76,-13.45 -59.76,-19.30 5.06,-56.73" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-64.83,-16.37 -59.76,-13.45 -59.76,-19.30 -64.83,-22.22" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-5.06,-0.35 0.00,2.57 -54.70,34.15 -59.76,31.23" fill="#C79A68" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="0.00,5.85 -54.70,37.43 -54.70,34.15 0.00,2.57" fill="#C79A68" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-59.76,34.50 -54.70,37.43 -54.70,34.15 -59.76,31.23" fill="#A87C4E" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="0.00,-53.80 5.06,-50.88 -9.12,-42.69 -14.18,-45.61" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="5.06,2.92 -9.12,11.11 -9.12,-42.69 5.06,-50.88" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-14.18,8.19 -9.12,11.11 -9.12,-42.69 -14.18,-45.61" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-50.64,-24.56 -45.58,-21.64 -59.76,-13.45 -64.83,-16.37" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-45.58,32.16 -59.76,40.35 -59.76,-13.45 -45.58,-21.64" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-64.83,37.43 -59.76,40.35 -59.76,-13.45 -64.83,-16.37" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-11.95,-43.16 -9.32,-41.64 -31.20,-29.01 -33.83,-30.53" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-9.32,9.82 -31.20,22.46 -31.20,-29.01 -9.32,-41.64" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-33.83,20.94 -31.20,22.46 -31.20,-29.01 -33.83,-30.53" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-28.56,-33.57 -25.93,-32.05 -47.81,-19.42 -50.44,-20.94" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-25.93,19.42 -47.81,32.05 -47.81,-19.42 -25.93,-32.05" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-50.44,30.53 -47.81,32.05 -47.81,-19.42 -50.44,-20.94" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<line x1="-14.18" y1="17.08" x2="2.03" y2="7.72" stroke="#D14836" stroke-width="2.4" stroke-linecap="round"/>
+<polygon points="2.03,7.72 -0.81,12.17 -3.24,7.95" fill="#D14836" stroke="#D14836" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="-34.44" y1="28.77" x2="-50.64" y2="38.13" stroke="#D14836" stroke-width="2.4" stroke-linecap="round"/>
+<polygon points="-50.64,38.13 -47.81,33.68 -45.38,37.90" fill="#D14836" stroke="#D14836" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

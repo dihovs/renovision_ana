@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-63.84 -72.61 116.28 116.28">
+<ellipse cx="-5.70" cy="17.76" rx="26.64" ry="8.79" fill="#0B1220" opacity="0.1"/>
+<polygon points="0.00,-60.53 25.07,-46.05 -11.40,-25.00 -36.46,-39.47" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="25.07,14.47 -11.40,35.53 -11.40,-25.00 25.07,-46.05" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-36.46,21.05 -11.40,35.53 -11.40,-25.00 -36.46,-39.47" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="23.25,13.42 -13.22,34.47 -13.22,30.53 23.25,9.47" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="22.96,9.97 7.92,18.65 7.92,-33.32 22.96,-42.01" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="6.10,19.70 -8.95,28.39 -8.95,-23.59 6.10,-32.27" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="11.40" y1="-3.55" x2="11.40" y2="-16.26" stroke="#6E7884" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="4.56" y1="0.39" x2="4.56" y2="-12.32" stroke="#6E7884" stroke-width="2.4" stroke-linecap="round"/>
+<polygon points="0.00,-64.47 27.35,-48.68 -11.40,-26.32 -38.74,-42.11" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="27.35,-46.05 -11.40,-23.68 -11.40,-26.32 27.35,-48.68" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-38.74,-39.47 -11.40,-23.68 -11.40,-26.32 -38.74,-42.11" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+</svg>

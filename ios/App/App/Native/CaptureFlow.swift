@@ -105,6 +105,11 @@ struct CaptureFlow: View {
     /// Loaded once from the living-area endpoint when the sheet first opens;
     /// the eight chips need no network and keep working without it.
     @State private var pickingMoreTypes = false
+    /// Which half of the room-type list is showing, and whether it is
+    /// expanded past the common six. Held by the FLOW rather than the list so
+    /// the operator's place survives a redraw of the stage.
+    @State private var typeCommercial = false
+    @State private var typeExpanded = false
     @State private var allRoomTypes: [LivingRoomType] = []
     /// Everything filed since the sheet opened, carried to the plan the
     /// operator lands on. A scan held offline has no row to come back from the
@@ -510,36 +515,50 @@ struct CaptureFlow: View {
     /// A tap here both types AND names the room and moves straight on — the
     /// name it derives is editable on the very next screen, so there is
     /// nothing here worth a confirm step.
+    /// **The reference's list, not a grid of pills.**
+    ///
+    /// This screen used to draw its own chip grid under a `WHAT KIND OF ROOM?`
+    /// heading, while the list that actually matches magicplan — segmented
+    /// `Residential | Commercial`, grouped rows, blue `See more` — sat one tap
+    /// behind `More…`. Two screens for one job, and the one the operator hit
+    /// every time was the one that looked nothing like the reference. The
+    /// owner, 22 Aug 2026: *"we have to change this selection. I don't like
+    /// the look. We have to make it like magicplan."* S12 had already filed it
+    /// as a duplicate to retire.
+    ///
+    /// Now there is one list, `RoomTypeList`, shown here and behind `More…`
+    /// alike. The explainer went with the chips: the reference has no such
+    /// paragraph, and what it said — that the name and the living-area
+    /// percentage both follow from this and are both editable later — is true
+    /// of every row and needed on none of them.
     private var typeChooser: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Brand.Space.base) {
-                Text("\(projectName) · \(level)")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Brand.inkSoft)
+        RoomTypeList(
+            types: allRoomTypes, selected: roomType,
+            commercial: $typeCommercial, expanded: $typeExpanded
+        ) { picked in
+            choose(
+                type: picked,
+                label: allRoomTypes.first { $0.id == picked }?.label ?? picked)
+        }
+        .task { await loadRoomTypes() }
+    }
 
-                SectionHeading(title: "WHAT KIND OF ROOM?", trailing: "Most common")
-
-                Text(
-                    "The room is named from this, and living area is counted from it. Both can be changed afterwards."
-                )
-                .font(.system(size: 12))
-                .foregroundStyle(Brand.inkFaint)
-
-                TypeChips(
-                    options: chipOptions,
-                    selected: roomType,
-                    onMore: { pickingMoreTypes = true }
-                ) { chip in
-                    choose(type: chip.id, label: chip.label)
-                }
-
-                Button("Back") { stage = .chooseFloor }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Brand.inkSoft)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, Brand.Space.small)
+    /// The full type list, needed now that this screen shows it directly
+    /// rather than only behind `More…`.
+    ///
+    /// Falls back to the eight built-in chips if the fetch fails, so a room
+    /// can still be typed with no signal — which is the normal condition in
+    /// the basements this app is used in.
+    private func loadRoomTypes() async {
+        guard allRoomTypes.isEmpty else { return }
+        do {
+            allRoomTypes = try await API.shared.livingArea(projectId: projectId).roomTypes
+        } catch {
+            allRoomTypes = Self.typeChips.map {
+                LivingRoomType(
+                    id: $0.id, label: $0.label, percent: 100, band: "living",
+                    note: nil, category: "residential")
             }
-            .padding(Brand.Space.base)
         }
     }
 
@@ -1421,12 +1440,77 @@ struct SelectRoomTypeView: View {
 
     var body: some View {
         NavigationStack {
+            RoomTypeList(
+                types: types, selected: selected, commercial: $commercial,
+                expanded: $expanded
+            ) { picked in
+                onPick(picked)
+                dismiss()
+            }
+            .navigationTitle("Select Room Type")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "chevron.left") }
+                }
+            }
+        }
+    }
+}
+
+/// **The reference's room-type list, with no chrome of its own.**
+///
+/// Extracted 22 Aug 2026 because there were TWO room-type screens and only one
+/// of them looked like the reference. The capture flow drew a grid of pills
+/// with its own heading and explainer; this list — segmented control, grouped
+/// rows, blue `See more` — was reached only from behind `More…`. The owner,
+/// looking at the pill grid: *"we have to change this selection. I don't like
+/// the look. We have to make it like magicplan."*
+///
+/// He is right, and `SECTIONS.md` S12 had already filed it as "one duplicate
+/// screen to retire". Same extraction the editor made for `RoomEditorCore` and
+/// the inspectors made for `InspectorFormsTab`: the content lives in a view
+/// with no `NavigationStack` and no toolbar, so it can be pushed as a sheet OR
+/// embedded in a flow that already owns its chrome.
+///
+/// `commercial` and `expanded` are bindings rather than local state so an
+/// embedding flow keeps the operator's place across a redraw.
+@available(iOS 17.0, *)
+struct RoomTypeList: View {
+    let types: [LivingRoomType]
+    let selected: String?
+    @Binding var commercial: Bool
+    @Binding var expanded: Bool
+    let onPick: (String) -> Void
+
+    /// The six the reference leads with, in its order. Everything else is
+    /// one tap behind `See more` — a list of twenty on the screen you reach
+    /// most often is a list nobody reads.
+    private static let common = [
+        "kitchen", "dining_room", "living_room", "bedroom", "bathroom", "balcony",
+    ]
+
+    private var shown: [LivingRoomType] {
+        let pool = types.filter { $0.isCommercial == commercial }
+        // Commercial has no "common six" to lead with — the reference shows
+        // its whole list, and so does this.
+        guard !commercial, !expanded else { return pool }
+        let lead = Self.common.compactMap { id in pool.first { $0.id == id } }
+        // A type chosen from behind See more stays visible rather than
+        // silently vanishing from the short list that is on screen.
+        if let selected, !lead.contains(where: { $0.id == selected }),
+            let picked = pool.first(where: { $0.id == selected }) {
+            return lead + [picked]
+        }
+        return lead
+    }
+
+    var body: some View {
             List {
                 Section {
                     ForEach(shown) { type in
                         Button {
                             onPick(type.id)
-                            dismiss()
                         } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -1475,14 +1559,6 @@ struct SelectRoomTypeView: View {
                 .padding(.bottom, Brand.Space.small)
                 .background(Brand.canvas)
             }
-            .navigationTitle("Select Room Type")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "chevron.left") }
-                }
-            }
-        }
     }
 }
 

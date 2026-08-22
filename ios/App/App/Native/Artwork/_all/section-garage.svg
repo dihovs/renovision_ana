@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-77.46 -43.38 116.28 116.28">
+<ellipse cx="-17.05" cy="29.52" rx="44.09" ry="14.55" fill="#0B1220" opacity="0.1"/>
+<ellipse cx="-14.20" cy="1.64" rx="9.00" ry="5.20" fill="#6E7884" stroke="#252A31" stroke-width="1.5" transform="rotate(60 -14.20 1.64)"/>
+<ellipse cx="-55.11" cy="25.26" rx="9.00" ry="5.20" fill="#6E7884" stroke="#252A31" stroke-width="1.5" transform="rotate(60 -55.11 25.26)"/>
+<polygon points="-3.41,-17.71 30.68,1.97 -35.23,40.02 -69.32,20.34" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="30.68,15.09 -35.23,53.14 -35.23,40.02 30.68,1.97" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-69.32,33.46 -35.23,53.14 -35.23,40.02 -69.32,20.34" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-18.18,-23.62 11.36,-6.56 -22.73,13.12 -52.27,-3.94" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="11.36,10.50 -22.73,30.18 -22.73,13.12 11.36,-6.56" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-52.27,13.12 -22.73,30.18 -22.73,13.12 -52.27,-3.94" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="8.18,8.66 -19.09,24.41 -19.09,13.91 8.18,-1.84" fill="#9CC6E8" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-48.92,11.19 -26.19,24.31 -26.19,13.81 -48.92,0.69" fill="#7DAFD9" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="16.48" cy="19.35" rx="9.00" ry="5.20" fill="#6E7884" stroke="#252A31" stroke-width="1.5" transform="rotate(60 16.48 19.35)"/>
+<ellipse cx="16.70" cy="19.49" rx="4.50" ry="2.60" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" transform="rotate(60 16.70 19.49)"/>
+<ellipse cx="-24.43" cy="42.97" rx="9.00" ry="5.20" fill="#6E7884" stroke="#252A31" stroke-width="1.5" transform="rotate(60 -24.43 42.97)"/>
+<ellipse cx="-24.20" cy="43.10" rx="4.50" ry="2.60" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" transform="rotate(60 -24.20 43.10)"/>
+<ellipse cx="3.18" cy="-8.40" rx="3.86" ry="2.23" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5" transform="rotate(60 3.18 -8.40)"/>
+<ellipse cx="21.36" cy="2.10" rx="3.86" ry="2.23" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5" transform="rotate(60 21.36 2.10)"/>
+</svg>

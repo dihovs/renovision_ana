@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-81.35 -74.81 116.28 116.28">
+<ellipse cx="-23.21" cy="16.67" rx="26.67" ry="8.80" fill="#0B1220" opacity="0.1"/>
+<polygon points="0.00,-60.13 5.66,-56.86 0.00,-53.59 -5.66,-56.86" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="5.66,3.27 0.00,6.54 0.00,-53.59 5.66,-56.86" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-5.66,3.27 0.00,6.54 0.00,-53.59 -5.66,-56.86" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-46.41,-33.33 -40.75,-30.07 -46.41,-26.80 -52.07,-30.07" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-40.75,30.07 -46.41,33.33 -46.41,-26.80 -40.75,-30.07" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-52.07,30.07 -46.41,33.33 -46.41,-26.80 -52.07,-30.07" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="0.00,-66.67 5.66,-63.40 -46.41,-33.33 -52.07,-36.60" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="5.66,-56.86 -46.41,-26.80 -46.41,-33.33 5.66,-63.40" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-52.07,-30.07 -46.41,-26.80 -46.41,-33.33 -52.07,-36.60" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-5.66,-0.39 0.00,2.88 -40.75,26.41 -46.41,23.14" fill="#C79A68" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="0.00,6.54 -40.75,30.07 -40.75,26.41 0.00,2.88" fill="#C79A68" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-46.41,26.80 -40.75,30.07 -40.75,26.41 -46.41,23.14" fill="#A87C4E" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-2.83,0.98 -43.58,24.51 -43.58,-30.39 -2.83,-53.92" fill="#CBD3DC" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="0.00" y1="-52.29" x2="-40.75" y2="-28.76" stroke="#252A31" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

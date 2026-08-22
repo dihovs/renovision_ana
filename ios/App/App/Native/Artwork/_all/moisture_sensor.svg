@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-62.16 -90.79 116.28 116.28">
+<ellipse cx="-4.02" cy="11.61" rx="17.41" ry="5.75" fill="#0B1220" opacity="0.1"/>
+<path d="M -0.53 -14.86 L -0.53 8.36 A 2.14 1.23 0 0 0 3.74 8.36 L 3.74 -14.86 A 2.14 1.23 0 0 1 -0.53 -14.86 Z" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="1.61" cy="-14.86" rx="2.13" ry="1.23" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5"/>
+<path d="M -11.79 -8.36 L -11.79 14.86 A 2.14 1.23 0 0 0 -7.52 14.86 L -7.52 -8.36 A 2.14 1.23 0 0 1 -11.79 -8.36 Z" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="-9.65" cy="-8.36" rx="2.13" ry="1.23" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5"/>
+<polygon points="0.00,-78.93 16.08,-69.65 -8.04,-55.72 -24.13,-65.00" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="16.08,-13.93 -8.04,0.00 -8.04,-55.72 16.08,-69.65" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-24.13,-9.29 -8.04,0.00 -8.04,-55.72 -24.13,-65.00" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="13.47,-44.46 -4.62,-34.01 -4.62,-52.58 13.47,-63.03" fill="#9CC6E8" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="11.56,-47.65 -2.11,-39.76 -2.11,-49.04 11.56,-56.94" fill="#7DAFD9" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="11.66,-17.88 -2.81,-9.52 -2.81,-28.09 11.66,-36.45" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="0.00,-82.65 12.06,-75.68 -8.04,-64.07 -20.11,-71.04" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="12.06,-69.65 -8.04,-58.04 -8.04,-64.07 12.06,-75.68" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-20.11,-65.00 -8.04,-58.04 -8.04,-64.07 -20.11,-71.04" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

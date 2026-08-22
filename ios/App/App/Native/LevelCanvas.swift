@@ -2420,7 +2420,7 @@ struct AddRoomMethodSheet: View {
                         methodRow(
                             title: "Add Square Room",
                             caption: "Start with a rectangle. Then pull it into shape.",
-                            glyph: "square.dashed",
+                            art: .square,
                             enabled: true
                         ) {
                             onPick(.draw)
@@ -2433,7 +2433,7 @@ struct AddRoomMethodSheet: View {
                             methodRow(
                                 title: "Draw Room",
                                 caption: "Add corner points to build the room shape.",
-                                glyph: "hand.draw",
+                                art: .corners,
                                 enabled: true
                             ) {
                                 onPick(.drawCorners)
@@ -2443,7 +2443,7 @@ struct AddRoomMethodSheet: View {
                             methodRow(
                                 title: "Import & Draw",
                                 caption: "Trace over an image of an existing plan.",
-                                glyph: "photo.on.rectangle.angled",
+                                art: .trace,
                                 enabled: false
                             ) {}
                         }
@@ -2513,19 +2513,25 @@ struct AddRoomMethodSheet: View {
         .disabled(!enabled)
     }
 
+    /// **A drawing of the method, not a system glyph.**
+    ///
+    /// These two rows carried `square.dashed` and `hand.draw` — SF Symbols
+    /// standing in for the two manual ways to make a room. The owner, looking
+    /// at this sheet: *"I don't like these icons here. They are, like, very,
+    /// very basic."* He is right, and the reason is that a symbol names a
+    /// method while a drawing SHOWS it: `square.dashed` says "square", where
+    /// the drawing says "start from a rectangle and drag its corners out",
+    /// which is the actual difference between this row and the one under it.
     private func methodRow(
-        title: String, caption: String, glyph: String, enabled: Bool,
+        title: String, caption: String, art: ScanMethodArt.Kind, enabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: { if enabled { action() } }) {
             HStack(spacing: Brand.Space.small) {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Brand.Plan.floorMuted)
-                    .frame(width: 46, height: 46)
-                    .overlay(
-                        Image(systemName: glyph)
-                            .font(.system(size: 18))
-                            .foregroundStyle(enabled ? Brand.blue : Brand.inkFaint))
+                    .frame(width: 52, height: 52)
+                    .overlay(ScanMethodArt(kind: art, enabled: enabled).padding(4))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
@@ -2689,7 +2695,7 @@ struct FloorDetailView: View {
 /// surface. That difference is the whole of the choice, and a generic
 /// camera glyph on both would have said none of it.
 struct ScanMethodArt: View {
-    enum Kind { case auto, manual }
+    enum Kind { case auto, manual, square, corners, trace }
     let kind: Kind
     var enabled: Bool = true
 
@@ -2697,75 +2703,223 @@ struct ScanMethodArt: View {
         Canvas { context, size in
             let ink = enabled ? Brand.Plan.ink : Brand.inkFaint
             let accent = enabled ? Brand.blue : Brand.inkFaint
-            // Isometric: x goes right-and-down, y goes left-and-down, the
-            // same 2:1 projection an architectural axo uses.
-            let unit = min(size.width, size.height) / (kind == .auto ? 7.0 : 5.2)
-            let origin = CGPoint(x: size.width / 2, y: size.height / 2 + unit * 0.6)
-            func iso(_ x: Double, _ y: Double) -> CGPoint {
+            // Faces are shaded by which way they point, the way an axo is:
+            // one wall plane catches the light, the other is in shade, and
+            // the floor is lighter than both. Three tones is all it takes to
+            // read as a volume instead of an outline.
+            let lit = enabled ? accent.opacity(0.26) : Brand.inkFaint.opacity(0.14)
+            let shade = enabled ? accent.opacity(0.40) : Brand.inkFaint.opacity(0.22)
+            let floor = enabled ? accent.opacity(0.10) : Brand.inkFaint.opacity(0.07)
+
+            let span: Double = {
+                switch kind {
+                case .auto: return 7.0
+                case .manual: return 5.2
+                case .square: return 5.0
+                case .corners: return 5.0
+                case .trace: return 5.0
+                }
+            }()
+            let unit = min(size.width, size.height) / span
+            let origin = CGPoint(x: size.width / 2, y: size.height / 2 + unit * 0.9)
+
+            /// 2:1 isometric with a z axis. `z` is height in the same units as
+            /// the plan, so a wall is drawn by lifting its own footprint.
+            func iso(_ x: Double, _ y: Double, _ z: Double = 0) -> CGPoint {
                 CGPoint(
                     x: origin.x + (x - y) * unit * 0.86,
-                    y: origin.y + (x + y) * unit * 0.5)
+                    y: origin.y + (x + y) * unit * 0.5 - z * unit * 0.72)
             }
 
-            func room(_ x: Double, _ y: Double, _ w: Double, _ h: Double, fill: Bool) {
+            func poly(_ pts: [CGPoint]) -> Path {
                 var path = Path()
-                path.move(to: iso(x, y))
-                path.addLine(to: iso(x + w, y))
-                path.addLine(to: iso(x + w, y + h))
-                path.addLine(to: iso(x, y + h))
+                guard let first = pts.first else { return path }
+                path.move(to: first)
+                for p in pts.dropFirst() { path.addLine(to: p) }
                 path.closeSubpath()
-                if fill {
-                    context.fill(path, with: .color(accent.opacity(0.16)))
+                return path
+            }
+
+            /// A room as a solid: floor slab, then each wall extruded from its
+            /// own footprint edge. Back walls are drawn before front ones so
+            /// the near walls overlap them, which is what gives the depth.
+            func room(
+                _ x: Double, _ y: Double, _ w: Double, _ h: Double,
+                height wall: Double = 0.62, slab: Bool = true
+            ) {
+                if slab {
+                    context.fill(
+                        poly([iso(x, y), iso(x + w, y), iso(x + w, y + h), iso(x, y + h)]),
+                        with: .color(floor))
                 }
-                context.stroke(path, with: .color(ink), lineWidth: 1.4)
+                // Back two walls (away from the viewer), then front two.
+                let edges: [(Double, Double, Double, Double, Bool)] = [
+                    (x, y, x + w, y, true),
+                    (x, y, x, y + h, false),
+                    (x, y + h, x + w, y + h, true),
+                    (x + w, y, x + w, y + h, false),
+                ]
+                for (x1, y1, x2, y2, litFace) in edges {
+                    let face = poly([
+                        iso(x1, y1), iso(x2, y2), iso(x2, y2, wall), iso(x1, y1, wall),
+                    ])
+                    context.fill(face, with: .color(litFace ? lit : shade))
+                    context.stroke(face, with: .color(ink), lineWidth: 1.1)
+                }
+            }
+
+            /// The phone, drawn small and iso-aligned. It is what the operator
+            /// is actually holding, and putting it in the picture is the
+            /// quickest way to say "this method involves you moving".
+            func phone(at p: CGPoint, tilt: Double = 0) {
+                let w = unit * 0.42, h = unit * 0.78
+                let body = CGRect(x: p.x - w / 2, y: p.y - h / 2, width: w, height: h)
+                context.drawLayer { layer in
+                    layer.translateBy(x: p.x, y: p.y)
+                    layer.rotate(by: .radians(tilt))
+                    layer.translateBy(x: -p.x, y: -p.y)
+                    layer.fill(
+                        Path(roundedRect: body, cornerRadius: w * 0.22), with: .color(.white))
+                    layer.stroke(
+                        Path(roundedRect: body, cornerRadius: w * 0.22), with: .color(ink),
+                        lineWidth: 1.3)
+                    layer.fill(
+                        Path(
+                            roundedRect: body.insetBy(dx: w * 0.16, dy: h * 0.14),
+                            cornerRadius: w * 0.1), with: .color(accent.opacity(0.55)))
+                }
             }
 
             switch kind {
             case .auto:
-                // Three rooms sharing walls — a floor, not a box.
-                room(-2.2, -1.4, 2.2, 1.5, fill: true)
-                room(0, -1.4, 1.8, 1.5, fill: false)
-                room(-2.2, 0.1, 4.0, 1.4, fill: false)
+                // Three rooms sharing walls — a floor, not a box. Low walls so
+                // the walk stays visible over them.
+                room(-2.2, -1.5, 2.2, 1.5, height: 0.5)
+                room(0.05, -1.5, 1.8, 1.5, height: 0.5)
+                room(-2.2, 0.1, 4.05, 1.4, height: 0.5)
 
-                // The walk: a dashed path threading all three.
+                // The walk threading all three, drawn ON the floor.
                 var walk = Path()
-                walk.move(to: iso(-1.1, -0.6))
-                walk.addLine(to: iso(0.9, -0.6))
-                walk.addLine(to: iso(0.9, 0.8))
-                walk.addLine(to: iso(-1.1, 0.8))
+                walk.move(to: iso(-1.1, -0.7))
+                walk.addLine(to: iso(0.95, -0.7))
+                walk.addLine(to: iso(0.95, 0.85))
+                walk.addLine(to: iso(-1.1, 0.85))
                 context.stroke(
                     walk, with: .color(accent),
-                    style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 4]))
-                // Where the walk ends, so it reads as a direction.
-                let tip = iso(-1.1, 0.8)
+                    style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round, dash: [5, 4]))
+                // Where the walk started, and where it is now.
+                let from = iso(-1.1, -0.7)
                 context.fill(
-                    Path(ellipseIn: CGRect(x: tip.x - 4, y: tip.y - 4, width: 8, height: 8)),
-                    with: .color(accent))
+                    Path(ellipseIn: CGRect(x: from.x - 3.5, y: from.y - 3.5, width: 7, height: 7)),
+                    with: .color(ink.opacity(0.45)))
+                phone(at: iso(-1.1, 0.85, 0.55), tilt: -0.12)
 
             case .manual:
                 // One room, and a cone from a standpoint inside it: aimed,
                 // not walked.
-                room(-1.6, -1.2, 3.2, 2.4, fill: false)
-
+                room(-1.6, -1.2, 3.2, 2.4, height: 0.7)
                 let stand = iso(-0.9, 0.7)
-                var cone = Path()
-                cone.move(to: stand)
-                cone.addLine(to: iso(1.6, -1.2))
-                cone.addLine(to: iso(1.6, 0.4))
-                cone.closeSubpath()
-                context.fill(cone, with: .color(accent.opacity(0.22)))
+                let cone = poly([stand, iso(1.6, -1.2, 0.2), iso(1.6, 0.4, 0.2)])
+                context.fill(cone, with: .color(accent.opacity(0.20)))
                 context.stroke(cone, with: .color(accent), lineWidth: 1.2)
-
-                // The far wall it is aimed at, drawn heavier — the surface
-                // being measured right now.
                 var target = Path()
                 target.move(to: iso(1.6, -1.2))
-                target.addLine(to: iso(1.6, 1.2))
+                target.addLine(to: iso(1.6, -1.2, 0.7))
                 context.stroke(target, with: .color(accent), lineWidth: 3)
+                phone(at: iso(-0.9, 0.7, 0.5), tilt: 0.1)
 
+            case .square:
+                // Start with a rectangle, then pull it into shape: the room is
+                // solid, and the handles are what you drag. The ghost shows
+                // where a drag is going, which is the whole of the method.
+                room(-1.3, -1.0, 2.6, 2.0, height: 0.66)
+                let ghost = poly([
+                    iso(1.3, -1.0), iso(2.1, -1.0), iso(2.1, 1.0), iso(1.3, 1.0),
+                ])
+                context.stroke(
+                    ghost, with: .color(accent),
+                    style: StrokeStyle(lineWidth: 1.4, dash: [4, 3]))
+                // Corner handles on the near face, where a thumb would land.
+                for (hx, hy) in [(-1.3, 1.0), (1.3, 1.0), (1.3, -1.0)] {
+                    let p = iso(hx, hy, 0.66)
+                    let r = unit * 0.16
+                    context.fill(
+                        Path(roundedRect: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2),
+                             cornerRadius: r * 0.35),
+                        with: .color(.white))
+                    context.stroke(
+                        Path(roundedRect: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2),
+                             cornerRadius: r * 0.35),
+                        with: .color(accent), lineWidth: 1.6)
+                }
+
+            case .trace:
+                // A photograph of an existing plan with a new outline being
+                // traced over it. Flat on purpose — this is the one method
+                // that starts from a picture rather than from the building,
+                // so it is the one drawing with no isometric room in it.
+                let sheet = CGRect(
+                    x: origin.x - unit * 1.6, y: origin.y - unit * 2.3,
+                    width: unit * 3.2, height: unit * 2.4)
                 context.fill(
-                    Path(ellipseIn: CGRect(x: stand.x - 5, y: stand.y - 5, width: 10, height: 10)),
-                    with: .color(ink))
+                    Path(roundedRect: sheet, cornerRadius: unit * 0.14), with: .color(.white))
+                context.stroke(
+                    Path(roundedRect: sheet, cornerRadius: unit * 0.14), with: .color(ink),
+                    lineWidth: 1.3)
+                var underlay = Path()
+                underlay.addRect(sheet.insetBy(dx: unit * 0.42, dy: unit * 0.36))
+                context.stroke(underlay, with: .color(ink.opacity(0.22)), lineWidth: 3)
+                var traced = Path()
+                traced.move(to: CGPoint(x: sheet.minX + unit * 0.42, y: sheet.maxY - unit * 0.36))
+                traced.addLine(to: CGPoint(x: sheet.minX + unit * 0.42, y: sheet.minY + unit * 0.36))
+                traced.addLine(to: CGPoint(x: sheet.maxX - unit * 0.42, y: sheet.minY + unit * 0.36))
+                context.stroke(
+                    traced, with: .color(accent),
+                    style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+                let nib = CGPoint(x: sheet.maxX - unit * 0.42, y: sheet.minY + unit * 0.36)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: nib.x - 4, y: nib.y - 4, width: 8, height: 8)),
+                    with: .color(accent))
+
+            case .corners:
+                // Corner by corner, and deliberately an L: a shape you could
+                // not have got from the rectangle above. Three edges are
+                // committed, the fourth is still following the finger.
+                let pts: [(Double, Double)] = [
+                    (-1.4, -1.0), (0.9, -1.0), (0.9, 0.1), (1.9, 0.1),
+                ]
+                context.fill(
+                    poly([
+                        iso(-1.4, -1.0), iso(0.9, -1.0), iso(0.9, 0.1), iso(1.9, 0.1),
+                        iso(1.9, 1.2), iso(-1.4, 1.2),
+                    ]), with: .color(floor))
+                var laid = Path()
+                laid.move(to: iso(pts[0].0, pts[0].1))
+                for pt in pts.dropFirst() { laid.addLine(to: iso(pt.0, pt.1)) }
+                context.stroke(
+                    laid, with: .color(ink),
+                    style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+                // The edge still being placed.
+                var pending = Path()
+                pending.move(to: iso(1.9, 0.1))
+                pending.addLine(to: iso(1.9, 1.2))
+                context.stroke(
+                    pending, with: .color(accent),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 3]))
+                // Committed corners as dots; the live one as a ring.
+                for pt in pts {
+                    let p = iso(pt.0, pt.1)
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: p.x - 3.4, y: p.y - 3.4, width: 6.8, height: 6.8)),
+                        with: .color(ink))
+                }
+                let live = iso(1.9, 1.2)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: live.x - 6, y: live.y - 6, width: 12, height: 12)),
+                    with: .color(.white))
+                context.stroke(
+                    Path(ellipseIn: CGRect(x: live.x - 6, y: live.y - 6, width: 12, height: 12)),
+                    with: .color(accent), lineWidth: 2.2)
             }
         }
     }

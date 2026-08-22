@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-95.49 -3.01 116.28 116.28">
+<ellipse cx="0.00" cy="9.70" rx="7.92" ry="4.57" fill="#D14836" stroke="#D14836" stroke-width="1.5"/>
+<line x1="0.00" y1="9.70" x2="-18.68" y2="58.23" stroke="#D14836" stroke-width="2.4" stroke-linecap="round"/>
+<polygon points="-23.34,45.83 9.34,64.70 -51.36,99.74 -84.04,80.87" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="9.34,70.09 -51.36,105.13 -51.36,99.74 9.34,64.70" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-84.04,86.26 -51.36,105.13 -51.36,99.74 -84.04,80.87" fill="#CBD3DC" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<line x1="-23.34" y1="53.37" x2="-65.37" y2="77.63" stroke="#6E7884" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="-15.41" y1="57.96" x2="-48.09" y2="76.83" stroke="#6E7884" stroke-width="2.4" stroke-linecap="round"/>
+<line x1="-7.47" y1="62.54" x2="-30.82" y2="76.02" stroke="#6E7884" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

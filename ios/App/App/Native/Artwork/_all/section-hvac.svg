@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-65.96 -66.29 116.28 116.28">
+<ellipse cx="-1.45" cy="20.92" rx="32.14" ry="10.61" fill="#0B1220" opacity="0.1"/>
+<polygon points="0.00,-56.91 34.79,-36.82 -2.90,-15.06 -37.69,-35.15" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="34.79,20.09 -2.90,41.85 -2.90,-15.06 34.79,-36.82" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-37.69,21.76 -2.90,41.85 -2.90,-15.06 -37.69,-35.15" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<ellipse cx="15.95" cy="2.51" rx="19.47" ry="11.24" fill="#6E7884" stroke="#252A31" stroke-width="2.4" transform="rotate(120 15.95 2.51)"/>
+<ellipse cx="15.95" cy="2.51" rx="4.92" ry="2.84" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" transform="rotate(120 15.95 2.51)"/>
+<line x1="15.95" y1="2.51" x2="6.84" y2="1.91" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="15.95" y1="2.51" x2="25.92" y2="-9.11" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="15.95" y1="2.51" x2="16.38" y2="15.48" stroke="#C3CAD2" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M -13.74 -51.05 L -13.74 -35.99 A 12.30 7.10 0 0 0 10.85 -35.99 L 10.85 -51.05 A 12.30 7.10 0 0 1 -13.74 -51.05 Z" fill="#C3CAD2" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<ellipse cx="-1.45" cy="-51.05" rx="12.30" ry="7.10" fill="#AEB6BF" stroke="#252A31" stroke-width="2.4"/>
+</svg>

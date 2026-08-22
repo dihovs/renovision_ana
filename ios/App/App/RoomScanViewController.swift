@@ -1,4 +1,5 @@
 import ARKit
+import OSLog
 import RoomPlan
 import SwiftUI
 import UIKit
@@ -85,6 +86,18 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     /// never implemented.
     private var quality = ScanQuality()
     private var lastTorchNudge = Date.distantPast
+
+    /// **Unified logging, not `print`.** A `print` on a device goes to stderr
+    /// and is only ever seen by an attached debugger — which meant the lens
+    /// probe and the scan-quality summary, both written to be read off the
+    /// owner's own phone after a real scan, would have produced nothing at
+    /// all. `Logger` lands in the system log, where `log collect --device`
+    /// can fetch it without a debug session or a cable ceremony.
+    ///
+    /// `privacy: .public` because otherwise the interpolated string is
+    /// redacted to `<private>` in any log read from outside the process,
+    /// which is the only way these are ever read.
+    private static let log = Logger(subsystem: "ca.renovisionana.crm", category: "scan")
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -255,7 +268,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         // One-shot measurement, not a feature — see `ScanLens`. Answers
         // whether an ultra-wide scan is even offered by ARKit on this device
         // before anybody builds a lens picker for it.
-        print(ScanLens.report)
+        Self.log.notice("\(ScanLens.report, privacy: .public)")
         // Walking a room is minutes of holding the phone up without touching
         // the screen, which is exactly what the idle timer counts as idle —
         // and a scan that sleeps halfway through is a scan started again.
@@ -681,7 +694,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         // The last streamed room is the best read on wall confidence we get
         // before RoomPlan's own processing; record it while it is still here.
         if let room = liveRoom { quality.record(room: room) }
-        print(quality.summary)
+        Self.log.notice("\(self.quality.summary, privacy: .public)")
         // Stopping hands the final, processed CapturedRoom to
         // captureView(didPresent:error:) below — not to a completion here.
         stopCapture()

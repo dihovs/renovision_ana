@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-68.02 -62.29 116.28 116.28">
+<polygon points="0.00,-54.15 4.94,-51.30 -54.30,-17.10 -59.24,-19.95" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="4.94,-19.95 -54.30,14.25 -54.30,-17.10 4.94,-51.30" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-59.24,11.40 -54.30,14.25 -54.30,-17.10 -59.24,-19.95" fill="#A9B4C0" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="4.94,-32.78 9.13,-30.35 -50.11,3.85 -54.30,1.43" fill="#C79A68" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="9.13,-17.53 -50.11,16.67 -50.11,3.85 9.13,-30.35" fill="#C79A68" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-54.30,14.25 -50.11,16.67 -50.11,3.85 -54.30,1.43" fill="#A87C4E" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="19.01,-6.13 -40.23,28.07 -40.23,16.67 19.01,-17.53" fill="#C3CAD2" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-50.11,22.37 -40.23,28.07 -40.23,16.67 -50.11,10.97" fill="#AEB6BF" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="9.13,-23.23 19.01,-17.53 -40.23,16.67 -50.11,10.97" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="9.63,-13.54 16.04,-9.83 -40.73,22.94 -47.15,19.24" fill="#7DAFD9" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M -45.12 20.95 L -45.12 39.48 A 4.89 2.82 0 0 0 -35.34 39.48 L -35.34 20.95 A 4.89 2.82 0 0 1 -45.12 20.95 Z" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="-40.23" cy="20.95" rx="4.89" ry="2.82" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5"/>
+<polygon points="-42.68,40.86 -34.04,45.85 -29.15,37.38 -37.79,32.39" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="-31.60" cy="41.61" rx="4.89" ry="2.82" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5" transform="rotate(120 -31.60 41.61)"/>
+</svg>

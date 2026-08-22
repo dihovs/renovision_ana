@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-79.03 -80.38 116.28 116.28">
+<ellipse cx="0.00" cy="18.57" rx="27.85" ry="9.19" fill="#0B1220" opacity="0.1"/>
+<path d="M -21.78 -49.51 L -21.78 18.57 A 21.78 12.58 0 0 0 21.78 18.57 L 21.78 -49.51 A 21.78 12.58 0 0 1 -21.78 -49.51 Z" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<ellipse cx="0.00" cy="-49.51" rx="21.79" ry="12.58" fill="#EEF1F5" stroke="#252A31" stroke-width="2.4"/>
+<ellipse cx="0.00" cy="-49.66" rx="21.79" ry="12.58" fill="#EEF1F5" stroke="#252A31" stroke-width="1.5"/>
+<polygon points="23.45,13.54 7.37,22.82 7.37,13.54 23.45,4.25" fill="#6E7884" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="-2.46,-45.24 9.60,-38.28 14.52,-46.81 2.46,-53.77" fill="#C3CAD2" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<ellipse cx="12.06" cy="-42.55" rx="4.93" ry="2.84" fill="#AEB6BF" stroke="#252A31" stroke-width="2.4" transform="rotate(120 12.06 -42.55)"/>
+<path d="M -4.55 -69.62 L -4.55 -58.79 A 4.55 2.63 0 0 0 4.55 -58.79 L 4.55 -69.62 A 4.55 2.63 0 0 1 -4.55 -69.62 Z" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="0.00" cy="-69.62" rx="4.55" ry="2.63" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5"/>
+<path d="M -4.55 -51.05 L -4.55 -40.22 A 4.55 2.63 0 0 0 4.55 -40.22 L 4.55 -51.05 A 4.55 2.63 0 0 1 -4.55 -51.05 Z" fill="#C3CAD2" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<ellipse cx="0.00" cy="-51.05" rx="4.55" ry="2.63" fill="#AEB6BF" stroke="#252A31" stroke-width="1.5"/>
+<polygon points="14.74,-11.60 20.10,-8.51 14.74,-5.41 9.38,-8.51" fill="#D14836" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="20.10,-3.87 14.74,-0.77 14.74,-5.41 20.10,-8.51" fill="#D14836" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+<polygon points="9.38,-3.87 14.74,-0.77 14.74,-5.41 9.38,-8.51" fill="#D14836" stroke="#252A31" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>
