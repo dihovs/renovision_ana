@@ -1,6 +1,13 @@
 # Guided protocol — Phase 1 specification
 
-**Status:** specified, not built. Approved as a direction by the owner
+**Status: Phase 1 rules BUILT as data with tests, 22 Aug 2026 — no interface, by design.**
+`src/lib/crm/protocolRules.ts` is §2 of this document turned into a table, with
+`src/lib/crm/protocolRules.test.ts` covering it (20 cases). The table below and
+that file must agree; the file is the one that runs. **Nothing else is built** —
+no migration, no screen. §3's table and §5's three placements are still
+specification.
+
+**Originally:** specified, not built. Approved as a direction by the owner
 21 Aug 2026: *"I want my app to guide them to say, okay. Measure the humidity
 and then check the baseboard. If accessible, if you can remove the bit of
 flooring, check what's going on with the subfloor. Check the drywall, the

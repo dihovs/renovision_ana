@@ -2891,3 +2891,29 @@ Newest last. One or two lines per chat.
   `Logger(subsystem: "ca.renovisionana.crm", category: "scan")` with
   `privacy: .public`, readable with `log collect --device`.
   Installed and **verified 183 on the device**; not yet looked at by eye.
+- **2026-08-22 (Guided protocol, Phase 1 rules)** — HANDOFF §5's last item, and
+  the shape the owner approved: **the rules as data with tests, and no
+  interface at all.** `src/lib/crm/protocolRules.ts` + its test file, 20 cases,
+  full suite now **1147 passing**, `tsc` clean.
+  The reason for this order is worth restating: **the rules ARE the design.**
+  He can read the table and say "that is not how we do a category 3" long
+  before a screen exists to argue with, and changing a row costs nothing next
+  to changing a screen built on the wrong row.
+  **The load-bearing distinction is `derived` vs `explicit`.** A derived check
+  is a query over records that already exist — a reading ticks off
+  `water.reading`, and DELETING the reading un-ticks it, because derived
+  completion is never stored. `evaluate` deliberately ignores a stored row
+  that claims a derived check is done, and there is a test for exactly that:
+  a checklist claiming done when the record behind it is gone is worse than no
+  checklist. An explicit check is one nothing in the database can prove, where
+  the tap IS the record — a dated, attributed assertion that somebody looked,
+  which survives an argument that silence does not.
+  Behaviour encoded beyond the spec's prose: safety checks are hoisted to the
+  front regardless of their position in their own table (`mould.containment`
+  is not a row you meet halfway down a list); a fire loss answered as also-wet
+  gains the water checks AFTER its own, de-duplicated; `other` returns nothing
+  on purpose, because the operator has already said it fits no category and
+  inventing checks would be guessing; `today` is a parameter, not the clock,
+  so the daily reset is testable.
+  **Still specification, not built:** the `protocol_checks` migration (§3) and
+  all three placements (§5). Phase 1 stops here on purpose.
