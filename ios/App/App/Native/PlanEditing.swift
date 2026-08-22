@@ -922,6 +922,22 @@ enum PlanEditing {
         case windowPicture
         case windowEgress
         case windowBay
+        /// **Five more windows**, added 22 Aug 2026 to reach the drawings that
+        /// had been sitting in `Native/Artwork` with no case to name them.
+        ///
+        /// Two of the seven delivered are deliberately NOT here — a skylight
+        /// and a storm window. Both are drawings of things that are not holes
+        /// in a wall, and `wallAreaNetSqm` deducts `width × height` for every
+        /// opening in the door/window/passage arrays without asking where it
+        /// sits. A skylight is in the roof; a storm sash is a SECOND pane over
+        /// a window already counted, so placing one would deduct the same hole
+        /// twice. Either would quietly shrink the drywall figure a claim is
+        /// priced from. See `Docs/SECTIONS.md` S8's Log entry for the ask.
+        case windowAwning
+        case windowBow
+        case windowGlassBlock
+        case windowHalfRound
+        case windowTransom
 
         /// Which of the geometry's three arrays this lands in downstream.
         enum Category { case door, window, passage }
@@ -960,7 +976,8 @@ enum PlanEditing {
                 return .passage
             case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
                 .windowCasement, .windowSliding, .windowPicture, .windowEgress,
-                .windowBay:
+                .windowBay, .windowAwning, .windowBow, .windowGlassBlock,
+                .windowHalfRound, .windowTransom:
                 return .window
             }
         }
@@ -990,6 +1007,16 @@ enum PlanEditing {
             case .windowPicture: return 72 * Self.inch
             case .windowEgress: return 36 * Self.inch
             case .windowBay: return 72 * Self.inch
+            case .windowAwning: return 36 * Self.inch
+            // A bow is the bay's wider cousin — four or five panels round the
+            // curve where a bay has three, so it runs a full 8ft.
+            case .windowBow: return 96 * Self.inch
+            // Nominal 8in block: four across. Glass block is the one opening
+            // whose size is set by the unit it is built from, not by a
+            // supplier's catalogue.
+            case .windowGlassBlock: return 32 * Self.inch
+            case .windowHalfRound: return 36 * Self.inch
+            case .windowTransom: return 36 * Self.inch
             }
         }
 
@@ -1026,6 +1053,20 @@ enum PlanEditing {
                 return 48 * Self.inch
             case .windowBay:
                 return 48 * Self.inch
+            // An awning is wider than it is tall — it is hinged at the head
+            // and props open like its namesake, so it cannot be a tall sash.
+            case .windowAwning:
+                return 24 * Self.inch
+            case .windowBow:
+                return 48 * Self.inch
+            // Two courses of nominal 8in block.
+            case .windowGlassBlock:
+                return 16 * Self.inch
+            // Half of a 36in circle, because that is what a half-round is.
+            case .windowHalfRound:
+                return 18 * Self.inch
+            case .windowTransom:
+                return 12 * Self.inch
             }
         }
 
@@ -1070,6 +1111,21 @@ enum PlanEditing {
             // in the house.
             case .windowEgress: return 36 * Self.inch
             case .windowBay: return 24 * Self.inch
+            // High on the wall, which is the point of an awning: it sheds rain
+            // while open, so it is the window left cracked over a counter or
+            // near a basement ceiling.
+            case .windowAwning: return 48 * Self.inch
+            // Seat height, same as the bay it curves like.
+            case .windowBow: return 24 * Self.inch
+            // At grade, like the hopper it usually replaces.
+            case .windowGlassBlock: return 72 * Self.inch
+            // A gable or feature light, above the run of ordinary glass. 72 +
+            // 18 lands the head at 90in, clear of an eight-foot ceiling.
+            case .windowHalfRound: return 72 * Self.inch
+            // **Derived, not chosen.** A transom sits ON a door head, so its
+            // sill IS the door's height — write it that way and the two can
+            // never drift apart.
+            case .windowTransom: return Self.doorSingle.height
             }
         }
 
@@ -1100,6 +1156,11 @@ enum PlanEditing {
             case .windowPicture: return "Picture window"
             case .windowEgress: return "Egress window"
             case .windowBay: return "Bay window"
+            case .windowAwning: return "Awning window"
+            case .windowBow: return "Bow window"
+            case .windowGlassBlock: return "Glass block window"
+            case .windowHalfRound: return "Half-round window"
+            case .windowTransom: return "Transom window"
             }
         }
     }

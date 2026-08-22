@@ -1825,7 +1825,9 @@ enum LibrarySection: Identifiable, Hashable, CaseIterable {
         case .windows:
             return [
                 .windowStandard, .windowDoubleHung, .windowCasement, .windowSliding,
-                .windowWide, .windowPicture, .windowBay, .windowEgress, .windowSmall,
+                .windowWide, .windowPicture, .windowBay, .windowBow, .windowAwning,
+                .windowTransom, .windowHalfRound, .windowGlassBlock, .windowEgress,
+                .windowSmall,
             ].map(LibraryItem.opening)
         case .catalogue(let category):
             return ObjectCatalog.entries(in: category).map(LibraryItem.object)

@@ -294,13 +294,39 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
    browser server-side and has never once been run end to end — the preview
    origin has no session and I will not type his password. Either he signs in,
    or press it from a signed-in browser and check the file.
-4. **Seven windows still have no `OpeningKind` case**, so their drawings sit
-   in `Native/Artwork` unreachable: `window-awning`, `window-bow`,
-   `window-glass-block`, `window-half-round`, `window-skylight`,
-   `window-storm`, `window-transom`. Adding a case means adding it to every
-   `switch` over `OpeningKind` — label, stock width and height, glyph, and the
-   three renderers — so it needs a compile, not a blind edit at the end of a
-   session. Rename each file to `door-window<Kind>.svg` once its case exists.
+4. ~~**Seven windows still have no `OpeningKind` case**~~ — **FIVE of the
+   seven landed 22 Aug 2026; the other two are a question for the owner,
+   not work.** `windowAwning`, `windowBow`, `windowGlassBlock`,
+   `windowHalfRound` and `windowTransom` now exist with stock sizes, labels
+   and artwork, and `OpeningKind` is 24 cases. `BUILD SUCCEEDED`, which for
+   this particular change is a real proof and not the usual empty one:
+   Swift's exhaustiveness check means a switch site I had missed could not
+   have compiled. Checked separately that no `switch` over `OpeningKind`
+   carries a `default:` that would have swallowed the new cases silently —
+   none does.
+
+   **The two left out are not holes in a wall, and that is the whole
+   point.** `wallAreaNetSqm` (`Models.swift`) deducts `width × height` for
+   every opening in the door/window/passage arrays without asking where it
+   sits, so:
+
+   - a **skylight** is in the ROOF, and filing it as a window would deduct
+     wall area for an opening no wall has;
+   - a **storm window** is a SECOND sash over a window already placed, so
+     it would deduct the same hole twice.
+
+   Either one quietly shrinks the drywall figure a claim is priced from,
+   in the direction that costs the owner money. `window-skylight.svg` and
+   `window-storm.svg` are therefore still in `Native/Artwork` under their
+   original names, deliberately. **Ask the owner** whether he wants a
+   ceiling-opening model (which is the honest home for a skylight, and
+   nothing in the schema has one) or whether these should be objects/line
+   items instead. Do not improvise it.
+
+   **Also found: `windowPicture` has no artwork** and never did —
+   `door-windowPicture.svg` does not exist, so that one tile falls back to
+   the drawn `OpeningTileArt` symbol. Harmless, pre-existing, and invisible
+   until you know to look. Worth adding to the next artwork commission.
 5. **Guided protocol Phase 1**, starting with the rules table as pure data
    plus tests, and no interface at all. The rules ARE the design and he can
    review them before a screen exists.

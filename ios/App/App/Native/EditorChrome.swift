@@ -1159,7 +1159,8 @@ enum EditorChrome {
         case .doorBifold: swing = w / 2
         case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
             .windowCasement, .windowSliding, .windowPicture, .windowEgress,
-            .windowBay:
+            .windowBay, .windowAwning, .windowBow, .windowGlassBlock,
+            .windowHalfRound, .windowTransom:
             swing = band
         }
         let inward = opening.kind.category == .door ? max(12, swing * 1.06) : band

@@ -216,7 +216,8 @@ enum OpeningGlyphs {
 
         case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
             .windowCasement, .windowSliding, .windowPicture, .windowEgress,
-            .windowBay:
+            .windowBay, .windowAwning, .windowBow, .windowGlassBlock,
+            .windowHalfRound, .windowTransom:
             // Frame lines either side of the band, glazing on the centre —
             // the three-line window, same as the plan renderer.
             for s in [1.0, -1.0] {

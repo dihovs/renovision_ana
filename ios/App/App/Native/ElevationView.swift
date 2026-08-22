@@ -1445,7 +1445,8 @@ struct ElevationView: View {
             switch opening.kind {
             case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
                 .windowCasement, .windowSliding, .windowPicture, .windowEgress,
-                .windowBay:
+                .windowBay, .windowAwning, .windowBow, .windowGlassBlock,
+                .windowHalfRound, .windowTransom:
                 context.fill(Path(box), with: .color(Brand.blueLight.opacity(0.55)))
                 // Concentric: casing, sash, glazing bead. Each inset by a
                 // real thickness rather than a fraction, so a small hopper

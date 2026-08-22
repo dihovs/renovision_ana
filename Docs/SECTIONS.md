@@ -2662,3 +2662,35 @@ Newest last. One or two lines per chat.
   when `project_files` was untouched at 11 columns. **A green success in
   that editor proves a query ran, not that YOUR query ran.** Read the
   editor's text before trusting it, and confirm in Database → Tables.
+- **2026-08-22 (S8, windows)** — **Five of HANDOFF §5's seven orphan window
+  drawings now have `OpeningKind` cases**: `windowAwning` (36×24, sill 48),
+  `windowBow` (96×48, sill 24), `windowGlassBlock` (32×16, sill 72),
+  `windowHalfRound` (36×18, sill 72) and `windowTransom` (36×12, sill
+  `doorSingle.height` — a transom sits ON a door head, so writing it as the
+  door's own height means the two can never drift). Every size is inch-derived
+  in the file's existing convention. Artwork renamed to `door-window<Kind>.svg`
+  and installed (355 assets); the four switch sites outside the enum —
+  `OpeningGlyphs`, `ElevationView`, `EditorChrome`, `ObjectCatalog`'s picker
+  list — all updated. `BUILD SUCCEEDED`.
+  **The build is a real proof here, unusually.** Swift's exhaustiveness check
+  means a missed switch site could not compile, so "it built" genuinely covers
+  "I found them all" — and the `default:` branches in `ScanCatalogue` and
+  `PlanEditorView` were checked by hand and switch over other things entirely,
+  so nothing swallows the new cases quietly. **Not tapped** — the owner had the
+  device for S7 video testing; the picker showing five new tiles with their
+  illustrations is still unseen.
+  **The other two were deliberately NOT built, and this is a premise problem
+  rather than remaining work.** `wallAreaNetSqm` deducts `width × height` for
+  every opening in the door/window/passage arrays with no test for where it
+  sits. A **skylight** is a roof opening, so filing it as a window deducts wall
+  area for a hole no wall has. A **storm window** is a second sash over a
+  window already placed, so it deducts the same hole twice. Both shrink the
+  drywall figure a claim is priced from. Their SVGs stay under their original
+  names in `Native/Artwork`. Per AGENTS.md this is a stop-and-report, not an
+  improvisation: **the owner needs to say** whether a skylight deserves a real
+  ceiling-opening model (the schema has none) or whether these belong in the
+  object catalogue as line items.
+  **Incidental find: `windowPicture` has no artwork and never has** — no
+  `door-windowPicture.svg`, so that tile silently falls back to the drawn
+  `OpeningTileArt` symbol while its eight neighbours show illustrations. Not
+  introduced here; worth one drawing in the next commission.
