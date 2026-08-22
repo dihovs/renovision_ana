@@ -190,6 +190,23 @@ enum OpeningGlyphs {
             leaves.addLine(to: B)
             context.stroke(leaves, with: .color(ink), lineWidth: 1.2)
 
+        case .doorBifoldDouble:
+            // The single's V, mirrored: each unit folds to its OWN quarter
+            // point and both meet at the centre. That centre meeting is the
+            // whole difference from one wide bifold, so it is what the symbol
+            // has to show — two peaks, not one.
+            let quarter = w / 4
+            var leaves = Path()
+            for end in [A, B] {
+                let hinge = CGPoint(
+                    x: end.x + (mid.x - end.x) * 0.5 + nx * quarter * 0.5,
+                    y: end.y + (mid.y - end.y) * 0.5 + ny * quarter * 0.5)
+                leaves.move(to: end)
+                leaves.addLine(to: hinge)
+                leaves.addLine(to: mid)
+            }
+            context.stroke(leaves, with: .color(ink), lineWidth: 1.2)
+
         case .doorGarage:
             // A garage door has no swing on a plan — it goes up. Drawn as
             // the panelled leaf across the opening, which is what an

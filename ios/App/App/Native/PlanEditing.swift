@@ -908,6 +908,17 @@ enum PlanEditing {
         /// be worse than no door at all.
         case doorPocket
         case doorBifold
+        /// **A bifold PAIR**, two folding units meeting at the centre — the
+        /// standard laundry and wide-closet opening. Added 22 Aug 2026 from the
+        /// owner's own condo: *"I have double folding doors. They come
+        /// connecting to the middle, but they're also folding. When you open
+        /// them, they actually fold and go away. You can do one at a time."*
+        ///
+        /// It is not `doorDouble` (that swings on hinges at both jambs and has
+        /// no fold) and it is not `doorBifold` (one 30in unit, half the hole).
+        /// Placing either for this would put the wrong width against the wall,
+        /// and the width is what comes off net wall area.
+        case doorBifoldDouble
         case doorBypass
         case doorFrench
         case doorPatio
@@ -970,7 +981,8 @@ enum PlanEditing {
         var category: Category {
             switch self {
             case .doorSingle, .doorDouble, .doorSliding, .doorPocket, .doorBifold,
-                .doorBypass, .doorFrench, .doorPatio, .doorEntry, .doorGarage:
+                .doorBifoldDouble, .doorBypass, .doorFrench, .doorPatio, .doorEntry,
+                .doorGarage:
                 return .door
             case .doorCased:
                 return .passage
@@ -996,6 +1008,9 @@ enum PlanEditing {
             // Stock widths, every one of them a size a supplier sells.
             case .doorPocket: return 32 * Self.inch
             case .doorBifold: return 30 * Self.inch
+            // The pair: two 30in units, so the same 60in hole a double door or a
+            // bypass makes. A laundry closet is framed to it.
+            case .doorBifoldDouble: return 60 * Self.inch
             case .doorBypass: return 60 * Self.inch
             case .doorFrench: return 60 * Self.inch
             case .doorPatio: return 72 * Self.inch
@@ -1031,8 +1046,8 @@ enum PlanEditing {
                 return 48 * Self.inch
             case .windowSmall:
                 return 24 * Self.inch
-            case .doorPocket, .doorBifold, .doorBypass, .doorFrench, .doorPatio,
-                .doorEntry:
+            case .doorPocket, .doorBifold, .doorBifoldDouble, .doorBypass,
+                .doorFrench, .doorPatio, .doorEntry:
                 return 80 * Self.inch
             // A garage door is the one opening measured in feet: 7ft is the
             // stock height, and it is most of a wall.
@@ -1098,8 +1113,8 @@ enum PlanEditing {
             case .windowSmall: return 72 * Self.inch
             // Anything you walk through sits on the floor, whatever its
             // mechanism — that is what `sill` means.
-            case .doorPocket, .doorBifold, .doorBypass, .doorFrench, .doorPatio,
-                .doorEntry, .doorGarage:
+            case .doorPocket, .doorBifold, .doorBifoldDouble, .doorBypass,
+                .doorFrench, .doorPatio, .doorEntry, .doorGarage:
                 return 0
             case .windowDoubleHung: return 30 * Self.inch
             case .windowCasement: return 36 * Self.inch
@@ -1145,6 +1160,7 @@ enum PlanEditing {
             case .windowSmall: return "Small window"
             case .doorPocket: return "Pocket door"
             case .doorBifold: return "Bifold door"
+            case .doorBifoldDouble: return "Double bifold doors"
             case .doorBypass: return "Bypass door"
             case .doorFrench: return "French doors"
             case .doorPatio: return "Patio slider"

@@ -2694,3 +2694,34 @@ Newest last. One or two lines per chat.
   `door-windowPicture.svg`, so that tile silently falls back to the drawn
   `OpeningTileArt` symbol while its eight neighbours show illustrations. Not
   introduced here; worth one drawing in the next commission.
+- **2026-08-22 (S8, from the owner's condo scan)** — Two fixes straight off his
+  live scan. **Search now understands synonyms** (`Native/ObjectSearch.swift`,
+  new): his report was that a TV detected correctly as a television but could
+  only be FOUND by typing "television", and `Television` does not contain the
+  letters `tv` in any order a substring match can reach — so the search returned
+  nothing at all, which reads as *we do not stock one*. Built as query expansion
+  over equivalence groups rather than keywords per entry: the table is keyed by
+  the word, so `tv ↔ television` is written once and covers every present and
+  future entry, instead of 304 entries each needing synonyms hand-authored.
+  Both `ObjectCatalog.search` and `LibrarySection.search` go through it, and
+  slug is now searchable too (so "tankless" finds `water_heater_tankless`).
+  **Verified by running it, not by compiling it**: `ObjectSearch` is pure
+  Foundation, so it was compiled standalone with `swiftc` against 15 cases —
+  including the negatives that matter, `microwave` must NOT match a wall oven
+  and `tv` must not match a toilet. All 15 pass.
+  **The table carries French terms on purpose.** The interface stays English per
+  the owner's standing instruction and no label changed; this is the input side,
+  where a Québec tech may well type `laveuse` or `fournaise`. It lifts out as
+  data if he disagrees.
+  **`doorBifoldDouble` added** — his laundry room: *"I have double folding
+  doors. They come connecting to the middle, but they're also folding."* That is
+  neither `doorDouble` (hinged, no fold) nor `doorBifold` (one 30in unit, half
+  the hole), and placing either would put the wrong width against the wall,
+  which is what comes off net wall area. 60in × 80in, sill 0. Plan glyph is the
+  single's V mirrored so both units meet at the centre; the elevation draws the
+  centre join heavy, since head-on that meeting line is the ONLY thing telling a
+  pair from one wide bifold. `OpeningKind` is 25 cases now. **No artwork** —
+  `door-doorBifoldDouble.svg` does not exist, so the tile falls back to the
+  drawn symbol, same pre-existing gap `windowPicture` has.
+  **Neither is tapped.** `BUILD SUCCEEDED`; the device was in his hands scanning
+  and installing would have killed a scan in progress.

@@ -81,6 +81,7 @@
 		ECBCF487953EB990E122B099 /* ScanCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */; };
 		63A1A72230F81F66907C3D97 /* ScanTypeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */; };
 		AB95FF289219BCC31E38113D /* PushRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */; };
+		A2E3648251EAA6D23C456902 /* ObjectSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -159,6 +160,7 @@
 		34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanCatalogue.swift; sourceTree = "<group>"; };
 		96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTypeCard.swift; sourceTree = "<group>"; };
 		7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PushRegistration.swift; sourceTree = "<group>"; };
+		6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ObjectSearch.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -202,6 +204,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				6EB6B4CA36BF918D1995EA6F /* ObjectSearch.swift */,
 				7F84EF6F1F638817BF8EB0CD /* PushRegistration.swift */,
 				96E044DC93FEC4FA50B9C4A2 /* ScanTypeCard.swift */,
 				34E87C7578820D2FE7DBB721 /* ScanCatalogue.swift */,
@@ -354,6 +357,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A2E3648251EAA6D23C456902 /* ObjectSearch.swift in Sources */,
 				AB95FF289219BCC31E38113D /* PushRegistration.swift in Sources */,
 				63A1A72230F81F66907C3D97 /* ScanTypeCard.swift in Sources */,
 				ECBCF487953EB990E122B099 /* ScanCatalogue.swift in Sources */,

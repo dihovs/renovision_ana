@@ -1501,6 +1501,25 @@ struct ElevationView: View {
                         with: .color(ink), lineWidth: 1)
                 }
 
+            case .doorBifoldDouble:
+                // Four leaves again, but in TWO units — so the centre join
+                // where the pair meets is drawn heavy and the folds between
+                // leaves stay light. Head-on, that meeting line is the only
+                // thing telling this apart from one wide bifold.
+                for i in 0..<4 {
+                    let panel = box.width / 4
+                    context.stroke(
+                        Path(
+                            CGRect(
+                                x: box.minX + panel * CGFloat(i), y: box.minY,
+                                width: panel, height: box.height)),
+                        with: .color(ink), lineWidth: 1)
+                }
+                var meet = Path()
+                meet.move(to: CGPoint(x: box.midX, y: box.minY))
+                meet.addLine(to: CGPoint(x: box.midX, y: box.maxY))
+                context.stroke(meet, with: .color(ink), lineWidth: 1.8)
+
             case .doorGarage:
                 // Horizontal panels, which is exactly what you see standing
                 // in front of one.

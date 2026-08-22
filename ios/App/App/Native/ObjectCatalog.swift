@@ -1678,11 +1678,9 @@ enum ObjectCatalog {
     /// Free-text search across name and category, which is what ORD-40's
     /// fourth piece asks for and is trivial now the catalogue is a list.
     static func search(_ term: String) -> [Entry] {
-        let needle = term.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else { return [] }
-        return entries.filter {
-            $0.name.lowercased().contains(needle)
-                || $0.category.rawValue.lowercased().contains(needle)
+        entries.filter {
+            ObjectSearch.matches(
+                query: term, fields: [$0.name, $0.category.rawValue, $0.slug])
         }
     }
 
@@ -1818,7 +1816,8 @@ enum LibrarySection: Identifiable, Hashable, CaseIterable {
         switch self {
         case .doors:
             return [
-                .doorSingle, .doorDouble, .doorPocket, .doorBifold, .doorBypass,
+                .doorSingle, .doorDouble, .doorPocket, .doorBifold, .doorBifoldDouble,
+                .doorBypass,
                 .doorFrench, .doorSliding, .doorPatio, .doorEntry, .doorGarage,
                 .doorCased,
             ].map(LibraryItem.opening)
@@ -1868,10 +1867,8 @@ enum LibrarySection: Identifiable, Hashable, CaseIterable {
 
     /// Free text across every section — ORD-40's fourth piece.
     static func search(_ term: String) -> [LibraryItem] {
-        let needle = term.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else { return [] }
-        return allCases.flatMap(\.items).filter {
-            $0.name.lowercased().contains(needle)
+        allCases.flatMap(\.items).filter {
+            ObjectSearch.matches(query: term, fields: [$0.name, $0.id])
         }
     }
 

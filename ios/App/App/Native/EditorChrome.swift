@@ -1157,6 +1157,9 @@ enum EditorChrome {
         case .doorSliding, .doorBypass, .doorPatio, .doorPocket, .doorGarage: swing = band
         // A bifold folds INTO the opening, so it needs about half a leaf.
         case .doorBifold: swing = w / 2
+        // The PAIR folds to its own quarter from each jamb, so it projects
+        // half as far into the room as one bifold of the same total width.
+        case .doorBifoldDouble: swing = w / 4
         case .windowStandard, .windowWide, .windowSmall, .windowDoubleHung,
             .windowCasement, .windowSliding, .windowPicture, .windowEgress,
             .windowBay, .windowAwning, .windowBow, .windowGlassBlock,
