@@ -65,6 +65,11 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     private var liveRoom: CapturedRoom?
     private weak var shutter: UIButton?
     private let openWarning = PillLabel()
+    /// RoomPlan's own live instruction, shown. See `captureSession(_:didProvide:)`
+    /// for why this exists and why the first attempt deliberately did NOT
+    /// draw one.
+    private let coachPill = PillLabel()
+    private var coachHideWork: DispatchWorkItem?
     /// When this capture started walking — the open-outline warning holds
     /// off this long, because every scan is "open" for its first minute and
     /// nagging from wall three onward teaches the operator to ignore it.
@@ -150,6 +155,19 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         openWarning.isHidden = true
         openWarning.translatesAutoresizingMaskIntoConstraints = false
 
+        // Same pill as the open-outline warning, in white rather than orange:
+        // this is guidance, not a fault. It sits ABOVE that warning so the two
+        // can be on screen together without either moving.
+        coachPill.font = .systemFont(ofSize: 14, weight: .semibold)
+        coachPill.textColor = .white
+        coachPill.backgroundColor = UIColor.black.withAlphaComponent(0.62)
+        coachPill.textAlignment = .center
+        coachPill.numberOfLines = 0
+        coachPill.layer.cornerRadius = 10
+        coachPill.layer.masksToBounds = true
+        coachPill.isHidden = true
+        coachPill.translatesAutoresizingMaskIntoConstraints = false
+
         // Right edge, vertically centred — where the reference puts it, and
         // the one part of the screen Apple's own guidance does not use.
         typeCard.translatesAutoresizingMaskIntoConstraints = false
@@ -198,6 +216,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         view.addSubview(doneButton)
         view.addSubview(miniMap)
         view.addSubview(openWarning)
+        view.addSubview(coachPill)
         NSLayoutConstraint.activate([
             cancelButton.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
             cancelButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
@@ -210,6 +229,9 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
             openWarning.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             openWarning.bottomAnchor.constraint(equalTo: doneButton.topAnchor, constant: -14),
             openWarning.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, constant: -48),
+            coachPill.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            coachPill.bottomAnchor.constraint(equalTo: openWarning.topAnchor, constant: -8),
+            coachPill.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, constant: -48),
 
             // Centred between Cancel and Done, which is the one piece of the
             // bottom bar nothing else claims.
@@ -285,23 +307,81 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
     /// listened to.** `moveCloseToWall` is the LiDAR range warning; the sensor
     /// reaches about five metres and this is what exceeding it sounds like.
     ///
-    /// Deliberately does NOT draw a message. `RoomCaptureView` already shows
-    /// Apple's own coaching, and a second label repeating it would compete for
-    /// the one glance the operator can spare. The value is in keeping the
-    /// count until Done, when it can be acted on — see `ScanQuality`.
+    /// **This was first written to record silently and not draw anything, on
+    /// the reasoning that `RoomCaptureView` shows Apple's own coaching and a
+    /// second label would compete for the one glance the operator can spare.
+    /// That reasoning was wrong and the owner caught it** — he pointed out
+    /// Polycam asks him to move slower and move further, and he knows those
+    /// instructions. He is right, and the API says so too: `didProvide` is a
+    /// DELEGATE callback. The framework hands over a string precisely because
+    /// the caller is expected to render it; Apple's own RoomPlan sample puts
+    /// it in a label. `isCoachingEnabled` governs the AR tracking overlay,
+    /// which is a different thing from these six instructions.
     ///
-    /// The exception is `turnOnLight`, because today there is finally
-    /// something to press. Saying "it is dark in here" is advice; lighting up
-    /// the torch button is help.
+    /// So it draws now. What survives from the first attempt is `ScanQuality`,
+    /// and the reason it survives is unchanged: **being told is transient.** A
+    /// prompt that appears while the operator walks backwards holding a phone
+    /// up is gone before they look. Showing it helps the scan in progress;
+    /// counting it is what lets somebody ask, at Done and still on site,
+    /// whether the room is worth walking again.
+    ///
+    /// `turnOnLight` additionally pulses the torch button. Saying "it is dark
+    /// in here" is advice; lighting up the button they can press is help.
     func captureSession(
         _ session: RoomCaptureSession, didProvide instruction: RoomCaptureSession.Instruction
     ) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.quality.record(instruction)
+            self.show(instruction)
             if case .turnOnLight = instruction, !ScanTorch.isOn {
                 self.nudgeTorch()
             }
+        }
+    }
+
+    /// The operator's words, not the enum's.
+    ///
+    /// `moveAwayFromWall` is "move further back" rather than "move away from
+    /// the wall" because the operator is usually not facing a wall when it
+    /// fires — they are too close to something to resolve it, and backing up
+    /// is the action either way.
+    private func text(for instruction: RoomCaptureSession.Instruction) -> String? {
+        switch instruction {
+        case .moveCloseToWall: return "Move closer — that wall is out of range"
+        case .moveAwayFromWall: return "Move further back"
+        case .slowDown: return "Slow down"
+        case .turnOnLight: return "Too dark to track — turn the light on"
+        case .lowTexture: return "Not enough detail here — try another angle"
+        case .normal: return nil
+        @unknown default: return nil
+        }
+    }
+
+    /// Show an instruction, and take it away again once it stops repeating.
+    ///
+    /// RoomPlan re-sends the same instruction while the condition holds, so
+    /// each one pushes the hide out rather than queueing: the pill stays up
+    /// the whole time the problem exists and clears about a second and a half
+    /// after it resolves. `.normal` clears it immediately — that is RoomPlan
+    /// explicitly saying the trouble is over.
+    private func show(_ instruction: RoomCaptureSession.Instruction) {
+        coachHideWork?.cancel()
+        guard let message = text(for: instruction) else {
+            setCoachVisible(false)
+            return
+        }
+        coachPill.text = message
+        setCoachVisible(true)
+        let work = DispatchWorkItem { [weak self] in self?.setCoachVisible(false) }
+        coachHideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
+    }
+
+    private func setCoachVisible(_ visible: Bool) {
+        guard coachPill.isHidden != !visible else { return }
+        UIView.transition(with: coachPill, duration: 0.2, options: .transitionCrossDissolve) {
+            self.coachPill.isHidden = !visible
         }
     }
 

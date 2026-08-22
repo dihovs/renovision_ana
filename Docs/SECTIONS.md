@@ -2823,3 +2823,31 @@ Newest last. One or two lines per chat.
   Done whether to re-walk, while re-walking still costs two minutes instead of a
   second visit — is not built, because it puts a dialog in the middle of his
   tested flow and that is his call. `BUILD SUCCEEDED`, not tapped.
+- **2026-08-22 (S7, coaching — the owner corrected me and he was right)** —
+  Hours after writing that `didProvide` should record silently and NOT draw a
+  message, the owner said: *"Polycam is actually asking you to move slower and
+  to move further. I know this instruction."* That is the counter-evidence, and
+  the reasoning it overturns was mine: I justified staying silent by asserting
+  `RoomCaptureView` already shows Apple's coaching for these.
+  **It does not, and the API shape says so.** `didProvide` is a DELEGATE
+  callback — a framework that rendered the string itself would have no reason
+  to hand it over, and Apple's own RoomPlan sample puts it in a label.
+  `isCoachingEnabled` governs the AR TRACKING overlay, which is a different
+  thing from these six instructions. The scan screen has been showing nothing
+  for `moveCloseToWall`, `slowDown`, `moveAwayFromWall` and the rest since it
+  was built.
+  A `coachPill` now draws them, in the operator's words rather than the enum's
+  ("Move further back", not "move away from wall" — when it fires the operator
+  is usually not facing a wall, and backing up is the action either way). White
+  on black, above the orange open-outline pill so both can be up at once
+  without either moving. RoomPlan repeats an instruction while the condition
+  holds, so each repeat pushes the hide out instead of queueing: the pill stays
+  for the whole problem and clears 1.5s after it resolves, and `.normal` clears
+  it at once because that is RoomPlan saying the trouble is over.
+  **`ScanQuality` survives unchanged, and the reason is worth keeping**: showing
+  helps the scan in progress, counting is what lets somebody ask at Done —
+  still on site — whether the room is worth re-walking. Those are two different
+  jobs and the first does not replace the second.
+  `BUILD SUCCEEDED`, not tapped. **If the pill turns out to duplicate something
+  Apple is already drawing, it is one property to remove** — but the evidence
+  says it is not.
