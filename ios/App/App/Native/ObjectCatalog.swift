@@ -1832,36 +1832,34 @@ enum LibrarySection: Identifiable, Hashable, CaseIterable {
         }
     }
 
-    /// **The item whose drawing stands for the whole section in the list.**
+    /// **The section's own icon**, commissioned as a set of fourteen.
     ///
-    /// The rows used to carry `SectionEmblem`, a set of emblems hand-drawn in
-    /// `Canvas` before there was any artwork to use. Beside 341 commissioned
-    /// icons they read as a different product: paler, a different line weight,
-    /// and several of them unrecognisable at 40 points — Annotations was a
-    /// flat plaque seen almost edge-on, Structural an ambiguous grey tube.
-    ///
-    /// Picked for the SILHOUETTE rather than for being the most common item.
-    /// A stair flight, a toilet, an extinguisher and a sofa are each
-    /// unmistakable in a list; a cabinet, a duct and a panel are three grey
-    /// boxes. That is the only rule here.
+    /// This began as "borrow the most recognisable item in the drawer" — a
+    /// toilet for Plumbing, a stair flight for Structural — which was better
+    /// than the hand-drawn emblems it replaced but still the wrong idea. A
+    /// section icon has a different job from an item icon: it has to say *a
+    /// family of things*, not *this thing*. The commissioned set does that by
+    /// drawing more than one — Appliances is a range AND a fridge, Cabinets a
+    /// wall unit AND a base unit, Structural a beam AND a post. No single
+    /// item's drawing can say that however well chosen.
     var emblemSlug: String {
         switch self {
-        case .doors: return "door-doorSingle"
-        case .windows: return "door-windowStandard"
+        case .doors: return "section-doors"
+        case .windows: return "section-windows"
         case .catalogue(let category):
             switch category {
-            case .annotations: return "note_flag"
-            case .structural: return "stairs"
-            case .plumbing: return "toilet"
-            case .appliances: return "range"
-            case .cabinets: return "base_cabinet"
-            case .furniture: return "sofa"
-            case .electrical: return "ceiling_fan"
-            case .hvac: return "radiator"
-            case .restoration: return "air_mover"
-            case .safety: return "extinguisher"
-            case .outdoors: return "fence"
-            case .garage: return "car"
+            case .annotations: return "section-annotations"
+            case .structural: return "section-structural"
+            case .plumbing: return "section-plumbing"
+            case .appliances: return "section-appliances"
+            case .cabinets: return "section-cabinets"
+            case .furniture: return "section-furniture"
+            case .electrical: return "section-electrical"
+            case .hvac: return "section-hvac"
+            case .restoration: return "section-restoration"
+            case .safety: return "section-safety"
+            case .outdoors: return "section-outdoors"
+            case .garage: return "section-garage"
             }
         }
     }
