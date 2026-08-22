@@ -1,5 +1,6 @@
 import PhotosUI
 import AVFoundation
+import AVKit
 import SwiftUI
 import UIKit
 
@@ -36,6 +37,13 @@ struct RoomPhotosSection: View {
     @State private var error: String?
     /// The photo open full-screen, if any — the route to the editor.
     @State private var viewing: RoomPhoto?
+    /// A VIDEO open full-screen — its own route, `VideoPlayerView`, never
+    /// `PhotoViewer`. The reference gives a video the same viewer chrome
+    /// minus `Edit`; this app draws that as a genuinely separate, simpler
+    /// screen rather than teaching the photo viewer and its editor route to
+    /// understand a media kind neither was built for.
+    @State private var viewingVideo: RoomPhoto?
+    @State private var uploadingVideo = false
     /// Photos this phone is still holding, so the grid shows them the moment
     /// they are taken rather than after the server has them.
     @ObservedObject private var queue = PhotoQueue.shared
@@ -67,18 +75,54 @@ struct RoomPhotosSection: View {
                     // can be uploaded and never looked at again on the phone
                     // that took it is half a feature — and the reference
                     // reaches its editor from the viewer's `Edit`, so there
-                    // was nowhere for blur to live either.
+                    // was nowhere for blur to live either. A VIDEO routes to
+                    // its own viewer (S7) — never the photo one, which has
+                    // no idea what to do with a clip and an `Edit` button
+                    // the reference explicitly does not offer on video.
                     Button {
-                        viewing = photo
+                        if photo.isVideo {
+                            viewingVideo = photo
+                        } else {
+                            viewing = photo
+                        }
                     } label: {
-                        square {
-                            AsyncImage(url: photo.url.flatMap(URL.init)) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image.resizable().scaledToFill()
-                                default:
-                                    Brand.surface
+                        ZStack(alignment: .bottomTrailing) {
+                            square {
+                                // A video's poster frame stands in for the
+                                // clip itself — a grid of moving thumbnails
+                                // is not what six-tiles-across was built for.
+                                let faceURL = (photo.isVideo ? photo.thumbnailUrl : photo.url)
+                                    .flatMap(URL.init)
+                                AsyncImage(url: faceURL) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image.resizable().scaledToFill()
+                                    default:
+                                        if photo.isVideo {
+                                            Brand.surface.overlay {
+                                                Image(systemName: "video.fill")
+                                                    .foregroundStyle(Brand.inkFaint)
+                                            }
+                                        } else {
+                                            Brand.surface
+                                        }
+                                    }
                                 }
+                            }
+                            // The reference's duration badge — `0:30`,
+                            // `0:03`, `m:ss` with no leading zero on minutes
+                            // (`object-model.md` §2e). Same corner and same
+                            // visual family as the "uploading" cloud badge
+                            // below, so a tile only ever wears one kind of
+                            // overlay at a time.
+                            if let label = photo.durationLabel {
+                                Text(label)
+                                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Brand.charcoal.opacity(0.75), in: .capsule)
+                                    .padding(5)
                             }
                         }
                     }
@@ -126,6 +170,13 @@ struct RoomPhotosSection: View {
                 ProgressView().controlSize(.small)
             }
 
+            if uploadingVideo {
+                HStack(spacing: Brand.Space.tight) {
+                    ProgressView().controlSize(.small)
+                    Text("Uploading video…").font(.footnote).foregroundStyle(Brand.inkFaint)
+                }
+            }
+
             if let error {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
@@ -169,6 +220,9 @@ struct RoomPhotosSection: View {
                 // than patch: the list is the server's answer, not ours.
                 onReplaced: { Task { await load() } })
         }
+        .fullScreenCover(item: $viewingVideo) { photo in
+            VideoPlayerView(photo: photo)
+        }
         .photosPicker(isPresented: $choosingFromLibrary, selection: $pickedItem, matching: .images)
         .fullScreenCover(isPresented: $takingPhoto) {
             // Ours, not the system's — the reference's camera stamps the
@@ -176,7 +230,7 @@ struct RoomPhotosSection: View {
             // possible inside `UIImagePickerController`.
             SiteCameraView(
                 onPhoto: { image in Task { await upload(image) } },
-                onVideo: { })
+                onVideo: { url in Task { await upload(video: url) } })
                 .ignoresSafeArea()
         }
     }
@@ -302,6 +356,93 @@ struct RoomPhotosSection: View {
         // The list may already have it if the send was quick; if not, the
         // pending row below stands in until it lands.
         await load()
+    }
+
+    /// A kept recording, end to end: poster frame, duration, upload.
+    ///
+    /// **Not queued, unlike a photo.** `PhotoQueue` exists so a photo taken
+    /// with no signal is never lost — but this only runs once the operator
+    /// has explicitly chosen to keep a clip that is already safe in Photos
+    /// regardless of what happens next, so a failed upload here costs
+    /// nothing worse than trying again. A queue built for megabytes is also
+    /// the wrong shape for something that can be most of a gigabyte.
+    private func upload(video url: URL) async {
+        error = nil
+        uploadingVideo = true
+        defer { uploadingVideo = false }
+
+        let asset = AVURLAsset(url: url)
+        var durationSeconds: Int?
+        if let loaded = try? await asset.load(.duration), loaded.seconds.isFinite, loaded.seconds > 0 {
+            durationSeconds = Int(loaded.seconds.rounded())
+        }
+
+        var thumbnailPath: String?
+        if let poster = await Self.posterFrame(for: asset), let jpeg = poster.jpegData(compressionQuality: 0.7) {
+            thumbnailPath = try? await API.shared.uploadVideoThumbnail(
+                projectId: projectId, roomScanId: roomScanId, affectedAreaId: affectedAreaId,
+                jpeg: jpeg)
+        }
+
+        guard let data = try? Data(contentsOf: url) else {
+            error = "Could not read that recording."
+            SiteCameraController.discardTemporaryRecording(at: url)
+            return
+        }
+
+        do {
+            _ = try await API.shared.uploadVideo(
+                projectId: projectId, roomScanId: roomScanId, affectedAreaId: affectedAreaId,
+                wallIndex: wallIndex, data: data, filename: "video-\(UUID().uuidString).mov",
+                contentType: "video/quicktime", durationSeconds: durationSeconds,
+                thumbnailPath: thumbnailPath)
+            await load()
+        } catch {
+            self.error = "That video did not upload: \(error.localizedDescription)"
+        }
+        SiteCameraController.discardTemporaryRecording(at: url)
+    }
+
+    /// The frame at time zero, for the grid tile and the report's poster.
+    /// `AVAssetImageGenerator.image(at:)` (iOS 16+) rather than the older
+    /// callback form — one awaited call, no continuation to get wrong.
+    private static func posterFrame(for asset: AVURLAsset) async -> UIImage? {
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        guard let result = try? await generator.image(at: .zero) else { return nil }
+        return UIImage(cgImage: result.image)
+    }
+}
+
+/// A video, full screen — the reference's own note on this (§2e): "the video
+/// viewer is the photo viewer with one difference: no `Edit`." Built as its
+/// own screen rather than a mode of `PhotoViewer`, which loads bytes into a
+/// `UIImage` and has nowhere for that difference to live; `AVPlayer` streams
+/// straight from the signed URL, so there is no full-file download to wait
+/// on the way `PhotoViewer` needs before it can show anything.
+struct VideoPlayerView: View {
+    let photo: RoomPhoto
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                if let url = photo.url.flatMap(URL.init) {
+                    VideoPlayer(player: AVPlayer(url: url))
+                } else {
+                    Text("This video is not available right now.")
+                        .foregroundStyle(.white)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

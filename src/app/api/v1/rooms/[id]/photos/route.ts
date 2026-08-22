@@ -67,15 +67,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const projectId = await getRoomScanProject(id);
     if (!projectId) throw new Error("That room no longer exists.");
 
-    return {
-      id: await addProjectFile(projectId, {
-        bytes: Buffer.from(await file.arrayBuffer()),
-        filename: file.name || "photo.jpg",
-        contentType: file.type,
-        note: typeof note === "string" ? note : null,
-        roomScanId: id,
-        affectedAreaId: typeof areaId === "string" && areaId ? areaId : null,
-      }),
-    };
+    const stored = await addProjectFile(projectId, {
+      bytes: Buffer.from(await file.arrayBuffer()),
+      filename: file.name || "photo.jpg",
+      contentType: file.type,
+      note: typeof note === "string" ? note : null,
+      roomScanId: id,
+      affectedAreaId: typeof areaId === "string" && areaId ? areaId : null,
+    });
+    return { id: stored.id };
   });
 }

@@ -992,6 +992,20 @@ actor API {
         projectId: String, roomScanId: String?, affectedAreaId: String?, wallIndex: Int? = nil,
         jpeg: Data, note: String?
     ) async throws -> String {
+        try await uploadPhotoFile(
+            projectId: projectId, roomScanId: roomScanId, affectedAreaId: affectedAreaId,
+            wallIndex: wallIndex, jpeg: jpeg, note: note
+        ).id
+    }
+
+    /// Same route, but keeps the STORAGE PATH the server hands back —
+    /// `uploadPhoto` above throws it away because nothing needed it until a
+    /// video's poster frame (S7) did: `project_files.thumbnail_path` wants a
+    /// path, not the id, and definitely not a signed URL that will expire.
+    func uploadPhotoFile(
+        projectId: String, roomScanId: String?, affectedAreaId: String?, wallIndex: Int? = nil,
+        jpeg: Data, note: String?
+    ) async throws -> (id: String, path: String) {
         guard let url = URL(string: "/api/v1/photos", relativeTo: Self.baseURL) else {
             throw APIError.server("Bad path.")
         }
@@ -1030,8 +1044,9 @@ actor API {
             let bodyText = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error
             throw APIError.server(bodyText ?? "Upload failed (\(http.statusCode)).")
         }
-        struct Created: Decodable { let id: String }
-        return try decode(Created.self, from: data).id
+        struct Created: Decodable { let id: String; let path: String }
+        let created = try decode(Created.self, from: data)
+        return (created.id, created.path)
     }
 
     /// Remove one photo — the row and the stored object together.
@@ -1044,6 +1059,103 @@ actor API {
     func deletePhoto(id: String) async throws {
         let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id
         _ = try await request("/api/v1/photos?id=\(encoded)", method: "DELETE")
+    }
+
+    // MARK: - Video (S7)
+    //
+    // Two round trips to us, one direct one to Storage — a route handler's
+    // own request body is capped around Vercel's ~4.5 MB, nowhere near a
+    // recorded clip. `/api/v1/videos/upload-url` reserves a path and hands
+    // back a signed URL; the bytes go straight to Storage from here, this
+    // server never sees them; `/api/v1/videos` then records the row. The
+    // poster thumbnail is small enough to go through the ordinary photo
+    // route unchanged — `uploadPhoto` above, reused as-is.
+
+    private struct UploadTarget: Decodable { let path: String; let uploadUrl: String }
+    private struct UploadTargetRequest: Encodable { let projectId: String; let filename: String }
+
+    private func post<T: Decodable>(_ path: String, body: some Encodable, as type: T.Type)
+        async throws -> T
+    {
+        try decode(type, from: try await request(path, method: "POST", body: body))
+    }
+
+    private func reserveUpload(projectId: String, filename: String) async throws -> UploadTarget {
+        try await post(
+            "/api/v1/videos/upload-url",
+            body: UploadTargetRequest(projectId: projectId, filename: filename),
+            as: UploadTarget.self)
+    }
+
+    /// PUT straight to Storage's signed URL. Not through `request(...)` —
+    /// that helper always sends JSON and always expects OUR cookie session,
+    /// neither of which applies here: the signed URL's own token is the
+    /// entire authorization, and the body is raw video bytes.
+    private func putToSignedUrl(_ signedUrl: String, data: Data, contentType: String) async throws {
+        guard let url = URL(string: signedUrl) else { throw APIError.server("Bad upload URL.") }
+        var req = URLRequest(url: url)
+        req.httpMethod = "PUT"
+        req.setValue(contentType, forHTTPHeaderField: "content-type")
+        req.setValue("false", forHTTPHeaderField: "x-upsert")
+        req.httpBody = data
+        let (responseData, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw APIError.server(
+                "The video did not upload (\(String(describing: response))): "
+                    + (String(data: responseData, encoding: .utf8) ?? ""))
+        }
+    }
+
+    private struct FinalizeVideo: Encodable {
+        let projectId: String
+        let path: String
+        let filename: String
+        let sizeBytes: Int
+        let contentType: String
+        let roomScanId: String?
+        let affectedAreaId: String?
+        let wallIndex: Int?
+        let durationSeconds: Int?
+        let thumbnailPath: String?
+    }
+
+    /// Upload a recorded clip end to end: reserve, PUT the bytes, record the
+    /// row. Returns the new photo/video's id.
+    func uploadVideo(
+        projectId: String, roomScanId: String?, affectedAreaId: String?, wallIndex: Int? = nil,
+        data: Data, filename: String, contentType: String, durationSeconds: Int?,
+        thumbnailPath: String?
+    ) async throws -> String {
+        let target = try await reserveUpload(projectId: projectId, filename: filename)
+        try await putToSignedUrl(target.uploadUrl, data: data, contentType: contentType)
+        struct Created: Decodable { let id: String }
+        let created = try await post(
+            "/api/v1/videos",
+            body: FinalizeVideo(
+                projectId: projectId, path: target.path, filename: filename,
+                sizeBytes: data.count, contentType: contentType, roomScanId: roomScanId,
+                affectedAreaId: affectedAreaId, wallIndex: wallIndex,
+                durationSeconds: durationSeconds, thumbnailPath: thumbnailPath),
+            as: Created.self)
+        return created.id
+    }
+
+    /// The poster frame alone, through the ordinary photo route — small, a
+    /// JPEG, no reason to invent a second upload path for it. Returns the
+    /// STORAGE PATH `uploadVideo` needs to point `thumbnail_path` at.
+    ///
+    /// **This gives the poster its own `project_files` row.** It shows up in
+    /// the room's ordinary photo grid too, alongside the video it belongs
+    /// to — a small, known cost accepted for now rather than teaching the
+    /// upload route to store a file with no row at all. Worth revisiting if
+    /// it turns out to read as a confusing duplicate on the grid.
+    func uploadVideoThumbnail(
+        projectId: String, roomScanId: String?, affectedAreaId: String?, jpeg: Data
+    ) async throws -> String {
+        try await uploadPhotoFile(
+            projectId: projectId, roomScanId: roomScanId, affectedAreaId: affectedAreaId,
+            wallIndex: nil, jpeg: jpeg, note: nil
+        ).path
     }
 
     // MARK: - Drying log

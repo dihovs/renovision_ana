@@ -825,7 +825,7 @@ export async function addProjectFile(
         not the room's general pile. Nullable, like the rest of these. */
     wallIndex?: number | null;
   },
-): Promise<string> {
+): Promise<{ id: string; path: string }> {
   const client = requireDb();
 
   const filename = sanitizeFilename(input.filename);
@@ -870,7 +870,7 @@ export async function addProjectFile(
     .update({ updated_at: new Date().toISOString() })
     .eq("id", projectId);
 
-  return data.id as string;
+  return { id: data.id as string, path };
 }
 
 /**

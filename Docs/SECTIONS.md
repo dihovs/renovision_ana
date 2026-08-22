@@ -35,7 +35,7 @@ Commit the ledger update with the work.
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | **DONE** — all four items shipped and confirmed on the device, build 120 | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
 | **S6** | Photo editor — blur first | **DONE (build 145)** — all four modes; `Path` tool alone left greyed | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
-| **S7** | Video and 360 capture | NOT STARTED | S6 | `RoomPhotosSection`, API, migration |
+| **S7** | Video and 360 capture | **BUILT (unverified)** — capture, upload, playback, duration badge, report captions; 360 and library-video still out | S6 | `RoomPhotos.swift`, `SiteCamera.swift`, `projects.ts`, migration 0041 |
 | **S8** | Objects — doors, windows, catalogue | **DONE (build 155)** — 77 entries, 14 sections, sizes, takeoff both levels | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectEmblems.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift`, `Artwork/` |
 | **S9** | Statistics and takeoff | **PARTIAL (unverified)** — net wall area + Objects tab landed; ground-surface trio and living-area rows still open | S1 | `Models.swift`, `ProjectStatistics.swift`, `RoomDetailView.swift` |
 | **S10** | Report parity | **BUILT (unverified)** — every listed item; needs one export read against theirs | S9 | `ReportDocument.tsx` |
@@ -734,6 +734,104 @@ video excluded from the annotation editor (the reference has no Edit on a video)
 
 **Note.** Videos **do** print — the annotated report captions them
 `<room> Video n`. See §2e.
+
+**Before building, a real conflict, resolved by the owner (21 Aug 2026).**
+`SiteCameraController` (built 20 Aug) explicitly does NOT send video to the
+server — his own quoted instruction, *"this video shouldn't go to our
+server because it's heavy."* But this section's own Note says videos must
+print in the report, which needs them on the server. Asked which way to
+go: **upload, with opt-in.** Recording stays local by default — every clip
+still saves to the phone's own Photos, nothing changes there — and a small
+prompt after each recording asks "Keep a copy on this job too?" Only that
+explicit choice uploads. The 20 Aug instruction is honoured as the
+default; it just isn't the only path anymore.
+
+**What landed (21 Aug 2026).**
+
+- **Migration `0041_video_files.sql`** — `project_files` gains
+  `duration_seconds` and `thumbnail_path`, both nullable. `content_type`
+  was never actually constrained to images — only the app never sent
+  anything else — so no migration was needed just to store a video row.
+  **Not yet applied to production**, unlike the rest of this session's
+  migrations; run it in the Supabase SQL editor before any of this can work
+  end to end, ending `notify pgrst, 'reload schema';` as always.
+- **The upload path bypasses this server entirely.** A route handler's own
+  request body is capped around Vercel's ~4.5 MB — fine for a photo,
+  nowhere near a recorded clip — and nothing in this codebase had ever
+  needed to get around that before. New: `createUploadTarget`/
+  `recordUploadedFile` in `projects.ts`, and `POST /api/v1/videos/upload-url`
+  + `POST /api/v1/videos`. The phone PUTs bytes straight to Supabase
+  Storage using a signed upload URL this server only *mints*; the video's
+  bytes never pass through Vercel at all. The poster thumbnail is small
+  enough to go through the ordinary `/api/v1/photos` route unchanged.
+  **This whole pipeline is new and has never been exercised against a real
+  Supabase project** — no way to do that from this session. First thing to
+  prove live: record a clip, tap "Keep on job", confirm it actually shows
+  up in the room's grid.
+- **`addProjectFile` now returns `{ id, path }`**, not just `id` — needed so
+  the thumbnail upload can hand its real storage path back for
+  `thumbnail_path` rather than a signed URL, which would expire and leave a
+  broken poster behind it. All three existing callers updated.
+- **`SiteCameraController`/`SiteCameraView`** — `finishVideo` no longer
+  deletes the temp recording on a successful save; it holds it until the
+  operator answers the keep prompt, then whichever button was tapped
+  decides who deletes it. `stopRecording`'s completion signature grew a
+  `URL` for exactly this. Nothing about the DEFAULT behaviour changed — a
+  clip nobody keeps still ends up in Photos and nowhere else, same as
+  before this section.
+- **`RoomPhotosSection`** — the grid tile branches on `RoomPhoto.isVideo`:
+  poster frame (or a plain video glyph if none uploaded) instead of the
+  photo itself, and a duration badge (`0:12`, `1:03` — reference's own
+  `m:ss` format, §2e) in the same corner the "uploading" cloud badge
+  already used. Tapping a video tile opens the new `VideoPlayerView`
+  (`AVPlayer`/`AVKit`) rather than `PhotoViewer` — a separate screen, not a
+  mode of the photo one, which has no `Edit` button to hide because it is
+  never reached from a video tile at all. That is how "no Edit on a video"
+  is satisfied — structurally, not with a conditional.
+- **Not queued.** A photo goes through `PhotoQueue` so nothing is lost with
+  no signal; a kept video does not — it is already safe in Photos by the
+  time the upload even starts, so a failed upload here costs a retry, not
+  evidence, and `PhotoQueue` is sized for megabytes, not "most of a
+  gigabyte."
+- **The report** (`ReportDocument.tsx`, the report page's data assembly,
+  `strings.ts`) now threads `contentType`/`thumbnailUrl` through to
+  `ReportRoom.photos`, draws a video's poster frame where a photo would
+  print, and captions it `<Room> Video n` — **in its own numbering series**,
+  never merged with the photo count, exactly as this section's Note and
+  S10's reading of the reference both describe. New `t.videoNumber(n)` in
+  both locales.
+
+**Deliberately not built this pass.**
+
+- **360.** `SiteCameraController`'s own header already ruled this out
+  ("shipping a tab that opens something else — or nothing — would be worse
+  than not shipping the tab") and nothing found while building S7 changed
+  that arithmetic.
+- **Video from the photo LIBRARY.** The `+` menu's library path is still
+  `matching: .images` — only a camera-recorded clip can be kept on a job.
+  The reference offers both; camera-first covers the primary site-capture
+  case and keeps this pass's scope to one capture surface rather than two.
+- **The thumbnail is its own `project_files` row**, not a rowless object —
+  see the doc comment on `API.uploadVideoThumbnail`. It will show up in the
+  room's ordinary photo grid alongside the video it belongs to, which reads
+  as a small, possibly confusing duplicate. Accepted for now rather than
+  teaching the upload route to store a file with no row; worth a look if it
+  turns out to bother anybody on the actual grid.
+- **`recordUploadedFile` trusts the client for size and duration** — this
+  server never receives a video's bytes to measure them itself, unlike
+  every other upload in this app. Not verified against a real clip.
+
+**Verification.** `xcodebuild … build` → `BUILD SUCCEEDED`. `tsc --noEmit`
+and `npx vitest run` clean, 1127 passing (no new tests — none of this
+touches anything the existing suite exercises, and there is no live
+Supabase/Storage to test the new upload pipeline against from here
+either). Installed and launched on the simulator via `xcrun simctl`
+directly (same `sudo xcode-select` blocker on the dedicated tool as every
+other section this session). App launches clean to the sign-in wall.
+**Nothing on this whole pipeline has been tapped or recorded** — no admin
+password in reach, and the migration isn't even applied to production yet.
+First chat with both: run the migration, then record a clip, keep it, and
+watch it actually reach the grid before trusting any of the above.
 
 ---
 
@@ -2405,3 +2503,22 @@ Newest last. One or two lines per chat.
   landing and never got retired when `FloorCanvasView` replaced its other
   job — flagged in S12 rather than fixed, since closing it means giving
   `FloorCanvasView` the same newly-filed-rooms spotlight behaviour first.
+- **2026-08-21 (later still)** — S7 built. Found a real conflict before
+  writing anything: `SiteCameraController` (20 Aug) explicitly refuses to
+  send video to the server, on the owner's own quoted instruction; this
+  section requires videos to print in the report, which needs them on the
+  server. Asked; his answer was **upload with opt-in** — a clip still saves
+  to Photos by default, a "Keep on job" prompt after recording is the only
+  path to the server. Built on that: migration 0041 (`duration_seconds`,
+  `thumbnail_path` — **not yet applied to production**), a new
+  direct-to-Supabase-Storage upload pipeline (`/api/v1/videos/upload-url` +
+  `/api/v1/videos`) since a route handler's ~4.5 MB body cap makes video
+  impossible any other way, the grid's duration badge and poster-frame
+  tile, a separate `VideoPlayerView` so "no Edit on a video" is structural
+  rather than a conditional, and report captions in their own `Video n`
+  series per S10's reading of the reference. 360 and library-picked video
+  both stayed out, deliberately. `BUILD SUCCEEDED`, `tsc`/`vitest` clean.
+  **Nothing here has been run for real** — the whole upload pipeline is
+  unverified against an actual Supabase project, and the migration hasn't
+  even been applied yet. Full account, including what was deliberately not
+  built, is in S7 above.

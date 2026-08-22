@@ -1120,38 +1120,56 @@ export default function ReportDocument({ data }: { data: ReportData }) {
            with the same header — their layout exactly, down to the
            `<Room> Photo n` caption, which is what makes a photo citable in
            correspondence. */}
-        {photoPages(room).map((batch, index) => (
+        {photoPages(room).map((batch, index) => {
+          // One map for the whole page rather than one per tile — the
+          // numbering is per ROOM (a video's count does not reset page to
+          // page), so it has to be built from the room's full list either
+          // way; building it once per page instead of once per tile just
+          // avoids doing that six times over for the same six photos.
+          const numbers = captionNumbers(room);
+          return (
           <section className="page" key={`${room.id}-photos-${index}`}>
             <Running project={project.name} address={property} totals={headerTotals} />
             {/* Their section marker, without the glyph — see `.marker` in
                 report.css for what replaced it. */}
             <p className="marker">{t.photosOf(room.name)}</p>
             <div className="photo-grid">
-              {batch.map((photo, offset) => (
-                <figure key={photo.id}>
-                  {photo.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photo.url} alt={photo.note ?? room.name} />
-                  ) : (
-                    <div className="missing">{t.photoUnavailable}</div>
-                  )}
-                  {/* Two chips on the frame, theirs exactly: the room, then
-                      which number it is. A caption printed under a tile is
-                      attached to it by proximity alone, and proximity breaks
-                      the moment the page is cropped, screenshotted or pasted
-                      into an email — a chip on the image travels with the
-                      image. The note, when there is one, gets a third in a
-                      quieter colour so it never competes with the two that
-                      identify the photograph. */}
-                  <figcaption>
-                    <span className="chip">{room.name}</span>
-                    <span className="chip">
-                      {t.photoNumber(index * PHOTOS_PER_PAGE + offset + 1)}
-                    </span>
-                    {photo.note && <span className="chip note">{photo.note}</span>}
-                  </figcaption>
-                </figure>
-              ))}
+              {batch.map((photo) => {
+                const video = isVideo(photo);
+                // A video's `url` points at the clip itself — paper cannot
+                // play it, so the poster frame is what's drawn. No poster
+                // means no thumbnail was ever generated for this one; it
+                // prints the same "unavailable" placeholder a broken photo
+                // would, rather than a link nobody reading a page can follow.
+                const src = video ? photo.thumbnailUrl : photo.url;
+                return (
+                  <figure key={photo.id}>
+                    {src ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={src} alt={photo.note ?? room.name} />
+                    ) : (
+                      <div className="missing">{t.photoUnavailable}</div>
+                    )}
+                    {/* Two chips on the frame, theirs exactly: the room, then
+                        which number it is. A caption printed under a tile is
+                        attached to it by proximity alone, and proximity breaks
+                        the moment the page is cropped, screenshotted or pasted
+                        into an email — a chip on the image travels with the
+                        image. The note, when there is one, gets a third in a
+                        quieter colour so it never competes with the two that
+                        identify the photograph. */}
+                    <figcaption>
+                      <span className="chip">{room.name}</span>
+                      <span className="chip">
+                        {video
+                          ? t.videoNumber(numbers.get(photo.id) ?? 0)
+                          : t.photoNumber(numbers.get(photo.id) ?? 0)}
+                      </span>
+                      {photo.note && <span className="chip note">{photo.note}</span>}
+                    </figcaption>
+                  </figure>
+                );
+              })}
             </div>
             <PageFoot
               n={roomPages.get(room.id)?.photos[index] ?? 0}
@@ -1160,7 +1178,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               t={t}
             />
           </section>
-        ))}
+          );
+        })}
         </Fragment>
       ))}
 

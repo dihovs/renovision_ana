@@ -111,8 +111,8 @@ export async function POST(request: Request) {
     );
   }
 
-  return guarded(async () => ({
-    id: await addProjectFile(projectId, {
+  return guarded(async () => {
+    const stored = await addProjectFile(projectId, {
       bytes,
       filename: file.name || "photo.jpg",
       contentType: file.type || "image/jpeg",
@@ -120,8 +120,13 @@ export async function POST(request: Request) {
       roomScanId: roomScanId || null,
       affectedAreaId: affectedAreaId || null,
       wallIndex,
-    }),
-  }));
+    });
+    // `path` is the storage path, not a signed URL — a video's poster
+    // thumbnail travels through this same route (S7), and the caller needs
+    // the PATH back to store as `project_files.thumbnail_path`; a signed
+    // URL would expire and be useless the moment it was written down.
+    return { id: stored.id, path: stored.path };
+  });
 }
 
 /**

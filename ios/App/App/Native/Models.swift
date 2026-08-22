@@ -653,14 +653,39 @@ struct RoomPhoto: Decodable, Identifiable, Hashable {
     let note: String?
     /// Signed per request and short-lived — never cache this across launches.
     let url: String?
+    /// Sent by the API now (S7) — nil only for a payload from before this
+    /// existed, which `isImage`'s extension guess still covers.
+    let contentType: String?
+    /// Set on a video row only.
+    let durationSeconds: Int?
+    /// A video's poster frame, signed the same way `url` is.
+    let thumbnailUrl: String?
 
-    /// Whether this is a picture or a document, decided by the filename's
-    /// extension. The API sends the stored content type nowhere in this
-    /// payload, and the extension is what the operator named it by anyway —
-    /// a PDF drawn as a broken image tile tells them less than its name does.
+    enum CodingKeys: String, CodingKey {
+        case id, filename, note, url, contentType, durationSeconds, thumbnailUrl
+    }
+
+    /// Whether this is a picture or a document. Prefers the stored content
+    /// type; falls back to the filename's extension for a row from before
+    /// the API sent one — a PDF drawn as a broken image tile tells the
+    /// operator less than its name does.
     var isImage: Bool {
+        if let contentType { return contentType.hasPrefix("image/") }
         let ext = (filename as NSString).pathExtension.lowercased()
         return ["jpg", "jpeg", "png", "heic", "heif", "gif", "webp"].contains(ext)
+    }
+
+    var isVideo: Bool {
+        if let contentType { return contentType.hasPrefix("video/") }
+        let ext = (filename as NSString).pathExtension.lowercased()
+        return ["mov", "mp4", "m4v"].contains(ext)
+    }
+
+    /// `0:12`, `1:03` — the grid's duration badge and the reference's own
+    /// format (`object-model.md` §2e: `m:ss`, no leading zero on minutes).
+    var durationLabel: String? {
+        guard let durationSeconds else { return nil }
+        return String(format: "%d:%02d", durationSeconds / 60, durationSeconds % 60)
     }
 }
 

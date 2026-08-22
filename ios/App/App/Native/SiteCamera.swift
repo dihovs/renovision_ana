@@ -33,10 +33,15 @@ struct SiteCameraView: View {
     /// A photograph, already stamped. Called once per shutter press; the
     /// camera stays open, because a room is never one photograph.
     let onPhoto: (UIImage) -> Void
-    /// A recording landed in the phone's own Photos. Videos do not go to the
-    /// server — his instruction, 20 Aug: *"this video shouldn't go to our
-    /// server because it's heavy."*
-    var onVideo: (() -> Void)?
+    /// A recording landed in the phone's own Photos AND the operator chose
+    /// to keep a copy on the job too. His instruction, 20 Aug, still
+    /// governs the DEFAULT: *"this video shouldn't go to our server because
+    /// it's heavy."* Every recording still saves to Photos and nothing
+    /// uploads on its own — this fires only after an explicit "Keep on
+    /// job", offered once per clip (see `videoKeepPrompt`). The temp file at
+    /// this URL is the caller's to read and then discard; nothing else will
+    /// delete it once this closure is called.
+    var onVideo: ((URL) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var camera = SiteCameraController()
@@ -44,6 +49,11 @@ struct SiteCameraView: View {
     /// A flash of white over the preview on capture — the only feedback that
     /// a photograph was actually taken when the frame barely changes.
     @State private var flashing = false
+    /// A clip just finished and saved to Photos, waiting on the operator to
+    /// say whether it also goes on the job. Set once per recording; cleared
+    /// by either button in `videoKeepPrompt`, which is also what owns
+    /// discarding the temp file when "Not now" is chosen.
+    @State private var pendingVideo: URL?
 
     var body: some View {
         ZStack {
@@ -120,10 +130,47 @@ struct SiteCameraView: View {
                         .background(.black.opacity(0.7), in: .rect(cornerRadius: Brand.Radius.tile))
                         .padding(Brand.Space.large)
                 }
+
+                if let url = pendingVideo { videoKeepPrompt(url) }
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
         }
+    }
+
+    /// **The opt-in, once per clip.** Every recording already saved to
+    /// Photos by the time this shows — this only asks whether a copy also
+    /// goes on the job, which is what makes it show in the room's grid,
+    /// print a duration badge, and be citable in the report. "Not now"
+    /// changes nothing that already happened; the recording is still safe
+    /// in Photos either way.
+    private func videoKeepPrompt(_ url: URL) -> some View {
+        VStack(spacing: Brand.Space.small) {
+            Text("Saved to Photos. Keep a copy on this job too?")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+            HStack(spacing: Brand.Space.large) {
+                Button("Not now") {
+                    SiteCameraController.discardTemporaryRecording(at: url)
+                    pendingVideo = nil
+                }
+                .font(.system(size: 15))
+                .foregroundStyle(.white.opacity(0.75))
+
+                Button("Keep on job") {
+                    onVideo?(url)
+                    pendingVideo = nil
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.yellow)
+            }
+        }
+        .padding(Brand.Space.base)
+        .frame(maxWidth: .infinity)
+        .background(.black.opacity(0.8), in: .rect(cornerRadius: Brand.Radius.tile))
+        .padding(Brand.Space.large)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 
     /// The lens buttons, stacked down the right edge as theirs are — and
@@ -217,7 +264,13 @@ struct SiteCameraView: View {
                 }
             case .video:
                 if camera.recording {
-                    camera.stopRecording { saved in if saved { onVideo?() } }
+                    camera.stopRecording { saved, url in
+                        if saved {
+                            pendingVideo = url
+                        } else {
+                            SiteCameraController.discardTemporaryRecording(at: url)
+                        }
+                    }
                 } else {
                     camera.startRecording()
                 }
@@ -347,7 +400,7 @@ final class SiteCameraController: NSObject, ObservableObject {
     private var oneX: CGFloat = 1
     private var zoomStops: [CGFloat] = []
     private var onPhoto: ((UIImage?) -> Void)?
-    private var onVideoSaved: ((Bool) -> Void)?
+    private var onVideoSaved: ((Bool, URL) -> Void)?
     private var startedAt: Date?
     private var ticker: Timer?
     /// Everything that configures or runs the session, off the main thread —
@@ -579,11 +632,18 @@ final class SiteCameraController: NSObject, ObservableObject {
         }
     }
 
-    func stopRecording(_ completion: @escaping (Bool) -> Void) {
+    func stopRecording(_ completion: @escaping (Bool, URL) -> Void) {
         guard recording else { return }
         onVideoSaved = completion
         stopTicker()
         work.async { [weak self] in self?.movieOutput.stopRecording() }
+    }
+
+    /// The view's job once it is done with a kept-or-discarded temp file —
+    /// `finishVideo` below stops deleting it unconditionally, precisely so
+    /// there is a window to offer "Keep on job" before it's gone.
+    static func discardTemporaryRecording(at url: URL) {
+        try? FileManager.default.removeItem(at: url)
     }
 
     private func startTicker() {
@@ -601,11 +661,14 @@ final class SiteCameraController: NSObject, ObservableObject {
         ticker = nil
     }
 
-    /// **The recording goes to the phone's own Photos, never to us.** His
+    /// **The recording goes to the phone's own Photos first, always.** His
     /// instruction, 20 Aug 2026: *"I don't wanna load my server with photo
     /// cedar… this video shouldn't go to our server because it's heavy."*
-    /// A minute of 4K is most of a gigabyte, and a restoration crew's
-    /// evidence video is watched once, on the phone that took it.
+    /// A minute of 4K is most of a gigabyte, and most site video is watched
+    /// once, on the phone that took it — that stays the default. What
+    /// changed for S7 is that the operator can now say a particular clip
+    /// SHOULD go on the job too (`videoKeepPrompt`), so this no longer
+    /// deletes the temp copy on a successful save — see `finishVideo`.
     private func saveToPhotos(_ url: URL) {
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { [weak self] status in
             guard status == .authorized || status == .limited else {
@@ -626,13 +689,17 @@ final class SiteCameraController: NSObject, ObservableObject {
     }
 
     private func finishVideo(_ saved: Bool, url: URL) {
-        // The temporary copy is deleted either way. Keeping it would fill
-        // the phone with recordings nothing points at.
-        try? FileManager.default.removeItem(at: url)
+        // Only a FAILED save has nothing worth keeping — a save nobody can
+        // act on. A successful one is left in place: the view offers
+        // "Keep on job" next, and whichever way that goes decides who
+        // deletes the temp copy (`videoKeepPrompt`), not this function.
+        if !saved {
+            try? FileManager.default.removeItem(at: url)
+        }
         DispatchQueue.main.async {
             let handler = self.onVideoSaved
             self.onVideoSaved = nil
-            handler?(saved)
+            handler?(saved, url)
         }
     }
 

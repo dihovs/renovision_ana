@@ -67,7 +67,7 @@ export async function POST(
     .slice(0, 500);
 
   try {
-    const fileId = await addProjectFile(id, {
+    const { id: fileId } = await addProjectFile(id, {
       bytes,
       filename: file.name || "file",
       contentType: file.type,
