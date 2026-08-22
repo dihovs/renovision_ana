@@ -35,12 +35,12 @@ Commit the ledger update with the work.
 | **S4** | Affected areas — remaining parity | **DONE** | S1 | `FloorPlanView.swift`, `AffectedAreaSheet` |
 | **S5** | Plan editor parity | **DONE** — all four items shipped and confirmed on the device, build 120 | — | `PlanEditorView.swift`, `EditorChrome.swift`, `StoreyViewport.swift`, `ElevationView.swift` |
 | **S6** | Photo editor — blur first | **DONE (build 145)** — all four modes; `Path` tool alone left greyed | — | `PhotoEditor.swift`, `RoomPhotos.swift` |
-| **S7** | Video and 360 capture | **BUILT (unverified)** — capture, upload, playback, duration badge, report captions; 360 and library-video still out | S6 | `RoomPhotos.swift`, `SiteCamera.swift`, `projects.ts`, migration 0041 |
+| **S7** | Video and 360 capture | **CHROME VERIFIED, A CRASH FOUND AND FIXED — upload pipeline still unverified** | S6 | `RoomPhotos.swift`, `SiteCamera.swift`, `projects.ts`, migration 0041 |
 | **S8** | Objects — doors, windows, catalogue | **DONE (build 155)** — 77 entries, 14 sections, sizes, takeoff both levels | S5 | `ObjectCatalog.swift`, `ObjectGlyphs.swift`, `ObjectEmblems.swift`, `ObjectPicker.swift`, `ObjectDetailView.swift`, `PlanEditorView.swift`, `Artwork/` |
-| **S9** | Statistics and takeoff | **PARTIAL (unverified)** — net wall area + Objects tab landed; ground-surface trio and living-area rows still open | S1 | `Models.swift`, `ProjectStatistics.swift`, `RoomDetailView.swift` |
+| **S9** | Statistics and takeoff | **PARTIAL, VERIFIED LIVE 22 Aug** — net wall area + Objects tab confirmed on "My Condo" at both room and project level; ground-surface trio and living-area rows still open | S1 | `Models.swift`, `ProjectStatistics.swift`, `RoomDetailView.swift` |
 | **S10** | Report parity | **BUILT (unverified)** — every listed item; needs one export read against theirs | S9 | `ReportDocument.tsx` |
 | **S11** | Commercial room types | **DONE** | — | `livingArea.ts`, `CaptureFlow.swift` |
-| **S12** | Project and floor screens | **PROJECT DONE · FLOOR SHELL DONE (built 18-20 Aug, this row was stale)** — one duplicate screen to retire | — | `ProjectsView.swift`, `LevelCanvas.swift` |
+| **S12** | Project and floor screens | **PROJECT DONE · FLOOR SHELL DONE AND VERIFIED LIVE 22 Aug** (built 18-20 Aug, this row was stale) — one duplicate screen to retire | — | `ProjectsView.swift`, `LevelCanvas.swift` |
 | **S13** | Icon set | NOT STARTED | — | new `Glyphs.swift` |
 | **S15** | Photos to customers, by email | **BUILT (unverified) — build succeeded, never sent live** | — | `sendDocument.ts`, `projects.ts`, `SendPhotosPicker.tsx` |
 
@@ -821,17 +821,37 @@ default; it just isn't the only path anymore.
   server never receives a video's bytes to measure them itself, unlike
   every other upload in this app. Not verified against a real clip.
 
-**Verification.** `xcodebuild … build` → `BUILD SUCCEEDED`. `tsc --noEmit`
-and `npx vitest run` clean, 1127 passing (no new tests — none of this
-touches anything the existing suite exercises, and there is no live
-Supabase/Storage to test the new upload pipeline against from here
-either). Installed and launched on the simulator via `xcrun simctl`
-directly (same `sudo xcode-select` blocker on the dedicated tool as every
-other section this session). App launches clean to the sign-in wall.
-**Nothing on this whole pipeline has been tapped or recorded** — no admin
-password in reach, and the migration isn't even applied to production yet.
-First chat with both: run the migration, then record a clip, keep it, and
-watch it actually reach the grid before trusting any of the above.
+**Verification — updated 22 Aug, with the owner in the room typing the
+admin password in himself.** The camera chrome is real and confirmed:
+`+` → Camera → the permission prompt → the full viewfinder (timestamp
+burn-in reading the actual date live, rule-of-thirds grid, lens/flash/flip
+row, VIDEO/PHOTO mode strip) all render and respond to taps.
+
+**A real crash was found and fixed in this pass, not a simulator quirk.**
+Switching to Video and tapping record threw an uncaught `NSException` —
+`-[AVCaptureMovieFileOutput startRecordingToOutputFileURL:recordingDelegate:]
+No active/enabled connections` — and killed the app outright. `startRecording()`
+called that method without checking a video connection actually existed
+first; `NSException` cannot be caught in Swift, so there was no way for
+this to fail softly once it started. The Simulator has no camera at all,
+which is what surfaced it, but the same guard now protects a real device
+too — anything that leaves the movie output's connection inactive
+(a session that failed to configure, permission pulled mid-flight) would
+have crashed exactly the same way. Fixed: `startRecording` now checks
+`connection.isActive`/`.isEnabled` before calling into AVFoundation and
+reports "This device has no working camera for video" instead — confirmed
+on the simulator afterward: the message shows, the app stays alive, Cancel
+returns cleanly to Photos & Notes.
+
+**What this pass could NOT reach**, because the Simulator has no camera
+hardware to actually produce a recording: the "Keep on job" prompt, the
+thumbnail/duration extraction, and the whole upload pipeline are still
+unverified. That needs a real device. `xcodebuild … build` →
+`BUILD SUCCEEDED` after the fix; `tsc --noEmit`/`npx vitest run` clean,
+1127 passing throughout (no TS touched by the crash fix). Migration 0041
+is still not applied to production. First chat with a real iPhone: run
+the migration, then record a clip, keep it, and watch it actually reach
+the grid.
 
 ---
 
@@ -964,17 +984,23 @@ module not touched this session; wiring or retiring the orphaned TS
 Swift sheets already compute inline by `displayName` — a real
 consolidation opportunity, just not one this pass forced).
 
-**Verification.** `xcodebuild … build` → `BUILD SUCCEEDED`. `tsc --noEmit`
-and `npx vitest run` clean (no TS files touched, so unsurprising — 1127
-still passing). Installed and launched on the simulator via `xcrun simctl`
-directly, since the dedicated simulator tool still reports "Xcode is
-installed but not selected" — same `sudo xcode-select` blocker as before,
-and this chat's account has no sudo, so it cannot be run from here at all,
-not just deferred. App launched clean to the sign-in wall; **the new tab
-has not been seen** — no admin password was available to get past it.
-First thing next chat, if it has the password: open a room's Statistics →
-See All, confirm the segmented control, and that Openings/takeoff/work all
-still render under Objects.
+**Verification — CONFIRMED LIVE, 22 Aug 2026.** The owner typed the admin
+password into the simulator himself; from there, driven on "My Condo →
+Ground Floor → Living room". Both new figures and the whole tab
+restructure are real, not just compiled:
+
+- **Project-level `See All`**: `Wall area (gross) 872 sq ft` immediately
+  followed by `Wall area (net) 689 sq ft`, both with their ⓘ, exactly the
+  row order built.
+- **Room-level `See All`**: the `Measurements`/`Objects` segmented control
+  renders and switches. Measurements shows Floor area, both wall-area
+  rows, Perimeter, Baseboard length, Ceiling height, Volume — the net row
+  present here too. Objects shows `Openings` (Doors 7, Windows 2) above
+  `Objects in this room` (Refrigerator 1, Sofa 2, Table 1) — the exact
+  two-section layout built, with real data from a real room.
+
+`xcodebuild … build` → `BUILD SUCCEEDED`; `tsc --noEmit`/`npx vitest run`
+clean throughout, 1127 passing (no TS touched by S9).
 
 ---
 
@@ -1180,6 +1206,16 @@ built-in-review logic (`concerns`, `StoreyPlanView.swift` — actually
 `LevelCanvas.swift` — around the `pending`/`spotlight` properties) worth
 reading in full before touching it, and this section's own remaining
 blocker below still stands regardless.
+
+**The floor shell is CONFIRMED LIVE, 22 Aug 2026** — driven on the
+simulator with the owner typing the admin password in. `Add Floor` (or
+tapping the existing "Ground" floor plan) opens `FloorCanvasView` with the
+full chrome: floor-depth nav, the `+ Insert` / `Rotate` action bar, "Swipe
+up ↑ for Ground Floor info". Tapping a room animates into it in place — no
+sheet, no second screen — exactly the continuous-zoom behaviour this
+section and S5 both describe. Swiping up on the floor canvas opens
+`FloorDetailView`. This wasn't a re-read of the code; it was tapped
+through on a real running build.
 
 **A `floors` table is the next real blocker on the REST of this section —
 the floor inspector's fields, not the shell above.** The floor
@@ -2522,3 +2558,22 @@ Newest last. One or two lines per chat.
   unverified against an actual Supabase project, and the migration hasn't
   even been applied yet. Full account, including what was deliberately not
   built, is in S7 above.
+- **2026-08-22** — Live verification pass, owner in the room typing the
+  admin password himself. S9 and S12's floor shell both confirmed exactly
+  as built: net wall area at room and project level, the Objects tab's
+  Openings/takeoff split, `FloorCanvasView`'s chrome and in-place room
+  entry. **S7 found a real crash, not a simulator quirk**: tapping record
+  in Video mode threw an uncaught `NSException` from
+  `AVCaptureMovieFileOutput.startRecording` when there was no active video
+  connection and killed the app outright — `NSException` cannot be caught
+  in Swift, so nothing downstream could have saved it. Fixed by checking
+  `connection.isActive`/`.isEnabled` before calling in, reporting the
+  camera's absence instead of crashing. The Simulator's lack of a camera is
+  what surfaced this, but the same guard now protects a real device from
+  whatever else could leave that connection inactive. Confirmed fixed on
+  the simulator afterward. The "Keep on job" prompt and the upload pipeline
+  itself still need a real device with a real camera — not reachable from
+  here. `Docs/SECTIONS.md` updated in place for all three sections rather
+  than only logged here, since a stale "unverified" tag next to a section
+  that has since been tapped through is exactly the kind of thing this
+  ledger exists to prevent.

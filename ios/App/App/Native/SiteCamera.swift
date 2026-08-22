@@ -614,21 +614,35 @@ final class SiteCameraController: NSObject, ObservableObject {
             .appendingPathComponent("site-\(UUID().uuidString).mov")
         work.async { [weak self] in
             guard let self else { return }
-            if let connection = self.movieOutput.connection(with: .video) {
-                if connection.isVideoRotationAngleSupported(90) {
-                    connection.videoRotationAngle = 90
-                }
-                if connection.isVideoMirroringSupported {
-                    connection.isVideoMirrored = self.front
-                }
+            // **Found the hard way, on the Simulator: `startRecording` THROWS
+            // an `NSException` — not a Swift error — when there is no
+            // active, enabled video connection, and an `NSException` cannot
+            // be caught in Swift. It crashed the whole app outright rather
+            // than reporting a message.** The Simulator has no camera at
+            // all, but the same guard also protects a real device against
+            // whatever left the connection in that state — a session that
+            // failed to configure, a permission pulled mid-flight — turning
+            // a hard crash into the same on-screen message every other
+            // failure in this file already uses.
+            guard let connection = self.movieOutput.connection(with: .video),
+                connection.isActive, connection.isEnabled
+            else {
+                self.report("This device has no working camera for video.")
+                return
+            }
+            if connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
+            if connection.isVideoMirroringSupported {
+                connection.isVideoMirrored = self.front
             }
             self.movieOutput.startRecording(to: url, recordingDelegate: self)
-        }
-        DispatchQueue.main.async {
-            self.recording = true
-            self.startedAt = Date()
-            self.elapsedText = "0:00"
-            self.startTicker()
+            DispatchQueue.main.async {
+                self.recording = true
+                self.startedAt = Date()
+                self.elapsedText = "0:00"
+                self.startTicker()
+            }
         }
     }
 
