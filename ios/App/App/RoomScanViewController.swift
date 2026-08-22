@@ -264,7 +264,15 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
             || room.windows.contains { $0.identifier == id }
             || room.openings.contains { $0.identifier == id }
 
-        let picker = ObjectLibraryPicker(context: isOpening ? .wall : .room) { [weak self] item in
+        // `selfDismisses: false` — this sheet is presented via a raw
+        // `UIHostingController` below, not a SwiftUI `.sheet(isPresented:)`,
+        // so `self.dismiss(animated:)` further down is the ONLY dismiss.
+        // Leaving the picker's own default `dismiss()` in place here was a
+        // double dismiss that closed the whole scan session instead of just
+        // this sheet — see the doc comment on `ObjectLibraryPicker.selfDismisses`.
+        let picker = ObjectLibraryPicker(
+            context: isOpening ? .wall : .room, selfDismisses: false
+        ) { [weak self] item in
             guard let self else { return }
             switch item {
             case .opening(let kind):

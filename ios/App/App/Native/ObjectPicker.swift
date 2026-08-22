@@ -29,6 +29,28 @@ struct ObjectLibraryPicker: View {
     /// The list itself never changes — a library that hides half its
     /// contents depending on what is selected is a library nobody trusts.
     var context: Context = .room
+    /// False only for `RoomScanViewController.askAbout`, the one call site
+    /// that does NOT present this through a SwiftUI `.sheet(isPresented:)`
+    /// binding — it wraps this view in a bare `UIHostingController` and
+    /// calls UIKit's `present` directly, then dismisses that itself so it
+    /// can run a completion (asking which way a door swings) once the sheet
+    /// is actually gone.
+    ///
+    /// **Found live, 22 Aug 2026: picking a door mid-scan kicked the
+    /// operator out of the whole capture session, not just this sheet.**
+    /// With this defaulted `true`, `pick(_:)` below ALSO called `dismiss()`
+    /// after `askAbout` had already called its own `self.dismiss(animated:)`
+    /// on the presenting `RoomScanViewController` — a double dismiss. The
+    /// second one had nothing left to close locally, so SwiftUI's
+    /// environment `dismiss` bubbled up the presentation chain instead: past
+    /// the live scan's own `fullScreenCover` (`CaptureFlow.swift`, whose
+    /// `isPresented` setter is deliberately a no-op — nothing SHOULD be able
+    /// to dismiss it from inside) and into the storey editor's real
+    /// `$capturing` sheet binding, closing the entire scan.
+    var selfDismisses: Bool = true
+    /// Kept LAST so every other call site's trailing-closure syntax
+    /// (`ObjectLibraryPicker(context: .wall) { item in ... }`) keeps
+    /// compiling unchanged.
     let onPick: (LibraryItem) -> Void
 
     enum Context {
@@ -191,7 +213,7 @@ struct ObjectLibraryPicker: View {
         ObjectHabits.remember(item.id)
         version += 1
         onPick(item)
-        dismiss()
+        if selfDismisses { dismiss() }
     }
 
     /// The size sheet. Only ever raised for something sold in more than
@@ -205,7 +227,7 @@ struct ObjectLibraryPicker: View {
                         version += 1
                         onPick(.object(entry.sized(size)))
                         choosingSize = nil
-                        dismiss()
+                        if selfDismisses { dismiss() }
                     } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {

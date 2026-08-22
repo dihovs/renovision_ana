@@ -913,6 +913,52 @@ first note before positioning any of them — a view that aspect-fits itself
 does not occupy the space it was offered, and that cost this project a
 whole screen's worth of drag handles.
 
+**Bug found and fixed live, 22 Aug 2026 — correcting a detected door mid-scan
+kicked the operator out of the whole capture session.** His report: *"it
+detected my door wrong, i clicked to choose the right one, i choose, and it
+kicked me out from the scan to the edit or storey mode."*
+
+Root cause was a double dismiss. `RoomScanViewController.askAbout` (the
+mid-scan "this looks wrong, pick the real one" flow, `ios/App/App/RoomScanViewController.swift`)
+presents `ObjectLibraryPicker` through a bare `UIHostingController` +
+UIKit `present(host, animated:)` — not a SwiftUI `.sheet(isPresented:)`,
+which is how every OTHER call site of that picker shows it
+(`PlanEditorView.swift`, `LevelCanvas.swift`, `ElevationView.swift`). Its
+`onPick` closure then calls `self.dismiss(animated:)` on
+`RoomScanViewController` itself, to run a completion once the sheet is
+actually gone (asking which way a door swings, then refreshing detections).
+`ObjectLibraryPicker.pick(_:)` ALSO calls its own SwiftUI `dismiss()`
+straight after — correct at the other three call sites, where a real
+`isPresented` binding is there to receive it, but here there is no such
+binding local to this presentation. The second dismiss had nothing left to
+close where it was fired, so it bubbled up the presentation chain instead —
+past the live scan's own `fullScreenCover` in `CaptureFlow.swift` (whose
+`isPresented` setter is a deliberate no-op, built to be undismissable from
+outside — so it silently swallowed the write rather than erroring) and
+into the storey editor's real `$capturing` sheet binding one level up,
+closing the entire scan.
+
+**Fixed**: `ObjectLibraryPicker` gained `selfDismisses: Bool = true` —
+defaulted on for the three existing call sites, set `false` only from
+`askAbout`, which keeps its own `self.dismiss(animated:)` as the sole
+dismissal. `BUILD SUCCEEDED` afterward. **Not verified against a real scan**
+— there is no way to drive RoomPlan's live capture from the Simulator (no
+LiDAR), so this is confirmed by tracing the exact dismissal chain in the
+code, not by reproducing the crash and watching it stop. First real test
+should be exactly his repro: mid-scan, correct a wrongly-detected door,
+confirm the scan keeps running.
+
+**A secondary risk flagged but not touched**: `CaptureFlow.swift`'s
+no-op `fullScreenCover` setters (there are three, all `.init(get: { stage
+== .something }, set: { _ in })`) will keep silently absorbing any stray
+SwiftUI `dismiss()` fired from inside them, regardless of the specific bug
+above. That's clearly deliberate — the intent is that nothing but an
+explicit `stage = ...` assignment should be able to close that cover — but
+it also means a future stray `dismiss()` anywhere inside the live scan
+would fail the same silent way rather than erroring where it's easy to
+find. Worth knowing, not fixed this pass — changing it risks the very
+behaviour it was written to protect.
+
 ---
 
 ## S9 — Statistics and takeoff
@@ -2577,3 +2623,16 @@ Newest last. One or two lines per chat.
   than only logged here, since a stale "unverified" tag next to a section
   that has since been tapped through is exactly the kind of thing this
   ledger exists to prevent.
+- **2026-08-22 (later)** — Owner's live bug report: correcting a
+  wrongly-detected door mid-scan kicked him out of the whole capture
+  session into the storey editor. Root cause: `RoomScanViewController.
+  askAbout` presents `ObjectLibraryPicker` via raw UIKit `present()` rather
+  than a SwiftUI `.sheet`, then dismisses it manually — while the picker
+  ALSO calls its own SwiftUI `dismiss()` on pick. The redundant second
+  dismiss had nothing local to close, so it bubbled through `CaptureFlow`'s
+  deliberately-undismissable scan cover and closed the storey editor's real
+  `$capturing` sheet instead. Fixed with a new `selfDismisses` flag on
+  `ObjectLibraryPicker`, off only at this one call site. `BUILD SUCCEEDED`.
+  **Not verified against a real scan** — no LiDAR in the Simulator; this is
+  confirmed by tracing the dismissal chain, not by reproducing and watching
+  it stop. Full account in S8 above.
