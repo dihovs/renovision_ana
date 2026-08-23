@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.14 7.47 119.71 119.71">
-<path d="M 8.41 60.18 L 8.41 74.84 A 51.59 29.79 0 0 0 111.59 74.84 L 111.59 60.18 A 51.59 29.79 0 0 1 8.41 60.18 Z" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
-<ellipse cx="60.00" cy="60.18" rx="51.60" ry="29.79" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4"/>
-<ellipse cx="60.00" cy="59.82" rx="51.60" ry="29.79" fill="#EEF1F5" stroke="#252A31" stroke-width="1.5"/>
-<ellipse cx="60.00" cy="59.08" rx="34.10" ry="19.69" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5"/>
-<ellipse cx="60.00" cy="58.35" rx="9.87" ry="5.70" fill="#6E7884" stroke="#252A31" stroke-width="1.5"/>
-<line x1="77.83" y1="80.79" x2="71.38" y2="72.81" stroke="#AEB6BF" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="17.98" y1="56.60" x2="33.18" y2="57.36" stroke="#AEB6BF" stroke-width="1.5" stroke-linecap="round"/>
-<line x1="84.19" y1="38.77" x2="75.44" y2="45.98" stroke="#AEB6BF" stroke-width="1.5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-58.14 -29.92 116.28 116.28">
+<path d="M -49.99 28.40 L -49.99 42.60 A 49.99 28.86 0 0 0 49.99 42.60 L 49.99 28.40 A 49.99 28.86 0 0 1 -49.99 28.40 Z" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<ellipse cx="0.00" cy="28.40" rx="50.00" ry="28.87" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4"/>
+<ellipse cx="0.00" cy="28.05" rx="50.00" ry="28.87" fill="#EEF1F5" stroke="#252A31" stroke-width="1.5"/>
+<ellipse cx="0.00" cy="27.34" rx="33.04" ry="19.08" fill="#F7F9FB" stroke="#252A31" stroke-width="1.5"/>
+<ellipse cx="0.00" cy="26.63" rx="9.57" ry="5.52" fill="#6E7884" stroke="#252A31" stroke-width="1.5"/>
+<line x1="17.27" y1="48.37" x2="11.03" y2="40.63" stroke="#AEB6BF" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="-40.72" y1="24.92" x2="-25.99" y2="25.67" stroke="#AEB6BF" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="23.44" y1="7.65" x2="14.96" y2="14.64" stroke="#AEB6BF" stroke-width="1.5" stroke-linecap="round"/>
 </svg>

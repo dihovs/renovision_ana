@@ -2917,3 +2917,40 @@ Newest last. One or two lines per chat.
   so the daily reset is testable.
   **Still specification, not built:** the `protocol_checks` migration (§3) and
   all three placements (§5). Phase 1 stops here on purpose.
+- **2026-08-23 (S12, the method icons — third attempt, and the first one in the
+  right language)** — *"still didn't like icons when you choose scan mode."*
+  Build **185**.
+  **Two rejections in a row were the same mistake and it was not a drawing
+  problem.** Both earlier versions were hand-coded SwiftUI `Canvas` paths —
+  thin blue outlines, no mass, no shadow — sitting on a sheet next to 341
+  COMMISSIONED object icons drawn as isometric solids with lit and shaded
+  faces and a soft ground ellipse. They did not look basic because they were
+  badly drawn; they looked basic because they were speaking a different visual
+  language from everything around them. The fix was to stop inventing one.
+  `scripts/draw-method-artwork.py` (new) generates the five in the house
+  language, with the palette read straight off `refrigerator.svg` —
+  `#F7F9FB` lit, `#CBD3DC` shade, `#252A31` ink at 2.4/1.5, `#0B1220` at 10%
+  for the ground. Output goes to `Native/Artwork/` and through
+  `install-object-artwork.py` like every other delivery; **381 assets now**.
+  `ScanMethodArt` keeps its API and its Canvas drawing as the fallback, the
+  same rule `ObjectTileArt` follows — artwork when it exists, drawing when it
+  does not, so the sheet can never show a hole.
+  **One deliberate addition to the language: a single accent.** The object
+  icons are monochrome because an icon of a fridge only has to BE a fridge.
+  These have to show a room and also what you do to it, so `Brand.blue` is
+  reserved for the action alone — the route walked, the corners dragged, the
+  edge still following the finger. Colour means "this part is you".
+  **Rendering caught two things reading never would have**, which is this
+  project's own lesson from the report rebuild. First: the ground shadow was
+  hand-sized and excluded from the bounding box on the theory that a shadow
+  should not shrink the drawing — but an ellipse wider than the fitted viewBox
+  is a CLIPPED ellipse, and all five had a grey rectangular smear under them.
+  It is measured from the geometry and counted in the box now. Second: the
+  Import & Draw sheet was square, and a square in isometric is a lozenge — at
+  tile size it read as "diamond" and nothing else. It is wider than deep now,
+  with a faint existing plan, a traced blue edge and a pen.
+  Checked at **52pt, the size the rows actually render**, not only at card
+  size. `method-corners` alone has no walls, and that is right rather than
+  inconsistent: you are drawing a floor outline and the room does not exist
+  yet.
+  Installed and verified 185 on the device; not yet looked at by eye.

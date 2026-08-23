@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-55.24 -38.85 98.10 98.10">
+<ellipse cx="-6.19" cy="40.76" rx="32.70" ry="6.95" fill="#0B1220" opacity="0.1"/>
+<polygon points="-1.91,-23.10 30.48,-4.40 10.48,7.15 27.63,17.05 6.67,29.15 -42.87,0.55" fill="#E9EEF3" stroke="#252A31" stroke-width="2.0" stroke-linejoin="round"/>
+<path d="M -42.87 0.55 L -1.91 -23.10 L 30.48 -4.40 L 10.48 7.15 L 27.63 17.05" fill="none" stroke="#252A31" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M 27.63 17.05 L 6.67 29.15" fill="none" stroke="#2B5C9E" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<circle cx="-42.87" cy="0.55" r="4.20" fill="#252A31" stroke="#252A31" stroke-width="0"/>
+<circle cx="-1.91" cy="-23.10" r="4.20" fill="#252A31" stroke="#252A31" stroke-width="0"/>
+<circle cx="30.48" cy="-4.40" r="4.20" fill="#252A31" stroke="#252A31" stroke-width="0"/>
+<circle cx="10.48" cy="7.15" r="4.20" fill="#252A31" stroke="#252A31" stroke-width="0"/>
+<circle cx="27.63" cy="17.05" r="4.20" fill="#252A31" stroke="#252A31" stroke-width="0"/>
+<circle cx="6.67" cy="29.15" r="6.40" fill="#F7F9FB" stroke="#2B5C9E" stroke-width="3.0"/>
+</svg>

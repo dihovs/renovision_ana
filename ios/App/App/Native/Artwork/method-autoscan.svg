@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60.80 -50.68 119.70 119.70">
+<ellipse cx="-0.95" cy="50.79" rx="38.87" ry="8.26" fill="#0B1220" opacity="0.1"/>
+<polygon points="-7.62,-28.60 20.96,-12.10 -20.96,12.10 -49.54,-4.40" fill="#E9EEF3" stroke="#252A31" stroke-width="2.0" stroke-linejoin="round"/>
+<polygon points="-7.62,-28.60 20.96,-12.10 20.96,-24.20 -7.62,-40.70" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-7.62,-28.60 -49.54,-4.40 -49.54,-16.50 -7.62,-40.70" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="20.96,-12.10 47.63,3.30 5.72,27.50 -20.96,12.10" fill="#E9EEF3" stroke="#252A31" stroke-width="2.0" stroke-linejoin="round"/>
+<polygon points="20.96,-12.10 47.63,3.30 47.63,-8.80 20.96,-24.20" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="20.96,-12.10 -20.96,12.10 -20.96,0.00 20.96,-24.20" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<path d="M -28.58 0.00 L -4.76 -13.75 L 22.86 2.20 L -1.91 16.50" fill="none" stroke="#2B5C9E" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5"/>
+<circle cx="-28.58" cy="0.00" r="4.00" fill="#2B5C9E" stroke="#2B5C9E" stroke-width="0"/>
+<g transform="translate(-1.91 17.60) rotate(-14)"><rect x="-7.50" y="-13.50" width="15.00" height="27.00" rx="3.2" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4"/><rect x="-4.50" y="-9.50" width="9.00" height="19.00" rx="1.6" fill="#2B5C9E" opacity="0.85"/></g>
+</svg>

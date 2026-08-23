@@ -2699,7 +2699,45 @@ struct ScanMethodArt: View {
     let kind: Kind
     var enabled: Bool = true
 
+    /// The slug for this method's commissioned drawing.
+    private var slug: String {
+        switch kind {
+        case .auto: return "method-autoscan"
+        case .manual: return "method-manual"
+        case .square: return "method-square"
+        case .corners: return "method-corners"
+        case .trace: return "method-trace"
+        }
+    }
+
+    /// **Real artwork when it exists, the drawn version when it does not** —
+    /// the same fallback rule `ObjectTileArt` follows for the catalogue.
+    ///
+    /// The owner rejected the hand-coded `Canvas` version twice ("very, very
+    /// basic"), and the reason it looked cheap was that it was speaking a
+    /// different language from the 341 commissioned object icons beside it:
+    /// thin blue outlines with no mass, against isometric solids with lit and
+    /// shaded faces and a soft ground shadow. `scripts/draw-method-artwork.py`
+    /// draws these in that same language and carries the palette, read
+    /// straight off `refrigerator.svg`.
+    ///
+    /// The Canvas drawing is kept rather than deleted because it is the
+    /// fallback that keeps this sheet from ever showing a hole, which is the
+    /// same reason `ObjectTileArt` keeps its own.
     var body: some View {
+        if ObjectArtwork.exists(slug) {
+            ObjectArtwork(slug: slug)
+                // Disabled means Manual-Scan, which exists only to say it is
+                // not a separate method here. Greyed and faded rather than
+                // hidden, so the row still reads as a thing you cannot pick.
+                .grayscale(enabled ? 0 : 1)
+                .opacity(enabled ? 1 : 0.45)
+        } else {
+            drawn
+        }
+    }
+
+    private var drawn: some View {
         Canvas { context, size in
             let ink = enabled ? Brand.Plan.ink : Brand.inkFaint
             let accent = enabled ? Brand.blue : Brand.inkFaint

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-58.37 -55.79 113.56 113.56">
+<ellipse cx="-1.59" cy="32.43" rx="37.85" ry="8.04" fill="#0B1220" opacity="0.1"/>
+<polygon points="0.00,-26.40 45.73,0.00 0.00,26.40 -45.73,0.00" fill="#E9EEF3" stroke="#252A31" stroke-width="2.0" stroke-linejoin="round"/>
+<polygon points="0.00,-26.40 45.73,0.00 45.73,-12.10 0.00,-38.50" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="0.00,-26.40 -45.73,0.00 -45.73,-12.10 0.00,-38.50" fill="#CBD3DC" stroke="#252A31" stroke-width="2.4" stroke-linejoin="round"/>
+<polygon points="-21.91,0.55 45.73,-2.20 16.19,14.85" fill="#C3CAD2" stroke="#2B5C9E" stroke-width="2.0" stroke-linejoin="round"/>
+<line x1="45.73" y1="0.00" x2="45.73" y2="-12.10" stroke="#2B5C9E" stroke-width="3.4" stroke-linecap="round"/>
+<circle cx="-21.91" cy="0.55" r="4.60" fill="#F7F9FB" stroke="#252A31" stroke-width="2.2"/>
+<g transform="translate(-21.91 -8.25) rotate(14)"><rect x="-7.50" y="-13.50" width="15.00" height="27.00" rx="3.2" fill="#F7F9FB" stroke="#252A31" stroke-width="2.4"/><rect x="-4.50" y="-9.50" width="9.00" height="19.00" rx="1.6" fill="#2B5C9E" opacity="0.85"/></g>
+</svg>
