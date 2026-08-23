@@ -3,6 +3,18 @@ import { toFloorPlan, type FloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
 import { formatArea, formatBare } from "@/lib/report/strings";
 import type { Locale } from "@/i18n/translations";
+import {
+  DAMAGE_MARK_FILL,
+  DAMAGE_MARK_LABEL,
+  LOCATOR_INK_FILL,
+  LOCATOR_PALE_FILL,
+  LOCATOR_PALE_INK,
+  PLAN_FILL,
+  PLAN_INK,
+  PLAN_LABEL,
+  PLAN_LABEL_HALO,
+  PLAN_RULE,
+} from "./planPalette";
 
 /**
  * A storey as ONE drawing.
@@ -220,7 +232,7 @@ function OuterChain({
   if (marks.length === 0) return null;
 
   return (
-    <g className="outer-chain" stroke="#8a8a8e" fill="none">
+    <g className="outer-chain" stroke={PLAN_RULE} fill="none">
       {marks.map((mark, index) => {
         const dx = mark.x2 - mark.x1;
         const dy = mark.y2 - mark.y1;
@@ -258,8 +270,8 @@ function OuterChain({
               transform={`rotate(${angle} ${midX - nx * 0.13} ${midY - ny * 0.13})`}
               textAnchor="middle"
               fontSize={0.21}
-              fill="#3c3c43"
-              stroke="#ffffff"
+              fill={PLAN_LABEL}
+              stroke={PLAN_LABEL_HALO}
               strokeWidth={0.07}
               strokeLinejoin="round"
               paintOrder="stroke"
@@ -293,8 +305,8 @@ function Room({
 }) {
   const label = `${fmt.bare(plan.width)} × ${fmt.bare(plan.height)}`;
   const locator = tone !== "full";
-  const wallInk = tone === "pale" ? "#c9ccd2" : "#111111";
-  const fill = tone === "pale" ? "#f6f7f8" : tone === "ink" ? "#e9eaec" : "#ebebeb";
+  const wallInk = tone === "pale" ? LOCATOR_PALE_INK : PLAN_INK;
+  const fill = tone === "pale" ? LOCATOR_PALE_FILL : tone === "ink" ? LOCATOR_INK_FILL : PLAN_FILL;
   // Sized off the room's SMALLER side: a long thin closet has plenty of
   // length and no width, and it is the width that the text runs out of.
   const short = Math.min(plan.width, plan.height);
@@ -350,7 +362,7 @@ function Room({
               stroke={area.color}
               strokeWidth={0.02}
             />
-            <circle cx={cx} cy={cy} r={0.2} fill="#e2a13a" />
+            <circle cx={cx} cy={cy} r={0.2} fill={DAMAGE_MARK_FILL} />
             <text
               x={cx}
               y={cy}
@@ -358,7 +370,7 @@ function Room({
               dominantBaseline="central"
               fontSize={0.26}
               fontWeight={700}
-              fill="#1b1c1f"
+              fill={DAMAGE_MARK_LABEL}
             >
               {areaStart + index + 1}
             </text>
@@ -389,7 +401,7 @@ function Room({
               y1={opening.y1}
               x2={opening.x2}
               y2={opening.y2}
-              stroke="#ffffff"
+              stroke={PLAN_LABEL_HALO}
               strokeWidth={T + 2 * CUT + 0.006}
               strokeLinecap="butt"
             />
@@ -406,7 +418,7 @@ function Room({
                 y1={py - (ny * T) / 2}
                 x2={px + (nx * T) / 2}
                 y2={py + (ny * T) / 2}
-                stroke="#111111"
+                stroke={PLAN_INK}
                 strokeWidth={CUT}
               />
             ))}
@@ -416,7 +428,7 @@ function Room({
                 y1={opening.y1}
                 x2={opening.x2}
                 y2={opening.y2}
-                stroke="#111111"
+                stroke={PLAN_INK}
                 strokeWidth={0.02}
               />
             )}
@@ -430,7 +442,7 @@ function Room({
                   d={`M ${opening.x1} ${opening.y1} L ${opening.x1 + nx * width} ${
                     opening.y1 + ny * width
                   }`}
-                  stroke="#111111"
+                  stroke={PLAN_INK}
                   strokeWidth={0.02}
                   fill="none"
                 />
@@ -438,7 +450,7 @@ function Room({
                   d={`M ${opening.x1 + nx * width} ${opening.y1 + ny * width} A ${width} ${width} 0 0 ${
                     nx * uy - ny * ux > 0 ? 1 : 0
                   } ${opening.x2} ${opening.y2}`}
-                  stroke="#111111"
+                  stroke={PLAN_INK}
                   strokeWidth={0.016}
                   fill="none"
                 />
@@ -474,13 +486,13 @@ function Room({
             y={labelY - (tiny ? 0 : 0.12)}
             textAnchor={anchor}
             dominantBaseline={tiny ? "central" : undefined}
-            stroke="#ffffff"
+            stroke={PLAN_LABEL_HALO}
             strokeWidth={nameSize * 0.45}
             strokeLinejoin="round"
             paintOrder="stroke"
             fontSize={nameSize}
             fontWeight={600}
-            fill="#3c3c43"
+            fill={PLAN_LABEL}
           >
             {room.name}
           </text>
@@ -489,12 +501,12 @@ function Room({
               x={labelX}
               y={labelY + nameSize * 0.95}
               textAnchor={anchor}
-              stroke="#ffffff"
+              stroke={PLAN_LABEL_HALO}
               strokeWidth={nameSize * 0.4}
               strokeLinejoin="round"
               paintOrder="stroke"
               fontSize={nameSize * 0.84}
-              fill="#3c3c43"
+              fill={PLAN_LABEL}
             >
               {fmt.area(room.floorAreaSqm)} ({label})
             </text>
@@ -603,7 +615,7 @@ export default function ReportStoreyPlan({
                 every room was really positioned — an overall dimension taken
                 across rooms the packer arranged is a measurement of the
                 packing, which is worse than no dimension at all. */}
-            <g stroke="#8a8a8e" strokeWidth={0.014} fill="none">
+            <g stroke={PLAN_RULE} strokeWidth={0.014} fill="none">
               <line x1={0} y1={layout.height + 0.75} x2={layout.width} y2={layout.height + 0.75} />
               <line x1={0} y1={layout.height + 0.55} x2={0} y2={layout.height + 0.95} />
               <line
@@ -626,7 +638,7 @@ export default function ReportStoreyPlan({
               y={layout.height + 1.25}
               textAnchor="middle"
               fontSize={0.3}
-              fill="#3c3c43"
+              fill={PLAN_LABEL}
             >
               {fmt.bare(layout.width)}
             </text>
@@ -636,7 +648,7 @@ export default function ReportStoreyPlan({
               textAnchor="middle"
               dominantBaseline="central"
               fontSize={0.3}
-              fill="#3c3c43"
+              fill={PLAN_LABEL}
               transform={`rotate(-90 ${layout.width + 1.25} ${layout.height / 2})`}
             >
               {fmt.bare(layout.height)}

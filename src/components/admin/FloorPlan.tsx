@@ -4,6 +4,7 @@ import { toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
 import { formatBare, formatNumber } from "@/lib/report/strings";
 import type { Locale } from "@/i18n/translations";
+import { PLAN_FILL, PLAN_INK, PLAN_LABEL, PLAN_LABEL_HALO, PLAN_RULE } from "./planPalette";
 
 /**
  * A scanned room drawn as an actual floor plan.
@@ -201,7 +202,7 @@ export default function FloorPlan({
         aria-label={`Floor plan of ${name}`}
       >
         {plan.polygon.length > 0 && (
-          <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill="#ebebeb" />
+          <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill={PLAN_FILL} />
         )}
 
         {/* The damaged regions, under the walls so a patch never covers the
@@ -229,7 +230,7 @@ export default function FloorPlan({
                     textAnchor="middle"
                     dominantBaseline="central"
                     fontSize={0.28}
-                    fill="#fff"
+                    fill={PLAN_LABEL_HALO}
                     fontWeight={700}
                   >
                     {index + 1}
@@ -252,15 +253,15 @@ export default function FloorPlan({
               y1={s.y1}
               x2={s.x2}
               y2={s.y2}
-              stroke="#111111"
+              stroke={PLAN_INK}
               strokeWidth={WALL}
               strokeLinecap="square"
             />
           ))
         ) : (
           <>
-            <path d={wallPath} stroke="#111111" strokeWidth={T + 2 * CUT} fill="none" strokeLinecap="butt" />
-            <path d={wallPath} stroke="#111111" strokeWidth={T} fill="none" strokeLinecap="butt" />
+            <path d={wallPath} stroke={PLAN_INK} strokeWidth={T + 2 * CUT} fill="none" strokeLinecap="butt" />
+            <path d={wallPath} stroke={PLAN_INK} strokeWidth={T} fill="none" strokeLinecap="butt" />
           </>
         )}
 
@@ -285,7 +286,7 @@ export default function FloorPlan({
                 y1={o.y1}
                 x2={o.x2}
                 y2={o.y2}
-                stroke="#ffffff"
+                stroke={PLAN_LABEL_HALO}
                 strokeWidth={thumb ? WALL * 1.25 : T + 2 * CUT + 0.006}
                 strokeLinecap="butt"
               />
@@ -302,7 +303,7 @@ export default function FloorPlan({
                       y1={py - (ny * T) / 2}
                       x2={px + (nx * T) / 2}
                       y2={py + (ny * T) / 2}
-                      stroke="#111111"
+                      stroke={PLAN_INK}
                       strokeWidth={CUT}
                     />
                   ))}
@@ -316,11 +317,11 @@ export default function FloorPlan({
                           y1={o.y1 + (side * ny * T) / 2}
                           x2={o.x2 + (side * nx * T) / 2}
                           y2={o.y2 + (side * ny * T) / 2}
-                          stroke="#111111"
+                          stroke={PLAN_INK}
                           strokeWidth={0.014}
                         />
                       ))}
-                      <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke="#111111" strokeWidth={0.01} />
+                      <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke={PLAN_INK} strokeWidth={0.01} />
                     </>
                   )}
 
@@ -469,7 +470,7 @@ export default function FloorPlan({
                 textAnchor="middle"
                 fontSize={0.3}
                 fontWeight={700}
-                fill="#3c3c43"
+                fill={PLAN_LABEL}
                 style={{ textTransform: "capitalize" }}
               >
                 {s.label.replace(/([A-Z])/g, " $1").toLowerCase()}
@@ -512,7 +513,7 @@ function Dimension({
   const b = axis === "x" ? { x: to.x, y: line } : { x: line, y: to.y };
   const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   const head = 0.12;
-  const grey = "#8a8a8e";
+  const grey = PLAN_RULE;
   const label = formatPlanLength(Math.abs(span), locale);
   // Where the label ends, near enough: ~0.15 per character at this font
   // size. Only used to place the padlock clear of the text.
@@ -560,7 +561,7 @@ function Dimension({
         textAnchor="middle"
         dominantBaseline={axis === "x" ? "auto" : "middle"}
         fontSize={0.26}
-        fill="#3c3c43"
+        fill={PLAN_LABEL}
         transform={axis === "y" ? `rotate(-90 ${mid.x} ${mid.y})` : undefined}
         dy={axis === "y" ? -0.1 : undefined}
       >
@@ -596,10 +597,10 @@ function Padlock({ x, baseline }: { x: number; baseline: number }) {
       <path
         d={`M ${x + w / 2 - r} ${baseline - bodyH} v -0.025 a ${r} ${r} 0 0 1 ${2 * r} 0 v 0.025`}
         fill="none"
-        stroke="#3c3c43"
+        stroke={PLAN_LABEL}
         strokeWidth={0.022}
       />
-      <rect x={x} y={baseline - bodyH} width={w} height={bodyH} rx={0.02} fill="#3c3c43" />
+      <rect x={x} y={baseline - bodyH} width={w} height={bodyH} rx={0.02} fill={PLAN_LABEL} />
     </g>
   );
 }
@@ -637,17 +638,17 @@ function ScaleBar({ y, width, locale }: { y: number; width: number; locale: Loca
           y={y}
           width={blockM}
           height={0.13}
-          fill={i % 2 === 0 ? "#111111" : "#ffffff"}
-          stroke="#111111"
+          fill={i % 2 === 0 ? PLAN_INK : PLAN_LABEL_HALO}
+          stroke={PLAN_INK}
           strokeWidth={0.014}
         />
       ))}
       {Array.from({ length: blocks + 1 }).map((_, i) => (
-        <text key={i} x={i * blockM} y={y - 0.12} textAnchor="middle" fontSize={0.22} fill="#8a8a8e">
+        <text key={i} x={i * blockM} y={y - 0.12} textAnchor="middle" fontSize={0.22} fill={PLAN_RULE}>
           {formatNumber(locale, i * step, Number.isInteger(step) ? 0 : 1)}
         </text>
       ))}
-      <text x={blocks * blockM + 0.14} y={y + 0.12} fontSize={0.22} fill="#8a8a8e">
+      <text x={blocks * blockM + 0.14} y={y + 0.12} fontSize={0.22} fill={PLAN_RULE}>
         m
       </text>
     </g>
@@ -703,11 +704,11 @@ function Door({
 
   return (
     <g>
-      <line x1={H.x} y1={H.y} x2={tip.x} y2={tip.y} stroke="#111111" strokeWidth={0.016} />
+      <line x1={H.x} y1={H.y} x2={tip.x} y2={tip.y} stroke={PLAN_INK} strokeWidth={0.016} />
       <path
         d={`M ${tip.x} ${tip.y} A ${w} ${w} 0 0 ${sweep} ${L.x} ${L.y}`}
         fill="none"
-        stroke="#111111"
+        stroke={PLAN_INK}
         strokeWidth={0.01}
       />
     </g>
