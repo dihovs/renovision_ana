@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { guarded } from "../guard";
 import { db, isEmbedFailure } from "@/lib/crm/db";
 

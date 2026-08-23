@@ -170,6 +170,7 @@ export default function QuoteBuilder({
     // would give a new identity each time and memoise nothing. exhaustive-deps
     // can't see that {kind, value} is the whole shape and warns anyway — the
     // warning is wrong here, and "fixing" it would silently undo the memo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [lines, effectiveRate, discount.kind, discount.value, deposit.kind, deposit.value],
   );
 

@@ -566,12 +566,21 @@ export default function ReportStoreyPlan({
 
   // Room-by-room running count, so the badge numbers across a storey are one
   // sequence rather than each room restarting at 1.
-  let seen = 0;
-  const starts = drawable.map((room) => {
-    const start = seen;
-    seen += room.areas.filter((area) => area.polygon.length >= 3).length;
-    return start;
-  });
+  //
+  // A prefix sum rather than a `let` mutated inside `map`: the lint rule is
+  // right that reassigning a captured binding during render is a hazard, and
+  // the reduce says "each room starts where the last one ended" more directly
+  // than a counter does anyway.
+  const badgeCounts = drawable.map(
+    (room) => room.areas.filter((area) => area.polygon.length >= 3).length,
+  );
+  const runningTotals = badgeCounts.reduce<number[]>(
+    (acc, count) => [...acc, (acc[acc.length - 1] ?? 0) + count],
+    [],
+  );
+  // Each room starts where the previous one ended, so the first starts at 0
+  // and the last total — the storey's whole count — is not a start at all.
+  const starts = [0, ...runningTotals.slice(0, -1)];
 
   // Enough margin for the outer chain and for the wall band itself, which is
   // drawn centred on the segment and so overhangs the extent by half.

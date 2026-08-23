@@ -3,7 +3,6 @@ import { CauseTag, PlanLegend } from "./ReportSymbols";
 import {
   REPORT_STRINGS,
   formatArea,
-  formatBare,
   formatDate,
   formatLength,
 } from "@/lib/report/strings";
@@ -15,8 +14,6 @@ import FloorPlan from "./FloorPlan";
 import WallElevation, { RoomElevations } from "./WallElevation";
 import {
   planCorners,
-  squareMetersToSquareFeet,
-  metersToFeet,
   toFloorPlan,
   type ScanGeometry,
 } from "@/lib/roomScan";
@@ -28,7 +25,6 @@ import {
   floorAreas,
   totalsBySurface,
   wallAreas,
-  DAMAGE_LABEL,
   type AffectedArea,
   type DamageType,
 } from "@/lib/crm/areaShapes";
@@ -321,8 +317,6 @@ function wallAreaGross(room: {
 }
 
 
-const sqft = (sqm: number) => Math.round(squareMetersToSquareFeet(sqm)).toLocaleString("en-CA");
-const ft = (m: number) => Math.round(metersToFeet(m)).toLocaleString("en-CA");
 
 
 export default function ReportDocument({ data }: { data: ReportData }) {

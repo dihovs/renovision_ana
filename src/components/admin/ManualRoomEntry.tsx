@@ -9,7 +9,6 @@ import {
 } from "@/lib/manualRoom";
 import {
   squareMetersToSquareFeet,
-  totalFloorAreaSquareMeters,
   type RoomScanResult,
 } from "@/lib/roomScan";
 

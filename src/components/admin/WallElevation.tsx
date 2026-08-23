@@ -2,7 +2,6 @@ import {
   areaColor,
   damageLabel,
   wallLengthM,
-  DAMAGE_LABEL,
   type AffectedArea,
   type AreaPoint,
 } from "@/lib/crm/areaShapes";
