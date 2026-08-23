@@ -19,6 +19,10 @@ import SwiftUI
 struct DollhouseScreen: View {
     let title: String
     let rooms: [Dollhouse.Room]
+    /// How many rooms this storey has AT ALL, before any were rejected for
+    /// having no usable geometry. Passed in rather than derived, because the
+    /// gap between this and `rooms.count` is the whole diagnosis.
+    let roomsOnFloor: Int
 
     @Environment(\.dismiss) private var dismiss
     @State private var allOpen = false
@@ -28,10 +32,13 @@ struct DollhouseScreen: View {
             ZStack(alignment: .bottom) {
                 if rooms.isEmpty {
                     ContentUnavailableView(
-                        "Nothing to show yet",
+                        roomsOnFloor == 0 ? "No rooms on this floor" : "No usable geometry",
                         systemImage: "cube.transparent",
                         description: Text(
-                            "Scan or draw a room on this floor and it will stand up here."))
+                            roomsOnFloor == 0
+                                ? "Scan or draw a room on this floor and it will stand up here."
+                                : "\(roomsOnFloor) room(s) are on this floor, but none carry the wall geometry this needs."
+                        ))
                 } else {
                     DollhouseSceneView(rooms: rooms)
                         .ignoresSafeArea(edges: .bottom)
@@ -39,10 +46,17 @@ struct DollhouseScreen: View {
                     VStack(spacing: Brand.Space.small) {
                         Spacer()
                         controls
-                        tally
                     }
-                    .padding(.bottom, Brand.Space.base)
+                    .padding(.bottom, 44)
                 }
+
+                // **Always on screen, both states.** The first version put the
+                // tally inside the non-empty branch — that is, everywhere
+                // except the case it exists to diagnose. The screen came back
+                // empty twice and the one line that would have said why was
+                // the line that had been switched off.
+                tally
+                    .padding(.bottom, Brand.Space.base)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -65,7 +79,10 @@ struct DollhouseScreen: View {
     private var tally: some View {
         let walls = rooms.reduce(0) { $0 + $1.plan.segments.count }
         let openings = rooms.reduce(0) { $0 + $1.plan.openings.count }
-        return Text("\(rooms.count) rooms · \(walls) walls · \(openings) openings")
+        let span = Dollhouse.bounds(of: rooms).span
+        return Text(
+            "\(roomsOnFloor) on floor · \(rooms.count) built · \(walls) walls · "
+                + "\(openings) openings · \(String(format: "%.1f", span)) m")
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10)

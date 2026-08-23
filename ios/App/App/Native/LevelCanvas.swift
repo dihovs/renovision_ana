@@ -1755,7 +1755,8 @@ struct FloorCanvasView: View {
             }
         }
         .fullScreenCover(isPresented: $dollhouse) {
-            DollhouseScreen(title: showing, rooms: dollhouseRooms)
+            DollhouseScreen(
+                title: showing, rooms: dollhouseRooms, roomsOnFloor: rooms.count)
         }
         .sheet(isPresented: $sharing) {
             // The same export sheet the project carries — one screen, two
