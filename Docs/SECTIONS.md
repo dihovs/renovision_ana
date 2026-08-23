@@ -3024,3 +3024,30 @@ Newest last. One or two lines per chat.
   proved nothing here, and the ledger entry for 186 said so in advance —
   "nothing about a 3D scene is proved by compiling". It was right, and the next
   3D change should assume the same.
+- **2026-08-23 (S7, the lens question is CLOSED — measured, not argued)** — The
+  probe ran on the owner's own iPhone 17 Pro Max and the answer is no:
+
+      device has ultra-wide camera: true
+      ARWorldTrackingConfiguration supports 22 format(s)
+        ... all 22 AVCaptureDeviceTypeBuiltInWideAngleCamera
+      VERDICT — no ultra-wide format for world tracking.
+
+  **The phone has the lens; ARKit will not drive it for world tracking.** Every
+  one of the 22 supported formats is the wide-angle camera — 4K, 1920x1440,
+  1080p, 720p, several frame rates, all wide. `ARVideoFormat.captureDeviceType`
+  is read-only, so there is no format to select and nothing to switch.
+  **Both of my earlier answers were wrong in different directions** and this is
+  worth recording as a method note. The first ("impossible, `RoomCaptureSession
+  .Configuration` has one property") was right by accident and wrong in its
+  reasoning — the lens was never chosen there. The second ("probably not, but
+  let us measure") was right to measure and still guessed at the cause. The
+  actual reason is one layer lower than either: ARKit does not offer the lens
+  at all, so `RoomCaptureSession(arSession:)` being available changes nothing.
+  **Consequence for Polycam.** Their wider view is therefore NOT coming from
+  ARKit world tracking. They are running their own capture path or compositing
+  differently, which matches the other finding from their report — that their
+  object schedules distinguish Cabinet, Dining chair and Sofa extension, which
+  RoomPlan cannot. Matching either means leaving RoomPlan and giving up the
+  wall/door/window/object detection this app is built on.
+  **Do not reopen this** without new evidence — the measurement is on his own
+  hardware and is in `Documents/scan-diagnostics.txt` on the device.

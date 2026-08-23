@@ -111,7 +111,42 @@ enum Dollhouse {
 
         addLighting(to: scene, span: span)
         scene.rootNode.addChildNode(cameraNode(span: span))
+
+        // **Written to a file, because asking for it has not worked.** Three
+        // builds have now come back "empty" or "the same", and the one line
+        // that separates the possible causes is a line nobody has read off
+        // the screen. `ScanLens.appendToDiagnostics` already goes somewhere
+        // `devicectl device copy from` can fetch as an ordinary user, so the
+        // fact can be collected instead of requested.
+        ScanLens.appendToDiagnostics(diagnosis(rooms: rooms, scene: scene, span: span))
         return scene
+    }
+
+    /// Everything that could make this screen look empty, measured rather
+    /// than assumed.
+    private static func diagnosis(rooms: [Room], scene: SCNScene, span: Double) -> String {
+        var out = "DOLLHOUSE: rooms=\(rooms.count) span=\(String(format: "%.2f", span))\n"
+        for room in rooms.prefix(12) {
+            out +=
+                "DOLLHOUSE:   \(room.name) origin=(\(String(format: "%.2f", room.origin.x)),"
+                + "\(String(format: "%.2f", room.origin.y))) "
+                + "size=\(String(format: "%.2f", room.plan.width))x"
+                + "\(String(format: "%.2f", room.plan.height)) "
+                + "segments=\(room.plan.segments.count) openings=\(room.plan.openings.count) "
+                + "polygon=\(room.plan.polygon.count) ceiling=\(String(format: "%.2f", room.ceilingHeight))\n"
+        }
+        // What actually ended up in the graph, which is the question the room
+        // counts above cannot answer.
+        var geometryNodes = 0
+        var totalNodes = 0
+        scene.rootNode.enumerateHierarchy { node, _ in
+            totalNodes += 1
+            if node.geometry != nil { geometryNodes += 1 }
+        }
+        out += "DOLLHOUSE: nodes=\(totalNodes) withGeometry=\(geometryNodes) "
+        out += "leaves=\(Registry.shared.leaves.count) "
+        out += "camera=\(scene.rootNode.childNode(withName: "camera", recursively: false) != nil)\n"
+        return out
     }
 
     /// The camera, **inside the scene**.
