@@ -2996,3 +2996,31 @@ Newest last. One or two lines per chat.
   Installed and **verified 186 on the device**. `BUILD SUCCEEDED`; **not yet
   looked at by eye**, and this one especially wants eyes: nothing about a 3D
   scene is proved by compiling.
+- **2026-08-23 (S14, the dollhouse rendered nothing — two bugs, both mine)** —
+  Reported the moment it was opened: *"the floor is empty in 3d."* Build **187**
+  fixes it. Neither bug was in the geometry; both were in getting a camera to
+  look at it, and **either one alone renders a blank screen**, which is why the
+  symptom said nothing about the cause.
+  1. **The camera was never in the scene.** `cameraNode` was built and handed
+     straight to `SCNView.pointOfView` without ever being added to the graph. A
+     detached point of view draws nothing.
+  2. **`SCNNode.boundingBox` on a node with no geometry of its own.** It reports
+     the bounds of the node's OWN geometry, and the container holding every room
+     has none — so it returned empty, the model was centred on garbage and the
+     camera distance was computed from a zero span. `Dollhouse.bounds(of:)` now
+     computes it from the room footprints, which were known all along; asking
+     SceneKit was never necessary.
+  Also hardened: the floor slab is `isDoubleSided` now, because `SCNShape`
+  extrudes along +z and the slab is rotated flat afterwards, which can leave its
+  normals pointing at the ground — **a floor you cannot see from above has the
+  same symptom as no floor**, and chasing that separately would have cost
+  another build.
+  **A tally now prints under the controls** — `N rooms · N walls · N openings`.
+  It stays. It is the one line that separates "the storey had no geometry to
+  build from" from "the model was built and the camera pointed at nothing":
+  identical symptoms, completely different fixes, and guessing between them is
+  exactly what cost build 186.
+  **The lesson is the one this project keeps relearning.** `BUILD SUCCEEDED`
+  proved nothing here, and the ledger entry for 186 said so in advance —
+  "nothing about a 3D scene is proved by compiling". It was right, and the next
+  3D change should assume the same.

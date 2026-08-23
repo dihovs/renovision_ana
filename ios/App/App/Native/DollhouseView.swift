@@ -36,8 +36,12 @@ struct DollhouseScreen: View {
                     DollhouseSceneView(rooms: rooms)
                         .ignoresSafeArea(edges: .bottom)
 
-                    controls
-                        .padding(.bottom, Brand.Space.base)
+                    VStack(spacing: Brand.Space.small) {
+                        Spacer()
+                        controls
+                        tally
+                    }
+                    .padding(.bottom, Brand.Space.base)
                 }
             }
             .navigationTitle(title)
@@ -49,6 +53,24 @@ struct DollhouseScreen: View {
                 }
             }
         }
+    }
+
+    /// What was actually put in the scene.
+    ///
+    /// Kept after the first empty-screen report, and worth keeping: it is the
+    /// one line that separates "the storey had no geometry to build from" from
+    /// "the model was built and the camera was pointed at nothing". Those have
+    /// identical symptoms and completely different fixes, and guessing between
+    /// them cost a build.
+    private var tally: some View {
+        let walls = rooms.reduce(0) { $0 + $1.plan.segments.count }
+        let openings = rooms.reduce(0) { $0 + $1.plan.openings.count }
+        return Text("\(rooms.count) rooms · \(walls) walls · \(openings) openings")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.ultraThinMaterial, in: Capsule())
     }
 
     private var controls: some View {
@@ -96,7 +118,9 @@ struct DollhouseSceneView: UIViewRepresentable {
         view.autoenablesDefaultLighting = false
         view.antialiasingMode = .multisampling4X
         view.backgroundColor = UIColor(white: 0.94, alpha: 1)
-        view.pointOfView = camera(for: view.scene)
+        // The camera lives IN the scene now — see `Dollhouse.cameraNode`. A
+        // detached `pointOfView` renders nothing, which is what shipped first.
+        view.pointOfView = view.scene?.rootNode.childNode(withName: "camera", recursively: false)
 
         let tap = UITapGestureRecognizer(
             target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
@@ -108,29 +132,6 @@ struct DollhouseSceneView: UIViewRepresentable {
     func updateUIView(_ view: SCNView, context: Context) {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
-
-    /// Looking down at about 40°, far enough out to hold the whole storey.
-    ///
-    /// The angle matters: too flat and the far walls hide the near rooms even
-    /// with front-face culling; straight down and it stops being a dollhouse
-    /// and becomes the floor plan we already have in 2D.
-    private func camera(for scene: SCNScene?) -> SCNNode {
-        let node = SCNNode()
-        node.camera = SCNCamera()
-        node.camera?.fieldOfView = 50
-        node.camera?.zNear = 0.05
-        node.camera?.zFar = 500
-
-        var span = 10.0
-        if let world = scene?.rootNode.childNode(withName: "world", recursively: false) {
-            let (minB, maxB) = world.boundingBox
-            span = Double(max(maxB.x - minB.x, maxB.z - minB.z))
-        }
-        let distance = max(6.0, span * 1.35)
-        node.position = SCNVector3(0, Float(distance * 0.72), Float(distance * 0.86))
-        node.eulerAngles = SCNVector3(-Float.pi / 4.5, 0, 0)
-        return node
-    }
 
     final class Coordinator: NSObject {
         weak var view: SCNView?

@@ -75,6 +75,26 @@ enum Dollhouse {
 
     // MARK: - Building
 
+    /// How big the storey is, in floor metres, computed from the ROOM DATA.
+    ///
+    /// **Not from `SCNNode.boundingBox`, which was the bug that shipped an
+    /// empty screen.** That property reports the bounds of a node's own
+    /// geometry, and the container holding every room has no geometry of its
+    /// own — so it came back empty, the model was centred on garbage and the
+    /// camera was placed a distance computed from a zero span. Every room's
+    /// footprint is already known here; asking SceneKit was never necessary.
+    static func bounds(of rooms: [Room]) -> (centre: CGPoint, span: Double) {
+        guard !rooms.isEmpty else { return (.zero, 10) }
+        let minX = rooms.map { $0.origin.x }.min() ?? 0
+        let minY = rooms.map { $0.origin.y }.min() ?? 0
+        let maxX = rooms.map { $0.origin.x + $0.plan.width }.max() ?? 1
+        let maxY = rooms.map { $0.origin.y + $0.plan.height }.max() ?? 1
+        return (
+            CGPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2),
+            max(Double(maxX - minX), Double(maxY - minY), 2)
+        )
+    }
+
     static func scene(rooms: [Room]) -> SCNScene {
         let scene = SCNScene()
         scene.background.contents = UIColor(white: 0.94, alpha: 1)
@@ -82,17 +102,39 @@ enum Dollhouse {
         let world = SCNNode()
         world.name = "world"
         for room in rooms { world.addChildNode(node(for: room)) }
-        scene.rootNode.addChildNode(world)
 
         // Centre the model on the origin so the camera orbits its middle
         // rather than its corner.
-        let (minB, maxB) = world.boundingBox
-        let centre = SCNVector3(
-            (minB.x + maxB.x) / 2, minB.y, (minB.z + maxB.z) / 2)
-        world.position = SCNVector3(-centre.x, -centre.y, -centre.z)
+        let (centre, span) = bounds(of: rooms)
+        world.position = SCNVector3(Float(-centre.x), 0, Float(-centre.y))
+        scene.rootNode.addChildNode(world)
 
-        addLighting(to: scene, span: Double(max(maxB.x - minB.x, maxB.z - minB.z)))
+        addLighting(to: scene, span: span)
+        scene.rootNode.addChildNode(cameraNode(span: span))
         return scene
+    }
+
+    /// The camera, **inside the scene**.
+    ///
+    /// The first version built this and handed it straight to
+    /// `SCNView.pointOfView` without ever adding it to the graph. A detached
+    /// point of view renders nothing at all, which is precisely what the
+    /// owner saw.
+    ///
+    /// Looking down at about 40°: too flat and the far walls hide the near
+    /// rooms even with front-face culling; straight down and it stops being a
+    /// dollhouse and becomes the floor plan we already have in 2D.
+    static func cameraNode(span: Double) -> SCNNode {
+        let node = SCNNode()
+        node.name = "camera"
+        node.camera = SCNCamera()
+        node.camera?.fieldOfView = 50
+        node.camera?.zNear = 0.05
+        node.camera?.zFar = 1000
+        let distance = max(6.0, span * 1.35)
+        node.position = SCNVector3(0, Float(distance * 0.72), Float(distance * 0.86))
+        node.eulerAngles = SCNVector3(-Float.pi / 4.5, 0, 0)
+        return node
     }
 
     private static func addLighting(to scene: SCNScene, span: Double) {
@@ -145,7 +187,13 @@ enum Dollhouse {
             for p in room.plan.polygon.dropFirst() { path.addLine(to: p) }
             path.close()
             let shape = SCNShape(path: path, extrusionDepth: CGFloat(slabDepth))
-            shape.materials = [material(colour)]
+            // Double-sided deliberately: `SCNShape` extrudes along +z and the
+            // slab is then rotated flat, which can leave its normals pointing
+            // at the ground. A floor nobody can see from above is the same
+            // symptom as having no floor.
+            let m = material(colour)
+            m.isDoubleSided = true
+            shape.materials = [m]
             let node = SCNNode(geometry: shape)
             // SCNShape extrudes along +z from a path in the x/y plane, so it
             // is stood down flat and lifted to sit just under the walls.
