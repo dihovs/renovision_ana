@@ -23,6 +23,9 @@ struct DollhouseScreen: View {
     /// having no usable geometry. Passed in rather than derived, because the
     /// gap between this and `rooms.count` is the whole diagnosis.
     let roomsOnFloor: Int
+    /// Written to the diagnostics file the moment this screen appears, in
+    /// every state including the empty one.
+    let diagnosis: String
 
     @Environment(\.dismiss) private var dismiss
     @State private var allOpen = false
@@ -66,6 +69,7 @@ struct DollhouseScreen: View {
                     .padding(.bottom, Brand.Space.base)
                     .allowsHitTesting(false)
             }
+            .task { ScanLens.appendToDiagnostics(diagnosis) }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

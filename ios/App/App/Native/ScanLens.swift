@@ -109,7 +109,9 @@ enum ScanLens {
             ).first
         else { return }
         let file = dir.appendingPathComponent("scan-diagnostics.txt")
-        let stamped = "[\(ISO8601DateFormatter().string(from: Date()))]\n\(text)\n"
+        let build =
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        let stamped = "[\(ISO8601DateFormatter().string(from: Date())) b\(build)]\n\(text)\n"
         guard let data = stamped.data(using: .utf8) else { return }
         if let handle = try? FileHandle(forWritingTo: file) {
             defer { try? handle.close() }

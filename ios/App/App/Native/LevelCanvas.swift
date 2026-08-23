@@ -1143,6 +1143,30 @@ struct FloorCanvasView: View {
 
     private var rooms: [RoomScan] { (scans ?? []).filter { $0.level == showing } }
 
+    /// Every count between the API and the scene, in one line.
+    ///
+    /// **Written unconditionally**, because the last two attempts at
+    /// instrumenting this both put the readout inside the branch that only
+    /// runs when there IS something to show — which is never the case being
+    /// diagnosed. Three builds went by with the answer switched off in
+    /// exactly the state that needed it.
+    private var dollhouseDiagnosis: String {
+        let onFloor = rooms
+        let withGeometry = onFloor.filter { $0.geometry != nil }
+        let levels = Set((scans ?? []).map(\.level)).sorted().joined(separator: ",")
+        var out = "DOLLHOUSE-DATA: scans=\(scans?.count ?? -1) showing=\(showing) "
+        out += "levelsPresent=[\(levels)] onFloor=\(onFloor.count) "
+        out += "withGeometry=\(withGeometry.count) built=\(dollhouseRooms.count)\n"
+        for room in withGeometry.prefix(10) {
+            let plan = room.geometry.map { FloorPlanGeometry.plan(from: $0) }
+            out += "DOLLHOUSE-DATA:   \(room.name) level=\(room.level) "
+            out += "segments=\(plan?.segments.count ?? -1) "
+            out += "polygon=\(plan?.polygon.count ?? -1) "
+            out += "empty=\(plan?.isEmpty.description ?? "nil")\n"
+        }
+        return out
+    }
+
     /// The storey, ready to stand up.
     ///
     /// **Placed by `StoreyPacking.pack`, which is the same call the 2D canvas
@@ -1742,7 +1766,15 @@ struct FloorCanvasView: View {
             if focusedRoomID == nil {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     // The dollhouse. Same storey, same placement, standing up.
-                    Button { dollhouse = true } label: {
+                    Button {
+                        // The tap writes before it presents. Diagnostics from
+                        // inside the 3D screen never arrived across two
+                        // builds, and this line splits "the button never
+                        // fired" from "the cover never presented" — which
+                        // otherwise look identical from the outside.
+                        ScanLens.appendToDiagnostics("DOLLHOUSE-TAP\n" + dollhouseDiagnosis)
+                        dollhouse = true
+                    } label: {
                         Image(systemName: "cube")
                     }
                     Button { showingHelp = true } label: {
@@ -1756,7 +1788,8 @@ struct FloorCanvasView: View {
         }
         .fullScreenCover(isPresented: $dollhouse) {
             DollhouseScreen(
-                title: showing, rooms: dollhouseRooms, roomsOnFloor: rooms.count)
+                title: showing, rooms: dollhouseRooms, roomsOnFloor: rooms.count,
+                diagnosis: dollhouseDiagnosis)
         }
         .sheet(isPresented: $sharing) {
             // The same export sheet the project carries — one screen, two
@@ -1813,7 +1846,10 @@ struct FloorCanvasView: View {
                 onSaved: { Task { await load() } },
                 onFinished: { _, _ in })
         }
-        .task { await load() }
+        .task {
+            ScanLens.appendToDiagnostics("FLOOR-APPEAR level=\(showing)\n")
+            await load()
+        }
     }
 
     /// Floor-depth's own controls — extracted unchanged from what used to
