@@ -51,7 +51,13 @@ enum Dollhouse {
         let origin: CGPoint
         let ceilingHeight: Double
         /// The room's own colour, when the operator set one.
-        let tint: Color?
+        var tint: Color? = nil
+        /// **The catalogue objects the operator placed** — cabinets,
+        /// appliances, fixtures. Separate from `plan.objects`, which is only
+        /// what the SCANNER recognised, and the reason the first dollhouse
+        /// came up as bare rooms: it drew the detections and never asked for
+        /// the things anybody had actually put on the plan.
+        var placed: [RoomObject] = []
     }
 
     // MARK: - Materials
@@ -66,11 +72,18 @@ enum Dollhouse {
         return m
     }
 
-    private static let wallInk = UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1)
-    private static let floorInk = UIColor(red: 0.87, green: 0.89, blue: 0.91, alpha: 1)
+    private static let wallInk = UIColor(red: 0.955, green: 0.950, blue: 0.937, alpha: 1)
+    /// The cut edge of the wall, seen from above. Deliberately a shade darker
+    /// than the face: on a real drawing the poché is what tells you a wall has
+    /// substance, and here it is the ONLY thing that can — see `wallNode`.
+    private static let wallCapInk = UIColor(red: 0.80, green: 0.79, blue: 0.77, alpha: 1)
     private static let leafInk = UIColor(red: 0.78, green: 0.71, blue: 0.62, alpha: 1)
     private static let glassInk = UIColor(red: 0.62, green: 0.78, blue: 0.90, alpha: 0.55)
+    private static let objectInk = UIColor(red: 0.88, green: 0.88, blue: 0.89, alpha: 1)
 
+    /// **90 mm, which is a real stud wall.** 2x4 framing plus 12.7 mm board
+    /// each side is about 114; an interior partition drawn at 90 reads right
+    /// without eating the small rooms this trade works in.
     private static let wallThickness = 0.09
 
     // MARK: - Building
@@ -110,7 +123,8 @@ enum Dollhouse {
         scene.rootNode.addChildNode(world)
 
         addLighting(to: scene, span: span)
-        scene.rootNode.addChildNode(cameraNode(span: span))
+        scene.rootNode.addChildNode(cameraRig(span: span))
+        Registry.shared.scene = scene
 
         // **Written to a file, because asking for it has not worked.** Three
         // builds have now come back "empty" or "the same", and the one line
@@ -149,27 +163,39 @@ enum Dollhouse {
         return out
     }
 
-    /// The camera, **inside the scene**.
+    /// The camera rig: **yaw → pitch → camera**, so orbit is two angles and
+    /// a distance rather than a free-floating transform.
     ///
-    /// The first version built this and handed it straight to
-    /// `SCNView.pointOfView` without ever adding it to the graph. A detached
-    /// point of view renders nothing at all, which is precisely what the
-    /// owner saw.
+    /// The first version built a camera and handed it straight to
+    /// `SCNView.pointOfView` without adding it to the graph. A detached point
+    /// of view renders nothing, which is precisely what the owner saw.
     ///
-    /// Looking down at about 40°: too flat and the far walls hide the near
-    /// rooms even with front-face culling; straight down and it stops being a
-    /// dollhouse and becomes the floor plan we already have in 2D.
-    static func cameraNode(span: Double) -> SCNNode {
-        let node = SCNNode()
-        node.name = "camera"
-        node.camera = SCNCamera()
-        node.camera?.fieldOfView = 50
-        node.camera?.zNear = 0.05
-        node.camera?.zFar = 1000
-        let distance = max(6.0, span * 1.35)
-        node.position = SCNVector3(0, Float(distance * 0.72), Float(distance * 0.86))
-        node.eulerAngles = SCNVector3(-Float.pi / 4.5, 0, 0)
-        return node
+    /// The rig shape is what makes the limits possible: `DollhouseSceneView`
+    /// clamps the pitch node's one angle, and no amount of dragging can put
+    /// the camera below the floor looking up. SceneKit's own
+    /// `allowsCameraControl` offers no such clamp, which is why it is off.
+    ///
+    /// Lifted to eye height above the model's floor so the default view looks
+    /// slightly DOWN into the rooms rather than at their skirting.
+    static func cameraRig(span: Double) -> SCNNode {
+        let rig = SCNNode()
+        rig.name = "rig"
+        rig.position = SCNVector3(0, 0.9, 0)
+
+        let pitch = SCNNode()
+        pitch.name = "pitch"
+        pitch.eulerAngles = SCNVector3(-40 * Float.pi / 180, 0, 0)
+        rig.addChildNode(pitch)
+
+        let camera = SCNNode()
+        camera.name = "camera"
+        camera.camera = SCNCamera()
+        camera.camera?.fieldOfView = 50
+        camera.camera?.zNear = 0.05
+        camera.camera?.zFar = 1000
+        camera.position = SCNVector3(0, 0, Float(max(6.0, span * 1.35)))
+        pitch.addChildNode(camera)
+        return rig
     }
 
     private static func addLighting(to scene: SCNScene, span: Double) {
@@ -204,17 +230,104 @@ enum Dollhouse {
         for opening in room.plan.openings {
             if let leaf = leafNode(opening, room: room) { node.addChildNode(leaf) }
         }
-        for object in room.plan.objects {
-            node.addChildNode(objectNode(object))
+        // Scanner detections first, then everything placed by hand. A placed
+        // object wins where both describe the same thing: the operator has
+        // already corrected the scan by putting it there.
+        let placedIsAnnotation: (RoomObject) -> Bool = { $0.entry?.isAnnotation == true }
+        let detected = room.plan.objects.filter { object in
+            !room.placed.contains {
+                hypot($0.x - Double(object.centre.x), $0.y - Double(object.centre.y)) < 0.4
+            }
         }
+        // **All contents under one node**, so the operator can take them out
+        // of the picture in a tap. The owner: *"we have to have ability to
+        // keep or remove the appliances."* Hiding a subtree beats rebuilding
+        // the scene — a rebuild would slam every door shut and lose the
+        // camera he had just orbited into place.
+        let contents = SCNNode()
+        contents.name = "contents"
+        for object in detected { contents.addChildNode(detectedNode(object)) }
+        for object in room.placed where !placedIsAnnotation(object) {
+            contents.addChildNode(placedNode(object))
+        }
+        node.addChildNode(contents)
+        return node
+    }
+
+    /// One catalogue object, standing on the floor at its measured footprint.
+    ///
+    /// **Height is the object's own**, per the owner's standing instruction
+    /// that a cabinet keeps its height and stands on the floor — which is the
+    /// whole reason objects are not openings.
+    ///
+    /// An EXCLUDED object draws pale and translucent rather than vanishing:
+    /// it is still in the room, just out of the claim, and a model that
+    /// deleted it would disagree with the plan beside it.
+    static func placedNode(_ object: RoomObject) -> SCNNode {
+        let height = max(0.15, object.height)
+        let box = SCNBox(
+            width: CGFloat(max(0.08, object.width)), height: CGFloat(height),
+            length: CGFloat(max(0.08, object.depth)), chamferRadius: 0.012)
+        let m = material(objectInk)
+        if !object.included { m.transparency = 0.35 }
+        box.materials = [m]
+        let node = SCNNode(geometry: box)
+        node.name = "object:\(object.id)"
+        node.position = SCNVector3(Float(object.x), Float(height / 2), Float(object.y))
+        node.eulerAngles = SCNVector3(0, Float(-object.rotation * .pi / 180), 0)
         return node
     }
 
     /// The slab. Uses the room's real outline where it has one, so an L-shaped
     /// room gets an L-shaped floor rather than the bounding box it fits in.
+    /// A floorboard texture, drawn once and reused.
+    ///
+    /// The owner: *"floor has no texture."* A flat fill reads as a diagram; a
+    /// grain and a plank joint read as a room. Generated rather than shipped
+    /// as an asset because it has to tile seamlessly at any room size, and a
+    /// drawn one can guarantee that where a photograph cannot.
+    private static let floorTexture: UIImage = {
+        let side: CGFloat = 512
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side))
+        return renderer.image { ctx in
+            let g = ctx.cgContext
+            UIColor(red: 0.855, green: 0.815, blue: 0.760, alpha: 1).setFill()
+            g.fill(CGRect(x: 0, y: 0, width: side, height: side))
+            // Four courses of boards, each course offset half a board so the
+            // butt joints stagger the way laid flooring does.
+            let courses = 4
+            let boardH = side / CGFloat(courses)
+            for row in 0..<courses {
+                let y = CGFloat(row) * boardH
+                UIColor(white: 0, alpha: 0.10).setStroke()
+                g.setLineWidth(1.5)
+                g.move(to: CGPoint(x: 0, y: y))
+                g.addLine(to: CGPoint(x: side, y: y))
+                g.strokePath()
+                let offset = row.isMultiple(of: 2) ? 0.0 : side / 4
+                for joint in stride(from: offset, to: side, by: side / 2) {
+                    UIColor(white: 0, alpha: 0.13).setStroke()
+                    g.setLineWidth(1.2)
+                    g.move(to: CGPoint(x: joint, y: y))
+                    g.addLine(to: CGPoint(x: joint, y: y + boardH))
+                    g.strokePath()
+                }
+                // Grain: a few faint lengthwise strokes per board.
+                for i in 0..<3 {
+                    let gy = y + boardH * (CGFloat(i) + 1) / 4
+                    UIColor(white: 0.35, alpha: 0.05).setStroke()
+                    g.setLineWidth(1)
+                    g.move(to: CGPoint(x: 0, y: gy))
+                    g.addLine(to: CGPoint(x: side, y: gy))
+                    g.strokePath()
+                }
+            }
+        }
+    }()
+
     private static func floorNode(_ room: Room) -> SCNNode {
         let slabDepth = 0.06
-        let colour = room.tint.map { UIColor($0).withAlphaComponent(1) } ?? floorInk
+        let colour = room.tint.map { UIColor($0).withAlphaComponent(1) } ?? UIColor.white
 
         if room.plan.polygon.count >= 3 {
             let path = UIBezierPath()
@@ -228,6 +341,14 @@ enum Dollhouse {
             // symptom as having no floor.
             let m = material(colour)
             m.isDoubleSided = true
+            m.diffuse.contents = floorTexture
+            m.diffuse.wrapS = .repeat
+            m.diffuse.wrapT = .repeat
+            // One tile per 1.2 m of floor, so a board is board-sized in a
+            // cupboard and in a living room alike rather than stretching to
+            // fit whatever room it landed in.
+            let tiles = Float(max(room.plan.width, room.plan.height) / 1.2)
+            m.diffuse.contentsTransform = SCNMatrix4MakeScale(tiles, tiles, 1)
             shape.materials = [m]
             let node = SCNNode(geometry: shape)
             // SCNShape extrudes along +z from a path in the x/y plane, so it
@@ -338,6 +459,22 @@ enum Dollhouse {
             let piece = SCNNode(geometry: box)
             piece.position = SCNVector3(Float(from + w / 2 - length / 2), Float(bottom + h / 2), 0)
             node.addChildNode(piece)
+
+            // **The cap is why the walls looked like paper.** Front-face
+            // culling is what lets you see into every room from any angle,
+            // but a wall's TOP face points at a camera looking down — so it
+            // was the first thing culled, and the one surface that shows a
+            // wall has thickness was the one never drawn. The owner: *"the
+            // walls, they have no thickness."* Capped with its own
+            // normally-culled slab in a darker tone, which is the poché a
+            // plan drawing uses for exactly the same reason.
+            let cap = SCNBox(
+                width: CGFloat(w), height: 0.012,
+                length: CGFloat(wallThickness), chamferRadius: 0)
+            cap.materials = [material(wallCapInk)]
+            let capNode = SCNNode(geometry: cap)
+            capNode.position = SCNVector3(Float(from + w / 2 - length / 2), Float(top), 0)
+            node.addChildNode(capNode)
         }
 
         var cursor = 0.0
@@ -468,7 +605,18 @@ enum Dollhouse {
             return SCNNode(geometry: box)
         }
 
-        let leaf = Leaf(motion: motion, width: width, height: height)
+        // **Which way is into the room.** The owner: *"the doors open wrong
+        // directions."* They were swinging on a fixed sign, so half of them
+        // opened through the wall and out of the building.
+        //
+        // The room's own polygon answers it: step off the opening's midpoint
+        // along the wall's normal and see which side lands inside. That is
+        // the same "is this wall an outer wall" test the report's outer
+        // dimension chain already uses, asked of one opening instead of one
+        // wall — and it beats trusting `swingInward`, which is nil on every
+        // door RoomPlan detected rather than someone authored.
+        let inward = interiorSign(for: seg, room: room)
+        let leaf = Leaf(motion: motion, width: width, height: height, inward: inward)
 
         switch motion {
         case .pair, .fold(pair: true):
@@ -511,6 +659,42 @@ enum Dollhouse {
         return carrier
     }
 
+    /// +1 when the room's interior lies to the LEFT of the segment's
+    /// direction, -1 when it lies to the right. Falls back to +1 for a room
+    /// with no closed outline, which is the same convention every other
+    /// renderer here uses when the geometry cannot say.
+    private static func interiorSign(
+        for seg: FloorPlanGeometry.Segment, room: Room
+    ) -> Double {
+        guard room.plan.polygon.count >= 3 else { return 1 }
+        let dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1
+        let length = hypot(dx, dy)
+        guard length > 0.001 else { return 1 }
+        let mid = CGPoint(x: (seg.x1 + seg.x2) / 2, y: (seg.y1 + seg.y2) / 2)
+        // A quarter metre off the face — far enough to clear the wall's own
+        // thickness, near enough to stay in the room it belongs to.
+        let nx = -dy / length * 0.25, ny = dx / length * 0.25
+        let probe = CGPoint(x: mid.x + nx, y: mid.y + ny)
+        return contains(room.plan.polygon, probe) ? 1 : -1
+    }
+
+    /// Even-odd point in polygon. Small enough to keep here rather than reach
+    /// for a shared one — this is the only 3D consumer of it.
+    private static func contains(_ polygon: [CGPoint], _ point: CGPoint) -> Bool {
+        var inside = false
+        var j = polygon.count - 1
+        for i in polygon.indices {
+            let a = polygon[i], b = polygon[j]
+            if (a.y > point.y) != (b.y > point.y),
+                point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+            {
+                inside.toggle()
+            }
+            j = i
+        }
+        return inside
+    }
+
     /// One openable thing, and the state needed to open it.
     final class Leaf {
         struct Panel {
@@ -521,13 +705,17 @@ enum Dollhouse {
         let motion: LeafMotion
         let width: Double
         let height: Double
+        /// +1 or -1: which side of the wall the room is on, so a leaf swings
+        /// into the room instead of out through the building.
+        let inward: Double
         var panels: [Panel] = []
         private(set) var isOpen = false
 
-        init(motion: LeafMotion, width: Double, height: Double) {
+        init(motion: LeafMotion, width: Double, height: Double, inward: Double) {
             self.motion = motion
             self.width = width
             self.height = height
+            self.inward = inward
         }
 
         func set(open: Bool, animated: Bool = true) {
@@ -546,15 +734,14 @@ enum Dollhouse {
             SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             switch motion {
             case .swing, .pair:
-                // Swings AWAY from the hinge side, which reads as opening
-                // into the room the camera is looking into.
-                let angle = open ? Float(-panel.side * 1.65) : 0
+                // Hinged at `panel.side`, swinging toward the room's inside.
+                let angle = open ? Float(-panel.side * inward * 1.65) : 0
                 node.eulerAngles = SCNVector3(0, angle, 0)
             case .fold:
                 // A fold is a swing that only gets halfway, with the leaf
                 // squashed to the width it folds down to. Cheaper than
                 // hinging two sub-panels and reads the same at this size.
-                node.eulerAngles = SCNVector3(0, open ? Float(-panel.side * 1.3) : 0, 0)
+                node.eulerAngles = SCNVector3(0, open ? Float(-panel.side * inward * 1.3) : 0, 0)
                 node.scale = SCNVector3(open ? 0.5 : 1, 1, 1)
             case .slide:
                 node.position = SCNVector3(
@@ -571,7 +758,7 @@ enum Dollhouse {
                 // bottom swings out.
                 node.pivot = SCNMatrix4MakeTranslation(0, Float(height / 2), 0)
                 node.position = SCNVector3(node.position.x, Float(height / 2), node.position.z)
-                node.eulerAngles = SCNVector3(open ? 0.9 : 0, 0, 0)
+                node.eulerAngles = SCNVector3(open ? Float(0.9 * inward) : 0, 0, 0)
             case .tiltBottom:
                 node.pivot = SCNMatrix4MakeTranslation(0, Float(-height / 2), 0)
                 node.position = SCNVector3(node.position.x, Float(-height / 2), node.position.z)
@@ -580,6 +767,13 @@ enum Dollhouse {
                 break
             }
             SCNTransaction.commit()
+        }
+    }
+
+    /// Show or hide everything standing in the rooms.
+    static func setContentsVisible(_ visible: Bool, in scene: SCNScene?) {
+        scene?.rootNode.enumerateHierarchy { node, _ in
+            if node.name == "contents" { node.isHidden = !visible }
         }
     }
 
@@ -592,7 +786,13 @@ enum Dollhouse {
     final class Registry {
         static let shared = Registry()
         var leaves: [Leaf] = []
-        func reset() { leaves.removeAll() }
+        /// The scene currently on screen, so the chrome can reach into it
+        /// without the SwiftUI view holding a reference SwiftUI would rebuild.
+        weak var scene: SCNScene?
+        func reset() {
+            leaves.removeAll()
+            scene = nil
+        }
 
         /// The leaf a node belongs to, found by the name its carrier was
         /// given. Walks up, because a tap lands on the panel geometry and the
@@ -614,7 +814,7 @@ enum Dollhouse {
 
     // MARK: - Objects
 
-    private static func objectNode(_ object: FloorPlanGeometry.Plan.PlacedObject) -> SCNNode {
+    private static func detectedNode(_ object: FloorPlanGeometry.Plan.PlacedObject) -> SCNNode {
         let height = max(0.15, object.height)
         let box = SCNBox(
             width: CGFloat(max(0.1, object.width)), height: CGFloat(height),

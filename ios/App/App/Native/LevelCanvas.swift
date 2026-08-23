@@ -1202,7 +1202,8 @@ struct FloorCanvasView: View {
                 // shows on the 2D plan comes from its affected areas, not from
                 // the room. So the slabs are neutral, and that is the honest
                 // answer rather than inventing a field to tint them with.
-                tint: nil)
+                tint: nil,
+                placed: roomObjects[room.id] ?? [])
         }
     }
 

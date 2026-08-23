@@ -3095,3 +3095,49 @@ Newest last. One or two lines per chat.
   contact sheet at both footprint and thumbnail size. That is now the second
   time this session that looking caught what reading would not have, and the
   harness lives in the scratchpad for the next figure change.
+- **2026-08-23 (S14, the dollhouse's first real review)** — Build **194**. Six
+  reports off one session with it working, five fixed here and one deferred.
+  **The camera could orbit under the floor.** *"It goes all the way down so we
+  can look at the floor plan from bottom up… like it's sitting on your face."*
+  `allowsCameraControl` gives a free turntable with NO pitch limit and no
+  property to clamp it — the controller owns the transform outright. Replaced
+  with our own rig: a yaw node at the model centre, a pitch node inside it, the
+  camera pushed back along z. Clamping is then one number. **12°–78°**: 12 is
+  low enough to sight along a floor and still above the horizon, 78 stops short
+  of straight down, because at 90 a dollhouse is just the 2D plan we already
+  have.
+  **The walls had no thickness, and front-face culling is exactly why.** Culling
+  is what lets you see into every room from any angle — but a wall's TOP face
+  points at a camera looking down, so it was the first thing culled, and the one
+  surface that shows a wall has substance was the one never drawn. Each wall
+  piece now carries its own normally-culled cap in a darker tone. That is the
+  poché a plan drawing uses, for the same reason. Thickness stated at **90 mm**,
+  a real stud partition.
+  **The rooms were empty because the dollhouse drew the wrong objects.** It used
+  `plan.objects` — what the SCANNER recognised — and never asked for
+  `roomObjects`, the catalogue things the operator actually placed. So a floor
+  full of cabinets built as bare rooms. Both are drawn now, with a placed object
+  winning where the two describe the same spot within 0.4 m: putting it there
+  by hand IS the correction.
+  **Doors opened through the wall.** They swung on a fixed sign, so half of them
+  opened out of the building. `interiorSign` steps off the opening's midpoint
+  along the wall normal and asks the room's own polygon which side is inside —
+  the same test the report's outer chain already uses, asked of one opening.
+  Beats trusting `swingInward`, which is nil on every door RoomPlan detected
+  rather than someone authored.
+  **Floor texture** is a procedurally drawn plank tile — four staggered courses
+  with butt joints and faint grain — mapped one tile per 1.2 m so a board is
+  board-sized in a cupboard and a living room alike, rather than stretching to
+  whatever room it landed in. Generated, not shipped as an asset, because it has
+  to tile seamlessly at any room size.
+  **Contents can be taken out of the picture** (*"ability to keep or remove the
+  appliances"*) — everything standing in a room hangs off one `contents` node
+  per room and the chrome hides the subtree. Hiding beats rebuilding: a rebuild
+  would slam every door shut and lose the camera he had just orbited into place.
+  An EXCLUDED object draws translucent rather than vanishing — still in the
+  room, out of the claim, and a model that deleted it would disagree with the
+  plan beside it.
+  **Not done and named as such:** the objects are still boxes at their measured
+  footprint, not modelled shapes. The 2D plan symbols got their real drawings
+  today; the 3D ones have not, and pretending a box is a toilet is worse than a
+  box that is honestly a box.

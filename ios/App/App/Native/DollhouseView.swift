@@ -29,6 +29,7 @@ struct DollhouseScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var allOpen = false
+    @State private var showContents = true
 
     var body: some View {
         NavigationStack {
@@ -105,6 +106,19 @@ struct DollhouseScreen: View {
     private var controls: some View {
         HStack(spacing: Brand.Space.small) {
             Button {
+                showContents.toggle()
+                Dollhouse.setContentsVisible(showContents, in: Dollhouse.Registry.shared.scene)
+            } label: {
+                Label(
+                    showContents ? "Hide contents" : "Show contents",
+                    systemImage: showContents ? "shippingbox.fill" : "shippingbox")
+            }
+            .font(.system(size: 15, weight: .semibold))
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial, in: Capsule())
+
+            Button {
                 allOpen.toggle()
                 for leaf in Dollhouse.Registry.shared.leaves {
                     leaf.set(open: allOpen)
@@ -140,21 +154,38 @@ struct DollhouseSceneView: UIViewRepresentable {
         Dollhouse.Registry.shared.reset()
 
         let view = SCNView()
-        view.scene = Dollhouse.scene(rooms: rooms)
-        view.allowsCameraControl = true
-        view.defaultCameraController.interactionMode = .orbitTurntable
-        view.defaultCameraController.inertiaEnabled = true
+        let scene = Dollhouse.scene(rooms: rooms)
+        view.scene = scene
+        // **Our own camera, not SceneKit's.** The owner: *"when I am turning
+        // it, it goes all the way down so we can look at the floor plan from
+        // bottom up… like it's sitting on your face. I want the rotation to
+        // be limited."*
+        //
+        // `allowsCameraControl` gives a free turntable with no pitch limit,
+        // and there is no property to clamp it — the controller owns the
+        // transform outright. So the rig below replaces it: a yaw node at the
+        // model's centre, a pitch node inside it, and the camera pushed back
+        // along z. Clamping is then just clamping one number, and the camera
+        // can never travel under the floor and look up through it.
+        view.allowsCameraControl = false
         view.autoenablesDefaultLighting = false
         view.antialiasingMode = .multisampling4X
         view.backgroundColor = UIColor(white: 0.94, alpha: 1)
-        // The camera lives IN the scene now — see `Dollhouse.cameraNode`. A
-        // detached `pointOfView` renders nothing, which is what shipped first.
-        view.pointOfView = view.scene?.rootNode.childNode(withName: "camera", recursively: false)
+        view.pointOfView = scene.rootNode.childNode(withName: "camera", recursively: true)
+        context.coordinator.rig = scene.rootNode.childNode(withName: "rig", recursively: false)
+        context.coordinator.view = view
+        context.coordinator.configure(distance: Float(max(6.0, Dollhouse.bounds(of: rooms).span * 1.35)))
 
         let tap = UITapGestureRecognizer(
             target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
         view.addGestureRecognizer(tap)
-        context.coordinator.view = view
+        let orbit = UIPanGestureRecognizer(
+            target: context.coordinator, action: #selector(Coordinator.orbited(_:)))
+        orbit.maximumNumberOfTouches = 1
+        view.addGestureRecognizer(orbit)
+        let zoom = UIPinchGestureRecognizer(
+            target: context.coordinator, action: #selector(Coordinator.zoomed(_:)))
+        view.addGestureRecognizer(zoom)
         return view
     }
 
@@ -164,6 +195,60 @@ struct DollhouseSceneView: UIViewRepresentable {
 
     final class Coordinator: NSObject {
         weak var view: SCNView?
+        weak var rig: SCNNode?
+
+        /// **The limits, and why these numbers.**
+        ///
+        /// 12° is low enough to look along a floor and read the far wall, and
+        /// still above the horizon, so the ground never rises past the model.
+        /// 78° stops just short of straight down — at 90° a dollhouse becomes
+        /// the 2D floor plan we already have, and the rooms lose the depth
+        /// that is the entire reason for this screen.
+        private let minPitch: Float = 12 * .pi / 180
+        private let maxPitch: Float = 78 * .pi / 180
+        private var yaw: Float = 0
+        private var pitch: Float = 40 * .pi / 180
+        private var distance: Float = 12
+        private var startDistance: Float = 12
+        private var lastPan: CGPoint = .zero
+
+        func configure(distance: Float) {
+            self.distance = distance
+            apply()
+        }
+
+        @objc func orbited(_ gesture: UIPanGestureRecognizer) {
+            guard let view else { return }
+            let point = gesture.translation(in: view)
+            if gesture.state == .began { lastPan = .zero }
+            let dx = Float(point.x - lastPan.x)
+            let dy = Float(point.y - lastPan.y)
+            lastPan = point
+            yaw -= dx * 0.006
+            pitch = min(maxPitch, max(minPitch, pitch + dy * 0.006))
+            apply()
+        }
+
+        @objc func zoomed(_ gesture: UIPinchGestureRecognizer) {
+            if gesture.state == .began { startDistance = distance }
+            // Clamped so a pinch can neither bury the camera inside a wall nor
+            // throw the model away to a dot.
+            distance = min(200, max(1.5, startDistance / Float(gesture.scale)))
+            apply()
+        }
+
+        private func apply() {
+            guard let rig else { return }
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = 0
+            rig.eulerAngles = SCNVector3(0, yaw, 0)
+            rig.childNode(withName: "pitch", recursively: false)?
+                .eulerAngles = SCNVector3(-pitch, 0, 0)
+            rig.childNode(withName: "pitch", recursively: false)?
+                .childNode(withName: "camera", recursively: false)?
+                .position = SCNVector3(0, 0, distance)
+            SCNTransaction.commit()
+        }
 
         /// Walk up from whatever was hit to the carrier that owns a leaf. The
         /// hit is nearly always the panel geometry, which is a child.
