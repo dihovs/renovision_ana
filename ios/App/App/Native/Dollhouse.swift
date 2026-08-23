@@ -465,7 +465,13 @@ enum Dollhouse {
             leaf.panels.append(Leaf.Panel(node: node, side: 1))
         }
 
-        carrier.setValue(leaf, forUndefinedKey: "leaf")
+        // **Named, not key-value-coded.** The first version hung the `Leaf`
+        // on the node with `setValue(_:forUndefinedKey:)`. `SCNNode` does not
+        // promise to store arbitrary keys — at best the value is dropped and
+        // every tap silently finds nothing, at worst KVC raises. Either way
+        // the doors do not open, which is exactly what was reported. A name
+        // and an index into the registry cannot fail either way.
+        carrier.name = "leaf:\(Registry.shared.leaves.count)"
         Registry.shared.leaves.append(leaf)
         return carrier
     }
@@ -552,6 +558,23 @@ enum Dollhouse {
         static let shared = Registry()
         var leaves: [Leaf] = []
         func reset() { leaves.removeAll() }
+
+        /// The leaf a node belongs to, found by the name its carrier was
+        /// given. Walks up, because a tap lands on the panel geometry and the
+        /// carrier is its parent.
+        func leaf(for node: SCNNode) -> Leaf? {
+            var current: SCNNode? = node
+            while let here = current {
+                if let name = here.name, name.hasPrefix("leaf:"),
+                    let index = Int(name.dropFirst("leaf:".count)),
+                    leaves.indices.contains(index)
+                {
+                    return leaves[index]
+                }
+                current = here.parent
+            }
+            return nil
+        }
     }
 
     // MARK: - Objects

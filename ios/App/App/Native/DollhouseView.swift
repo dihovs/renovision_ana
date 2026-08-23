@@ -43,8 +43,15 @@ struct DollhouseScreen: View {
                     DollhouseSceneView(rooms: rooms)
                         .ignoresSafeArea(edges: .bottom)
 
+                    // `.allowsHitTesting(false)` on the spacer-filled stack:
+                    // a `VStack` with a `Spacer` in a `ZStack` takes the FULL
+                    // height of the screen even though only the button is
+                    // drawn, and anything laid over the scene is something the
+                    // scene never gets to be orbited or tapped through. Same
+                    // family as HANDOFF §4 — check what a control is SIZED as
+                    // before reading its handler.
                     VStack(spacing: Brand.Space.small) {
-                        Spacer()
+                        Spacer().allowsHitTesting(false)
                         controls
                     }
                     .padding(.bottom, 44)
@@ -57,6 +64,7 @@ struct DollhouseScreen: View {
                 // the line that had been switched off.
                 tally
                     .padding(.bottom, Brand.Space.base)
+                    .allowsHitTesting(false)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -161,14 +169,10 @@ struct DollhouseSceneView: UIViewRepresentable {
                 .searchMode: SCNHitTestSearchMode.all.rawValue
             ])
             for hit in hits {
-                var node: SCNNode? = hit.node
-                while let current = node {
-                    if let leaf = current.value(forUndefinedKey: "leaf") as? Dollhouse.Leaf {
-                        leaf.toggle()
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        return
-                    }
-                    node = current.parent
+                if let leaf = Dollhouse.Registry.shared.leaf(for: hit.node) {
+                    leaf.toggle()
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    return
                 }
             }
         }
