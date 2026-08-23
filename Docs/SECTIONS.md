@@ -3051,3 +3051,47 @@ Newest last. One or two lines per chat.
   wall/door/window/object detection this app is built on.
   **Do not reopen this** without new evidence — the measurement is on his own
   hardware and is in `Documents/scan-diagnostics.txt` on the device.
+- **2026-08-23 (S14/S8 — the 3D button, and furniture drawn instead of labelled)**
+  Build **193**. Two reports, one screenshot comparison against magicplan.
+  **The dollhouse was never unreachable — it was behind the wrong control.**
+  *"3d button gray and not tupable."* The `2D ⌄` stepper on the floor canvas has
+  had a `.threeD` row since 18 Aug reading **"Not built yet"**, and it kept
+  saying so for five builds after that stopped being true, because the dollhouse
+  was wired to a NEW toolbar cube instead. Every "empty"/"still the same"/
+  "unclickable" report was about the greyed menu row; the cube was never the
+  thing being tapped. The diagnostics settled it: `FLOOR-APPEAR level=Ground`
+  arrived and `DOLLHOUSE-TAP` never did — the screen was reached, the button
+  was not.
+  **The lesson is a control-placement one, not a bug.** The reference puts 3D in
+  that stepper, the owner's hand already knew where it was, and adding a second
+  entry point meant the one he used stayed dead. `threeDBlocked: nil` now, and
+  the toolbar cube is deleted rather than left as a duplicate. Presentation is
+  handed over on the popover's dismissal (`pending3D` → `onChange`) because a
+  cover raised while a popover is still going down is dropped — the same
+  one-at-a-time rule the insert sheets already chain around, and the same
+  SwiftUI trap S5 recorded on 18 Aug.
+  Room depth keeps 3D blocked but no longer LIES about why: *"Step out to the
+  floor — 3D shows the whole storey."*
+  **Furniture: an inversion, not new drawing.** *"On magicplan we actually see
+  the sofa from the top down view. On our program, we just see a box that says a
+  sofa."* `ObjectGlyphs.figure` already knew how to draw a sofa — `drawObject`
+  kept it as the fallback for objects too SMALL to carry an SF glyph, so the
+  better symbol only ever appeared at the size nobody could read it, and every
+  legible object got a box plus a word. The footprint figure leads now; the
+  centred glyph survives only for the generic shapes (`.box`, `.panel`,
+  `.equipment`, `.cylinder`, `.column`), where a snowflake in a rectangle does
+  say more than the rectangle — which is what his earlier fridge screenshot was
+  actually asking for. **The name plate now prints for generic shapes only**: a
+  drawn sofa no longer needs "Sofa" written under it, exactly as magicplan's
+  does not.
+  `.chair` added to `Shape` (the `chair` and `office_chair` entries were drawing
+  as **tables**), and the figures enriched to read at footprint scale — sofa
+  arms capped against depth so a 7ft sofa keeps furniture-sized arms and gets
+  three cushions where a loveseat gets two, bed cover line and turned-back
+  corner, tub as a true oval basin, plus a shared `fine` gate so every figure
+  degrades to its outline at ~12pt instead of turning to noise.
+  **Rendered before shipping, not after.** The real `ObjectGlyphs`/`ObjectCatalog`
+  sources were compiled for macOS behind two small shims and drawn to a PNG
+  contact sheet at both footprint and thumbnail size. That is now the second
+  time this session that looking caught what reading would not have, and the
+  harness lives in the scratchpad for the next figure change.

@@ -1110,7 +1110,13 @@ struct RoomEditorCore: View {
                         // Inside a room, so §5's blocking reason does not
                         // apply and the slot carries the shortcut hint.
                         elevationBlocked: nil,
-                        threeDBlocked: "Not built yet — the plan editor is 2D",
+                        // True but stale: 3D IS built now, at storey depth
+                        // (the dollhouse). Kept blocked HERE because wiring a
+                        // cover through RoomEditorCore's owner is real
+                        // plumbing, and the owner's ask was storey-level —
+                        // but the reason shown must not keep saying "not
+                        // built" about a thing that ships.
+                        threeDBlocked: "Step out to the floor — 3D shows the whole storey",
                         onPick: { picked in
                             showingViewModes = false
                             if picked == .elevation { openElevation(atSelectedWall: true) }

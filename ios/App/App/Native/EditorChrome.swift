@@ -815,19 +815,26 @@ enum EditorChrome {
         // every scale is the whole point, and an SF Symbol still reads at
         // ten points where the hand-drawn silhouette it fell back to reads
         // as a squiggle.
-        if widthPts >= 10, depthPts >= 10, let entry = object.entry {
-            let side = min(widthPts, depthPts) * 0.55
-            // Resolved through Text, not Image: `GraphicsContext.resolve`
-            // takes no styling on an Image, and an SF Symbol carried in a
-            // Text keeps both its size and its colour.
-            let symbol = context.resolve(
-                Text(Image(systemName: entry.glyph))
-                    .font(.system(size: side))
-                    .foregroundStyle(ink.opacity(alpha)))
-            context.draw(symbol, at: centre, anchor: .center)
-        } else if let shape = object.entry?.shape, widthPts > 6, depthPts > 6 {
-            // Smaller than a glyph can carry: the outline alone, which at
-            // that size is all anyone can see anyway.
+        // **The figure at its footprint, the way magicplan draws it.** The
+        // owner, 23 Aug 2026, with both apps open side by side: *"on the
+        // magic plan from the top down view, we actually see the sofa from
+        // the top down view. On our program, we just see a box that says a
+        // sofa."* He is right, and the fix was an inversion, not new
+        // drawing: `ObjectGlyphs.figure` already knew how to draw a sofa —
+        // this routine just kept it as a fallback for objects too SMALL for
+        // an SF glyph, so the better symbol only ever appeared at the size
+        // where nobody could read it. The footprint-scale figure leads now;
+        // the centred glyph survives only for the generic shapes, where a
+        // box with a snowflake genuinely says more than a box alone — which
+        // was the case his earlier fridge screenshot was actually about.
+        let generic: Bool = {
+            switch object.entry?.shape {
+            case .box, .panel, .equipment, .cylinder, .column, .none: return true
+            default: return false
+            }
+        }()
+
+        if let shape = object.entry?.shape, !generic, widthPts > 6, depthPts > 6 {
             context.drawLayer { layer in
                 layer.translateBy(x: centre.x, y: centre.y)
                 layer.rotate(by: Angle(degrees: object.rotation))
@@ -839,12 +846,23 @@ enum EditorChrome {
                     context: layer,
                     tones: (fill: Brand.surface.opacity(alpha), edge: ink.opacity(alpha)))
             }
+        } else if widthPts >= 10, depthPts >= 10, let entry = object.entry {
+            let side = min(widthPts, depthPts) * 0.55
+            // Resolved through Text, not Image: `GraphicsContext.resolve`
+            // takes no styling on an Image, and an SF Symbol carried in a
+            // Text keeps both its size and its colour.
+            let symbol = context.resolve(
+                Text(Image(systemName: entry.glyph))
+                    .font(.system(size: side))
+                    .foregroundStyle(ink.opacity(alpha)))
+            context.draw(symbol, at: centre, anchor: .center)
         }
 
-        // The name, under the figure rather than across it — a label drawn
-        // over the silhouette hides the thing it names. Only when there is
-        // room for it: at floor zoom a cabinet is 20 points across.
-        guard labelled, widthPts >= 44 else { return }
+        // The name, under the figure rather than across it — and only for
+        // the GENERIC shapes now. A drawn sofa does not need "Sofa" printed
+        // under it any more than magicplan's does; a plain equipment box
+        // still does, because its outline names nothing.
+        guard labelled, generic, widthPts >= 44 else { return }
 
         let text = context.resolve(
             Text(object.displayName)

@@ -176,6 +176,14 @@ extension ObjectGlyphs {
     ) {
         let line = max(1, min(box.width, box.height) * 0.04)
 
+        // Whether the box can carry its finer marks. The test is the same
+        // arithmetic as `line`: below this the hairline is already clamped
+        // to a pixel, and marks that close together stop being a drawing
+        // and start being noise — so a tiny figure keeps its outline and
+        // drops the rest, which is exactly what a printed plan does when
+        // its symbols shrink.
+        let fine = min(box.width, box.height) * 0.04 >= 1
+
         func stroke(_ path: Path, fill: Color? = nil, weight: CGFloat = 1) {
             context.fill(path, with: .color(fill ?? tones.fill))
             context.stroke(path, with: .color(tones.edge), lineWidth: line * weight)
@@ -246,7 +254,12 @@ extension ObjectGlyphs {
                 x: box.minX + box.width * 0.04, y: box.minY + box.height * 0.28,
                 width: box.width * 0.92, height: box.height * 0.72)
             stroke(Path(ellipseIn: bowl))
-            detail(Path(ellipseIn: bowl.insetBy(dx: bowl.width * 0.16, dy: bowl.height * 0.16)))
+            // The seat ring inside the bowl — first to go when the figure
+            // is too small to hold two concentric curves apart.
+            if fine {
+                detail(
+                    Path(ellipseIn: bowl.insetBy(dx: bowl.width * 0.16, dy: bowl.height * 0.16)))
+            }
 
         case .basinInCounter:
             stroke(rounded(box, box.width * 0.03))
@@ -263,20 +276,23 @@ extension ObjectGlyphs {
 
         case .tub:
             stroke(rounded(box, min(box.width, box.height) * 0.12))
+            // The basin is an OVAL inside the rectangular deck — the mark
+            // every drafting template stamps for a tub, and the curve is
+            // what tells it from a shower tray at a glance.
             let inner = box.insetBy(dx: box.width * 0.08, dy: box.height * 0.1)
-            stroke(
-                rounded(inner, min(inner.width, inner.height) * 0.18),
-                fill: Palette.water, weight: 0.8)
-            // Drain and tap at one end — a tub has a head and a foot.
-            let d = min(inner.width, inner.height) * 0.16
-            detail(
-                Path(
-                    ellipseIn: CGRect(
-                        x: inner.maxX - d * 1.8, y: inner.midY - d / 2, width: d, height: d)))
-            var tap = Path()
-            tap.move(to: CGPoint(x: inner.maxX - d * 0.4, y: inner.midY - d))
-            tap.addLine(to: CGPoint(x: box.maxX, y: inner.midY - d))
-            detail(tap, weight: 1.2)
+            stroke(Path(ellipseIn: inner), fill: Palette.water, weight: 0.8)
+            if fine {
+                // Drain and tap at one end — a tub has a head and a foot.
+                let d = min(inner.width, inner.height) * 0.16
+                detail(
+                    Path(
+                        ellipseIn: CGRect(
+                            x: inner.maxX - d * 1.8, y: inner.midY - d / 2, width: d, height: d)))
+                var tap = Path()
+                tap.move(to: CGPoint(x: inner.maxX - d * 0.4, y: inner.midY - d))
+                tap.addLine(to: CGPoint(x: box.maxX, y: inner.midY - d))
+                detail(tap, weight: 1.2)
+            }
 
         case .shower:
             stroke(rounded(box, line))
@@ -309,10 +325,12 @@ extension ObjectGlyphs {
                         line * 1.5),
                     fill: Palette.water, weight: 0.8)
             }
-            var tap = Path()
-            tap.move(to: CGPoint(x: box.midX, y: box.minY + box.height * 0.06))
-            tap.addLine(to: CGPoint(x: box.midX, y: box.midY))
-            detail(tap, weight: 1.2)
+            if fine {
+                var tap = Path()
+                tap.move(to: CGPoint(x: box.midX, y: box.minY + box.height * 0.06))
+                tap.addLine(to: CGPoint(x: box.midX, y: box.midY))
+                detail(tap, weight: 1.2)
+            }
 
         case .cylinder:
             stroke(Path(ellipseIn: box))
@@ -321,18 +339,21 @@ extension ObjectGlyphs {
         case .stove:
             stroke(rounded(box, box.width * 0.04))
             // Four burners, which is the one detail that makes a range read
-            // as a range from above.
-            let r = min(box.width, box.height) * 0.19
-            for dx in [-1.0, 1.0] {
-                for dy in [-1.0, 1.0] {
-                    let c = CGPoint(
-                        x: box.midX + CGFloat(dx) * box.width * 0.22,
-                        y: box.midY + CGFloat(dy) * box.height * 0.2)
-                    detail(
-                        Path(
-                            ellipseIn: CGRect(
-                                x: c.x - r / 2, y: c.y - r / 2, width: r, height: r)),
-                        weight: 0.9)
+            // as a range from above. Dropped when small: four circles in a
+            // tiny box are texture, not burners.
+            if fine {
+                let r = min(box.width, box.height) * 0.19
+                for dx in [-1.0, 1.0] {
+                    for dy in [-1.0, 1.0] {
+                        let c = CGPoint(
+                            x: box.midX + CGFloat(dx) * box.width * 0.22,
+                            y: box.midY + CGFloat(dy) * box.height * 0.2)
+                        detail(
+                            Path(
+                                ellipseIn: CGRect(
+                                    x: c.x - r / 2, y: c.y - r / 2, width: r, height: r)),
+                            weight: 0.9)
+                    }
                 }
             }
 
@@ -344,13 +365,17 @@ extension ObjectGlyphs {
             split.move(to: CGPoint(x: box.midX, y: box.minY))
             split.addLine(to: CGPoint(x: box.midX, y: box.maxY))
             detail(split)
-            var handles = Path()
-            for dx in [-1.0, 1.0] {
-                let x = box.midX + CGFloat(dx) * box.width * 0.1
-                handles.move(to: CGPoint(x: x, y: box.maxY - box.height * 0.28))
-                handles.addLine(to: CGPoint(x: x, y: box.maxY - box.height * 0.08))
+            // Handles are hairline furniture; below reading size the split
+            // alone carries the symbol.
+            if fine {
+                var handles = Path()
+                for dx in [-1.0, 1.0] {
+                    let x = box.midX + CGFloat(dx) * box.width * 0.1
+                    handles.move(to: CGPoint(x: x, y: box.maxY - box.height * 0.28))
+                    handles.addLine(to: CGPoint(x: x, y: box.maxY - box.height * 0.08))
+                }
+                detail(handles, weight: 1.3)
             }
-            detail(handles, weight: 1.3)
 
         case .machine:
             stroke(rounded(box, box.width * 0.05))
@@ -361,17 +386,21 @@ extension ObjectGlyphs {
                         x: box.midX - door / 2, y: box.midY - door / 2,
                         width: door, height: door)),
                 fill: Palette.porcelain, weight: 0.8)
-            detail(
-                Path(
-                    ellipseIn: CGRect(
-                        x: box.midX - door / 4, y: box.midY - door / 4,
-                        width: door / 2, height: door / 2)))
+            if fine {
+                detail(
+                    Path(
+                        ellipseIn: CGRect(
+                            x: box.midX - door / 4, y: box.midY - door / 4,
+                            width: door / 2, height: door / 2)))
+            }
 
         case .sofa:
             // Back along one edge, an arm at each end, and the seat between
             // them — the shape a sofa makes on a plan.
             stroke(rounded(box, box.width * 0.04))
-            let arm = box.width * 0.12
+            // The arm is capped against the depth, so a long sofa keeps
+            // furniture-sized arms instead of growing them with the frame.
+            let arm = min(box.width * 0.12, box.height * 0.28)
             let backDepth = box.height * 0.26
             var frame = Path()
             frame.addRect(
@@ -384,40 +413,93 @@ extension ObjectGlyphs {
                     x: box.maxX - arm, y: box.minY, width: arm, height: box.height))
             context.fill(frame, with: .color(tones.edge.opacity(0.18)))
             detail(frame)
-            // Cushion divisions across the seat.
-            let seats = max(2, Int((box.width / max(box.height, 1)).rounded()) + 1)
-            var splits = Path()
-            for i in 1..<seats {
-                let x = box.minX + arm + (box.width - arm * 2) * CGFloat(i) / CGFloat(seats)
-                splits.move(to: CGPoint(x: x, y: box.minY + backDepth))
-                splits.addLine(to: CGPoint(x: x, y: box.maxY))
+            if fine {
+                // Cushions sized off the DEPTH, not the width: a cushion is
+                // roughly two-thirds as wide as the sofa is deep, which puts
+                // three on a 7ft sofa, two on a loveseat, and none at all on
+                // an armchair — one seat needs no split.
+                let seats = max(1, Int(((box.width - arm * 2) / (box.height * 0.6)).rounded()))
+                var splits = Path()
+                for i in 1..<seats {
+                    let x = box.minX + arm + (box.width - arm * 2) * CGFloat(i) / CGFloat(seats)
+                    splits.move(to: CGPoint(x: x, y: box.minY + backDepth))
+                    splits.addLine(to: CGPoint(x: x, y: box.maxY))
+                }
+                detail(splits)
             }
-            detail(splits)
+
+        case .chair:
+            // The same grammar as the sofa — back band, arm stubs, open
+            // seat — because on a plan a chair IS a one-seat sofa, and
+            // sharing the marks lets both be read by the same rule. What it
+            // must never be again is a table: identical square footprint,
+            // different object, and the owner's whole complaint was symbols
+            // that only named their outline.
+            stroke(rounded(box, min(box.width, box.height) * 0.1))
+            let backDepth = box.height * 0.2
+            var back = Path()
+            back.addRect(
+                CGRect(x: box.minX, y: box.minY, width: box.width, height: backDepth))
+            context.fill(back, with: .color(tones.edge.opacity(0.18)))
+            detail(back)
+            if fine {
+                // Arm stubs, stopped well short of the front edge so the
+                // open side still says which way the chair faces.
+                let armW = box.width * 0.14
+                var arms = Path()
+                for x in [box.minX, box.maxX - armW] {
+                    arms.addRect(
+                        CGRect(
+                            x: x, y: box.minY + backDepth,
+                            width: armW, height: box.height * 0.42))
+                }
+                context.fill(arms, with: .color(tones.edge.opacity(0.18)))
+                detail(arms)
+            }
 
         case .bed:
             stroke(rounded(box, box.width * 0.04))
-            // Pillows at the head, and the turned-back corner of the sheet
-            // — the two marks that make a rectangle a bed.
-            let pillowBand = box.height * 0.22
-            for dx in [-1.0, 1.0] {
-                let w = box.width * 0.38
-                let x = box.midX + CGFloat(dx) * box.width * 0.23 - w / 2
-                stroke(
-                    rounded(
-                        CGRect(
-                            x: x, y: box.minY + pillowBand * 0.22,
-                            width: w, height: pillowBand * 0.66),
-                        line * 2),
-                    weight: 0.8)
+            // Pillows at the head, the cover line across, and the turned-
+            // back corner at the foot — the marks that make a rectangle a
+            // bed, and all of them fine work that a tiny figure sheds.
+            if fine {
+                let pillowBand = box.height * 0.22
+                for dx in [-1.0, 1.0] {
+                    let w = box.width * 0.38
+                    let x = box.midX + CGFloat(dx) * box.width * 0.23 - w / 2
+                    stroke(
+                        rounded(
+                            CGRect(
+                                x: x, y: box.minY + pillowBand * 0.22,
+                                width: w, height: pillowBand * 0.66),
+                            line * 2),
+                        weight: 0.8)
+                }
+                // The covers start where the pillows end — one line across,
+                // which says "head end" even before the pillows do.
+                var cover = Path()
+                cover.move(to: CGPoint(x: box.minX, y: box.minY + box.height * 0.3))
+                cover.addLine(to: CGPoint(x: box.maxX, y: box.minY + box.height * 0.3))
+                detail(cover)
+                // The fold is two lines, not one: the diagonal of the turn
+                // and a shorter one inside it, which is what makes it read
+                // as turned-back cloth rather than a clipped corner.
+                var turn = Path()
+                turn.move(to: CGPoint(x: box.maxX - box.width * 0.3, y: box.maxY))
+                turn.addLine(to: CGPoint(x: box.maxX, y: box.maxY - box.height * 0.22))
+                turn.move(to: CGPoint(x: box.maxX - box.width * 0.18, y: box.maxY))
+                turn.addLine(to: CGPoint(x: box.maxX, y: box.maxY - box.height * 0.13))
+                detail(turn)
             }
-            var turn = Path()
-            turn.move(to: CGPoint(x: box.maxX - box.width * 0.3, y: box.maxY))
-            turn.addLine(to: CGPoint(x: box.maxX, y: box.maxY - box.height * 0.22))
-            detail(turn)
 
         case .table:
             stroke(rounded(box, box.width * 0.04))
-            detail(rounded(box.insetBy(dx: box.width * 0.1, dy: box.height * 0.12), line * 2))
+            // A slight double edge, inset evenly off the SHORTER side, so a
+            // long table gets a tabletop lip rather than an inner panel.
+            if fine {
+                let lip = min(box.width, box.height) * 0.08
+                detail(rounded(box.insetBy(dx: lip, dy: lip), line * 1.5))
+            }
 
         case .shelving:
             stroke(rounded(box, box.width * 0.03))
@@ -704,6 +786,26 @@ extension ObjectGlyphs {
             for i in 1..<seats {
                 detail(down(CGFloat(i) / CGFloat(seats), from: 0, to: 0.42))
             }
+
+        case .chair:
+            // From the front a chair is its back: the tall panel over the
+            // seat band, legs under. The plan figure cannot be reused here
+            // for the same reason the toilet's cannot — different view,
+            // different drawing.
+            stroke(
+                rounded(
+                    CGRect(
+                        x: box.minX + box.width * 0.08, y: box.minY,
+                        width: box.width * 0.84, height: box.height * 0.58),
+                    line * 2))
+            stroke(
+                rounded(
+                    CGRect(
+                        x: box.minX, y: box.minY + box.height * 0.52,
+                        width: box.width, height: box.height * 0.16),
+                    line))
+            handle(x: 0.12, from: 0.68, to: 1)
+            handle(x: 0.88, from: 0.68, to: 1)
 
         case .bed:
             // Headboard standing above the mattress.

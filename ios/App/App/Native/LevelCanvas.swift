@@ -1052,6 +1052,10 @@ struct FloorCanvasView: View {
     @State private var scans: [RoomScan]?
     @State private var inserting = false
     @State private var dollhouse = false
+    /// 3D was picked while the view-mode popover was still on screen; the
+    /// cover presents once it has finished going down. Same one-at-a-time
+    /// presentation rule the insert sheets already chain around.
+    @State private var pending3D = false
     /// Which room's editor is MOUNTED — its whole lifecycle, entry fade-in
     /// through exit fade-out. Stays set a little past the moment the owner
     /// asks to leave, on purpose: see `exitFocusedRoom`.
@@ -1765,18 +1769,6 @@ struct FloorCanvasView: View {
         .toolbar {
             if focusedRoomID == nil {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    // The dollhouse. Same storey, same placement, standing up.
-                    Button {
-                        // The tap writes before it presents. Diagnostics from
-                        // inside the 3D screen never arrived across two
-                        // builds, and this line splits "the button never
-                        // fired" from "the cover never presented" — which
-                        // otherwise look identical from the outside.
-                        ScanLens.appendToDiagnostics("DOLLHOUSE-TAP\n" + dollhouseDiagnosis)
-                        dollhouse = true
-                    } label: {
-                        Image(systemName: "cube")
-                    }
                     Button { showingHelp = true } label: {
                         Image(systemName: "questionmark.circle")
                     }
@@ -1785,6 +1777,12 @@ struct FloorCanvasView: View {
                     }
                 }
             }
+        }
+        .onChange(of: showingFloorViewModes) { _, open in
+            guard !open, pending3D else { return }
+            pending3D = false
+            ScanLens.appendToDiagnostics("DOLLHOUSE-OPEN\n" + dollhouseDiagnosis)
+            dollhouse = true
         }
         .fullScreenCover(isPresented: $dollhouse) {
             DollhouseScreen(
@@ -1846,10 +1844,7 @@ struct FloorCanvasView: View {
                 onSaved: { Task { await load() } },
                 onFinished: { _, _ in })
         }
-        .task {
-            ScanLens.appendToDiagnostics("FLOOR-APPEAR level=\(showing)\n")
-            await load()
-        }
+        .task { await load() }
     }
 
     /// Floor-depth's own controls — extracted unchanged from what used to
@@ -1886,12 +1881,16 @@ struct FloorCanvasView: View {
                     // is the whole point of a storey-level 3D, and it is
                     // where the reference puts the control as well.
                     //
-                    // It opens the real menu and says plainly that 3D is
-                    // not built, rather than being the decorative no-op
-                    // stepper that used to sit here. Elevation is blocked
-                    // for a different and permanent reason: an elevation is
-                    // a WALL seen straight on, and a floor has no walls of
-                    // its own — only rooms that have them.
+                    // **3D goes to the dollhouse now.** This greyed row is
+                    // what the owner meant every time he said the 3D button
+                    // was "not active" — it predates the dollhouse and sat
+                    // saying "Not built yet" for five builds after that
+                    // stopped being true, while a separate toolbar cube
+                    // nobody was tapping got all the fixes. One control the
+                    // hand already knows beats a second one it has to find.
+                    // Elevation stays blocked for a different and permanent
+                    // reason: an elevation is a WALL seen straight on, and
+                    // a floor has no walls of its own — only rooms do.
                     EditorStepperPill(action: { showingFloorViewModes = true }) {
                         Text("2D")
                             .font(.system(size: 14, weight: .bold))
@@ -1901,8 +1900,17 @@ struct FloorCanvasView: View {
                         EditorViewModeMenu(
                             current: .plan,
                             elevationBlocked: "Open a room — an elevation is one wall, seen straight on",
-                            threeDBlocked: "Not built yet",
-                            onPick: { _ in showingFloorViewModes = false })
+                            threeDBlocked: nil,
+                            onPick: { picked in
+                                showingFloorViewModes = false
+                                // Not presented from HERE: a cover raised
+                                // while the popover is still going down is
+                                // dropped, the same SwiftUI rule the insert
+                                // sheets below already chain around. The
+                                // popover's collapse hands over via
+                                // pending3D → onChange.
+                                if picked == .threeD { pending3D = true }
+                            })
                             .presentationCompactAdaptation(.popover)
                     }
                 }

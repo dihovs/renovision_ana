@@ -262,6 +262,11 @@ enum ObjectCatalog {
         /// dishwasher. One family because from the top they ARE one shape.
         case machine
         case sofa
+        /// A single seat with its back and arms — dining, office or arm
+        /// chair. Its own family because a chair drawn as a table is the
+        /// wrong a plan cannot absorb: identical footprint, different
+        /// object.
+        case chair
         case bed
         case table
         case shelving
@@ -952,7 +957,7 @@ enum ObjectCatalog {
             sizeNote: ""),
         Entry(
             slug: "office_chair", name: "Office chair", category: .furniture,
-            width: 26 * inch, depth: 26 * inch, height: 40 * inch, shape: .table,
+            width: 26 * inch, depth: 26 * inch, height: 40 * inch, shape: .chair,
             sizeNote: ""),
         Entry(
             slug: "filing_cabinet", name: "Filing cabinet", category: .furniture,
@@ -1439,7 +1444,7 @@ enum ObjectCatalog {
         // caution, it is just work handed back to him.
         Entry(
             slug: "chair", name: "Chair", category: .furniture,
-            width: 20 * inch, depth: 20 * inch, height: 32 * inch, shape: .table,
+            width: 20 * inch, depth: 20 * inch, height: 32 * inch, shape: .chair,
             sizeNote: "20in seat — a dining or office chair."),
         Entry(
             slug: "table", name: "Table", category: .furniture,
