@@ -2954,3 +2954,45 @@ Newest last. One or two lines per chat.
   inconsistent: you are drawing a floor outline and the room does not exist
   yet.
   Installed and verified 185 on the device; not yet looked at by eye.
+- **2026-08-23 (S14, NEW — the dollhouse)** — *"I want you to build a 3D
+  dollhouse look, and I want the doors and windows to be animated to open and
+  close."* Build **186**. `Native/Dollhouse.swift` + `Native/DollhouseView.swift`,
+  SceneKit, reached from the cube button on the floor screen's toolbar.
+  **Built from geometry the app already holds.** The same
+  `FloorPlanGeometry.Plan` the 2D canvas draws and the report prints, placed by
+  the same `StoreyPacking.pack` call — not a second copy of the layout. This
+  project has already paid once for two copies of one storey layout when the
+  phone and the report disagreed; a dollhouse that put a room somewhere the
+  floor plan does not would be worse than no dollhouse.
+  **Openings are CUT, not drawn on.** A wall is built as the pieces that
+  actually stand — pier, panel under the sill, panel over the head, next pier —
+  so a hole is a real hole you can see through and hang a leaf in, and its size
+  is the size that came off net wall area. The drawing cannot drift from the
+  arithmetic because it IS the arithmetic. Openings find their wall
+  geometrically (project both ends onto the wall line, 0.3 m tolerance) because
+  a `Plan.Opening` carries its own sub-segment rather than a wall index.
+  **The near walls vanish via `cullMode = .front`.** Only back faces render, so
+  whatever stands between the camera and a room is not drawn and every room is
+  open from every angle. One line instead of a per-frame visibility pass.
+  Leaves are double-sided so a door is still a door when you orbit behind it.
+  **`LeafMotion` is driven by `OpeningKind`, and that is the point.** A sliding
+  door that swings is a lie about the building. A pocket door slides into the
+  wall and fades, a garage door lifts, an awning tilts from its HEAD because
+  that is where its hinge is, a hopper tilts from its sill, a bifold folds, a
+  double and a French door hinge at both jambs and meet in the middle, and a
+  picture window and glass block do not move at all. Every one of those
+  distinctions was built into `OpeningKind` for the plan symbols and the net
+  wall area; here they pay for themselves a third time. A RoomPlan DETECTION
+  has no `detail`, and falls back to the single-leaf convention every other
+  renderer here already uses when the hardware is unknown.
+  **Tap a door and it opens** — the first thing anybody tries on a dollhouse,
+  and a model whose doors move only from a toolbar button feels like a diagram.
+  `Open all` does the storey at once. Camera is SceneKit's own turntable:
+  rewriting it would have meant re-solving gestures this app has had rejected
+  twice on the 2D canvas to arrive at what Apple ships for a property.
+  **Room slabs are neutral.** `RoomScan` carries no colour — what tints a room
+  on the 2D plan comes from its affected areas — so inventing a field to tint
+  them with was declined rather than faked.
+  Installed and **verified 186 on the device**. `BUILD SUCCEEDED`; **not yet
+  looked at by eye**, and this one especially wants eyes: nothing about a 3D
+  scene is proved by compiling.

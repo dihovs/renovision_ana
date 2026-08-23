@@ -1051,6 +1051,7 @@ struct FloorCanvasView: View {
     @State private var switched: String?
     @State private var scans: [RoomScan]?
     @State private var inserting = false
+    @State private var dollhouse = false
     /// Which room's editor is MOUNTED — its whole lifecycle, entry fade-in
     /// through exit fade-out. Stays set a little past the moment the owner
     /// asks to leave, on purpose: see `exitFocusedRoom`.
@@ -1141,6 +1142,41 @@ struct FloorCanvasView: View {
     private var showing: String { switched ?? level }
 
     private var rooms: [RoomScan] { (scans ?? []).filter { $0.level == showing } }
+
+    /// The storey, ready to stand up.
+    ///
+    /// **Placed by `StoreyPacking.pack`, which is the same call the 2D canvas
+    /// makes.** A dollhouse that put a room somewhere the floor plan does not
+    /// would be worse than no dollhouse — and this project has already paid
+    /// once for two copies of one layout, when the phone and the report
+    /// disagreed about a storey.
+    private var dollhouseRooms: [Dollhouse.Room] {
+        let usable: [(room: RoomScan, plan: FloorPlanGeometry.Plan)] =
+            rooms.compactMap { room in
+                guard let geometry = room.geometry else { return nil }
+                let plan = FloorPlanGeometry.plan(from: geometry)
+                return plan.isEmpty ? nil : (room, plan)
+            }
+        guard !usable.isEmpty else { return [] }
+        let packed = StoreyPacking.pack(
+            usable.map {
+                StoreyPacking.Item(
+                    id: $0.room.id, width: $0.plan.width, height: $0.plan.height,
+                    planX: $0.room.planX, planY: $0.room.planY)
+            })
+        let byID = Dictionary(uniqueKeysWithValues: packed.placed.map { ($0.id, $0) })
+        return usable.map { room, plan in
+            Dollhouse.Room(
+                id: room.id, name: room.name, plan: plan,
+                origin: CGPoint(x: byID[room.id]?.x ?? 0, y: byID[room.id]?.y ?? 0),
+                ceilingHeight: room.ceilingHeightM,
+                // `RoomScan` carries no colour of its own — the colour a room
+                // shows on the 2D plan comes from its affected areas, not from
+                // the room. So the slabs are neutral, and that is the honest
+                // answer rather than inventing a field to tint them with.
+                tint: nil)
+        }
+    }
 
     private var label: String {
         FloorVocabulary.levels.first { $0.id == showing }?.label ?? showing
@@ -1705,6 +1741,10 @@ struct FloorCanvasView: View {
         .toolbar {
             if focusedRoomID == nil {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    // The dollhouse. Same storey, same placement, standing up.
+                    Button { dollhouse = true } label: {
+                        Image(systemName: "cube")
+                    }
                     Button { showingHelp = true } label: {
                         Image(systemName: "questionmark.circle")
                     }
@@ -1713,6 +1753,9 @@ struct FloorCanvasView: View {
                     }
                 }
             }
+        }
+        .fullScreenCover(isPresented: $dollhouse) {
+            DollhouseScreen(title: showing, rooms: dollhouseRooms)
         }
         .sheet(isPresented: $sharing) {
             // The same export sheet the project carries — one screen, two

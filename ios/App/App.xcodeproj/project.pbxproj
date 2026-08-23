@@ -85,6 +85,8 @@
 		775AF37D68AC763C57A87C5C /* ScanCaptureFeel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */; };
 		86CA178EB3CF2A476F8678EA /* ScanLens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A15229A30ECEF5E7DE5A37 /* ScanLens.swift */; };
 		50DCBF05E8FDF57D2D64FBBB /* ScanQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D95B200286F894E8ABD878 /* ScanQuality.swift */; };
+		156F2FDCB7A13881EB07CEAD /* Dollhouse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */; };
+		5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734DBBF88B12469631DCC185 /* DollhouseView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -167,6 +169,8 @@
 		B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanCaptureFeel.swift; sourceTree = "<group>"; };
 		D0A15229A30ECEF5E7DE5A37 /* ScanLens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanLens.swift; sourceTree = "<group>"; };
 		B1D95B200286F894E8ABD878 /* ScanQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanQuality.swift; sourceTree = "<group>"; };
+		D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Dollhouse.swift; sourceTree = "<group>"; };
+		734DBBF88B12469631DCC185 /* DollhouseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -210,6 +214,8 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				734DBBF88B12469631DCC185 /* DollhouseView.swift */,
+				D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */,
 				B1D95B200286F894E8ABD878 /* ScanQuality.swift */,
 				D0A15229A30ECEF5E7DE5A37 /* ScanLens.swift */,
 				B92C40FF3F6AF1E9478C69CF /* ScanCaptureFeel.swift */,
@@ -366,6 +372,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */,
+				156F2FDCB7A13881EB07CEAD /* Dollhouse.swift in Sources */,
 				50DCBF05E8FDF57D2D64FBBB /* ScanQuality.swift in Sources */,
 				86CA178EB3CF2A476F8678EA /* ScanLens.swift in Sources */,
 				775AF37D68AC763C57A87C5C /* ScanCaptureFeel.swift in Sources */,
