@@ -220,7 +220,7 @@ function OuterChain({
   if (marks.length === 0) return null;
 
   return (
-    <g className="outer-chain" stroke="#8a8f97" fill="none">
+    <g className="outer-chain" stroke="#8a8a8e" fill="none">
       {marks.map((mark, index) => {
         const dx = mark.x2 - mark.x1;
         const dy = mark.y2 - mark.y1;
@@ -258,7 +258,7 @@ function OuterChain({
               transform={`rotate(${angle} ${midX - nx * 0.13} ${midY - ny * 0.13})`}
               textAnchor="middle"
               fontSize={0.21}
-              fill="#5c626b"
+              fill="#3c3c43"
               stroke="#ffffff"
               strokeWidth={0.07}
               strokeLinejoin="round"
@@ -294,7 +294,7 @@ function Room({
   const label = `${fmt.bare(plan.width)} × ${fmt.bare(plan.height)}`;
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? "#c9ccd2" : "#111111";
-  const fill = tone === "pale" ? "#f6f7f8" : tone === "ink" ? "#e9eaec" : "#efeff0";
+  const fill = tone === "pale" ? "#f6f7f8" : tone === "ink" ? "#e9eaec" : "#ebebeb";
   // Sized off the room's SMALLER side: a long thin closet has plenty of
   // length and no width, and it is the width that the text runs out of.
   const short = Math.min(plan.width, plan.height);
@@ -480,7 +480,7 @@ function Room({
             paintOrder="stroke"
             fontSize={nameSize}
             fontWeight={600}
-            fill="#14161a"
+            fill="#3c3c43"
           >
             {room.name}
           </text>
@@ -494,7 +494,7 @@ function Room({
               strokeLinejoin="round"
               paintOrder="stroke"
               fontSize={nameSize * 0.84}
-              fill="#40454d"
+              fill="#3c3c43"
             >
               {fmt.area(room.floorAreaSqm)} ({label})
             </text>
@@ -603,7 +603,7 @@ export default function ReportStoreyPlan({
                 every room was really positioned — an overall dimension taken
                 across rooms the packer arranged is a measurement of the
                 packing, which is worse than no dimension at all. */}
-            <g stroke="#8a8f97" strokeWidth={0.014} fill="none">
+            <g stroke="#8a8a8e" strokeWidth={0.014} fill="none">
               <line x1={0} y1={layout.height + 0.75} x2={layout.width} y2={layout.height + 0.75} />
               <line x1={0} y1={layout.height + 0.55} x2={0} y2={layout.height + 0.95} />
               <line
@@ -626,7 +626,7 @@ export default function ReportStoreyPlan({
               y={layout.height + 1.25}
               textAnchor="middle"
               fontSize={0.3}
-              fill="#40454d"
+              fill="#3c3c43"
             >
               {fmt.bare(layout.width)}
             </text>
@@ -636,7 +636,7 @@ export default function ReportStoreyPlan({
               textAnchor="middle"
               dominantBaseline="central"
               fontSize={0.3}
-              fill="#40454d"
+              fill="#3c3c43"
               transform={`rotate(-90 ${layout.width + 1.25} ${layout.height / 2})`}
             >
               {fmt.bare(layout.height)}
