@@ -30,14 +30,16 @@ import SwiftUI
 /// rather than a per-frame visibility pass. Leaves are double-sided so a door
 /// is still a door when you orbit behind it.
 ///
-/// ## Why the animation is driven by `OpeningKind`
+/// ## Why nothing opens
 ///
-/// A sliding door that swings is a lie about the building. `LeafMotion` reads
-/// the authored kind and moves it the way that kind actually moves — a pocket
-/// door disappears into the wall, a garage door lifts, an awning window tilts
-/// from its head because that is where its hinge is, a bifold folds in half.
-/// Those distinctions were built into `OpeningKind` for the sake of the plan
-/// symbols and the net wall area; here they pay for themselves a third time.
+/// It used to. Every moving leaf had to guess two facts the scanner never
+/// reports — which jamb it hangs on, and which way it swings — and the guesses
+/// were visibly wrong on real scans: windows standing open like casements,
+/// laundry bifolds folding the wrong way. Drawn shut, an opening claims only
+/// what is actually known: a hole of a measured size with a leaf in it. The
+/// one authored distinction that survives is how many panels fill the hole,
+/// because that reads at a glance and cannot be wrong.
+/// (Owner, 24 Aug 2026: *"let's drop the animation for now."*)
 @available(iOS 17.0, *)
 enum Dollhouse {
 
@@ -197,7 +199,7 @@ enum Dollhouse {
             if node.geometry != nil { geometryNodes += 1 }
         }
         out += "DOLLHOUSE: nodes=\(totalNodes) withGeometry=\(geometryNodes) "
-        out += "leaves=\(Registry.shared.leaves.count) "
+        out += "openings=\(rooms.reduce(0) { $0 + $1.plan.openings.count }) "
         out += "camera=\(scene.rootNode.childNode(withName: "camera", recursively: false) != nil)\n"
         return out
     }
@@ -601,74 +603,52 @@ enum Dollhouse {
         return node
     }
 
-    // MARK: - The leaves, and how each kind moves
+    // MARK: - The leaves
 
-    /// How this opening's leaf actually moves.
+    /// What this opening LOOKS like, closed.
     ///
-    /// The whole point of switching on the authored kind: a sliding door that
-    /// swings open is a lie about the building, and this app already knows the
-    /// difference because net wall area needed it.
-    enum LeafMotion {
-        /// Hinged at one jamb.
-        case swing(hingeAtStart: Bool)
-        /// Hinged at BOTH jambs, meeting in the middle.
+    /// **The animation is gone, deliberately** (owner, 24 Aug: *"the windows
+    /// are wrong, the double folding laundry doors are wrong… let's drop the
+    /// animation for now"*). Every leaf that moved had to guess two things
+    /// the scanner never reports — which jamb it hangs on and which way it
+    /// swings — and a wrong guess is a picture of a building that does not
+    /// exist. Drawn shut, an opening is simply true: the hole is real, the
+    /// leaf filling it is real, and nothing is claimed about hardware nobody
+    /// recorded. What survives is the one distinction that reads at a
+    /// glance and cannot be wrong — how many panels fill the hole.
+    enum LeafShape {
+        /// One panel across the hole.
+        case single
+        /// Two panels meeting in the middle: a double, French or bifold pair.
         case pair
-        /// Runs along the wall, staying in its own plane.
-        case slide
-        /// Runs into the wall and disappears.
-        case pocket
-        /// Lifts, like a garage door.
-        case lift
-        /// Hinged at the head, swinging out at the bottom — an awning.
-        case tiltTop
-        /// Hinged at the sill, tipping in at the top — a hopper.
-        case tiltBottom
-        /// Folds in half against one jamb.
-        case fold(pair: Bool)
-        /// Nothing moves. A cased opening has no leaf at all; a picture
-        /// window and glass block have one that does not open, and pretending
-        /// otherwise would be the same lie as the swinging slider.
+        /// No leaf at all — a cased opening is a hole.
         case fixed
     }
 
-    static func motion(for opening: FloorPlanGeometry.Opening) -> LeafMotion {
+    static func motion(for opening: FloorPlanGeometry.Opening) -> LeafShape {
         guard let kind = opening.detail else {
-            // A detection knows only door / window / hole. The single-leaf
-            // swing is the same convention every other renderer here falls
-            // back to when the hardware is unknown.
+            // A detection knows only door / window / hole, and nothing about
+            // the hardware. Guessing produced a scanned WINDOW rendered as a
+            // hinged casement — reported 24 Aug with the pane standing open
+            // through the wall. A detection gets a plain leaf; only an
+            // authored kind earns a shape.
             switch opening.kind {
             case .opening: return .fixed
-            case .door: return .swing(hingeAtStart: opening.hingeAtStart ?? true)
-            case .window: return .swing(hingeAtStart: true)
+            case .door: return .single
+            case .window: return .fixed
             }
         }
         switch kind {
-        case .doorSingle, .doorEntry:
-            return .swing(hingeAtStart: opening.hingeAtStart ?? true)
-        case .doorDouble, .doorFrench:
+        // Two leaves meeting in the middle — the only authored distinction
+        // that is visible with everything shut.
+        case .doorDouble, .doorFrench, .doorBifoldDouble, .doorBypass:
             return .pair
-        case .doorSliding, .doorBypass, .doorPatio:
-            return .slide
-        case .doorPocket:
-            return .pocket
-        case .doorGarage:
-            return .lift
-        case .doorBifold:
-            return .fold(pair: false)
-        case .doorBifoldDouble:
-            return .fold(pair: true)
         case .doorCased:
             return .fixed
-        case .windowAwning, .windowTransom:
-            return .tiltTop
-        case .windowSmall, .windowHalfRound:
-            return .tiltBottom
-        case .windowSliding, .windowDoubleHung:
-            return .slide
-        case .windowPicture, .windowGlassBlock, .windowBay, .windowBow:
-            return .fixed
-        case .windowStandard, .windowCasement, .windowEgress, .windowWide:
-            return .swing(hingeAtStart: true)
+        // Everything else fills its hole with one leaf: singles, entries,
+        // sliders, pockets, garages, bifolds, and every window.
+        default:
+            return .single
         }
     }
 
@@ -680,8 +660,8 @@ enum Dollhouse {
     private static func leafNode(
         _ opening: FloorPlanGeometry.Opening, room: Room
     ) -> SCNNode? {
-        let motion = motion(for: opening)
-        if case .fixed = motion, opening.kind == .opening { return nil }
+        let shape = motion(for: opening)
+        if case .fixed = shape { return nil }
 
         let seg = opening.segment
         let width = seg.length
@@ -708,169 +688,23 @@ enum Dollhouse {
             return SCNNode(geometry: box)
         }
 
-        // **Which way is into the room.** The owner: *"the doors open wrong
-        // directions."* They were swinging on a fixed sign, so half of them
-        // opened through the wall and out of the building.
-        //
-        // The room's own polygon answers it: step off the opening's midpoint
-        // along the wall's normal and see which side lands inside. That is
-        // the same "is this wall an outer wall" test the report's outer
-        // dimension chain already uses, asked of one opening instead of one
-        // wall — and it beats trusting `swingInward`, which is nil on every
-        // door RoomPlan detected rather than someone authored.
-        let inward = interiorSign(for: seg, room: room)
-        let leaf = Leaf(motion: motion, width: width, height: height, inward: inward)
-
-        switch motion {
-        case .pair, .fold(pair: true):
+        switch shape {
+        case .pair:
+            // Two leaves butted together at the centre. Shut, the seam is
+            // the whole of what "double" means — and it is true whichever
+            // way the doors would have opened.
+            let half = width / 2
             for side in [-1.0, 1.0] {
-                let half = width / 2
                 let node = panel(width: half, height: height)
-                // Pivot to the jamb this half hangs from.
-                node.pivot = SCNMatrix4MakeTranslation(Float(side * half / 2), 0, 0)
                 node.position = SCNVector3(Float(side * half / 2), 0, 0)
                 carrier.addChildNode(node)
-                leaf.panels.append(Leaf.Panel(node: node, side: side))
             }
-        case .swing(let hingeAtStart):
-            let side = hingeAtStart ? -1.0 : 1.0
-            let node = panel(width: width, height: height)
-            node.pivot = SCNMatrix4MakeTranslation(Float(side * width / 2), 0, 0)
-            node.position = SCNVector3(Float(side * width / 2), 0, 0)
-            carrier.addChildNode(node)
-            leaf.panels.append(Leaf.Panel(node: node, side: side))
-        case .fold(pair: false):
-            let node = panel(width: width, height: height)
-            node.pivot = SCNMatrix4MakeTranslation(Float(-width / 2), 0, 0)
-            node.position = SCNVector3(Float(-width / 2), 0, 0)
-            carrier.addChildNode(node)
-            leaf.panels.append(Leaf.Panel(node: node, side: -1))
-        default:
-            let node = panel(width: width, height: height)
-            carrier.addChildNode(node)
-            leaf.panels.append(Leaf.Panel(node: node, side: 1))
+        case .single:
+            carrier.addChildNode(panel(width: width, height: height))
+        case .fixed:
+            return nil
         }
-
-        // **Named, not key-value-coded.** The first version hung the `Leaf`
-        // on the node with `setValue(_:forUndefinedKey:)`. `SCNNode` does not
-        // promise to store arbitrary keys — at best the value is dropped and
-        // every tap silently finds nothing, at worst KVC raises. Either way
-        // the doors do not open, which is exactly what was reported. A name
-        // and an index into the registry cannot fail either way.
-        carrier.name = "leaf:\(Registry.shared.leaves.count)"
-        Registry.shared.leaves.append(leaf)
         return carrier
-    }
-
-    /// +1 when the room's interior lies to the LEFT of the segment's
-    /// direction, -1 when it lies to the right. Falls back to +1 for a room
-    /// with no closed outline, which is the same convention every other
-    /// renderer here uses when the geometry cannot say.
-    private static func interiorSign(
-        for seg: FloorPlanGeometry.Segment, room: Room
-    ) -> Double {
-        guard room.plan.polygon.count >= 3 else { return 1 }
-        let dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1
-        let length = hypot(dx, dy)
-        guard length > 0.001 else { return 1 }
-        let mid = CGPoint(x: (seg.x1 + seg.x2) / 2, y: (seg.y1 + seg.y2) / 2)
-        // A quarter metre off the face — far enough to clear the wall's own
-        // thickness, near enough to stay in the room it belongs to.
-        let nx = -dy / length * 0.25, ny = dx / length * 0.25
-        let probe = CGPoint(x: mid.x + nx, y: mid.y + ny)
-        return contains(room.plan.polygon, probe) ? 1 : -1
-    }
-
-    /// Even-odd point in polygon. Small enough to keep here rather than reach
-    /// for a shared one — this is the only 3D consumer of it.
-    private static func contains(_ polygon: [CGPoint], _ point: CGPoint) -> Bool {
-        var inside = false
-        var j = polygon.count - 1
-        for i in polygon.indices {
-            let a = polygon[i], b = polygon[j]
-            if (a.y > point.y) != (b.y > point.y),
-                point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
-            {
-                inside.toggle()
-            }
-            j = i
-        }
-        return inside
-    }
-
-    /// One openable thing, and the state needed to open it.
-    final class Leaf {
-        struct Panel {
-            let node: SCNNode
-            /// -1 hinged at the start jamb, +1 at the end.
-            let side: Double
-        }
-        let motion: LeafMotion
-        let width: Double
-        let height: Double
-        /// +1 or -1: which side of the wall the room is on, so a leaf swings
-        /// into the room instead of out through the building.
-        let inward: Double
-        var panels: [Panel] = []
-        private(set) var isOpen = false
-
-        init(motion: LeafMotion, width: Double, height: Double, inward: Double) {
-            self.motion = motion
-            self.width = width
-            self.height = height
-            self.inward = inward
-        }
-
-        func set(open: Bool, animated: Bool = true) {
-            guard open != isOpen else { return }
-            isOpen = open
-            let duration = animated ? 0.55 : 0.0
-            for panel in panels { apply(panel, open: open, duration: duration) }
-        }
-
-        func toggle() { set(open: !isOpen) }
-
-        private func apply(_ panel: Panel, open: Bool, duration: TimeInterval) {
-            let node = panel.node
-            SCNTransaction.begin()
-            SCNTransaction.animationDuration = duration
-            SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            switch motion {
-            case .swing, .pair:
-                // Hinged at `panel.side`, swinging toward the room's inside.
-                let angle = open ? Float(-panel.side * inward * 1.65) : 0
-                node.eulerAngles = SCNVector3(0, angle, 0)
-            case .fold:
-                // A fold is a swing that only gets halfway, with the leaf
-                // squashed to the width it folds down to. Cheaper than
-                // hinging two sub-panels and reads the same at this size.
-                node.eulerAngles = SCNVector3(0, open ? Float(-panel.side * inward * 1.3) : 0, 0)
-                node.scale = SCNVector3(open ? 0.5 : 1, 1, 1)
-            case .slide:
-                node.position = SCNVector3(
-                    Float(open ? width * 0.92 : 0), node.position.y, node.position.z)
-            case .pocket:
-                node.position = SCNVector3(
-                    Float(open ? width * 0.98 : 0), node.position.y, node.position.z)
-                node.opacity = open ? 0.15 : 1
-            case .lift:
-                node.position = SCNVector3(
-                    node.position.x, Float(open ? height * 0.95 : 0), node.position.z)
-            case .tiltTop:
-                // Hinged at the head: the pivot goes to the top edge and the
-                // bottom swings out.
-                node.pivot = SCNMatrix4MakeTranslation(0, Float(height / 2), 0)
-                node.position = SCNVector3(node.position.x, Float(height / 2), node.position.z)
-                node.eulerAngles = SCNVector3(open ? Float(0.9 * inward) : 0, 0, 0)
-            case .tiltBottom:
-                node.pivot = SCNMatrix4MakeTranslation(0, Float(-height / 2), 0)
-                node.position = SCNVector3(node.position.x, Float(-height / 2), node.position.z)
-                node.eulerAngles = SCNVector3(open ? -0.75 : 0, 0, 0)
-            case .fixed:
-                break
-            }
-            SCNTransaction.commit()
-        }
     }
 
     /// Show or hide everything standing in the rooms.
@@ -880,39 +714,13 @@ enum Dollhouse {
         }
     }
 
-    /// Every leaf in the scene currently being built.
-    ///
-    /// A registry rather than a return value because leaves are created deep
-    /// inside the node tree and the screen needs all of them to run
-    /// `Open all`. Cleared before each build — a scene is built once per
-    /// presentation, so there is no lifetime subtlety to get wrong here.
+    /// A handle on the scene currently on screen, so the chrome can reach
+    /// into it without the SwiftUI view holding a reference SwiftUI would
+    /// rebuild.
     final class Registry {
         static let shared = Registry()
-        var leaves: [Leaf] = []
-        /// The scene currently on screen, so the chrome can reach into it
-        /// without the SwiftUI view holding a reference SwiftUI would rebuild.
         weak var scene: SCNScene?
-        func reset() {
-            leaves.removeAll()
-            scene = nil
-        }
-
-        /// The leaf a node belongs to, found by the name its carrier was
-        /// given. Walks up, because a tap lands on the panel geometry and the
-        /// carrier is its parent.
-        func leaf(for node: SCNNode) -> Leaf? {
-            var current: SCNNode? = node
-            while let here = current {
-                if let name = here.name, name.hasPrefix("leaf:"),
-                    let index = Int(name.dropFirst("leaf:".count)),
-                    leaves.indices.contains(index)
-                {
-                    return leaves[index]
-                }
-                current = here.parent
-            }
-            return nil
-        }
+        func reset() { scene = nil }
     }
 
     // MARK: - Objects

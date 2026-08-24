@@ -28,7 +28,6 @@ struct DollhouseScreen: View {
     let diagnosis: String
 
     @Environment(\.dismiss) private var dismiss
-    @State private var allOpen = false
     @State private var showContents = true
 
     var body: some View {
@@ -128,21 +127,6 @@ struct DollhouseScreen: View {
             .padding(.horizontal, Brand.Space.base)
             .padding(.vertical, 10)
             .background(.ultraThinMaterial, in: Capsule())
-
-            Button {
-                allOpen.toggle()
-                for leaf in Dollhouse.Registry.shared.leaves {
-                    leaf.set(open: allOpen)
-                }
-            } label: {
-                Label(
-                    allOpen ? "Close all" : "Open all",
-                    systemImage: allOpen ? "door.left.hand.closed" : "door.left.hand.open")
-            }
-            .font(.system(size: 15, weight: .semibold))
-            .padding(.horizontal, Brand.Space.base)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: Capsule())
         }
     }
 }
@@ -187,15 +171,30 @@ struct DollhouseSceneView: UIViewRepresentable {
         context.coordinator.view = view
         context.coordinator.configure(distance: Float(max(6.0, Dollhouse.bounds(of: rooms).span * 1.35)))
 
-        let tap = UITapGestureRecognizer(
-            target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
-        view.addGestureRecognizer(tap)
+        // **One finger moves the model, two fingers turn it.** The owner,
+        // 24 Aug: *"we should be able to turn it with two fingers only, and
+        // when we use one finger, we should actually move it around."* It is
+        // also the gesture the storey canvas already teaches — one-finger pan
+        // was asked for there by name — so the same hand does the same thing
+        // on both screens.
+        let move = UIPanGestureRecognizer(
+            target: context.coordinator, action: #selector(Coordinator.moved(_:)))
+        move.maximumNumberOfTouches = 1
+        view.addGestureRecognizer(move)
+
         let orbit = UIPanGestureRecognizer(
             target: context.coordinator, action: #selector(Coordinator.orbited(_:)))
-        orbit.maximumNumberOfTouches = 1
+        orbit.minimumNumberOfTouches = 2
+        orbit.maximumNumberOfTouches = 2
         view.addGestureRecognizer(orbit)
+
         let zoom = UIPinchGestureRecognizer(
             target: context.coordinator, action: #selector(Coordinator.zoomed(_:)))
+        // Pinch and two-finger orbit share the same two fingers: a spread is
+        // a zoom, a slide is a turn, and both at once does both — which is
+        // how every map behaves.
+        zoom.delegate = context.coordinator
+        orbit.delegate = context.coordinator
         view.addGestureRecognizer(zoom)
         return view
     }
@@ -204,7 +203,7 @@ struct DollhouseSceneView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         weak var view: SCNView?
         weak var rig: SCNNode?
 
@@ -222,12 +221,50 @@ struct DollhouseSceneView: UIViewRepresentable {
         private var distance: Float = 12
         private var startDistance: Float = 12
         private var lastPan: CGPoint = .zero
+        private var lastMove: CGPoint = .zero
+        /// Where the rig is looking. Panning slides this target across the
+        /// ground; the camera keeps orbiting whatever it now holds, so a
+        /// turn after a pan spins around the corner just moved to rather
+        /// than snapping back to the middle of the floor.
+        private var target = SCNVector3Zero
+
+        /// Pinch and two-finger orbit must run together, or the first one to
+        /// recognise locks the other out for the rest of the gesture.
+        func gestureRecognizer(
+            _ gesture: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool { true }
 
         func configure(distance: Float) {
             self.distance = distance
             apply()
         }
 
+        /// ONE finger: slide the model. The drag moves along the ground in
+        /// the direction the camera is facing, so a swipe right always sends
+        /// the building right however far it has been turned.
+        @objc func moved(_ gesture: UIPanGestureRecognizer) {
+            guard let view else { return }
+            let point = gesture.translation(in: view)
+            if gesture.state == .began { lastMove = .zero }
+            let dx = Float(point.x - lastMove.x)
+            let dy = Float(point.y - lastMove.y)
+            lastMove = point
+
+            // Metres per point, scaled by how far away the camera is: the
+            // model tracks the finger at any zoom instead of crawling when
+            // pulled back and bolting when up close.
+            let scale = distance * 0.0016
+            let sinY = sin(yaw), cosY = cos(yaw)
+            // Screen-right and screen-up projected onto the ground plane.
+            target.x -= (dx * cosY) * scale
+            target.z -= (dx * sinY) * scale
+            target.x -= (dy * sinY) * scale
+            target.z += (dy * cosY) * scale
+            apply()
+        }
+
+        /// TWO fingers: turn and tilt.
         @objc func orbited(_ gesture: UIPanGestureRecognizer) {
             guard let view else { return }
             let point = gesture.translation(in: view)
@@ -252,6 +289,7 @@ struct DollhouseSceneView: UIViewRepresentable {
             guard let rig else { return }
             SCNTransaction.begin()
             SCNTransaction.animationDuration = 0
+            rig.position = target
             rig.eulerAngles = SCNVector3(0, yaw, 0)
             rig.childNode(withName: "pitch", recursively: false)?
                 .eulerAngles = SCNVector3(-pitch, 0, 0)
@@ -261,20 +299,5 @@ struct DollhouseSceneView: UIViewRepresentable {
             SCNTransaction.commit()
         }
 
-        /// Walk up from whatever was hit to the carrier that owns a leaf. The
-        /// hit is nearly always the panel geometry, which is a child.
-        @objc func tapped(_ gesture: UITapGestureRecognizer) {
-            guard let view else { return }
-            let hits = view.hitTest(gesture.location(in: view), options: [
-                .searchMode: SCNHitTestSearchMode.all.rawValue
-            ])
-            for hit in hits {
-                if let leaf = Dollhouse.Registry.shared.leaf(for: hit.node) {
-                    leaf.toggle()
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    return
-                }
-            }
-        }
     }
 }

@@ -3261,3 +3261,38 @@ Newest last. One or two lines per chat.
   management fee %, detach-reset prices (those lines derive visibly
   unpriced), and ceiling affected-areas — the schema still cannot mark
   ceiling damage, most water claims' primary surface.
+- **2026-08-24 (S14 — the animation removed, and the gestures inverted)**
+  Build **197**, from two screenshots of the 2nd floor and three sentences:
+  *"the windows are wrong, the double folding laundry doors are wrong and so
+  on"* → *"lets drop the animation for now"* → *"we should be able to turn it
+  with two fingers only, and when we use one finger, we should actually move
+  it around."*
+  **The animation was unfixable as specified, and that is why it is gone.**
+  Every moving leaf needed two facts RoomPlan never reports: which jamb it
+  hangs on, and which way it swings. `motion(for:)` guessed, and the guess
+  for a DETECTED window was `.swing` — so scanned windows stood open like
+  casements, which is the blue pane in his screenshot. The 23 Aug fix had
+  addressed swing DIRECTION (`interiorSign`) and left the deeper problem:
+  direction cannot be right when the hardware itself is invented. Nine
+  motions collapse to three shapes — `single`, `pair`, `fixed` — and the
+  only surviving authored distinction is how many panels fill the hole,
+  because that reads at a glance and cannot be wrong. Deleted with it: the
+  `Leaf` class, its pivots and transactions, the registry of leaves, the
+  tap-to-open hit test, and the `Open all` button. A cased opening stays a
+  hole. **What the model claims is now only what was measured.**
+  **One finger moves, two fingers turn.** The rig node itself is what pans:
+  the pan target slides along the ground in camera-facing axes, so a swipe
+  right sends the building right at any yaw, scaled by distance so it tracks
+  the finger at any zoom — and orbiting after a pan spins around the corner
+  he just moved to instead of snapping back to the floor's middle. Pinch and
+  the two-finger orbit share their touches through a
+  `shouldRecognizeSimultaneously` delegate; without it the first recogniser
+  to fire locks the other out for the whole gesture. This also matches the
+  storey canvas, where one-finger pan was asked for by name — same hand,
+  same meaning, two screens.
+  **Not addressed, and visible in the same screenshots:** the walls are
+  fragments standing off the floor slab. The floor draws from
+  `plan.polygon` (the closed outline) and the walls from `plan.segments`
+  (the scanner's raw walls), and on a large open storey those disagree. That
+  is a geometry question, not a rendering one, and it is the next thing to
+  look at on this screen.
