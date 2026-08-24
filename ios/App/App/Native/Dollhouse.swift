@@ -112,10 +112,22 @@ enum Dollhouse {
     private static let glassInk = UIColor(red: 0.86, green: 0.90, blue: 0.93, alpha: 1)
     private static let objectInk = UIColor(red: 0.88, green: 0.88, blue: 0.89, alpha: 1)
 
-    /// **90 mm, which is a real stud wall.** 2x4 framing plus 12.7 mm board
-    /// each side is about 114; an interior partition drawn at 90 reads right
-    /// without eating the small rooms this trade works in.
-    private static let wallThickness = 0.09
+    /// **114 mm — a real interior partition, the whole assembly.**
+    ///
+    /// The owner, 24 Aug 2026: *"even if we are scanning one room, you have
+    /// to understand holes between the rooms. They have standard size… the
+    /// standard wall between the rooms is 2x4 and they drywall both sides."*
+    ///
+    /// A 2x4 is 3½ inches dressed, and 12.7 mm board on each face brings the
+    /// assembly to 4½ inches = 114 mm. This constant used to be 90 — the
+    /// studs alone — on the reasoning that the full thickness "eats the small
+    /// rooms this trade works in". It did eat them, but the thickness was
+    /// never the cause: the wall was drawn CENTRED on its line, and that line
+    /// is the room's interior face, so half the wall stood inside the room it
+    /// was measuring. Walls now extrude outward from that face (see
+    /// `DollhouseStorey.Piece.outward`), the measured floor is left whole,
+    /// and the true assembly costs nothing.
+    static let wallThickness = 0.1143
 
     // MARK: - Building
 
@@ -391,6 +403,32 @@ enum Dollhouse {
         return inside
     }
 
+    /// Which way is OUT of the room this wall was measured in.
+    ///
+    /// The scanner reports the interior FACE of a wall, so the wall body
+    /// belongs on the far side of it. Step off the segment's midpoint along
+    /// each normal and ask the room's own outline which step landed outside
+    /// — the same interior test the openings and the report's outer
+    /// dimension chain already use.
+    ///
+    /// A room with no closed outline cannot answer, and the honest fallback
+    /// is no offset at all: a wall centred on its line is wrong by half its
+    /// thickness, which is 57 mm, and inventing a direction could be wrong
+    /// by the whole of it in the wrong direction.
+    private static func outwardNormal(
+        of segment: FloorPlanGeometry.Segment, outline: [CGPoint]
+    ) -> (Double, Double) {
+        let dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1
+        let length = hypot(dx, dy)
+        guard length > 0.01, outline.count >= 3 else { return (0, 0) }
+        let nx = -dy / length, ny = dx / length
+        let mid = CGPoint(x: (segment.x1 + segment.x2) / 2, y: (segment.y1 + segment.y2) / 2)
+        // A step clear of the wall's own thickness, but short enough to stay
+        // in the room it belongs to.
+        let probe = CGPoint(x: mid.x + nx * 0.2, y: mid.y + ny * 0.2)
+        return contains(outline, probe) ? (-nx, -ny) : (nx, ny)
+    }
+
     /// The storey's whole wall network, built once.
     ///
     /// Rooms contribute their walls and their openings in storey metres;
@@ -404,12 +442,14 @@ enum Dollhouse {
 
         for room in rooms {
             let ox = Double(room.origin.x), oy = Double(room.origin.y)
+            let outline = closedOutline(room.plan.polygon)
             for segment in wallSegments(of: room) {
                 pieces.append(
                     DollhouseStorey.Piece(
                         a: CGPoint(x: segment.x1 + ox, y: segment.y1 + oy),
                         b: CGPoint(x: segment.x2 + ox, y: segment.y2 + oy),
-                        height: room.ceilingHeight))
+                        height: room.ceilingHeight,
+                        outward: outwardNormal(of: segment, outline: outline)))
             }
             for opening in room.plan.openings {
                 let (sill, head) = extent(of: opening, ceiling: room.ceilingHeight)

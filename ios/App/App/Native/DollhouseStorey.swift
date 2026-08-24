@@ -72,6 +72,12 @@ enum DollhouseStorey {
         var a: CGPoint
         var b: CGPoint
         var height: Double
+        /// Unit normal pointing AWAY from the room this wall was measured
+        /// in. The scanner reports a room's interior FACE, not the middle of
+        /// its wall, so the wall body belongs entirely on this side — a wall
+        /// centred on the face would stand half inside the room it measures
+        /// and shrink the floor that was just measured.
+        var outward: (Double, Double)
     }
 
     // MARK: - Tolerances
@@ -90,12 +96,23 @@ enum DollhouseStorey {
     /// How much two walls must actually run alongside each other. Below
     /// this they merely touch at a corner.
     private static let minOverlap = 0.35
-    /// Standard partition, when a wall has no twin to measure against.
-    private static let defaultThickness = 0.09
+    /// **The standard interior partition: 2x4 plus board both faces.**
+    /// A dressed 2x4 is 3½", drywall is ½" a side, so the assembly is 4½" =
+    /// 114 mm. The owner, 24 Aug: *"the standard wall between the rooms is
+    /// 2x4 and they drywall both sides"* — and it holds even when only ONE
+    /// side was scanned, which is the case this constant exists for. A room
+    /// measured on its own still has walls of a real thickness; the scanner
+    /// simply never saw the far face.
+    static let defaultThickness = 0.1143
     /// The widest a merged wall is allowed to be drawn, however far apart
     /// its members were — a scan with a metre of drift should not produce a
     /// wall you could sleep on.
     private static let maxThickness = 0.4
+
+    /// Below this, two facing rooms measured a gap thinner than any real
+    /// partition and the difference is scan drift, not construction. The
+    /// standard assembly wins.
+    private static let minMeasuredGap = 0.08
 
     // MARK: - The network
 
@@ -177,8 +194,18 @@ enum DollhouseStorey {
     private static func merge(_ members: [Piece]) -> Wall? {
         guard let first = members.first else { return nil }
         guard members.count > 1 else {
+            // **One side only — the far face was never scanned.**
+            // The scanner reported this room's interior face; the wall body
+            // stands entirely on the other side of it, at the standard
+            // assembly. Offsetting by half the thickness puts the box's
+            // centre where the middle of a real wall would be, and leaves
+            // the measured floor exactly the size it was measured.
+            let half = defaultThickness / 2
+            let (nx, ny) = first.outward
             return Wall(
-                a: first.a, b: first.b, thickness: defaultThickness,
+                a: CGPoint(x: first.a.x + nx * half, y: first.a.y + ny * half),
+                b: CGPoint(x: first.b.x + nx * half, y: first.b.y + ny * half),
+                thickness: defaultThickness,
                 height: first.height, holes: [])
         }
 
@@ -236,8 +263,16 @@ enum DollhouseStorey {
         }
         guard maxT > minT else { return nil }
 
+        // **Both faces were scanned, so the building measured itself.**
+        // The gap between the two interior faces IS the wall, and that
+        // measurement beats any standard — a party wall between two units is
+        // genuinely thicker than a partition. Below 80 mm, though, no real
+        // assembly is that thin and the difference is scan drift, so the
+        // standard 2x4-plus-board wins.
         let spread = maxPerp - minPerp
-        let thickness = min(maxThickness, max(defaultThickness, spread))
+        let thickness =
+            spread < minMeasuredGap
+            ? defaultThickness : min(maxThickness, max(defaultThickness, spread))
 
         return Wall(
             a: CGPoint(x: centre.x + ux * minT, y: centre.y + uy * minT),

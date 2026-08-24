@@ -3382,3 +3382,35 @@ Newest last. One or two lines per chat.
   doorway becoming exactly one hole of the right width; and a corridor with
   three rooms against it collapsing to a single wall. All pass. The harness
   is in the scratchpad for the next change to this geometry.
+- **2026-08-24 (S14 — a wall is an assembly, and it stands outside the face)**
+  Build **201**, from a correction that is about buildings rather than code:
+  *"even if we are scanning one room, you have to understand holes between
+  the rooms. They have standard size… the standard wall between the rooms is
+  2x4 and they drywall both sides."*
+  **The thickness was the studs only.** `wallThickness` was 90 mm with a
+  comment that already did the arithmetic — 2x4 dressed is 3½", board is ½"
+  a side, the assembly is 4½" = 114 — and then chose 90 anyway "without
+  eating the small rooms this trade works in." It was eating them, and the
+  thickness was never why.
+  **The wall was drawn CENTRED on its line, and that line is the room's
+  interior face.** RoomPlan reports the surface it can see, so half of every
+  wall stood inside the room it was measuring: a 90 mm wall took 45 mm off
+  each side of a measured floor, and a true 114 would have taken 57. Walls
+  now extrude OUTWARD — `outwardNormal` steps off the segment's midpoint and
+  asks the room's own outline which way is out, the same interior test the
+  openings already use — so the measured floor is left exactly the size it
+  was measured and the real assembly costs nothing.
+  **Both cases now say something true.** One room scanned alone gets walls
+  of the standard assembly on the far side of its faces, because the far
+  face was never seen and 114 mm is what is actually there. Two rooms
+  scanned face to face get the gap they measured, because the building
+  measured itself and that beats any standard — a party wall between units
+  really is thicker. Under 80 mm the gap is scan drift rather than
+  construction, and the standard wins.
+  **Harness extended before shipping** (fourth time this session): nine
+  assertions including the solo room keeping its interior face exactly where
+  it was measured while its wall stands outside, a doorway still cut after
+  the wall moved, the measured 100 mm gap surviving, and drift falling back
+  to the standard. All pass.
+  **The device dropped its tunnel mid-install** — the AWDL symptom §8
+  records. Install is waiting on the phone returning to `available (paired)`.
