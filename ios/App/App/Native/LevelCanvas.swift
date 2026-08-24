@@ -202,11 +202,37 @@ struct LevelCanvas: View {
                 // is a quarter of the height spent on margin, which is the
                 // other half of "the plan is too small".
                 let pad = max(4, min(proxy.size.width, proxy.size.height) * 0.12)
-                let scale = min(
-                    (proxy.size.width - pad * 2) / layout.width,
-                    (proxy.size.height - pad * 2) / layout.height)
-                let ox = pad + (proxy.size.width - pad * 2 - layout.width * scale) / 2
-                let oy = pad + (proxy.size.height - pad * 2 - layout.height * scale) / 2
+
+                // **Turn the sheet if the drawing fits better sideways.**
+                //
+                // The owner, 24 Aug 2026: *"on the storey make it bigger,
+                // rotate to fit if needed."* A long narrow storey on a
+                // portrait phone — his 2nd floor is 5 m by 11 — fits its
+                // height and wastes both margins, and the plan comes out
+                // small for no reason other than which way the paper
+                // happens to be turned. A draughtsman turns the sheet.
+                //
+                // Measured, not assumed: the scale is computed both ways and
+                // the drawing turns only when turning genuinely earns room.
+                // The 1.15 threshold keeps a near-square plan from flipping
+                // for a couple of percent, which would be disorienting every
+                // time the storey opened.
+                let free = CGSize(
+                    width: max(1, proxy.size.width - pad * 2),
+                    height: max(1, proxy.size.height - pad * 2))
+                let upright = min(free.width / layout.width, free.height / layout.height)
+                let turned = min(free.height / layout.width, free.width / layout.height)
+                let rotate = turned > upright * 1.15
+                let scale = rotate ? turned : upright
+
+                // When turned, the drawing is laid out in a box of swapped
+                // proportions and the whole canvas is rotated a quarter turn
+                // at the end — so every coordinate below stays in the plan's
+                // own space and nothing else in this canvas has to know.
+                let boxWidth = rotate ? proxy.size.height : proxy.size.width
+                let boxHeight = rotate ? proxy.size.width : proxy.size.height
+                let ox = pad + (boxWidth - pad * 2 - layout.width * scale) / 2
+                let oy = pad + (boxHeight - pad * 2 - layout.height * scale) / 2
 
                 Canvas { context, canvasSize in
                     let ink = Brand.Plan.ink
@@ -393,12 +419,25 @@ struct LevelCanvas: View {
                         }
                     }
                 }
+                // Laid out in the box the drawing was fitted to, then
+                // turned as a whole. Everything above stays in plan space —
+                // only these two lines know the sheet was rotated.
+                .frame(width: boxWidth, height: boxHeight)
+                .rotationEffect(.degrees(rotate ? 90 : 0))
+                .frame(width: proxy.size.width, height: proxy.size.height)
                 .contentShape(.rect)
                 .onTapGesture { location in
                     // Hit-test in plan space; first slot whose box contains
-                    // the tap wins.
-                    let px = (location.x - ox) / scale
-                    let py = (location.y - oy) / scale
+                    // the tap wins. The tap arrives in the ROTATED frame, so
+                    // it is turned back before it is asked about rooms —
+                    // without this, tapping a room on a turned sheet opens
+                    // whichever room happens to sit at the mirrored spot.
+                    let local =
+                        rotate
+                        ? CGPoint(x: location.y, y: proxy.size.width - location.x)
+                        : location
+                    let px = (local.x - ox) / scale
+                    let py = (local.y - oy) / scale
                     if let hit = layout.slots.first(where: { slot in
                         px >= slot.x && px <= slot.x + slot.plan.width && py >= slot.y
                             && py <= slot.y + slot.plan.height
