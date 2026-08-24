@@ -236,7 +236,17 @@ struct FloorPlanTile: View {
         Button(action: onOpen) {
             VStack(spacing: 0) {
                 ZStack {
-                    Brand.Plan.paper
+                    // **The sheet sits in a grey well, not on white paper.**
+                    // The owner, 24 Aug 2026, on the reference's project
+                    // grid: *"they have a big grey colour for the card, and
+                    // then they have the white frame around. It makes it
+                    // better, more luxury, more professional."* He is
+                    // describing figure and ground: a white card floating on
+                    // a grey page has nothing holding it, while a grey field
+                    // inside a white border reads as a mounted drawing. The
+                    // drawing itself keeps its own paper — it is the well
+                    // behind it that turns grey.
+                    Brand.Plan.floorMuted
                     if drawable {
                         // The storey's own drawing, at thumbnail size and
                         // with the drafting grid off — it would only be
@@ -288,10 +298,17 @@ struct FloorPlanTile: View {
                 .background(Brand.surface)
             }
             .frame(width: 260)
-            .clipShape(.rect(cornerRadius: Brand.Radius.card))
+            .clipShape(.rect(cornerRadius: Brand.Radius.card - 4))
+            // The white frame the owner pointed at: a band of card around
+            // the drawing, with the corner radius stepped so the inner
+            // clip sits concentrically inside the outer one rather than
+            // running parallel to it at a constant offset.
+            .padding(5)
+            .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
             .overlay(
                 RoundedRectangle(cornerRadius: Brand.Radius.card)
-                    .strokeBorder(Brand.Plan.dimension.opacity(0.25), lineWidth: 1))
+                    .strokeBorder(Brand.Plan.dimension.opacity(0.16), lineWidth: 1))
+            .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)

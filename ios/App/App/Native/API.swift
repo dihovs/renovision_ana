@@ -465,6 +465,16 @@ actor API {
         var showDimensions: Bool?
         var damageType: String?
         var color: ColorEdit = .leave
+        var polygon: [PatchPoint]?
+
+        /// The shape's points on the wire. Its own type rather than the one
+        /// `NewArea` nests, because that one is private to the create call
+        /// and reaching across for it would tie two request bodies together
+        /// that have no reason to move as one.
+        struct PatchPoint: Encodable {
+            let x: Double
+            let y: Double
+        }
 
         private struct Key: CodingKey {
             let stringValue: String
@@ -480,6 +490,7 @@ actor API {
             try c.encodeIfPresent(notes, forKey: Key("notes"))
             try c.encodeIfPresent(showDimensions, forKey: Key("showDimensions"))
             try c.encodeIfPresent(damageType, forKey: Key("damageType"))
+            try c.encodeIfPresent(polygon, forKey: Key("polygon"))
             switch color {
             case .leave: break
             case .set(let hex): try c.encode(hex, forKey: Key("color"))
@@ -488,19 +499,25 @@ actor API {
         }
     }
 
-    /// Rename, annotate, reclassify, recolour, or set whether an area's
-    /// dimensions print. Reshaping stays where it works — the wall-elevation
-    /// drag and the floor plan's own corner editor — this is the inspector
-    /// sheet's surface only.
+    /// Rename, annotate, reclassify, recolour, reshape, or set whether an
+    /// area's dimensions print.
     func updateArea(
         id: String, name: String? = nil, notes: String? = nil, showDimensions: Bool? = nil,
-        damageType: String? = nil, color: ColorEdit = .leave
+        damageType: String? = nil, color: ColorEdit = .leave,
+        /// **The shape itself.** `PATCH /api/v1/areas/[id]` has accepted a
+        /// polygon since it was written — it validates it and rejects fewer
+        /// than three points — and this client simply never sent one, so
+        /// adjusting a drawn area meant deleting it and drawing it again.
+        polygon: [CGPoint]? = nil
     ) async throws {
         _ = try await request(
             "/api/v1/areas/\(id)", method: "PATCH",
             body: AreaPatch(
                 name: name, notes: notes, showDimensions: showDimensions,
-                damageType: damageType, color: color))
+                damageType: damageType, color: color,
+                polygon: polygon?.map {
+                    AreaPatch.PatchPoint(x: Double($0.x), y: Double($0.y))
+                }))
     }
 
     func deleteArea(id: String) async throws {

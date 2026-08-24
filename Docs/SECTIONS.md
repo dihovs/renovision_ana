@@ -3556,3 +3556,43 @@ Newest last. One or two lines per chat.
   one pass, best-effort and last: a plan without furniture is a poorer
   drawing, but a project page that refuses to load because the objects call
   hiccuped is a broken screen.
+- **2026-08-24 (S3/S12 — one drawing, three places; and the furniture turns)**
+  Build **210**, from four messages in a row while the build was still warm.
+  **"Damage has to stand on the main adjuster screen."** An affected area
+  had lived only inside a modal reached from the room inspector — so the one
+  thing the whole estimate is measured from was invisible on the drawing
+  where every other measurable thing is edited. `PlanEditorView` now loads,
+  draws, hit-tests and selects areas, with the reference's own bar under a
+  selected one, read off his screenshot: `Insert · Edit Shape · Delete…`.
+  Three verbs, because an area is a region rather than a thing — nothing to
+  rotate, nothing to replace it with. New `EditorDepth.area` and
+  `EditorAction.editShape`. Hit-tested AFTER the objects and before the
+  walls: an area is usually the largest thing on the drawing and would
+  otherwise swallow every tap meant for the fixtures standing in it.
+  **`updateArea` gained the shape.** `PATCH /api/v1/areas/[id]` has accepted
+  and validated a polygon since it was written; the Swift client simply
+  never sent one, so adjusting a drawn area meant deleting it and drawing it
+  again.
+  **"We don't have to create three different types. We have to create one
+  and put it in three places."** He is right, and the drift was happening as
+  he said it — the same polygon fill had been written TWICE in one sitting,
+  once for the storey canvas and once for the plan editor, with a third
+  queued for the project card. `EditorChrome.drawArea` is now the one
+  implementation and both callers use it. `selected` is an affordance only:
+  same shape, same colour, corners shown because they can be dragged —
+  which is his own observation that *"until you start adjusting, the shape
+  doesn't change."*
+  **The rotation bug he caught.** `rotateDetachedRooms` turned a room's
+  walls and its openings and left every fixture standing where it was: an
+  object's x and y are in the ROOM'S plan metres, so turning the walls
+  without turning the objects slides the room out from under its own bath.
+  Same quarter turn, same pivot, and the object's own heading turns with it
+  — a counter run square to a wall is still square to it afterwards.
+  `PlanEditing.quarterTurnedPoint` / `quarterTurnPivot` exist so the pivot
+  is shared rather than recomputed and quantised twice.
+  **Card style, from the reference's project grid:** *"a big grey colour for
+  the card, and then the white frame around."* Figure and ground — a white
+  card on a grey page has nothing holding it; a grey field inside a white
+  border reads as a mounted drawing. The well is grey, the frame is card,
+  and the inner corner radius is stepped so the two curves are concentric
+  rather than parallel.

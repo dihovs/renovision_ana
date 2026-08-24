@@ -1349,6 +1349,41 @@ enum PlanEditing {
     /// area centroid: the two differ on an L, and the average is what keeps
     /// a room visually where it was — which is the only thing this needs to
     /// do, since nothing downstream depends on which point was pivoted about.
+    /// The SAME quarter turn `rotatedQuarterTurn` applies to a polygon,
+    /// applied to a point in that polygon's space.
+    ///
+    /// **Its existence is a bug report.** Rotating a room turned its walls
+    /// and its openings and left every fixture standing exactly where it
+    /// was — the owner, 24 Aug 2026: *"when I rotate the floor plan, the
+    /// furniture doesn't rotate with the floor plan. They stay in their
+    /// places."* An object's x and y are in the room's own plan metres, so
+    /// turning the room without turning them moves the room out from under
+    /// its own bath.
+    ///
+    /// The pivot must be the polygon's centroid computed BEFORE the turn,
+    /// which is why it is passed in rather than recomputed: after the
+    /// rotation the centroid is the same point, but a caller that turned the
+    /// walls first and then asked for a centroid would be quantising twice.
+    static func quarterTurnedPoint(_ point: CGPoint, about pivot: CGPoint) -> CGPoint {
+        let dx = point.x - pivot.x
+        let dy = point.y - pivot.y
+        return CGPoint(x: pivot.x - dy, y: pivot.y + dx)
+    }
+
+    /// The centroid `rotatedQuarterTurn` pivots about, so a caller can turn
+    /// anything else in the same room by the same amount about the same
+    /// point.
+    static func quarterTurnPivot(_ polygon: [CGPoint]) -> CGPoint {
+        guard !polygon.isEmpty else { return .zero }
+        var cx = 0.0
+        var cy = 0.0
+        for p in polygon {
+            cx += p.x
+            cy += p.y
+        }
+        return CGPoint(x: cx / Double(polygon.count), y: cy / Double(polygon.count))
+    }
+
     static func rotatedQuarterTurn(_ polygon: [CGPoint]) -> [CGPoint] {
         guard polygon.count >= 3 else { return polygon }
         var cx = 0.0

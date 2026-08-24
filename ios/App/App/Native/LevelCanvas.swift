@@ -309,18 +309,10 @@ struct LevelCanvas: View {
                         // objects so a vanity standing in a wet patch still
                         // reads as a vanity.
                         for area in areas[slot.piece.id] ?? [] where area.surface != "wall" {
-                            guard area.polygon.count >= 3 else { continue }
-                            var patch = Path()
-                            patch.move(to: pt(area.polygon[0].x, area.polygon[0].y))
-                            for point in area.polygon.dropFirst() {
-                                patch.addLine(to: pt(point.x, point.y))
-                            }
-                            patch.closeSubpath()
-                            let tone = area.displayColor
-                            context.fill(patch, with: .color(tone.opacity(0.42)))
-                            context.stroke(
-                                patch, with: .color(tone.opacity(0.85)),
-                                style: StrokeStyle(lineWidth: 1))
+                            EditorChrome.drawArea(
+                                polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                                tone: area.displayColor, context: context,
+                                toScreen: { pt($0.x, $0.y) })
                         }
 
                         // **The furniture, at storey scale.** Unlabelled —
@@ -2552,6 +2544,23 @@ struct FloorCanvasView: View {
                 locked: target.room.geometry?.lockedEdges ?? [],
                 openings: openings,
                 ceilingHeight: target.room.ceilingHeightM)
+
+            // **The furniture turns with the room.** The owner, 24 Aug 2026:
+            // *"when I rotate the floor plan, the furniture doesn't rotate
+            // with the floor plan. They stay in their places."* Exactly so —
+            // an object's x and y are in the ROOM'S own plan metres, so
+            // turning the walls without turning the objects slides the room
+            // out from under its own bath. Same quarter turn, same pivot,
+            // and the object's own heading turns with it: a counter run
+            // square to a wall must still be square to it afterwards.
+            let pivot = PlanEditing.quarterTurnPivot(corners)
+            for object in roomObjects[target.id] ?? [] {
+                let moved = PlanEditing.quarterTurnedPoint(
+                    CGPoint(x: object.x, y: object.y), about: pivot)
+                try? await API.shared.updateObject(
+                    id: object.id, at: moved,
+                    rotation: (object.rotation + 90).truncatingRemainder(dividingBy: 360))
+            }
         }
         await load()
     }

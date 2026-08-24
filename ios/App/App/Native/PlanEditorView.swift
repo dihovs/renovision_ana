@@ -184,6 +184,21 @@ struct RoomEditorCore: View {
     /// edit of the geometry, so it is saved immediately and `Discard` does
     /// not take it back.
     @State private var objects: [RoomObject] = []
+    /// **The damage, on the main drawing.**
+    ///
+    /// The owner, 24 Aug 2026, with the reference open: *"damaged area
+    /// doesn't have to have a separate screen to adjust, it needs to stand
+    /// on the main adjuster screen."* It had lived only inside a modal
+    /// reached from the room inspector — so the one thing the whole estimate
+    /// is measured from was invisible on the drawing where every other
+    /// measurable thing is edited. The reference selects it right on the
+    /// plan and puts `Edit Shape` on the bar; so do we now.
+    ///
+    /// Floor areas only. A wall area's polygon lives in its wall's own face
+    /// space and belongs on the elevation, where it is already drawn.
+    @State private var areas: [AffectedArea] = []
+    /// The area whose shape is being adjusted, presented over this canvas.
+    @State private var editingAreaShape: AffectedArea?
     @State private var placingObject = false
     /// An annotation chosen but not yet placed, waiting for its words. A
     /// label with nothing written on it is a blank mark nobody can read a
@@ -302,6 +317,8 @@ struct RoomEditorCore: View {
         /// are rows that arrive from a fetch and can be reordered by a
         /// reload, where openings are positions in this editor's own array.
         case object(String)
+        /// An affected area, by its server id, for the same reason.
+        case area(String)
     }
 
 
@@ -855,6 +872,17 @@ struct RoomEditorCore: View {
                     // against a wall sits over the band rather than under
                     // it, and before the dimensions, which belong on top of
                     // everything.
+                    // **The damage, beneath the furniture.** Drawn before
+                    // the objects so a vanity standing in a wet patch still
+                    // reads as a vanity, and after the walls so the patch
+                    // does not swallow the band it runs up to.
+                    for area in areas where area.surface != "wall" {
+                        EditorChrome.drawArea(
+                            polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                            tone: area.displayColor, context: context, toScreen: pt,
+                            selected: selection == .area(area.id), handleSize: handleDot)
+                    }
+
                     for object in objects {
                         EditorChrome.drawObject(
                             object, context: context, toScreen: pt, scale: scale,
@@ -1202,6 +1230,25 @@ struct RoomEditorCore: View {
             }
     }
 
+    /// Is this plan-space point inside the area's polygon? Even-odd, the
+    /// same rule the rest of this app tests polygons with.
+    private func areaContains(_ area: AffectedArea, _ point: CGPoint) -> Bool {
+        let polygon = area.polygon
+        guard polygon.count >= 3 else { return false }
+        var inside = false
+        var j = polygon.count - 1
+        for i in polygon.indices {
+            let a = polygon[i], b = polygon[j]
+            if (a.y > point.y) != (b.y > point.y),
+                point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+            {
+                inside.toggle()
+            }
+            j = i
+        }
+        return inside
+    }
+
     private func handleTap(_ point: CGPoint, scale: CGFloat) {
         let cornerTolerance = handleHit / 2 / scale
         for i in corners.indices where PlanEditing.length(PlanEditing.sub(corners[i], point)) < cornerTolerance {
@@ -1302,6 +1349,19 @@ struct RoomEditorCore: View {
         // thing the finger is aiming at there is the cabinet.
         if let hit = objects.last(where: { objectContains($0, point) }) {
             select(.object(hit.id))
+            return
+        }
+
+        // **The damage, after the objects and before the walls.** An area is
+        // usually the largest thing on the drawing, so it is tested late —
+        // it would otherwise swallow every tap that landed inside it,
+        // including the taps meant for the fixtures standing in it. Late,
+        // it catches only the floor nobody else claimed, which is exactly
+        // the region it describes.
+        if let hit = areas.last(where: {
+            $0.surface != "wall" && $0.polygon.count >= 3 && areaContains($0, point)
+        }) {
+            select(.area(hit.id))
             return
         }
 
@@ -1459,6 +1519,11 @@ struct RoomEditorCore: View {
         guard let start = dragStart?.corners else { return }
 
         switch selection {
+        // An area is selected and shape-edited, not dragged bodily: moving
+        // a wet patch across a floor would be moving the measurement, and
+        // nobody has asked for that.
+        case .area:
+            break
         case .wall(let index):
             // Dragging a wall changes its NEIGHBOURS' lengths, not its own —
             // so a locked neighbour is what has to be defended here.
@@ -1581,6 +1646,8 @@ struct RoomEditorCore: View {
                 .map(UnitSettings.shared.format.format)
                 .joined(separator: "  ·  ")
 
+        case .area:
+            break
         case .object(let id):
             guard let object = objects.first(where: { $0.id == id }) else { break }
             if objectDragStart == nil {
@@ -2184,6 +2251,11 @@ struct RoomEditorCore: View {
                 return .room(name: room.name)
             }
             return .object(label: object.displayName)
+        case .area(let id):
+            guard let area = areas.first(where: { $0.id == id }) else {
+                return .room(name: room.name)
+            }
+            return .area(label: area.name)
         }
     }
 
@@ -2223,6 +2295,12 @@ struct RoomEditorCore: View {
             // The menu itself still shows the other four greyed with their
             // reasons, the way the floor canvas's own already does.
             return [.insert, .setSize, .duplicate, .delete]
+        case .area:
+            // Both verbs are real: Edit Shape opens the point editor this
+            // area already had, and Delete removes it. Insert stays greyed
+            // here for the same reason it does at room depth — the
+            // reference's Insert menu at this depth is not built.
+            return [.editShape, .delete]
         case .wall(let index):
             // `Split Room` only where it can actually be honoured: a
             // rectangle, and a tap far enough from either end to leave two
@@ -2308,6 +2386,7 @@ struct RoomEditorCore: View {
 
     private func loadObjects() async {
         objects = (try? await API.shared.objects(roomScanId: room.id)) ?? objects
+        areas = (try? await API.shared.areas(roomScanId: room.id)) ?? areas
     }
 
     /// Place a chosen catalogue entry.
@@ -2672,6 +2751,20 @@ struct RoomEditorCore: View {
             deleteCorner(index)
         case (.delete, .opening(let index)):
             deleteOpening(index)
+        // **Edit Shape, on the area selected right here.** The point editor
+        // it opens is the one the area already had; what changed on 24 Aug
+        // is that it is now reached from the drawing the area is standing
+        // on, instead of being the only place the area existed at all.
+        case (.editShape, .area(let id)):
+            editingAreaShape = areas.first(where: { $0.id == id })
+
+        case (.delete, .area(let id)):
+            Task {
+                _ = try? await API.shared.deleteArea(id: id)
+                selection = .none
+                await loadObjects()
+            }
+
         case (.rotate, .object(let id)):
             // A quarter turn, which is what rotating a cabinet against a
             // wall actually means. Free rotation would need a handle and a
@@ -2738,6 +2831,8 @@ struct RoomEditorCore: View {
         case .wall: return "Wall"
         case .corner: return "Corner"
         case .interiorWall: return "Wall"
+        case .area(let id):
+            return areas.first(where: { $0.id == id })?.name ?? "Affected area"
         case .opening(let index):
             guard openings.indices.contains(index) else { return room.name }
             return openings[index].kind.label

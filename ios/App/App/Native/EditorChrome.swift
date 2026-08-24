@@ -736,6 +736,58 @@ enum EditorChrome {
     /// room — the operator said so by leaving it on the plan — but it is not
     /// in the claim, and a drawing that showed the two identically would
     /// make the count impossible to check against the picture.
+    /// **One damaged area, drawn the one way it is drawn everywhere.**
+    ///
+    /// The owner, 24 Aug 2026, holding the reference's project list beside
+    /// its editor: *"it's basically the same thing across different screens.
+    /// Even on the adjustment screen, until you start adjusting, the shape
+    /// doesn't change. So we don't have to create three different types. We
+    /// have to create one and put it in three places."*
+    ///
+    /// He is right, and this function exists because the alternative was
+    /// already happening: the same polygon fill had been written twice in
+    /// one sitting — once for the storey canvas, once for the plan editor —
+    /// and a third copy was queued for the project card. Three copies drift,
+    /// and a damaged area that is one blue on the card and another in the
+    /// editor is a drawing the operator has to reconcile in his head.
+    ///
+    /// `selected` is the editor's affordance and nothing else: the same
+    /// shape, the same colour, with its corners shown because they can be
+    /// dragged. That is exactly the reference's behaviour — the shape does
+    /// not change when you enter the adjustment screen, only the handles
+    /// appear.
+    static func drawArea(
+        polygon: [CGPoint],
+        tone: Color,
+        context: GraphicsContext,
+        toScreen: (CGPoint) -> CGPoint,
+        selected: Bool = false,
+        /// Corner dots, in points. Nil draws none — the size a thumbnail
+        /// would need is smaller than the dot, so it simply goes without.
+        handleSize: CGFloat? = nil
+    ) {
+        guard polygon.count >= 3 else { return }
+        var patch = Path()
+        patch.move(to: toScreen(polygon[0]))
+        for point in polygon.dropFirst() { patch.addLine(to: toScreen(point)) }
+        patch.closeSubpath()
+
+        context.fill(patch, with: .color(tone.opacity(selected ? 0.5 : 0.34)))
+        context.stroke(
+            patch, with: .color(selected ? Brand.blue : tone.opacity(0.9)),
+            style: StrokeStyle(lineWidth: selected ? 2.5 : 1.5, lineJoin: .round))
+
+        guard selected, let handleSize else { return }
+        for point in polygon {
+            let at = toScreen(point)
+            let dot = CGRect(
+                x: at.x - handleSize / 2, y: at.y - handleSize / 2,
+                width: handleSize, height: handleSize)
+            context.fill(Path(ellipseIn: dot), with: .color(Brand.Plan.paper))
+            context.stroke(Path(ellipseIn: dot), with: .color(Brand.blue), lineWidth: 2)
+        }
+    }
+
     static func drawObject(
         _ object: RoomObject,
         context: GraphicsContext,
@@ -1292,6 +1344,11 @@ enum EditorDepth: Equatable {
     /// an opening lives IN a wall and deducts wall area, an object stands on
     /// the floor and deducts nothing.
     case object(label: String)
+    /// A damaged region on the floor. Its own depth rather than `.object`:
+    /// an object is a thing standing in the room and an area is a region OF
+    /// the room, and the verbs differ — an area's shape is the measurement,
+    /// so it gets `Edit Shape` where an object gets Rotate.
+    case area(label: String)
 
     /// What the swipe-up caption calls this — `<name>` in
     /// "Swipe up ↑ for <name> info".
@@ -1303,6 +1360,7 @@ enum EditorDepth: Equatable {
         case .corner: return "Corner"
         case .opening(let label): return label
         case .object(let label): return label
+        case .area(let label): return label
         }
     }
 }
@@ -1321,6 +1379,9 @@ enum EditorAction: Hashable {
     case splitRoom
     case mergeRooms
     case replaceWith
+    /// Adjust a damaged area's outline, point by point. The reference's own
+    /// word for it, on the bar it puts under a selected area.
+    case editShape
     case delete
 
     var label: String {
@@ -1335,6 +1396,7 @@ enum EditorAction: Hashable {
         case .splitRoom: return "Split Room"
         case .mergeRooms: return "Merge Rooms"
         case .replaceWith: return "Replace with..."
+        case .editShape: return "Edit Shape"
         // The ellipsis is not decoration: §4 gives destructive labels one
         // because they confirm before they act.
         case .delete: return "Delete..."
@@ -1356,6 +1418,8 @@ enum EditorAction: Hashable {
         // Two shapes becoming one, which is the whole verb.
         case .mergeRooms: return "rectangle.on.rectangle.angled"
         case .replaceWith: return "arrow.triangle.2.circlepath"
+        // The reference's own glyph sense for it: points on a path.
+        case .editShape: return "point.topleft.down.to.point.bottomright.curvepath"
         case .delete: return "trash"
         }
     }
@@ -1410,6 +1474,13 @@ enum EditorAction: Hashable {
             // time missed it; his own screen is the freshest, most direct
             // evidence available and wins over what shipped before it.
             return [.insert, .replaceWith, .rotate, .duplicate, .delete]
+        case .area:
+            // Read off the owner's own screenshot of the reference with a
+            // damaged area selected, 24 Aug 2026: `Insert · Edit Shape ·
+            // Delete…`, and nothing else. Three verbs, because an area is a
+            // region rather than a thing — there is no rotating it and no
+            // replacing it with another kind.
+            return [.insert, .editShape, .delete]
         }
     }
 }
