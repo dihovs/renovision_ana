@@ -1,6 +1,8 @@
 # The estimator — measurements to money
 
-**Status: SPEC, nothing built.** Written 23 Aug 2026 at the owner's ask:
+**Status: SPEC, nothing built.** Written 23 Aug 2026 at the owner's ask
+(§4 corrected the same day; conventions reference added —
+`Docs/Estimator-Xactimate-Conventions.md`):
 
 > *"We have to make the estimation side of it. It's going to take all the
 > information included in the report and make an estimation. And you have all
@@ -125,20 +127,22 @@ in TypeScript with vitest coverage, reviewed as a table, then a screen.
 
 ## 4. What I cannot write without him
 
-**The rules themselves.** I can build the machinery — the rule type, the
-derivation, the matcher, the line writer, the tests. I cannot write the
-mapping, because it needs two things I do not have:
+**CORRECTED 23 Aug 2026 — the price book premise above was wrong.** The full
+catalogue is IN THIS REPO: `src/lib/estimator/data/lineItems.ts` — 128 items
+with real codes, categories, units, sell rates, labour hours and exclusions,
+generated from the owner's own estimator database, and
+`src/lib/crm/priceBook.ts` already seeds `price_book_items` from it. No CSV
+export is needed; the rules table can be drafted against real codes today.
+(The file is deliberately the SAFE SUBSET — internal cost and margin were
+stripped because this repo is public. That constraint stands: see §5.3.)
 
-1. **The actual contents of the price book.** I can read the schema; I cannot
-   query the database. I do not know which item codes exist, how the categories
-   are named, or how granular they are. A rules table written against invented
-   codes is worthless.
-2. **His trade judgement.** Which line items a Québec water-damage job actually
-   bills, in what order, and with what conventions.
-
-**The fastest path is a CSV export of `price_book_items`** — code, name,
-category, unit, price. From that I can draft the rules table against real
-codes, and he reviews it as a table rather than as software.
+What genuinely remains owner-only is **his trade judgement** — which items a
+Québec water-damage job bills, in what order, with what conventions. Much of
+that arrived 23 Aug as four real Xactimate estimates from his claims:
+**read `Docs/Estimator-Xactimate-Conventions.md`** for the extracted line
+model (E&R / detach-reset activities, CALC citations, minimums, per-day
+equipment, O&P and tax math verified to the cent) and for which of §5's
+questions it already answers.
 
 ## 5. Questions only the owner can answer
 

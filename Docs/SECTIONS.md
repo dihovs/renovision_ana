@@ -3186,3 +3186,26 @@ Newest last. One or two lines per chat.
   it drops again, `CAMERA-DROP:` in `Documents/scan-diagnostics.txt` now
   names the state it died in — that is the thing to read first, before
   changing any more code.
+- **2026-08-23 (Estimator — the examples arrived, and the machinery was
+  already here)** No build; a documentation day that changed the estimator's
+  scope twice. First: the spec's §4 blocker was FALSE — the "CSV export we
+  cannot get" has been in the repo since July as
+  `src/lib/estimator/data/lineItems.ts` (128 real codes, rates, labour hours),
+  with `calculate.ts` already doing GST/QST, hours, day projection and bands,
+  and `priceBook.ts` seeding the CRM table from it. Corrected in place.
+  Second: the owner supplied FOUR real Xactimate estimates from his own
+  claims — Polygon's Decarie and Champs de Mars repairs, and the Jean-Picard
+  pair (CT's urgence + Polygon's repair for the same loss). All 91 pages
+  transcribed; the line model, document anatomy, and money math extracted
+  into `Docs/Estimator-Xactimate-Conventions.md`. The math was verified
+  numerically, not assumed: FG&P = 15,5% per line (10% + 5%-on-generals),
+  taxes 14,975% on base+FG&P, reproduced to the cent across three documents
+  (CT uses 15,0% — profit-on-items; the basis is a setting). The biggest
+  scope finding cuts DOWN: no depreciation columns anywhere — Québec
+  restorers print "Valeur à neuf = Sinistre net" and leave depreciation to
+  the insurer in one cover-letter paragraph, so RCV/ACV math is out. The
+  biggest gap stands confirmed: activity codes (E&R on one line with two
+  rates, Détacher et réinstaller) — half the plumbing/electrical lines in
+  these claims are detach-reset, which our schema cannot express at all.
+  Owner's phrasing that governs the whole feature: "our theme, design
+  language, but as detailed as Xactimate."
