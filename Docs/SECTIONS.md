@@ -3296,3 +3296,31 @@ Newest last. One or two lines per chat.
   (the scanner's raw walls), and on a large open storey those disagree. That
   is a geometry question, not a rendering one, and it is the next thing to
   look at on this screen.
+- **2026-08-24 (S14 — the walls join the floor, and the pan's vertical sign)**
+  Build **198**. Two fixes, one of them a divergence three renderers had
+  already resolved and this one had not.
+  **The floating walls were the dollhouse reading a different source from
+  every other renderer.** The floor draws `plan.polygon` — the closed
+  outline. The walls drew `plan.segments` — every wall the scanner reported.
+  Those sets are deliberately different: `chainIntoPolygon` walks the walls
+  into an outline and DROPS what it cannot reach, the duplicate of a wall
+  seen twice and the stubs either side of a doorway. That dropping is
+  correct and hard-won (it is what stopped a notched room being squared off
+  into a bounding box). What was wrong is that the dollhouse then stood the
+  dropped ones anyway, as full-height panels hanging off the edge of the
+  floor — the scattered planes in the owner's 2nd-floor screenshot.
+  **`StoreyViewport` has had the rule since it was written:** stroke the
+  outline when there is one, fall back to loose segments only when the walls
+  never chained. `wallSegments(of:)` applies the same rule in 3D, and it
+  pays twice — walls cut from the outline's own edges meet the floor slab
+  exactly, because both come off the same line. A segment that is not on the
+  outline is still stood IF its midpoint lies inside the room: an interior
+  partition is real, and only what the chain rejected AND sits outside the
+  room is dropped.
+  **Vertical pan inverted**, on his hand rather than on a theory: *"left and
+  right are good, up and down needs to be inverted."* Horizontal reads as
+  pushing the model, vertical as dragging the ground beneath it, and any
+  single consistent sign gets one of the two backwards.
+  **Still not settled on this screen:** whether a scan with NO closed outline
+  (walls that never chained) is better served by the loose segments it now
+  falls back to, or by no walls at all. Nobody has seen that case in 3D yet.

@@ -266,6 +266,97 @@ enum Dollhouse {
         scene.rootNode.addChildNode(fill)
     }
 
+    /// **The walls to stand, and why they are not `plan.segments`.**
+    ///
+    /// The floor is the room's closed outline; the walls were every segment
+    /// the scanner reported. Those are not the same set, by design:
+    /// `chainIntoPolygon` walks the walls into an outline and DROPS what it
+    /// cannot reach — the duplicate of a wall seen twice, the stub either
+    /// side of a doorway. Dropping them is right (that decision is what
+    /// stopped a notched room being squared off into a box), but the
+    /// dollhouse then stood the dropped ones anyway: full-height panels
+    /// hanging in the air off the edge of the floor, which is exactly what
+    /// the owner's 2nd-floor screenshot shows.
+    ///
+    /// The 2D renderer has had the answer since it was written — it strokes
+    /// the outline when there is one and falls back to loose segments only
+    /// when the walls never chained (`StoreyViewport`, "Falls back to loose
+    /// segments, which cannot mitre because they genuinely do not meet").
+    /// Same rule here, for the same reason and with a second dividend: walls
+    /// built from the outline's own edges meet the floor slab exactly,
+    /// because they are cut from the same line.
+    ///
+    /// A segment that is not on the outline is not always rubbish — an
+    /// interior partition is real — so one is kept when it stands INSIDE the
+    /// outline. What is dropped is only what the chain rejected AND sits
+    /// outside the room it claims to belong to.
+    static func wallSegments(of room: Room) -> [FloorPlanGeometry.Segment] {
+        let outline = closedOutline(room.plan.polygon)
+        guard outline.count >= 3 else { return room.plan.segments }
+
+        var walls: [FloorPlanGeometry.Segment] = []
+        for i in outline.indices {
+            let a = outline[i]
+            let b = outline[(i + 1) % outline.count]
+            guard hypot(b.x - a.x, b.y - a.y) > 0.02 else { continue }
+            walls.append(FloorPlanGeometry.Segment(x1: a.x, y1: a.y, x2: b.x, y2: b.y))
+        }
+
+        // Interior partitions: a segment whose midpoint is inside the
+        // outline and which is not simply lying along an edge of it.
+        for segment in room.plan.segments {
+            let mid = CGPoint(x: (segment.x1 + segment.x2) / 2, y: (segment.y1 + segment.y2) / 2)
+            guard contains(outline, mid) else { continue }
+            let onEdge = walls.contains { edge in
+                distance(from: mid, to: edge) < 0.15
+            }
+            if !onEdge { walls.append(segment) }
+        }
+        return walls
+    }
+
+    /// The polygon without the repeated closing point — `plan(from:)` appends
+    /// the first point again so the editors can drop it, and walking edges
+    /// over that duplicate would build a zero-length wall.
+    private static func closedOutline(_ polygon: [CGPoint]) -> [CGPoint] {
+        guard let first = polygon.first, let last = polygon.last, polygon.count >= 4 else {
+            return polygon
+        }
+        return hypot(last.x - first.x, last.y - first.y) < 0.01 ? Array(polygon.dropLast())
+            : polygon
+    }
+
+    /// Distance from a point to a segment, for the "is this already an
+    /// outline edge" test.
+    private static func distance(from point: CGPoint, to segment: FloorPlanGeometry.Segment)
+        -> Double
+    {
+        let dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1
+        let lengthSquared = dx * dx + dy * dy
+        guard lengthSquared > 1e-9 else {
+            return hypot(point.x - segment.x1, point.y - segment.y1)
+        }
+        var t = ((point.x - segment.x1) * dx + (point.y - segment.y1) * dy) / lengthSquared
+        t = min(1, max(0, t))
+        return hypot(point.x - (segment.x1 + t * dx), point.y - (segment.y1 + t * dy))
+    }
+
+    /// Even-odd point in polygon.
+    private static func contains(_ polygon: [CGPoint], _ point: CGPoint) -> Bool {
+        var inside = false
+        var j = polygon.count - 1
+        for i in polygon.indices {
+            let a = polygon[i], b = polygon[j]
+            if (a.y > point.y) != (b.y > point.y),
+                point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+            {
+                inside.toggle()
+            }
+            j = i
+        }
+        return inside
+    }
+
     private static func node(for room: Room) -> SCNNode {
         let node = SCNNode()
         node.name = "room:\(room.id)"
@@ -279,7 +370,7 @@ enum Dollhouse {
         let shell = SCNNode()
         shell.name = "shell"
         shell.addChildNode(floorNode(room))
-        for segment in room.plan.segments {
+        for segment in wallSegments(of: room) {
             shell.addChildNode(wallNode(segment, room: room))
         }
         node.addChildNode(shell)

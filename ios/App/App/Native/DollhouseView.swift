@@ -257,10 +257,16 @@ struct DollhouseSceneView: UIViewRepresentable {
             let scale = distance * 0.0016
             let sinY = sin(yaw), cosY = cos(yaw)
             // Screen-right and screen-up projected onto the ground plane.
+            // The vertical sign is INVERTED against the horizontal one
+            // (owner, 24 Aug: *"left and right are good, up and down needs
+            // to be inverted"*). Left/right reads as pushing the model;
+            // up/down reads as dragging the ground under it, and a
+            // consistent sign gets one of the two backwards whichever way
+            // it is written. His hand is the specification.
             target.x -= (dx * cosY) * scale
             target.z -= (dx * sinY) * scale
-            target.x -= (dy * sinY) * scale
-            target.z += (dy * cosY) * scale
+            target.x += (dy * sinY) * scale
+            target.z -= (dy * cosY) * scale
             apply()
         }
 
