@@ -616,6 +616,11 @@ struct ProjectDetailView: View {
     let project: ProjectSummary
 
     @State private var scans: [RoomScan]?
+    /// What is standing in each room, and what is damaged, keyed by room id —
+    /// so the Floor Plans rail can draw a property rather than an outline.
+    /// Both are whole-project calls made once, not one per room.
+    @State private var planObjects: [String: [RoomObject]] = [:]
+    @State private var planAreas: [String: [AffectedArea]] = [:]
     @State private var error: String?
     @State private var capturing = false
     @State private var showingStatistics = false
@@ -1011,6 +1016,8 @@ struct ProjectDetailView: View {
                 FloorPlanTile(
                     level: level,
                     rooms: (scans ?? []).filter { $0.level == level },
+                    objects: planObjects,
+                    areas: planAreas,
                     onOpen: { openFloor = level },
                     onDelete: { Task { await deleteFloor(level) } })
             }
@@ -1127,11 +1134,42 @@ struct ProjectDetailView: View {
             // failure there costs those two fields, never the survey.
             record = try? await API.shared.project(id: project.id)
             await loadFiles()
+            await loadPlanContents()
             error = nil
         } catch {
             self.error = error.localizedDescription
             if scans == nil { scans = [] }
         }
+    }
+
+    /// The furniture and the damage, for the Floor Plans rail's drawings.
+    ///
+    /// **Best-effort, and deliberately after the survey.** A plan with no
+    /// furniture on it is a poorer drawing; a project page that refuses to
+    /// load because the objects endpoint hiccuped is a broken screen. So
+    /// this runs last, swallows its failures, and the rail simply draws what
+    /// it has — which is the same bargain `loadFiles` already makes.
+    ///
+    /// **Per room, not per project.** There is a whole-project objects
+    /// endpoint, and it is the wrong one here: `RoomObject` carries no room
+    /// id, so a project-wide list cannot be grouped back onto the rooms that
+    /// hold the objects — it exists for the takeoff TOTALS, where which room
+    /// an object sits in does not matter. The rooms are already being walked
+    /// for their areas, so both come back in the same pass: a handful of
+    /// small calls once per page load, not per tile and not per redraw.
+    private func loadPlanContents() async {
+        var objectsByRoom: [String: [RoomObject]] = [:]
+        var areasByRoom: [String: [AffectedArea]] = [:]
+        for scan in scans ?? [] {
+            if let objects = try? await API.shared.objects(roomScanId: scan.id), !objects.isEmpty {
+                objectsByRoom[scan.id] = objects
+            }
+            if let areas = try? await API.shared.areas(roomScanId: scan.id), !areas.isEmpty {
+                areasByRoom[scan.id] = areas
+            }
+        }
+        planObjects = objectsByRoom
+        planAreas = areasByRoom
     }
 
     /// Delete a whole storey.

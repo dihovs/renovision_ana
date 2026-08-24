@@ -3529,3 +3529,30 @@ Newest last. One or two lines per chat.
   thumbnail, converted through the same metric-to-imperial constants the
   lines are priced from, so the header and the lines below it cannot quote
   different numbers.
+- **2026-08-24 (S12/S8 — the Floor Plans tile becomes a drawing)** Build
+  **208**, from his own screen beside the reference: *"the floorplan here is
+  small, make it bigger, like in the magicplan, with furnitures and also
+  damaged area."*
+  **The tile was a stamp.** 92 pt of drawing inside a 132 pt card — at that
+  size furniture is invisible and a damaged patch is a smudge, so an outline
+  was the only thing it COULD show. Now 180 pt inside 260, close to the
+  reference's card, and the extra room is spent on the two things that make
+  it a plan rather than a shape.
+  **The storey canvas never drew objects, and `drawObject` was already ready
+  for it.** Its `labelled` parameter carries the comment *"off at storey
+  scale, where the room's own name plate already owns that space"* — written
+  for a caller that never existed. `LevelCanvas` now takes objects and
+  affected areas keyed by room id and draws both: damage first, so a vanity
+  standing in a wet patch still reads as a vanity. This fixes the full
+  storey view at the same time, and closes the 23 Aug complaint the tile had
+  quietly kept open — *"the illustration is only inside of the floor plan.
+  It's not on the thumbnail, and it's not in the storey. I want to have it
+  everywhere the same."*
+  **Loaded per room, and that is deliberate.** There IS a whole-project
+  objects endpoint and it is the wrong one: `RoomObject` carries no room id,
+  so a project-wide list cannot be grouped back onto the rooms holding the
+  objects — it exists for takeoff TOTALS, where the room does not matter.
+  The rooms were already being walked for their areas, so both come back in
+  one pass, best-effort and last: a plan without furniture is a poorer
+  drawing, but a project page that refuses to load because the objects call
+  hiccuped is a broken screen.

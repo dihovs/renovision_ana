@@ -122,6 +122,23 @@ enum ScanLens {
         }
     }
 
+    /// **The storey's raw geometry, replaced each time rather than appended.**
+    ///
+    /// Its twin above appends, because the interesting thing about a
+    /// diagnostic line is usually the one before it. This is the opposite: a
+    /// geometry export is a snapshot of what is on screen NOW, it is read by
+    /// a machine rather than a person, and a file holding six concatenated
+    /// JSON arrays parses as none of them.
+    static func writeGeometryExport(_ json: String) {
+        guard
+            let dir = FileManager.default.urls(
+                for: .documentDirectory, in: .userDomainMask
+            ).first,
+            let data = json.data(using: .utf8)
+        else { return }
+        try? data.write(to: dir.appendingPathComponent("storey-geometry.json"))
+    }
+
     /// A single block of text answering the owner's question, written to the
     /// log at scan start.
     ///

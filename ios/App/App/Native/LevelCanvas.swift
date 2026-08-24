@@ -96,6 +96,22 @@ struct LevelCanvas: View {
     /// after the scanning" is answered by the plan opening with the new room
     /// already picked out, not by making the operator find it.
     var spotlight: Set<String> = []
+    /// **What is standing in each room, keyed by room id.**
+    ///
+    /// The owner, 23 Aug 2026: *"the illustration is only inside of the floor
+    /// plan. It's not on the thumbnail, and it's not in the storey. I want to
+    /// have it everywhere the same."* `EditorChrome.drawObject` even carries
+    /// a `labelled: false` mode whose comment says "off at storey scale" —
+    /// the drawing was ready for this canvas and this canvas never asked for
+    /// it. It does now, so a storey plan is a drawing of a property rather
+    /// than of empty rectangles.
+    var objects: [String: [RoomObject]] = [:]
+    /// The damaged regions, keyed by room id. Floor areas only: a wall
+    /// area's polygon lives in its wall's own face space and would be drawn
+    /// as nonsense on a plan. On a claim document this is the whole point of
+    /// the drawing — the shaded patch is what the estimate's quantities are
+    /// measured from.
+    var areas: [String: [AffectedArea]] = [:]
     /// The drafting-paper grid behind the rooms (`editor-chrome-design.md` §2):
     /// fine dots, every fifth one a `+` crosshair. Off for the thumbnail on
     /// the project screen, where it would only be noise at that size.
@@ -258,6 +274,38 @@ struct LevelCanvas: View {
                             context.stroke(
                                 cut, with: .color(bg),
                                 style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
+                        }
+
+                        // **The damage, under the furniture.** A shaded patch
+                        // is what the estimate's quantities are measured
+                        // from, and a drawing that omits it leaves a figure
+                        // an adjuster cannot point at. Drawn before the
+                        // objects so a vanity standing in a wet patch still
+                        // reads as a vanity.
+                        for area in areas[slot.piece.id] ?? [] where area.surface != "wall" {
+                            guard area.polygon.count >= 3 else { continue }
+                            var patch = Path()
+                            patch.move(to: pt(area.polygon[0].x, area.polygon[0].y))
+                            for point in area.polygon.dropFirst() {
+                                patch.addLine(to: pt(point.x, point.y))
+                            }
+                            patch.closeSubpath()
+                            let tone = area.displayColor
+                            context.fill(patch, with: .color(tone.opacity(0.42)))
+                            context.stroke(
+                                patch, with: .color(tone.opacity(0.85)),
+                                style: StrokeStyle(lineWidth: 1))
+                        }
+
+                        // **The furniture, at storey scale.** Unlabelled —
+                        // the room's own name plate owns that space and a
+                        // hundred-point room cannot carry both, which is
+                        // exactly what `drawObject`'s own comment says.
+                        for object in objects[slot.piece.id] ?? [] where object.included {
+                            EditorChrome.drawObject(
+                                object, context: context,
+                                toScreen: { pt($0.x, $0.y) },
+                                scale: scale, selected: false, labelled: false)
                         }
 
                         // Name + area, when the room plots big enough to hold
@@ -1178,6 +1226,44 @@ struct FloorCanvasView: View {
     /// would be worse than no dollhouse — and this project has already paid
     /// once for two copies of one layout, when the phone and the report
     /// disagreed about a storey.
+    /// **The storey's raw geometry, written out verbatim.**
+    ///
+    /// The owner, 24 Aug 2026, looking at a sample estimate drawn with
+    /// invented rooms: *"now use a real plan from my app."* Fair — a demo
+    /// drawn from a room nobody scanned proves the layout and nothing else.
+    ///
+    /// `ScanGeometry` is `Codable` and is EXACTLY what the web's `FloorPlan`
+    /// takes, so a JSON dump of it here can be fed straight to the real
+    /// renderer on the other side. No second format, no transcription: the
+    /// same blob the server already stores, out through the same file
+    /// `devicectl` can already fetch.
+    ///
+    /// Written once per storey open, and only ever read by a developer with
+    /// the phone on a cable.
+    private func exportGeometry(_ scans: [RoomScan]) {
+        struct Export: Encodable {
+            let id: String
+            let name: String
+            let level: String
+            let ceilingHeightM: Double
+            let planX: Double?
+            let planY: Double?
+            let geometry: ScanGeometry
+        }
+        let payload = scans.compactMap { scan -> Export? in
+            guard let geometry = scan.geometry else { return nil }
+            return Export(
+                id: scan.id, name: scan.name, level: scan.level,
+                ceilingHeightM: scan.ceilingHeightM,
+                planX: scan.planX, planY: scan.planY, geometry: geometry)
+        }
+        guard !payload.isEmpty,
+            let data = try? JSONEncoder().encode(payload),
+            let json = String(data: data, encoding: .utf8)
+        else { return }
+        ScanLens.writeGeometryExport(json)
+    }
+
     private var dollhouseRooms: [Dollhouse.Room] {
         let usable: [(room: RoomScan, plan: FloorPlanGeometry.Plan)] =
             rooms.compactMap { room in
@@ -1186,6 +1272,7 @@ struct FloorCanvasView: View {
                 return plan.isEmpty ? nil : (room, plan)
             }
         guard !usable.isEmpty else { return [] }
+        exportGeometry(usable.map(\.room))
         let packed = StoreyPacking.pack(
             usable.map {
                 StoreyPacking.Item(

@@ -215,6 +215,13 @@ struct GhostTile: View {
 struct FloorPlanTile: View {
     let level: String
     let rooms: [RoomScan]
+    /// What is standing in each room, and what is damaged, keyed by room id.
+    /// The tile is a DRAWING of the property, and the owner comparing it
+    /// with the reference put the gap plainly, 24 Aug 2026: *"the floorplan
+    /// here is small, make it bigger, like in the magicplan, with furnitures
+    /// and also damaged area."*
+    var objects: [String: [RoomObject]] = [:]
+    var areas: [String: [AffectedArea]] = [:]
     let onOpen: () -> Void
     /// Remove the whole storey. Nil leaves the tile exactly as it was — the
     /// rail on a screen with no way to reload should not offer to delete.
@@ -235,9 +242,12 @@ struct FloorPlanTile: View {
                         // with the drafting grid off — it would only be
                         // noise this small. Hit testing off so the tile is
                         // one target, not one per room inside it.
-                        LevelCanvas(rooms: rooms, grid: false, maxHeight: 86) { _ in }
-                            .allowsHitTesting(false)
-                            .padding(2)
+                        LevelCanvas(
+                            rooms: rooms, objects: objects, areas: areas,
+                            grid: false, maxHeight: 168
+                        ) { _ in }
+                        .allowsHitTesting(false)
+                        .padding(4)
                     } else {
                         // A floor that exists but has nothing measured on it
                         // yet. Says so, rather than showing blank paper that
@@ -247,16 +257,20 @@ struct FloorPlanTile: View {
                             .foregroundStyle(Brand.Plan.labelSoft)
                     }
                 }
-                // Taller, so the drawing gets the room the owner asked for:
-                // *"on this card the plan is too small."* The caption block
-                // under it is unchanged, so the tile grows by exactly what
-                // the plan gains.
-                .frame(height: 92)
+                // **Big enough to be a drawing.** It was 92pt tall inside a
+                // 132pt tile, which is a stamp: at that size the furniture
+                // is invisible and a damaged patch is a smudge, so the
+                // drawing could only ever be an outline. The reference's
+                // card is most of the screen's width and reads as a plan at
+                // a glance. Grown to match, and the furniture and damage
+                // below are what the extra room is FOR — a bigger picture of
+                // an empty outline would be no better, only larger.
+                .frame(height: 180)
                 .clipped()
 
                 VStack(spacing: 1) {
                     Text(level)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Brand.ink)
                         .lineLimit(1)
                     Text(
@@ -264,7 +278,7 @@ struct FloorPlanTile: View {
                             ? "No rooms yet"
                             : "\(rooms.count) room\(rooms.count == 1 ? "" : "s") · \(Measure.sqftLabel(areaSqm))"
                     )
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .monospacedDigit()
                     .foregroundStyle(Brand.inkFaint)
                     .lineLimit(1)
@@ -273,7 +287,7 @@ struct FloorPlanTile: View {
                 .padding(.vertical, 7)
                 .background(Brand.surface)
             }
-            .frame(width: 132)
+            .frame(width: 260)
             .clipShape(.rect(cornerRadius: Brand.Radius.card))
             .overlay(
                 RoundedRectangle(cornerRadius: Brand.Radius.card)
