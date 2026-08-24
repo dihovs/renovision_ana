@@ -29,6 +29,11 @@ struct RoomPhotosSection: View {
 
     @State private var photos: [RoomPhoto]?
     @State private var takingPhoto = false
+    /// Whether the camera cover actually made it ON SCREEN — set by the
+    /// cover's own `onAppear`/`onDisappear`, not by the flag that requested
+    /// it. The two differ exactly when the system drops a presentation, which
+    /// is the fault `presentCamera` exists to survive.
+    @State private var cameraOnScreen = false
     @State private var pickedItem: PhotosPickerItem?
     /// The library sheet, opened from the `+` menu rather than by its own
     /// button — a `PhotosPicker` cannot be a row inside a `Menu`.
@@ -198,6 +203,13 @@ struct RoomPhotosSection: View {
             }
         }
         .task { await load() }
+        // A queued photo left the queue — it either landed on the server or
+        // failed out. Either way the server's list is the truth now, and
+        // this is the ONE place the grid re-fetches after a capture; see the
+        // note in `upload(_:)` for the lag that fetching per shot caused.
+        .onChange(of: waiting.count) { old, new in
+            if new < old { Task { await load() } }
+        }
         .onChange(of: pickedItem) { _, item in
             guard let item else { return }
             Task {
@@ -228,10 +240,17 @@ struct RoomPhotosSection: View {
             // Ours, not the system's — the reference's camera stamps the
             // frame as you aim and offers the lens buttons, and neither is
             // possible inside `UIImagePickerController`.
+            // No `.ignoresSafeArea()` here any more — see the note in
+            // `SiteCameraView.body`. It pushed the header under the notch and
+            // the controls under the home indicator, and the view already
+            // takes the whole screen without it.
             SiteCameraView(
                 onPhoto: { image in Task { await upload(image) } },
                 onVideo: { url in Task { await upload(video: url) } })
-                .ignoresSafeArea()
+                // Ground truth for `presentCamera`'s retry: the cover is on
+                // screen when IT says so, not when the flag asked for it.
+                .onAppear { cameraOnScreen = true }
+                .onDisappear { cameraOnScreen = false }
         }
     }
 
@@ -304,15 +323,59 @@ struct RoomPhotosSection: View {
     ///
     /// `requestAccess` returns immediately when the answer is already known,
     /// so this costs nothing after the first time.
+    /// **Present, then verify it presented, and retry once if it did not.**
+    ///
+    /// The owner, 20 Aug: *"the camera opens and then closes, and then the
+    /// second time when I click, it opens."* The first fix was a fixed 350 ms
+    /// wait for the `+` menu's dismissal (SwiftUI drops a cover raised while
+    /// another presentation is still going down, and a `Menu` has no
+    /// dismissal callback to chain on). **He reported the identical symptom
+    /// again on 23 Aug, with that fix installed and verified on the device**
+    /// — so the timer either loses the race some of the time or the drop has
+    /// a second cause entirely, and a longer guess would just lose more
+    /// slowly.
+    ///
+    /// So the guess is replaced with a check. `cameraOnScreen` is set by the
+    /// cover's own `onAppear` — ground truth, not intent. If the request
+    /// flag is up but the camera never arrived, the presentation was
+    /// dropped: log WHICH state it died in (the diagnostics file has
+    /// answered three "it doesn't work" reports already), take the flag
+    /// down, let the failed presentation finish collapsing, and raise it
+    /// once more. One retry, not a loop — if the second attempt also dies,
+    /// something is structurally wrong and hammering the presenter would
+    /// only make the screen flicker.
+    @MainActor
+    private func presentCamera() {
+        Task {
+            // Still outwaits the menu's dismissal — the retry below is the
+            // net, not the plan.
+            try? await Task.sleep(for: .milliseconds(350))
+            takingPhoto = true
+
+            // A cover that is going to survive is on screen well inside a
+            // second; one that got dropped never arrives at all.
+            try? await Task.sleep(for: .milliseconds(900))
+            guard !cameraOnScreen else { return }
+            ScanLens.appendToDiagnostics(
+                "CAMERA-DROP: cover requested but never appeared "
+                    + "(takingPhoto=\(takingPhoto)) — re-presenting once")
+            takingPhoto = false
+            try? await Task.sleep(for: .milliseconds(300))
+            takingPhoto = true
+        }
+    }
+
     private func openCamera() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            takingPhoto = true
+            presentCamera()
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 Task { @MainActor in
                     if granted {
-                        takingPhoto = true
+                        // The permission alert is itself a presentation, and
+                        // it has to be gone before the camera can rise.
+                        presentCamera()
                     } else {
                         // Not an error to retry — a decision, and the only
                         // place it can be changed is Settings.
@@ -353,9 +416,14 @@ struct RoomPhotosSection: View {
             error = PhotoQueue.shared.lastError ?? "Could not save that photo on this phone."
             return
         }
-        // The list may already have it if the send was quick; if not, the
-        // pending row below stands in until it lands.
-        await load()
+        // **No server round-trip here — that was the lag.** This used to
+        // `await load()` on every shot, so each press of the shutter cost a
+        // full photo-list fetch from wherever the operator was standing,
+        // which on a job-site connection is seconds — the owner reported it
+        // twice. The queue's pending row (`waiting`, observed reactively)
+        // already puts the photo on the grid the instant it is taken; the
+        // reload belongs at the moment an upload LANDS, and `onChange` of
+        // the waiting count below does exactly that.
     }
 
     /// A kept recording, end to end: poster frame, duration, upload.

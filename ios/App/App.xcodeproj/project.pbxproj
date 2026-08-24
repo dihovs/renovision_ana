@@ -87,6 +87,7 @@
 		50DCBF05E8FDF57D2D64FBBB /* ScanQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D95B200286F894E8ABD878 /* ScanQuality.swift */; };
 		156F2FDCB7A13881EB07CEAD /* Dollhouse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */; };
 		5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734DBBF88B12469631DCC185 /* DollhouseView.swift */; };
+		5398DAFE54003D2579471BAA /* DollhouseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734DBBF88B12469631DCCBBB /* DollhouseModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -171,6 +172,7 @@
 		B1D95B200286F894E8ABD878 /* ScanQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanQuality.swift; sourceTree = "<group>"; };
 		D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Dollhouse.swift; sourceTree = "<group>"; };
 		734DBBF88B12469631DCC185 /* DollhouseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseView.swift; sourceTree = "<group>"; };
+		734DBBF88B12469631DCCBBB /* DollhouseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -215,6 +217,7 @@
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
 				734DBBF88B12469631DCC185 /* DollhouseView.swift */,
+				734DBBF88B12469631DCCBBB /* DollhouseModel.swift */,
 				D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */,
 				B1D95B200286F894E8ABD878 /* ScanQuality.swift */,
 				D0A15229A30ECEF5E7DE5A37 /* ScanLens.swift */,
@@ -373,6 +376,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */,
+				5398DAFE54003D2579471BAA /* DollhouseModel.swift in Sources */,
 				156F2FDCB7A13881EB07CEAD /* Dollhouse.swift in Sources */,
 				50DCBF05E8FDF57D2D64FBBB /* ScanQuality.swift in Sources */,
 				86CA178EB3CF2A476F8678EA /* ScanLens.swift in Sources */,

@@ -203,6 +203,10 @@ struct RoomEditorCore: View {
     /// Where an object drag started, in plan metres, so each frame applies
     /// the whole translation from the original rather than accumulating.
     @State private var objectDragStart: CGPoint?
+    /// Whether the current drag has already been told it is blocked. Without
+    /// it the refusal haptic fires every frame the thumb keeps pushing into
+    /// the same cabinet, which reads as a fault rather than as a limit.
+    @State private var blockedNudged = false
     /// Which wall each object was standing against when the current wall or
     /// corner drag began, so the objects can be carried along with it. See
     /// `PlanEditing.WallAnchor` for why this is derived at drag time rather
@@ -1598,10 +1602,39 @@ struct RoomEditorCore: View {
             }
             snapEngaged = snap.engaged
 
+            // **Stop against whatever is already there.** The wall snap above
+            // decides where the operator is aiming; this decides how far of
+            // that is actually free. Applied AFTER the snap on purpose — a
+            // flush-to-wall landing that happens to sit inside the next
+            // cabinet along still has to give way, and resolving before the
+            // snap would let the snap put it right back.
+            //
+            // The object's own rotation is the SNAPPED one where a snap took,
+            // because turning square to the wall changes the footprint it
+            // needs, and testing the old angle would clear a space it no
+            // longer fits in.
+            let aimed = snap.engaged ? snap.centre : moved
+            let facing = snap.engaged ? snap.rotation : object.rotation
+            let landing = PlanEditing.resolveObjectPlacement(
+                desired: aimed, from: origin,
+                width: object.width, depth: object.depth, rotation: facing,
+                obstacles: objects.filter { $0.id != id }.map {
+                    PlanEditing.ObjectFootprint(
+                        centre: CGPoint(x: $0.x, y: $0.y),
+                        width: $0.width, depth: $0.depth, rotation: $0.rotation)
+                })
+            if landing != aimed, !blockedNudged {
+                // One tick the first time it refuses, not one per frame while
+                // the thumb keeps pushing into the same cabinet.
+                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                blockedNudged = true
+            } else if landing == aimed {
+                blockedNudged = false
+            }
+
             // Moved in the local array only — the write happens once, on
             // lift, in `endObjectDrag`. A PATCH per frame would be sixty
             // requests a second from a phone on a job-site connection.
-            let landing = snap.engaged ? snap.centre : moved
             replaceObject(id) {
                 let placed = $0.moved(to: PlanEditing.quantise(landing))
                 return snap.engaged ? placed.rotated(to: snap.rotation) : placed
@@ -2454,6 +2487,7 @@ struct RoomEditorCore: View {
 
     /// The write at the end of a drag — once, not per frame.
     private func endObjectDrag() {
+        blockedNudged = false
         guard objectDragStart != nil, case .object(let id) = selection,
             let object = objects.first(where: { $0.id == id })
         else {

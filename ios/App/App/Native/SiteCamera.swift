@@ -54,11 +54,23 @@ struct SiteCameraView: View {
     /// by either button in `videoKeepPrompt`, which is also what owns
     /// discarding the temp file when "Not now" is chosen.
     @State private var pendingVideo: URL?
+    /// How many photos or clips this visit to the camera has produced. Drives
+    /// nothing but the `Done` button, which has nothing to be done about until
+    /// there is at least one.
+    @State private var taken = 0
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
+            // **The CHROME keeps its safe area; only the black behind it does
+            // not.** The owner: *"the camera is not scaled properly to the
+            // size of my phone screen."* The whole view was presented with
+            // `.ignoresSafeArea()`, so this stack ran edge to edge — the
+            // header slid under the notch and the controls under the home
+            // indicator, which is why a button at the bottom could not be
+            // reached. Ignoring the safe area is right for the backdrop and
+            // wrong for anything anybody has to press.
             VStack(spacing: 0) {
                 header
                 preview
@@ -85,6 +97,24 @@ struct SiteCameraView: View {
                     .font(.system(size: 17))
                     .foregroundStyle(.white)
                 Spacer()
+                // **Done, once anything has been taken.**
+                //
+                // The owner: *"I don't see the button that says Done after the
+                // photos are taken."* There wasn't one. The only way out of
+                // this screen was the button labelled `Cancel` — which, after
+                // shooting six photographs of a flooded basement, reads as
+                // "throw them away". Every shot was in fact already uploaded
+                // the moment it was taken, so Cancel was safe; nothing about
+                // the screen said so.
+                //
+                // It appears only after the first capture, because a Done on
+                // an empty camera is a second Cancel wearing a friendlier
+                // word.
+                if taken > 0 {
+                    Button("Done") { dismiss() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
             }
         }
         .padding(.horizontal, Brand.Space.base)
@@ -260,7 +290,10 @@ struct SiteCameraView: View {
                 withAnimation(.easeOut(duration: 0.06)) { flashing = true }
                 camera.capture { image in
                     withAnimation(.easeIn(duration: 0.18)) { flashing = false }
-                    if let image { onPhoto(image) }
+                    if let image {
+                        onPhoto(image)
+                        taken += 1
+                    }
                 }
             case .video:
                 if camera.recording {

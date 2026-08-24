@@ -30,7 +30,12 @@ export async function GET(
   // how the printed one and the screen one start disagreeing.
   const target = new URL(`/admin/projects/${id}/report`, request.url);
   target.searchParams.set("bare", "1");
-  for (const key of ["dimensions", "layout"]) {
+  // `lang` belongs here as much as the others: the export screen has a
+  // Français/English picker, and without forwarding it every PDF came back in
+  // the default language however the preview looked. A preview and a file that
+  // disagree about language is worse than no picker, because the operator has
+  // already checked the preview.
+  for (const key of ["dimensions", "layout", "lang"]) {
     const value = query.get(key);
     if (value) target.searchParams.set(key, value);
   }

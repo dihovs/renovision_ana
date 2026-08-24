@@ -1591,6 +1591,134 @@ enum PlanEditing {
     /// the line, and that is what this offsets by.
     static let wallFaceInset = OpeningGlyphs.bandT / 2
 
+    /// **Do two footprints overlap?** Separating axis theorem, over two
+    /// rotated rectangles.
+    ///
+    /// A rotated rectangle is not an axis-aligned box, and a cabinet against a
+    /// wall is rotated by definition — so comparing bounding boxes would call
+    /// two objects touching with a hand's width still between them, and worse,
+    /// would let two at 45° genuinely interpenetrate while their boxes claimed
+    /// they were clear.
+    ///
+    /// The rectangles' own edge normals are enough axes to test: two convex
+    /// shapes that are apart are apart along an edge of one of them.
+    static func footprintsOverlap(_ a: [CGPoint], _ b: [CGPoint]) -> Bool {
+        guard a.count >= 3, b.count >= 3 else { return false }
+
+        func separated(along shape: [CGPoint]) -> Bool {
+            for i in shape.indices {
+                let p1 = shape[i]
+                let p2 = shape[(i + 1) % shape.count]
+                let axis = CGPoint(x: -(p2.y - p1.y), y: p2.x - p1.x)
+                let length = hypot(axis.x, axis.y)
+                guard length > 1e-9 else { continue }
+                let ux = axis.x / length, uy = axis.y / length
+
+                func span(_ points: [CGPoint]) -> (lo: Double, hi: Double) {
+                    var lo = Double.greatestFiniteMagnitude
+                    var hi = -Double.greatestFiniteMagnitude
+                    for point in points {
+                        let v = Double(point.x * ux + point.y * uy)
+                        lo = min(lo, v)
+                        hi = max(hi, v)
+                    }
+                    return (lo, hi)
+                }
+
+                let first = span(a)
+                let second = span(b)
+                // A hair of tolerance, so two objects laid exactly edge to
+                // edge read as touching rather than as colliding — which is
+                // precisely the position this whole feature exists to let the
+                // operator reach.
+                if first.hi <= second.lo + 1e-6 || second.hi <= first.lo + 1e-6 {
+                    return true
+                }
+            }
+            return false
+        }
+
+        return !separated(along: a) && !separated(along: b)
+    }
+
+    /// One thing a dragged object has to stop against.
+    struct ObjectFootprint {
+        let centre: CGPoint
+        let width: Double
+        let depth: Double
+        let rotation: Double
+
+        var corners: [CGPoint] {
+            ObjectCatalog.footprint(width: width, depth: depth, rotation: rotation)
+                .map { CGPoint(x: centre.x + $0.x, y: centre.y + $0.y) }
+        }
+    }
+
+    /// **Where a dragged object can actually get to.**
+    ///
+    /// The owner, 23 Aug 2026: *"the objects go onto each other… when they
+    /// touch each other with the borders they have to stop there."* Placement
+    /// had no idea other objects existed, so a fridge could be parked inside a
+    /// counter run — quiet enough on a 2D plan, and impossible to miss the
+    /// moment the dollhouse stood both of them up.
+    ///
+    /// Three candidates, best first, and it is the middle one that makes this
+    /// feel like sliding rather than sticking:
+    ///
+    /// 1. **The whole move**, when it is clear.
+    /// 2. **One axis at a time.** Dragging along a counter run should run down
+    ///    its face, not stop dead at the first corner — moving in x alone or y
+    ///    alone is what allows that.
+    /// 3. **As far along the drag as fits**, by bisection. That is the literal
+    ///    "stop there": the last position before contact.
+    ///
+    /// **An object that already overlaps where it started would fail every
+    /// candidate and be frozen.** Everything placed before this existed is
+    /// overlapping right now, so that case returns the desired point
+    /// untouched: a rule arriving late must not trap what it finds.
+    static func resolveObjectPlacement(
+        desired: CGPoint, from: CGPoint, width: Double, depth: Double, rotation: Double,
+        obstacles: [ObjectFootprint]
+    ) -> CGPoint {
+        guard !obstacles.isEmpty else { return desired }
+        let shapes = obstacles.map(\.corners)
+
+        func clear(_ centre: CGPoint) -> Bool {
+            let mine = ObjectCatalog.footprint(width: width, depth: depth, rotation: rotation)
+                .map { CGPoint(x: centre.x + $0.x, y: centre.y + $0.y) }
+            return !shapes.contains { footprintsOverlap(mine, $0) }
+        }
+
+        if clear(desired) { return desired }
+        guard clear(from) else { return desired }
+
+        let slid = [
+            CGPoint(x: desired.x, y: from.y),
+            CGPoint(x: from.x, y: desired.y),
+        ]
+        .filter(clear)
+        .min {
+            hypot($0.x - desired.x, $0.y - desired.y) < hypot($1.x - desired.x, $1.y - desired.y)
+        }
+        if let slid { return slid }
+
+        // `from` is known clear and `desired` is known blocked, so contact is
+        // between them. Twelve halvings lands inside a millimetre of it on any
+        // drag a thumb can make.
+        var lo = 0.0
+        var hi = 1.0
+        for _ in 0..<12 {
+            let mid = (lo + hi) / 2
+            let point = CGPoint(
+                x: from.x + (desired.x - from.x) * mid,
+                y: from.y + (desired.y - from.y) * mid)
+            if clear(point) { lo = mid } else { hi = mid }
+        }
+        return CGPoint(
+            x: from.x + (desired.x - from.x) * lo,
+            y: from.y + (desired.y - from.y) * lo)
+    }
+
     static func snapObjectToWall(
         _ polygon: [CGPoint], centre: CGPoint, width: Double, depth: Double,
         capture: Double, alreadyEngaged: Bool

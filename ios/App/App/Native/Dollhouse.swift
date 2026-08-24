@@ -72,13 +72,42 @@ enum Dollhouse {
         return m
     }
 
-    private static let wallInk = UIColor(red: 0.955, green: 0.950, blue: 0.937, alpha: 1)
-    /// The cut edge of the wall, seen from above. Deliberately a shade darker
-    /// than the face: on a real drawing the poché is what tells you a wall has
-    /// substance, and here it is the ONLY thing that can — see `wallNode`.
-    private static let wallCapInk = UIColor(red: 0.80, green: 0.79, blue: 0.77, alpha: 1)
-    private static let leafInk = UIColor(red: 0.78, green: 0.71, blue: 0.62, alpha: 1)
-    private static let glassInk = UIColor(red: 0.62, green: 0.78, blue: 0.90, alpha: 0.55)
+    private static let wallInk = UIColor(red: 0.965, green: 0.965, blue: 0.960, alpha: 1)
+    /// **The cut top of the wall, and it is nearly black on purpose.**
+    ///
+    /// Read off the reference's own 3D view, 23 Aug 2026: their walls are
+    /// sliced at waist height and the cut face is a heavy charcoal band. It is
+    /// the poché of a plan drawing standing up — the one mark that says a wall
+    /// has substance — and the first attempt here used a polite grey a shade
+    /// off the face, which read as no thickness at all.
+    private static let wallCapInk = UIColor(red: 0.16, green: 0.17, blue: 0.18, alpha: 1)
+
+    /// **How high the walls are cut.**
+    ///
+    /// The whole model changed shape around this number. The first dollhouse
+    /// stood walls full height and hid the near ones with front-face culling,
+    /// which meant: no wall tops (they face the camera, so they culled first),
+    /// z-fighting wherever two pieces met, and a camera permanently inside one
+    /// room. The reference does the obvious thing instead — slice every wall
+    /// at about waist height and look down into the whole floor at once.
+    ///
+    /// Everything improves at once. Culling is unnecessary, so tops draw and
+    /// the fighting stops; every room is visible together; and there is a
+    /// third less geometry.
+    ///
+    /// 1.15 m sits above a counter and below a door head, so a counter run
+    /// still reads as a counter and every doorway still reads as a hole.
+    private static let cutHeight = 1.15
+    /// Door leaves are WHITE, not the wood tone the first pass used.
+    ///
+    /// The reference's leaves are plain white panels, and it is the right
+    /// call for a claim document: a brown door is a guess about somebody's
+    /// house, and this model is evidence, not decoration.
+    private static let leafInk = UIColor(red: 0.985, green: 0.985, blue: 0.985, alpha: 1)
+    /// Barely tinted, for the same reason — enough to read as glazing, not
+    /// enough to look like a swimming pool. The first version was a saturated
+    /// blue that dominated every wall it sat in.
+    private static let glassInk = UIColor(red: 0.86, green: 0.90, blue: 0.93, alpha: 1)
     private static let objectInk = UIColor(red: 0.88, green: 0.88, blue: 0.89, alpha: 1)
 
     /// **90 mm, which is a real stud wall.** 2x4 framing plus 12.7 mm board
@@ -115,6 +144,16 @@ enum Dollhouse {
         let world = SCNNode()
         world.name = "world"
         for room in rooms { world.addChildNode(node(for: room)) }
+
+        // Merge each room's shell — see the note on `shell` in `node(for:)`.
+        for room in world.childNodes {
+            guard let shell = room.childNode(withName: "shell", recursively: false) else {
+                continue
+            }
+            let merged = shell.flattenedClone()
+            merged.name = "shell"
+            room.replaceChildNode(shell, with: merged)
+        }
 
         // Centre the model on the origin so the camera orbits its middle
         // rather than its corner.
@@ -204,8 +243,15 @@ enum Dollhouse {
         sun.light?.type = .directional
         sun.light?.intensity = 780
         sun.light?.castsShadow = true
-        sun.light?.shadowMode = .deferred
-        sun.light?.shadowRadius = 6
+        // **Forward, small map, few samples.** The owner: *"when I turn things
+        // around, we have a lot of stutter."* Deferred shadows at radius 6 are
+        // a full-screen pass with a wide blur every single frame, which is
+        // most of a phone's budget for a model this simple. Forward with a
+        // modest map costs a fraction and at this scale looks the same.
+        sun.light?.shadowMode = .forward
+        sun.light?.shadowMapSize = CGSize(width: 1024, height: 1024)
+        sun.light?.shadowSampleCount = 4
+        sun.light?.shadowRadius = 2
         sun.light?.shadowColor = UIColor(white: 0, alpha: 0.28)
         sun.eulerAngles = SCNVector3(-Float.pi / 3, Float.pi / 5, 0)
         scene.rootNode.addChildNode(sun)
@@ -223,10 +269,18 @@ enum Dollhouse {
         node.name = "room:\(room.id)"
         node.position = SCNVector3(Float(room.origin.x), 0, Float(room.origin.y))
 
-        node.addChildNode(floorNode(room))
+        // **The static shell, under one node so it can be merged.** Thirteen
+        // walls cut around eight openings is well over a hundred separate draw
+        // calls, and not one of them ever moves. `flattenedClone` in `scene`
+        // collapses this subtree into a single mesh; doors and contents stay
+        // outside it because those DO move and still have to be tapped.
+        let shell = SCNNode()
+        shell.name = "shell"
+        shell.addChildNode(floorNode(room))
         for segment in room.plan.segments {
-            node.addChildNode(wallNode(segment, room: room))
+            shell.addChildNode(wallNode(segment, room: room))
         }
+        node.addChildNode(shell)
         for opening in room.plan.openings {
             if let leaf = leafNode(opening, room: room) { node.addChildNode(leaf) }
         }
@@ -264,18 +318,57 @@ enum Dollhouse {
     /// it is still in the room, just out of the claim, and a model that
     /// deleted it would disagree with the plan beside it.
     static func placedNode(_ object: RoomObject) -> SCNNode {
-        let height = max(0.15, object.height)
-        let box = SCNBox(
-            width: CGFloat(max(0.08, object.width)), height: CGFloat(height),
-            length: CGFloat(max(0.08, object.depth)), chamferRadius: 0.012)
-        let m = material(objectInk)
-        if !object.included { m.transparency = 0.35 }
-        box.materials = [m]
-        let node = SCNNode(geometry: box)
+        let entry = object.entry
+        let width = max(0.08, object.width)
+        let depth = max(0.08, object.depth)
+        let height = max(0.10, object.height)
+
+        let node = SCNNode()
         node.name = "object:\(object.id)"
-        node.position = SCNVector3(Float(object.x), Float(height / 2), Float(object.y))
+        node.addChildNode(
+            DollhouseModel.build(
+                shape: entry?.shape ?? .box, width: width, depth: depth, height: height,
+                included: object.included))
+        node.position = SCNVector3(
+            Float(object.x), Float(mountHeight(for: entry, height: height)), Float(object.y))
         node.eulerAngles = SCNVector3(0, Float(-object.rotation * .pi / 180), 0)
         return node
+    }
+
+    /// **How far off the floor the thing actually hangs.**
+    ///
+    /// The owner, looking at his own living room in the model: *"why doesn't
+    /// it show the TV on the wall? There is a TV on the wall."* It WAS being
+    /// drawn — lying flat on the floor, a 55-inch panel four inches deep,
+    /// easy to miss and completely wrong.
+    ///
+    /// **This is the fourth time the same gap has bitten**: a skylight is in
+    /// the roof, a storm window sits over another window, a wall A/C hangs
+    /// high on a wall, and now a television. Nothing in `RoomObject` or in
+    /// `ObjectCatalog.Entry` can say where a thing is mounted, and the
+    /// television's own `sizeNote` even admits it — *"wall-hung or on a
+    /// stand"* — in prose that no code can read.
+    ///
+    /// **This is a stopgap and is deliberately shallow.** It reads the SHAPE,
+    /// which is the only structured hint the catalogue has, and lifts the two
+    /// families that are always mounted. The real fix is a `mount` on the
+    /// catalogue entry — floor, wall, ceiling — which is a change to a
+    /// compiled table rather than a migration, and which `Docs/Custom-Objects-Spec.md`
+    /// should carry alongside the questions it already asks the owner. Until
+    /// then a `shelving` object that genuinely does stand on the floor will be
+    /// lifted wrongly, and that is a visible error rather than a quiet one.
+    private static func mountHeight(for entry: ObjectCatalog.Entry?, height: Double) -> Double {
+        switch entry?.shape {
+        case .wallCabinet:
+            // Underside at 1.4 m is the standard against a 0.9 m counter.
+            return 1.4 + height / 2
+        case .shelving where entry?.slug == "television":
+            // Centre at eye height sitting down, which is where a television
+            // is actually hung.
+            return 1.1 + height / 2
+        default:
+            return height / 2
+        }
     }
 
     /// The slab. Uses the room's real outline where it has one, so an L-shaped
@@ -445,36 +538,46 @@ enum Dollhouse {
 
         let holes = holes(on: segment, room: room)
         let height = room.ceilingHeight
+        // A room with a ceiling lower than the cut keeps its own ceiling —
+        // a crawlspace should not be sliced taller than it is.
+        let cut = min(cutHeight, height)
 
         /// A piece of wall spanning `from`..`to` along the run, `bottom`..`top`
         /// in height.
         func piece(from: Double, to: Double, bottom: Double, top: Double) {
-            let w = to - from
+            // Nothing above the cut is built at all — that is the saving, and
+            // the reason a room is visible from above without any culling.
+            let top = min(top, cut)
+            guard top > bottom else { return }
+
+            // **Grown by a hair at each end.** Two boxes that butt on exactly
+            // the same plane give the depth buffer two surfaces at one depth,
+            // and it picks per pixel, per frame — which is what the owner saw
+            // as vertical lines down the walls. Overlapping by a millimetre
+            // means one is unambiguously inside the other and there is
+            // nothing left to fight over.
+            let bleed = 0.001
+            let w = (to - from) + bleed * 2
             let h = top - bottom
             guard w > 0.015, h > 0.015 else { return }
+
             let box = SCNBox(
                 width: CGFloat(w), height: CGFloat(h),
                 length: CGFloat(wallThickness), chamferRadius: 0)
-            box.materials = [material(wallInk, cull: .front)]
-            let piece = SCNNode(geometry: box)
-            piece.position = SCNVector3(Float(from + w / 2 - length / 2), Float(bottom + h / 2), 0)
-            node.addChildNode(piece)
+            // **Per-face materials, so the cap needs no geometry of its own.**
+            // `SCNBox` takes six, in the order front, right, back, left, top,
+            // bottom. Giving the top its own dark material is the whole of the
+            // poché — the separate capping slab it replaces was half-buried in
+            // the wall beneath it, and the sawtooth along every wall top was
+            // those two surfaces fighting.
+            let face = material(wallInk)
+            let capFace = material(wallCapInk)
+            box.materials = [face, face, face, face, capFace, face]
 
-            // **The cap is why the walls looked like paper.** Front-face
-            // culling is what lets you see into every room from any angle,
-            // but a wall's TOP face points at a camera looking down — so it
-            // was the first thing culled, and the one surface that shows a
-            // wall has thickness was the one never drawn. The owner: *"the
-            // walls, they have no thickness."* Capped with its own
-            // normally-culled slab in a darker tone, which is the poché a
-            // plan drawing uses for exactly the same reason.
-            let cap = SCNBox(
-                width: CGFloat(w), height: 0.012,
-                length: CGFloat(wallThickness), chamferRadius: 0)
-            cap.materials = [material(wallCapInk)]
-            let capNode = SCNNode(geometry: cap)
-            capNode.position = SCNVector3(Float(from + w / 2 - length / 2), Float(top), 0)
-            node.addChildNode(capNode)
+            let piece = SCNNode(geometry: box)
+            piece.position = SCNVector3(
+                Float(from - bleed + w / 2 - length / 2), Float(bottom + h / 2), 0)
+            node.addChildNode(piece)
         }
 
         var cursor = 0.0
@@ -814,15 +917,38 @@ enum Dollhouse {
 
     // MARK: - Objects
 
+    /// A SCANNER detection, modelled the same way a placed object is.
+    ///
+    /// **This was the half that would have gone on looking like boxes.** The
+    /// first pass at real 3D forms only touched `placedNode` — the things the
+    /// operator puts down by hand. But the sofa and table in a scanned room
+    /// are detections, so the very objects the owner was pointing at would
+    /// have stayed crates while the ones he had never placed got modelled.
+    ///
+    /// RoomPlan reports a category string, `ScanCatalogue` already turns that
+    /// into a catalogue slug, and the entry carries the `Shape`. So the same
+    /// three-step lookup the scan review uses gives a detection a real form,
+    /// and a detected sofa and a placed sofa are the same object on screen —
+    /// which they should be, because they are the same sofa.
     private static func detectedNode(_ object: FloorPlanGeometry.Plan.PlacedObject) -> SCNNode {
-        let height = max(0.15, object.height)
-        let box = SCNBox(
-            width: CGFloat(max(0.1, object.width)), height: CGFloat(height),
-            length: CGFloat(max(0.1, object.depth)), chamferRadius: 0.02)
-        box.materials = [material(UIColor(red: 0.72, green: 0.75, blue: 0.79, alpha: 1))]
-        let node = SCNNode(geometry: box)
+        let width = max(0.1, object.width)
+        let depth = max(0.1, object.depth)
+        let height = max(0.1, object.height)
+
+        let slug = ScanCatalogue.suggestion(
+            forCategoryName: object.category, lowConfidence: object.lowConfidence
+        ).slug
+        let entry = slug.flatMap { ObjectCatalog.entry(slug: $0) }
+
+        let node = SCNNode()
+        node.addChildNode(
+            DollhouseModel.build(
+                shape: entry?.shape ?? .box, width: width, depth: depth, height: height,
+                included: true))
         node.position = SCNVector3(
-            Float(object.centre.x), Float(height / 2), Float(object.centre.y))
+            Float(object.centre.x),
+            Float(mountHeight(for: entry, height: height)),
+            Float(object.centre.y))
         node.eulerAngles = SCNVector3(0, Float(-object.rotation * .pi / 180), 0)
         return node
     }

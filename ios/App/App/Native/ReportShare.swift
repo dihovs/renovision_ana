@@ -134,8 +134,15 @@ struct ReportShareView: View {
         rendering = true
         error = nil
         defer { rendering = false }
+        // **The language has to travel with the request.** The picker above
+        // has been switching the PREVIEW since it was built, while the PDF was
+        // fetched from a bare path with no query at all — so every exported
+        // file came back in the default language whatever the toggle said. The
+        // preview and the file disagreeing about language is worse than having
+        // no picker, because the operator has already checked the preview.
         guard let url = URL(
-            string: "/admin/projects/\(projectId)/report/pdf", relativeTo: API.baseURL)
+            string: "/admin/projects/\(projectId)/report/pdf?lang=\(language)",
+            relativeTo: API.baseURL)
         else {
             error = "Could not build the report address."
             return
@@ -148,9 +155,16 @@ struct ReportShareView: View {
             let (data, response) = try await URLSession.shared.data(for: request)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard status == 200 else {
+                // **Say what the server said.** The route already answers with
+                // `{"error": "Could not build the PDF: …"}` naming the real
+                // cause, and this threw it away for a bare status code — so a
+                // 500 that knew exactly what was wrong arrived as "(500)", and
+                // diagnosing it needed a round trip through the person holding
+                // the phone. Third time this pattern has cost a round today.
+                let detail = (try? JSONDecoder().decode(ServerError.self, from: data))?.error
                 error = status == 401
                     ? "This phone is signed out. Sign in again and try once more."
-                    : "The server could not build the PDF (\(status))."
+                    : (detail ?? "The server could not build the PDF (\(status)).")
                 return
             }
             // A sign-in page is HTML with a 200 on it. Check the bytes are a
@@ -165,6 +179,13 @@ struct ReportShareView: View {
             self.error = "Could not fetch the PDF: \(error.localizedDescription)"
         }
     }
+}
+
+/// What every `/api` route and the PDF route alike answer with when they
+/// fail. Decoded so the operator is told the actual reason rather than a
+/// status code they can do nothing with.
+private struct ServerError: Decodable {
+    let error: String
 }
 
 /// A named PDF for the share sheet — the filename is what the adjuster sees

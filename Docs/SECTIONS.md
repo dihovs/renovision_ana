@@ -3141,3 +3141,48 @@ Newest last. One or two lines per chat.
   footprint, not modelled shapes. The 2D plan symbols got their real drawings
   today; the 3D ones have not, and pretending a box is a toilet is worse than a
   box that is honestly a box.
+- **2026-08-23 (S6/S7, camera recurrence — written BLIND, session cannot build)**
+  — The owner re-reported the 20 Aug camera bug on build 194 with the 350ms
+  fix installed: *"the camera opens and closes. There is no button… same lag
+  when I'm trying to upload the photos."* Two changes in `RoomPhotos.swift`,
+  neither compiled nor tapped, because this chat lost shell access mid-session:
+  **The presentation now verifies itself instead of trusting a timer.** The
+  350ms wait demonstrably does not always hold, and a longer guess would just
+  lose more slowly. `cameraOnScreen` is set by the cover's own
+  `onAppear` — ground truth, not intent — and if the request flag is up 900ms
+  later with no camera on screen, the drop is logged to the diagnostics file
+  (`CAMERA-DROP:`) and the cover is re-presented ONCE. If his symptom recurs,
+  the file now says which state it died in instead of costing another round.
+  **The per-shot server reload is gone — it was the lag.** `upload(_:)` ran
+  `await load()` after every enqueue: one full photo-list fetch per shutter
+  press, from a basement, while the queue's own reactive pending row already
+  put the photo on the grid instantly. The reload now happens only when
+  `waiting.count` DECREASES — the moment an upload actually lands or fails —
+  which is the one time the server list has changed.
+  **Next session must:** register `Native/DollhouseModel.swift`
+  (`add-sources.py`), build, run `npx vitest run` + the SAT test in the
+  scratchpad, install as build 195, and verify. Everything from the dollhouse
+  rebuild onward is still uncompiled.
+- **2026-08-23 (S6/S7/S14 — the blind session's code, compiled and shipped)**
+  Build **195**, and the whole point of this entry is that it needed no
+  repair. Everything written after the last shell died — the dollhouse
+  rebuild, `DollhouseModel.swift`, and the two `RoomPhotos` camera changes
+  authored without a compiler — built clean on the first attempt, zero
+  errors. `DollhouseModel.swift` was already registered (`add-sources.py`
+  reported it so and `check-project.py` counts 64 Native sources all
+  compiled), so the one step the note feared most had already been taken.
+  **The checks the note listed, in order.** `npx vitest run`: 1147 tests in
+  59 files, all passing. The SAT harness in the scratchpad: 12/12 — but its
+  header claims the algorithm is copied *verbatim* from
+  `PlanEditing.footprintsOverlap`, and `PlanEditing.swift` is one of the
+  files that changed, so the copy was diffed against the live source before
+  the result was trusted. It still matches. A green harness that has drifted
+  from what ships is worse than no harness.
+  Installed over the tunnel first try, and the device — not the build
+  directory — reports `Bundle Version 195`.
+  **What this does NOT establish.** Nothing here was tapped. The camera fix
+  is a behavioural claim about a bug that has now survived two fixes, and
+  compiling is exactly the evidence §8 says never to mistake for working. If
+  it drops again, `CAMERA-DROP:` in `Documents/scan-diagnostics.txt` now
+  names the state it died in — that is the thing to read first, before
+  changing any more code.

@@ -92,10 +92,21 @@ struct DollhouseScreen: View {
     private var tally: some View {
         let walls = rooms.reduce(0) { $0 + $1.plan.segments.count }
         let openings = rooms.reduce(0) { $0 + $1.plan.openings.count }
+        // **Objects were missing from this line, and their absence cost a
+        // round.** The owner asked why his wall-mounted television was not in
+        // the model; the tally could say how many walls and openings there
+        // were and nothing at all about how many things were standing in the
+        // room, so "it is not drawn" and "it is drawn on the floor where you
+        // did not look" were indistinguishable. Detected and placed are
+        // counted separately because they come from different places and fail
+        // for different reasons.
+        let detected = rooms.reduce(0) { $0 + $1.plan.objects.count }
+        let placed = rooms.reduce(0) { $0 + $1.placed.count }
         let span = Dollhouse.bounds(of: rooms).span
         return Text(
             "\(roomsOnFloor) on floor · \(rooms.count) built · \(walls) walls · "
-                + "\(openings) openings · \(String(format: "%.1f", span)) m")
+                + "\(openings) openings · \(detected)+\(placed) objects · "
+                + "\(String(format: "%.1f", span)) m")
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10)
