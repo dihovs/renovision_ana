@@ -3352,3 +3352,33 @@ Newest last. One or two lines per chat.
   quite knits. That is a geometry rebuild (a storey-level wall network
   rather than per-room shells), not a camera change, and it is the next
   real piece of work on this screen.
+- **2026-08-24 (S14 — one continuous building)** Build **200**. The owner
+  against the reference: *"I want like theirs, one continuous build."*
+  **Every room used to build its own shell.** Where two rooms shared a wall,
+  that wall was drawn TWICE — once on each room's own boundary, a few
+  centimetres apart, with a sliver of nothing between them. At any angle it
+  reads as two thin walls and a gap, which is why the storey never knitted
+  into a plan the way theirs does. Walls have therefore left the room node
+  entirely: `node(for:)` builds the floor and the contents, and the storey
+  builds the walls once, in `DollhouseStorey`.
+  **The merge, and the tolerances that are claims about buildings.** Every
+  room's walls are lifted into storey metres, then clustered by union-find —
+  near-parallel within ~5°, straddling a gap under 450 mm, and actually
+  running alongside each other for more than 350 mm. Union-find rather than
+  pairwise: a corridor wall is the party wall of three rooms in a row, and
+  greedy pairing would leave the third standing alone. Each cluster becomes
+  one wall on the members' mid-line, as thick as the gap they straddled
+  (clamped 90–400 mm), as tall as the tallest contributing room.
+  **The clause that matters most: a doorway is recorded in BOTH rooms.** A
+  merged wall that consulted one room's openings would wall the other room's
+  door shut, and two copies cut separately leave a sliver of wall standing
+  in the middle of the door. Openings are gathered from every room and
+  overlapping holes coalesced.
+  **Compiled and run before shipping, not after** — the third time that
+  discipline has caught what reading would not. The real `DollhouseStorey`
+  source was built for macOS behind a shim and asserted against eight cases:
+  a party wall collapsing to one on the mid-line at 100 mm; corners, opposite
+  walls and corner-tip touches all correctly NOT merged; the double-recorded
+  doorway becoming exactly one hole of the right width; and a corridor with
+  three rooms against it collapsing to a single wall. All pass. The harness
+  is in the scratchpad for the next change to this geometry.

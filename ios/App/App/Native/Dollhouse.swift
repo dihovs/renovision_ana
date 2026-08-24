@@ -147,6 +147,13 @@ enum Dollhouse {
         world.name = "world"
         for room in rooms { world.addChildNode(node(for: room)) }
 
+        // **One continuous building.** The owner, 24 Aug: *"I want like
+        // theirs, one continuous build."* Every room's walls are lifted into
+        // storey metres and merged, so the wall between two rooms is one
+        // wall rather than each room's own boundary drawn a few centimetres
+        // apart with a sliver of nothing between them.
+        world.addChildNode(storeyWalls(of: rooms))
+
         // Merge each room's shell — see the note on `shell` in `node(for:)`.
         for room in world.childNodes {
             guard let shell = room.childNode(withName: "shell", recursively: false) else {
@@ -384,6 +391,106 @@ enum Dollhouse {
         return inside
     }
 
+    /// The storey's whole wall network, built once.
+    ///
+    /// Rooms contribute their walls and their openings in storey metres;
+    /// `DollhouseStorey` merges the ones that are the same wall seen from
+    /// two rooms and cuts every contributing room's openings into the
+    /// result. The node is flattened like the old per-room shells were, for
+    /// the same reason: nothing in it ever moves.
+    private static func storeyWalls(of rooms: [Room]) -> SCNNode {
+        var pieces: [DollhouseStorey.Piece] = []
+        var openings: [DollhouseStorey.Opening] = []
+
+        for room in rooms {
+            let ox = Double(room.origin.x), oy = Double(room.origin.y)
+            for segment in wallSegments(of: room) {
+                pieces.append(
+                    DollhouseStorey.Piece(
+                        a: CGPoint(x: segment.x1 + ox, y: segment.y1 + oy),
+                        b: CGPoint(x: segment.x2 + ox, y: segment.y2 + oy),
+                        height: room.ceilingHeight))
+            }
+            for opening in room.plan.openings {
+                let (sill, head) = extent(of: opening, ceiling: room.ceilingHeight)
+                openings.append(
+                    DollhouseStorey.Opening(
+                        a: CGPoint(x: opening.segment.x1 + ox, y: opening.segment.y1 + oy),
+                        b: CGPoint(x: opening.segment.x2 + ox, y: opening.segment.y2 + oy),
+                        sill: sill, head: min(head, room.ceilingHeight)))
+            }
+        }
+
+        let node = SCNNode()
+        node.name = "storey-walls"
+        for wall in DollhouseStorey.network(pieces: pieces, openings: openings) {
+            node.addChildNode(storeyWallNode(wall))
+        }
+        let merged = node.flattenedClone()
+        merged.name = "storey-walls"
+        return merged
+    }
+
+    /// One merged wall, as the pieces that actually stand.
+    ///
+    /// The same construction the per-room `wallNode` used — cut at
+    /// `cutHeight` so the storey is open from above, per-face materials so
+    /// the top carries the poché with no capping slab to fight — but placed
+    /// in storey metres and cut by the openings of every room that shares
+    /// it.
+    private static func storeyWallNode(_ wall: DollhouseStorey.Wall) -> SCNNode {
+        let node = SCNNode()
+        let length = wall.length
+        guard length > 0.02 else { return node }
+
+        let cut = min(cutHeight, wall.height)
+
+        func piece(from: Double, to: Double, bottom: Double, top: Double) {
+            let top = min(top, cut)
+            guard top > bottom else { return }
+            // Grown by a hair at each end, so two boxes that butt do not give
+            // the depth buffer two surfaces at one depth to pick between.
+            let bleed = 0.001
+            let w = (to - from) + bleed * 2
+            let h = top - bottom
+            guard w > 0.015, h > 0.015 else { return }
+
+            let box = SCNBox(
+                width: CGFloat(w), height: CGFloat(h),
+                length: CGFloat(wall.thickness), chamferRadius: 0)
+            let face = material(wallInk)
+            let capFace = material(wallCapInk)
+            box.materials = [face, face, face, face, capFace, face]
+
+            let built = SCNNode(geometry: box)
+            built.position = SCNVector3(
+                Float(from - bleed + w / 2 - length / 2), Float(bottom + h / 2), 0)
+            node.addChildNode(built)
+        }
+
+        var cursor = 0.0
+        for hole in wall.holes {
+            let start = max(cursor, hole.start)
+            if start > cursor { piece(from: cursor, to: start, bottom: 0, top: cut) }
+            // Under the sill and over the head — a window keeps its wall
+            // above and below, a doorway keeps only the header.
+            if hole.sill > 0.01 {
+                piece(from: hole.start, to: hole.end, bottom: 0, top: hole.sill)
+            }
+            if hole.head < cut {
+                piece(from: hole.start, to: hole.end, bottom: hole.head, top: cut)
+            }
+            cursor = max(cursor, hole.end)
+        }
+        if cursor < length { piece(from: cursor, to: length, bottom: 0, top: cut) }
+
+        node.position = SCNVector3(
+            Float((wall.a.x + wall.b.x) / 2), 0, Float((wall.a.y + wall.b.y) / 2))
+        node.eulerAngles = SCNVector3(
+            0, Float(-atan2(wall.b.y - wall.a.y, wall.b.x - wall.a.x)), 0)
+        return node
+    }
+
     private static func node(for room: Room) -> SCNNode {
         let node = SCNNode()
         node.name = "room:\(room.id)"
@@ -394,12 +501,12 @@ enum Dollhouse {
         // calls, and not one of them ever moves. `flattenedClone` in `scene`
         // collapses this subtree into a single mesh; doors and contents stay
         // outside it because those DO move and still have to be tapped.
+        // **The floor only.** Walls left this node on 24 Aug: they are the
+        // storey's now, not the room's, so a party wall is built once
+        // instead of once per side. See `storeyWalls(of:)`.
         let shell = SCNNode()
         shell.name = "shell"
         shell.addChildNode(floorNode(room))
-        for segment in wallSegments(of: room) {
-            shell.addChildNode(wallNode(segment, room: room))
-        }
         node.addChildNode(shell)
         for opening in room.plan.openings {
             if let leaf = leafNode(opening, room: room) { node.addChildNode(leaf) }

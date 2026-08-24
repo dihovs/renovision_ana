@@ -88,6 +88,7 @@
 		156F2FDCB7A13881EB07CEAD /* Dollhouse.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */; };
 		5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734DBBF88B12469631DCC185 /* DollhouseView.swift */; };
 		5398DAFE54003D2579471BAA /* DollhouseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734DBBF88B12469631DCCBBB /* DollhouseModel.swift */; };
+		1D09A59E4ADF9AAFE6087D2D /* DollhouseStorey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06FAF517866C5240F884C39 /* DollhouseStorey.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -173,6 +174,7 @@
 		D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/Dollhouse.swift; sourceTree = "<group>"; };
 		734DBBF88B12469631DCC185 /* DollhouseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseView.swift; sourceTree = "<group>"; };
 		734DBBF88B12469631DCCBBB /* DollhouseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseModel.swift; sourceTree = "<group>"; };
+		C06FAF517866C5240F884C39 /* DollhouseStorey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseStorey.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -216,6 +218,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				C06FAF517866C5240F884C39 /* DollhouseStorey.swift */,
 				734DBBF88B12469631DCC185 /* DollhouseView.swift */,
 				734DBBF88B12469631DCCBBB /* DollhouseModel.swift */,
 				D02AB28AD4CF41506EAADC0E /* Dollhouse.swift */,
@@ -375,6 +378,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1D09A59E4ADF9AAFE6087D2D /* DollhouseStorey.swift in Sources */,
 				5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */,
 				5398DAFE54003D2579471BAA /* DollhouseModel.swift in Sources */,
 				156F2FDCB7A13881EB07CEAD /* Dollhouse.swift in Sources */,
