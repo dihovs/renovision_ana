@@ -97,9 +97,22 @@ enum Dollhouse {
     /// the fighting stops; every room is visible together; and there is a
     /// third less geometry.
     ///
-    /// 1.15 m sits above a counter and below a door head, so a counter run
-    /// still reads as a counter and every doorway still reads as a hole.
-    private static let cutHeight = 1.15
+    /// **Full height, and the near walls are culled instead.**
+    ///
+    /// The owner, 24 Aug 2026: *"the walls are not all the way up, need to
+    /// be all the way up."*
+    ///
+    /// Slicing them at 1.15 m was a way of seeing into every room without
+    /// culling anything, and it worked — but it draws a building that does
+    /// not exist, and this model is evidence. Walls now run to their room's
+    /// own ceiling and the seeing-in is done the way it was done originally:
+    /// `cullMode = .front` on the wall faces, so whatever stands between the
+    /// camera and a room is simply not drawn. The cut face keeps normal
+    /// culling, which is what lets the dark cap read from above.
+    ///
+    /// Kept as a constant because a storey with a cathedral ceiling may yet
+    /// want a cut, and the number is the one that was learned: above a
+    /// counter, below a door head.
     /// Door leaves are WHITE, not the wood tone the first pass used.
     ///
     /// The reference's leaves are plain white panels, and it is the right
@@ -512,7 +525,8 @@ enum Dollhouse {
         let length = wall.length
         guard length > 0.02 else { return node }
 
-        let cut = min(cutHeight, wall.height)
+        // All the way up, to this room's own ceiling.
+        let cut = wall.height
 
         func piece(from: Double, to: Double, bottom: Double, top: Double) {
             let top = min(top, cut)
@@ -527,7 +541,13 @@ enum Dollhouse {
             let box = SCNBox(
                 width: CGFloat(w), height: CGFloat(h),
                 length: CGFloat(wall.thickness), chamferRadius: 0)
-            let face = material(wallInk)
+            // **Front faces culled on the sides, so the storey is open from
+            // every angle.** Only back faces draw, which means the wall
+            // between the camera and a room is not rendered and the room is
+            // seen into — the whole dollhouse effect, in one property. The
+            // TOP keeps normal culling: it is the face pointing at a camera
+            // looking down, and it carries the poché.
+            let face = material(wallInk, cull: .front)
             let capFace = material(wallCapInk)
             box.materials = [face, face, face, face, capFace, face]
 
@@ -773,38 +793,6 @@ enum Dollhouse {
     /// Which openings belong to this wall, expressed as distances along it.
     ///
     /// An opening carries its own sub-segment rather than a wall index, so
-    /// membership is geometric: project both ends onto the wall's line, and
-    /// keep it when it lies along the wall and close to it. The 0.3 m
-    /// tolerance is generous on purpose — a detected door is rarely perfectly
-    /// flush with the wall plane the editor later straightened.
-    private static func holes(on segment: FloorPlanGeometry.Segment, room: Room) -> [Hole] {
-        let ax = segment.x1, ay = segment.y1
-        let dx = segment.x2 - ax, dy = segment.y2 - ay
-        let length = hypot(dx, dy)
-        guard length > 0.01 else { return [] }
-        let ux = dx / length, uy = dy / length
-
-        var found: [Hole] = []
-        for opening in room.plan.openings {
-            let p1 = CGPoint(x: opening.segment.x1, y: opening.segment.y1)
-            let p2 = CGPoint(x: opening.segment.x2, y: opening.segment.y2)
-            let t1 = (Double(p1.x) - ax) * ux + (Double(p1.y) - ay) * uy
-            let t2 = (Double(p2.x) - ax) * ux + (Double(p2.y) - ay) * uy
-            let perp1 = abs((Double(p1.x) - ax) * -uy + (Double(p1.y) - ay) * ux)
-            let perp2 = abs((Double(p2.x) - ax) * -uy + (Double(p2.y) - ay) * ux)
-            guard perp1 < 0.3, perp2 < 0.3 else { continue }
-            let lo = min(t1, t2), hi = max(t1, t2)
-            guard hi > 0.02, lo < length - 0.02 else { continue }
-
-            let (sill, head) = extent(of: opening, ceiling: room.ceilingHeight)
-            found.append(
-                Hole(
-                    start: max(0, lo), end: min(length, hi), sill: sill,
-                    head: min(head, room.ceilingHeight)))
-        }
-        return found.sorted { $0.start < $1.start }
-    }
-
     /// How high an opening's hole runs.
     ///
     /// An authored opening knows exactly — `OpeningKind` carries the stock
@@ -822,79 +810,6 @@ enum Dollhouse {
         case .door, .opening: return (0, min(2.03, ceiling))
         case .window: return (0.9, min(2.1, ceiling))
         }
-    }
-
-    /// One wall, as the pieces that actually stand.
-    private static func wallNode(
-        _ segment: FloorPlanGeometry.Segment, room: Room
-    ) -> SCNNode {
-        let node = SCNNode()
-        let length = segment.length
-        guard length > 0.02 else { return node }
-
-        let holes = holes(on: segment, room: room)
-        let height = room.ceilingHeight
-        // A room with a ceiling lower than the cut keeps its own ceiling —
-        // a crawlspace should not be sliced taller than it is.
-        let cut = min(cutHeight, height)
-
-        /// A piece of wall spanning `from`..`to` along the run, `bottom`..`top`
-        /// in height.
-        func piece(from: Double, to: Double, bottom: Double, top: Double) {
-            // Nothing above the cut is built at all — that is the saving, and
-            // the reason a room is visible from above without any culling.
-            let top = min(top, cut)
-            guard top > bottom else { return }
-
-            // **Grown by a hair at each end.** Two boxes that butt on exactly
-            // the same plane give the depth buffer two surfaces at one depth,
-            // and it picks per pixel, per frame — which is what the owner saw
-            // as vertical lines down the walls. Overlapping by a millimetre
-            // means one is unambiguously inside the other and there is
-            // nothing left to fight over.
-            let bleed = 0.001
-            let w = (to - from) + bleed * 2
-            let h = top - bottom
-            guard w > 0.015, h > 0.015 else { return }
-
-            let box = SCNBox(
-                width: CGFloat(w), height: CGFloat(h),
-                length: CGFloat(wallThickness), chamferRadius: 0)
-            // **Per-face materials, so the cap needs no geometry of its own.**
-            // `SCNBox` takes six, in the order front, right, back, left, top,
-            // bottom. Giving the top its own dark material is the whole of the
-            // poché — the separate capping slab it replaces was half-buried in
-            // the wall beneath it, and the sawtooth along every wall top was
-            // those two surfaces fighting.
-            let face = material(wallInk)
-            let capFace = material(wallCapInk)
-            box.materials = [face, face, face, face, capFace, face]
-
-            let piece = SCNNode(geometry: box)
-            piece.position = SCNVector3(
-                Float(from - bleed + w / 2 - length / 2), Float(bottom + h / 2), 0)
-            node.addChildNode(piece)
-        }
-
-        var cursor = 0.0
-        for hole in holes {
-            piece(from: cursor, to: hole.start, bottom: 0, top: height)
-            // Under the sill, and over the head. A door has no under; a
-            // window at the ceiling has no over. Both fall out of the
-            // guard in `piece` rather than needing a special case.
-            piece(from: hole.start, to: hole.end, bottom: 0, top: hole.sill)
-            piece(from: hole.start, to: hole.end, bottom: hole.head, top: height)
-            cursor = max(cursor, hole.end)
-        }
-        piece(from: cursor, to: length, bottom: 0, top: height)
-
-        // Stand the run in the room. Plan y is SceneKit z.
-        let mid = SCNVector3(
-            Float((segment.x1 + segment.x2) / 2), 0, Float((segment.y1 + segment.y2) / 2))
-        node.position = mid
-        node.eulerAngles = SCNVector3(
-            0, Float(-atan2(segment.y2 - segment.y1, segment.x2 - segment.x1)), 0)
-        return node
     }
 
     // MARK: - The leaves

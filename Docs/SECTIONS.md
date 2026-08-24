@@ -3471,3 +3471,31 @@ Newest last. One or two lines per chat.
   from above is one of them. A flatten that mishandles per-face materials
   loses the poché silently, which is the reported symptom. If it costs
   frames on a large storey, measure it then.
+- **2026-08-24 (S14 — walls to the ceiling, and the feel of the thing)**
+  Builds **205** and **206**.
+  **Smoothness, using what this category of product actually does.** 120 Hz
+  on ProMotion, where SceneKit had been drawing 60 on a phone that can do
+  double — one line, and the largest single difference in the hand.
+  Continuous redraw, so display-link motion does not micro-stutter. Momentum
+  on both turn and pan, handed off from the recogniser's own parting
+  velocity rather than differenced from the last two frames (noisy at
+  exactly the moment it matters), and decayed frame-rate-independently by
+  raising a per-second survival to the frame's duration — so one flick
+  settles identically at 60 and 120. Tilt momentum stops at the limit
+  instead of grinding against it. And the pinch is anchored at the fingers
+  via the same floor-cast the grab uses: zooming to the screen centre slides
+  the corner being examined away exactly when it is being looked at, which
+  is the default and is wrong for a plan.
+  **Walls run to the ceiling again.** *"The walls are not all the way up,
+  need to be all the way up."* Slicing them at 1.15 m bought a view into
+  every room with no culling, and it worked — but it draws a building that
+  does not exist, and this model is evidence. Full height now, with the
+  seeing-in done the way it was done originally: `cullMode = .front` on the
+  wall faces, so whatever stands between the camera and a room is not
+  drawn. The cut face keeps normal culling, which is what lets the dark cap
+  carry the poché from above. `cutHeight` survives as a documented constant
+  because a cathedral ceiling may yet want it.
+  **The dead per-room `wallNode` and its `holes(on:room:)` are deleted** —
+  walls became the storey's on 24 Aug and those two had been unreachable
+  since, still referencing the cut. Dead code that still compiles is how a
+  stale convention comes back.
