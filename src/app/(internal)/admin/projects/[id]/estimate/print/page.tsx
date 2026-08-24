@@ -4,6 +4,19 @@ import AdminNotice from "@/components/admin/AdminNotice";
 import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
 import { getProject } from "@/lib/crm/projects";
 import { getCompany } from "@/lib/crm/settings";
+import { listRoomScans } from "@/lib/crm/roomScans";
+import { listProjectAffectedAreas } from "@/lib/crm/affectedAreas";
+import { listProjectObjects } from "@/lib/crm/roomObjects";
+import { areaColor } from "@/lib/crm/areaShapes";
+import type { ScanGeometry } from "@/lib/roomScan";
+import {
+  savedFloorAreaSquareMeters,
+  savedPerimeterMeters,
+  savedWallAreaSquareMeters,
+  type SavedScan,
+} from "@/lib/roomScan";
+import FloorPlan from "@/components/admin/FloorPlan";
+import ReportStoreyPlan from "@/components/admin/ReportStoreyPlan";
 import { getOrCreateDraft, trailerSettings } from "@/lib/crm/insuranceEstimates";
 import { GENERAL_CONDITIONS } from "@/lib/estimator/insurance/derive";
 import { allocateLines, estimateTotals } from "@/lib/estimator/insurance/trailer";
@@ -62,6 +75,57 @@ export default async function EstimatePrintPage({
     throw err;
   }
   const company = await getCompany().catch(() => null);
+
+  // **The drawing belongs in the estimate, not only in the report.** The
+  // reference claims put a thumbnail beside every room's quantities and a
+  // full storey plan at the back, and for a reason an adjuster feels
+  // immediately: a line that says 44 sq ft of tile is a claim, and a
+  // drawing with that area shaded on it is evidence. Both components are
+  // the REPORT'S — `FloorPlan` and `ReportStoreyPlan` — because a second
+  // renderer is a second thing to drift, and a plan that disagreed between
+  // the two documents would be worse than no plan in this one.
+  const [scans, allAreas, allObjects] = await Promise.all([
+    listRoomScans(project.id).catch(() => []),
+    listProjectAffectedAreas(project.id).catch(() => []),
+    listProjectObjects(project.id).catch(() => []),
+  ]);
+
+  const planObjectsFor = (scanId: string) =>
+    allObjects
+      .filter((object) => object.roomScanId === scanId)
+      .map((object) => ({
+        id: object.id,
+        kind: object.kind,
+        name: object.name,
+        x: object.x,
+        y: object.y,
+        rotation: object.rotation,
+        widthM: object.width,
+        depthM: object.depth,
+      }));
+
+  // Floor areas only. A wall area's polygon lives in its wall's own face
+  // space and would be drawn as nonsense on a plan.
+  const floorAreasFor = (scanId: string) =>
+    allAreas
+      .filter(
+        (area) =>
+          area.room_scan_id === scanId && area.surface !== "wall" && area.polygon.length >= 3,
+      )
+      .map((area) => ({ id: area.id, polygon: area.polygon, color: areaColor(area) }));
+
+  const scanById = new Map(scans.map((scan) => [scan.id, scan]));
+
+  const storeyRooms = scans.map((scan) => ({
+    id: scan.id,
+    name: scan.name,
+    geometry: scan.geometry as unknown as ScanGeometry,
+    floorAreaSqm: savedFloorAreaSquareMeters(scan as unknown as SavedScan),
+    planX: scan.plan_x === null ? null : Number(scan.plan_x),
+    planY: scan.plan_y === null ? null : Number(scan.plan_y),
+    areas: floorAreasFor(scan.id),
+    objects: planObjectsFor(scan.id),
+  }));
 
   const settings = trailerSettings(estimate);
   const allocated = allocateLines(
@@ -140,11 +204,51 @@ export default async function EstimatePrintPage({
         const roomTotal = roomLines.reduce((s, l) => s + l.totalCents, 0);
         let currentSection = "";
 
+        // The room's own scan, when this group is a real room rather than
+        // the general-conditions pseudo-room.
+        const scanId = roomLines.find((line) => line.roomScanId)?.roomScanId ?? null;
+        const scan = scanId ? scanById.get(scanId) : undefined;
+        const saved = scan ? (scan as unknown as SavedScan) : null;
+        const wallArea = saved ? savedWallAreaSquareMeters(saved) : null;
+
         return (
           <section key={room} className="mt-5 break-inside-avoid-page">
-            <h2 className="border-b border-charcoal/80 pb-0.5 font-heading text-sm font-bold">
-              {room}
+            <h2 className="flex items-baseline justify-between border-b border-charcoal/80 pb-0.5 font-heading text-sm font-bold">
+              <span>{room}</span>
+              {saved && (
+                <span className="text-[10px] font-normal text-charcoal/50">
+                  Hauteur du plafond : {sqftLabel(saved.ceiling_height_m, "m")}
+                </span>
+              )}
             </h2>
+
+            {/* The room header of the reference claims: the drawing, and the
+                measured quantities every line below is priced from. */}
+            {scan && saved && (
+              <div className="mt-2 flex flex-wrap items-start gap-4 break-inside-avoid-page">
+                <div className="w-40 shrink-0">
+                  <FloorPlan
+                    result={scan.geometry as unknown as ScanGeometry}
+                    name={scan.name}
+                    variant="thumb"
+                    locale="fr"
+                    objects={planObjectsFor(scan.id)}
+                    areas={floorAreasFor(scan.id)}
+                  />
+                </div>
+                <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-0.5 text-[11px] tabular-nums sm:grid-cols-3">
+                  <Measure label="pi² murs" value={sqft(wallArea?.gross ?? 0)} />
+                  <Measure label="pi² plafond" value={sqft(savedFloorAreaSquareMeters(saved))} />
+                  <Measure
+                    label="pi² murs, plafond"
+                    value={sqft((wallArea?.gross ?? 0) + savedFloorAreaSquareMeters(saved))}
+                  />
+                  <Measure label="pi² plancher" value={sqft(savedFloorAreaSquareMeters(saved))} />
+                  <Measure label="vg² rev. sol" value={sqyd(savedFloorAreaSquareMeters(saved))} />
+                  <Measure label="pi lin. pér." value={linft(savedPerimeterMeters(saved))} />
+                </dl>
+              </div>
+            )}
             <table className="mt-1 w-full border-collapse">
               <thead>
                 <tr className="text-left text-[10px] font-bold uppercase tracking-wide text-charcoal/50">
@@ -283,6 +387,20 @@ export default async function EstimatePrintPage({
         </table>
       </section>
 
+      {/* The storey, at the back, exactly where the reference puts it. */}
+      {storeyRooms.length > 0 && (
+        <section className="mt-8 break-before-page">
+          <h2 className="text-center font-heading text-sm font-bold">Plan de l&apos;étage</h2>
+          <div className="mt-2">
+            <ReportStoreyPlan
+              rooms={storeyRooms}
+              locale="fr"
+              note="Disposition assemblée à partir des pièces mesurées."
+            />
+          </div>
+        </section>
+      )}
+
       <footer className="mt-8 flex justify-between border-t border-black/10 pt-2 text-[10px] text-charcoal/40">
         <span>
           {project.name} — {estimate.title}
@@ -321,6 +439,39 @@ function unitCode(unit: string): string {
     default:
       return unit.toUpperCase().slice(0, 4);
   }
+}
+
+/** Metric in, the document's imperial out — the same conversions the
+    estimate lines are priced from, so the header block and the lines below
+    it can never quote different numbers. */
+const SQM_PER_SQFT = 0.09290304;
+const M_PER_FT = 0.3048;
+function sqft(sqm: number): string {
+  return frNumber(sqm / SQM_PER_SQFT);
+}
+function sqyd(sqm: number): string {
+  return frNumber(sqm / (SQM_PER_SQFT * 9));
+}
+function linft(m: number): string {
+  return frNumber(m / M_PER_FT);
+}
+function frNumber(value: number): string {
+  return new Intl.NumberFormat("fr-CA", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+function sqftLabel(value: number, unit: string): string {
+  return `${frNumber(value)} ${unit}`;
+}
+
+function Measure({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <dd className="font-semibold">{value}</dd>
+      <dt className="text-charcoal/50">{label}</dt>
+    </div>
+  );
 }
 
 function Row({ label, value, bold }: { label: string; value: number; bold?: boolean }) {

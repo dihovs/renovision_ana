@@ -3499,3 +3499,33 @@ Newest last. One or two lines per chat.
   walls became the storey's on 24 Aug and those two had been unreachable
   since, still referencing the cut. Dead code that still compiles is how a
   stale convention comes back.
+- **2026-08-24 (Estimator — a worked sample, then the plans)** No build
+  number; web side.
+  **He asked to SEE one.** *"Do we have an example? Can you make an
+  estimation and show me. Make a fictional room at a damaged area, a couple
+  of photos, and all."* `demo.sample.test.ts` invents a claim — a 2nd-floor
+  bathroom, supply line at the vanity, water tracked into the corridor,
+  four days of drying — and runs the REAL `deriveLines` /
+  `allocateLines` / `estimateTotals` over it. It asserts nothing and is not
+  a test; mocking up a picture of what the engine might say would have
+  shown him a drawing of a product rather than the product. 28 lines,
+  9 868,69 $, and the derivation held up: tile removed at the wet 44 sq ft
+  and PATCHED at the same area, the corridor's floating floor removed at
+  the wet area but laid wall to wall, baseboard at 33,79 lin ft rather than
+  the perimeter, the reset toilet visibly unpriced, the protected mirror a
+  zero-dollar memo, the excluded bathtub absent, and drying billed 4
+  dehumidifier-days and 12 air-mover days straight off the log.
+  **Then: *"what about floorplans? i need them in the estimate."*** The
+  reference claims carry a thumbnail beside every room's quantities and a
+  storey plan at the back, and the reason an adjuster feels it is simple —
+  a line saying 44 sq ft of tile is a claim; the same area shaded on a
+  drawing is evidence. Both drawings are the REPORT'S components,
+  `FloorPlan` and `ReportStoreyPlan`, passed the same rooms, areas and
+  objects the report passes them. **Not a second renderer**: a plan that
+  disagreed between the two documents would be worse than no plan in this
+  one, and this repo has paid for that lesson under "these are twins and
+  must not drift".
+  The room header now prints the seven measured quantities beside the
+  thumbnail, converted through the same metric-to-imperial constants the
+  lines are priced from, so the header and the lines below it cannot quote
+  different numbers.
