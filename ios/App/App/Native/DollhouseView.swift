@@ -233,7 +233,10 @@ struct DollhouseSceneView: UIViewRepresentable {
         private var zoom: Float = 12
         private var startZoom: Float = 12
         private var lastPan: CGPoint = .zero
-        private var lastMove: CGPoint = .zero
+        /// The finger's last position, in view points — the pan works from
+        /// where the finger WAS rather than from a running translation, so
+        /// each frame's move is measured against the camera as it stands.
+        private var lastTouch: CGPoint = .zero
         /// Where the rig is looking. Panning slides this target across the
         /// ground; the camera keeps orbiting whatever it now holds, so a
         /// turn after a pan spins around the corner just moved to rather
@@ -252,34 +255,61 @@ struct DollhouseSceneView: UIViewRepresentable {
             apply()
         }
 
-        /// ONE finger: slide the model. The drag moves along the ground in
-        /// the direction the camera is facing, so a swipe right always sends
-        /// the building right however far it has been turned.
+        /// ONE finger: **grab the model and move it.**
+        ///
+        /// The owner, 24 Aug: *"the gesture is bad, up and down goes left to
+        /// right and opposite, I want to kind of grab it and move around
+        /// like a real object."*
+        ///
+        /// Two builds tried to get this right by projecting the drag onto
+        /// the ground with sines and cosines of the yaw, and both got a sign
+        /// wrong somewhere — which is what "up and down goes left to right"
+        /// is. The arithmetic was never the point: what he described is
+        /// grabbing, and grabbing has an exact meaning that needs no
+        /// trigonometry at all. **The floor under your finger stays under
+        /// your finger.**
+        ///
+        /// So each frame both the finger's old and new positions are cast
+        /// back onto the floor plane through the camera as it stands right
+        /// now, and the rig moves by the difference between where those two
+        /// rays land. It is self-correcting by construction: any yaw, any
+        /// tilt, any zoom, and a wrong sign is impossible because no sign is
+        /// ever written down.
         @objc func moved(_ gesture: UIPanGestureRecognizer) {
             guard let view else { return }
-            let point = gesture.translation(in: view)
-            if gesture.state == .began { lastMove = .zero }
-            let dx = Float(point.x - lastMove.x)
-            let dy = Float(point.y - lastMove.y)
-            lastMove = point
-
-            // Metres per point, from the orthographic scale: the model
-            // tracks the finger at any zoom instead of crawling when pulled
-            // back and bolting when up close.
-            let scale = zoom * 0.0016
-            let sinY = sin(yaw), cosY = cos(yaw)
-            // Screen-right and screen-up projected onto the ground plane.
-            // The vertical sign is INVERTED against the horizontal one
-            // (owner, 24 Aug: *"left and right are good, up and down needs
-            // to be inverted"*). Left/right reads as pushing the model;
-            // up/down reads as dragging the ground under it, and a
-            // consistent sign gets one of the two backwards whichever way
-            // it is written. His hand is the specification.
-            target.x -= (dx * cosY) * scale
-            target.z -= (dx * sinY) * scale
-            target.x += (dy * sinY) * scale
-            target.z -= (dy * cosY) * scale
+            let here = gesture.location(in: view)
+            if gesture.state == .began {
+                lastTouch = here
+                return
+            }
+            guard let from = ground(lastTouch, in: view), let to = ground(here, in: view)
+            else {
+                lastTouch = here
+                return
+            }
+            // Move the camera's target OPPOSITE the world travel, so the
+            // ground appears to follow the hand rather than flee it.
+            target.x -= to.x - from.x
+            target.z -= to.z - from.z
+            lastTouch = here
             apply()
+        }
+
+        /// Where a point on screen meets the floor plane, in world metres.
+        ///
+        /// Unprojected at both ends of the depth range to get the ray the
+        /// pixel stands for, then walked to y = 0. Returns nil when the ray
+        /// runs parallel to the floor — at a grazing tilt there is no answer,
+        /// and refusing to move beats sliding the storey to infinity.
+        private func ground(_ point: CGPoint, in view: SCNView) -> SCNVector3? {
+            let near = view.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 0))
+            let far = view.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 1))
+            let dy = far.y - near.y
+            guard abs(dy) > 1e-5 else { return nil }
+            let t = -near.y / dy
+            guard t.isFinite else { return nil }
+            return SCNVector3(
+                near.x + (far.x - near.x) * t, 0, near.z + (far.z - near.z) * t)
         }
 
         /// TWO fingers: turn and tilt.

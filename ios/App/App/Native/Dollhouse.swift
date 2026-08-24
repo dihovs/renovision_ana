@@ -464,12 +464,40 @@ enum Dollhouse {
 
         let node = SCNNode()
         node.name = "storey-walls"
-        for wall in DollhouseStorey.network(pieces: pieces, openings: openings) {
+        let walls = DollhouseStorey.network(pieces: pieces, openings: openings)
+        for wall in walls {
             node.addChildNode(storeyWallNode(wall))
         }
-        let merged = node.flattenedClone()
-        merged.name = "storey-walls"
-        return merged
+
+        // **What the network actually produced, written down.** Two builds
+        // have now been diagnosed by guessing at a screenshot, and the
+        // screen already has a file for this — the same reason the room
+        // dump exists a few lines above. Count, thickness and the first
+        // walls' own coordinates settle in one line what a picture cannot:
+        // whether a wall is missing, thin, or standing somewhere else.
+        var report = "DOLLHOUSE-WALLS: pieces=\(pieces.count) walls=\(walls.count)"
+        if let thinnest = walls.map(\.thickness).min(),
+            let thickest = walls.map(\.thickness).max()
+        {
+            report += String(format: " thickness=%.3f..%.3f", thinnest, thickest)
+        }
+        report += " holes=\(walls.reduce(0) { $0 + $1.holes.count })\n"
+        for wall in walls.prefix(4) {
+            report += String(
+                format: "DOLLHOUSE-WALL:   (%.2f,%.2f)->(%.2f,%.2f) t=%.3f h=%.2f holes=%d\n",
+                wall.a.x, wall.a.y, wall.b.x, wall.b.y, wall.thickness, wall.height,
+                wall.holes.count)
+        }
+        ScanLens.appendToDiagnostics(report)
+
+        // **Not flattened.** `flattenedClone` merges a subtree into one
+        // mesh, and it was worth it when each room's shell was its own
+        // handful of boxes. The storey's walls are one subtree with per-face
+        // materials on every box, and a flatten that mishandles those is a
+        // silent way to lose the poché — which is exactly the class of
+        // failure being chased here. Correctness first; if this costs frames
+        // on a large storey, measure it then.
+        return node
     }
 
     /// One merged wall, as the pieces that actually stand.

@@ -3443,3 +3443,31 @@ Newest last. One or two lines per chat.
   unavailable**, which is a different failure from the timeout §8 records.
   `-destination 'generic/platform=iOS'` builds the same device binary
   without needing the phone present, and the install waits separately.
+- **2026-08-24 (S14 — grabbing, not projecting; and the walls get a
+  diagnostic)** Builds **203** and **204**.
+  **The pan was wrong twice, and the second time said why.** *"Up and down
+  goes left to right and opposite. I want to kind of grab it and move around
+  like a real object."* Both previous attempts projected the drag onto the
+  ground with sines and cosines of the yaw, and both got a sign wrong
+  somewhere — the sign errors do not show at yaw 0, which is where every
+  desk check happened. The arithmetic was never the point. **Grabbing has an
+  exact meaning that needs no trigonometry: the floor under your finger stays
+  under your finger.** Each frame casts the finger's previous and current
+  positions back onto the floor plane through the camera as it stands, and
+  moves the rig by the difference. Self-correcting at any yaw, tilt or zoom,
+  and a wrong sign is impossible because no sign is ever written down. The
+  ray is refused when it runs parallel to the floor — at a grazing tilt there
+  is no answer, and refusing to move beats sliding the storey to infinity.
+  **The walls, meanwhile, are still reported wrong and have now been
+  diagnosed twice from screenshots.** Build 203 stops that: the wall network
+  writes its own result to the diagnostics file — piece count, wall count,
+  the thickness range, hole count, and the first walls' real coordinates.
+  One line settles what a picture cannot, which is whether a wall is
+  missing, thin, or standing somewhere else. The room dump a few lines above
+  it exists for exactly the same reason.
+  **`flattenedClone` also came off the walls** on suspicion rather than
+  proof: it merges the whole subtree into one mesh, every wall box carries
+  six per-face materials, and the dark cap that makes a wall read as solid
+  from above is one of them. A flatten that mishandles per-face materials
+  loses the poché silently, which is the reported symptom. If it costs
+  frames on a large storey, measure it then.
