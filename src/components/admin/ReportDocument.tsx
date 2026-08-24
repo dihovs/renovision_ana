@@ -637,7 +637,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           none of it and this one is being read side by side with theirs. */}
       {!floorsOnly && hasSummary && (
         <section className="page">
-          <Running project={project.name} address={property} totals={headerTotals} />
+          <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
           <p className="marker">{t.summary}</p>
           <div className="cover-grid">
             <dl>
@@ -707,7 +707,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           disagree. */}
       {contentsPage !== null && (
         <section className="page">
-          <Running project={project.name} address={property} totals={headerTotals} />
+          <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
           <p className="marker">{t.contents}</p>
           <ul className="contents">
             {plan
@@ -740,7 +740,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 
         return (
           <section className="page" key={level}>
-            <Running project={project.name} address={property} totals={headerTotals} />
+            <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
             <div className="section-head">
               <p className="marker">{floorLabel(level, t)}</p>
               <Figures
@@ -787,7 +787,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {!floorsOnly && rooms.map((room) => (
         <Fragment key={room.id}>
         <section className="page">
-          <Running project={project.name} address={property} totals={headerTotals} />
+          <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
 
           {/* The reference's own two lines above the drawing, in its own
               order and wording: the room and its storey, then the figures
@@ -1123,7 +1123,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           const numbers = captionNumbers(room);
           return (
           <section className="page" key={`${room.id}-photos-${index}`}>
-            <Running project={project.name} address={property} totals={headerTotals} />
+            <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
             {/* Their section marker, without the glyph — see `.marker` in
                 report.css for what replaced it. */}
             <p className="marker">{t.photosOf(room.name)}</p>
@@ -1180,7 +1180,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       {/* ------------------------------------------------ drying record */}
       {!floorsOnly && equipment.length > 0 && (
         <section className="page">
-          <Running project={project.name} address={property} totals={headerTotals} />
+          <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
           <table className="listing">
             <thead>
               <tr>
@@ -1224,7 +1224,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           nobody signed is a report nobody agreed to. Four labelled blanks,
           exactly theirs — signature, date, printed name, phone. */}
       <section className="page signature">
-        <Running project={project.name} address={property} totals={headerTotals} />
+        <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
         <p className="fineprint">
           {t.signingAcknowledges}
         </p>
@@ -1247,7 +1247,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           the screens. */}
       {!floorsOnly && rooms.length > 0 && (
         <section className="page">
-          <Running project={project.name} address={property} totals={headerTotals} />
+          <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
           <table className="measure definitions">
             <tbody>
               {Object.values(MEASURE_DEFINITIONS).map((meaning) => (
@@ -1350,10 +1350,14 @@ function Running({
   project,
   address,
   totals,
+  identity,
 }: {
   project: string;
   address: string | null;
   totals: string;
+  /** Claim number, insured, loss date, category and class — joined upstream,
+      empty when the job has no claim attached. */
+  identity: string;
 }) {
   // **The reference's header, duplicated.** Three lines on every page from
   // two onward: the project, the full address on ONE line, and the running
@@ -1365,6 +1369,13 @@ function Running({
   return (
     <header className="running">
       <div>
+        {/* The claim leads, because it is what the page has to be filed
+            under. An adjuster working several losses at once flips a page
+            out of order and needs to know whose it is before they read a
+            single measurement — the project name alone does not say that.
+            Hidden entirely on a job with no claim attached, where it would
+            be an empty rule taking a line on thirty pages. */}
+        {identity && <div className="running-claim">{identity}</div>}
         <div className="running-project">{project}</div>
         {address && <div className="running-address">{address}</div>}
         <div className="running-totals">{totals}</div>

@@ -575,6 +575,20 @@
   width: 14mm;
   border-bottom: 1.5pt solid var(--accent);
 }
+/* **The claim, above the project name on every page after the cover.**
+
+   Set in the accent rather than the ink, and tracked: it is a reference
+   string, not prose, and it is read by somebody scanning for a match rather
+   than reading a sentence. Small — it sits ABOVE the project name and must
+   not out-shout it — but coloured, because on a page of grey type the one
+   thing a reader is hunting for should be the one thing that is not grey. */
+.report .running-claim {
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--accent);
+  margin-bottom: 0.8mm;
+}
 .report .running-project {
   font-size: 11pt;
   font-weight: 600;
