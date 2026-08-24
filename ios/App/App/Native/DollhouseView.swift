@@ -166,6 +166,15 @@ struct DollhouseSceneView: UIViewRepresentable {
         view.autoenablesDefaultLighting = false
         view.antialiasingMode = .multisampling4X
         view.backgroundColor = UIColor(white: 0.94, alpha: 1)
+        // **120 Hz on a ProMotion phone.** SceneKit defaults to 60, and on
+        // the device this app is actually used on that is half the frames it
+        // could be drawing. Nothing else in this file makes turning feel as
+        // different as this one line.
+        view.preferredFramesPerSecond = 120
+        // Redraw every frame rather than only when the graph is dirtied:
+        // inertia moves the camera from a display link, and a view that
+        // waits to be told it changed shows that as micro-stutter.
+        view.rendersContinuously = true
         view.pointOfView = scene.rootNode.childNode(withName: "camera", recursively: true)
         context.coordinator.rig = scene.rootNode.childNode(withName: "rig", recursively: false)
         context.coordinator.view = view
@@ -237,6 +246,88 @@ struct DollhouseSceneView: UIViewRepresentable {
         /// where the finger WAS rather than from a running translation, so
         /// each frame's move is measured against the camera as it stands.
         private var lastTouch: CGPoint = .zero
+
+        /// Radians of turn per point of drag.
+        private let orbitRate: Float = 0.006
+
+        // MARK: - Momentum
+        //
+        // **Why a model viewer needs it.** A turn that stops dead the
+        // instant the fingers lift reads as a control being released; one
+        // that carries and settles reads as an object that has mass. Every
+        // product in this category does it, and it is the single biggest
+        // difference between "3D view" and "3D model" in the hand.
+
+        private var yawVelocity: Float = 0          // rad/s
+        private var pitchVelocity: Float = 0        // rad/s
+        private var panVelocity = SCNVector3Zero    // metres/s
+        private var displayLink: CADisplayLink?
+        private var lastTick: CFTimeInterval = 0
+
+        /// How fast momentum bleeds off, as the fraction of speed surviving
+        /// each second. 0.006 is a firm, quick settle — the model comes to
+        /// rest in under a second rather than drifting, which suits a
+        /// measured drawing more than a globe does.
+        private let decayPerSecond: Float = 0.006
+        /// Below this there is no visible motion left, only work.
+        private let stillness: Float = 0.0015
+
+        private func startInertia() {
+            guard abs(yawVelocity) > stillness || abs(pitchVelocity) > stillness
+                || abs(panVelocity.x) > stillness || abs(panVelocity.z) > stillness
+            else { return }
+            stopInertia()
+            let link = CADisplayLink(target: self, selector: #selector(tick(_:)))
+            // Let it run at the display's own rate — 120 Hz where there is
+            // one — rather than pinning it to 60.
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+            link.add(to: .main, forMode: .common)
+            lastTick = CACurrentMediaTime()
+            displayLink = link
+        }
+
+        func stopInertia() {
+            displayLink?.invalidate()
+            displayLink = nil
+            yawVelocity = 0
+            pitchVelocity = 0
+            panVelocity = SCNVector3Zero
+        }
+
+        /// **Frame-rate independent decay.** Multiplying by a constant each
+        /// frame ties the feel to the frame rate — the same flick settles at
+        /// one speed on a 120 Hz phone and another on a 60 Hz one. Raising
+        /// the per-second survival to the power of the frame's own duration
+        /// makes the curve identical on both.
+        @objc private func tick(_ link: CADisplayLink) {
+            let now = CACurrentMediaTime()
+            let dt = Float(min(0.05, max(0.0001, now - lastTick)))
+            lastTick = now
+
+            yaw += yawVelocity * dt
+            let wanted = pitch + pitchVelocity * dt
+            let clamped = min(maxPitch, max(minPitch, wanted))
+            // Momentum that runs into the tilt limit stops there rather than
+            // grinding against it for the rest of its decay.
+            if clamped != wanted { pitchVelocity = 0 }
+            pitch = clamped
+            target.x += panVelocity.x * dt
+            target.z += panVelocity.z * dt
+
+            let survival = pow(decayPerSecond, dt)
+            yawVelocity *= survival
+            pitchVelocity *= survival
+            panVelocity.x *= survival
+            panVelocity.z *= survival
+
+            apply()
+
+            if abs(yawVelocity) < stillness && abs(pitchVelocity) < stillness
+                && abs(panVelocity.x) < stillness && abs(panVelocity.z) < stillness
+            {
+                stopInertia()
+            }
+        }
         /// Where the rig is looking. Panning slides this target across the
         /// ground; the camera keeps orbiting whatever it now holds, so a
         /// turn after a pan spins around the corner just moved to rather
@@ -280,6 +371,20 @@ struct DollhouseSceneView: UIViewRepresentable {
             let here = gesture.location(in: view)
             if gesture.state == .began {
                 lastTouch = here
+                stopInertia()
+                return
+            }
+            if gesture.state == .ended || gesture.state == .cancelled {
+                // The same handoff the turn gets: convert the finger's
+                // parting speed into world metres per second by casting a
+                // point one frame ahead of it onto the floor.
+                let velocity = gesture.velocity(in: view)
+                let ahead = CGPoint(x: here.x + velocity.x / 60, y: here.y + velocity.y / 60)
+                if let now = ground(here, in: view), let next = ground(ahead, in: view) {
+                    panVelocity = SCNVector3(
+                        (now.x - next.x) * 60, 0, (now.z - next.z) * 60)
+                    startInertia()
+                }
                 return
             }
             guard let from = ground(lastTouch, in: view), let to = ground(here, in: view)
@@ -316,21 +421,61 @@ struct DollhouseSceneView: UIViewRepresentable {
         @objc func orbited(_ gesture: UIPanGestureRecognizer) {
             guard let view else { return }
             let point = gesture.translation(in: view)
-            if gesture.state == .began { lastPan = .zero }
-            let dx = Float(point.x - lastPan.x)
-            let dy = Float(point.y - lastPan.y)
-            lastPan = point
-            yaw -= dx * 0.006
-            pitch = min(maxPitch, max(minPitch, pitch + dy * 0.006))
-            apply()
+            switch gesture.state {
+            case .began:
+                lastPan = .zero
+                stopInertia()
+            case .changed:
+                let dx = Float(point.x - lastPan.x)
+                let dy = Float(point.y - lastPan.y)
+                lastPan = point
+                yaw -= dx * orbitRate
+                pitch = min(maxPitch, max(minPitch, pitch + dy * orbitRate))
+                apply()
+            case .ended, .cancelled:
+                // **Hand the gesture off to momentum.** A turn that stops
+                // dead the instant the fingers lift reads as a control; one
+                // that carries and settles reads as an object. The velocity
+                // comes from the recogniser rather than from differencing
+                // the last two frames, which is noisy at exactly the moment
+                // it matters.
+                let velocity = gesture.velocity(in: view)
+                yawVelocity = -Float(velocity.x) * orbitRate
+                pitchVelocity = Float(velocity.y) * orbitRate
+                startInertia()
+            default:
+                break
+            }
         }
 
+        /// Pinch to zoom, **anchored at the fingers**.
+        ///
+        /// Zooming to the centre of the screen is the default and it is
+        /// wrong for a plan: the corner being examined slides away exactly
+        /// when it is being looked at, and the hand has to chase it with a
+        /// pan. Every map and model viewer anchors instead — whatever is
+        /// between the fingers stays between them. The trick is the one the
+        /// one-finger grab already uses: note the floor point under the
+        /// pinch centre, change the zoom, then move the rig by however far
+        /// that point drifted.
         @objc func zoomed(_ gesture: UIPinchGestureRecognizer) {
-            if gesture.state == .began { startZoom = zoom }
+            guard let view else { return }
+            if gesture.state == .began {
+                startZoom = zoom
+                stopInertia()
+                return
+            }
+            let centre = gesture.location(in: view)
+            let before = ground(centre, in: view)
             // Clamped so a pinch can neither crop inside a single wall nor
             // throw the storey away to a dot.
             zoom = min(200, max(1.5, startZoom / Float(gesture.scale)))
             apply()
+            if let before, let after = ground(centre, in: view) {
+                target.x += before.x - after.x
+                target.z += before.z - after.z
+                apply()
+            }
         }
 
         private func apply() {
