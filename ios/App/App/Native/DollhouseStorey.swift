@@ -72,6 +72,18 @@ enum DollhouseStorey {
         var a: CGPoint
         var b: CGPoint
         var height: Double
+        /// Which room measured this wall.
+        ///
+        /// **Two walls of the SAME room are never the same wall.** A party
+        /// wall is shared between different rooms — that is what the word
+        /// means. Without this, a single room's own walls could merge with
+        /// each other wherever two of them ran parallel and close: a stepped
+        /// outline, a nook, a partition beside an outer wall. Build 201
+        /// shipped without it and the owner's 2nd floor — one room, fourteen
+        /// walls — collapsed into almost nothing, leaving a floor with
+        /// shadows on it and one stray band where a cluster's mid-line
+        /// landed.
+        var room: Int
         /// Unit normal pointing AWAY from the room this wall was measured
         /// in. The scanner reports a room's interior FACE, not the middle of
         /// its wall, so the wall body belongs entirely on this side — a wall
@@ -164,6 +176,10 @@ enum DollhouseStorey {
 
     /// Are these two the same wall, seen from either side?
     static func sameWall(_ p: Piece, _ q: Piece) -> Bool {
+        // The first and cheapest test: one room's walls are all different
+        // walls. Only a wall seen from two rooms can be one wall.
+        guard p.room != q.room else { return false }
+
         let (pdx, pdy) = (p.b.x - p.a.x, p.b.y - p.a.y)
         let (qdx, qdy) = (q.b.x - q.a.x, q.b.y - q.a.y)
         let pLength = hypot(pdx, pdy), qLength = hypot(qdx, qdy)

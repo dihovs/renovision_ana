@@ -440,7 +440,7 @@ enum Dollhouse {
         var pieces: [DollhouseStorey.Piece] = []
         var openings: [DollhouseStorey.Opening] = []
 
-        for room in rooms {
+        for (index, room) in rooms.enumerated() {
             let ox = Double(room.origin.x), oy = Double(room.origin.y)
             let outline = closedOutline(room.plan.polygon)
             for segment in wallSegments(of: room) {
@@ -449,6 +449,7 @@ enum Dollhouse {
                         a: CGPoint(x: segment.x1 + ox, y: segment.y1 + oy),
                         b: CGPoint(x: segment.x2 + ox, y: segment.y2 + oy),
                         height: room.ceilingHeight,
+                        room: index,
                         outward: outwardNormal(of: segment, outline: outline)))
             }
             for opening in room.plan.openings {

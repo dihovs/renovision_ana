@@ -3414,3 +3414,32 @@ Newest last. One or two lines per chat.
   to the standard. All pass.
   **The device dropped its tunnel mid-install** — the AWDL symptom §8
   records. Install is waiting on the phone returning to `available (paired)`.
+- **2026-08-24 (S14 — a party wall is shared between DIFFERENT rooms)**
+  Build **202**, fixing what build 201 broke. His 2nd floor came back with
+  the walls gone: the floor drawn, contents standing on it, wall-shaped
+  SHADOWS falling across it, and one stray black band floating clear of the
+  plan.
+  **The shadows were the tell.** Geometry that casts a shadow exists. So the
+  walls were not missing — they had been merged out of existence.
+  **`sameWall` never asked which room a wall came from.** Two walls of one
+  room could merge with each other wherever they ran parallel and close: a
+  stepped outline, a nook, an interior partition beside an outer wall. Then
+  union-find's transitivity finished the job — A merges with B, B with C —
+  and a single room's fourteen walls collapsed into one or two clusters
+  whose mid-lines landed nowhere near the floor. That is the stray band.
+  **The fix is one guard, and it is a definition rather than a tolerance:**
+  a party wall is a wall shared between DIFFERENT rooms. Two walls of the
+  same room are two walls. `Piece` carries its room index and `sameWall`
+  refuses same-room pairs before it measures anything.
+  **The harness had eight passing assertions and none of them was his
+  case** — every fixture was two rooms meeting, because the feature was
+  about merging. The one shape nobody tested was one room with a
+  complicated outline, which is most of what this app scans. Now tested:
+  fourteen walls in, fourteen walls out, with interior partitions running
+  alongside outer walls specifically to bait the chain. The two-room
+  merging, the corridor shared by three rooms, the double-recorded doorway
+  and the outward extrusion all still pass beside it.
+  **Also: `xcodebuild -destination id=…` fails outright when the phone is
+  unavailable**, which is a different failure from the timeout §8 records.
+  `-destination 'generic/platform=iOS'` builds the same device binary
+  without needing the phone present, and the install waits separately.
