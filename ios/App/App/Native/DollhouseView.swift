@@ -169,7 +169,11 @@ struct DollhouseSceneView: UIViewRepresentable {
         view.pointOfView = scene.rootNode.childNode(withName: "camera", recursively: true)
         context.coordinator.rig = scene.rootNode.childNode(withName: "rig", recursively: false)
         context.coordinator.view = view
-        context.coordinator.configure(distance: Float(max(6.0, Dollhouse.bounds(of: rooms).span * 1.35)))
+        // Half the storey's span plus a margin: the whole floor lands on
+        // screen at the pose it opens in, which is the point of opening
+        // straight down.
+        context.coordinator.configure(
+            zoom: Float(max(4.0, Dollhouse.bounds(of: rooms).span * 0.62)))
 
         // **One finger moves the model, two fingers turn it.** The owner,
         // 24 Aug: *"we should be able to turn it with two fingers only, and
@@ -215,11 +219,19 @@ struct DollhouseSceneView: UIViewRepresentable {
         /// the 2D floor plan we already have, and the rooms lose the depth
         /// that is the entire reason for this screen.
         private let minPitch: Float = 12 * .pi / 180
-        private let maxPitch: Float = 78 * .pi / 180
+        /// Straight down. The screen OPENS here — the plan he was just
+        /// reading — so switching from 2D reads as a tilt rather than a jump
+        /// into a diorama (owner, 24 Aug). The 23 Aug clamp stopped at 78°
+        /// to avoid "just the 2D plan we already have"; he looked at both
+        /// and chose the plan.
+        private let maxPitch: Float = .pi / 2
         private var yaw: Float = 0
-        private var pitch: Float = 40 * .pi / 180
-        private var distance: Float = 12
-        private var startDistance: Float = 12
+        private var pitch: Float = .pi / 2
+        /// How much of the world fits the screen height, in metres — the
+        /// orthographic camera's zoom. Named `distance` no longer; nothing
+        /// moves toward the model, the frustum just widens.
+        private var zoom: Float = 12
+        private var startZoom: Float = 12
         private var lastPan: CGPoint = .zero
         private var lastMove: CGPoint = .zero
         /// Where the rig is looking. Panning slides this target across the
@@ -235,8 +247,8 @@ struct DollhouseSceneView: UIViewRepresentable {
             shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
         ) -> Bool { true }
 
-        func configure(distance: Float) {
-            self.distance = distance
+        func configure(zoom: Float) {
+            self.zoom = zoom
             apply()
         }
 
@@ -251,10 +263,10 @@ struct DollhouseSceneView: UIViewRepresentable {
             let dy = Float(point.y - lastMove.y)
             lastMove = point
 
-            // Metres per point, scaled by how far away the camera is: the
-            // model tracks the finger at any zoom instead of crawling when
-            // pulled back and bolting when up close.
-            let scale = distance * 0.0016
+            // Metres per point, from the orthographic scale: the model
+            // tracks the finger at any zoom instead of crawling when pulled
+            // back and bolting when up close.
+            let scale = zoom * 0.0016
             let sinY = sin(yaw), cosY = cos(yaw)
             // Screen-right and screen-up projected onto the ground plane.
             // The vertical sign is INVERTED against the horizontal one
@@ -284,10 +296,10 @@ struct DollhouseSceneView: UIViewRepresentable {
         }
 
         @objc func zoomed(_ gesture: UIPinchGestureRecognizer) {
-            if gesture.state == .began { startDistance = distance }
-            // Clamped so a pinch can neither bury the camera inside a wall nor
-            // throw the model away to a dot.
-            distance = min(200, max(1.5, startDistance / Float(gesture.scale)))
+            if gesture.state == .began { startZoom = zoom }
+            // Clamped so a pinch can neither crop inside a single wall nor
+            // throw the storey away to a dot.
+            zoom = min(200, max(1.5, startZoom / Float(gesture.scale)))
             apply()
         }
 
@@ -299,9 +311,12 @@ struct DollhouseSceneView: UIViewRepresentable {
             rig.eulerAngles = SCNVector3(0, yaw, 0)
             rig.childNode(withName: "pitch", recursively: false)?
                 .eulerAngles = SCNVector3(-pitch, 0, 0)
+            // The camera stays parked; zoom widens the orthographic
+            // frustum instead of moving it, so nothing can clip through a
+            // wall on the way in.
             rig.childNode(withName: "pitch", recursively: false)?
                 .childNode(withName: "camera", recursively: false)?
-                .position = SCNVector3(0, 0, distance)
+                .camera?.orthographicScale = Double(zoom)
             SCNTransaction.commit()
         }
 

@@ -216,25 +216,52 @@ enum Dollhouse {
     /// the camera below the floor looking up. SceneKit's own
     /// `allowsCameraControl` offers no such clamp, which is why it is off.
     ///
-    /// Lifted to eye height above the model's floor so the default view looks
-    /// slightly DOWN into the rooms rather than at their skirting.
+    /// **It opens straight down, and the projection is orthographic.**
+    ///
+    /// The owner, 24 Aug 2026, on the reference's 3D view: *"the camera is
+    /// sitting right on top — when you switch from the top-down view to the
+    /// 3D, it looks like a normal transition. This is the best part about
+    /// it. I want it like that."*
+    ///
+    /// So the entry pose is the plan he was just reading: 90°, looking
+    /// straight down. Tilting from there reveals the depth, and the screen
+    /// stops being a diorama he has to re-orient himself in every time it
+    /// opens.
+    ///
+    /// **This overrides the 23 Aug clamp of 78°**, which stopped short of
+    /// vertical on the reasoning that *"at 90° a dollhouse is just the 2D
+    /// plan we already have."* True, and beside the point: arriving at the
+    /// drawing he already knows is exactly what makes the next tilt legible.
+    /// He looked at both and chose. 12° still holds at the bottom — below
+    /// that the ground rises past the model.
+    ///
+    /// **Orthographic, because perspective breaks the illusion at the
+    /// edges.** A perspective camera looking down splays the outer walls
+    /// outward, so a room in the corner leans away and the picture stops
+    /// matching the plan the instant you look at anything but the centre.
+    /// The reference is orthographic at every angle; so is this now, and
+    /// the pinch drives `orthographicScale` instead of a distance.
     static func cameraRig(span: Double) -> SCNNode {
         let rig = SCNNode()
         rig.name = "rig"
-        rig.position = SCNVector3(0, 0.9, 0)
+        rig.position = SCNVector3(0, 0, 0)
 
         let pitch = SCNNode()
         pitch.name = "pitch"
-        pitch.eulerAngles = SCNVector3(-40 * Float.pi / 180, 0, 0)
+        pitch.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
         rig.addChildNode(pitch)
 
         let camera = SCNNode()
         camera.name = "camera"
         camera.camera = SCNCamera()
-        camera.camera?.fieldOfView = 50
+        camera.camera?.usesOrthographicProjection = true
+        camera.camera?.orthographicScale = max(4.0, span * 0.62)
+        // Wide near/far: an orthographic camera parked far enough back to
+        // clear the model from any angle still has to keep the near face of
+        // it in front of zNear.
         camera.camera?.zNear = 0.05
-        camera.camera?.zFar = 1000
-        camera.position = SCNVector3(0, 0, Float(max(6.0, span * 1.35)))
+        camera.camera?.zFar = 2000
+        camera.position = SCNVector3(0, 0, Float(max(30.0, span * 4)))
         pitch.addChildNode(camera)
         return rig
     }

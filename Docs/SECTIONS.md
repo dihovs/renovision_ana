@@ -3324,3 +3324,31 @@ Newest last. One or two lines per chat.
   **Still not settled on this screen:** whether a scan with NO closed outline
   (walls that never chained) is better served by the loose segments it now
   falls back to, or by no walls at all. Nobody has seen that case in 3D yet.
+- **2026-08-24 (S14 — it opens as the plan, and the projection is
+  orthographic)** Build **199**, from a magicplan 3D screenshot and one
+  sentence of why it works: *"the camera is sitting right on top — when you
+  switch from the top-down view to the 3D, it looks like a normal
+  transition. This is the best part about it. I want it like that."*
+  **The entry pose is now 90°, straight down.** This OVERRIDES the 23 Aug
+  clamp of 78°, which stopped short of vertical on the reasoning that *"at
+  90° a dollhouse is just the 2D plan we already have."* The reasoning was
+  correct and beside the point: arriving at the drawing he already knows is
+  precisely what makes the next tilt legible. He compared both products and
+  chose. 12° still holds at the bottom.
+  **Orthographic at every angle, like the reference.** A perspective camera
+  looking down splays the outer walls outward, so a corner room leans away
+  and the picture stops matching the plan the moment he looks anywhere but
+  the centre. The camera now parks and the pinch drives `orthographicScale`
+  instead of a distance — which also means zoom can no longer clip through
+  a wall on the way in, and the initial scale frames the whole storey.
+  **What this makes free:** looking straight down, front-face culling hides
+  every wall's outer face and the normally-culled dark caps (23 Aug) are
+  what draw — so the storey reads as black poché bands on the floor, which
+  is the reference's look and the same convention the 2D plan uses.
+  **Named and NOT done — the bigger half of the reference.** Their storey
+  is one building: neighbouring rooms share a single wall. Ours still
+  builds each room as its own island with its own slab and its own four
+  walls, so a party wall is drawn twice, side by side, and the plan never
+  quite knits. That is a geometry rebuild (a storey-level wall network
+  rather than per-room shells), not a camera change, and it is the next
+  real piece of work on this screen.
