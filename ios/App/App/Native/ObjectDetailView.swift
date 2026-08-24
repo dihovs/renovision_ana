@@ -33,6 +33,8 @@ struct ObjectDetailView: View {
     @State private var heightText: String
     @State private var confirmingDelete = false
     @State private var error: String?
+    @State private var suggestion: String?
+    @State private var polishing = false
 
     init(object: RoomObject, onClose: @escaping (Bool) -> Void, onDelete: @escaping () -> Void) {
         self.object = object
@@ -262,6 +264,55 @@ struct ObjectDetailView: View {
                 Section("Notes") {
                     TextField("Anything worth recording", text: $notes, axis: .vertical)
                         .lineLimit(2...6)
+
+                    // TIDY UP — the same suggestion-only AI editor the room
+                    // and area notes carry. It never replaces what he typed:
+                    // what he typed is what he saw, and the server is under
+                    // orders to add nothing.
+                    if !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button {
+                            polishing = true
+                            Task {
+                                do {
+                                    suggestion = try await API.shared.polish(
+                                        note: notes.trimmingCharacters(in: .whitespacesAndNewlines))
+                                } catch {
+                                    self.error = error.localizedDescription
+                                }
+                                polishing = false
+                            }
+                        } label: {
+                            Label(
+                                polishing ? "Tidying…" : "Tidy up",
+                                systemImage: "wand.and.sparkles")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Brand.blue)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(polishing)
+                    }
+
+                    if let suggestion {
+                        VStack(alignment: .leading, spacing: Brand.Space.tight) {
+                            Text(suggestion)
+                                .font(.system(size: 14))
+                                .foregroundStyle(Brand.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            HStack {
+                                Button("Use this") {
+                                    notes = suggestion
+                                    self.suggestion = nil
+                                }
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Brand.blue)
+                                Spacer()
+                                Button("Keep mine") { self.suggestion = nil }
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Brand.inkSoft)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
                 }
 
                 Section {

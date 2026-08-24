@@ -3209,3 +3209,55 @@ Newest last. One or two lines per chat.
   these claims are detach-reset, which our schema cannot express at all.
   Owner's phrasing that governs the whole feature: "our theme, design
   language, but as detailed as Xactimate."
+- **2026-08-24 (Estimator — from rules table to a working product in one
+  night)** The owner's words set the scope: *"make it an amazing helper,
+  that can build it itself, also manual workflow… like an estimate should be
+  exactly."* Shipped, web side complete; one manual step remains and it is
+  named below.
+  **First the engine earned it.** A 20-agent adversarial review of the
+  previous session's rules engine confirmed 13 defects, all fixed with
+  regression tests: labour hours dropped the removal side of every E&R line;
+  half-cent bases rounded down through float drift (4,14 × 2,25 $ = 931,5¢
+  computed as 931,49…); the object matcher priced `toilet_roll_holder` as a
+  toilet (substring matching — replaced with an exact-slug table against
+  ObjectCatalog's own vocabulary, unmatched slugs derive unpriced rather
+  than guessed); baseboard billed the raw perimeter when the app's own
+  `baseboardLengthMeters` says trim does not run across a doorway; tile
+  installed wall-to-wall over a patch; ordinal line keys re-keyed siblings
+  and orphaned operator edits (keys are content-named now, equipment by
+  placement id); minimum charges stacked on their own output and credited
+  E&R removal dollars to the install trade; monitoring visits split one
+  Québec evening across two UTC days ($195 per phantom visit — local-day
+  counting now). 1188 tests pass.
+  **Then the product.** Migration `0042_insurance_estimates.sql` (estimate +
+  lines tables carrying the full line model — activity, two rates, CALC
+  citation, origin/provenance/key merge contract, removed tombstones — plus
+  `room_scans.floor_finish`). `/admin/projects/[id]/estimate`: three doors
+  into one table — Build from measurements (derivation over the project's
+  scans, areas, objects, drying log via the same loaders the report uses),
+  an AI assistant (claude-opus-5 proposes item codes with rationales;
+  backend prices everything; nothing enters the estimate until accepted —
+  accepted lines are manual with `ai` provenance), and the manual door
+  (price book search, inline quantity edits; editing a derived line flips
+  it to manual so re-derivation never overwrites it; deleting one leaves a
+  tombstone so it never comes back). Unknown floor finishes surface as a
+  one-tap chooser on the line that writes the answer back to the room.
+  `/estimate/print` + `/estimate/pdf`: the devis document — Xactimate's
+  skeleton (French seven-column tables, trade sections, per-room totals,
+  Sommaire with the exact verified O&P/tax math, dépréciation paragraph,
+  Récapitulatif par pièce) in Renovision's own letterhead and brand, via
+  the report's own Chromium renderer. `next build` clean, all routes in the
+  manifest.
+  **The phone: build 196.** The owner asked for AI note correction in the
+  scan — it already existed (20 Aug, his own ask) on room, wall and area
+  notes; the gap was OBJECT notes, closed with the same suggestion-only
+  Tidy Up (never replaces, server forbidden to add facts). Installed and
+  the device reports Bundle Version 196.
+  **The one manual step:** migration 0042 must be run in the Supabase SQL
+  editor (the estimate page says so itself until it is). Read the editor's
+  own text before trusting a green Success — that trap is §S12's.
+  **Still open, owner-only:** his O&P convention (10/5 assumed, Polygon
+  basis), per-trade minimums (machinery ships with an empty table),
+  management fee %, detach-reset prices (those lines derive visibly
+  unpriced), and ceiling affected-areas — the schema still cannot mark
+  ceiling damage, most water claims' primary surface.

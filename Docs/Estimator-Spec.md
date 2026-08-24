@@ -161,6 +161,38 @@ questions it already answers.
    and air-mover days billed per unit-day off that record, which we already
    compute?
 
+## 5b. How lines enter an estimate — three doors, one table
+
+Decided with the owner 23 Aug 2026 (his words: *"I want AI to help me to
+suggest or maybe autofill items, I don't want to do line by line, but want to
+have the option of doing it manually also"*). All three doors feed the SAME
+line table; none of them is a separate mode.
+
+1. **Autofill — the rules engine** (`src/lib/estimator/insurance/`). Opening
+   the estimator on a project derives the draft automatically from what was
+   measured: areas, objects, the drying log. Every derived line prints its
+   CALC citation. Deleting or editing a derived line flips it to manual, and
+   re-running the derivation never resurrects or overwrites it (§3.1).
+
+2. **AI suggestion — Claude proposes, the backend prices, the operator
+   decides.** The pattern already shipped in the chat widget and stays the
+   law here: Claude sees the catalogue summary (codes, names, units — NO
+   rates) plus the project's context, and returns item codes with quantities
+   and a one-line rationale each; every price is computed server-side.
+   Suggestions render as PENDING lines — accept one, accept all, or dismiss —
+   and only accepted lines join the estimate, as manual lines with `ai`
+   provenance. This door is also conversational: "add a two-foot flood cut in
+   the bathroom" resolves against the room's own measurements. The AI never
+   adds a line to the estimate directly and never invents a price — a code it
+   hallucinates surfaces as an unknown-code line, not a priced guess.
+
+3. **Manual — line by line, when he wants it.** The quote builder's editing
+   model, unchanged: search the price book, set a quantity, write a note.
+
+Provenance is recorded per line (`rule` / `ai` / `operator`) so an adjuster
+question — "where did this line come from?" — always has an answer, which is
+the same argument as §3.3.
+
 ## 6. Suggested order
 
 1. **Export the price book** and draft the rules table against real codes.

@@ -37,6 +37,10 @@ export type RoomScan = {
   /** A hex colour for this room on the floor plan, distinct from any damage
       colouring inside it. NULL draws the plan's ordinary grey. */
   room_color: string | null;
+  /** What the floor is finished with — the estimator's floor rules cannot
+      pick removal and install items without it. NULL means not recorded,
+      and the estimate says so rather than guessing (migration 0042). */
+  floor_finish: "laminate" | "lvp" | "engineered" | "hardwood" | "carpet" | "tile" | null;
 };
 
 export type RoomScanInput = {
