@@ -1436,7 +1436,8 @@ struct FloorCanvasView: View {
     /// one value `StoreyViewport.pivot` and `cameraBounds` must agree on or
     /// the framing describes a different rectangle than the one being drawn.
     private var turnPivot: CGPoint {
-        CGPoint(x: cachedLayout.wholeFloorBounds.midX, y: cachedLayout.wholeFloorBounds.midY)
+        let box = cachedLayout.drawnBounds
+        return CGPoint(x: box.midX, y: box.midY)
     }
 
     /// **The angle the storey is drawn at right now**, radians — what is
@@ -1529,7 +1530,10 @@ struct FloorCanvasView: View {
     /// at floor depth. Zooming IN frames a SMALLER rectangle, which is why
     /// this divides rather than multiplies.
     private var adjustedFloorBounds: CGRect {
-        let base = cachedLayout.wholeFloorBounds
+        // What is DRAWN, not the rooms' own rectangle — see
+        // `StoreyLayout.drawnBounds`. Framing the smaller one clips the
+        // swing arcs upright and makes a turn look off-centre.
+        let base = cachedLayout.drawnBounds
         let z = max(floorZoom, 0.01)
         let w = base.width / z
         let h = base.height / z
@@ -2790,16 +2794,40 @@ struct FloorCanvasView: View {
     private func commitTurn() async {
         guard let angle = turning else { return }
         let snapped = Self.snappedTurn(angle)
-        withAnimation(.snappy(duration: 0.2)) { turning = nil }
         lastDetent = nil
+
+        // **The angle changes hands without the drawing moving.**
+        //
+        // `liveAngle` is saved + live, so clearing `turning` before the
+        // saved half has caught up drops the storey back to where it was,
+        // and the round trip then puts it back — which is exactly what the
+        // owner saw: *"it kind of comes back and then goes to the turned
+        // position."* Moving both in ONE step keeps the sum, and therefore
+        // the picture, unchanged at the moment of the commit.
+        let settled = (floorDisplayAngle + snapped * 180 / .pi)
+            .truncatingRemainder(dividingBy: 360)
+        let previous = floorDisplayAngle
+        floorDisplayAngle = settled
+        turning = nil
+
         guard abs(snapped) > 0.001 else { return }
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
 
-        let turned = (floorDisplayAngle + snapped * 180 / .pi)
-            .truncatingRemainder(dividingBy: 360)
-        try? await API.shared.setFloorDisplayAngle(
-            projectId: projectId, level: level, degrees: turned)
-        await load()
+        do {
+            try await API.shared.setFloorDisplayAngle(
+                projectId: projectId, level: level, degrees: settled)
+        } catch {
+            // Put the drawing back to what is actually stored rather than
+            // leaving it showing a turn the server never took. Silence here
+            // is how a turn that failed looked exactly like one that worked.
+            floorDisplayAngle = previous
+            ScanLens.appendToDiagnostics(
+                "STOREY-TURN: save FAILED level=\(level) degrees=\(settled) "
+                    + String(describing: error).prefix(160))
+            return
+        }
+        ScanLens.appendToDiagnostics(
+            "STOREY-TURN: saved level=\(level) degrees=\(String(format: "%.1f", settled))")
     }
 
     private func load() async {

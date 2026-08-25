@@ -838,7 +838,21 @@ enum EditorChrome {
         /// Whether to print the object's name under it. Off at storey scale,
         /// where the room's own name plate already owns that space and a
         /// hundred-point-wide room cannot carry both.
-        labelled: Bool = true
+        labelled: Bool = true,
+        /// **The storey's own turn, degrees.**
+        ///
+        /// The envelope below is built in model space and put through
+        /// `toScreen` corner by corner, so it turns with the plan for free.
+        /// The FIGURE is not: it is drawn into a screen-space layer spun by
+        /// the object's own heading, which knows nothing about a storey that
+        /// has been turned. So a turned floor came out with its walls round
+        /// and every sofa still facing the way it faced before — the owner:
+        /// *"all the furniture inside, they kind of don't turn. They keep
+        /// their positions."*
+        ///
+        /// Zero everywhere except the storey canvas: a room editor and a
+        /// card draw an untURNED plan, and passing nothing keeps them exact.
+        turn: Double = 0
     ) {
         let corners = ObjectCatalog.footprint(
             width: object.width, depth: object.depth, rotation: object.rotation
@@ -930,7 +944,7 @@ enum EditorChrome {
         if let shape = object.entry?.shape, !generic, widthPts > 6, depthPts > 6 {
             context.drawLayer { layer in
                 layer.translateBy(x: centre.x, y: centre.y)
-                layer.rotate(by: Angle(degrees: object.rotation))
+                layer.rotate(by: Angle(degrees: object.rotation + turn))
                 ObjectGlyphs.figure(
                     shape,
                     in: CGRect(

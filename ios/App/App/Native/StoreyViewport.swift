@@ -227,6 +227,48 @@ struct StoreyLayout {
         CGRect(x: 0, y: 0, width: max(wholeFloorWidth, 0.1), height: max(wholeFloorHeight, 0.1))
     }
 
+    /// **What is actually DRAWN, which is bigger than the rooms.**
+    ///
+    /// `wholeFloorBounds` is the rooms' own rectangle, and the drawing
+    /// overflows it on every side: the wall band is 114 mm centred on the
+    /// polygon edge, and a door's swing arc has a radius of the door's own
+    /// width — an outward-swinging door on an exterior wall reaches most of
+    /// a metre past the room.
+    ///
+    /// Framing the rooms' rectangle therefore frames the wrong thing. Upright
+    /// it merely clips the arcs. TURNED it is worse and it is what the owner
+    /// saw: the overhang swings round as the storey turns while the framing
+    /// only ever describes the rectangle inside it, so the drawing slides
+    /// within its own frame and reads as turning about an edge rather than
+    /// about the middle — *"it doesn't turn in the center… it kind of turns
+    /// around the edge of it."*
+    ///
+    /// Per room rather than one global margin, because the allowance a room
+    /// needs is the width of the widest door IN THAT ROOM.
+    var drawnBounds: CGRect {
+        var box: CGRect?
+        for room in rooms {
+            let polygon = room.plan.polygon
+            guard !polygon.isEmpty else { continue }
+            let xs = polygon.map(\.x), ys = polygon.map(\.y)
+            guard let minX = xs.min(), let maxX = xs.max(),
+                let minY = ys.min(), let maxY = ys.max()
+            else { continue }
+            // Half the wall band sits outside the polygon edge; a swing arc
+            // reaches its own opening's width beyond it.
+            let widest = room.plan.openings
+                .map { hypot($0.segment.x2 - $0.segment.x1, $0.segment.y2 - $0.segment.y1) }
+                .max() ?? 0
+            let margin = 0.114 / 2 + widest
+            let here = CGRect(
+                x: room.origin.x + minX - margin, y: room.origin.y + minY - margin,
+                width: (maxX - minX) + margin * 2, height: (maxY - minY) + margin * 2)
+            box = box.map { $0.union(here) } ?? here
+        }
+        guard let box, box.width > 0.05, box.height > 0.05 else { return wholeFloorBounds }
+        return box
+    }
+
     func room(id: String) -> StoreyRoom? { rooms.first { $0.id == id } }
 
     /// Rooms that touch nothing else on this floor — the ones the FLOOR-WIDE
@@ -564,7 +606,11 @@ struct StoreyBaseLayer: View {
                         // is already competing for that space. The symbol
                         // is what carries the meaning; the label belongs
                         // where there is room for it.
-                        labelled: false)
+                        labelled: false,
+                        // The storey's turn, so a sofa turns with the room
+                        // it stands in rather than staying square to the
+                        // screen while the walls go round it.
+                        turn: viewport.angle * 180 / .pi)
                 }
 
                 // Openings: knock the band out, then draw the SYMBOL — a
@@ -777,7 +823,11 @@ struct StoreyBaseLayer: View {
                     // through the viewport, not as a box built from two
                     // corners — two corners stop describing a rectangle the
                     // moment the viewport carries an angle.
-                    let floor = layout.wholeFloorBounds
+                    // `drawnBounds`, the same rectangle the camera frames
+                    // and the storey turns about — so the handle sits on the
+                    // point the drawing actually pivots on rather than near
+                    // it.
+                    let floor = layout.drawnBounds
                     Self.drawTurnHandle(
                         context: context,
                         centre: viewport.point(CGPoint(x: floor.midX, y: floor.midY)),
