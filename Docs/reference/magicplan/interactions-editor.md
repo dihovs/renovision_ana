@@ -254,6 +254,37 @@ bottom = contextual action bar with a grabber above it and the caption `Swipe up
 
 ---
 
+### INT-E22 — Adjustment chrome, walls and affected areas
+
+**Frame:** `screens/92-room-adjust-manipulators.webp`, sent by the owner
+25 Aug 2026 with: *"for adjustment I need this for walls and for affected
+areas."* Saved here because the storey-turn frames were NOT, and three
+builds guessed at a design that was sitting in a chat.
+
+What the frame shows, on a room under adjustment:
+
+| Element | Detail |
+|---|---|
+| Selected shape | light blue fill, blue border |
+| Corner handles | white discs, dark outline, on the SELECTED shape's corners |
+| Move | one large blue 4-way cross, beside the shape rather than on its label |
+| Rotate | small amber pin at a corner — the same pin the storey turn uses |
+| Dimensions | full chain around the shape: per-edge AND overall bounding runs, on dotted witness lines |
+| Everything else | drawn as plain context — no fill, no handles |
+| Action bar | `Set Diagonal · Delete…` |
+| Grid | upright, unturned |
+
+**The ask is that an affected area gets the SAME chrome as a room.** Ours
+gives an area its blue fill and corner dots already; the move cross, the
+rotate pin and the area's own dimension chain are not built.
+
+**Already shipped from this (build 226):** selecting an area now hides the
+room's corner handles and wall dimensions and takes them out of hit-testing
+— *"wall adjustment needs to deactivate and hide… isolated adjustment
+only."* An area's corner sits a few points from the wall it was drawn
+against, so the two were one gesture apart, and only one of them is a
+measurement.
+
 ### INT-E21 — Move / rotate a room
 
 | | |

@@ -903,7 +903,14 @@ struct RoomEditorCore: View {
                     // untouched room, and they are what says the shape can be
                     // grabbed at all. Hiding them until something is selected
                     // meant the first drag had to be guessed at.
-                    if true {
+                    //
+                    // **Except while a damaged area is being adjusted.** See
+                    // `adjustingArea`: they sit on top of the very corners
+                    // the finger is aiming at, and a handle that is drawn is
+                    // a handle that will be grabbed. The reference does the
+                    // same in Edit Layout — *"all dimension strings and
+                    // corner handles disappear"* (INT-E20).
+                    if !adjustingArea {
                         for i in corners.indices {
                             let p = pt(corners[i])
                             let big = selection == .corner(i)
@@ -924,7 +931,13 @@ struct RoomEditorCore: View {
                     // opening also gets its split chain on the row beneath,
                     // whatever is selected (ORD-18). Locked values keep
                     // their padlock; the selected wall's string goes bold.
-                    if showDimensions {
+                    // `!adjustingArea`: the wall figures go with the corner
+                    // handles. A dimension is a control here — tapping one
+                    // opens a keypad that CHANGES the room — so leaving them
+                    // live during an area edit is the same hazard as the
+                    // handles, and they are drawn outboard where a finger
+                    // pulling an area's edge outward naturally lands.
+                    if showDimensions, !adjustingArea {
                         EditorChrome.drawWallDimensions(
                             context: context,
                             polygon: corners,
@@ -1249,7 +1262,43 @@ struct RoomEditorCore: View {
         return inside
     }
 
+    /// **Adjusting a damaged area is an ISOLATED mode.**
+    ///
+    /// The owner: *"when I adjust the affected area on the main adjust
+    /// screen, wall adjustment needs to deactivate and hide, also furniture
+    /// shouldn't move — isolated adjustment only."*
+    ///
+    /// He is right, and the reason is that the two edits share a canvas and
+    /// almost share their targets: an area's corner sits a few points from
+    /// the wall it was drawn against, and the room's own corner handle is
+    /// drawn on top of it. Pulling a wet patch square to a wall and pulling
+    /// the WALL are then one gesture apart, and only one of them is a
+    /// measurement. A room's shape is what the claim is priced from; it
+    /// must not be reachable by a finger aiming at something else.
+    ///
+    /// So while an area is selected: no corner handles, no dimensions,
+    /// nothing else takes a tap.
+    private var adjustingArea: Bool { selectedAreaID != nil }
+
+    /// The area under adjustment, if one is.
+    private var selectedAreaID: String? {
+        if case .area(let id) = selection { return id }
+        return nil
+    }
+
     private func handleTap(_ point: CGPoint, scale: CGFloat) {
+        // **Isolation.** While an area is being adjusted the only things a
+        // tap can reach are that area and the paper outside it — walls,
+        // corners, dimensions, openings, partitions and fixtures are all
+        // out of play until it is put down.
+        if adjustingArea {
+            let stillOnIt = areas.first { $0.id == selectedAreaID }.map {
+                areaContains($0, point)
+            }
+            if stillOnIt != true { select(.none) }
+            return
+        }
+
         let cornerTolerance = handleHit / 2 / scale
         for i in corners.indices where PlanEditing.length(PlanEditing.sub(corners[i], point)) < cornerTolerance {
             select(.corner(i))
