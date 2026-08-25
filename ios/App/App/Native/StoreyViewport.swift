@@ -97,6 +97,26 @@ struct StoreyViewport {
         return CGPoint(x: rotated.x * s + o.x, y: rotated.y * s + o.y)
     }
 
+    /// **A screen DELTA in floor metres.** The linear half of `model(_:)`
+    /// with its translation left out, because a drag is a vector and not a
+    /// point — but the ROTATION still has to come off it.
+    ///
+    /// Dividing a drag by `scale` and stopping there was right while the
+    /// storey was always drawn upright. Once it can be turned, the plan's
+    /// axes are not the screen's: at 90° a drag up moves a room sideways,
+    /// and at 180° every direction is reversed. The owner, with the floor
+    /// saved at -178.6°: *"everything got inverted. I go up, it goes down,
+    /// I go left, it goes right."* Exactly 180°, exactly inverted.
+    func modelVector(_ delta: CGSize) -> CGSize {
+        let s = scale
+        guard s > 0 else { return .zero }
+        let v = CGPoint(x: delta.width / s, y: delta.height / s)
+        guard angle != 0 else { return CGSize(width: v.x, height: v.y) }
+        // About the origin: a vector has no anchor to turn around.
+        let r = StoreyArranging.rotate([v], by: -angle, about: .zero)[0]
+        return CGSize(width: r.x, height: r.y)
+    }
+
     /// Screen back to floor metres — what a drag or a tap needs.
     func model(_ screenPoint: CGPoint) -> CGPoint {
         let o = origin
@@ -445,10 +465,18 @@ struct StoreyBaseLayer: View {
             let bg = Brand.Plan.paper
 
             if grid {
+                // **The grid does NOT turn, and that is the point.** It was
+                // rotated with the floor for one build, on my suggestion and
+                // with his agreement — and seeing it, he was clear it is
+                // wrong: *"I don't want the canvas to turn. I want the floor
+                // plan to turn on the canvas."* He is right, and the grid is
+                // what makes the difference legible. A dot lattice turning
+                // with the drawing reads as the whole SHEET being spun, and
+                // gives the eye nothing to judge the turn against; held
+                // still it is the paper the plan turns on.
                 EditorChrome.drawGrid(
                     context: context, size: canvasSize,
-                    model: (origin: viewport.origin, scale: viewport.scale),
-                    angle: viewport.angle, pivot: viewport.pivot)
+                    model: (origin: viewport.origin, scale: viewport.scale))
             }
 
             for storeyRoom in layout.rooms {

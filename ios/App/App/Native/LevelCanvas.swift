@@ -1456,7 +1456,7 @@ struct FloorCanvasView: View {
     /// there is, like, some white thing that covers it."*
     ///
     /// Through the viewport there is nothing to anchor and nothing to
-    /// refit: the camera already frames the turned box (`turned(_:)`), the
+    /// refit: the camera frames an angle-independent square (`framed(_:)`),
     /// drawing is fitted into it, and a tap mid-turn maps back through the
     /// same rotation it was drawn with. Committing a turn changes which
     /// half of this sum carries the angle and nothing else, so the drawing
@@ -1465,26 +1465,30 @@ struct FloorCanvasView: View {
         floorDisplayAngle * .pi / 180 + (turning ?? 0)
     }
 
-    /// A framing rectangle carried through the storey's turn.
+    /// **A framing that does not depend on the angle — the turntable.**
     ///
-    /// `StoreyViewport` rotates a floor point BEFORE fitting it to `bounds`,
-    /// so `bounds` describes rotated space — and a rectangle of unrotated
-    /// floor does not stay a rectangle through a turn. Fitting the upright
-    /// one would run a turned storey off the canvas, worst at 45° where it
-    /// needs about 1.4× the room. Its four corners turned, boxed, is the
-    /// region that actually has to fit.
-    private func turned(_ rect: CGRect) -> CGRect {
-        let angle = liveAngle
-        guard angle != 0 else { return rect }
-        let corners = StoreyArranging.rotate(
-            [
-                CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
-                CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY),
-            ], by: angle, about: turnPivot)
-        let xs = corners.map(\.x), ys = corners.map(\.y)
-        guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max()
-        else { return rect }
-        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    /// The owner, having watched three versions of this: *"I want it to be
+    /// fixed in the center. And when I turn, it stays there, and just it
+    /// turns on the canvas. I don't want the canvas to turn. I want the
+    /// floor plan to turn on the canvas."*
+    ///
+    /// That rules out re-framing per angle, which is what the previous
+    /// version did: it fitted the exact bounding box of the turned storey,
+    /// so the box changed shape on every frame of a drag and the drawing
+    /// swelled and shrank and slid inside it. Fitted tightly, yes — and
+    /// never still.
+    ///
+    /// A SQUARE on the drawing's own diagonal, centred on it, is the same
+    /// rectangle at every angle. The plan is then drawn at one scale, about
+    /// one point, and simply turns: a record on a turntable rather than a
+    /// photograph being re-cropped. It costs the difference between the
+    /// diagonal and the long side — about 9% on his 5 × 11.17 m floor —
+    /// and buys a drawing that holds still.
+    private func framed(_ rect: CGRect) -> CGRect {
+        let side = hypot(rect.width, rect.height)
+        guard side > 0.05 else { return rect }
+        return CGRect(
+            x: rect.midX - side / 2, y: rect.midY - side / 2, width: side, height: side)
     }
 
     /// What the shared camera is CURRENTLY aimed at, in floor metres — the
@@ -1493,7 +1497,7 @@ struct FloorCanvasView: View {
     /// different clocks.
     private var cameraBounds: CGRect {
         guard let cameraFocusID, let storeyRoom = cachedLayout.room(id: cameraFocusID) else {
-            return turned(adjustedFloorBounds)
+            return framed(adjustedFloorBounds)
         }
         // Framed with room outboard of the walls, because what the editor
         // draws is wider than the room: per-wall dimension lines, and since
@@ -1523,7 +1527,7 @@ struct FloorCanvasView: View {
         // middle distance.
         let bounds = storeyRoom.floorBounds
         let plan = cachedLayout.groupBounds(of: cameraFocusID) ?? bounds
-        return turned(plan.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22))
+        return framed(plan.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22))
     }
 
     /// The whole floor, moved and scaled by whatever the fingers have done
@@ -1998,8 +2002,13 @@ struct FloorCanvasView: View {
                                 let dx = value.translation.width - lastFloorDrag.width
                                 let dy = value.translation.height - lastFloorDrag.height
                                 lastFloorDrag = value.translation
-                                floorPanM.width -= dx / viewport.scale
-                                floorPanM.height -= dy / viewport.scale
+                                // Through `modelVector`, so panning follows
+                                // the finger on a turned storey instead of
+                                // running off at the storey's own angle.
+                                let step = viewport.modelVector(
+                                    CGSize(width: dx, height: dy))
+                                floorPanM.width -= step.width
+                                floorPanM.height -= step.height
                             }
                             .onEnded { _ in lastFloorDrag = .zero }
                     )
@@ -2527,9 +2536,13 @@ struct FloorCanvasView: View {
         guard var lift = lifted, viewport.scale > 0, let room = cachedLayout.room(id: lift.id)
         else { return }
 
+        // `modelVector`, not a bare divide: on a turned storey the plan's
+        // axes are not the screen's, and dividing alone sends a room off at
+        // the storey's angle — reversed outright at 180°.
+        let step = viewport.modelVector(translation)
         let free = CGSize(
-            width: liftDragStart.width + translation.width / viewport.scale,
-            height: liftDragStart.height + translation.height / viewport.scale)
+            width: liftDragStart.width + step.width,
+            height: liftDragStart.height + step.height)
 
         let moving = floorPolygon(room, offset: free, angle: lift.angle)
         let others = cachedLayout.rooms.filter { $0.id != lift.id }.map { floorPolygon($0) }

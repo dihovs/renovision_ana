@@ -72,6 +72,15 @@ enum StoreyTurnCheck {
             return CGPoint(x: r.x * s + o.x, y: r.y * s + o.y)
         }
 
+        func modelVector(_ delta: CGSize) -> CGSize {
+            let s = scale
+            guard s > 0 else { return .zero }
+            let v = CGPoint(x: delta.width / s, y: delta.height / s)
+            guard angle != 0 else { return CGSize(width: v.x, height: v.y) }
+            let r = StoreyArranging.rotate([v], by: -angle, about: .zero)[0]
+            return CGSize(width: r.x, height: r.y)
+        }
+
         func model(_ screenPoint: CGPoint) -> CGPoint {
             let o = origin
             let s = scale
@@ -226,47 +235,79 @@ enum StoreyTurnCheck {
         // strips — the drawing was refitted to a rectangle that does not
         // exist and shrank into a corner mid-turn. The owner: *"when I turn
         // it disappears."* This is that bug, as an assertion.
-        // **A PORTRAIT floor is in here on purpose.** A landscape plan on a
-        // phone canvas is width-bound at every angle, so the height term
-        // never decides anything and a wrong height sails straight through
-        // — an earlier version of this check passed twice with a real bug
-        // reinstated until a tall floor was added. His own 2nd Floor is
-        // portrait, and that is the shape that caught it. §9d: test the
-        // shape the app actually produces, not the shape the feature is
-        // about.
+        // 6. **THE TURNTABLE.** The owner's own words: *"I want it to be
+        // fixed in the center. And when I turn, it stays there, and just it
+        // turns on the canvas."* Two things follow and both are asserted:
+        // the scale must not depend on the angle, and the pivot must land on
+        // the same screen point at every angle. Together they are the whole
+        // difference between a drawing that turns and a frame that moves.
         //
-        // The property: the camera frames the TURNED box, so at any angle
-        // the rotated storey both fits the free strip and fills it. The
-        // live turn and the saved turn are the same number through the same
-        // seam now, so this covers both.
-        print("\na turned storey fits the free box, and fills it")
+        // A PORTRAIT floor is in here on purpose — his own 2nd Floor is
+        // portrait, and an earlier check passed twice against a real bug
+        // because a landscape plan is width-bound and never exercises the
+        // height term. §9d: test the shape the app actually produces.
+        print("\nthe drawing turns; the framing does not move or resize")
         for floorShape in [floor, CGRect(x: 0, y: 0, width: 5, height: 12)] {
-            for chrome in [(top: CGFloat(0), bottom: CGFloat(0)), (top: 60, bottom: 140)] {
-                for degrees in angles {
-                    let angle = degrees * .pi / 180
-                    let centre = CGPoint(x: floorShape.midX, y: floorShape.midY)
-                    let framed = turnedBox(floorShape, by: angle, about: centre)
-                    let v = Viewport(
-                        bounds: framed, canvasSize: canvas,
-                        chromeTop: chrome.top, chromeBottom: chrome.bottom,
-                        angle: angle, pivot: centre)
-                    let box = v.free
-                    let c = abs(cos(angle)), s = abs(sin(angle))
-                    let spanX = (floorShape.width * c + floorShape.height * s) * v.scale
-                    let spanY = (floorShape.width * s + floorShape.height * c) * v.scale
-                    let fits = spanX <= box.width + 0.5 && spanY <= box.height + 0.5
-                    // Touching one edge is what "fitted" means; a drawing
-                    // shrunk to a dot also "fits", which is how the earlier
-                    // version of this check missed a 31% shrink.
-                    let fills =
-                        spanX >= box.width - 0.5 || spanY >= box.height - 0.5
-                    let shape = floorShape.width > floorShape.height ? "landscape" : "portrait"
-                    check(
-                        "\(shape), chrome \(Int(chrome.top))/\(Int(chrome.bottom)) at \(Int(degrees))°",
-                        fits && fills,
-                        "\(Int(spanX))x\(Int(spanY)) in \(Int(box.width))x\(Int(box.height))")
+            let centre = CGPoint(x: floorShape.midX, y: floorShape.midY)
+            let side = hypot(floorShape.width, floorShape.height)
+            let square = CGRect(
+                x: centre.x - side / 2, y: centre.y - side / 2, width: side, height: side)
+            let shape = floorShape.width > floorShape.height ? "landscape" : "portrait"
+            var scales: [CGFloat] = []
+            var pivots: [CGPoint] = []
+            for degrees in angles {
+                let v = Viewport(
+                    bounds: square, canvasSize: canvas, chromeTop: 60, chromeBottom: 140,
+                    angle: degrees * .pi / 180, pivot: centre)
+                scales.append(v.scale)
+                pivots.append(v.point(centre))
+                // Nothing may leave the free strip at any angle.
+                let box = v.free
+                let corners = [
+                    CGPoint(x: floorShape.minX, y: floorShape.minY),
+                    CGPoint(x: floorShape.maxX, y: floorShape.minY),
+                    CGPoint(x: floorShape.maxX, y: floorShape.maxY),
+                    CGPoint(x: floorShape.minX, y: floorShape.maxY),
+                ].map { v.point($0) }
+                let inside = corners.allSatisfy {
+                    $0.x >= box.minX - 0.5 && $0.x <= box.maxX + 0.5
+                        && $0.y >= box.minY - 0.5 && $0.y <= box.maxY + 0.5
                 }
+                check("\(shape) stays on the sheet at \(Int(degrees))°", inside)
             }
+            check(
+                "\(shape) scale is the same at every angle",
+                (scales.max()! - scales.min()!) < 0.001,
+                "\(scales.min()!)..\(scales.max()!)")
+            check(
+                "\(shape) pivot lands on one screen point",
+                pivots.allSatisfy { near($0, pivots[0], 0.01) })
+        }
+
+        // 7. **A DRAG FOLLOWS THE FINGER.** Moving a room by
+        // `modelVector(d)` must move it by exactly `d` on screen, at every
+        // angle. Dividing a drag by the scale and stopping there passes at
+        // 0° and inverts at 180°, which is what the owner hit with the floor
+        // saved at -178.6°: *"I go up, it goes down, I go left, it goes
+        // right."*
+        print("\na drag moves a room the way the finger went")
+        let drags = [
+            CGSize(width: 40, height: 0), CGSize(width: 0, height: -55),
+            CGSize(width: -23, height: 31),
+        ]
+        for degrees in angles {
+            let v = Viewport(
+                bounds: floor, canvasSize: canvas, angle: degrees * .pi / 180, pivot: pivot)
+            let start = CGPoint(x: 2, y: 1.5)
+            let ok = drags.allSatisfy { d in
+                let step = v.modelVector(d)
+                let moved = CGPoint(x: start.x + step.width, y: start.y + step.height)
+                let onScreen = CGPoint(
+                    x: v.point(moved).x - v.point(start).x,
+                    y: v.point(moved).y - v.point(start).y)
+                return abs(onScreen.x - d.width) < 0.01 && abs(onScreen.y - d.height) < 0.01
+            }
+            check("\(Int(degrees))°, \(drags.count) drags", ok)
         }
 
         print("")
