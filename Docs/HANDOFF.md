@@ -538,3 +538,104 @@ Filed as orders in `ORDERS.md` (**ORD-22 … ORD-42**). The ones that matter:
 - Merge conflicts in `project.pbxproj` are union-resolvable; run
   `python3 ios/App/check-project.py` after, and `add-sources.py` when adding a
   file.
+
+## 9. Where the 24 Aug session stopped — READ THIS BEFORE THE DOLLHOUSE
+
+**Builds 195 → 213, every one installed and verified by reading
+`CFBundleVersion` off the device.** Sixteen commits, all pushed on
+`mobile-app`. Working tree clean at handoff.
+
+### 9a. Two things must happen before anything else
+
+1. **Run migration `0042_insurance_estimates.sql`** in the Supabase SQL
+   editor. The estimator is built, tested and shipped and cannot be opened
+   until this is applied — the page says so itself. **Read the editor's own
+   text before trusting a green Success**; that trap is recorded in S12.
+2. **Collect the storey geometry.** Build 207 added
+   `ScanLens.writeGeometryExport`: opening a storey writes the raw
+   `ScanGeometry` to `Documents/storey-geometry.json`, which is exactly what
+   the web's `FloorPlan` consumes. It has **not been collected yet** — the
+   owner opens a storey, then:
+   `xcrun devicectl device copy from --device <udid> --domain-type
+   appDataContainer --domain-identifier ca.renovisionana.crm --source
+   Documents/storey-geometry.json --destination /tmp/`.
+   It exists so a sample estimate can be drawn with a REAL room instead of an
+   invented one, which is what he asked for and has not yet been given.
+
+### 9b. The estimator, which is new and complete on the web side
+
+`Docs/Estimator-Xactimate-Conventions.md` is the reference: conventions
+extracted from **four real Québec Xactimate claims** he supplied, with the
+O&P and tax arithmetic reproduced to the cent (per line: base × 15,5 % O&P,
+then 14,975 % tax on base + O&P; the profit basis is a firm convention and
+therefore a setting). **No depreciation columns anywhere** — Québec
+restorers print `Valeur à neuf = Sinistre net` and leave depreciation to the
+insurer in one cover-letter paragraph, so RCV/ACV machinery is out of scope.
+
+`src/lib/estimator/insurance/` is the engine — types, rules, derive,
+trailer, context, suggest — with 41 tests. A 20-agent adversarial review
+found 13 real defects in it and all are fixed with regressions, including
+two that would have shipped: an object matcher that priced
+`toilet_roll_holder` as a toilet, and monitoring visits that split one
+Québec evening across two UTC days.
+
+`/admin/projects/[id]/estimate` has **three doors into one line table**:
+derive-from-measurements, Claude suggestions (`claude-opus-5` proposes item
+codes only — the backend prices everything, nothing enters until accepted),
+and manual price-book editing. Editing a derived line flips it to manual so
+re-derivation never overwrites judgement; deleting one leaves a tombstone so
+it cannot come back. `/estimate/print` and `/estimate/pdf` render the devis
+using the REPORT'S own `FloorPlan` and `ReportStoreyPlan` — **not a second
+renderer**, because a plan that disagreed between the two documents would be
+worse than no plan in the estimate.
+
+Worked sample, real engine over an invented claim:
+`https://claude.ai/code/artifact/b28f941d-b266-455b-8bea-8d764270c438`
+
+**Still owner-only:** his O&P convention (10/5 assumed), per-trade minimums
+(the machinery ships with an empty table), a management fee %, detach-reset
+prices (those lines derive visibly unpriced), and the flood-cut height.
+**Still missing in the schema:** affected areas cannot mark a CEILING, which
+is the primary damaged surface on most water claims.
+
+### 9c. The dollhouse, rebuilt — and the one thing left undone
+
+It opens **straight down and orthographic**, so switching from the plan reads
+as a tilt rather than a jump (this deliberately overrode the 23 Aug 78°
+clamp; he compared both products and chose). The storey is **one continuous
+building**: `DollhouseStorey.swift` merges per-room walls into a shared
+network, party walls landing on the mid-line with openings gathered from
+every room and coalesced. Walls are the **real 114 mm assembly** and extrude
+OUTWARD from the measured interior face, so a scanned floor keeps its size.
+Gestures: one finger grabs the model (cast onto the floor plane — two
+attempts at projecting it with trigonometry both had sign errors), two
+fingers orbit, pinch is anchored at the fingers, 120 Hz with momentum.
+
+**The animation is gone deliberately.** Every moving leaf had to guess two
+facts RoomPlan never reports — which jamb, which way — and the guesses were
+visibly wrong. Nine motions collapsed to three static shapes.
+
+**NOT DONE, and it is the next real piece of work on this screen: rotation
+should not be an EDIT.** `commitTurn` writes a corrected outline through
+`saveEditedPlan` for every room on the storey, which turns pristine scans
+into edited ones. That is what cost the owner 26 detected objects on a floor
+he could not re-scan (build 213 recovers them by carrying detections through
+the edited derivation, but the cause remains). **A storey's angle is a
+display fact, not a measurement.** Store it per storey, turn at draw time,
+and this whole class of consequence becomes impossible.
+
+### 9d. Two disciplines this session paid for, twice each
+
+- **Compile and RUN the real source before shipping geometry.** The
+  `DollhouseStorey` merge was built for macOS behind a shim and asserted
+  against nine cases before install. It caught a doorway recorded in both
+  rooms being cut twice, and a three-room corridor failing to collapse.
+  It did **not** catch the case that broke his floor — every fixture was two
+  rooms meeting, and nobody tested ONE room with a complicated outline,
+  which is most of what this app scans. **Test the shape the app actually
+  produces, not the shape the feature is about.**
+- **Make the app write down what it built.** The walls were diagnosed from
+  screenshots twice and wrong once. `DOLLHOUSE-WALLS` now records piece
+  count, wall count, thickness range, hole count and real coordinates; the
+  `0+6 objects` in the status line is what actually identified the
+  regression above. Ask the file, not the picture.
