@@ -3689,8 +3689,14 @@ Newest last. One or two lines per chat.
   lands on a different room than the one under the finger), the pivot not
   moving, length preserved through a turn, and the framing box widening to
   the diagonal at 45°. `BUILD SUCCEEDED`, 1189 tests pass.
-  **UNVERIFIED ON DEVICE, and migration 0043 must be applied first** or a
-  turn cannot save at all. Then: turn at 45° and 90°, confirm rooms still
+  **Migration 0043 is applied to production and verified** the same day —
+  catalog read back rather than a green success trusted: composite PK, the
+  cascade FK, RLS on, `service_role` granted. Supabase's *"creates a table
+  without enabling RLS"* dialog appeared; **Run and enable RLS** is the right
+  button. The §5 leftover-query trap fired again exactly as recorded (the
+  editor opened holding 0036's `projects` alter); it was cleared before
+  typing, and left empty afterwards.
+  **UNVERIFIED ON DEVICE.** Turn at 45° and 90°, confirm rooms still
   tap/drag/merge at that angle, confirm the grid turns with the floor,
   confirm 3D reads the same direction as 2D — **the SceneKit sign is the one
   thing reasoned rather than seen** (+Y rotation runs opposite to the plan's

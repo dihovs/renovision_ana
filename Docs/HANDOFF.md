@@ -701,8 +701,29 @@ one under the finger), the pivot not moving, length preserved through a turn
 and the framing box widening to the diagonal at 45°. `BUILD SUCCEEDED`,
 1189 tests pass.
 
-**NOT yet confirmed by eye on the device.** Migration 0043 still has to be
-applied before a turn can save at all. Then: turn a floor at 45° and at 90°,
+**Migration 0043 is APPLIED to production and verified**, 24 Aug 2026, in the
+SQL editor on project `renovision-ana` (`mhtjeewhhyrsiditeeie`). Verified by
+reading the catalog back, not by trusting the green success: four columns with
+the right types, nullability and defaults, `PRIMARY KEY (project_id, level)`,
+`FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`,
+`relrowsecurity` true, and the `service_role` grants.
+
+**Two notes on how it was applied.** Supabase intercepted the bare
+`create table` with a *"Potential issue detected — creates a table without
+enabling Row Level Security"* dialog; **Run and enable RLS** was the right
+button and reaches the same place as the migration file's own
+`alter table … enable row level security`. And **the leftover-query trap in
+§5 is real and it fired again** — the editor opened carrying migration 0036's
+`alter table public.projects … address_line1 …` from a previous session,
+exactly as recorded. It was cleared before typing. The editor was also left
+EMPTY afterwards, so the next session does not inherit this one's statement.
+
+**`supabase/migrations/0043_floor_display_angle.sql` is not recorded as run**
+in the Migrations list, the same as 0041 — it was executed by hand. It is
+`create table if not exists` plus an idempotent grant and notify, so replaying
+it later is harmless and still right if the history is ever replayed.
+
+**NOT yet confirmed by eye on the device.** Turn a floor at 45° and at 90°,
 confirm rooms still tap/drag/merge correctly at that angle, confirm the grid
 turns with the floor, confirm the dollhouse reads the same direction as the
 2D canvas — **the SceneKit sign is the one thing reasoned rather than seen**
