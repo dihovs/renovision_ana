@@ -1439,6 +1439,31 @@ struct FloorCanvasView: View {
         CGPoint(x: cachedLayout.wholeFloorBounds.midX, y: cachedLayout.wholeFloorBounds.midY)
     }
 
+    /// **The angle the storey is drawn at right now**, radians — what is
+    /// saved, plus whatever the finger has added since Rotate was armed.
+    ///
+    /// ONE angle through ONE seam. The live turn used to be a
+    /// `.rotationEffect` on the view while the saved turn went through
+    /// `StoreyViewport` — two mechanisms for one idea, and they did not
+    /// agree. The view transform span about the VIEW's centre, which the
+    /// drawing is not centred on once the chrome strips are subtracted, so
+    /// turning walked the plan up and to the left and off the screen; and
+    /// the paper behind it, being a greedy `Color`, is bigger than the
+    /// canvas, so it swung across the drawing as a white sheet. The owner
+    /// described all of it exactly: *"it kind of goes up, and then it goes
+    /// in the left, and then it gets hidden behind my screen. And then
+    /// there is, like, some white thing that covers it."*
+    ///
+    /// Through the viewport there is nothing to anchor and nothing to
+    /// refit: the camera already frames the turned box (`turned(_:)`), the
+    /// drawing is fitted into it, and a tap mid-turn maps back through the
+    /// same rotation it was drawn with. Committing a turn changes which
+    /// half of this sum carries the angle and nothing else, so the drawing
+    /// does not move at the moment it is saved.
+    private var liveAngle: Double {
+        floorDisplayAngle * .pi / 180 + (turning ?? 0)
+    }
+
     /// A framing rectangle carried through the storey's turn.
     ///
     /// `StoreyViewport` rotates a floor point BEFORE fitting it to `bounds`,
@@ -1448,7 +1473,7 @@ struct FloorCanvasView: View {
     /// needs about 1.4× the room. Its four corners turned, boxed, is the
     /// region that actually has to fit.
     private func turned(_ rect: CGRect) -> CGRect {
-        let angle = floorDisplayAngle * .pi / 180
+        let angle = liveAngle
         guard angle != 0 else { return rect }
         let corners = StoreyArranging.rotate(
             [
@@ -1697,7 +1722,7 @@ struct FloorCanvasView: View {
             AnimatedStoreyViewport(
                 bounds: cameraBounds, progress: focusProgress, canvasSize: proxy.size, inset: 28,
                 chromeTop: Self.chromeTop, chromeBottom: Self.chromeBottom,
-                angle: floorDisplayAngle * .pi / 180, pivot: turnPivot
+                angle: liveAngle, pivot: turnPivot
             ) { viewport, progress in
                 ZStack {
                     Brand.Plan.paper.ignoresSafeArea()
@@ -1791,16 +1816,9 @@ struct FloorCanvasView: View {
                             }
                         }
                     )
-                    // The live turn, and the refit that keeps it on screen.
-                    //
-                    // **Anchored on the free box, not the view.** Both of
-                    // these default to the VIEW's centre, and the drawing is
-                    // no longer centred there — the chrome strips push it
-                    // up. Turning about a point the plan is not centred on
-                    // walks it across the sheet as it goes round, which is
-                    // the other half of *"when I turn it disappears."*
-                    .rotationEffect(.radians(turning ?? 0), anchor: turnAnchor(viewport))
-                    .scaleEffect(turnFitScale(viewport), anchor: turnAnchor(viewport))
+                    // No `.rotationEffect` and no `.scaleEffect` here any
+                    // more: the live turn goes through `liveAngle` into the
+                    // viewport, with the rest of the drawing. See its note.
                     // **The storey turns under the finger while Rotate is
                     // armed**, and it notches every 45°.
                     //
@@ -2742,53 +2760,13 @@ struct FloorCanvasView: View {
         return cachedLayout.detachedRooms
     }
 
-    /// Where the live turn pivots, as a `UnitPoint` on the canvas — the
-    /// centre of the strip the drawing is actually fitted into, which is
-    /// NOT the centre of the view once the chrome strips are subtracted.
-    private func turnAnchor(_ viewport: StoreyViewport) -> UnitPoint {
-        let canvas = viewport.canvasSize
-        guard canvas.width > 0, canvas.height > 0 else { return .center }
-        let box = viewport.free
-        return UnitPoint(x: box.midX / canvas.width, y: box.midY / canvas.height)
-    }
-
-    /// **How much to shrink the drawing so a turned storey still fits.**
-    ///
-    /// A rectangle at an angle needs a bigger upright box to hold it —
-    /// width·|cos| + height·|sin| across, and the mirror of that down — so a
-    /// plan fitted upright runs off the screen through the middle of every
-    /// turn, worst at 45° where it needs about 1,4× the room. The owner
-    /// spotted this in the reference before I did: the drawing gets smaller
-    /// the moment it starts turning, and is refitted again when it lands.
-    ///
-    /// Expressed as a MULTIPLIER on the viewport's own scale rather than a
-    /// replacement for it, so the storey's existing framing — including the
-    /// focus animation — keeps working and this only ever tightens it.
-    private func turnFitScale(_ viewport: StoreyViewport) -> CGFloat {
-        guard let angle = turning else { return 1 }
-        let bounds = viewport.bounds
-        let canvas = viewport.canvasSize
-        guard bounds.width > 0.05, bounds.height > 0.05,
-            canvas.width > 0, canvas.height > 0
-        else { return 1 }
-        let c = abs(cos(angle)), s = abs(sin(angle))
-        let spanX = bounds.width * c + bounds.height * s
-        let spanY = bounds.width * s + bounds.height * c
-        // **The viewport's OWN free box, not a second copy of it.** This
-        // used to rebuild the rectangle from `inset` alone, which stopped
-        // being the whole story the moment the chrome strips were
-        // subtracted: the ratio below was then taken against a taller box
-        // than the drawing is actually fitted to, and the owner's report was
-        // exact — *"when I turn it disappears."* It did not disappear, it
-        // was refitted to a rectangle that does not exist.
-        let free = viewport.free
-        let turnedFit = min(free.width / spanX, free.height / spanY)
-        let uprightFit = min(free.width / bounds.width, free.height / bounds.height)
-        guard uprightFit > 0 else { return 1 }
-        // Never larger than the upright framing: turning may shrink the
-        // drawing to keep it whole, it may not zoom in on it.
-        return min(1, turnedFit / uprightFit)
-    }
+    // `turnAnchor` and `turnFitScale` lived here and are gone. Both existed
+    // only to prop up the `.rotationEffect`/`.scaleEffect` pair that used to
+    // draw the live turn: one to move the pivot off the view's centre, the
+    // other to shrink the drawing so a turned storey still fitted. Routing
+    // the live angle through `StoreyViewport` deletes the need for both —
+    // the camera frames the turned box and the drawing is fitted into it, in
+    // the same one place that already framed everything else.
 
     /// **Commit the turn the finger just made — one number, not a rewrite.**
     ///

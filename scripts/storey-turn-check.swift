@@ -63,31 +63,21 @@ enum StoreyTurnCheck {
                 y: box.minY + (box.height - bounds.height * s) / 2 - bounds.minY * s)
         }
 
-        /// `FloorCanvasView.turnFitScale` — the live-turn refit.
-        func turnFitScale(turning: Double) -> CGFloat {
-            guard bounds.width > 0.05, bounds.height > 0.05, canvasSize.width > 0,
-                canvasSize.height > 0
-            else { return 1 }
-            let c = abs(cos(turning)), s = abs(sin(turning))
-            let spanX = bounds.width * c + bounds.height * s
-            let spanY = bounds.width * s + bounds.height * c
-            let box = free
-            let turnedFit = min(box.width / spanX, box.height / spanY)
-            let uprightFit = min(box.width / bounds.width, box.height / bounds.height)
-            guard uprightFit > 0 else { return 1 }
-            return min(1, turnedFit / uprightFit)
-        }
-
         func point(_ floorPoint: CGPoint) -> CGPoint {
-            let r = angle == 0 ? floorPoint : StoreyArranging.rotate([floorPoint], by: angle, about: pivot)[0]
-            let o = origin, s = scale
+            let r =
+                angle == 0
+                ? floorPoint : StoreyArranging.rotate([floorPoint], by: angle, about: pivot)[0]
+            let o = origin
+            let s = scale
             return CGPoint(x: r.x * s + o.x, y: r.y * s + o.y)
         }
 
         func model(_ screenPoint: CGPoint) -> CGPoint {
-            let o = origin, s = scale
+            let o = origin
+            let s = scale
             let floor = CGPoint(x: (screenPoint.x - o.x) / s, y: (screenPoint.y - o.y) / s)
-            return angle == 0 ? floor : StoreyArranging.rotate([floor], by: -angle, about: pivot)[0]
+            return angle == 0
+                ? floor : StoreyArranging.rotate([floor], by: -angle, about: pivot)[0]
         }
     }
 
@@ -239,46 +229,42 @@ enum StoreyTurnCheck {
         // **A PORTRAIT floor is in here on purpose.** A landscape plan on a
         // phone canvas is width-bound at every angle, so the height term
         // never decides anything and a wrong height sails straight through
-        // — this check passed with the bug deliberately reinstated until a
-        // tall floor was added. His own 2nd Floor is portrait, and that is
-        // the shape that caught it. §9d: test the shape the app actually
-        // produces, not the shape the feature is about.
-        print("\na turn in progress stays inside the free box")
+        // — an earlier version of this check passed twice with a real bug
+        // reinstated until a tall floor was added. His own 2nd Floor is
+        // portrait, and that is the shape that caught it. §9d: test the
+        // shape the app actually produces, not the shape the feature is
+        // about.
+        //
+        // The property: the camera frames the TURNED box, so at any angle
+        // the rotated storey both fits the free strip and fills it. The
+        // live turn and the saved turn are the same number through the same
+        // seam now, so this covers both.
+        print("\na turned storey fits the free box, and fills it")
         for floorShape in [floor, CGRect(x: 0, y: 0, width: 5, height: 12)] {
             for chrome in [(top: CGFloat(0), bottom: CGFloat(0)), (top: 60, bottom: 140)] {
                 for degrees in angles {
-                    let turning = degrees * .pi / 180
+                    let angle = degrees * .pi / 180
+                    let centre = CGPoint(x: floorShape.midX, y: floorShape.midY)
+                    let framed = turnedBox(floorShape, by: angle, about: centre)
                     let v = Viewport(
-                        bounds: floorShape, canvasSize: canvas,
-                        chromeTop: chrome.top, chromeBottom: chrome.bottom)
+                        bounds: framed, canvasSize: canvas,
+                        chromeTop: chrome.top, chromeBottom: chrome.bottom,
+                        angle: angle, pivot: centre)
                     let box = v.free
-                    let effective = v.scale * v.turnFitScale(turning: turning)
-                    let c = abs(cos(turning)), s = abs(sin(turning))
-                    let spanX = (floorShape.width * c + floorShape.height * s) * effective
-                    let spanY = (floorShape.width * s + floorShape.height * c) * effective
-                    let shape = floorShape.width > floorShape.height ? "landscape" : "portrait"
-
-                    // Both halves matter, and the second is the one that
-                    // caught the real bug. "It fits" is satisfied by a
-                    // drawing shrunk to a dot — which is precisely what the
-                    // failure looked like. So the refit must ALSO be as
-                    // large as the box allows: exactly the best turned fit,
-                    // capped at the upright one because turning may shrink
-                    // the drawing to keep it whole, never zoom in on it.
+                    let c = abs(cos(angle)), s = abs(sin(angle))
+                    let spanX = (floorShape.width * c + floorShape.height * s) * v.scale
+                    let spanY = (floorShape.width * s + floorShape.height * c) * v.scale
                     let fits = spanX <= box.width + 0.5 && spanY <= box.height + 0.5
-                    let uprightFit = min(
-                        box.width / floorShape.width, box.height / floorShape.height)
-                    let turnedIdeal = min(
-                        box.width / (floorShape.width * c + floorShape.height * s),
-                        box.height / (floorShape.width * s + floorShape.height * c))
-                    let want = min(uprightFit, turnedIdeal)
-                    let fills = abs(effective - want) < 0.01 * want
+                    // Touching one edge is what "fitted" means; a drawing
+                    // shrunk to a dot also "fits", which is how the earlier
+                    // version of this check missed a 31% shrink.
+                    let fills =
+                        spanX >= box.width - 0.5 || spanY >= box.height - 0.5
+                    let shape = floorShape.width > floorShape.height ? "landscape" : "portrait"
                     check(
                         "\(shape), chrome \(Int(chrome.top))/\(Int(chrome.bottom)) at \(Int(degrees))°",
                         fits && fills,
-                        fits
-                            ? "refit to \(String(format: "%.1f", effective)) pt/m, box allows \(String(format: "%.1f", want))"
-                            : "needs \(Int(spanX))×\(Int(spanY)) in \(Int(box.width))×\(Int(box.height))")
+                        "\(Int(spanX))x\(Int(spanY)) in \(Int(box.width))x\(Int(box.height))")
                 }
             }
         }

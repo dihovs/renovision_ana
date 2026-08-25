@@ -757,23 +757,30 @@ struct StoreyBaseLayer: View {
                     // tilt your head at, and at 180° it is upside down.
                     // The plate turns with the room — it is part of the
                     // drawing — and only the type is counter-rotated.
+                    // **`nil`, and that is the fix, not an omission.** This
+                    // counter-rotates the type so a label stays readable
+                    // while the plan turns — correct only while something
+                    // was rotating the whole layer. The turn goes through
+                    // `StoreyViewport` now, which moves where a point LANDS
+                    // and never spins the canvas, so drawn text is already
+                    // upright. Counter-rotating it here would be the only
+                    // thing on the sheet that tilted.
                     Self.drawRoomLabel(
-                        context: context, name: name, sqft: sqft, at: centre, turn: turn)
+                        context: context, name: name, sqft: sqft, at: centre, turn: nil)
                 }
                 // **The turn's own affordances** — see `drawTurnHandle`.
                 // Extracted rather than written inline: this Canvas closure
                 // is already large enough that adding it defeated the type
                 // checker outright, which is its own argument for the split.
-                if let angle = turn {
+                if turn != nil {
                     // The storey's own centre. Taken as the centre POINT put
                     // through the viewport, not as a box built from two
                     // corners — two corners stop describing a rectangle the
-                    // moment the viewport carries a persisted angle.
+                    // moment the viewport carries an angle.
                     let floor = layout.wholeFloorBounds
                     Self.drawTurnHandle(
                         context: context,
                         centre: viewport.point(CGPoint(x: floor.midX, y: floor.midY)),
-                        angle: angle,
                         background: bg)
                 }
 
@@ -968,16 +975,14 @@ extension StoreyBaseLayer {
     /// the storey's centre, with no move handle beside it because the floor
     /// does not move.
     ///
-    /// Drawn in a counter-rotated layer so it sits still in the hand while
-    /// the building turns under it — a handle that orbits away from the
-    /// finger holding it is a handle you have to chase.
+    /// Drawn straight, at the storey's centre. It used to sit in a
+    /// counter-rotated layer, which was right while a `.rotationEffect`
+    /// spun the whole canvas under it; the turn goes through
+    /// `StoreyViewport` now and nothing is spinning, so undoing a rotation
+    /// that never happened would tilt the one mark that must not tilt.
     static func drawTurnHandle(
-        context: GraphicsContext, centre: CGPoint, angle: Double, background: Color
+        context: GraphicsContext, centre: CGPoint, background: Color
     ) {
-        context.drawLayer { layer in
-            layer.translateBy(x: centre.x, y: centre.y)
-            layer.rotate(by: Angle(radians: -angle))
-            drawManipulator(layer, at: .zero, symbol: "arrow.clockwise", background: background)
-        }
+        drawManipulator(context, at: centre, symbol: "arrow.clockwise", background: background)
     }
 }
