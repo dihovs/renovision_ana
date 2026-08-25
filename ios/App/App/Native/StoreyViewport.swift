@@ -282,6 +282,11 @@ struct StoreyBaseLayer: View {
     /// because an object's coordinates are its own room's, and it is
     /// `StoreyRoom.origin` that puts them on the floor.
     var objects: [String: [RoomObject]] = [:]
+    /// **The storey's live turn, in radians.** Nil when it is not being
+    /// turned. The whole layer is rotated by its owner; this is passed in so
+    /// the parts that must NOT turn can undo it — see the labels below —
+    /// and so the turn's own handle can be drawn.
+    var turn: Double? = nil
     /// The room currently in the air, if any — see `LiftedRoom`.
     var lifted: LiftedRoom? = nil
     /// Lines saying why a lifted room just jumped somewhere.
@@ -657,9 +662,33 @@ struct StoreyBaseLayer: View {
                                 height: 36),
                             cornerRadius: 4),
                         with: .color(bg.opacity(0.8)))
-                    context.draw(name, at: CGPoint(x: centre.x, y: centre.y - 7), anchor: .center)
-                    context.draw(sqft, at: CGPoint(x: centre.x, y: centre.y + 9), anchor: .center)
+                    // **The writing stays upright while the plan turns.**
+                    // The reference does this and it is invisible until it
+                    // is missing: at 40° a rotated label is a thing you
+                    // tilt your head at, and at 180° it is upside down.
+                    // The plate turns with the room — it is part of the
+                    // drawing — and only the type is counter-rotated.
+                    Self.drawRoomLabel(
+                        context: context, name: name, sqft: sqft, at: centre, turn: turn)
                 }
+                // **The turn's own affordances** — see `drawTurnHandle`.
+                // Extracted rather than written inline: this Canvas closure
+                // is already large enough that adding it defeated the type
+                // checker outright, which is its own argument for the split.
+                if let angle = turn {
+                    // The floor's own extent, in screen points.
+                    let floor = layout.wholeFloorBounds
+                    let topLeft = viewport.point(CGPoint(x: floor.minX, y: floor.minY))
+                    let bottomRight = viewport.point(CGPoint(x: floor.maxX, y: floor.maxY))
+                    Self.drawTurnHandle(
+                        context: context,
+                        box: CGRect(
+                            x: topLeft.x, y: topLeft.y,
+                            width: bottomRight.x - topLeft.x,
+                            height: bottomRight.y - topLeft.y),
+                        angle: angle)
+                }
+
                 // The room in the air, ringed. A lifted room that looks
                 // exactly like a resting one leaves no way to tell whether
                 // the next drag will move the room or the sheet.
@@ -772,17 +801,104 @@ struct StoreyBaseLayer: View {
         .contentShape(.rect)
         .onTapGesture { location in
             let floorPoint = viewport.model(location)
-            if let hit = layout.rooms.first(where: { storeyRoom in
-                floorPoint.x >= storeyRoom.origin.x
-                    && floorPoint.x <= storeyRoom.origin.x + storeyRoom.plan.width
-                    && floorPoint.y >= storeyRoom.origin.y
-                    && floorPoint.y <= storeyRoom.origin.y + storeyRoom.plan.height
-            }) {
+            if let hit = Self.room(in: layout, at: floorPoint) {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 onTapRoom(hit.room)
             } else {
                 onTapEmpty?()
             }
+        }
+    }
+}
+
+extension StoreyBaseLayer {
+    /// Which room's box a floor-space point falls in.
+    ///
+    /// Extracted from the tap handler purely for the compiler: written
+    /// inline it is four chained comparisons inside a closure inside a
+    /// gesture inside a very large view body, and adding the turn's drawing
+    /// to that body pushed the whole expression past the type checker's
+    /// patience. Behaviour is unchanged.
+    static func room(in layout: StoreyLayout, at point: CGPoint) -> StoreyRoom? {
+        layout.rooms.first { room in
+            let box = room.floorBounds
+            return point.x >= box.minX && point.x <= box.maxX
+                && point.y >= box.minY && point.y <= box.maxY
+        }
+    }
+
+    /// **The writing stays upright while the plan turns.**
+    ///
+    /// The reference does this and it is invisible until it is missing: at
+    /// 40° a rotated label is a thing you tilt your head at, and at 180° it
+    /// is upside down. The name plate turns with the room — it is part of
+    /// the drawing — and only the type is counter-rotated.
+    static func drawRoomLabel(
+        context: GraphicsContext, name: GraphicsContext.ResolvedText,
+        sqft: GraphicsContext.ResolvedText, at centre: CGPoint, turn: Double?
+    ) {
+        guard let angle = turn, abs(angle) > 0.001 else {
+            context.draw(name, at: CGPoint(x: centre.x, y: centre.y - 7), anchor: .center)
+            context.draw(sqft, at: CGPoint(x: centre.x, y: centre.y + 9), anchor: .center)
+            return
+        }
+        context.drawLayer { layer in
+            layer.translateBy(x: centre.x, y: centre.y)
+            layer.rotate(by: Angle(radians: -angle))
+            layer.draw(name, at: CGPoint(x: 0, y: -7), anchor: .center)
+            layer.draw(sqft, at: CGPoint(x: 0, y: 9), anchor: .center)
+        }
+    }
+
+    /// **The pin, the dashed path and the direction arrow**, read off the
+    /// reference's four frames of a storey being turned.
+    ///
+    /// Drawn in a counter-rotated layer so they sit still in the hand while
+    /// the building turns under them — a handle that orbits away from the
+    /// finger holding it is a handle you have to chase.
+    static func drawTurnHandle(context: GraphicsContext, box: CGRect, angle: Double) {
+        let centre = CGPoint(x: box.midX, y: box.midY)
+        let radius = max(box.width, box.height) / 2 + 26
+        let detent = Double.pi / 4
+        // Green while the angle is sitting ON a detent, blue between it and
+        // the next — the cheapest possible way to say "let go and it lands
+        // here". The reference changes this colour too.
+        let nearest = (angle / detent).rounded() * detent
+        let onDetent = abs(angle - nearest) < 0.02
+        let tone: Color = onDetent ? Brand.green : Brand.blue
+        // The reference's handle is a warm pin against a cool drawing —
+        // the one warm mark on the sheet, so the eye finds it instantly.
+        let pinInk = Color(red: 0.95, green: 0.72, blue: 0.16)
+
+        context.drawLayer { layer in
+            layer.translateBy(x: centre.x, y: centre.y)
+            layer.rotate(by: Angle(radians: -angle))
+
+            let ring = CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2)
+            layer.stroke(
+                Path(ellipseIn: ring),
+                with: .color(Brand.Plan.dimension.opacity(0.35)),
+                style: StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
+
+            let sweep = radius - 20
+            var arrow = Path()
+            arrow.addArc(
+                center: .zero, radius: sweep,
+                startAngle: .degrees(-38), endAngle: .degrees(38), clockwise: false)
+            layer.stroke(arrow, with: .color(tone), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+
+            let tipAngle = 38 * Double.pi / 180
+            let tip = CGPoint(x: cos(tipAngle) * sweep, y: sin(tipAngle) * sweep)
+            var head = Path()
+            head.move(to: CGPoint(x: tip.x - 7, y: tip.y - 8))
+            head.addLine(to: CGPoint(x: tip.x + 8, y: tip.y + 1))
+            head.addLine(to: CGPoint(x: tip.x - 4, y: tip.y + 10))
+            head.closeSubpath()
+            layer.fill(head, with: .color(tone))
+
+            let pin = CGRect(x: radius - 11, y: -11, width: 22, height: 22)
+            layer.fill(Path(ellipseIn: pin), with: .color(pinInk))
+            layer.stroke(Path(ellipseIn: pin), with: .color(.white), lineWidth: 2.5)
         }
     }
 }

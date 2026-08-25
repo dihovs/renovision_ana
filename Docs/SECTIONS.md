@@ -3627,3 +3627,28 @@ Newest last. One or two lines per chat.
   its dashed arc and the direction arrow have somewhere to hang. Also still
   unbuilt from the same frames: room labels staying screen-upright while the
   plan turns, which the reference does and is very noticeable when absent.
+- **2026-08-24 (S5/S8 — an edited plan stopped hiding what the scanner saw)**
+  Build **213**. He circled a window standing floor-to-ceiling in the 3D view
+  and asked what it was. The window was a symptom; the status line under it
+  was the evidence: `26+6 objects` had become `0+6`.
+  **Rotating a storey turned every room into an EDITED room.** `commitTurn`
+  (build 211) writes a corrected outline through `saveEditedPlan` for every
+  room on the floor, where the old `rotateDetachedRooms` only ever touched
+  detached ones. And `plan(from:)`'s edited branch built its `Plan` with no
+  `objects:` argument at all — so a corrected room silently lost every
+  fixture the scanner had detected. Twenty-six of them, on his own floor.
+  **Nothing was deleted, and that mattered — he could not re-scan.** The
+  detections were still in the geometry blob the whole time; `saveEditedPlan`
+  only ADDS a corrected outline beside the sensor's own record, which is
+  what the file has said since it was written. What had stopped was the
+  derivation, not the data.
+  **The raw path is now its own function** (`rawPlan(from:)`) so the edited
+  branch can borrow the detections from it and shift them by the same origin
+  the corrected outline takes. Unchanged behaviour otherwise; only its home
+  moved.
+  **The deeper question is still open and named here:** rotation should
+  probably not be an EDIT at all. A storey's angle is a display fact, not a
+  measurement, and writing a corrected polygon to turn a room is what
+  dragged this whole class of consequence in. Storing the angle per storey
+  and turning at draw time would leave every scanned room pristine. That is
+  the better fix and it is not this one.

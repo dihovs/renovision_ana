@@ -85,6 +85,19 @@ enum FloorPlanGeometry {
         // drawing purposes — but only for drawing. The sensor's own geometry
         // is still in the record underneath, untouched.
         if let edited = geometry.editedPolygon, edited.count >= 3 {
+            // **What the scanner saw, kept.** An edited plan used to arrive
+            // with `objects` empty, and that quietly cost the owner
+            // twenty-six detected fixtures the moment a room was corrected —
+            // or, on 24 Aug, the moment a storey was ROTATED, since turning
+            // writes a corrected outline. The status line said it plainly:
+            // `26+6 objects` became `0+6`.
+            //
+            // Nothing was ever deleted: the detections are still in the scan
+            // blob, and this is the derivation that stopped surfacing them.
+            // They are recomputed from the raw geometry in the raw plan's own
+            // space and shifted into this one below — the same second shift
+            // the corrected outline itself takes.
+            let detected = rawPlan(from: geometry).objects
             let points = edited.map { CGPoint(x: $0.x, y: $0.y) }
             var segments: [Segment] = []
             for i in points.indices {
@@ -139,10 +152,28 @@ enum FloorPlanGeometry {
                 openings: openings,
                 polygon: loop,
                 width: (xs.max() ?? 0) - minX,
-                height: (ys.max() ?? 0) - minY)
+                height: (ys.max() ?? 0) - minY,
+                objects: detected.map { object in
+                    Plan.PlacedObject(
+                        id: object.id, category: object.category,
+                        lowConfidence: object.lowConfidence,
+                        centre: CGPoint(
+                            x: object.centre.x - minX, y: object.centre.y - minY),
+                        rotation: object.rotation, width: object.width,
+                        depth: object.depth, height: object.height)
+                })
         }
 
         // Each wall's endpoints are its centre ± half its length along its own
+        return rawPlan(from: geometry)
+    }
+
+    /// The plan as the SCANNER reports it, before any hand correction.
+    ///
+    /// Split out of `plan(from:)` on 24 Aug so the edited branch can borrow
+    /// the detections from it. Everything below is unchanged; only its home
+    /// moved.
+    private static func rawPlan(from geometry: ScanGeometry) -> Plan {
         // axis. RoomPlan's z grows toward the viewer and a screen's y grows
         // downward, so z maps to y directly and the result reads the right
         // way up.
