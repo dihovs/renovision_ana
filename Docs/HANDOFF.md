@@ -749,6 +749,35 @@ proof**: a flipped sign mirrors the layout, which 90° and 180° can hide and
 centring first and turning the result is what puts the storey's own middle
 under the rotation.
 
+## 9f. The lesson that cost builds 214 → 217 — READ BEFORE SHIPPING AN API
+
+**The phone talks to a DEPLOYED server, and this branch's preview is only
+rebuilt when the branch is PUSHED.** `API.baseURL` is
+`renovision-ana-git-mobile-app-renovision-an-a.vercel.app` — a Vercel git
+preview of `mobile-app`. Four builds went to the device carrying a client
+that PATCHed `/api/v1/floors`, a route that existed only on this machine.
+It returned **404** every time, `try?` swallowed it, `load()` re-read the
+angle as 0, and the storey snapped back upright. The owner reported it
+three times as "it doesn't work" and every report was correct.
+
+**Nothing about the geometry was wrong.** The migration was applied, the
+maths was proven, the build was on the phone — and the feature could not
+work, because half of it was never deployed.
+
+**So: a change that adds or alters an `/api/v1` route is not shippable by
+installing the app.** Push the branch, then confirm the route is actually
+there before believing anything:
+
+    curl -s -o /dev/null -w '%{http_code}\n' -X PATCH \
+      "$BASE/api/v1/floors?projectId=x&level=2nd" \
+      -H 'Content-Type: application/json' -d '{"displayAngle":0}'
+
+**401 means the route EXISTS** and is asking for a session — that is the
+success case from an unauthenticated shell. **404 means it is not there.**
+Compare against a route you know is live (`/api/v1/scans` → 401) so a 404
+cannot be mistaken for the server being down. Vercel took about a minute;
+it 404'd on three polls and then flipped.
+
 **Build 214 carries all of this and is installed** — `CFBundleVersion` read
 back off the device, replacing 213. Migration 0043 is applied, so a turn can
 save. The tunnel was awake; neither the build nor the install needed a retry.
