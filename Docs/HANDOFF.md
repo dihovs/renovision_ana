@@ -723,10 +723,34 @@ in the Migrations list, the same as 0041 — it was executed by hand. It is
 `create table if not exists` plus an idempotent grant and notify, so replaying
 it later is harmless and still right if the history is ever replayed.
 
-**NOT yet confirmed by eye on the device.** Turn a floor at 45° and at 90°,
+**`scripts/storey-turn-check.swift` is the harness, and it is IN THE REPO** —
+§6b's lesson about the artwork fitter being rewritten twice out of /tmp,
+applied the first time instead of the third. Run it when this transform
+changes:
+
+    swiftc scripts/storey-turn-check.swift \
+      ios/App/App/Native/StoreyArranging.swift -o /tmp/storey-turn-check \
+      && /tmp/storey-turn-check
+
+It asserts five things against the shipped `StoreyArranging.rotate` and
+SceneKit's own transforms, at 0/45/90/137/180/-90/270°: `model(point(p)) == p`
+(the invariant hit-testing depends on — if it fails a tap lands on a
+different room than the one under the finger), the pivot not moving, length
+preserved through a turn, the camera framing the box a turn actually needs,
+and the 3D turntable reading the floor from the same direction as 2D.
+
+**The SceneKit sign is MEASURED now, not reasoned.** It was the one thing in
+this change taken on argument, so it was settled the way §9d says to settle
+geometry — SCNNode transforms need no rendering and no device, so the real
+`turntable → world → marker` hierarchy can simply be built and asked. Every
+sample matches the 2D canvas to 1e-6. **The asymmetric angles carry the
+proof**: a flipped sign mirrors the layout, which 90° and 180° can hide and
+45°/137° cannot. It also confirms the turntable had to be a PARENT node —
+centring first and turning the result is what puts the storey's own middle
+under the rotation.
+
+**Still not confirmed by eye on the device.** Turn a floor at 45° and at 90°,
 confirm rooms still tap/drag/merge correctly at that angle, confirm the grid
-turns with the floor, confirm the dollhouse reads the same direction as the
-2D canvas — **the SceneKit sign is the one thing reasoned rather than seen**
-(+Y rotation runs opposite to the plan's screen-space clockwise, so it is
-negated); if 3D turns the wrong way it is a one-line sign flip in
-`Dollhouse.scene`. Reopen the floor and confirm the angle persisted.
+turns with the floor, and reopen the floor to confirm the angle persisted.
+The dollhouse's DIRECTION no longer needs checking; what has never been run
+is the whole path end to end against a real storey.

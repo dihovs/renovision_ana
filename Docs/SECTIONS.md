@@ -3696,10 +3696,19 @@ Newest last. One or two lines per chat.
   button. The §5 leftover-query trap fired again exactly as recorded (the
   editor opened holding 0036's `projects` alter); it was cleared before
   typing, and left empty afterwards.
+  **The SceneKit sign is MEASURED, not reasoned** — the one thing here taken
+  on argument, settled the way §9d says to settle geometry. A harness builds
+  the real `turntable → world → marker` hierarchy and compares SceneKit's own
+  `convertPosition` against `StoreyArranging.rotate` at 0/45/90/137/180/-90°;
+  every sample matches to 1e-6. **The asymmetric angles carry the proof** — a
+  flipped sign mirrors the layout, which 90° and 180° can hide and 45°/137°
+  cannot. It also confirms the turntable had to be a PARENT node.
+  **The harness is `scripts/storey-turn-check.swift`, in the repo** rather
+  than /tmp — §6b's lesson about the artwork fitter, applied the first time
+  instead of the third. It covers five properties; run it when this transform
+  changes. HANDOFF §9e carries the command.
   **UNVERIFIED ON DEVICE.** Turn at 45° and 90°, confirm rooms still
-  tap/drag/merge at that angle, confirm the grid turns with the floor,
-  confirm 3D reads the same direction as 2D — **the SceneKit sign is the one
-  thing reasoned rather than seen** (+Y rotation runs opposite to the plan's
-  screen-space clockwise, so it is negated); a wrong-way dollhouse is a
-  one-line flip in `Dollhouse.scene`. Reopen the floor and confirm the angle
-  persisted.
+  tap/drag/merge at that angle, confirm the grid turns with the floor, and
+  reopen the floor to confirm the angle persisted. The dollhouse's direction
+  no longer needs checking; the whole path end to end against a real storey
+  has never been run.
