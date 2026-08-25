@@ -541,7 +541,7 @@ Filed as orders in `ORDERS.md` (**ORD-22 … ORD-42**). The ones that matter:
 
 ## 9. Where the 24 Aug session stopped — READ THIS BEFORE THE DOLLHOUSE
 
-**Builds 195 → 213, every one installed and verified by reading
+**Builds 195 → 214, every one installed and verified by reading
 `CFBundleVersion` off the device.** Sixteen commits, all pushed on
 `mobile-app`. Working tree clean at handoff.
 
@@ -749,8 +749,17 @@ proof**: a flipped sign mirrors the layout, which 90° and 180° can hide and
 centring first and turning the result is what puts the storey's own middle
 under the rotation.
 
-**Still not confirmed by eye on the device.** Turn a floor at 45° and at 90°,
-confirm rooms still tap/drag/merge correctly at that angle, confirm the grid
-turns with the floor, and reopen the floor to confirm the angle persisted.
-The dollhouse's DIRECTION no longer needs checking; what has never been run
-is the whole path end to end against a real storey.
+**Build 214 carries all of this and is installed** — `CFBundleVersion` read
+back off the device, replacing 213. Migration 0043 is applied, so a turn can
+save. The tunnel was awake; neither the build nor the install needed a retry.
+
+**Still not confirmed BY EYE, and that is what is waiting.** Turn a floor at
+45° and at 90°; confirm rooms still tap/drag/merge correctly at that angle
+(the round trip says they will, but a tap is the thing worth seeing); confirm
+the grid turns with the floor; open 3D and confirm it reads the same
+direction as the 2D canvas; reopen the floor and confirm the angle persisted.
+
+**The single most valuable check is a floor that still has its RoomPlan
+detections** — turning it must leave the object count in the status line
+unchanged. That is the whole point of the change, and the `0+6 objects` line
+from §9d is exactly the instrument for it.

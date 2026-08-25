@@ -3707,8 +3707,14 @@ Newest last. One or two lines per chat.
   than /tmp — §6b's lesson about the artwork fitter, applied the first time
   instead of the third. It covers five properties; run it when this transform
   changes. HANDOFF §9e carries the command.
-  **UNVERIFIED ON DEVICE.** Turn at 45° and 90°, confirm rooms still
-  tap/drag/merge at that angle, confirm the grid turns with the floor, and
-  reopen the floor to confirm the angle persisted. The dollhouse's direction
-  no longer needs checking; the whole path end to end against a real storey
-  has never been run.
+  **Build 214 is INSTALLED** — `CFBundleVersion` read back off the device,
+  not assumed; 213 was what it replaced. The tunnel was awake and neither
+  the build nor the install needed a retry.
+  **UNVERIFIED BY EYE.** What is waiting on him: turn a floor at 45° and at
+  90°, confirm rooms still tap/drag/merge at that angle (the round trip says
+  they should, but a tap is the thing worth seeing), confirm the grid turns
+  with the floor, open 3D and confirm it reads the same direction as the 2D
+  canvas, and reopen the floor to confirm the angle persisted. Migration 0043
+  is applied, so a turn can save. **The most valuable single check is a floor
+  that still has its RoomPlan detections**: turning it must not change the
+  object count, which is the whole point of the change.
