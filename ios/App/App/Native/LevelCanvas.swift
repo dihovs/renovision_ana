@@ -112,6 +112,12 @@ struct LevelCanvas: View {
     /// the drawing — the shaded patch is what the estimate's quantities are
     /// measured from.
     var areas: [String: [AffectedArea]] = [:]
+    /// **A live turn of the whole storey, in radians.**
+    ///
+    /// Passed IN rather than owned here, because it belongs to whoever is
+    /// running the gesture — this component's job is to draw a storey at an
+    /// angle, not to decide what the angle is. Nil is upright.
+    var turn: Double? = nil
     /// The drafting-paper grid behind the rooms (`editor-chrome-design.md` §2):
     /// fine dots, every fifth one a `+` crosshair. Off for the thumbnail on
     /// the project screen, where it would only be noise at that size.
@@ -223,7 +229,25 @@ struct LevelCanvas: View {
                 let upright = min(free.width / layout.width, free.height / layout.height)
                 let turned = min(free.height / layout.width, free.width / layout.height)
                 let rotate = turned > upright * 1.15
-                let scale = rotate ? turned : upright
+                // **Refit live while the storey is being turned.** The
+                // drawing's UPRIGHT box is what `layout` reports; at an angle
+                // its screen box is bigger — width·|cos| + height·|sin| — and
+                // fitting the upright box would let the corners run off
+                // exactly at 45°, where they stick out most. Recomputed every
+                // frame from the live angle, which is what keeps the plan
+                // framed through the whole gesture rather than only at the
+                // ends of it.
+                //
+                // An expression, not an `if`: this is a ViewBuilder block,
+                // where a bare statement is read as a view and a `()` is not
+                // one.
+                let scale: CGFloat = {
+                    guard let angle = turn else { return rotate ? turned : upright }
+                    let c = abs(cos(angle)), s = abs(sin(angle))
+                    let spanX = layout.width * c + layout.height * s
+                    let spanY = layout.width * s + layout.height * c
+                    return min(free.width / spanX, free.height / spanY)
+                }()
 
                 // When turned, the drawing is laid out in a box of swapped
                 // proportions and the whole canvas is rotated a quarter turn
@@ -415,7 +439,13 @@ struct LevelCanvas: View {
                 // turned as a whole. Everything above stays in plan space —
                 // only these two lines know the sheet was rotated.
                 .frame(width: boxWidth, height: boxHeight)
+                // The sheet's own quarter turn (fit), then the storey's live
+                // turn (the gesture) on top of it. Two rotations rather than
+                // one sum, because they mean different things: the first is
+                // how the paper is oriented, the second is how the building
+                // is drawn on it.
                 .rotationEffect(.degrees(rotate ? 90 : 0))
+                .rotationEffect(.radians(turn ?? 0))
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .contentShape(.rect)
                 .onTapGesture { location in
@@ -1208,6 +1238,47 @@ struct FloorCanvasView: View {
     /// touches wears an arrow pointing into it. Watched on the reference,
     /// 19 Aug 2026 — see `PlanEditing.mergeRooms`.
     @State private var merging = false
+
+    // MARK: - Turning the storey (24 Aug 2026)
+    //
+    // **The reference's rotate, which is three things at once**, read off
+    // the owner's four frames of it: the plan turns as ONE rigid body, the
+    // view refits continuously so the drawing never leaves the screen, and
+    // the angle snaps. His ask: *"when I turn, I want to see the grid, and I
+    // want it to snap — forty-five degrees, ninety degrees, and so on."*
+    //
+    // The refit is not a nicety. A rectangle turned 45° needs about 1,4× the
+    // upright room to hold it, so without refitting, the corners run off the
+    // screen at exactly the angle the operator is watching most closely.
+
+    /// Live angle while turning, in radians. Nil when not turning.
+    @State private var turning: Double?
+    /// Where the angle was when the drag began, so the gesture is relative.
+    @State private var turnStart: Double = 0
+    /// The last detent announced, so the haptic fires once per notch rather
+    /// than on every frame inside it.
+    @State private var lastDetent: Int?
+
+    /// Every 45°, which is what he asked for: the four squares and the four
+    /// diagonals. A drawing is almost always meant to sit on one of these,
+    /// and the ones between are the exception rather than the rule.
+    private static let turnDetent = Double.pi / 4
+    /// How near a detent counts as on it. 6° is close enough to feel like a
+    /// magnet and far enough that a deliberate 30° is still reachable.
+    private static let turnSnapWindow = 6 * Double.pi / 180
+
+    /// The angle a released turn lands on.
+    static func snappedTurn(_ angle: Double) -> Double {
+        let nearest = (angle / turnDetent).rounded() * turnDetent
+        return abs(angle - nearest) <= turnSnapWindow ? nearest : angle
+    }
+
+    /// Which detent an angle is sitting in, for the haptic. Nil between them.
+    static func turnDetentIndex(_ angle: Double) -> Int? {
+        let nearest = (angle / turnDetent).rounded()
+        return abs(angle - nearest * turnDetent) <= turnSnapWindow
+            ? Int(nearest.truncatingRemainder(dividingBy: 8)) : nil
+    }
     @State private var mergeError: String?
     @State private var showingFloorViewModes = false
     @State private var switchingFloor = false
@@ -1661,6 +1732,58 @@ struct FloorCanvasView: View {
                             }
                         }
                     )
+                    // The live turn, and the refit that keeps it on screen.
+                    .rotationEffect(.radians(turning ?? 0))
+                    .scaleEffect(turnFitScale(viewport))
+                    // **The storey turns under the finger while Rotate is
+                    // armed**, and it notches every 45°.
+                    //
+                    // The angle is taken from the finger's position about the
+                    // screen's centre rather than from its horizontal travel:
+                    // a turn should follow the hand around the drawing, and
+                    // a sideways-swipe-means-degrees mapping stops making
+                    // sense the moment the plan is past 90°.
+                    //
+                    // Overlaid ahead of the press-and-hold below and only
+                    // while turning, so arranging rooms is untouched when
+                    // Rotate is not armed.
+                    .overlay {
+                        if turning != nil {
+                            GeometryReader { proxy in
+                                let centre = CGPoint(
+                                    x: proxy.size.width / 2, y: proxy.size.height / 2)
+                                Color.clear
+                                    .contentShape(.rect)
+                                    .gesture(
+                                        DragGesture(minimumDistance: 0)
+                                            .onChanged { drag in
+                                                let from = atan2(
+                                                    drag.startLocation.y - centre.y,
+                                                    drag.startLocation.x - centre.x)
+                                                let to = atan2(
+                                                    drag.location.y - centre.y,
+                                                    drag.location.x - centre.x)
+                                                let raw = turnStart + (to - from)
+                                                let landed = Self.snappedTurn(raw)
+                                                turning = landed
+                                                // One tick per notch entered,
+                                                // not one per frame inside it.
+                                                let detent = Self.turnDetentIndex(landed)
+                                                if detent != lastDetent {
+                                                    if detent != nil {
+                                                        UIImpactFeedbackGenerator(style: .light)
+                                                            .impactOccurred()
+                                                    }
+                                                    lastDetent = detent
+                                                }
+                                            }
+                                            .onEnded { _ in
+                                                turnStart = turning ?? 0
+                                            }
+                                    )
+                            }
+                        }
+                    }
                     // PRESS AND HOLD to pick a room up, then keep dragging
                     // in the same motion.
                     //
@@ -2113,8 +2236,19 @@ struct FloorCanvasView: View {
                                 twistLifted(by: .pi / 2)
                                 UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                                 Task { await commitPlacement() }
+                            } else if turning == nil {
+                                // **Enter the turn**, rather than perform one.
+                                // The reference's Rotate arms a handle and
+                                // hands the angle to the finger; a button that
+                                // jumps 90° cannot land on 45 and cannot be
+                                // felt. Starting at the current angle means
+                                // tapping it twice is a no-op rather than a
+                                // surprise.
+                                withAnimation(.snappy(duration: 0.2)) { turning = 0 }
+                                lastDetent = 0
+                                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                             } else {
-                                Task { await rotateDetachedRooms() }
+                                Task { await commitTurn() }
                             }
                         case .mergeRooms:
                             // A MODE, not an act — the reference's own
@@ -2523,6 +2657,121 @@ struct FloorCanvasView: View {
     /// rooms already turned actually turned — they are saved, not staged —
     /// which is why `load()` runs regardless, so the canvas shows what is
     /// really stored rather than what was intended.
+    /// **How much to shrink the drawing so a turned storey still fits.**
+    ///
+    /// A rectangle at an angle needs a bigger upright box to hold it —
+    /// width·|cos| + height·|sin| across, and the mirror of that down — so a
+    /// plan fitted upright runs off the screen through the middle of every
+    /// turn, worst at 45° where it needs about 1,4× the room. The owner
+    /// spotted this in the reference before I did: the drawing gets smaller
+    /// the moment it starts turning, and is refitted again when it lands.
+    ///
+    /// Expressed as a MULTIPLIER on the viewport's own scale rather than a
+    /// replacement for it, so the storey's existing framing — including the
+    /// focus animation — keeps working and this only ever tightens it.
+    private func turnFitScale(_ viewport: StoreyViewport) -> CGFloat {
+        guard let angle = turning else { return 1 }
+        let bounds = viewport.bounds
+        let canvas = viewport.canvasSize
+        guard bounds.width > 0.05, bounds.height > 0.05,
+            canvas.width > 0, canvas.height > 0
+        else { return 1 }
+        let c = abs(cos(angle)), s = abs(sin(angle))
+        let spanX = bounds.width * c + bounds.height * s
+        let spanY = bounds.width * s + bounds.height * c
+        let free = CGSize(
+            width: max(1, canvas.width - viewport.inset * 2),
+            height: max(1, canvas.height - viewport.inset * 2))
+        let turnedFit = min(free.width / spanX, free.height / spanY)
+        let uprightFit = min(free.width / bounds.width, free.height / bounds.height)
+        guard uprightFit > 0 else { return 1 }
+        // Never larger than the upright framing: turning may shrink the
+        // drawing to keep it whole, it may not zoom in on it.
+        return min(1, turnedFit / uprightFit)
+    }
+
+    /// **Commit the turn the finger just made — the whole storey, rigidly.**
+    ///
+    /// The old `rotateDetachedRooms` turned each room a quarter-turn about
+    /// ITS OWN centre, which is not one rotation but several: two rooms come
+    /// out spun in place with their relationship to each other scrambled.
+    /// The reference turns the storey as one body, which is what the owner's
+    /// four frames show — "Other" and "Living Room" swap sides together and
+    /// stay adjacent.
+    ///
+    /// So everything turns about ONE pivot, the storey's own centre: each
+    /// room's outline in its local space, each room's PLACE on the floor,
+    /// and every object standing in it. A room's outline and its position
+    /// are two different spaces and both have to move, which is the part
+    /// that made the old version look almost right.
+    private func commitTurn() async {
+        guard let angle = turning else { return }
+        let snapped = Self.snappedTurn(angle)
+        withAnimation(.snappy(duration: 0.2)) { turning = nil }
+        lastDetent = nil
+        guard abs(snapped) > 0.001 else { return }
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+
+        let rooms = cachedLayout.rooms
+        guard !rooms.isEmpty else { return }
+
+        // The storey's pivot, in floor metres: the centre of everything
+        // placed on it.
+        var minX = Double.greatestFiniteMagnitude, minY = Double.greatestFiniteMagnitude
+        var maxX = -Double.greatestFiniteMagnitude, maxY = -Double.greatestFiniteMagnitude
+        for room in rooms {
+            minX = min(minX, room.origin.x)
+            minY = min(minY, room.origin.y)
+            maxX = max(maxX, room.origin.x + room.plan.width)
+            maxY = max(maxY, room.origin.y + room.plan.height)
+        }
+        let pivot = CGPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2)
+        let c = cos(snapped), s = sin(snapped)
+        func turned(_ point: CGPoint, about centre: CGPoint) -> CGPoint {
+            let dx = point.x - centre.x, dy = point.y - centre.y
+            return CGPoint(x: centre.x + dx * c - dy * s, y: centre.y + dx * s + dy * c)
+        }
+
+        for room in rooms {
+            let polygon = room.plan.polygon
+            let corners = polygon.count >= 4 ? Array(polygon.dropLast()) : polygon
+            guard corners.count >= 3 else { continue }
+
+            // The outline, about the room's OWN centre — a room's corners
+            // are in its local space and its position on the floor is a
+            // separate fact, turned separately below.
+            let localPivot = PlanEditing.quarterTurnPivot(corners)
+            let spun = corners.map { turned($0, about: localPivot) }
+            let openings = (room.room.geometry?.authoredOpenings ?? [])
+                .compactMap(PlanEditing.WallOpening.init)
+            try? await API.shared.saveEditedPlan(
+                roomId: room.id, corners: spun,
+                locked: room.room.geometry?.lockedEdges ?? [],
+                openings: openings,
+                ceilingHeight: room.room.ceilingHeightM)
+
+            // Its place on the floor, about the storey pivot — this is what
+            // keeps the rooms in the same arrangement relative to each other.
+            let here = CGPoint(
+                x: room.origin.x + room.plan.width / 2,
+                y: room.origin.y + room.plan.height / 2)
+            let there = turned(here, about: pivot)
+            try? await API.shared.placeRoom(
+                roomId: room.id,
+                x: there.x - room.plan.width / 2, y: there.y - room.plan.height / 2)
+
+            // And the furniture, about the same local centre as the walls.
+            for object in roomObjects[room.id] ?? [] {
+                let moved = turned(CGPoint(x: object.x, y: object.y), about: localPivot)
+                let heading = (object.rotation + snapped * 180 / .pi)
+                    .truncatingRemainder(dividingBy: 360)
+                try? await API.shared.updateObject(
+                    id: object.id, at: moved, rotation: heading)
+            }
+        }
+        await load()
+    }
+
     private func rotateDetachedRooms() async {
         let targets = rotatableRooms
         guard !targets.isEmpty else { return }

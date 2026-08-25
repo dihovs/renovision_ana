@@ -3596,3 +3596,34 @@ Newest last. One or two lines per chat.
   border reads as a mounted drawing. The well is grey, the frame is card,
   and the inner corner radius is stepped so the two curves are concentric
   rather than parallel.
+- **2026-08-24 (S12 — the storey turns as one body, refits live, and snaps)**
+  Build **211**, from his own analysis of four reference frames and the
+  detail he caught that I had missed: *"did you see the auto zoom."*
+  **He was right, and it is not cosmetic.** A rectangle at 45° needs about
+  1,4× the upright room to hold it, so a plan fitted upright runs off the
+  screen through the middle of every turn — worst exactly where the operator
+  is watching. The reference refits CONTINUOUSLY: the drawing shrinks as it
+  starts turning and is refitted again when it lands. `turnFitScale`
+  computes the rotated box each frame (w·|cos| + h·|sin| across, the mirror
+  down) and expresses it as a MULTIPLIER on the viewport's existing scale,
+  so the storey's own framing and focus animation keep working and this only
+  ever tightens them.
+  **Rotate is a mode now, not an act.** It arms; the finger turns the storey;
+  the angle comes from the finger's bearing about the screen centre rather
+  than its horizontal travel, because a turn should follow the hand around
+  the drawing and a swipe-means-degrees mapping stops making sense past 90°.
+  **Snap at 45°**, his ask: eight detents, a 6° magnet window, and one
+  haptic per notch ENTERED rather than one per frame inside it.
+  **And the rigid-body fix, which was a real bug.** `rotateDetachedRooms`
+  turned each room a quarter-turn about ITS OWN centre — not one rotation
+  but several, leaving two rooms spun in place with their relationship to
+  each other scrambled. `commitTurn` turns the storey about one pivot:
+  each room's outline in its local space, each room's PLACE on the floor via
+  `placeRoom`, and every object in it. The outline and the position are two
+  different spaces and both have to move — missing the second is what made
+  the old behaviour look almost right.
+  **Noted for next time:** `grabbedTurnHandle` already exists in this file
+  (line 2527) from the lifted-room work, so the reference's visible handle,
+  its dashed arc and the direction arrow have somewhere to hang. Also still
+  unbuilt from the same frames: room labels staying screen-upright while the
+  plan turns, which the reference does and is very noticeable when absent.
