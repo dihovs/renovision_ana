@@ -164,7 +164,7 @@ enum Dollhouse {
         )
     }
 
-    static func scene(rooms: [Room]) -> SCNScene {
+    static func scene(rooms: [Room], displayAngleRadians: Double = 0) -> SCNScene {
         let scene = SCNScene()
         scene.background.contents = UIColor(white: 0.94, alpha: 1)
 
@@ -193,7 +193,28 @@ enum Dollhouse {
         // rather than its corner.
         let (centre, span) = bounds(of: rooms)
         world.position = SCNVector3(Float(-centre.x), 0, Float(-centre.y))
-        scene.rootNode.addChildNode(world)
+
+        // **The storey's own persisted turn** (migration 0043), as ONE node
+        // transform rather than anything written into a room's geometry —
+        // the 3D twin of what `StoreyViewport.point` does for the 2D canvas,
+        // so both views read the floor from the same direction.
+        //
+        // A parent node, NOT `world.eulerAngles`: a node rotates about its
+        // OWN origin and only then translates by `position`, so turning
+        // `world` directly would spin the storey about plan (0, 0) — its
+        // corner — instead of the middle it was just centred on. Centring
+        // first and turning the result about the origin is the same thing
+        // as turning about the centre, which is what this nesting says.
+        //
+        // Negated because SceneKit's +Y rotation runs the other way from the
+        // plan's screen-space sense of clockwise (y down): a rotation about
+        // +Y sends x toward -z, while the 2D `StoreyArranging.rotate` sends
+        // x toward +y. Confirm by eye against the 2D canvas on the device.
+        let turntable = SCNNode()
+        turntable.name = "turntable"
+        turntable.eulerAngles = SCNVector3(0, Float(-displayAngleRadians), 0)
+        turntable.addChildNode(world)
+        scene.rootNode.addChildNode(turntable)
 
         addLighting(to: scene, span: span)
         scene.rootNode.addChildNode(cameraRig(span: span))

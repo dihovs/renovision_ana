@@ -26,6 +26,9 @@ struct DollhouseScreen: View {
     /// Written to the diagnostics file the moment this screen appears, in
     /// every state including the empty one.
     let diagnosis: String
+    /// The storey's own saved turn, so 3D reads the floor from the same
+    /// direction the 2D canvas does. See migration 0043.
+    var displayAngleRadians: Double = 0
 
     @Environment(\.dismiss) private var dismiss
     @State private var showContents = true
@@ -43,7 +46,7 @@ struct DollhouseScreen: View {
                                 : "\(roomsOnFloor) room(s) are on this floor, but none carry the wall geometry this needs."
                         ))
                 } else {
-                    DollhouseSceneView(rooms: rooms)
+                    DollhouseSceneView(rooms: rooms, displayAngleRadians: displayAngleRadians)
                         .ignoresSafeArea(edges: .bottom)
 
                     // `.allowsHitTesting(false)` on the spacer-filled stack:
@@ -140,6 +143,7 @@ struct DollhouseScreen: View {
 @available(iOS 17.0, *)
 struct DollhouseSceneView: UIViewRepresentable {
     let rooms: [Dollhouse.Room]
+    var displayAngleRadians: Double = 0
 
     func makeUIView(context: Context) -> SCNView {
         // Leaves register themselves as the tree is built, so the registry is
@@ -149,7 +153,7 @@ struct DollhouseSceneView: UIViewRepresentable {
         Dollhouse.Registry.shared.reset()
 
         let view = SCNView()
-        let scene = Dollhouse.scene(rooms: rooms)
+        let scene = Dollhouse.scene(rooms: rooms, displayAngleRadians: displayAngleRadians)
         view.scene = scene
         // **Our own camera, not SceneKit's.** The owner: *"when I am turning
         // it, it goes all the way down so we can look at the floor plan from

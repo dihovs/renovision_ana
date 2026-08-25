@@ -24,6 +24,18 @@ struct StoreyViewport {
     /// paper shows, tighter is not needed since `bounds` itself shrinks to
     /// one room's own extent when focused.
     var inset: CGFloat = 28
+    /// The storey's own persisted turn, radians, about `pivot` — the
+    /// literal "turn at draw time" this type exists to make possible.
+    /// Nothing upstream of `point`/`model` is ever rotated: `StoreyLayout`,
+    /// `StoreyPacking`, every hit-test and collision function all keep
+    /// reading true, unrotated floor metres. Only where floor space meets
+    /// the screen learns about the angle. See migration 0043 and
+    /// `FloorCanvasView.commitTurn()`.
+    var angle: Double = 0
+    /// What `angle` rotates about — the storey's own centre
+    /// (`StoreyLayout.wholeFloorBounds`'s centre), NOT `bounds`, which is
+    /// the camera's current framing and moves as it zooms into a room.
+    var pivot: CGPoint = .zero
 
     var scale: CGFloat {
         guard bounds.width > 0.05, bounds.height > 0.05, canvasSize.width > 0, canvasSize.height > 0
@@ -37,7 +49,12 @@ struct StoreyViewport {
     /// (half the leftover width/height) plus pulling `bounds`'s own origin
     /// back to the inset corner, in one pass so `point`/`model` cannot
     /// compute it two different ways and drift.
-    private var origin: CGPoint {
+    /// Where floor-space (0, 0) lands on screen BEFORE rotation — the pure
+    /// scale-and-translate half of `point`/`model`. Exposed (not just
+    /// internal to those two) so `EditorChrome.drawGrid` can apply the exact
+    /// same affine-then-rotate transform the grid dots draw through, rather
+    /// than a second hand-rolled copy of it.
+    var origin: CGPoint {
         let s = scale
         return CGPoint(
             x: inset + (canvasSize.width - inset * 2 - bounds.width * s) / 2 - bounds.minX * s,
@@ -45,16 +62,18 @@ struct StoreyViewport {
     }
 
     func point(_ floorPoint: CGPoint) -> CGPoint {
+        let rotated = angle == 0 ? floorPoint : StoreyArranging.rotate([floorPoint], by: angle, about: pivot)[0]
         let o = origin
         let s = scale
-        return CGPoint(x: floorPoint.x * s + o.x, y: floorPoint.y * s + o.y)
+        return CGPoint(x: rotated.x * s + o.x, y: rotated.y * s + o.y)
     }
 
     /// Screen back to floor metres — what a drag or a tap needs.
     func model(_ screenPoint: CGPoint) -> CGPoint {
         let o = origin
         let s = scale
-        return CGPoint(x: (screenPoint.x - o.x) / s, y: (screenPoint.y - o.y) / s)
+        let floor = CGPoint(x: (screenPoint.x - o.x) / s, y: (screenPoint.y - o.y) / s)
+        return angle == 0 ? floor : StoreyArranging.rotate([floor], by: -angle, about: pivot)[0]
     }
 }
 
@@ -77,6 +96,11 @@ struct AnimatedStoreyViewport<Content: View>: View, Animatable {
     var progress: CGFloat
     let canvasSize: CGSize
     var inset: CGFloat = 28
+    /// The storey's persisted turn and the point it turns about — not part
+    /// of `animatableData`. A saved angle changes on `load()`, not mid
+    /// gesture the way `bounds`/`progress` do, so it needs no interpolation.
+    var angle: Double = 0
+    var pivot: CGPoint = .zero
     @ViewBuilder let content: (StoreyViewport, CGFloat) -> Content
 
     /// Four raw `CGFloat`s for `bounds`, paired with `progress` — none of
@@ -101,7 +125,10 @@ struct AnimatedStoreyViewport<Content: View>: View, Animatable {
     }
 
     var body: some View {
-        content(StoreyViewport(bounds: bounds, canvasSize: canvasSize, inset: inset), progress)
+        content(
+            StoreyViewport(
+                bounds: bounds, canvasSize: canvasSize, inset: inset, angle: angle, pivot: pivot),
+            progress)
     }
 }
 
@@ -339,7 +366,8 @@ struct StoreyBaseLayer: View {
             if grid {
                 EditorChrome.drawGrid(
                     context: context, size: canvasSize,
-                    model: (origin: viewport.point(.zero), scale: viewport.scale))
+                    model: (origin: viewport.origin, scale: viewport.scale),
+                    angle: viewport.angle, pivot: viewport.pivot)
             }
 
             for storeyRoom in layout.rooms {

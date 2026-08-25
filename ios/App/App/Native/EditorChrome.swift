@@ -70,13 +70,20 @@ enum EditorChrome {
         arm: CGFloat = 3.5,
         /// Pass the screen point of model (0, 0) and the metres→points
         /// scale to pin the grid to the plan. Nil keeps it screen-fixed.
-        model: (origin: CGPoint, scale: CGFloat)? = nil
+        model: (origin: CGPoint, scale: CGFloat)? = nil,
+        /// The storey's own persisted turn, radians, about `pivot` — the
+        /// same two values `StoreyViewport.point`/`.model` rotate by, so the
+        /// grid turns with the floor instead of staying screen-fixed under
+        /// it. Ignored when `model` is nil (screen-fixed grids have no
+        /// floor to turn with).
+        angle: Double = 0,
+        pivot: CGPoint = .zero
     ) {
         guard size.width > 0, size.height > 0 else { return }
         if let model {
             drawModelGrid(
                 context: context, size: size, origin: model.origin, scale: model.scale,
-                dotRadius: dotRadius, arm: arm)
+                dotRadius: dotRadius, arm: arm, angle: angle, pivot: pivot)
             return
         }
         // SCREEN pitch, not model pitch. The grid is the paper, not the
@@ -137,7 +144,9 @@ enum EditorChrome {
         origin: CGPoint,
         scale: CGFloat,
         dotRadius: CGFloat,
-        arm: CGFloat
+        arm: CGFloat,
+        angle: Double = 0,
+        pivot: CGPoint = .zero
     ) {
         /// Half a metre, the pitch the whole grid is reasoned in.
         let step: CGFloat = 0.5
@@ -155,13 +164,39 @@ enum EditorChrome {
         guard screenPitch > vanish else { return }
         let fade = min(1, (screenPitch - vanish) / (full - vanish))
 
-        // Which model steps are on screen. Counted from the model origin,
-        // not the view's, so a major stays a major while panning — the
-        // failure that made the first model-space grid swim.
-        let firstCol = Int(floor((0 - origin.x) / screenPitch))
-        let lastCol = Int(ceil((size.width - origin.x) / screenPitch))
-        let firstRow = Int(floor((0 - origin.y) / screenPitch))
-        let lastRow = Int(ceil((size.height - origin.y) / screenPitch))
+        // The exact inverse of `StoreyViewport.point`/`.model`: unscale
+        // first, then unrotate about the storey's own pivot. Used only to
+        // find which model steps the visible screen corners fall on — the
+        // rotated grid still turns with the floor, this just finds its
+        // bounds without walking a wider box than the screen needs.
+        func toModel(_ p: CGPoint) -> CGPoint {
+            let unscaled = CGPoint(x: (p.x - origin.x) / scale, y: (p.y - origin.y) / scale)
+            guard angle != 0 else { return unscaled }
+            return StoreyArranging.rotate([unscaled], by: -angle, about: pivot)[0]
+        }
+        func toScreen(_ p: CGPoint) -> CGPoint {
+            let rotated = angle == 0 ? p : StoreyArranging.rotate([p], by: angle, about: pivot)[0]
+            return CGPoint(x: rotated.x * scale + origin.x, y: rotated.y * scale + origin.y)
+        }
+
+        // Which model steps are on screen, from the four screen corners —
+        // a rotated screen rect covers a wider model-space box than an
+        // unrotated one would, which is exactly why this can no longer be
+        // solved directly from two corners the way the unrotated grid was.
+        let corners = [
+            toModel(.zero), toModel(CGPoint(x: size.width, y: 0)),
+            toModel(CGPoint(x: 0, y: size.height)),
+            toModel(CGPoint(x: size.width, y: size.height)),
+        ]
+        let minX = corners.map(\.x).min() ?? 0
+        let maxX = corners.map(\.x).max() ?? 0
+        let minY = corners.map(\.y).min() ?? 0
+        let maxY = corners.map(\.y).max() ?? 0
+
+        let firstCol = Int(floor(minX / step))
+        let lastCol = Int(ceil(maxX / step))
+        let firstRow = Int(floor(minY / step))
+        let lastRow = Int(ceil(maxY / step))
         guard lastCol >= firstCol, lastRow >= firstRow else { return }
 
         // Belt and braces on the volume: the fade cutoff already bounds
@@ -171,22 +206,28 @@ enum EditorChrome {
         var dots = Path()
         var crosses = Path()
         let r = dotRadius
+        let armModel = arm / scale
 
         for ci in firstCol...lastCol {
-            let x = origin.x + CGFloat(ci) * screenPitch
+            let mx = CGFloat(ci) * step
             for ri in firstRow...lastRow {
-                let y = origin.y + CGFloat(ri) * screenPitch
+                let my = CGFloat(ri) * step
                 // `%` on a negative index is negative in Swift, so the test
                 // has to be modulus-safe or the majors go missing on the
                 // half of the plan left of and above the origin.
                 if ci % major == 0, ri % major == 0 {
-                    crosses.move(to: CGPoint(x: x - arm, y: y))
-                    crosses.addLine(to: CGPoint(x: x + arm, y: y))
-                    crosses.move(to: CGPoint(x: x, y: y - arm))
-                    crosses.addLine(to: CGPoint(x: x, y: y + arm))
+                    let west = toScreen(CGPoint(x: mx - armModel, y: my))
+                    let east = toScreen(CGPoint(x: mx + armModel, y: my))
+                    let north = toScreen(CGPoint(x: mx, y: my - armModel))
+                    let south = toScreen(CGPoint(x: mx, y: my + armModel))
+                    crosses.move(to: west)
+                    crosses.addLine(to: east)
+                    crosses.move(to: north)
+                    crosses.addLine(to: south)
                 } else {
+                    let p = toScreen(CGPoint(x: mx, y: my))
                     dots.addEllipse(
-                        in: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2))
+                        in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
                 }
             }
         }

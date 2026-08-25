@@ -615,14 +615,8 @@ fingers orbit, pinch is anchored at the fingers, 120 Hz with momentum.
 facts RoomPlan never reports — which jamb, which way — and the guesses were
 visibly wrong. Nine motions collapsed to three static shapes.
 
-**NOT DONE, and it is the next real piece of work on this screen: rotation
-should not be an EDIT.** `commitTurn` writes a corrected outline through
-`saveEditedPlan` for every room on the storey, which turns pristine scans
-into edited ones. That is what cost the owner 26 detected objects on a floor
-he could not re-scan (build 213 recovers them by carrying detections through
-the edited derivation, but the cause remains). **A storey's angle is a
-display fact, not a measurement.** Store it per storey, turn at draw time,
-and this whole class of consequence becomes impossible.
+~~**NOT DONE, and it is the next real piece of work on this screen: rotation
+should not be an EDIT.**~~ **DONE 24 Aug 2026 — see §9e.**
 
 ### 9d. Two disciplines this session paid for, twice each
 
@@ -639,3 +633,79 @@ and this whole class of consequence becomes impossible.
   count, wall count, thickness range, hole count and real coordinates; the
   `0+6 objects` in the status line is what actually identified the
   regression above. Ask the file, not the picture.
+
+## 9e. The storey turn is a display fact now — 24 Aug 2026
+
+**The destructive rotation path is gone.** `commitTurn` used to rotate every
+room's polygon and save it back through `saveEditedPlan` — the same call a
+corrected wall goes through — plus `placeRoom` for each position and
+`updateObject` for every fixture. That is what turned pristine RoomPlan scans
+into edited ones and cost the owner 26 detected objects on a floor he could
+not re-scan. It now writes **one number** and nothing else.
+
+**Where the angle lives.** `floor_display (project_id, level, display_angle)`
+— migration **0043**, degrees, matching `room_objects.rotation`. A storey is
+not an entity anywhere in this schema (`room_scans.level` is a text label), so
+it needed its own tiny table rather than a column on something existing. Read
+back bundled into `GET /api/v1/scans` so the plan and the direction it is read
+from arrive together; written by `PATCH /api/v1/floors?projectId=&level=`.
+
+**Where the turn is APPLIED, and why only there.** `StoreyViewport.point()` /
+`.model()` — the single seam every draw and hit-test on the storey canvas
+already went through. `StoreyLayout`, `StoreyPacking`, `room(at:)`,
+collision, merge adjacency and the camera all keep reading **true, unrotated
+floor metres**, exactly as before. Nothing upstream of that seam knows the
+storey is turned, which is the property that makes the old class of bug
+unreachable rather than merely avoided.
+
+Three things followed from that seam, none of them obvious up front:
+
+1. **`cameraBounds` had to be turned too.** `bounds` describes ROTATED space
+   now, and a rectangle of unrotated floor is not a rectangle after a turn.
+   Fitting the upright one runs a turned storey off the canvas — worst at 45°,
+   where it needs about 1.4× the room. `turned(_:)` boxes the four rotated
+   corners. This is the same arithmetic `turnFitScale` already did for the
+   LIVE drag; it just had no equivalent for a turn that persisted.
+2. **The grid had to learn the angle**, or it stays screen-aligned while the
+   floor turns under it. `EditorChrome.drawGrid` takes `angle`/`pivot` and
+   `drawModelGrid` now walks model steps found from the four screen corners —
+   a rotated screen covers a wider model box than two corners can describe.
+3. **The dollhouse needed its own**, because `dollhouseRooms` re-derives
+   placement from `StoreyPacking` independently of `cachedLayout` — the 2D fix
+   does not reach it. One `turntable` parent node in `Dollhouse.scene`, and
+   it must be a PARENT: a node rotates about its own origin and only then
+   translates by `position`, so turning `world` directly would spin the storey
+   about plan (0, 0) rather than the middle it was just centred on.
+
+**Furniture came along for free**, both in 2D and 3D, and that is worth
+knowing rather than rediscovering: object x/y are room-LOCAL
+(`Models.swift`), so once the room's walls turn, its fixtures turn with them.
+The old code's per-object `updateObject` loop existed only because it was
+baking the turn into storage.
+
+**`rotateDetachedRooms()` is deleted** — it had zero call sites and had been
+fully superseded by `commitTurn`.
+
+**Existing rotated floors are NOT retroactively corrected**, and cannot be.
+A floor already turned by the old path has had its geometry permanently
+overwritten; there is no pre-turn state to recover. Its `floor_display` angle
+starts at 0, which correctly means "draw that data upright", and a new turn
+stacks on top like any other floor. Only new turns are protected.
+
+**Verified before install**, per §9d's own rule: `StoreyArranging.rotate` was
+compiled for macOS with a harness asserting the four properties the change
+rests on — `model(point(p)) == p` at 0/45/90/137/180/-90/270° (the invariant
+hit-testing depends on; if it fails a tap lands on a different room than the
+one under the finger), the pivot not moving, length preserved through a turn
+(a turn that changed a measurement would be the bug this exists to prevent),
+and the framing box widening to the diagonal at 45°. `BUILD SUCCEEDED`,
+1189 tests pass.
+
+**NOT yet confirmed by eye on the device.** Migration 0043 still has to be
+applied before a turn can save at all. Then: turn a floor at 45° and at 90°,
+confirm rooms still tap/drag/merge correctly at that angle, confirm the grid
+turns with the floor, confirm the dollhouse reads the same direction as the
+2D canvas — **the SceneKit sign is the one thing reasoned rather than seen**
+(+Y rotation runs opposite to the plan's screen-space clockwise, so it is
+negated); if 3D turns the wrong way it is a one-line sign flip in
+`Dollhouse.scene`. Reopen the floor and confirm the angle persisted.

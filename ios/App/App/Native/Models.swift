@@ -740,7 +740,13 @@ struct CallRecord: Decodable, Identifiable, Hashable {
 
 // MARK: - Room scans
 
-struct ScanListResponse: Decodable { let scans: [RoomScan] }
+struct ScanListResponse: Decodable {
+    let scans: [RoomScan]
+    /// Degrees, keyed by level — how each storey is turned on screen. See
+    /// migration 0043: this is a display fact, never baked into a room's
+    /// own saved geometry. Absent level = never turned = 0, the same fact.
+    let floorDisplay: [String: Double]?
+}
 
 struct RoomScan: Decodable, Identifiable, Hashable {
     let id: String

@@ -373,6 +373,27 @@ actor API {
         return try await get("/api/v1/scans?projectId=\(encoded)", as: ScanListResponse.self).scans
     }
 
+    /// Every storey's saved turn on this project, degrees, keyed by level.
+    /// Same endpoint `scans(projectId:)` reads — the angle rides along with
+    /// the plan it draws — just decoded for the other field.
+    func floorDisplayAngles(projectId: String) async throws -> [String: Double] {
+        let encoded = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        return try await get("/api/v1/scans?projectId=\(encoded)", as: ScanListResponse.self).floorDisplay ?? [:]
+    }
+
+    private struct FloorDisplayPatch: Encodable { let displayAngle: Double }
+
+    /// Turn a storey — write the ONE number, never the rooms on it. See
+    /// migration 0043 and `FloorCanvasView.commitTurn()`: this call is the
+    /// entire persisted effect of a turn now.
+    func setFloorDisplayAngle(projectId: String, level: String, degrees: Double) async throws {
+        let p = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        let l = level.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? level
+        _ = try await request(
+            "/api/v1/floors?projectId=\(p)&level=\(l)", method: "PATCH",
+            body: FloorDisplayPatch(displayAngle: degrees))
+    }
+
     /// File a finished capture against a project.
     ///
     /// The measurements go up as taken. The server deliberately does not

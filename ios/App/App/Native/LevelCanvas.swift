@@ -1159,6 +1159,10 @@ struct FloorCanvasView: View {
     /// half-seen floors never builds up behind the back button.
     @State private var switched: String?
     @State private var scans: [RoomScan]?
+    /// Degrees, this floor's own saved turn. 0 is upright and is also what a
+    /// floor that has never been turned reads as — the two are the same
+    /// fact. See migration 0043 and `commitTurn()`.
+    @State private var floorDisplayAngle: Double = 0
     @State private var inserting = false
     @State private var dollhouse = false
     /// 3D was picked while the view-mode popover was still on screen; the
@@ -1428,13 +1432,42 @@ struct FloorCanvasView: View {
         return rooms.first { $0.id == focusedRoomID }
     }
 
+    /// What the storey's persisted turn rotates about — its own centre, the
+    /// one value `StoreyViewport.pivot` and `cameraBounds` must agree on or
+    /// the framing describes a different rectangle than the one being drawn.
+    private var turnPivot: CGPoint {
+        CGPoint(x: cachedLayout.wholeFloorBounds.midX, y: cachedLayout.wholeFloorBounds.midY)
+    }
+
+    /// A framing rectangle carried through the storey's turn.
+    ///
+    /// `StoreyViewport` rotates a floor point BEFORE fitting it to `bounds`,
+    /// so `bounds` describes rotated space — and a rectangle of unrotated
+    /// floor does not stay a rectangle through a turn. Fitting the upright
+    /// one would run a turned storey off the canvas, worst at 45° where it
+    /// needs about 1.4× the room. Its four corners turned, boxed, is the
+    /// region that actually has to fit.
+    private func turned(_ rect: CGRect) -> CGRect {
+        let angle = floorDisplayAngle * .pi / 180
+        guard angle != 0 else { return rect }
+        let corners = StoreyArranging.rotate(
+            [
+                CGPoint(x: rect.minX, y: rect.minY), CGPoint(x: rect.maxX, y: rect.minY),
+                CGPoint(x: rect.maxX, y: rect.maxY), CGPoint(x: rect.minX, y: rect.maxY),
+            ], by: angle, about: turnPivot)
+        let xs = corners.map(\.x), ys = corners.map(\.y)
+        guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max()
+        else { return rect }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
     /// What the shared camera is CURRENTLY aimed at, in floor metres — the
     /// value `AnimatedStoreyViewport` animates. Driven by `cameraFocusID`,
     /// not `focusedRoomID`: see `exitFocusedRoom` for why the two clear on
     /// different clocks.
     private var cameraBounds: CGRect {
         guard let cameraFocusID, let storeyRoom = cachedLayout.room(id: cameraFocusID) else {
-            return adjustedFloorBounds
+            return turned(adjustedFloorBounds)
         }
         // Framed with room outboard of the walls, because what the editor
         // draws is wider than the room: per-wall dimension lines, and since
@@ -1464,7 +1497,7 @@ struct FloorCanvasView: View {
         // middle distance.
         let bounds = storeyRoom.floorBounds
         let plan = cachedLayout.groupBounds(of: cameraFocusID) ?? bounds
-        return plan.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22)
+        return turned(plan.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22))
     }
 
     /// The whole floor, moved and scaled by whatever the fingers have done
@@ -1652,7 +1685,8 @@ struct FloorCanvasView: View {
         // plainly: "change the structure, make it like magic plan."
         GeometryReader { proxy in
             AnimatedStoreyViewport(
-                bounds: cameraBounds, progress: focusProgress, canvasSize: proxy.size, inset: 28
+                bounds: cameraBounds, progress: focusProgress, canvasSize: proxy.size, inset: 28,
+                angle: floorDisplayAngle * .pi / 180, pivot: turnPivot
             ) { viewport, progress in
                 ZStack {
                     Brand.Plan.paper.ignoresSafeArea()
@@ -2029,7 +2063,8 @@ struct FloorCanvasView: View {
         .fullScreenCover(isPresented: $dollhouse) {
             DollhouseScreen(
                 title: showing, rooms: dollhouseRooms, roomsOnFloor: rooms.count,
-                diagnosis: dollhouseDiagnosis)
+                diagnosis: dollhouseDiagnosis,
+                displayAngleRadians: floorDisplayAngle * .pi / 180)
         }
         .sheet(isPresented: $sharing) {
             // The same export sheet the project carries — one screen, two
@@ -2690,20 +2725,25 @@ struct FloorCanvasView: View {
         return min(1, turnedFit / uprightFit)
     }
 
-    /// **Commit the turn the finger just made — the whole storey, rigidly.**
+    /// **Commit the turn the finger just made — one number, not a rewrite.**
     ///
-    /// The old `rotateDetachedRooms` turned each room a quarter-turn about
-    /// ITS OWN centre, which is not one rotation but several: two rooms come
-    /// out spun in place with their relationship to each other scrambled.
-    /// The reference turns the storey as one body, which is what the owner's
-    /// four frames show — "Other" and "Living Room" swap sides together and
-    /// stay adjacent.
+    /// A storey's angle is a DISPLAY FACT, not a measurement. The rooms did
+    /// not move, their walls did not change shape, nothing was measured
+    /// differently — only the direction the sheet is being read from.
     ///
-    /// So everything turns about ONE pivot, the storey's own centre: each
-    /// room's outline in its local space, each room's PLACE on the floor,
-    /// and every object standing in it. A room's outline and its position
-    /// are two different spaces and both have to move, which is the part
-    /// that made the old version look almost right.
+    /// This used to rotate every room's polygon and save it back through
+    /// `saveEditedPlan`, the same call a corrected wall goes through, plus
+    /// `placeRoom` for each position and `updateObject` for every fixture.
+    /// That turned pristine RoomPlan scans into edited ones: a floor turned
+    /// this way lost 26 auto-detected objects, and it could not be
+    /// re-scanned to get them back. The angle now lives in its own row
+    /// (migration 0043) and is applied in `StoreyViewport.point`/`.model`,
+    /// so there is no longer any code path that CAN write a turn into a
+    /// room's real geometry.
+    ///
+    /// The turn is cumulative — the live drag is a delta on whatever the
+    /// storey is already at, which is what the preview `.rotationEffect`
+    /// shows on top of the already-turned drawing.
     private func commitTurn() async {
         guard let angle = turning else { return }
         let snapped = Self.snappedTurn(angle)
@@ -2712,110 +2752,16 @@ struct FloorCanvasView: View {
         guard abs(snapped) > 0.001 else { return }
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
 
-        let rooms = cachedLayout.rooms
-        guard !rooms.isEmpty else { return }
-
-        // The storey's pivot, in floor metres: the centre of everything
-        // placed on it.
-        var minX = Double.greatestFiniteMagnitude, minY = Double.greatestFiniteMagnitude
-        var maxX = -Double.greatestFiniteMagnitude, maxY = -Double.greatestFiniteMagnitude
-        for room in rooms {
-            minX = min(minX, room.origin.x)
-            minY = min(minY, room.origin.y)
-            maxX = max(maxX, room.origin.x + room.plan.width)
-            maxY = max(maxY, room.origin.y + room.plan.height)
-        }
-        let pivot = CGPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2)
-        let c = cos(snapped), s = sin(snapped)
-        func turned(_ point: CGPoint, about centre: CGPoint) -> CGPoint {
-            let dx = point.x - centre.x, dy = point.y - centre.y
-            return CGPoint(x: centre.x + dx * c - dy * s, y: centre.y + dx * s + dy * c)
-        }
-
-        for room in rooms {
-            let polygon = room.plan.polygon
-            let corners = polygon.count >= 4 ? Array(polygon.dropLast()) : polygon
-            guard corners.count >= 3 else { continue }
-
-            // The outline, about the room's OWN centre — a room's corners
-            // are in its local space and its position on the floor is a
-            // separate fact, turned separately below.
-            let localPivot = PlanEditing.quarterTurnPivot(corners)
-            let spun = corners.map { turned($0, about: localPivot) }
-            let openings = (room.room.geometry?.authoredOpenings ?? [])
-                .compactMap(PlanEditing.WallOpening.init)
-            try? await API.shared.saveEditedPlan(
-                roomId: room.id, corners: spun,
-                locked: room.room.geometry?.lockedEdges ?? [],
-                openings: openings,
-                ceilingHeight: room.room.ceilingHeightM)
-
-            // Its place on the floor, about the storey pivot — this is what
-            // keeps the rooms in the same arrangement relative to each other.
-            let here = CGPoint(
-                x: room.origin.x + room.plan.width / 2,
-                y: room.origin.y + room.plan.height / 2)
-            let there = turned(here, about: pivot)
-            try? await API.shared.placeRoom(
-                roomId: room.id,
-                x: there.x - room.plan.width / 2, y: there.y - room.plan.height / 2)
-
-            // And the furniture, about the same local centre as the walls.
-            for object in roomObjects[room.id] ?? [] {
-                let moved = turned(CGPoint(x: object.x, y: object.y), about: localPivot)
-                let heading = (object.rotation + snapped * 180 / .pi)
-                    .truncatingRemainder(dividingBy: 360)
-                try? await API.shared.updateObject(
-                    id: object.id, at: moved, rotation: heading)
-            }
-        }
-        await load()
-    }
-
-    private func rotateDetachedRooms() async {
-        let targets = rotatableRooms
-        guard !targets.isEmpty else { return }
-        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-
-        for target in targets {
-            // The room's own corners, in ITS local space — the same space
-            // `saveEditedPlan` reads and `RoomEditorCore` edits in, so this
-            // writes exactly what an edit by hand would have.
-            let polygon = target.plan.polygon
-            let corners = polygon.count >= 4 ? Array(polygon.dropLast()) : polygon
-            guard corners.count >= 3 else { continue }
-
-            let turned = PlanEditing.rotatedQuarterTurn(corners)
-            let openings = (target.room.geometry?.authoredOpenings ?? [])
-                .compactMap(PlanEditing.WallOpening.init)
-            try? await API.shared.saveEditedPlan(
-                roomId: target.id, corners: turned,
-                locked: target.room.geometry?.lockedEdges ?? [],
-                openings: openings,
-                ceilingHeight: target.room.ceilingHeightM)
-
-            // **The furniture turns with the room.** The owner, 24 Aug 2026:
-            // *"when I rotate the floor plan, the furniture doesn't rotate
-            // with the floor plan. They stay in their places."* Exactly so —
-            // an object's x and y are in the ROOM'S own plan metres, so
-            // turning the walls without turning the objects slides the room
-            // out from under its own bath. Same quarter turn, same pivot,
-            // and the object's own heading turns with it: a counter run
-            // square to a wall must still be square to it afterwards.
-            let pivot = PlanEditing.quarterTurnPivot(corners)
-            for object in roomObjects[target.id] ?? [] {
-                let moved = PlanEditing.quarterTurnedPoint(
-                    CGPoint(x: object.x, y: object.y), about: pivot)
-                try? await API.shared.updateObject(
-                    id: object.id, at: moved,
-                    rotation: (object.rotation + 90).truncatingRemainder(dividingBy: 360))
-            }
-        }
+        let turned = (floorDisplayAngle + snapped * 180 / .pi)
+            .truncatingRemainder(dividingBy: 360)
+        try? await API.shared.setFloorDisplayAngle(
+            projectId: projectId, level: level, degrees: turned)
         await load()
     }
 
     private func load() async {
         scans = (try? await API.shared.scans(projectId: projectId)) ?? []
+        floorDisplayAngle = (try? await API.shared.floorDisplayAngles(projectId: projectId))?[level] ?? 0
         refreshLayout()
         await loadObjects()
     }

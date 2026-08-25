@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guarded } from "../guard";
 import { createRoomScan, listRoomScans } from "@/lib/crm/roomScans";
 import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
+import { getFloorDisplayAngles } from "@/lib/crm/floorDisplay";
 
 /** Every scan on a project. `?projectId=` is required — a scan only means
     something in the context of the property it measured.
@@ -17,6 +18,10 @@ export async function GET(request: Request) {
   return guarded(async () => ({
     scans: await listRoomScans(projectId),
     definitions: MEASURE_DEFINITIONS,
+    // How each floor is turned on screen — bundled here rather than a
+    // second round trip, since reading the plan and reading how it is
+    // drawn happen together every time. See migration 0043.
+    floorDisplay: await getFloorDisplayAngles(projectId),
   }));
 }
 
