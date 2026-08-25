@@ -84,6 +84,7 @@ export type ProjectListItem = Project & {
     plan_x: number | null;
     plan_y: number | null;
     objects: PlacedObject[];
+    areas: PlacedArea[];
   }[];
   floor_area_sqm: number;
 };
@@ -97,6 +98,20 @@ export type PlacedObject = {
   width: number;
   depth: number;
   included?: boolean;
+};
+
+/** One damaged patch as a card draws it: the shape and what colour to shade
+    it. `surface` travels because a WALL area's polygon is in that wall's own
+    face space and drawing it on a plan would be nonsense — the card filters
+    on it rather than trusting every area to be a floor area. */
+export type PlacedArea = {
+  surface: string;
+  polygon: { x: number; y: number }[];
+  color: string | null;
+  /** Colour falls back to the cause when no override is set, so the card
+      has to know it or a fire loss shades blue on the card and orange on
+      the storey — one patch drawn two ways. */
+  damage_type: string | null;
 };
 
 /** A job linked to the project — display fields only; jobs stay read-only here. */
@@ -237,15 +252,31 @@ export async function listProjects(
   };
 
   const SCAN_FIELDS = "name, floor_area_sqm, geometry, level, plan_x, plan_y";
-  /** With the fixtures, so a card can draw the toilet and not just the room. */
+  const OBJECT_EMBED = "room_objects(kind, x, y, rotation, width, depth, included)";
+  /** The damage, so a card shows the claim and not just the building. */
+  const AREA_EMBED = "affected_areas(surface, polygon, color, damage_type)";
   const RICHEST =
     "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
-    `room_scans(${SCAN_FIELDS}, room_objects(kind, x, y, rotation, width, depth, included))`;
+    `room_scans(${SCAN_FIELDS}, ${OBJECT_EMBED}, ${AREA_EMBED})`;
+  /** With the fixtures, so a card can draw the toilet and not just the room. */
+  const WITH_OBJECTS =
+    "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
+    `room_scans(${SCAN_FIELDS}, ${OBJECT_EMBED})`;
   const RICH =
     "*, clients(first_name, last_name, company_name), project_files(uploaded_at), " +
     `room_scans(${SCAN_FIELDS})`;
 
   let { data, error } = await build(RICHEST);
+
+  // The damage embed drops first, for the same reason the fixtures drop
+  // before the geometry does: losing the shading costs a card its colour,
+  // losing the rest costs it the drawing. One rung, added rather than
+  // folded into the one below, so a failure in EITHER embed does not take
+  // the other down with it.
+  if (error && isEmbedFailure(error)) {
+    console.warn("[projects] areas embed failed, falling back", error.message);
+    ({ data, error } = await build(WITH_OBJECTS));
+  }
 
   // THREE steps down, not two, and the middle one is the point. `room_objects`
   // is the newest table here and the likeliest embed to fail — a stale
@@ -283,6 +314,7 @@ export async function listProjects(
           plan_x: number | null;
           plan_y: number | null;
           room_objects?: PlacedObject[] | null;
+          affected_areas?: PlacedArea[] | null;
         }[]
       | null;
   })[]).map(({ clients, project_files, room_scans, ...project }) => {
@@ -347,6 +379,22 @@ export async function listProjects(
             rotation: Number(object.rotation),
             width: Number(object.width),
             depth: Number(object.depth),
+          })),
+        // The damage. Floor areas only — a wall area's polygon is in its
+        // wall's own face space, so it is dropped HERE rather than sent and
+        // filtered on a phone. A shape with fewer than three corners cannot
+        // be shaded and is dropped for the same reason.
+        areas: (scan.affected_areas ?? [])
+          .filter(
+            (area) => area.surface !== "wall" && (area.polygon?.length ?? 0) >= 3)
+          .map((area) => ({
+            surface: area.surface,
+            color: area.color ?? null,
+            damage_type: area.damage_type ?? null,
+            polygon: (area.polygon ?? []).map((p) => ({
+              x: Number(p.x),
+              y: Number(p.y),
+            })),
           })),
       })),
       floor_area_sqm: scans.reduce((sum, scan) => sum + Number(scan.floor_area_sqm), 0),

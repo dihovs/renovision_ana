@@ -1056,7 +1056,12 @@ struct ProjectDetailView: View {
                         // view of the same rooms railed below it.
                         if rooms.contains(where: { $0.geometry != nil }) {
                             Card(padding: Brand.Space.small) {
-                                LevelCanvas(rooms: rooms) { room in
+                                // `planAreas` was already being loaded for
+                                // the rail below and never handed to the
+                                // drawing itself — so the project page drew
+                                // the building without the damage while the
+                                // data for it sat one line away.
+                                LevelCanvas(rooms: rooms, areas: planAreas) { room in
                                     openRoom = room
                                 }
                             }

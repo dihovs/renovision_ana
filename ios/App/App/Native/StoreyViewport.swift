@@ -24,6 +24,24 @@ struct StoreyViewport {
     /// paper shows, tighter is not needed since `bounds` itself shrinks to
     /// one room's own extent when focused.
     var inset: CGFloat = 28
+    /// **Room for the chrome that floats OVER this canvas.**
+    ///
+    /// `floorChrome` is a full-height `VStack` laid on top of the drawing —
+    /// undo/redo and the floor/2D steppers at the top, the action bar and
+    /// its caption at the bottom. The canvas underneath is the whole
+    /// screen, so a plan fitted to it with only `inset` to spare runs its
+    /// top and bottom edges UNDER that chrome. The owner, on build 214:
+    /// *"it zoomed in too much whenever you open it by default. It needs to
+    /// be zoomed out enough to display the entire floor plan."* It was not
+    /// really zoom — the fit was right for the canvas and wrong for the
+    /// visible part of it.
+    ///
+    /// Kept separate from `inset` because they are different facts: `inset`
+    /// is the margin the drawing wants, these are the strips it may not use.
+    /// `StoreyViewport.chromeTop`/`chromeBottom` on `FloorCanvasView` are
+    /// where the numbers live, next to the chrome that causes them.
+    var chromeTop: CGFloat = 0
+    var chromeBottom: CGFloat = 0
     /// The storey's own persisted turn, radians, about `pivot` — the
     /// literal "turn at draw time" this type exists to make possible.
     /// Nothing upstream of `point`/`model` is ever rotated: `StoreyLayout`,
@@ -37,18 +55,28 @@ struct StoreyViewport {
     /// the camera's current framing and moves as it zooms into a room.
     var pivot: CGPoint = .zero
 
+    /// The drawable strip: the canvas less its margins and less whatever
+    /// the floating chrome covers. Everything else here is arithmetic on
+    /// this, so the fit and the centring cannot disagree about it.
+    ///
+    /// Not private: `turnFitScale` refits the drawing DURING a turn and has
+    /// to shrink it against the same rectangle, and the live turn is
+    /// anchored on this box's centre rather than the canvas's. A second
+    /// hand-rolled copy of this arithmetic is exactly how the plan came to
+    /// shrink into a corner the first time chrome was accounted for.
+    var free: CGRect {
+        CGRect(
+            x: inset, y: inset + chromeTop,
+            width: max(1, canvasSize.width - inset * 2),
+            height: max(1, canvasSize.height - inset * 2 - chromeTop - chromeBottom))
+    }
+
     var scale: CGFloat {
         guard bounds.width > 0.05, bounds.height > 0.05, canvasSize.width > 0, canvasSize.height > 0
         else { return 1 }
-        return min(
-            (canvasSize.width - inset * 2) / bounds.width,
-            (canvasSize.height - inset * 2) / bounds.height)
+        return min(free.width / bounds.width, free.height / bounds.height)
     }
 
-    /// Where floor-space (0, 0) lands on screen — the two centring terms
-    /// (half the leftover width/height) plus pulling `bounds`'s own origin
-    /// back to the inset corner, in one pass so `point`/`model` cannot
-    /// compute it two different ways and drift.
     /// Where floor-space (0, 0) lands on screen BEFORE rotation — the pure
     /// scale-and-translate half of `point`/`model`. Exposed (not just
     /// internal to those two) so `EditorChrome.drawGrid` can apply the exact
@@ -56,9 +84,10 @@ struct StoreyViewport {
     /// than a second hand-rolled copy of it.
     var origin: CGPoint {
         let s = scale
+        let box = free
         return CGPoint(
-            x: inset + (canvasSize.width - inset * 2 - bounds.width * s) / 2 - bounds.minX * s,
-            y: inset + (canvasSize.height - inset * 2 - bounds.height * s) / 2 - bounds.minY * s)
+            x: box.minX + (box.width - bounds.width * s) / 2 - bounds.minX * s,
+            y: box.minY + (box.height - bounds.height * s) / 2 - bounds.minY * s)
     }
 
     func point(_ floorPoint: CGPoint) -> CGPoint {
@@ -96,6 +125,9 @@ struct AnimatedStoreyViewport<Content: View>: View, Animatable {
     var progress: CGFloat
     let canvasSize: CGSize
     var inset: CGFloat = 28
+    /// Strips the floating chrome covers — see `StoreyViewport.chromeTop`.
+    var chromeTop: CGFloat = 0
+    var chromeBottom: CGFloat = 0
     /// The storey's persisted turn and the point it turns about — not part
     /// of `animatableData`. A saved angle changes on `load()`, not mid
     /// gesture the way `bounds`/`progress` do, so it needs no interpolation.
@@ -127,7 +159,9 @@ struct AnimatedStoreyViewport<Content: View>: View, Animatable {
     var body: some View {
         content(
             StoreyViewport(
-                bounds: bounds, canvasSize: canvasSize, inset: inset, angle: angle, pivot: pivot),
+                bounds: bounds, canvasSize: canvasSize, inset: inset,
+                chromeTop: chromeTop, chromeBottom: chromeBottom,
+                angle: angle, pivot: pivot),
             progress)
     }
 }
@@ -309,6 +343,11 @@ struct StoreyBaseLayer: View {
     /// because an object's coordinates are its own room's, and it is
     /// `StoreyRoom.origin` that puts them on the floor.
     var objects: [String: [RoomObject]] = [:]
+    /// Damaged areas in the rooms on this floor, keyed by room id — the
+    /// same shape `objects` takes, and for the same reason: an area's
+    /// polygon is in its own room's metres, and it is `StoreyRoom.origin`
+    /// that puts it on the floor.
+    var areas: [String: [AffectedArea]] = [:]
     /// **The storey's live turn, in radians.** Nil when it is not being
     /// turned. The whole layer is rotated by its owner; this is passed in so
     /// the parts that must NOT turn can undo it — see the labels below —
@@ -480,6 +519,28 @@ struct StoreyBaseLayer: View {
                     context.stroke(
                         walls, with: .color(ink),
                         style: StrokeStyle(lineWidth: band, lineCap: .round))
+                }
+
+                // **The damage.** The owner, on build 214: *"there is an
+                // affected area that I don't see here. I wanna see it."*
+                // The thumbnail `LevelCanvas` has drawn these all along and
+                // this screen never did, which is the worse way round — the
+                // card is a glance, THIS is where the work is done, and a
+                // shaded patch is what the estimate's quantities are
+                // measured from. `EditorChrome.drawArea` is the one renderer
+                // the owner asked for ("create one and put it in three
+                // places"); this is the third place, finally using it.
+                //
+                // `surface != "wall"` because a wall area belongs on the
+                // elevation, not lying flat on the floor plan.
+                //
+                // Under the furniture, so a vanity standing in a wet patch
+                // still reads as a vanity.
+                for area in areas[storeyRoom.id] ?? [] where area.surface != "wall" {
+                    EditorChrome.drawArea(
+                        polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                        tone: area.displayColor, context: context,
+                        toScreen: { viewport.point(floorPoint($0.x, $0.y)) })
                 }
 
                 // Objects standing in this room, in the room's OWN metres
@@ -704,17 +765,16 @@ struct StoreyBaseLayer: View {
                 // is already large enough that adding it defeated the type
                 // checker outright, which is its own argument for the split.
                 if let angle = turn {
-                    // The floor's own extent, in screen points.
+                    // The storey's own centre. Taken as the centre POINT put
+                    // through the viewport, not as a box built from two
+                    // corners — two corners stop describing a rectangle the
+                    // moment the viewport carries a persisted angle.
                     let floor = layout.wholeFloorBounds
-                    let topLeft = viewport.point(CGPoint(x: floor.minX, y: floor.minY))
-                    let bottomRight = viewport.point(CGPoint(x: floor.maxX, y: floor.maxY))
                     Self.drawTurnHandle(
                         context: context,
-                        box: CGRect(
-                            x: topLeft.x, y: topLeft.y,
-                            width: bottomRight.x - topLeft.x,
-                            height: bottomRight.y - topLeft.y),
-                        angle: angle)
+                        centre: viewport.point(CGPoint(x: floor.midX, y: floor.midY)),
+                        angle: angle,
+                        background: bg)
                 }
 
                 // The room in the air, ringed. A lifted room that looks
@@ -746,16 +806,8 @@ struct StoreyBaseLayer: View {
                         (handles.move, "arrow.up.and.down.and.arrow.left.and.right"),
                         (handles.turn, "arrow.clockwise"),
                     ] {
-                        context.fill(
-                            Path(ellipseIn: CGRect(
-                                x: point.x - 15, y: point.y - 15, width: 30, height: 30)),
-                            with: .color(bg.opacity(0.9)))
-                        context.draw(
-                            context.resolve(
-                                Text(Image(systemName: symbol))
-                                    .font(.system(size: 17, weight: .bold))
-                                    .foregroundStyle(Brand.blue)),
-                            at: point, anchor: .center)
+                        Self.drawManipulator(
+                            context, at: point, symbol: symbol, background: bg)
                     }
                 }
 
@@ -878,55 +930,54 @@ extension StoreyBaseLayer {
         }
     }
 
-    /// **The pin, the dashed path and the direction arrow**, read off the
-    /// reference's four frames of a storey being turned.
+    /// **One manipulator, drawn the one way manipulators are drawn here.**
     ///
-    /// Drawn in a counter-rotated layer so they sit still in the hand while
-    /// the building turns under them — a handle that orbits away from the
-    /// finger holding it is a handle you have to chase.
-    static func drawTurnHandle(context: GraphicsContext, box: CGRect, angle: Double) {
-        let centre = CGPoint(x: box.midX, y: box.midY)
-        let radius = max(box.width, box.height) / 2 + 26
-        let detent = Double.pi / 4
-        // Green while the angle is sitting ON a detent, blue between it and
-        // the next — the cheapest possible way to say "let go and it lands
-        // here". The reference changes this colour too.
-        let nearest = (angle / detent).rounded() * detent
-        let onDetent = abs(angle - nearest) < 0.02
-        let tone: Color = onDetent ? Brand.green : Brand.blue
-        // The reference's handle is a warm pin against a cool drawing —
-        // the one warm mark on the sheet, so the eye finds it instantly.
-        let pinInk = Color(red: 0.95, green: 0.72, blue: 0.16)
+    /// A white disc carrying a blue glyph — the same mark the lifted-room
+    /// handles use above, extracted so the two cannot drift into being two
+    /// different affordances for the same idea.
+    static func drawManipulator(
+        _ context: GraphicsContext, at point: CGPoint, symbol: String, background: Color
+    ) {
+        context.fill(
+            Path(ellipseIn: CGRect(x: point.x - 15, y: point.y - 15, width: 30, height: 30)),
+            with: .color(background.opacity(0.9)))
+        context.draw(
+            context.resolve(
+                Text(Image(systemName: symbol))
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Brand.blue)),
+            at: point, anchor: .center)
+    }
 
+    /// **The floor's turn manipulator.**
+    ///
+    /// The owner, on build 215: *"the design of the turner thing is bad,
+    /// make it like magicplan."* He is right, and the reference says so
+    /// plainly. What was here — a dashed ring the width of the whole
+    /// storey, a heavy green sweep arrow and a warm amber pin — is nothing
+    /// the reference draws anywhere. Its rotate affordance is small, blue
+    /// and central: *"two blue manipulators… a 4-way move arrow on the
+    /// label's centre and a curved rotate arrow to its right"*
+    /// (`interactions-editor.md` INT-E20, and `spec.md`'s Edit Layout row).
+    ///
+    /// **Floor-level Rotate itself is an OPEN GAP in the reference** —
+    /// `interactions-editor.md` §432 records the button as seen but never
+    /// tapped, so how their whole-floor turn looks is genuinely unknown and
+    /// is not invented here. What is known is their vocabulary for
+    /// rotation, and that is what this borrows: the same manipulator, at
+    /// the storey's centre, with no move handle beside it because the floor
+    /// does not move.
+    ///
+    /// Drawn in a counter-rotated layer so it sits still in the hand while
+    /// the building turns under it — a handle that orbits away from the
+    /// finger holding it is a handle you have to chase.
+    static func drawTurnHandle(
+        context: GraphicsContext, centre: CGPoint, angle: Double, background: Color
+    ) {
         context.drawLayer { layer in
             layer.translateBy(x: centre.x, y: centre.y)
             layer.rotate(by: Angle(radians: -angle))
-
-            let ring = CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2)
-            layer.stroke(
-                Path(ellipseIn: ring),
-                with: .color(Brand.Plan.dimension.opacity(0.35)),
-                style: StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
-
-            let sweep = radius - 20
-            var arrow = Path()
-            arrow.addArc(
-                center: .zero, radius: sweep,
-                startAngle: .degrees(-38), endAngle: .degrees(38), clockwise: false)
-            layer.stroke(arrow, with: .color(tone), style: StrokeStyle(lineWidth: 5, lineCap: .round))
-
-            let tipAngle = 38 * Double.pi / 180
-            let tip = CGPoint(x: cos(tipAngle) * sweep, y: sin(tipAngle) * sweep)
-            var head = Path()
-            head.move(to: CGPoint(x: tip.x - 7, y: tip.y - 8))
-            head.addLine(to: CGPoint(x: tip.x + 8, y: tip.y + 1))
-            head.addLine(to: CGPoint(x: tip.x - 4, y: tip.y + 10))
-            head.closeSubpath()
-            layer.fill(head, with: .color(tone))
-
-            let pin = CGRect(x: radius - 11, y: -11, width: 22, height: 22)
-            layer.fill(Path(ellipseIn: pin), with: .color(pinInk))
-            layer.stroke(Path(ellipseIn: pin), with: .color(.white), lineWidth: 2.5)
+            drawManipulator(layer, at: .zero, symbol: "arrow.clockwise", background: background)
         }
     }
 }

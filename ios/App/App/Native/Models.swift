@@ -111,8 +111,14 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
         /// route. Empty on a server older than this, which the card handles
         /// by drawing what it always drew.
         let objects: [CardObject]
+        /// The damaged patches in that room, so the card shows the claim and
+        /// not just the building. Floor areas only — the server drops wall
+        /// areas, whose polygons are in their wall's own face space. Empty on
+        /// a server older than this, which the card handles by drawing what
+        /// it always drew.
+        let areas: [CardArea]
 
-        enum CodingKeys: String, CodingKey { case geometry, planX, planY, objects }
+        enum CodingKeys: String, CodingKey { case geometry, planX, planY, objects, areas }
 
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -122,6 +128,38 @@ struct ProjectSummary: Decodable, Identifiable, Hashable {
             // A malformed fixture costs this card its fixtures, never the
             // list — the rule `largestRoom` already follows.
             objects = (try? c.decodeIfPresent([CardObject].self, forKey: .objects)) ?? []
+            areas = (try? c.decodeIfPresent([CardArea].self, forKey: .areas)) ?? []
+        }
+    }
+
+    /// One damaged patch as a card draws it: the shape and what to shade it.
+    /// Deliberately NOT `AffectedArea` — a thumbnail has no business knowing
+    /// a damage type or a cause, and the payload travels for every card in
+    /// the list over a job-site connection.
+    struct CardArea: Decodable, Hashable {
+        struct Point: Decodable, Hashable {
+            let x: Double
+            let y: Double
+        }
+        let surface: String
+        let polygon: [Point]
+        let color: String?
+        /// The damage type, because colour falls back to it. Without this
+        /// the card would shade a fire loss in the water blue while the
+        /// storey shaded it correctly — one patch, two colours, which is the
+        /// exact drift `EditorChrome.drawArea` exists to prevent.
+        let damageType: String?
+
+        /// The SAME rule as `AffectedArea.displayColor`: an explicit colour
+        /// wins, otherwise the cause decides.
+        var displayColor: Color {
+            if let override = color?.trimmingCharacters(in: .whitespaces),
+                override.hasPrefix("#"), override.count == 7,
+                let value = UInt32(override.dropFirst(), radix: 16)
+            {
+                return Color(hex: value)
+            }
+            return DamageCause.named(damageType ?? "water").color
         }
     }
 

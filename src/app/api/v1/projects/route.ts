@@ -40,6 +40,9 @@ export async function GET(request: Request) {
         // The fixtures in that room, so a card draws the toilet as well as
         // the walls — the owner's own ask, having seen them on the storey.
         objects: room.objects,
+        // And the damage, so a card shows the claim rather than just the
+        // building — his own ask, having seen the shading on the storey.
+        areas: room.areas,
       })),
       assignedTo: project.assigned_to ?? null,
       favorite: project.is_favorite ?? false,

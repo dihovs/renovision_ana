@@ -1521,6 +1521,9 @@ struct FloorCanvasView: View {
     /// Every room's objects on this floor, keyed by room id — what
     /// `StoreyBaseLayer` draws so the storey shows fixtures, not bare boxes.
     @State private var roomObjects: [String: [RoomObject]] = [:]
+    /// Every room's damaged areas on this floor, keyed by room id — what
+    /// `StoreyBaseLayer` shades so the storey shows the damage.
+    @State private var roomAreas: [String: [AffectedArea]] = [:]
     @State private var pendingLibraryItem: LibraryItem?
     @State private var choosingLibraryItem = false
 
@@ -1669,7 +1672,14 @@ struct FloorCanvasView: View {
         // storey kept drawing the objects it loaded when the screen opened,
         // which is the owner's report: place a toilet, step out, and the
         // storey shows a room with no toilet in it.
-        Task { await loadObjects() }
+        // Areas go stale on the way out for exactly the same reason — they
+        // are rows written the moment they are drawn, not part of the
+        // geometry's Save — and the symptom would be his own report again:
+        // mark a wet patch, step out, and the storey shows a dry room.
+        Task {
+            await loadObjects()
+            await loadAreas()
+        }
     }
 
     var body: some View {
@@ -1686,6 +1696,7 @@ struct FloorCanvasView: View {
         GeometryReader { proxy in
             AnimatedStoreyViewport(
                 bounds: cameraBounds, progress: focusProgress, canvasSize: proxy.size, inset: 28,
+                chromeTop: Self.chromeTop, chromeBottom: Self.chromeBottom,
                 angle: floorDisplayAngle * .pi / 180, pivot: turnPivot
             ) { viewport, progress in
                 ZStack {
@@ -1735,6 +1746,20 @@ struct FloorCanvasView: View {
                         layout: cachedLayout, viewport: viewport, focusedRoomID: focusedRoomID,
                         focusProgress: progress, grid: true,
                         objects: roomObjects,
+                        areas: roomAreas,
+                        // **Arming Rotate has to LOOK like something.** The
+                        // owner, on build 214: *"I click the rotate button
+                        // and nothing happens."* Exactly so — the handle,
+                        // its dashed ring, the direction arrow and the
+                        // green-on-detent pin were all written and none of
+                        // them had ever been drawn, because this argument
+                        // was never passed and defaults to nil. Rotate arms
+                        // a turn the finger then makes; without the handle
+                        // there was nothing on screen to say so, and no
+                        // reason to guess that dragging was the next move.
+                        // It also keeps the room labels upright through the
+                        // turn, which is the other thing this value is for.
+                        turn: turning,
                         lifted: lifted, guides: guides,
                         mergeArrows: merging ? mergeArrowsToDraw : [],
                         // A tap while something is in the air SETS IT DOWN
@@ -1767,8 +1792,15 @@ struct FloorCanvasView: View {
                         }
                     )
                     // The live turn, and the refit that keeps it on screen.
-                    .rotationEffect(.radians(turning ?? 0))
-                    .scaleEffect(turnFitScale(viewport))
+                    //
+                    // **Anchored on the free box, not the view.** Both of
+                    // these default to the VIEW's centre, and the drawing is
+                    // no longer centred there — the chrome strips push it
+                    // up. Turning about a point the plan is not centred on
+                    // walks it across the sheet as it goes round, which is
+                    // the other half of *"when I turn it disappears."*
+                    .rotationEffect(.radians(turning ?? 0), anchor: turnAnchor(viewport))
+                    .scaleEffect(turnFitScale(viewport), anchor: turnAnchor(viewport))
                     // **The storey turns under the finger while Rotate is
                     // armed**, and it notches every 45°.
                     //
@@ -2138,6 +2170,24 @@ struct FloorCanvasView: View {
     /// scope this pass deliberately did not take on blind. A real,
     /// separate follow-up if a crowded floor needs it — flagged, not
     /// silently dropped.
+    /// **What `floorChrome` below covers, in screen points.**
+    ///
+    /// The chrome floats OVER the canvas rather than sitting beside it, so
+    /// the plan has to be fitted to what is left rather than to the whole
+    /// screen — see `StoreyViewport.chromeTop`. These live here, next to
+    /// the views that cause them, because that is where somebody changing
+    /// the bar's height will be looking.
+    ///
+    /// Top: the undo/redo pill and the floor/2D steppers, a 44pt row plus
+    /// its padding. Bottom: `EditorActionBar`, the "Swipe up ↑ for … info"
+    /// caption under it, and the home indicator's own strip.
+    ///
+    /// Deliberately a little generous. Being 10pt shy puts a wall under a
+    /// button, which is the complaint; being 10pt over costs 10pt of paper,
+    /// which nobody has ever reported.
+    private static let chromeTop: CGFloat = 60
+    private static let chromeBottom: CGFloat = 140
+
     private func floorChrome(label: String) -> some View {
         VStack {
             HStack(alignment: .top) {
@@ -2281,6 +2331,15 @@ struct FloorCanvasView: View {
                                 // surprise.
                                 withAnimation(.snappy(duration: 0.2)) { turning = 0 }
                                 lastDetent = 0
+                                // **And the drag starts from zero.** The
+                                // gesture computes `turnStart + delta`, and
+                                // `turnStart` is left holding the last
+                                // turn's angle when one is committed — so
+                                // the SECOND time Rotate was armed, the
+                                // first touch snapped the storey round by
+                                // whatever it had been turned by before,
+                                // without the finger having moved.
+                                turnStart = 0
                                 UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                             } else {
                                 Task { await commitTurn() }
@@ -2683,15 +2742,16 @@ struct FloorCanvasView: View {
         return cachedLayout.detachedRooms
     }
 
-    /// Turn every detached room on this floor a quarter-turn clockwise.
-    ///
-    /// One save each, sequentially rather than concurrently: these are PATCHes
-    /// against the same floor, and a half-applied rotation is far easier to
-    /// understand when the failure stops the run than when four of seven
-    /// rooms turned in parallel and the rest did not. A failure leaves the
-    /// rooms already turned actually turned — they are saved, not staged —
-    /// which is why `load()` runs regardless, so the canvas shows what is
-    /// really stored rather than what was intended.
+    /// Where the live turn pivots, as a `UnitPoint` on the canvas — the
+    /// centre of the strip the drawing is actually fitted into, which is
+    /// NOT the centre of the view once the chrome strips are subtracted.
+    private func turnAnchor(_ viewport: StoreyViewport) -> UnitPoint {
+        let canvas = viewport.canvasSize
+        guard canvas.width > 0, canvas.height > 0 else { return .center }
+        let box = viewport.free
+        return UnitPoint(x: box.midX / canvas.width, y: box.midY / canvas.height)
+    }
+
     /// **How much to shrink the drawing so a turned storey still fits.**
     ///
     /// A rectangle at an angle needs a bigger upright box to hold it —
@@ -2714,9 +2774,14 @@ struct FloorCanvasView: View {
         let c = abs(cos(angle)), s = abs(sin(angle))
         let spanX = bounds.width * c + bounds.height * s
         let spanY = bounds.width * s + bounds.height * c
-        let free = CGSize(
-            width: max(1, canvas.width - viewport.inset * 2),
-            height: max(1, canvas.height - viewport.inset * 2))
+        // **The viewport's OWN free box, not a second copy of it.** This
+        // used to rebuild the rectangle from `inset` alone, which stopped
+        // being the whole story the moment the chrome strips were
+        // subtracted: the ratio below was then taken against a taller box
+        // than the drawing is actually fitted to, and the owner's report was
+        // exact — *"when I turn it disappears."* It did not disappear, it
+        // was refitted to a rectangle that does not exist.
+        let free = viewport.free
         let turnedFit = min(free.width / spanX, free.height / spanY)
         let uprightFit = min(free.width / bounds.width, free.height / bounds.height)
         guard uprightFit > 0 else { return 1 }
@@ -2764,6 +2829,7 @@ struct FloorCanvasView: View {
         floorDisplayAngle = (try? await API.shared.floorDisplayAngles(projectId: projectId))?[level] ?? 0
         refreshLayout()
         await loadObjects()
+        await loadAreas()
     }
 
     /// Every room's objects, so the storey draws its fixtures too.
@@ -2785,6 +2851,56 @@ struct FloorCanvasView: View {
             for await (id, list) in group where !list.isEmpty { found[id] = list }
         }
         roomObjects = found
+    }
+
+    /// Every room's damaged areas, so the storey shows the damage and not
+    /// just the walls around it.
+    ///
+    /// **It writes down what it got.** `try?` here would turn a 401, a
+    /// decode mismatch and "this room genuinely has no damage" into the
+    /// same empty dictionary, and the screen cannot tell those apart — the
+    /// owner sees a dry room either way and reports "still not showing"
+    /// with nothing to go on. §9d's rule, applied where it was missing:
+    /// make the app write down what it built, then ask the file rather
+    /// than the picture.
+    private func loadAreas() async {
+        let ids = (scans ?? []).map(\.id)
+        guard !ids.isEmpty else { return }
+        var found: [String: [AffectedArea]] = [:]
+        var report = "STOREY-AREAS: level=\(level) rooms=\(ids.count)\n"
+        await withTaskGroup(of: (String, [AffectedArea], String?).self) { group in
+            for id in ids {
+                group.addTask {
+                    do {
+                        return (id, try await API.shared.areas(roomScanId: id), nil)
+                    } catch {
+                        return (id, [], String(describing: error).prefix(160).description)
+                    }
+                }
+            }
+            for await (id, list, failure) in group {
+                if !list.isEmpty { found[id] = list }
+                let short = id.prefix(8)
+                if let failure {
+                    report += "STOREY-AREAS:   \(short) FAILED \(failure)\n"
+                    continue
+                }
+                report += "STOREY-AREAS:   \(short) areas=\(list.count)"
+                for area in list {
+                    let xs = area.polygon.map(\.x), ys = area.polygon.map(\.y)
+                    let box =
+                        xs.isEmpty
+                        ? "empty"
+                        : String(
+                            format: "x %.2f..%.2f y %.2f..%.2f",
+                            xs.min() ?? 0, xs.max() ?? 0, ys.min() ?? 0, ys.max() ?? 0)
+                    report += " [\(area.surface) pts=\(area.polygon.count) \(box)]"
+                }
+                report += "\n"
+            }
+        }
+        roomAreas = found
+        ScanLens.appendToDiagnostics(report)
     }
 }
 

@@ -493,6 +493,22 @@ struct MiniPlan: View {
                         style: StrokeStyle(lineWidth: band, lineCap: .round))
                 }
 
+                // **The damage, under the fixtures.** The owner, on build
+                // 217, looking at the project grid: *"need affected area
+                // here also."* Right — a card is a summary of the CLAIM, and
+                // a claim's drawing without its shaded patch is a picture of
+                // a building. Same renderer as the storey and the plan
+                // editor, so one patch cannot be two colours in two places.
+                //
+                // Wall areas never arrive: the server drops them, because a
+                // wall area's polygon is in its wall's own face space.
+                for area in item.areas {
+                    EditorChrome.drawArea(
+                        polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                        tone: area.displayColor, context: context,
+                        toScreen: { pt($0.x, $0.y) })
+                }
+
                 // The fixtures, in ink like everything else on a card.
                 // Symbol only — no envelope box and no name at 130 points
                 // across, where both would be noise. Below a few points of
@@ -591,7 +607,7 @@ struct MiniPlan: View {
     /// this card drew before and what an older server still returns.
     private typealias Resolved = (
         plan: FloorPlanGeometry.Plan, planX: Double?, planY: Double?,
-        objects: [ProjectSummary.CardObject]
+        objects: [ProjectSummary.CardObject], areas: [ProjectSummary.CardArea]
     )
 
     private var resolvedPlans: [Resolved] {
@@ -599,15 +615,15 @@ struct MiniPlan: View {
             let built = floorRooms.compactMap { room -> Resolved? in
                 let plan = FloorPlanGeometry.plan(from: room.geometry)
                 guard !plan.segments.isEmpty else { return nil }
-                return (plan, room.planX, room.planY, room.objects)
+                return (plan, room.planX, room.planY, room.objects, room.areas)
             }
             if !built.isEmpty { return built }
         }
         let plan = FloorPlanGeometry.plan(from: geometry)
         guard !plan.segments.isEmpty else { return [] }
-        // The single-room fallback carries no fixtures: an older server does
-        // not send them, and `largestRoom` never did.
-        return [(plan, nil, nil, [])]
+        // The single-room fallback carries no fixtures and no damage: an
+        // older server does not send them, and `largestRoom` never did.
+        return [(plan, nil, nil, [], [])]
     }
 }
 
