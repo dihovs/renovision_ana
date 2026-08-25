@@ -3710,6 +3710,15 @@ Newest last. One or two lines per chat.
   **Build 214 is INSTALLED** — `CFBundleVersion` read back off the device,
   not assumed; 213 was what it replaced. The tunnel was awake and neither
   the build nor the install needed a retry.
+  **THE TURN COULD NOT WORK UNTIL THE BRANCH WAS PUSHED — 24 Aug.** The
+  phone talks to the Vercel git preview of `mobile-app`, so `/api/v1/floors`
+  existed only on the machine it was written on and returned 404 to every
+  build from 214 to 217. `try?` swallowed it, `load()` re-read the angle as
+  0, and the storey snapped upright. Three "it doesn't work" reports, all
+  correct, none of them about the geometry. Pushed and verified: the route
+  went 404 → 401, and 401 from an unauthenticated shell is the SUCCESS case.
+  See HANDOFF §9f — an /api/v1 change is not shippable by installing the app.
+  Build **218** carries the client for all of it.
   **UNVERIFIED BY EYE.** What is waiting on him: turn a floor at 45° and at
   90°, confirm rooms still tap/drag/merge at that angle (the round trip says
   they should, but a tap is the thing worth seeing), confirm the grid turns
