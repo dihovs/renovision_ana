@@ -1793,6 +1793,9 @@ struct FloorCanvasView: View {
                         // It also keeps the room labels upright through the
                         // turn, which is the other thing this value is for.
                         turn: turning,
+                        // Where it stood before this drag — the saved half
+                        // of `liveAngle`, which is what the ghost shows.
+                        ghostAngle: floorDisplayAngle * .pi / 180,
                         lifted: lifted, guides: guides,
                         mergeArrows: merging ? mergeArrowsToDraw : [],
                         // A tap while something is in the air SETS IT DOWN
@@ -1836,9 +1839,22 @@ struct FloorCanvasView: View {
                     // a sideways-swipe-means-degrees mapping stops making
                     // sense the moment the plan is past 90°.
                     //
-                    // Overlaid ahead of the press-and-hold below and only
-                    // while turning, so arranging rooms is untouched when
-                    // Rotate is not armed.
+                    // **While Rotate is armed the canvas is DEAD to
+                    // everything else.** The owner: *"when we activate the
+                    // rotation mode, I want the canvas to completely stop
+                    // and ignore my gestures."*
+                    //
+                    // It was not: the floor pan, the pinch and the
+                    // press-and-hold that lifts a room all stayed live
+                    // underneath, so one drag turned the storey AND panned
+                    // the sheet under it at the same time. Two transforms
+                    // moving at once is unreadable, and it is a large part
+                    // of why turning felt as though it wandered.
+                    //
+                    // Applied HERE, before the overlay below, so it takes
+                    // the gestures attached above it and leaves the turn's
+                    // own gesture — which is added after — working.
+                    .allowsHitTesting(turning == nil)
                     .overlay {
                         if turning != nil {
                             GeometryReader { proxy in

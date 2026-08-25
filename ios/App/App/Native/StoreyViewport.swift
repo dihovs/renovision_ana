@@ -415,6 +415,14 @@ struct StoreyBaseLayer: View {
     /// the parts that must NOT turn can undo it — see the labels below —
     /// and so the turn's own handle can be drawn.
     var turn: Double? = nil
+    /// **Where the storey was before this drag started**, radians — the
+    /// saved angle, while `viewport.angle` carries saved + live.
+    ///
+    /// The reference draws it: a pale grey silhouette of the plan in its
+    /// previous position, sitting under the one being turned. It is what
+    /// makes the turn legible as a MOVE — without it there is a drawing at
+    /// an angle and nothing to say how far it has come.
+    var ghostAngle: Double? = nil
     /// The room currently in the air, if any — see `LiftedRoom`.
     var lifted: LiftedRoom? = nil
     /// Lines saying why a lifted room just jumped somewhere.
@@ -477,6 +485,27 @@ struct StoreyBaseLayer: View {
                 EditorChrome.drawGrid(
                     context: context, size: canvasSize,
                     model: (origin: viewport.origin, scale: viewport.scale))
+            }
+
+            // **Where it was**, under where it is. See `ghostAngle`. Drawn
+            // through a copy of the viewport wound back to the saved angle,
+            // so the ghost is the same drawing at the same scale about the
+            // same point — not an approximation of one.
+            if let ghostAngle, turn != nil, abs((turn ?? 0)) > 0.0005 {
+                var before = viewport
+                before.angle = ghostAngle
+                for storeyRoom in layout.rooms {
+                    let polygon = storeyRoom.plan.polygon
+                    guard polygon.count >= 3 else { continue }
+                    var shape = Path()
+                    for (i, p) in polygon.enumerated() {
+                        let q = before.point(
+                            CGPoint(x: storeyRoom.origin.x + p.x, y: storeyRoom.origin.y + p.y))
+                        if i == 0 { shape.move(to: q) } else { shape.addLine(to: q) }
+                    }
+                    shape.closeSubpath()
+                    context.fill(shape, with: .color(Brand.Plan.ink.opacity(0.13)))
+                }
             }
 
             for storeyRoom in layout.rooms {
@@ -858,7 +887,11 @@ struct StoreyBaseLayer: View {
                     let floor = layout.drawnBounds
                     Self.drawTurnHandle(
                         context: context,
-                        centre: viewport.point(CGPoint(x: floor.midX, y: floor.midY)),
+                        pivot: viewport.point(CGPoint(x: floor.midX, y: floor.midY)),
+                        // The pin rides the top-right corner, as the
+                        // reference's does, so it travels the same arc the
+                        // drawing travels.
+                        pin: viewport.point(CGPoint(x: floor.maxX, y: floor.minY)),
                         background: bg)
                 }
 
@@ -1034,33 +1067,76 @@ extension StoreyBaseLayer {
             at: point, anchor: .center)
     }
 
-    /// **The floor's turn manipulator.**
+    /// **The floor's turn affordance, as the reference draws it.**
     ///
-    /// The owner, on build 215: *"the design of the turner thing is bad,
-    /// make it like magicplan."* He is right, and the reference says so
-    /// plainly. What was here — a dashed ring the width of the whole
-    /// storey, a heavy green sweep arrow and a warm amber pin — is nothing
-    /// the reference draws anywhere. Its rotate affordance is small, blue
-    /// and central: *"two blue manipulators… a 4-way move arrow on the
-    /// label's centre and a curved rotate arrow to its right"*
-    /// (`interactions-editor.md` INT-E20, and `spec.md`'s Edit Layout row).
+    /// Read off the owner's own magicplan frame rather than described from
+    /// memory: an **amber pin** sitting on the drawing's corner, a **dashed
+    /// grey arc** through it centred on the point the plan turns about, and
+    /// a heavy **blue double-headed arrow** at the pin, tangent to the arc,
+    /// saying which way the finger goes. Double-headed because a turn goes
+    /// both ways and a single head would claim otherwise.
     ///
-    /// **Floor-level Rotate itself is an OPEN GAP in the reference** —
-    /// `interactions-editor.md` §432 records the button as seen but never
-    /// tapped, so how their whole-floor turn looks is genuinely unknown and
-    /// is not invented here. What is known is their vocabulary for
-    /// rotation, and that is what this borrows: the same manipulator, at
-    /// the storey's centre, with no move handle beside it because the floor
-    /// does not move.
-    ///
-    /// Drawn straight, at the storey's centre. It used to sit in a
-    /// counter-rotated layer, which was right while a `.rotationEffect`
-    /// spun the whole canvas under it; the turn goes through
-    /// `StoreyViewport` now and nothing is spinning, so undoing a rotation
-    /// that never happened would tilt the one mark that must not tilt.
+    /// Two earlier attempts were wrong in opposite directions. The first
+    /// drew a dashed ring the full width of the storey with a thick green
+    /// sweep and an amber pin — the right vocabulary at the wrong scale,
+    /// which he called bad. The second replaced it with the small blue
+    /// manipulator from Edit Layout, which is the reference's ROOM rotate
+    /// and not its storey rotate at all. This is the storey one.
     static func drawTurnHandle(
-        context: GraphicsContext, centre: CGPoint, background: Color
+        context: GraphicsContext, pivot: CGPoint, pin: CGPoint, background: Color
     ) {
-        drawManipulator(context, at: centre, symbol: "arrow.clockwise", background: background)
+        let radius = hypot(pin.x - pivot.x, pin.y - pivot.y)
+        guard radius > 8 else { return }
+        let pinAngle = atan2(pin.y - pivot.y, pin.x - pivot.x)
+
+        // The path the corner travels, faint and dashed — the reference
+        // shows it well past the pin in both directions, so the arc reads
+        // as "this is a circle you are moving along".
+        var arc = Path()
+        arc.addArc(
+            center: pivot, radius: radius,
+            startAngle: .radians(pinAngle - 0.85), endAngle: .radians(pinAngle + 0.85),
+            clockwise: false)
+        context.stroke(
+            arc, with: .color(Brand.Plan.dimension.opacity(0.45)),
+            style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [5, 5]))
+
+        // The double-headed arrow, tangent at the pin and just outside it.
+        let tangent = pinAngle + .pi / 2
+        let reach = 30.0
+        let a = CGPoint(
+            x: pin.x + cos(tangent) * reach + cos(pinAngle) * 14,
+            y: pin.y + sin(tangent) * reach + sin(pinAngle) * 14)
+        let b = CGPoint(
+            x: pin.x - cos(tangent) * reach + cos(pinAngle) * 14,
+            y: pin.y - sin(tangent) * reach + sin(pinAngle) * 14)
+        let bow = CGPoint(x: pin.x + cos(pinAngle) * 26, y: pin.y + sin(pinAngle) * 26)
+        var shaft = Path()
+        shaft.move(to: a)
+        shaft.addQuadCurve(to: b, control: bow)
+        context.stroke(
+            shaft, with: .color(Brand.blue),
+            style: StrokeStyle(lineWidth: 7, lineCap: .round))
+        for (tip, towards) in [(a, tangent), (b, tangent + .pi)] {
+            var head = Path()
+            let l = 13.0
+            head.move(to: CGPoint(x: tip.x + cos(towards) * l, y: tip.y + sin(towards) * l))
+            head.addLine(
+                to: CGPoint(
+                    x: tip.x + cos(towards + 2.5) * l, y: tip.y + sin(towards + 2.5) * l))
+            head.addLine(
+                to: CGPoint(
+                    x: tip.x + cos(towards - 2.5) * l, y: tip.y + sin(towards - 2.5) * l))
+            head.closeSubpath()
+            context.fill(head, with: .color(Brand.blue))
+        }
+
+        // The pin itself — the one warm mark on a cool drawing, so the eye
+        // finds it at once.
+        let amber = Color(red: 0.98, green: 0.78, blue: 0.20)
+        let dot = CGRect(x: pin.x - 11, y: pin.y - 11, width: 22, height: 22)
+        context.fill(Path(ellipseIn: dot), with: .color(amber))
+        context.stroke(Path(ellipseIn: dot), with: .color(background), lineWidth: 2.5)
     }
+
 }

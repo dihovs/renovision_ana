@@ -429,7 +429,27 @@ The screenshots do not answer these; none should be guessed at during implementa
 1. **Draw Room closure.** No frame shows a polygon being closed or the resulting room. Unknown: the close gesture (tap the first vertex? auto-close on proximity?), whether a snap/close indicator appears, and whether `Select Room Type` is shown before or after drawing for this path.
 2. **Corner dragging while drawing.** The active vertex carries a 4-way manipulator, but no mid-drag frame exists. Unknown whether it snaps to grid, to axis, or to neighbouring room walls.
 3. **Edit Layout move/rotate results.** No post-drag frame. Snap increments, rotation pivot, and whether rooms snap wall-to-wall with adjacent rooms are all unknown.
-4. **Floor-level `Rotate`.** The action bar item exists in `screens/19-floorplan-editor-2d.jpg` but was never tapped — unknown whether it rotates the whole floor by fixed increments or opens a control.
+4. ~~**Floor-level `Rotate`.**~~ **CLOSED 24 Aug 2026** — the owner walked it
+   on his own device and sent four frames, now saved as
+   `screens/91-storey-rotate-frame1..4.webp`. They had been sent in a chat
+   and never written to disk, which cost a build that guessed at the design;
+   they are in the repo now for that reason.
+
+   It arms a MODE, it does not turn by increments. What the frames show:
+
+   * The plan turns as ONE rigid body, furniture and all, about the centre
+     of the drawing.
+   * **The grid does NOT turn.** It stays screen-aligned, and it is what
+     makes the turn legible — the plan turns *on* the paper.
+   * **Room labels stay screen-upright** through the turn.
+   * **The affordance** is an amber pin on the drawing's corner, a dashed
+     grey arc through it centred on the pivot, and a heavy blue
+     DOUBLE-headed arrow at the pin, tangent to the arc.
+   * **A pale grey ghost** of the plan's previous position sits under it,
+     which is what says how far it has come.
+   * The selected room is filled light blue with a blue border.
+   * The view auto-zooms so the turning plan never leaves the screen — the
+     owner caught this himself: *"did you see the auto zoom."*
 5. **Object dimension-chain drag.** No before/after pair for dragging a chain handle. Unknown whether the offset is free or snapped, whether the object can be dragged past a corner onto the adjacent wall, and whether dragging a handle sets `isManuallySet` on the offset.
 6. **Does a dragged wall set the padlock?** Only keypad entry was captured. Whether resizing by dragging a corner handle marks the dimension as manually set is unknown, and it changes what the "only manually set dimensions" export prints.
 7. **`Apply Changes` in Change Units.** No after-frame; the return destination and whether the in-flight measurement is reformatted or reset is unverified.
