@@ -1255,6 +1255,34 @@ struct FloorCanvasView: View {
     // upright room to hold it, so without refitting, the corners run off the
     // screen at exactly the angle the operator is watching most closely.
 
+    /// **Snap the storey SQUARE TO THE GRID, not by the amount it moved.**
+    ///
+    /// `turning` is a delta on top of the saved angle, and the snap used to
+    /// be applied to that delta — so a floor already sitting at -178.6°
+    /// snapped its CHANGE to 45° and came to rest at -133.6°, square to
+    /// nothing. The owner: *"forty-five, ninety, hundred eighty… are not
+    /// really matching with the canvas, because our canvas has dotted lines
+    /// and crosses, so those should be the reference for it."* Exactly so:
+    /// the grid is screen-upright and fixed, an angle of 0 is a plan square
+    /// to it, and the detents therefore belong on the TOTAL.
+    ///
+    /// Takes the live delta, returns the live delta — the total is snapped
+    /// in the middle, where it means something.
+    private func settledTurn(_ delta: Double) -> Double {
+        let saved = floorDisplayAngle * .pi / 180
+        return Self.snappedTurn(saved + delta) - saved
+    }
+
+    /// One haptic per detent ENTERED, not one per frame inside it. Reads the
+    /// total for the same reason `settledTurn` does — the notch the finger
+    /// can feel has to be the notch the drawing lands on.
+    private func tick(on delta: Double) {
+        let detent = Self.turnDetentIndex(floorDisplayAngle * .pi / 180 + delta)
+        guard detent != lastDetent else { return }
+        if detent != nil { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        lastDetent = detent
+    }
+
     /// Live angle while turning, in radians. Nil when not turning.
     @State private var turning: Double?
     /// Where the angle was when the drag began, so the gesture is relative.
@@ -1546,9 +1574,21 @@ struct FloorCanvasView: View {
         let z = max(floorZoom, 0.01)
         let w = base.width / z
         let h = base.height / z
+        // **The drawing cannot be pushed off its own sheet.** The owner,
+        // after a turn that also panned: *"now it disappeared from my canvas
+        // at all."* A pan is stored in metres and had no bound, so a stray
+        // drag — and until this build the sheet DID pan under a turn — could
+        // carry the storey somewhere with no gesture left to bring it back,
+        // because the thing you would reach for is off-screen. Half the
+        // floor's own extent still allows a generous shove and always leaves
+        // something to grab.
+        let reachX = base.width * 0.5
+        let reachY = base.height * 0.5
+        let panX = min(max(floorPanM.width, -reachX), reachX)
+        let panY = min(max(floorPanM.height, -reachY), reachY)
         return CGRect(
-            x: base.midX + floorPanM.width - w / 2,
-            y: base.midY + floorPanM.height - h / 2,
+            x: base.midX + panX - w / 2,
+            y: base.midY + panY - h / 2,
             width: w, height: h)
     }
 
@@ -1980,7 +2020,10 @@ struct FloorCanvasView: View {
                                 // A room in the air owns the one finger on
                                 // the glass; moving the sheet under it as
                                 // well would move both at once.
-                                guard focusedRoomID == nil, lifted == nil, viewport.scale > 0
+                                // `turning == nil`: the sheet holds still
+                                // while the storey is being turned.
+                                guard focusedRoomID == nil, lifted == nil, turning == nil,
+                                    viewport.scale > 0
                                 else { return }
                                 let dx = value.translation.width - lastFloorDrag.width
                                 let dy = value.translation.height - lastFloorDrag.height
@@ -2000,7 +2043,13 @@ struct FloorCanvasView: View {
                             .onChanged { value in
                                 // Two fingers TWIST a lifted room; they must
                                 // not also zoom the sheet out from under it.
-                                guard focusedRoomID == nil, lifted == nil, lastFloorPinch > 0
+                                // **And it must not zoom while turning.**
+                                // Two fingers twisting also change their
+                                // separation a little, which the pinch reads
+                                // as scale — *"it zooms in and zooms out. I
+                                // don't understand why."* That is why.
+                                guard focusedRoomID == nil, lifted == nil, turning == nil,
+                                    lastFloorPinch > 0
                                 else { return }
                                 let delta = value / lastFloorPinch
                                 lastFloorPinch = value
@@ -2029,21 +2078,17 @@ struct FloorCanvasView: View {
                         RotationGesture()
                             .onChanged { value in
                                 guard focusedRoomID == nil, lifted == nil else { return }
+                                // The baseline is taken BEFORE it is used.
+                                // Reading a stale one on the first frame and
+                                // only then recording the new one made the
+                                // storey jump the moment two fingers landed.
                                 if turning == nil {
-                                    turnStart = 0
-                                    lastDetent = 0
+                                    fingerTurnStart = value.radians
+                                    lastDetent = nil
                                 }
-                                let landed = Self.snappedTurn(
-                                    turnStart + value.radians - fingerTurnStart)
-                                if turning == nil { fingerTurnStart = value.radians }
+                                let landed = settledTurn(value.radians - fingerTurnStart)
                                 turning = landed
-                                let detent = Self.turnDetentIndex(landed)
-                                if detent != lastDetent {
-                                    if detent != nil {
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    }
-                                    lastDetent = detent
-                                }
+                                tick(on: landed)
                             }
                             .onEnded { _ in
                                 fingerTurnStart = 0
@@ -2059,14 +2104,14 @@ struct FloorCanvasView: View {
                     // turning mode… I shouldn't be able to move it left,
                     // right, up, down."*
                     //
-                    // This has to sit HERE, outside every gesture, and the
-                    // turn's own gesture has to be added AFTER it. The first
-                    // attempt put it immediately under the drawing — which
-                    // is above the pan, the pinch and the press-and-hold in
-                    // the modifier chain, so all three stayed live and one
-                    // drag both turned the storey and panned the sheet.
-                    // A modifier only governs what is already beneath it.
-                    .allowsHitTesting(focusedRoomID == nil && turning == nil)
+                    // **The turn is NOT disabled here**, and that matters:
+                    // the two-finger rotation is attached above this line,
+                    // so gating on `turning` switched the gesture off the
+                    // instant it set its own state — cancelled, restarted,
+                    // cancelled again, which is the *"very jerky movement"*
+                    // he reported. Each gesture that must stand aside during
+                    // a turn now says so itself, in its own guard.
+                    .allowsHitTesting(focusedRoomID == nil)
                     // **The turn's own gesture, over the top of the dead
                     // canvas.** The angle comes from the finger's bearing
                     // about the screen centre rather than its horizontal
@@ -2089,19 +2134,14 @@ struct FloorCanvasView: View {
                                                 let to = atan2(
                                                     drag.location.y - centre.y,
                                                     drag.location.x - centre.x)
-                                                let raw = turnStart + (to - from)
-                                                let landed = Self.snappedTurn(raw)
+                                                // Snapped on the TOTAL, so
+                                                // the storey lands square to
+                                                // the grid — see
+                                                // `settledTurn`.
+                                                let landed = settledTurn(
+                                                    turnStart + (to - from))
                                                 turning = landed
-                                                // One tick per notch entered,
-                                                // not one per frame inside it.
-                                                let detent = Self.turnDetentIndex(landed)
-                                                if detent != lastDetent {
-                                                    if detent != nil {
-                                                        UIImpactFeedbackGenerator(style: .light)
-                                                            .impactOccurred()
-                                                    }
-                                                    lastDetent = detent
-                                                }
+                                                tick(on: landed)
                                             }
                                             .onEnded { _ in
                                                 turnStart = turning ?? 0

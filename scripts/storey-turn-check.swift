@@ -310,6 +310,38 @@ enum StoreyTurnCheck {
             check("\(Int(degrees))°, \(drags.count) drags", ok)
         }
 
+        // 8. **THE SNAP LANDS SQUARE TO THE GRID.** `turning` is a delta on
+        // top of the saved angle, and snapping the DELTA leaves the total
+        // square to nothing: a floor at -178.6° snapping its change to 45°
+        // comes to rest at -133.6°. The grid is screen-upright and fixed, so
+        // the detents belong on the total. The owner: *"forty-five, ninety,
+        // hundred eighty… are not really matching with the canvas, because
+        // our canvas has dotted lines and crosses."*
+        print("\na settled turn lands on a grid detent")
+        let detent = Double.pi / 4
+        let window = 6.0 * .pi / 180
+        func settled(saved: Double, delta: Double) -> Double {
+            func snap(_ a: Double) -> Double {
+                let n = (a / detent).rounded() * detent
+                return abs(a - n) <= window ? n : a
+            }
+            return snap(saved + delta) - saved
+        }
+        for savedDeg in [0.0, -178.6, 37.0, 90.0] {
+            let saved = savedDeg * .pi / 180
+            // A delta that brings the total within the magnet window of a
+            // detent must land the TOTAL exactly on it.
+            var landedOnDetent = true
+            for target in stride(from: -360.0, through: 360.0, by: 45.0) {
+                let want = target * .pi / 180
+                let delta = want - saved + 0.03  // 1.7°, inside the window
+                let total = saved + settled(saved: saved, delta: delta)
+                let nearest = (total / detent).rounded() * detent
+                if abs(total - nearest) > 1e-9 { landedOnDetent = false }
+            }
+            check("saved \(Int(savedDeg))° snaps the total, not the change", landedOnDetent)
+        }
+
         print("")
         print(failures == 0 ? "ALL CHECKS PASSED" : "\(failures) CHECK(S) FAILED")
         exit(failures == 0 ? 0 : 1)
