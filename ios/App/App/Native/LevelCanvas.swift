@@ -2020,21 +2020,42 @@ struct FloorCanvasView: View {
                                 // A room in the air owns the one finger on
                                 // the glass; moving the sheet under it as
                                 // well would move both at once.
-                                // `turning == nil`: the sheet holds still
-                                // while the storey is being turned.
-                                guard focusedRoomID == nil, lifted == nil, turning == nil,
-                                    viewport.scale > 0
+                                guard focusedRoomID == nil, lifted == nil, viewport.scale > 0
                                 else { return }
+                                // **Stand aside during a turn — but KEEP
+                                // COUNTING.** This gesture receives every
+                                // frame of a two-finger twist regardless;
+                                // returning without moving the baseline
+                                // banks the whole twist as unspent travel,
+                                // and the moment one finger lifts and the
+                                // turn ends, the next frame cashes it in as
+                                // one enormous pan. That is his report
+                                // exactly: *"when I turn and release one
+                                // finger, it disappears."*
+                                guard turning == nil else {
+                                    lastFloorDrag = value.translation
+                                    return
+                                }
                                 let dx = value.translation.width - lastFloorDrag.width
                                 let dy = value.translation.height - lastFloorDrag.height
                                 lastFloorDrag = value.translation
-                                // Through `modelVector`, so panning follows
-                                // the finger on a turned storey instead of
-                                // running off at the storey's own angle.
-                                let step = viewport.modelVector(
-                                    CGSize(width: dx, height: dy))
-                                floorPanM.width -= step.width
-                                floorPanM.height -= step.height
+                                // **Plain scale, NOT `modelVector` — and the
+                                // difference is the whole bug.**
+                                //
+                                // A room's origin lives in unrotated floor
+                                // metres, so dragging one has to have the
+                                // rotation taken off it. `floorPanM` does
+                                // not: it shifts `bounds`, and `bounds` is
+                                // what a floor point is mapped through
+                                // AFTER it has been rotated. It is already
+                                // in the screen's own axes. Taking the
+                                // rotation off it a second time turns the
+                                // pan by the storey's angle — reversed
+                                // outright at 180°, which is where his
+                                // floor was sitting: *"grab is still
+                                // inverted."* It was, and this is why.
+                                floorPanM.width -= dx / viewport.scale
+                                floorPanM.height -= dy / viewport.scale
                             }
                             .onEnded { _ in lastFloorDrag = .zero }
                     )
@@ -2048,9 +2069,17 @@ struct FloorCanvasView: View {
                                 // separation a little, which the pinch reads
                                 // as scale — *"it zooms in and zooms out. I
                                 // don't understand why."* That is why.
-                                guard focusedRoomID == nil, lifted == nil, turning == nil,
-                                    lastFloorPinch > 0
+                                guard focusedRoomID == nil, lifted == nil, lastFloorPinch > 0
                                 else { return }
+                                // Stands aside during a turn, and KEEPS
+                                // COUNTING while it does — same trap as the
+                                // pan above: banking the twist's scale
+                                // change and spending it all on the frame
+                                // after one finger lifts.
+                                guard turning == nil else {
+                                    lastFloorPinch = value
+                                    return
+                                }
                                 let delta = value / lastFloorPinch
                                 lastFloorPinch = value
                                 floorZoom = min(max(floorZoom * delta, 0.4), 6)
@@ -2926,8 +2955,12 @@ struct FloorCanvasView: View {
     /// storey is already at, which is what the preview `.rotationEffect`
     /// shows on top of the already-turned drawing.
     private func commitTurn() async {
-        guard let angle = turning else { return }
-        let snapped = Self.snappedTurn(angle)
+        // **Taken as it stands, NOT re-snapped.** `turning` has already been
+        // through `settledTurn`, which snaps the TOTAL to the grid. Running
+        // `snappedTurn` over the delta again here snaps a second, different
+        // number and walks the storey straight back off the grid it had just
+        // landed on — the same delta-versus-total confusion, one layer down.
+        guard let snapped = turning else { return }
         lastDetent = nil
 
         // **The angle changes hands without the drawing moving.**
