@@ -1259,6 +1259,11 @@ struct FloorCanvasView: View {
     @State private var turning: Double?
     /// Where the angle was when the drag began, so the gesture is relative.
     @State private var turnStart: Double = 0
+    /// Where the two fingers were when the twist began. `RotationGesture`
+    /// reports an absolute angle from the start of the gesture, so it needs
+    /// no offset of its own — but the storey may already be part-turned
+    /// when the fingers land, and this keeps the first frame from jumping.
+    @State private var fingerTurnStart: Double = 0
     /// The last detent announced, so the haptic fires once per notch rather
     /// than on every frame inside it.
     @State private var lastDetent: Int?
@@ -1854,44 +1859,6 @@ struct FloorCanvasView: View {
                     // Applied HERE, before the overlay below, so it takes
                     // the gestures attached above it and leaves the turn's
                     // own gesture — which is added after — working.
-                    .allowsHitTesting(turning == nil)
-                    .overlay {
-                        if turning != nil {
-                            GeometryReader { proxy in
-                                let centre = CGPoint(
-                                    x: proxy.size.width / 2, y: proxy.size.height / 2)
-                                Color.clear
-                                    .contentShape(.rect)
-                                    .gesture(
-                                        DragGesture(minimumDistance: 0)
-                                            .onChanged { drag in
-                                                let from = atan2(
-                                                    drag.startLocation.y - centre.y,
-                                                    drag.startLocation.x - centre.x)
-                                                let to = atan2(
-                                                    drag.location.y - centre.y,
-                                                    drag.location.x - centre.x)
-                                                let raw = turnStart + (to - from)
-                                                let landed = Self.snappedTurn(raw)
-                                                turning = landed
-                                                // One tick per notch entered,
-                                                // not one per frame inside it.
-                                                let detent = Self.turnDetentIndex(landed)
-                                                if detent != lastDetent {
-                                                    if detent != nil {
-                                                        UIImpactFeedbackGenerator(style: .light)
-                                                            .impactOccurred()
-                                                    }
-                                                    lastDetent = detent
-                                                }
-                                            }
-                                            .onEnded { _ in
-                                                turnStart = turning ?? 0
-                                            }
-                                    )
-                            }
-                        }
-                    }
                     // PRESS AND HOLD to pick a room up, then keep dragging
                     // in the same motion.
                     //
@@ -2041,10 +2008,108 @@ struct FloorCanvasView: View {
                             }
                             .onEnded { _ in lastFloorPinch = 1 }
                     )
+                    // **Two fingers TURN the storey — his own idea, and a
+                    // better one than the mode.** *"Why if you just grab
+                    // this entire thing, and we are just able to turn it by
+                    // our fingers? We just grab it and turn it."*
+                    //
+                    // It answers the whole class of complaint at once:
+                    // there is no mode to enter and so nothing to disarm,
+                    // no handle whose design has to be guessed at, and the
+                    // axis is not in question because the drawing simply
+                    // turns where it sits. It runs alongside the pinch, so
+                    // the same two fingers scale and turn together the way
+                    // they do in every photo viewer.
+                    //
+                    // A DIVERGENCE from the reference, deliberately, and
+                    // his call: magicplan arms Rotate from the action bar.
+                    // That button still works — this is the direct route,
+                    // not a replacement for the discoverable one.
+                    .simultaneousGesture(
+                        RotationGesture()
+                            .onChanged { value in
+                                guard focusedRoomID == nil, lifted == nil else { return }
+                                if turning == nil {
+                                    turnStart = 0
+                                    lastDetent = 0
+                                }
+                                let landed = Self.snappedTurn(
+                                    turnStart + value.radians - fingerTurnStart)
+                                if turning == nil { fingerTurnStart = value.radians }
+                                turning = landed
+                                let detent = Self.turnDetentIndex(landed)
+                                if detent != lastDetent {
+                                    if detent != nil {
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    }
+                                    lastDetent = detent
+                                }
+                            }
+                            .onEnded { _ in
+                                fingerTurnStart = 0
+                                Task { await commitTurn() }
+                            }
+                    )
                     // Own gesture and own buttons both go quiet together —
                     // a tap meant for the canvas underneath must not also
                     // land on a floor-depth control mid-fade.
-                    .allowsHitTesting(focusedRoomID == nil)
+                    //
+                    // **And the whole canvas goes quiet while Rotate is
+                    // armed**, which is the owner's ask: *"when we're in the
+                    // turning mode… I shouldn't be able to move it left,
+                    // right, up, down."*
+                    //
+                    // This has to sit HERE, outside every gesture, and the
+                    // turn's own gesture has to be added AFTER it. The first
+                    // attempt put it immediately under the drawing — which
+                    // is above the pan, the pinch and the press-and-hold in
+                    // the modifier chain, so all three stayed live and one
+                    // drag both turned the storey and panned the sheet.
+                    // A modifier only governs what is already beneath it.
+                    .allowsHitTesting(focusedRoomID == nil && turning == nil)
+                    // **The turn's own gesture, over the top of the dead
+                    // canvas.** The angle comes from the finger's bearing
+                    // about the screen centre rather than its horizontal
+                    // travel: a turn should follow the hand around the
+                    // drawing, and a swipe-means-degrees mapping stops
+                    // making sense the moment the plan is past 90°.
+                    .overlay {
+                        if turning != nil {
+                            GeometryReader { proxy in
+                                let centre = CGPoint(
+                                    x: proxy.size.width / 2, y: proxy.size.height / 2)
+                                Color.clear
+                                    .contentShape(.rect)
+                                    .gesture(
+                                        DragGesture(minimumDistance: 0)
+                                            .onChanged { drag in
+                                                let from = atan2(
+                                                    drag.startLocation.y - centre.y,
+                                                    drag.startLocation.x - centre.x)
+                                                let to = atan2(
+                                                    drag.location.y - centre.y,
+                                                    drag.location.x - centre.x)
+                                                let raw = turnStart + (to - from)
+                                                let landed = Self.snappedTurn(raw)
+                                                turning = landed
+                                                // One tick per notch entered,
+                                                // not one per frame inside it.
+                                                let detent = Self.turnDetentIndex(landed)
+                                                if detent != lastDetent {
+                                                    if detent != nil {
+                                                        UIImpactFeedbackGenerator(style: .light)
+                                                            .impactOccurred()
+                                                    }
+                                                    lastDetent = detent
+                                                }
+                                            }
+                                            .onEnded { _ in
+                                                turnStart = turning ?? 0
+                                            }
+                                    )
+                            }
+                        }
+                    }
 
                     if let room = focusedRoom {
                         RoomEditorCore(

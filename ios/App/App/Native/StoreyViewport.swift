@@ -487,26 +487,14 @@ struct StoreyBaseLayer: View {
                     model: (origin: viewport.origin, scale: viewport.scale))
             }
 
-            // **Where it was**, under where it is. See `ghostAngle`. Drawn
-            // through a copy of the viewport wound back to the saved angle,
-            // so the ghost is the same drawing at the same scale about the
-            // same point — not an approximation of one.
-            if let ghostAngle, turn != nil, abs((turn ?? 0)) > 0.0005 {
-                var before = viewport
-                before.angle = ghostAngle
-                for storeyRoom in layout.rooms {
-                    let polygon = storeyRoom.plan.polygon
-                    guard polygon.count >= 3 else { continue }
-                    var shape = Path()
-                    for (i, p) in polygon.enumerated() {
-                        let q = before.point(
-                            CGPoint(x: storeyRoom.origin.x + p.x, y: storeyRoom.origin.y + p.y))
-                        if i == 0 { shape.move(to: q) } else { shape.addLine(to: q) }
-                    }
-                    shape.closeSubpath()
-                    context.fill(shape, with: .color(Brand.Plan.ink.opacity(0.13)))
-                }
-            }
+            // **No ghost of the previous position.** The reference shows
+            // one and this drew one for exactly one build; the owner, on
+            // seeing it: *"when I turn, there is a shadow that stays
+            // behind."* Whatever it does on their drawing, on ours it reads
+            // as something left behind rather than as a reference mark — so
+            // it is gone. `ghostAngle` is kept on this type because the
+            // owner may want it back once the turn itself feels right, and
+            // reinstating it is then two lines rather than a rediscovery.
 
             for storeyRoom in layout.rooms {
                 let isFocused = storeyRoom.id == focusedRoomID
