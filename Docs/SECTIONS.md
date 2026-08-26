@@ -3800,3 +3800,31 @@ Newest last. One or two lines per chat.
   - **Migration `0042_insurance_estimates.sql` was NOT run.** It is still
     §9a's first blocker and the estimator still cannot open. 0043 is the one
     that was applied this session; do not read one as the other.
+- **2026-08-26 (Estimator — the sample, drawn from his own room)** No build;
+  web side. *"Build the sample with my real room."*
+  **The geometry came off the phone, not out of an editor.** Build 207's
+  exporter wrote the raw `ScanGeometry` and `devicectl` fetched it: the 2nd
+  floor's `Living room`, 41,96 m² of floor, 32,83 m of perimeter, 2,48 m
+  ceiling, 14 walls, 5 doors, 2 windows, a hand-corrected `editedPolygon`
+  and 26 RoomPlan detections. `realroom.sample.test.ts` reads that blob,
+  derives the estimate from it, and asserts nothing — it is a thing to look
+  at, not a test.
+  **Every figure is computed by the app's own code from that blob.** Floor
+  area, perimeter, gross and net wall area and ceiling height come from
+  `savedFloorAreaSquareMeters` and its siblings; the per-wall lengths from
+  `planCorners` + `wallLengthM`; the baseboard length from the perimeter
+  minus the real doorways. Nothing was typed in.
+  **The plan is rendered by the REPORT'S OWN `FloorPlan`**, server-rendered
+  to SVG with `renderToStaticMarkup` — his real walls, his real openings,
+  two of his real detections, and the damage shaded on it. Not a redrawing:
+  the same component the report and the estimate both print, which is the
+  no-second-renderer rule holding on the one occasion it would have been
+  easiest to break.
+  **What is invented is the damage, and the page says so** — his scan
+  carries no affected areas, and a sample with no damage prices nothing. The
+  two areas are placed on the real floor and sized as fractions of the real
+  measured area rather than typed. The header reads "Pièce réelle · sinistre
+  fictif" so the document cannot be mistaken for a claim.
+  19 lines, 14 946,61 $. The sofa he actually has derives as a detach-and-
+  reset, visibly unpriced; the television he actually has derives as a
+  zero-dollar protect-in-place.
