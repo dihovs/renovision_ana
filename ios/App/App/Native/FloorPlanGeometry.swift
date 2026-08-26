@@ -95,9 +95,11 @@ enum FloorPlanGeometry {
             // Nothing was ever deleted: the detections are still in the scan
             // blob, and this is the derivation that stopped surfacing them.
             // They are recomputed from the raw geometry in the raw plan's own
-            // space and shifted into this one below — the same second shift
-            // the corrected outline itself takes.
-            let detected = rawPlan(from: geometry).objects
+            // space and carried into this one by `carried`, which needs the
+            // raw page's SIZE to work out which way the outline was turned —
+            // so the whole raw plan is kept, not just its objects.
+            let raw = rawPlan(from: geometry)
+            let detected = raw.objects
             let points = edited.map { CGPoint(x: $0.x, y: $0.y) }
             var segments: [Segment] = []
             for i in points.indices {
@@ -153,19 +155,103 @@ enum FloorPlanGeometry {
                 polygon: loop,
                 width: (xs.max() ?? 0) - minX,
                 height: (ys.max() ?? 0) - minY,
-                objects: detected.map { object in
-                    Plan.PlacedObject(
-                        id: object.id, category: object.category,
-                        lowConfidence: object.lowConfidence,
-                        centre: CGPoint(
-                            x: object.centre.x - minX, y: object.centre.y - minY),
-                        rotation: object.rotation, width: object.width,
-                        depth: object.depth, height: object.height)
-                })
+                objects: Self.carried(
+                    detected,
+                    rawSize: CGSize(width: raw.width, height: raw.height),
+                    into: loop,
+                    size: CGSize(
+                        width: (xs.max() ?? 0) - minX, height: (ys.max() ?? 0) - minY)))
         }
 
         // Each wall's endpoints are its centre ± half its length along its own
         return rawPlan(from: geometry)
+    }
+
+    /// **The scanner's fixtures, carried into a corrected outline.**
+    ///
+    /// They arrive normalised to the RAW page's own origin (`rawPlan`'s
+    /// `shift`), and the corrected outline is normalised to its own. When the
+    /// correction was a hand-nudged wall the two frames agree and this is the
+    /// identity. When the outline was TURNED — which is what the old
+    /// destructive storey rotate did to every room it touched — they differ
+    /// by a quarter turn, and using the detections unchanged scatters them.
+    ///
+    /// Measured on the owner's own 2nd floor, whose raw page is 11.17 × 5.00
+    /// against a corrected outline of 5.00 × 11.17 — the same room, turned:
+    ///
+    /// | turn | box | fits outline |
+    /// |---|---|---|
+    /// | 0° | 11.17 × 5.00 | 8/26 |
+    /// | **90°** | **5.00 × 11.17** | **26/26** |
+    /// | 180° | 11.17 × 5.00 | 11/26 |
+    /// | 270° | 5.00 × 11.17 | 17/26 |
+    ///
+    /// **Both 90° and 270° match the box, and only one of them is right** —
+    /// which is why the box is a filter and the count of fixtures that
+    /// actually land inside the room is the decision. A square room would
+    /// otherwise have taken a coin toss.
+    ///
+    /// Anything still outside is dropped rather than drawn. A correction can
+    /// legitimately move a wall past what the scanner saw, and a fixture in
+    /// the wrong place on a plan a claim is priced from is worse than one
+    /// missing: the first is a false measurement, the second is a visible
+    /// gap. Same rule as `{gross, net}` and the skylight kept out of
+    /// `OpeningKind`.
+    static func carried(
+        _ objects: [Plan.PlacedObject], rawSize: CGSize, into outline: [CGPoint], size: CGSize
+    ) -> [Plan.PlacedObject] {
+        guard !objects.isEmpty, outline.count >= 3 else { return [] }
+
+        /// One quarter turn about the origin, k × 90° counter-clockwise.
+        func turn(_ p: CGPoint, _ k: Int) -> CGPoint {
+            switch k % 4 {
+            case 1: return CGPoint(x: -p.y, y: p.x)
+            case 2: return CGPoint(x: -p.x, y: -p.y)
+            case 3: return CGPoint(x: p.y, y: -p.x)
+            default: return p
+            }
+        }
+
+        var best: (score: Int, k: Int, offset: CGPoint)?
+        for k in 0..<4 {
+            let box = [
+                CGPoint(x: 0, y: 0), CGPoint(x: rawSize.width, y: 0),
+                CGPoint(x: rawSize.width, y: rawSize.height), CGPoint(x: 0, y: rawSize.height),
+            ].map { turn($0, k) }
+            let bx = box.map(\.x), by = box.map(\.y)
+            let originX = bx.min() ?? 0, originY = by.min() ?? 0
+            let width = (bx.max() ?? 0) - originX, height = (by.max() ?? 0) - originY
+            // The box is a FILTER: a turn that changes the room's proportions
+            // cannot be the turn the outline took.
+            guard abs(width - size.width) < 0.05, abs(height - size.height) < 0.05 else {
+                continue
+            }
+            let offset = CGPoint(x: originX, y: originY)
+            let score = objects.reduce(into: 0) { total, object in
+                let p = turn(object.centre, k)
+                if PlanEditing.contains(
+                    outline, point: CGPoint(x: p.x - offset.x, y: p.y - offset.y))
+                {
+                    total += 1
+                }
+            }
+            if score > (best?.score ?? -1) { best = (score, k, offset) }
+        }
+
+        let k = best?.k ?? 0
+        let offset = best?.offset ?? .zero
+        return objects.compactMap { object in
+            let p = turn(object.centre, k)
+            let moved = CGPoint(x: p.x - offset.x, y: p.y - offset.y)
+            guard PlanEditing.contains(outline, point: moved) else { return nil }
+            return Plan.PlacedObject(
+                id: object.id, category: object.category,
+                lowConfidence: object.lowConfidence,
+                centre: moved,
+                // Turning the page turns every fixture on it.
+                rotation: object.rotation + Double(k) * 90,
+                width: object.width, depth: object.depth, height: object.height)
+        }
     }
 
     /// The plan as the SCANNER reports it, before any hand correction.

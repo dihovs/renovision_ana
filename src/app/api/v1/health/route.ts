@@ -63,6 +63,14 @@ export async function GET() {
     missing: voiceMissing,
   };
 
+  // Push fails SILENTLY and in three different places, which is why it gets
+  // its own block rather than a boolean. A notification that never arrives
+  // looks identical whether the key is missing, the phone never registered,
+  // or the token was minted against the wrong APNs environment — and the fix
+  // is completely different in each case.
+  const pushNames = ["APNS_KEY_P8", "APNS_KEY_ID", "APNS_TEAM_ID"] as const;
+  const pushMissing = pushNames.filter((name) => !process.env[name]?.trim());
+
   if (!isConfigured) {
     return NextResponse.json({
       ok: false,
@@ -72,6 +80,7 @@ export async function GET() {
         "This deployment has no Supabase credentials. In Vercel, check that SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are enabled for the Preview environment, not only Production — a preview branch does not inherit Production-only variables.",
       env,
       voice,
+      push: { configured: pushMissing.length === 0, missing: pushMissing },
       tables: null,
     });
   }
@@ -116,6 +125,18 @@ export async function GET() {
       : `missing — run ${migration}`;
   }
 
+  // A token count separates the two halves of "push does not work": with no
+  // rows the PHONE never registered and no server setting will help; with
+  // rows and a missing key the phone is fine and the deployment is not.
+  let devices: number | null = null;
+  {
+    const { count, error } = await client!
+      .from("device_tokens")
+      .select("*", { head: true, count: "exact" })
+      .is("revoked_at", null);
+    if (!error) devices = count ?? 0;
+  }
+
   const pending = Object.entries(tables).filter(([, state]) => state.startsWith("missing"));
   const stale = Object.entries(tables).filter(([, state]) => state.includes("not noticed"));
 
@@ -130,6 +151,19 @@ export async function GET() {
           : "Connected, and everything this app needs is present.",
     env,
     voice,
+    push: {
+      configured: pushMissing.length === 0,
+      missing: pushMissing,
+      registeredDevices: devices,
+      diagnosis:
+        pushMissing.length > 0
+          ? `Push cannot send: ${pushMissing.join(", ")} not set on this deployment. Vercel injects variables at BUILD time, so adding them needs a redeploy to take effect.`
+          : devices === 0
+            ? "Key is set, but no device has registered. Open the app on the phone and accept the notifications prompt — registration happens on launch."
+            : devices === null
+              ? "Key is set. Could not read device_tokens — run supabase/migrations/0039_device_tokens.sql."
+              : `Ready: ${devices} device(s) registered.`,
+    },
     tables,
   });
 }
