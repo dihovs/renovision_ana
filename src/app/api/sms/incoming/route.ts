@@ -1,4 +1,4 @@
-import { findClientIdForPhone } from "@/lib/sms/attribution";
+import { findClientForPhone } from "@/lib/sms/attribution";
 import {
   clearOptOut,
   isStartRequest,
@@ -8,6 +8,7 @@ import {
   toE164,
 } from "@/lib/sms/send";
 import { storeInboundMedia } from "@/lib/sms/media";
+import { notifyNewMessage } from "@/lib/notify/owner";
 import { publicUrlVariants, readTwilioParams, verifyTwilioSignature } from "@/lib/voice/twiml";
 
 /**
@@ -100,12 +101,15 @@ export async function POST(request: Request) {
       });
     }
 
+    // Looked up once and used twice: the row wants the id, the notification
+    // wants the name, and asking the same question twice would double the
+    // work on a handler that already waits on Twilio for every photo.
+    const attributed = await findClientForPhone(from).catch(() => null);
+
     await recordInbound({
       phone: from,
       body,
-      // Moved to lib/sms/attribution.ts, unchanged — the Messages inbox asks
-      // the same question now.
-      clientId: await findClientIdForPhone(from),
+      clientId: attributed?.id ?? null,
       providerSid: params.MessageSid ?? null,
       mediaPaths,
     });

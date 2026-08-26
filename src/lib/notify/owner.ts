@@ -87,3 +87,49 @@ export function notifyCallEnded(input: {
     path: "/admin/calls",
   });
 }
+
+/**
+ * A customer texted in.
+ *
+ * The gap the other two notifiers left. A lead landing and a call ending both
+ * reached him; the thing customers actually do most — send a text — did not,
+ * so the inbox was the one place he had to remember to go and look at.
+ *
+ * **Opt-outs notify too, deliberately.** `STOP` reads oddly as an alert, but a
+ * customer who just made himself untextable is exactly the kind of thing worth
+ * knowing within the minute rather than discovering the next time a message
+ * silently refuses to send.
+ *
+ * The deep link drops him in the thread, not the inbox list: he is being told
+ * about one conversation and the next thing he wants is to reply to it.
+ */
+export function notifyNewMessage(input: {
+  phone: string;
+  body?: string | null;
+  clientName?: string | null;
+  /** How many photos came with it. Changes the body when there is no text. */
+  mediaCount?: number;
+}): void {
+  const text = input.body?.trim() ?? "";
+  const photos = input.mediaCount ?? 0;
+
+  // A picture with no caption is ordinary on this trade — someone photographs
+  // a burst pipe and sends it without a word. An empty notification body would
+  // be the one case where the alert says nothing at all.
+  const line = text
+    ? photos > 0
+      ? `${text}  📷${photos}`
+      : text
+    : photos > 0
+      ? photos === 1
+        ? "Sent a photo"
+        : `Sent ${photos} photos`
+      : "(no message)";
+
+  notify({
+    title: input.clientName?.trim() || input.phone,
+    body: line,
+    // The thread stores the number without its leading +, matching the route.
+    path: `/admin/messages/${input.phone.replace(/^\+/, "")}`,
+  });
+}

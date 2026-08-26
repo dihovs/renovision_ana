@@ -3727,3 +3727,76 @@ Newest last. One or two lines per chat.
   is applied, so a turn can save. **The most valuable single check is a floor
   that still has its RoomPlan detections**: turning it must not change the
   object count, which is the whole point of the change.
+
+- **2026-08-25 (S12/S14 — the turn made usable, and six bugs found by his
+  fingers)** Builds **219 → 226**, every one installed and read back off the
+  device. The turn itself landed the day before; this was the session that
+  made it something a hand can actually use, and almost all of it came from
+  him testing and reporting in plain language.
+
+  **The turn is now grabbed with two fingers** — his idea, and better than
+  the armed-mode button it replaces: *"why if you just grab this entire
+  idea, and we are just able to turn it by our fingers?"* The Rotate button
+  still arms the mode for one-finger use, but the direct gesture is the one
+  that reads.
+
+  **Six bugs, each one a different lesson:**
+
+  1. **Snapping was applied to the CHANGE, not the total.** With the floor
+     saved at -178.6°, snapping the delta to 45° landed the plan nowhere
+     near square. His words were exact: *"forty five, ninety, hundred
+     eighty… are not really matching with the canvas, because our canvas has
+     dotted lines and crosses, so those should be the reference."* They are
+     the reference. `settledTurn` snaps the SUM.
+  2. **`commitTurn` then re-snapped the delta a second time**, walking the
+     storey back off the grid it had just landed on. Same confusion, one
+     layer down.
+  3. **The turn gesture disabled itself.** `allowsHitTesting(turning == nil)`
+     sat ABOVE the rotation gesture in the modifier chain, so the gesture
+     switched off the instant it set its own state — cancel, restart,
+     cancel. That is *"very jerky movement"*. A modifier only governs what
+     is already beneath it; each gesture that must stand aside now says so
+     in its own guard.
+  4. **The pan was inverted, and I inverted it.** A room's origin is in
+     unrotated floor metres so a room drag must be un-rotated; `floorPanM`
+     shifts `bounds`, which a point meets AFTER rotation, so it is already
+     in screen axes. One fix applied to two things needing opposite
+     treatment — reversed outright at his 180°.
+  5. **A banked twist spent as one pan.** The pan and pinch receive every
+     frame of a two-finger turn; standing aside without moving their
+     baselines banked the whole twist and cashed it in the moment one finger
+     lifted. *"When I turn and release one finger, it disappears."* They
+     stand aside AND keep counting now.
+  6. **The grid turned with the floor** because I had asked him and he chose
+     that — then saw it: *"I don't want the canvas to turn. I want the floor
+     plan to turn on the canvas."* A dot lattice spinning with the drawing
+     reads as the whole sheet being spun and gives the eye nothing to judge
+     the turn against. Held still, it is the paper.
+
+  **Damage now draws on every drawing** — the storey canvas and the project
+  cards, not only inside a room. And **adjusting an area is isolated**: the
+  room's corner handles and wall dimensions hide and leave hit-testing,
+  because an area's corner sits a few points from the wall it was drawn
+  against and only one of those two is a measurement.
+
+  **Two reference frames are in the repo now** —
+  `screens/90…91` (the storey turn) and `92-room-adjust-manipulators.webp`
+  (adjustment chrome, INT-E22). Three builds guessed at a design that was
+  sitting in a chat because the frames were never saved. Save the frame.
+
+  **`storey-geometry.json` is collected** (§9a's second blocker, down).
+
+  **STILL OPEN, and none of these are verified-by-eye claims — they are
+  known-broken or known-missing:**
+  - **3D furniture multiplies.** New, reported, not investigated. First
+    suspect is the turntable node added for the 3D turn.
+  - **The room editor does not turn with the storey.** It draws through its
+    own transform, not the shared viewport, so it never sees the angle.
+    Fixing it means teaching its hit-testing, drag handles and dimension
+    lines about the rotation — the exact class of bug that cost this whole
+    session, so it wants a deliberate pass, not a quick one.
+  - **INT-E22 is specified and unbuilt**: the 4-way move cross, the amber
+    rotate pin, and an area's own dimension chain.
+  - **Migration `0042_insurance_estimates.sql` was NOT run.** It is still
+    §9a's first blocker and the estimator still cannot open. 0043 is the one
+    that was applied this session; do not read one as the other.
