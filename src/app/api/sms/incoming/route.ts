@@ -113,6 +113,17 @@ export async function POST(request: Request) {
       providerSid: params.MessageSid ?? null,
       mediaPaths,
     });
+
+    // AFTER the row is safely written, and fire-and-forget by design. An
+    // alert is worth less than the message it announces, so it must never be
+    // the reason storing one failed — `notifyNewMessage` neither throws nor
+    // awaits.
+    notifyNewMessage({
+      phone: from,
+      body,
+      clientName: attributed?.name ?? null,
+      mediaCount: mediaPaths.length,
+    });
   } catch (err) {
     // Logged, not retried. See the note at the top.
     console.error("[sms] could not handle an inbound message:", err);
