@@ -562,6 +562,13 @@ Filed as orders in `ORDERS.md` (**ORD-22 … ORD-42**). The ones that matter:
    It exists so a sample estimate can be drawn with a REAL room instead of an
    invented one, which is what he asked for and has not yet been given.
 
+   **COLLECTED, 26 Aug 2026** — 14 KB at `/tmp/sg.json`: the 2nd floor's
+   `Living room`, 14 walls, 5 doors, 2 windows, a corrected `editedPolygon`,
+   and its 26 RoomPlan detections intact under `detected`. (They are under
+   that key, NOT `objects` — reading the wrong one is what briefly looked
+   like data loss.) So this blocker is down, and only the migration is left
+   before the sample can be drawn from a real room.
+
 ### 9b. The estimator, which is new and complete on the web side
 
 `Docs/Estimator-Xactimate-Conventions.md` is the reference: conventions
