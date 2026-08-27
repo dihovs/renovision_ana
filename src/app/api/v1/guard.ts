@@ -29,6 +29,12 @@ export async function guarded<T>(work: () => Promise<T>): Promise<NextResponse> 
       );
     }
     const message = err instanceof Error ? err.message : "Something went wrong.";
+    // Say it out loud. Returning the message to the caller and logging
+    // nothing meant a 500 here showed up in Vercel as a request with "no
+    // logs found" -- a failure with no cause attached, which is the hardest
+    // kind to chase and cost most of an evening on push registration. The
+    // body reaches whoever called; the log reaches whoever is debugging.
+    console.error("[api/v1] request failed:", message, err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
