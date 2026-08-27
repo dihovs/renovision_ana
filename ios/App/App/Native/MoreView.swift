@@ -61,6 +61,24 @@ struct MoreView: View {
                                             )
                                             .font(.system(size: 12))
                                             .foregroundStyle(Brand.inkFaint)
+
+                                            // What the last attempt actually
+                                            // did. Push has four steps that
+                                            // each fail quietly — permission,
+                                            // Apple's token, the upload, the
+                                            // server's key — and until this
+                                            // line existed the phone could
+                                            // not say which one it died at.
+                                            if let status = push.status {
+                                                Text(status)
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(
+                                                        status.hasPrefix("Registered")
+                                                            ? Color.green : .orange)
+                                                    .fixedSize(
+                                                        horizontal: false, vertical: true)
+                                                    .padding(.top, 2)
+                                            }
                                         }
                                     }
                                 }

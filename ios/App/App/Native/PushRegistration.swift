@@ -29,6 +29,15 @@ final class PushRegistration: NSObject, ObservableObject {
 
     @Published private(set) var authorised = false
 
+    /// What actually happened, in words, for the More screen to show.
+    ///
+    /// Every step here fails silently by nature: iOS refuses a token without
+    /// saying so, and a failed upload was a `print` nobody sees. That silence
+    /// cost an evening — the server could prove the key worked and that NO
+    /// device had registered, and there was no way to ask the PHONE which
+    /// half it had failed at. Now it says.
+    @Published private(set) var status: String?
+
     /// Development unless this was built for release. `DEBUG` is the honest
     /// test: it is exactly the builds that get a development provisioning
     /// profile, which is exactly the tokens the sandbox gateway accepts.
@@ -51,6 +60,14 @@ final class PushRegistration: NSObject, ObservableObject {
             }
             Task { @MainActor in
                 self?.authorised = granted
+                if let error {
+                    self?.status = "iOS refused: \(error.localizedDescription)"
+                } else if !granted {
+                    self?.status =
+                        "You declined. iOS only asks once — allow it in Settings › Renovision AnA › Notifications."
+                } else {
+                    self?.status = "Allowed. Asking Apple for a token…"
+                }
                 // Registering without permission is pointless: Apple issues
                 // a token but delivers nothing, so the server would hold a
                 // row that can never produce a banner.
@@ -76,18 +93,28 @@ final class PushRegistration: NSObject, ObservableObject {
     /// endpoint accepts.
     func received(_ deviceToken: Data) {
         let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        status = "Apple issued a token. Sending it to the server…"
         Task {
             do {
                 try await API.shared.registerPushToken(hex, environment: environment)
+                // The ONLY state that means a notification can actually
+                // arrive. Every step before this can pass and still leave the
+                // server with nothing to send to.
+                status = "Registered — \(environment) token filed with the server."
             } catch {
-                // Worth a line and nothing more: a failed registration costs
-                // notifications, never the work the operator is doing.
+                // Said ON SCREEN, not only to a console nobody is watching.
+                // The commonest cause is an expired session — the token
+                // endpoint sits behind the same auth as everything else — and
+                // that is fixable in seconds by somebody who is told.
+                status =
+                    "Server refused it: \(error.localizedDescription) — if that mentions authorisation, sign out and back in."
                 print("[push] could not register: \(error.localizedDescription)")
             }
         }
     }
 
     func failed(_ error: Error) {
+        status = "Apple would not issue a token: \(error.localizedDescription)"
         print("[push] Apple refused to register: \(error.localizedDescription)")
     }
 }

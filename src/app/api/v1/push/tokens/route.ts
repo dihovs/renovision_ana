@@ -1,5 +1,6 @@
 import { guarded } from "../../guard";
 import { db, isMissingTable, MigrationPendingError } from "@/lib/crm/db";
+import { isMissingColumn } from "@/lib/crm/conversions";
 
 /**
  * Where the phone says "send my notifications here".
@@ -40,20 +41,43 @@ export async function POST(request: Request) {
     const supabase = db();
     if (!supabase) throw new Error("Database is not configured");
 
-    const { error } = await supabase.from("device_tokens").upsert(
-      {
-        token,
-        platform: "ios",
-        environment,
-        bundle_id: bundleId,
-        last_seen_at: new Date().toISOString(),
-        // Re-registering revives a device Apple had told us was gone: the
-        // app is plainly installed again if it is asking.
-        disabled_at: null,
-        disabled_reason: null,
-      },
-      { onConflict: "token" },
-    );
+    const row: Record<string, unknown> = {
+      token,
+      platform: "ios",
+      environment,
+      bundle_id: bundleId,
+      last_seen_at: new Date().toISOString(),
+      // Re-registering revives a device Apple had told us was gone: the
+      // app is plainly installed again if it is asking.
+      disabled_at: null,
+      disabled_reason: null,
+    };
+
+    let { error } = await supabase
+      .from("device_tokens")
+      .upsert(row, { onConflict: "token" });
+
+    // The table can predate its own newest column. Migrations here are
+    // applied by hand, so a table created from an earlier copy of 0039 is a
+    // real state, not a hypothetical — and it cost an evening: the phone
+    // registered every launch, the write 500'd on a column that was not
+    // there, and the server truthfully reported NO DEVICE registered while
+    // the device tried and tried.
+    //
+    // Registration is the wrong place to be strict. `disabled_reason` is
+    // only ever read to explain a disabling; a device that cannot register
+    // gets no notifications at all, which is far worse than one whose stale
+    // reason is not cleared. So drop the optional fields and try once more.
+    if (error && isMissingColumn(error)) {
+      console.warn(
+        `[push] device_tokens is missing a column (${error.message}) — registering without the optional fields. Run supabase/migrations/0039_device_tokens.sql to add them.`,
+      );
+      delete row.disabled_reason;
+      delete row.disabled_at;
+      ({ error } = await supabase
+        .from("device_tokens")
+        .upsert(row, { onConflict: "token" }));
+    }
 
     if (error) {
       if (isMissingTable(error)) {
