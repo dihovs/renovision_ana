@@ -133,7 +133,7 @@ export async function GET() {
     const { count, error } = await client!
       .from("device_tokens")
       .select("*", { head: true, count: "exact" })
-      .is("revoked_at", null);
+      .is("disabled_at", null);
     if (!error) devices = count ?? 0;
   }
 

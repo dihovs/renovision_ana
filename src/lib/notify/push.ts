@@ -189,10 +189,32 @@ export function push(input: {
   badge?: number;
 }): void {
   void (async () => {
+    // Both of these used to return in silence, and that silence cost hours:
+    // a notification that never arrives leaves no trace, so there is nothing
+    // to read and the only way to find out which precondition failed is to
+    // guess. They now say which. An alert nobody can debug is barely better
+    // than no alert.
     const jwt = providerToken();
-    if (!jwt) return;
+    if (!jwt) {
+      const missing = (["APNS_KEY_P8", "APNS_KEY_ID", "APNS_TEAM_ID"] as const).filter(
+        (name) => !process.env[name]?.trim(),
+      );
+      console.error(
+        missing.length > 0
+          ? `[push] not sent — ${missing.join(", ")} not set on this deployment. Vercel injects at BUILD time, so adding them needs a redeploy.`
+          : "[push] not sent — the three APNS_* variables are set but the provider token could not be signed. The key is probably malformed.",
+      );
+      return;
+    }
+
     const devices = await liveDevices();
-    if (devices.length === 0) return;
+    if (devices.length === 0) {
+      console.error(
+        "[push] not sent — the key works but NO DEVICE is registered. The phone registers on launch once notifications are allowed; check device_tokens.",
+      );
+      return;
+    }
+    console.info(`[push] sending to ${devices.length} device(s): ${input.title}`);
 
     const payload: Record<string, unknown> = {
       aps: {
