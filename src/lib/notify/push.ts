@@ -28,6 +28,40 @@ const BUNDLE_ID = process.env.APNS_BUNDLE_ID?.trim() || "ca.renovisionana.crm";
     cabled build from Xcode is. Getting this wrong is the commonest reason
     push silently fails: a token minted against one gateway is rejected flat
     by the other. */
+/**
+ * Put a PEM back together after a web form has flattened it.
+ *
+ * An APNs key is pasted into Vercel by hand, and the paste is where it breaks:
+ * a single-line input collapses the newlines, some shells escape them to a
+ * literal `\n`, and Windows clipboards add carriage returns. OpenSSL then
+ * refuses the lot with `error:1E08010C:DECODER routines::unsupported`, which
+ * names nothing an operator could act on — and because the signing failure was
+ * silent, nothing arrived and nothing said why.
+ *
+ * That exact error was what production returned tonight. Rather than ask for a
+ * more careful paste, this rebuilds the key: take whatever is between the BEGIN
+ * and END markers, throw away all whitespace, and re-wrap the base64 at the 64
+ * columns the format wants.
+ *
+ * Only the LAYOUT is repaired. A key that is genuinely wrong still fails, and
+ * should.
+ */
+function normalisePem(raw: string): string {
+  const value = raw.trim();
+  const withNewlines = value.includes("\\n") ? value.replace(/\\n/g, "\n") : value;
+
+  // Already well-formed — a real newline after the BEGIN line is the tell.
+  if (/-----BEGIN [^-]+-----\r?\n/.test(withNewlines)) return withNewlines;
+
+  const match = withNewlines.match(/-----BEGIN ([^-]+)-----([\s\S]*?)-----END \1-----/);
+  if (!match) return withNewlines;
+
+  const label = match[1].trim();
+  const body = match[2].replace(/\s+/g, "");
+  const wrapped = body.match(/.{1,64}/g)?.join("\n") ?? body;
+  return `-----BEGIN ${label}-----\n${wrapped}\n-----END ${label}-----\n`;
+}
+
 function gateway(environment: string): string {
   return environment === "production"
     ? "https://api.push.apple.com"
@@ -72,7 +106,7 @@ function providerToken(): string | null {
       .update(signingInput)
       .sign(
         {
-          key: p8.includes("\\n") ? p8.replace(/\\n/g, "\n") : p8,
+          key: normalisePem(p8),
           dsaEncoding: "ieee-p1363",
         },
         "base64url",
