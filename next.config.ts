@@ -15,6 +15,40 @@ const nextConfig: NextConfig = {
    * node_modules at run time, which is the only way either works.
    */
   serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  /**
+   * ...but leaving it external is only half of it, and the missing half is
+   * what shipped broken: "Could not build the PDF: the input directory
+   * /var/task/node_modules/@sparticuz/chromium/bin does not exist".
+   *
+   * The message blames a bundler relocating the package, which is the usual
+   * cause and is NOT what happened here — `serverExternalPackages` above
+   * already prevents that. The real reason is quieter. Nothing ever imports
+   * those files: `chromium.executablePath()` reads `bin/` from disk at run
+   * time, so Next's file tracer, which follows imports, has no reason to
+   * believe they are needed and does not copy them into the function. The
+   * package is external, present, and empty of the one thing it exists for.
+   *
+   * Tracing follows imports; this is a runtime path. The two only meet if
+   * you say so, which is what this does. Keys are route paths — the
+   * `(internal)` group is not part of a URL, and `*` covers the `[id]`
+   * segment without the escaping the bracketed form needs.
+   *
+   * Scoped to the two route handlers that actually launch a browser rather
+   * than a broad `/admin/**`: the payload is 66MB of compressed Chromium and
+   * every matching route pays for it whether or not it renders anything. The
+   * `/report` PAGE is deliberately not here — it links to the pdf route and
+   * mentions this file in a comment, which is enough to look like a
+   * dependency in a grep and is not one.
+   *
+   * To check this stayed true after a build:
+   *   grep -l chromium/bin $(find .next -name '*.nft.json')
+   * Two route.js entries is right. A page.js entry is 66MB of waste; none at
+   * all means the PDF button is broken again.
+   */
+  outputFileTracingIncludes: {
+    "/admin/projects/*/report/pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/admin/projects/*/estimate/pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+  },
   experimental: {
     // The marketing tree and the internal tree each own a root layout, and the
     // marketing one lives under a dynamic `[lang]` segment — the two cases the
