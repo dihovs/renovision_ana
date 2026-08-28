@@ -20,6 +20,20 @@
 -- the dialer never has to resolve a contact, which keeps "who do we call"
 -- entirely out of the hot path.
 
+-- APPLIED BY HAND 27 Aug 2026, along with 0017, 0019, 0020, 0021 and 0042 --
+-- every one of which had been written and never run. The gap was invisible
+-- because a missing table degrades quietly here: liveDevices() returns no
+-- rows rather than an error, callTasks logs a warning and the cron returns
+-- 200. The cron had been asking for THIS table every fifteen minutes for
+-- weeks, 96 warnings a day, and nothing was watching the warnings.
+--
+-- If you add a migration, run it. There is no runner: `supabase/migrations`
+-- is a folder of files somebody has to paste into the SQL editor, and the
+-- only thing that catches an unapplied one is a person noticing the app
+-- behaving oddly. The audit that found these compares the CREATE TABLE and
+-- ALTER ... ADD COLUMN statements in this folder against
+-- information_schema; it is worth re-running before believing the schema.
+
 create table if not exists public.call_tasks (
   id         uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),

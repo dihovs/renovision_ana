@@ -164,5 +164,5 @@ alter table public.call_tasks add constraint call_tasks_kind_check
 -- one is the behaviour that makes people hang up on the first one. A real
 -- follow-up after an introduction is a call Artush makes himself.
 create unique index if not exists call_tasks_one_intro_per_number
-  on public.call_tasks (phone)
+  on public.call_tasks (to_number)
   where kind = 'business_intro' and status <> 'cancelled';
