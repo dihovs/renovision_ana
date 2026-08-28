@@ -59,6 +59,8 @@ struct AppShell: View {
 struct MainTabs: View {
     let onSignedOut: () -> Void
 
+    @StateObject private var deepLink = DeepLink.shared
+
     var body: some View {
         // Five tabs, which is iOS's limit before it collapses them into a
         // "More" list of its own. Everything not here is reachable from the
@@ -86,6 +88,31 @@ struct MainTabs: View {
             // 21 Aug when Home's third tile became Leads.
         }
         .tint(Brand.blue)
+        // Presented OVER the tabs rather than navigated to inside one.
+        //
+        // Messages is not a tab — it is reached from More, and from a tile on
+        // Home — so "go to the thread" would otherwise mean selecting a tab,
+        // pushing a list, and then pushing the thread, three animations deep
+        // into a stack he then has to climb back out of. A notification is a
+        // pointer to one thing; it presents that thing, and closing it puts
+        // him back exactly where he was.
+        .sheet(item: $deepLink.pending) { destination in
+            NavigationStack {
+                switch destination {
+                case .messageThread(let phone):
+                    // No display name: the notification's title carries it,
+                    // and the thread looks the client up itself.
+                    // MessageThreadView is normally PUSHED, so it relies on a
+                    // back button it does not have when it is the root of a
+                    // sheet. Without this the thread is a room with no door.
+                    MessageThreadView(phone: phone, displayName: nil)
+                        .dismissableWhenPresented()
+                case .leads:
+                    LeadsView()
+                }
+            }
+            .tint(Brand.blue)
+        }
     }
 }
 

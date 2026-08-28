@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import UserNotifications
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -11,6 +12,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // silently. Apple can reissue a device token at any time and a stale
         // one is a notification that goes nowhere — see `PushRegistration`.
         Task { @MainActor in PushRegistration.shared.refreshIfAuthorised() }
+
+        // Without this the tap on a banner does nothing but foreground the
+        // app, and a notification arriving WHILE the app is open is not shown
+        // at all — iOS suppresses it unless a delegate says otherwise. Both
+        // were true until 27 Aug 2026.
+        UNUserNotificationCenter.current().delegate = self
         return true
     }
 
@@ -59,5 +66,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                                           sessionRole: connectingSceneSession.role)
         config.delegateClass = SceneDelegate.self
         return config
+    }
+}
+
+// MARK: - Notification taps
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    /// A notification arriving while the app is open.
+    ///
+    /// iOS's default is to show nothing, on the theory that someone looking at
+    /// the app can see for themselves. That theory does not hold here: the app
+    /// opens on Home, and a text arriving while he is deep in a floor plan is
+    /// exactly as invisible as one arriving while the phone is in his pocket.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .list])
+    }
+
+    /// The tap. Hands the payload to `DeepLink`, which the shell is watching.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        Task { @MainActor in
+            DeepLink.shared.handle(userInfo)
+            completionHandler()
+        }
     }
 }

@@ -131,8 +131,8 @@ describe("sending", () => {
     expect(result).toEqual({ sent: false, reason: "not_configured" });
   });
 
-  it("identifies the sender and how to opt out, on the first message to a number", async () => {
-    await sendSms({ to: "+15145550188", body: "Bonjour", locale: "fr" });
+  it("identifies the sender and how to opt out, on an automated first message", async () => {
+    await sendSms({ to: "+15145550188", body: "Bonjour", locale: "fr", automated: true });
 
     const sent = vi.mocked(fetch).mock.calls[0][1] as { body: URLSearchParams };
     const text = sent.body.get("Body") ?? "";
@@ -140,13 +140,23 @@ describe("sending", () => {
     expect(text).toContain("STOP");
   });
 
-  it("does not repeat the notice once a conversation is under way", async () => {
+  it("does not repeat the notice once an automated conversation is under way", async () => {
     rows.sms_messages = [{ id: "earlier" }];
 
-    await sendSms({ to: "+15145550188", body: "On my way" });
+    await sendSms({ to: "+15145550188", body: "On my way", automated: true });
 
     const sent = vi.mocked(fetch).mock.calls[0][1] as { body: URLSearchParams };
     expect(sent.body.get("Body")).toBe("On my way");
+  });
+
+  // The owner's words, 27 Aug 2026: "it's not a robot, it's actually me."
+  // Every caller of sendSms today is a person at a keyboard, so this is the
+  // case that actually ships -- the footer is off unless someone opts in.
+  it("appends nothing when a person typed the message, even on first contact", async () => {
+    await sendSms({ to: "+15145550188", body: "Bonjour", locale: "fr" });
+
+    const sent = vi.mocked(fetch).mock.calls[0][1] as { body: URLSearchParams };
+    expect(sent.body.get("Body")).toBe("Bonjour");
   });
 
   it("records what it sent", async () => {

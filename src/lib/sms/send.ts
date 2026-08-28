@@ -85,12 +85,22 @@ export async function hasOptedOut(phone: string): Promise<boolean> {
 /**
  * The identification and unsubscribe line CASL s.6 requires.
  *
- * Appended only to the FIRST message we send a number, which is the reading
- * that keeps the obligation met without turning every subsequent "on my way"
- * into a legal notice. The requirement is that the recipient can identify the
- * sender and can unsubscribe; someone mid-conversation with a company they
- * already recognise, who was told how to stop when the conversation began, is
- * not left guessing at either.
+ * Attached only to AUTOMATED first contact, and today nothing in this
+ * codebase qualifies — see `automated` on sendSms below.
+ *
+ * The owner's objection, 27 Aug 2026, and it is the correct one: "if I'm
+ * texting them and it's me, then giving them an option to stop the messaging
+ * makes it look like a robot, but it's not a robot, it's actually me." A
+ * tradesman who types "I'm outside, in front of 7144" and has a footer
+ * stapled to it does not read as a person. It reads as a marketing system,
+ * which is the opposite of what this business sells.
+ *
+ * He is also right on the law, for the messages he actually sends. CASL
+ * governs COMMERCIAL electronic messages; a one-to-one reply about a job the
+ * customer already hired us for is not one. What CASL does NOT say is
+ * "first message only" -- a genuine commercial message needs the unsubscribe
+ * mechanism every time, not once. So the honest split is not first-vs-later,
+ * it is human-vs-automated, which is what this now keys on.
  */
 function caslFooter(locale: "fr" | "en"): string {
   return locale === "fr"
@@ -98,7 +108,7 @@ function caslFooter(locale: "fr" | "en"): string {
     : "\n\n— Renovision AnA. Reply STOP to opt out.";
 }
 
-/** Have we texted this number before? Decides whether the footer goes on. */
+/** Have we texted this number before? Only consulted for automated sends. */
 async function isFirstContact(phone: string): Promise<boolean> {
   const client = db();
   if (!client) return true;
@@ -171,6 +181,19 @@ export async function sendSms(input: {
    * is what a caller that found no photos should do.
    */
   mediaUrls?: string[];
+  /**
+   * True only when a machine composed this, with no one reading it before it
+   * went. Those get the CASL identification-and-unsubscribe footer on first
+   * contact; a message the owner typed himself gets nothing appended.
+   *
+   * Defaults to false because every caller today is a person at a keyboard --
+   * the client page, the message thread, and the native app's send. If you
+   * are adding a sender that blasts, set this, and know that the footer this
+   * flag turns on is a FIRST-CONTACT footer: CASL wants the unsubscribe
+   * mechanism in every commercial message, so a real marketing campaign needs
+   * more than flipping this to true.
+   */
+  automated?: boolean;
 }): Promise<SmsResult> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -200,7 +223,10 @@ export async function sendSms(input: {
     return { sent: false, reason: "not_configured" };
   }
 
-  const full = (await isFirstContact(to)) ? `${body}${caslFooter(input.locale ?? "fr")}` : body;
+  const full =
+    input.automated && (await isFirstContact(to))
+      ? `${body}${caslFooter(input.locale ?? "fr")}`
+      : body;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

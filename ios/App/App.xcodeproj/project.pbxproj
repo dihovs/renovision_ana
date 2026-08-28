@@ -43,6 +43,7 @@
 		AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */; };
 		B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD833D37CF40538753EFB53 /* ScanQueue.swift */; };
 		3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */; };
+		B542910C2ED0CFC2B6AF88AF /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 401F03D4DF49BCF111A623C6 /* DeepLink.swift */; };
 		2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */ = {isa = PBXBuildFile; fileRef = D656561111C08EA37D97551A /* RoomPhotos.swift */; };
 		D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = A254CB749019586DB2A35202 /* ReportShare.swift */; };
 		679EC02AE877C7C78C7FA783 /* LeadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943916CB2AB009C43981176F /* LeadsView.swift */; };
@@ -129,6 +130,7 @@
 		41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/FloorPlanView.swift; sourceTree = "<group>"; };
 		CAD833D37CF40538753EFB53 /* ScanQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanQueue.swift; sourceTree = "<group>"; };
 		75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MessagesView.swift; sourceTree = "<group>"; };
+		401F03D4DF49BCF111A623C6 /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DeepLink.swift; sourceTree = "<group>"; };
 		D656561111C08EA37D97551A /* RoomPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/RoomPhotos.swift; sourceTree = "<group>"; };
 		A254CB749019586DB2A35202 /* ReportShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ReportShare.swift; sourceTree = "<group>"; };
 		943916CB2AB009C43981176F /* LeadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LeadsView.swift; sourceTree = "<group>"; };
@@ -265,6 +267,7 @@
 				A254CB749019586DB2A35202 /* ReportShare.swift */,
 				D656561111C08EA37D97551A /* RoomPhotos.swift */,
 				75FD274D3B1E386EF7CE9B09 /* MessagesView.swift */,
+				401F03D4DF49BCF111A623C6 /* DeepLink.swift */,
 				CAD833D37CF40538753EFB53 /* ScanQueue.swift */,
 				41B8A9CECEF6CE11AF6CB285 /* FloorPlanView.swift */,
 				F9B25A1B7241CCF44839BD02 /* FloorPlanGeometry.swift */,
@@ -425,6 +428,7 @@
 				D3786D9551FECDEB079D9E43 /* ReportShare.swift in Sources */,
 				2D277D737730CF7EA57AD969 /* RoomPhotos.swift in Sources */,
 				3B674CE72195DBA3AC0A30FC /* MessagesView.swift in Sources */,
+				B542910C2ED0CFC2B6AF88AF /* DeepLink.swift in Sources */,
 				B04A0E7F239D06D3D2AA1BC0 /* ScanQueue.swift in Sources */,
 				AD66A2149BF48377B7A57F6F /* FloorPlanView.swift in Sources */,
 				475D5E68C8633C0C64637823 /* FloorPlanGeometry.swift in Sources */,
