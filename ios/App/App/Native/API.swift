@@ -48,9 +48,11 @@ actor API {
     static let shared = API()
 
     /// The same deployment the WebView points at, so native and web screens
-    /// are never looking at two different databases mid-migration.
-    static let baseURL = URL(
-        string: "https://renovision-ana-git-mobile-app-renovision-an-a.vercel.app")!
+    /// are never looking at two different databases mid-migration. Kept in
+    /// step with `server.url` in capacitor.config.ts by hand -- when these
+    /// two drifted, the phone registered for push on one deployment while
+    /// the notifications were sent from the other.
+    static let baseURL = URL(string: "https://www.renovisionana.ca")!
 
     private let session: URLSession
 

@@ -24,23 +24,22 @@ const config: CapacitorConfig = {
   appName: "Renovision",
   webDir: "capacitor-shell",
   server: {
-    // WHILE THE MOBILE PROJECT IS IN FLIGHT: points at the stable Vercel
-    // Preview alias for the mobile-app branch rather than production, so the
-    // phases already tested (camera, dialer, viewport fix, and whatever
-    // follows) are what's actually on the phone. This alias auto-updates on
-    // every push to mobile-app — no rebuild needed for web-only changes.
+    // Production. The condition the previous comment set here has been met:
+    // mobile-app is merged to master (0 commits apart in both directions as
+    // of this change), so the preview alias and production now serve the
+    // same commits, and pointing at preview only bought a second copy of
+    // everything to keep in sync.
     //
-    // Swap to the production line below only once mobile-app is merged to
-    // master and this file's own change is part of that merge — not before,
-    // per "keep main clean until the whole thing works."
-    url: "https://renovision-ana-git-mobile-app-renovision-an-a.vercel.app/admin/home",
-    allowNavigation: [
-      "renovision-ana-git-mobile-app-renovision-an-a.vercel.app",
-      "www.renovisionana.ca",
-      "renovisionana.ca",
-    ],
-    // url: "https://www.renovisionana.ca/admin",
-    // allowNavigation: ["www.renovisionana.ca", "renovisionana.ca"],
+    // It bought a bug, too. The app registered for push against the preview
+    // deployment while notifications were SENT from production, and only
+    // production had a working APNS_KEY_P8 -- the preview copy is still
+    // mangled. That happened to work because both read one Supabase, which
+    // is the kind of accident that holds until it doesn't.
+    //
+    // The cost of this line: a web-only change now needs a push to master
+    // rather than to mobile-app. That is the same push either way now.
+    url: "https://www.renovisionana.ca/admin",
+    allowNavigation: ["www.renovisionana.ca", "renovisionana.ca"],
   },
   ios: {
     // The admin's own chrome starts below the notch; the WebView handles its
