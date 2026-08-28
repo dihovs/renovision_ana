@@ -782,9 +782,9 @@ export async function POST(request: Request) {
         //     carrying "attendez"/"one more thing". A pause produces no text at
         //     all and is handled far above by the silence branch — a lull is
         //     never an ending.
-        //   - The callback number is already in hand. Without it this is a lead
-        //     we would be discarding, and the receptionist prompt takes the
-        //     number early precisely so this test means something.
+        //   - We can reach them again. Caller ID satisfies this on any normal
+        //     inbound call; a spoken number covers the withheld ones. Without
+        //     either, this is a lead we would be discarding, so Ana stays on.
         //   - It is not the owner. He has no intake to complete, and the turn
         //     limit already gives his calls an ending of their own.
         //
@@ -797,7 +797,7 @@ export async function POST(request: Request) {
           !outbound &&
           !session.authenticated &&
           detectCallerGoodbye(spoken) &&
-          hasCallbackNumber(priorCallerTexts)
+          hasCallbackNumber(priorCallerTexts, { callerId: rawCallerPhone })
         ) {
           const line = inboundFarewellLine(locale);
           closeWith(line, "the caller said goodbye and the intake is complete");

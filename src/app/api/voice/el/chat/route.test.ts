@@ -817,10 +817,26 @@ describe("Ana hangs up instead of saying goodbye and waiting", () => {
     expect(replyToStream).not.toHaveBeenCalled();
   });
 
-  it("keeps a caller who has not yet given a number, goodbye or not", async () => {
-    // The far worse failure of the two. Without a callback number this is a
-    // lead, and hanging up on it throws the lead away.
+  // The bug, reported 28 Aug 2026: "customer is saying bye, and Ana just keeps
+  // the line open" — on a per-minute meter. Nobody recites their own number
+  // when they are calling from it, so the old spoken-digits-only gate was
+  // false for the whole of an ordinary call and this branch never fired.
+  it("hangs up on goodbye when caller ID is all we have, because that is a callback number", async () => {
     const body = await call(STRANGER, [
+      { role: "user", content: "j'ai un dégât d'eau au sous-sol" },
+      { role: "assistant", content: "Quelle pièce exactement?" },
+      { role: "user", content: "bon, merci, bonne journée" },
+    ]);
+
+    expectsCleanHangUp(body);
+    expect(replyToStream).not.toHaveBeenCalled();
+  });
+
+  it("keeps a caller we genuinely cannot reach again, goodbye or not", async () => {
+    // The far worse failure of the two, and still guarded — but the case is a
+    // WITHHELD number, not merely an unspoken one. Without any way to call
+    // back this is a lead, and hanging up on it throws the lead away.
+    const body = await call("anonymous", [
       { role: "user", content: "j'ai un dégât d'eau au sous-sol" },
       { role: "assistant", content: "Quelle pièce exactement?" },
       { role: "user", content: "bon, merci, bonne journée" },

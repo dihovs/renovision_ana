@@ -173,14 +173,30 @@ export function detectWrongNumber(text: string): boolean {
 }
 
 /**
- * Has the intake actually got a callback number out of this call?
+ * Can we reach this person again after hanging up?
  *
  * THE GATE THAT MAKES THE INBOUND HANG-UP SAFE. "Merci, bonne journée" from a
- * caller who has given us a number is a finished call; the same words from
- * someone three turns in, before we know how to reach them, is a lead we would
- * be throwing away by hanging up on it — and the receptionist prompt orders the
- * intake precisely so the number arrives early, which makes its presence a good
- * proxy for "there is something to end".
+ * caller we can call back is a finished call; the same words from someone three
+ * turns in, when we have no way to reach them, is a lead we would be throwing
+ * away by hanging up on it.
+ *
+ * IT USED TO ASK THE WRONG QUESTION, and that is the bug this now fixes.
+ * Reported 28 Aug 2026: "customer is saying bye, and Ana just keeps the line
+ * open" — on a per-minute meter. The gate tested only whether the caller had
+ * *recited* a number out loud, which almost nobody does when they are calling
+ * from the very number they would give you. So on a normal inbound call it was
+ * false from beginning to end, the goodbye branch never ran, and the call sat
+ * open until MAX_TURNS or the caller themselves hung up. Every second of that
+ * was billed.
+ *
+ * The caller ID answers the question the spoken digits were standing in for.
+ * /api/voice/el/init puts it in dynamic_variables and it is on every turn from
+ * the first — the route was already using it to decide owner mode while this
+ * function, three lines away, was insisting the caller say it aloud.
+ *
+ * A withheld number is not a callback number: it arrives as a word rather than
+ * digits, and treating "anonymous" as reachable would hang up on exactly the
+ * caller we cannot phone back.
  *
  * Shape-matched rather than digit-counted: a run of ten digits also turns up in
  * dates, dimensions and dollar amounts, and 3-3-4 is how every transcriber
@@ -188,6 +204,11 @@ export function detectWrongNumber(text: string): boolean {
  */
 const PHONE_SHAPE = /(?:\+?1[\s.\-]*)?\(?\d{3}\)?[\s.\-]*\d{3}[\s.\-]*\d{4}/;
 
-export function hasCallbackNumber(texts: string[]): boolean {
+export function hasCallbackNumber(
+  texts: string[],
+  options: { callerId?: string | null } = {},
+): boolean {
+  const callerId = (options.callerId ?? "").trim();
+  if (callerId && PHONE_SHAPE.test(callerId)) return true;
   return texts.some((text) => PHONE_SHAPE.test(text ?? ""));
 }

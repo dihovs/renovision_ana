@@ -146,4 +146,28 @@ describe("has the intake got a callback number", () => {
     expect(hasCallbackNumber(["Ça dure depuis le 3 mars 2026."])).toBe(false);
     expect(hasCallbackNumber(["I live at 1234 rue Principale, Laval H7X 1Y2."])).toBe(false);
   });
+
+  // The regression this gate was rewritten for. Nobody reads their own number
+  // out when they are calling from it, so requiring them to say it kept the
+  // goodbye branch switched off for the whole of a normal inbound call — and
+  // the meter ran until MAX_TURNS.
+  it("counts the caller ID, because that is how we can call an inbound caller back", () => {
+    expect(hasCallbackNumber([], { callerId: "+15145550188" })).toBe(true);
+    expect(hasCallbackNumber(["j'ai un dégât d'eau"], { callerId: "+1 450 555 0199" })).toBe(true);
+    expect(hasCallbackNumber(["water in the basement"], { callerId: "(579) 990-3077" })).toBe(true);
+  });
+
+  it("does not treat a withheld number as reachable", () => {
+    for (const withheld of ["anonymous", "unavailable", "restricted", "private", "unknown", ""]) {
+      expect(hasCallbackNumber(["my basement is flooding"], { callerId: withheld })).toBe(false);
+    }
+    expect(hasCallbackNumber(["my basement is flooding"], { callerId: null })).toBe(false);
+    expect(hasCallbackNumber(["my basement is flooding"], {})).toBe(false);
+  });
+
+  it("still accepts a spoken number when the caller ID is withheld", () => {
+    expect(
+      hasCallbackNumber(["call me back on 514-555-0188"], { callerId: "anonymous" }),
+    ).toBe(true);
+  });
 });
