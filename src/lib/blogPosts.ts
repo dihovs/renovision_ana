@@ -758,6 +758,205 @@ export const blogPosts: BlogPost[] = [
       ],
     },
   },
+  {
+    slug: "quebec-construction-code-transition-extended-2027",
+    categoryTag: {
+      en: "Building Code · Regulations",
+      fr: "Code de construction · Réglementation",
+    },
+    publishedAt: "2026-08-28",
+    readTimeMinutes: 7,
+    heroImage: "/images/blog/construction-code-2027-header.jpg",
+    heroStat: {
+      value: "2027",
+      label: {
+        en: "Work started before October 17, 2027 can still follow the previous editions of Quebec's construction code",
+        fr: "Les travaux commencés avant le 17 octobre 2027 peuvent encore suivre les éditions précédentes du Code de construction du Québec",
+      },
+    },
+    en: {
+      title: "Quebec Just Pushed the Construction Code Deadline to 2027 — What It Means for Your Renovation",
+      excerpt:
+        "Regulations published on August 26 give the industry another year on the previous editions of the Building and Electricity chapters. It's a reprieve, not a repeal — and for a homeowner in Laval or Montreal, the operative rulebook may be your city's, not the province's.",
+      metaDescription:
+        "Quebec extended the construction code transition period to October 17, 2027. What changed, what the newer Building and Electricity chapters require, and what a Laval or Montreal homeowner should ask before renovating.",
+      sections: [
+        {
+          type: "paragraph",
+          text: "On August 26, regulations amending the Electricity and Building chapters of the Code de construction — and the Building chapter of the Code de sécurité — were published in the Gazette officielle du Québec. They take effect September 10, 2026, and they do one thing: they extend the transition period by a year. Work that begins before October 17, 2027 can still be built to the previous editions of those chapters. If you are planning a renovation this fall, this is the regulatory change most likely to touch your project — and the one most likely to be misread.",
+        },
+        { type: "heading", text: "What actually changed" },
+        {
+          type: "paragraph",
+          text: "Two chapters are involved. The current Chapitre I, Bâtiment — built on the National Building Code of Canada 2020 as modified for Quebec — came into force on April 17, 2025. The current Chapitre V, Électricité — built on the Canadian Electrical Code 2021 as modified for Quebec — came into force on March 26, 2026. Each arrived with a transition period during which the previous edition could still be applied. The Bâtiment window was set to close on October 17, 2026, roughly seven weeks from now. The Électricité window was set to close on September 26, 2026, sooner still. Both now run to October 17, 2027.",
+        },
+        {
+          type: "stats",
+          items: [
+            { value: "Oct 17, 2027", label: "New deadline — work must have begun by this date to use the previous editions" },
+            { value: "Sept 10, 2026", label: "Date the amending regulations take effect" },
+            { value: "1 year", label: "Length of the extension, for both the Building and Electricity chapters" },
+          ],
+        },
+        {
+          type: "timeline",
+          items: [
+            { time: "Apr 17, 2025", text: "The current Chapitre I, Bâtiment comes into force, incorporating the National Building Code 2020 as modified for Quebec." },
+            { time: "Mar 26, 2026", text: "The current Chapitre V, Électricité comes into force, incorporating the Canadian Electrical Code 2021 as modified for Quebec." },
+            { time: "Jul 7, 2026", text: "The RBQ publishes draft regulations extending both transition periods, open for public comment until August 7." },
+            { time: "Aug 26, 2026", text: "The final regulations are published in the Gazette officielle du Québec." },
+            { time: "Sept 10, 2026", text: "Those regulations take effect." },
+            { time: "Oct 17, 2027", text: "The new outside date — work has to have begun before this to be built to the previous editions." },
+          ],
+        },
+        { type: "heading", text: "This is a reprieve, not a repeal" },
+        {
+          type: "paragraph",
+          text: "The distinction matters, because it is the part that gets lost in summary. The newer editions are in force and have been for months. What the extension preserves is the option of applying the previous editions, and only to work that has actually begun before the deadline. The APCHQ makes the same point plainly in its own note on the extension: this does not postpone the coming into force of the 2020 code. Municipal bylaws remain binding, and some municipalities already require the newer edition regardless of what the provincial transition allows.",
+        },
+        { type: "heading", text: "Whose rulebook applies to a house in Laval or Montreal" },
+        {
+          type: "paragraph",
+          text: "Here is the piece most homeowners have never been told. For a typical single-family home or small plex, the provincial chapter is not the operative document at all. Chapitre I, Bâtiment does not apply to residential buildings of fewer than three storeys and fewer than nine dwelling units. Those buildings fall to the municipality, which adopts its own construction bylaw — commonly by referencing the provincial code, sometimes with its own additions, and on its own timetable.",
+        },
+        {
+          type: "paragraph",
+          text: "So the practical question is not only \"which edition does the province still allow\" but \"which edition has my city adopted, and as of when.\" Those two answers can differ, and the one that governs your permit is the municipal one. It is a question worth asking before the design is finalized rather than after the plans go in — a requirement discovered at permit review is a redraw, and in a market where review already runs weeks, a redraw is the expensive kind of delay.",
+        },
+        { type: "heading", text: "What the newer editions actually ask for" },
+        {
+          type: "paragraph",
+          text: "An extension only matters where the two editions differ, so it is worth knowing where they do. On the building side, the RBQ's own material on the Quebec-modified 2020 code points to revised thermal envelope requirements, changes affecting stairs, new obligations around soil gas and radon, \"smart\" vapour barriers, and revised accessibility dimensions including universal washrooms. On the electrical side, the RBQ lists provisions for electric-vehicle charging infrastructure in residential buildings, a requirement to declare planned EV charging loads in the work declaration, a revised Section 10 on grounding, mandatory re-evaluation of electrical equipment exposed to water infiltration, receptacle requirements in spaces where children may be present, and a ban on selling unapproved electrical equipment.",
+        },
+        {
+          type: "paragraph",
+          text: "Read that list as a homeowner rather than as a contractor and a pattern shows up: the items you are most likely to actually meet are the electrical ones and the envelope ones. A kitchen renovation that rewires a wall, a panel upgraded to carry an induction range or a future charger, a basement being insulated and finished — those are the projects where the edition in use stops being paperwork and starts being what is inside your walls.",
+        },
+        {
+          type: "linkParagraph",
+          text: "Soil-gas and radon provisions are one of the sharpest differences between the editions, and a finished basement is where a homeowner is most likely to run into them.",
+          linkText: "Finishing a basement: permits, moisture and radon",
+          href: "/blog/finishing-a-basement-laval-permits-moisture-radon",
+        },
+        { type: "heading", text: "What to do if you're renovating in the next year" },
+        {
+          type: "list",
+          items: [
+            "Ask which edition your project is being designed and built to, and get the answer in writing. For the next year, two contractors quoting the same job can legally be working to different editions — and their prices will reflect that.",
+            "Confirm with your borough or city, not just the province. The municipal bylaw is what your permit is issued under, and it can be stricter than the provincial transition.",
+            "Where the difference is small, choose the newer edition anyway. Envelope, grounding and EV-ready provisions are the ones a buyer's inspector will eventually ask about.",
+            "Don't read \"transition extended\" as \"nothing changed.\" Licensing, permits and the codes themselves all still apply, and the RBQ licence requirement is unaffected by any of this.",
+            "Keep the paperwork: the permit, the edition applied, and the electrical work declaration. It matters at resale and it matters at claim time.",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "For most homeowners this extension is quietly good news — it removes a deadline that would have landed in the middle of this autumn's projects, and it buys the industry a year to catch up on training and product supply. It is not permission to stop asking questions. If anything, a year in which two editions are simultaneously legal is exactly the year to be specific about which one you are getting.",
+        },
+        {
+          type: "linkParagraph",
+          text: "Renovision AnA plans and builds kitchen, bathroom and basement renovations across Laval and Montreal, and we handle the permit and code questions as part of the job rather than leaving them with you.",
+          linkText: "Get a rough estimate in minutes",
+          href: "/estimation",
+        },
+        {
+          type: "paragraph",
+          text: "Sources: Régie du bâtiment du Québec, \"Prolongation de la période transitoire en bâtiment et en électricité\" (July 7 and August 26, 2026) and its Modifications réglementaires page for the Électricité chapter; APCHQ, \"Prolongation de la période transitoire du Code de construction\" and \"Application du code de construction du Québec.\" Regulations and municipal bylaws change — confirm the requirements that apply to your own project with the RBQ and with your municipality before you start.",
+        },
+      ],
+    },
+    fr: {
+      title: "Québec repousse à 2027 l'échéance du Code de construction — ce que ça change pour votre rénovation",
+      excerpt:
+        "Des règlements publiés le 26 août accordent à l'industrie une année de plus sur les éditions précédentes des chapitres Bâtiment et Électricité. C'est un sursis, pas une abrogation — et pour un propriétaire de Laval ou de Montréal, le règlement qui s'applique est peut-être celui de votre ville, pas celui de la province.",
+      metaDescription:
+        "Québec prolonge jusqu'au 17 octobre 2027 la période transitoire du Code de construction. Ce qui change, ce qu'exigent les nouveaux chapitres Bâtiment et Électricité, et ce qu'un propriétaire de Laval ou Montréal devrait demander avant de rénover.",
+      sections: [
+        {
+          type: "paragraph",
+          text: "Le 26 août, des règlements modifiant les chapitres Électricité et Bâtiment du Code de construction — ainsi que le chapitre Bâtiment du Code de sécurité — ont été publiés à la Gazette officielle du Québec. Ils entrent en vigueur le 10 septembre 2026 et font une seule chose : ils prolongent d'un an la période transitoire. Les travaux qui débutent avant le 17 octobre 2027 peuvent encore être réalisés selon les éditions précédentes de ces chapitres. Si vous planifiez une rénovation cet automne, c'est le changement réglementaire le plus susceptible de toucher votre projet — et celui qu'on risque le plus de mal interpréter.",
+        },
+        { type: "heading", text: "Ce qui a changé, exactement" },
+        {
+          type: "paragraph",
+          text: "Deux chapitres sont visés. Le chapitre I, Bâtiment en vigueur — fondé sur le Code national du bâtiment du Canada 2020 modifié Québec — est entré en vigueur le 17 avril 2025. Le chapitre V, Électricité en vigueur — fondé sur le Code canadien de l'électricité 2021 modifié Québec — est entré en vigueur le 26 mars 2026. Chacun est arrivé avec une période transitoire pendant laquelle l'édition précédente pouvait encore être appliquée. La fenêtre du chapitre Bâtiment devait se refermer le 17 octobre 2026, soit dans environ sept semaines. Celle du chapitre Électricité devait se refermer le 26 septembre 2026, encore plus tôt. Les deux se rendent maintenant au 17 octobre 2027.",
+        },
+        {
+          type: "stats",
+          items: [
+            { value: "17 oct. 2027", label: "Nouvelle échéance — les travaux doivent avoir débuté avant cette date pour appliquer les éditions précédentes" },
+            { value: "10 sept. 2026", label: "Date d'entrée en vigueur des règlements modificatifs" },
+            { value: "1 an", label: "Durée de la prolongation, pour les chapitres Bâtiment et Électricité" },
+          ],
+        },
+        {
+          type: "timeline",
+          items: [
+            { time: "17 avr. 2025", text: "Entrée en vigueur du chapitre I, Bâtiment actuel, qui intègre le Code national du bâtiment 2020 modifié Québec." },
+            { time: "26 mars 2026", text: "Entrée en vigueur du chapitre V, Électricité actuel, qui intègre le Code canadien de l'électricité 2021 modifié Québec." },
+            { time: "7 juill. 2026", text: "La RBQ publie des projets de règlement prolongeant les deux périodes transitoires, ouverts aux commentaires jusqu'au 7 août." },
+            { time: "26 août 2026", text: "Les règlements finaux sont publiés à la Gazette officielle du Québec." },
+            { time: "10 sept. 2026", text: "Ces règlements entrent en vigueur." },
+            { time: "17 oct. 2027", text: "La nouvelle date limite — les travaux doivent avoir débuté avant celle-ci pour suivre les éditions précédentes." },
+          ],
+        },
+        { type: "heading", text: "Un sursis, pas une abrogation" },
+        {
+          type: "paragraph",
+          text: "La nuance compte, parce que c'est elle qui se perd dans les résumés. Les nouvelles éditions sont en vigueur, et le sont depuis des mois. Ce que la prolongation préserve, c'est la possibilité d'appliquer les éditions précédentes, et uniquement à des travaux réellement commencés avant l'échéance. L'APCHQ le dit clairement dans sa propre note sur la prolongation : cela ne reporte pas l'entrée en vigueur du code 2020. Les règlements municipaux demeurent contraignants, et certaines municipalités exigent déjà la nouvelle édition, peu importe ce que permet la transition provinciale.",
+        },
+        { type: "heading", text: "Quel règlement s'applique à une maison de Laval ou de Montréal" },
+        {
+          type: "paragraph",
+          text: "Voici l'élément qu'on explique rarement aux propriétaires. Pour une maison unifamiliale ou un petit plex typique, le chapitre provincial n'est pas le document applicable. Le chapitre I, Bâtiment ne s'applique pas aux bâtiments d'habitation de moins de trois étages et de moins de neuf logements. Ces bâtiments relèvent de la municipalité, qui adopte son propre règlement de construction — souvent en renvoyant au code provincial, parfois avec ses propres ajouts, et selon son propre calendrier.",
+        },
+        {
+          type: "paragraph",
+          text: "La vraie question n'est donc pas seulement « quelle édition la province permet-elle encore », mais « quelle édition ma ville a-t-elle adoptée, et depuis quand ». Les deux réponses peuvent différer, et c'est la municipale qui gouverne votre permis. Cette question se pose avant que les plans soient finalisés, pas après leur dépôt : une exigence découverte à l'analyse du permis, c'est un redessin, et dans un contexte où l'analyse prend déjà des semaines, c'est le genre de retard qui coûte cher.",
+        },
+        { type: "heading", text: "Ce qu'exigent réellement les nouvelles éditions" },
+        {
+          type: "paragraph",
+          text: "Une prolongation ne compte que là où les deux éditions diffèrent, alors autant savoir où c'est le cas. Du côté du bâtiment, la documentation de la RBQ sur le code 2020 modifié Québec pointe vers des exigences révisées d'enveloppe thermique, des changements touchant les escaliers, de nouvelles obligations relatives aux gaz souterrains et au radon, les pare-vapeur « intelligents », et des dimensions d'accessibilité révisées, dont les salles de bain universelles. Du côté électrique, la RBQ énumère notamment les dispositions d'infrastructure de recharge pour véhicules électriques dans les bâtiments d'habitation, l'obligation de déclarer les charges de recharge prévues dans la déclaration de travaux, une section 10 révisée sur la mise à la terre, la réévaluation obligatoire de l'appareillage électrique exposé à une infiltration d'eau, des exigences de prises dans les endroits où des enfants peuvent se trouver, et l'interdiction de vendre de l'appareillage électrique non approuvé.",
+        },
+        {
+          type: "paragraph",
+          text: "Lue avec des yeux de propriétaire plutôt que d'entrepreneur, cette liste laisse voir une tendance : les éléments que vous rencontrerez vraiment sont les éléments électriques et ceux de l'enveloppe. Une rénovation de cuisine qui refait le filage d'un mur, un panneau mis à niveau pour alimenter une cuisinière à induction ou une future borne, un sous-sol qu'on isole et qu'on aménage — ce sont les projets où l'édition appliquée cesse d'être de la paperasse et devient ce qui se trouve dans vos murs.",
+        },
+        {
+          type: "linkParagraph",
+          text: "Les dispositions sur les gaz souterrains et le radon comptent parmi les différences les plus marquées entre les éditions, et c'est au sous-sol aménagé qu'un propriétaire y est le plus exposé.",
+          linkText: "Aménager un sous-sol : permis, humidité et radon",
+          href: "/blog/finishing-a-basement-laval-permits-moisture-radon",
+        },
+        { type: "heading", text: "Quoi faire si vous rénovez dans la prochaine année" },
+        {
+          type: "list",
+          items: [
+            "Demandez selon quelle édition votre projet est conçu et construit, et obtenez la réponse par écrit. Pendant un an, deux entrepreneurs qui soumissionnent le même chantier peuvent légalement travailler selon des éditions différentes — et leurs prix vont le refléter.",
+            "Validez auprès de votre arrondissement ou de votre ville, pas seulement de la province. C'est le règlement municipal qui encadre l'émission de votre permis, et il peut être plus exigeant que la transition provinciale.",
+            "Quand l'écart est mince, choisissez quand même la nouvelle édition. L'enveloppe, la mise à la terre et les dispositions « prêt pour la recharge » sont celles sur lesquelles l'inspecteur d'un futur acheteur reviendra.",
+            "Ne lisez pas « période transitoire prolongée » comme « rien n'a changé ». Les licences, les permis et les codes eux-mêmes s'appliquent toujours, et l'exigence de licence RBQ n'est aucunement touchée.",
+            "Conservez les documents : le permis, l'édition appliquée et la déclaration de travaux électriques. Ça compte à la revente, et ça compte lors d'une réclamation.",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "Pour la plupart des propriétaires, cette prolongation est une bonne nouvelle discrète : elle retire une échéance qui serait tombée au milieu des chantiers de cet automne, et elle donne à l'industrie une année pour rattraper la formation et l'approvisionnement. Ce n'est pas une permission d'arrêter de poser des questions. Au contraire : une année où deux éditions sont simultanément légales est précisément l'année où il faut être précis sur celle que vous obtenez.",
+        },
+        {
+          type: "linkParagraph",
+          text: "Renovision AnA planifie et réalise des rénovations de cuisine, de salle de bain et de sous-sol à Laval et à Montréal, et nous prenons en charge les questions de permis et de code plutôt que de vous les laisser.",
+          linkText: "Obtenez une estimation en quelques minutes",
+          href: "/estimation",
+        },
+        {
+          type: "paragraph",
+          text: "Sources : Régie du bâtiment du Québec, « Prolongation de la période transitoire en bâtiment et en électricité » (7 juillet et 26 août 2026) et sa page Modifications réglementaires pour le chapitre Électricité; APCHQ, « Prolongation de la période transitoire du Code de construction » et « Application du code de construction du Québec ». Les règlements et les règlements municipaux changent — confirmez les exigences applicables à votre projet auprès de la RBQ et de votre municipalité avant de commencer.",
+        },
+      ],
+    },
+  },
 ];
 
 export function getBlogPost(slug: string): BlogPost | undefined {
