@@ -7,8 +7,27 @@ import CtaBand from "@/components/home/CtaBand";
 import { IconCheckCircle, IconMapPin } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 import { getServiceArea, type ServiceArea } from "@/lib/serviceAreas";
+import { REVIEW_COUNT_DISPLAY_THRESHOLD } from "@/lib/constants";
+import type { GoogleReviewItem } from "@/lib/googleReviews";
 
-export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
+export default function ServiceAreaContent({
+  area,
+  reviews,
+  overallRating,
+  reviewCount,
+}: {
+  area: ServiceArea;
+  /**
+   * Resolved server-side and passed down, the same way LocalBusinessSchema
+   * resolves them: the live Google pull when it has items, the curated set
+   * otherwise. Deliberately no AggregateRating markup on this page — the one
+   * canonical aggregate lives in LocalBusinessSchema, and repeating it on nine
+   * area pages would publish nine competing ratings for one business.
+   */
+  reviews: GoogleReviewItem[];
+  overallRating: number | null;
+  reviewCount: number | null;
+}) {
   const { t, locale } = useLanguage();
   const { openChat } = useChat();
   const copy = locale === "fr" ? area.fr : area.en;
@@ -22,6 +41,7 @@ export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
           servicesIntro:
             "Les services que nous réalisons le plus souvent dans ce secteur, selon le type de bâtiment qu'on y trouve.",
           faqHeading: "Questions fréquentes",
+          reviewsHeading: `Ce que disent nos clients`,
           sourcesLabel: "Contexte local tiré de",
           backLink: "Tous les secteurs desservis",
           neighborsHeading: "Autres secteurs desservis à proximité",
@@ -33,6 +53,7 @@ export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
           servicesIntro:
             "The services we carry out most often in this sector, based on the kind of buildings actually here.",
           faqHeading: "Frequently asked questions",
+          reviewsHeading: `What our clients say`,
           sourcesLabel: "Local context sourced from",
           backLink: "All service areas",
           neighborsHeading: "Nearby areas we also serve",
@@ -161,6 +182,52 @@ export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
           </div>
         </div>
       </section>
+
+      {/* Reviews, on the area page rather than only the homepage. Qualinet
+          carries customer reviews on every one of its regional pages and we
+          carried them on one page total; a visitor who lands here from a
+          sector search never reached the homepage set. Same review text,
+          shown where the decision is actually being made. */}
+      {reviews.length > 0 && (
+        <section className="border-t border-black/5 bg-brand-blue-light/20 py-16">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <h2 className="font-heading text-2xl font-bold text-brand-blue sm:text-3xl">
+              {labels.reviewsHeading}
+            </h2>
+            {overallRating !== null && (
+              <p className="mt-1.5 text-sm font-semibold text-charcoal/70">
+                {reviewCount !== null && reviewCount >= REVIEW_COUNT_DISPLAY_THRESHOLD
+                  ? t.testimonials.overallRatingLabel(overallRating.toFixed(1), reviewCount)
+                  : t.testimonials.overallRatingOnlyLabel(overallRating.toFixed(1))}
+              </p>
+            )}
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {reviews.map((item) => (
+                <figure
+                  key={item.name}
+                  className="flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5"
+                >
+                  <div
+                    className="text-sm tracking-[0.15em] text-brand-green"
+                    aria-label={`${item.rating} / 5`}
+                  >
+                    {"★".repeat(item.rating)}
+                  </div>
+                  <blockquote className="mt-3 grow text-sm leading-relaxed text-charcoal/75">
+                    {item.quote}
+                  </blockquote>
+                  <figcaption className="mt-4 font-heading text-sm font-bold text-brand-blue">
+                    {item.name}
+                    <span className="ml-2 font-body text-xs font-normal text-charcoal/50">
+                      {t.testimonials.googleReview}
+                    </span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
         <h2 className="font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
