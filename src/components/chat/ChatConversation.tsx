@@ -7,6 +7,7 @@ import HandymanCalculator, { type TripFeeOutcome } from "./HandymanCalculator";
 import { ChatMessage } from "./chatLogic";
 import { calculateHandymanEstimate, calculateTax, formatCents, formatCentsPrecise } from "@/lib/estimator/calculate";
 import { stripImageMetadata } from "@/lib/stripImageMetadata";
+import { formatReference } from "@/lib/leads/reference";
 import { leadSourceFor } from "@/lib/attribution";
 import type { ProjectBrief } from "@/lib/projectBrief";
 
@@ -404,6 +405,17 @@ export default function ChatConversation({
     }
 
     pushAssistant(t.chat.leadCapture.success);
+
+    // The reference arrives from the route rather than being made here: it is
+    // the value that actually reached the database, so a customer is never read
+    // a number Ana would fail to find. Absent (storage off, migration pending)
+    // means no second message at all — better silence than a number that looks
+    // official and resolves to nothing.
+    const saved = (await res.json().catch(() => null)) as { reference?: string | null } | null;
+    if (saved?.reference) {
+      pushAssistant(t.chat.leadCapture.reference.replace("{ref}", formatReference(saved.reference)));
+    }
+
     setLeadSubmitted(true);
     setStep("done");
   }

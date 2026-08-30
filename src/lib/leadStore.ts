@@ -1,4 +1,5 @@
 import { notifyNewLead } from "@/lib/notify/owner";
+import { generateReference } from "@/lib/leads/reference";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { ProjectBrief } from "./projectBrief";
 
@@ -108,15 +109,22 @@ function getClient(): SupabaseClient | null {
 }
 
 /**
- * Store a lead. Returns the new row id, or null if storage isn't configured.
- * Throws when configured but the insert fails — the caller decides what a
- * storage failure means for the customer's request.
+ * Store a lead. Returns the new row id and the customer-facing reference, or
+ * null if storage isn't configured. Throws when configured but the insert
+ * fails — the caller decides what a storage failure means for the request.
+ *
+ * `reference` comes back null rather than throwing when the column is not there
+ * yet: the migration is applied by hand, and a customer's enquiry must not be
+ * the thing that discovers it is pending.
  */
-export async function saveLead(lead: NewLead): Promise<string | null> {
+export type SavedLead = { id: string; reference: string | null };
+
+export async function saveLead(lead: NewLead): Promise<SavedLead | null> {
   const db = getClient();
   if (!db) return null;
 
   const row = {
+      reference: generateReference(),
       name: lead.name,
       email: lead.email,
       phone: lead.phone,
@@ -150,7 +158,17 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
       heard_about: lead.heardAbout ?? null,
   };
 
-  const first = await db.from("leads").insert(row).select("id").single();
+  // Six random digits collide about as often as you would expect them to, which
+  // is to say rarely and not never. The unique index is the only check without a
+  // race in it, so a collision is caught here and retried with a fresh number
+  // rather than pre-checked with a SELECT that another request can invalidate
+  // between the read and the write.
+  let first = await db.from("leads").insert(row).select("id, reference").single();
+  for (let attempt = 0; attempt < 4 && first.error?.code === "23505"; attempt += 1) {
+    row.reference = generateReference();
+    first = await db.from("leads").insert(row).select("id, reference").single();
+  }
+
   if (!first.error) {
     // Tell him it landed. Fire-and-forget by design — a slow Twilio must not
     // add latency to a customer's form submission, and a failed text must
@@ -162,7 +180,10 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
       isEmergency: lead.isEmergency,
       source: lead.source,
     });
-    return first.data.id as string;
+    return {
+      id: first.data.id as string,
+      reference: (first.data.reference as string | null) ?? null,
+    };
   }
 
   // A column added by a migration that hasn't run yet fails the WHOLE insert,
@@ -197,7 +218,10 @@ export async function saveLead(lead: NewLead): Promise<string | null> {
     isEmergency: lead.isEmergency,
     source: lead.source,
   });
-  return retry.data.id as string;
+  // No reference on this path: `reference` is one of the columns that may be
+  // pending, so the customer is told the estimate is on its way without a
+  // number rather than being read one that was never stored.
+  return { id: retry.data.id as string, reference: null };
 }
 
 // Must list every field on StoredLead. The result is cast, so a column missing
@@ -218,6 +242,8 @@ const LEAD_PENDING_COLUMNS = [
   "contact_role",
   "is_emergency",
   "heard_about",
+  // 0043_lead_reference — the number the customer reads back to Ana.
+  "reference",
 ];
 
 /** Newest first — the only order the pipeline view ever needs. */

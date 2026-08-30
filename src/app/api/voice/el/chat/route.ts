@@ -31,6 +31,13 @@ import {
   hasCallbackNumber,
   isSignOff,
 } from "@/lib/voice/endCall";
+import {
+  estimateStatusLine,
+  referenceGiveUpLine,
+  referenceNotFoundLine,
+} from "@/lib/leads/estimateStatus";
+import { findLeadByReference } from "@/lib/leads/lookup";
+import { parseSpokenReference } from "@/lib/leads/reference";
 import { shouldEscalate, type EscalationVerdict } from "@/lib/voice/escalation";
 import { detectLocale } from "@/lib/voice/locale";
 import { detectOptOut, optOutLine, recordOptOut } from "@/lib/voice/optOut";
@@ -767,6 +774,64 @@ export async function POST(request: Request) {
           send("data: [DONE]\n\n");
           if (callSid) await setCallLocale(callSid, locale).catch(() => {});
           return;
+        }
+
+        // "I GOT AN ESTIMATE ONLINE — WHERE IS IT?"
+        //
+        // The estimator hands out a six-digit reference; this is the other end
+        // of it. Deterministic rather than a tool the model may call, for the
+        // same reason as every other branch in this file: the lookup decides
+        // what a stranger on the phone is told about somebody's request, and
+        // that decision should not be reachable by talking Ana into it.
+        //
+        // WHAT COMES BACK IS THIN ON PURPOSE. findLeadByReference selects three
+        // columns and estimateStatusLine never speaks a name, an address, a
+        // phone number or a price — so a misheard digit landing on a real row
+        // tells the wrong person nothing they can use. The six digits keep
+        // honest callers apart; the thinness is the actual protection.
+        //
+        // Owner mode is excluded because he has real tools, and an outbound
+        // errand because Ana placed that call and is not taking enquiries on it.
+        if (!outbound && !session.authenticated) {
+          const reference = parseSpokenReference(spoken);
+          if (reference) {
+            const lead = await findLeadByReference(reference);
+            // Two misses and the digits are not the problem — a bad line, a
+            // number written down wrong, an estimate that never saved. Asking a
+            // third time is how a helpful system turns into an obstinate one,
+            // so the second failure hands the call back to a person.
+            const priorMisses = priorCallerTexts.filter(
+              (text) => parseSpokenReference(text) !== null,
+            ).length;
+            const line = lead
+              ? estimateStatusLine(lead, locale)
+              : priorMisses >= 1
+                ? referenceGiveUpLine(locale)
+                : referenceNotFoundLine(locale);
+
+            console.info("[voice-estimate] reference lookup", {
+              callSid,
+              found: Boolean(lead),
+              attempt: priorMisses + 1,
+            });
+
+            if (callSid) {
+              await Promise.allSettled([
+                appendTurns(callSid, [
+                  { role: "caller", text: spoken, at: new Date().toISOString() },
+                  { role: "agent", text: line, at: new Date().toISOString() },
+                ]),
+                localeChanged ? setCallLocale(callSid, locale) : null,
+              ]);
+            }
+
+            // Said and the floor handed back: this answers a question, it does
+            // not end the call. They usually have another one.
+            send(sseChunk({ role: "assistant", content: line }, "stop"));
+            send("data: [DONE]\n\n");
+            controller.close();
+            return;
+          }
         }
 
         // THE INBOUND CALLER SAID GOODBYE, AND THE INTAKE IS DONE.

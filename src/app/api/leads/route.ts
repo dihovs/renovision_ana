@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { isConfigured as isLeadStoreConfigured, saveLead, uploadLeadPhotos } from "@/lib/leadStore";
 import { sanitizeBrief, type ProjectBrief } from "@/lib/projectBrief";
 import { sanitizeLeadSource } from "@/lib/attribution";
+import { formatReference } from "@/lib/leads/reference";
 import {
   LEADS_NOTIFY_EMAIL,
   SITE_ADDRESS,
@@ -269,7 +270,7 @@ function escapeHtml(value: string): string {
 // The confirmation the CUSTOMER receives — a warm, personal note from Artush,
 // branded with the logo and company footer, in the language they used in chat.
 // Deliberately does NOT include the internal breakdown or labour hours.
-function renderCustomerConfirmationHtml(lead: LeadPayload): string {
+function renderCustomerConfirmationHtml(lead: LeadPayload, reference: string | null): string {
   const fr = lead.locale === "fr";
   const firstName = escapeHtml(lead.name.trim().split(/\s+/)[0] || lead.name.trim());
   const range =
@@ -298,7 +299,9 @@ function renderCustomerConfirmationHtml(lead: LeadPayload): string {
         durationSuffix: (d: number) => `environ ${d} jour${d > 1 ? "s" : ""} ouvrable${d > 1 ? "s" : ""} de travail`,
         durationNote:
           "une estimation seulement — les échéanciers de rénovation peuvent varier selon ce qu'on découvre une fois les travaux commencés.",
-        outro: `Nous ferons un suivi sous peu. Si quelque chose est urgent entre-temps, n'hésitez pas à nous appeler au ${SITE_PHONE}.`,
+        outro: reference
+          ? `Nous ferons un suivi sous peu. Votre numéro de référence est le <strong>${escapeHtml(formatReference(reference))}</strong> — si vous nous appelez au ${SITE_PHONE} pour un suivi, donnez simplement ce numéro et nous retrouverons votre dossier tout de suite.`
+          : `Nous ferons un suivi sous peu. Si quelque chose est urgent entre-temps, n'hésitez pas à nous appeler au ${SITE_PHONE}.`,
         signoff: "Cordialement,",
         title: "Président, Renovision AnA",
       }
@@ -317,7 +320,9 @@ function renderCustomerConfirmationHtml(lead: LeadPayload): string {
         durationSuffix: (d: number) => `about ${d} working day${d > 1 ? "s" : ""}`,
         durationNote:
           "an estimate only — renovation timelines can shift depending on what we find once work is underway.",
-        outro: `We'll follow up shortly. If anything is urgent in the meantime, don't hesitate to call us at ${SITE_PHONE}.`,
+        outro: reference
+          ? `We'll follow up shortly. Your reference number is <strong>${escapeHtml(formatReference(reference))}</strong> — if you call us at ${SITE_PHONE} to check on it, just give that number and we'll pull your file up right away.`
+          : `We'll follow up shortly. If anything is urgent in the meantime, don't hesitate to call us at ${SITE_PHONE}.`,
         signoff: "Warm regards,",
         title: "President, Renovision AnA",
       };
@@ -422,6 +427,10 @@ export async function POST(request: Request) {
   // notification sent. Either alone is a durable enough record; only losing
   // both means the lead reached nobody, and that is what fails the request.
   let recorded = false;
+  // The number the customer reads back to Ana on the phone. Null when the
+  // storage layer is off or the migration is pending — the confirmation simply
+  // omits it rather than printing a number nothing can look up.
+  let reference: string | null = null;
 
   // Storage runs first so a database outage can't be masked by a working
   // mailbox. No-ops until SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are set,
@@ -432,15 +441,16 @@ export async function POST(request: Request) {
       // Upload failures return fewer paths rather than throwing — losing a
       // photo must never cost the customer their enquiry.
       const photoPaths = await uploadLeadPhotos((lead.photos ?? []).slice(0, MAX_PHOTOS));
-      const storedId = await saveLead({
+      const stored = await saveLead({
         ...lead,
         address: lead.address ?? undefined,
         photoPaths,
         projectBrief: lead.projectBrief ?? undefined,
       });
-      if (storedId) {
+      if (stored) {
         recorded = true;
-        console.log("[lead stored]", { leadId, rowId: storedId });
+        reference = stored.reference;
+        console.log("[lead stored]", { leadId, rowId: stored.id, reference });
       }
     } catch (err) {
       console.error("Failed to store lead:", { leadId, err });
@@ -508,7 +518,7 @@ export async function POST(request: Request) {
         subject: fr
           ? "Nous avons bien reçu votre demande — Renovision AnA"
           : "We've received your request — Renovision AnA",
-        html: renderCustomerConfirmationHtml(lead),
+        html: renderCustomerConfirmationHtml(lead, reference),
       });
       // Best-effort by design: the customer's own copy failing does not mean
       // the lead was lost, so it must not fail the request.
@@ -531,5 +541,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, leadId });
+  return NextResponse.json({ ok: true, leadId, reference });
 }

@@ -41,7 +41,18 @@ vi.mock("@/lib/voice/agent", async (importOriginal) => {
   };
 });
 
+// The lookup is the one thing here that talks to Supabase. Stubbed so the
+// branch can be tested for what it SAYS, which is the part that matters.
+vi.mock("@/lib/leads/lookup", () => ({
+  findLeadByReference: vi.fn(async (reference: string) =>
+    reference === "482913"
+      ? { status: "new", opened_at: null, created_at: "2026-08-20T14:00:00.000Z" }
+      : null,
+  ),
+}));
+
 const { replyToStream, ownerReplyToStream, outboundReply } = await import("@/lib/voice/agent");
+const { findLeadByReference } = await import("@/lib/leads/lookup");
 const { POST: adminPost } = await import("../admin/chat/completions/route");
 const { POST } = await import("./route");
 
@@ -896,5 +907,49 @@ describe("Ana hangs up instead of saying goodbye and waiting", () => {
 
     expect(body).not.toContain("end_call");
     expect(ownerReplyToStream).toHaveBeenCalledTimes(1);
+  });
+
+  describe("a customer asking about an estimate they already requested", () => {
+    it("looks up the reference and says where it stands, without calling Claude", async () => {
+      const body = await call(STRANGER, [
+        { role: "user", content: "j'ai fait une estimation sur votre site" },
+        { role: "assistant", content: "Avez-vous le numéro de référence à six chiffres?" },
+        { role: "user", content: "oui, 482913" },
+      ]);
+
+      expect(findLeadByReference).toHaveBeenCalledWith("482913");
+      expect(body).toContain("bien reçue");
+      // Deterministic, like every other branch in this route: the model is not
+      // consulted about what a stranger is told about somebody's request.
+      expect(replyToStream).not.toHaveBeenCalled();
+      // Answering a question is not ending the call.
+      expect(body).not.toContain("end_call");
+    });
+
+    it("asks for it again on a miss, and hands off to a human on the second", async () => {
+      const first = await call(STRANGER, [
+        { role: "user", content: "où en est mon estimation, référence 111111" },
+      ]);
+      expect(first).toContain("mal entendu");
+
+      const second = await call(STRANGER, [
+        { role: "user", content: "où en est mon estimation, référence 111111" },
+        { role: "assistant", content: "Je ne trouve pas ce numéro." },
+        { role: "user", content: "222222" },
+      ]);
+      expect(second).toContain("rappelle");
+      expect(second).not.toContain("mal entendu");
+    });
+
+    it("does not mistake a callback number for a reference", async () => {
+      const body = await call(STRANGER, [
+        { role: "user", content: "j'ai un dégât d'eau" },
+        { role: "assistant", content: "Quel est votre numéro?" },
+        { role: "user", content: "c'est le 514-555-0188" },
+      ]);
+
+      expect(findLeadByReference).not.toHaveBeenCalled();
+      expect(body).toContain("customer reply");
+    });
   });
 });

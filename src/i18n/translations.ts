@@ -114,6 +114,7 @@ const en: Record<string, unknown> & {
       | "submit"
       | "later"
       | "success"
+      | "reference"
       | "failed"
       | "privacyNotice",
       string
@@ -423,6 +424,11 @@ const en: Record<string, unknown> & {
       submit: "Book my free visit",
       later: "Maybe later",
       success: "Thanks! A confirmation email is on its way, and a member of our team will reach out shortly to schedule your free in-person visit.",
+      // Spoken aloud on the phone as often as it is read, so the copy says the
+      // number is for calling us — a reference nobody knows the purpose of gets
+      // closed with the tab.
+      reference:
+        "Your reference number is {ref}. Keep it handy — if you call us at 579-999-5979 to check on your estimate, just give that number and we'll pull it up.",
       failed: `Sorry — we couldn't record your details just now, so please don't wait on a callback. Call us directly at ${SITE_PHONE} and we'll pick this up right away.`,
     },
   },
@@ -728,6 +734,8 @@ const fr: typeof en = {
       submit: "Réserver ma visite gratuite",
       later: "Peut-être plus tard",
       success: "Merci! Un courriel de confirmation s'en vient, et un membre de notre équipe communiquera avec vous sous peu pour planifier votre visite gratuite.",
+      reference:
+        "Votre numéro de référence est le {ref}. Gardez-le à portée de main — si vous nous appelez au 579-999-5979 pour un suivi de votre estimation, donnez simplement ce numéro et nous le retrouverons.",
       failed: `Désolé — nous n'avons pas pu enregistrer vos coordonnées, alors n'attendez pas notre appel. Téléphonez-nous directement au ${SITE_PHONE} et nous nous en occupons tout de suite.`,
     },
   },

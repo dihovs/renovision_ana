@@ -431,7 +431,10 @@ export async function fileLeadFromCall(callSid: string): Promise<void> {
 
     let leadId: string | null = null;
     try {
-      leadId = await saveLead({
+      // Only the row id is wanted here. A call-born lead gets a reference like
+      // any other, but there is no screen to print it on and reading six digits
+      // to somebody mid-emergency is not a service.
+      leadId = (await saveLead({
         // A nameless caller is filed under the number — it is what the owner
         // would say out loud anyway ("the 514 number about the basement").
         name: result.extraction.callerName || eligibility.callerPhone,
@@ -443,7 +446,7 @@ export async function fileLeadFromCall(callSid: string): Promise<void> {
         scopeSummary: result.extraction.brief || result.extraction.projectType,
         projectBrief: brief,
         source: "voice",
-      });
+      }))?.id ?? null;
     } catch (err) {
       // The lead insert failed but the extraction didn't — the brief still
       // lands on the call row below, so the work is not lost, just unfiled.
