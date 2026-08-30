@@ -54,6 +54,15 @@ Expect 3–10 business days for an answer.
 
 If the answer is no, the fallback is CSV export/import — worse, but real.
 
+**The fallback is built** (30 Aug 2026), so this blocker no longer stops the
+books getting done — it only stops the *live sync*. `/admin/invoices/export`
+writes issued invoices as a QuickBooks Online invoice-import CSV, one row per
+line item, with the header discount split across the tax boundary so QBO
+recomputes the same tax that was charged. Code: `src/lib/crm/quickbooksCsv.ts`.
+The Intuit ticket is still worth opening; nothing has been asked of them yet.
+A drafted ticket is ready to send in `Docs/intuit-ticket-draft.md` — it needs the
+legal entity name and NEQ filled in first.
+
 ---
 
 ## Before the phone agent can take a real call
