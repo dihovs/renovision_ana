@@ -3,6 +3,7 @@
 import { useLanguage } from "@/i18n/LanguageProvider";
 import ServiceDetailContent, { type ServiceDetailCopy } from "./ServiceDetailContent";
 import { IconDroplet } from "@/components/ui/icons";
+import { WATER_DAMAGE_FAQ } from "@/lib/serviceFaq";
 
 const copy: Record<"en" | "fr", ServiceDetailCopy> = {
   en: {
@@ -127,5 +128,12 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
 
 export default function WaterDamageContent() {
   const { locale } = useLanguage();
-  return <ServiceDetailContent icon={IconDroplet} copy={copy[locale]} />;
+  // FAQ merged in here rather than written into `copy` above, so the strings
+  // stay in the one module the page's FAQPage schema also reads from.
+  return (
+    <ServiceDetailContent
+      icon={IconDroplet}
+      copy={{ ...copy[locale], faq: WATER_DAMAGE_FAQ[locale] }}
+    />
+  );
 }

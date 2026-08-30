@@ -11,6 +11,7 @@ import { useChat } from "@/components/chat/ChatProvider";
 import CtaBand from "@/components/home/CtaBand";
 import { IconCheckCircle } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
+import type { FaqItem } from "@/lib/serviceFaq";
 
 export type ServiceStep = { title: string; desc: string };
 export type ServiceIncludedItem = { title: string; desc: string };
@@ -59,6 +60,13 @@ export type ServiceDetailCopy = {
   includesIntro: string;
   includes: ServiceIncludedItem[];
   localContext?: ServiceLocalContext;
+  /**
+   * Optional Q&A. When a page supplies this, its server component must emit
+   * the matching FAQPage schema from the SAME source — see serviceFaq.ts.
+   * Markup that doesn't match visible text is a rich-result violation, not a
+   * clever shortcut.
+   */
+  faq?: FaqItem[];
 };
 
 export default function ServiceDetailContent({
@@ -235,6 +243,32 @@ export default function ServiceDetailContent({
               </Link>
             )}
           </div>
+        </section>
+      )}
+
+      {/* Q&A sits after the local context and before the area links: someone
+          who has read this far is deciding whether to call, and these are the
+          questions that decide it. Same markup as the area pages' FAQ so the
+          two read as one site. The strings come from serviceFaq.ts, which is
+          also what the page's FAQPage schema is built from. */}
+      {copy.faq && copy.faq.length > 0 && (
+        <section className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <h2 className="font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
+            {locale === "fr" ? "Questions fréquentes" : "Frequently asked questions"}
+          </h2>
+          <dl className="mt-8 space-y-6">
+            {copy.faq.map((item) => (
+              <div
+                key={item.question}
+                className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5"
+              >
+                <dt className="font-heading text-base font-bold text-brand-blue">
+                  {item.question}
+                </dt>
+                <dd className="mt-2 text-sm leading-relaxed text-charcoal/75">{item.answer}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
       )}
 

@@ -1,6 +1,7 @@
 import WaterDamageContent from "@/components/pages/WaterDamageContent";
 import { localizedMetadata, serviceJsonLd } from "@/lib/seo";
 import { toLocale } from "@/i18n/routing";
+import { WATER_DAMAGE_FAQ } from "@/lib/serviceFaq";
 
 export const generateMetadata = localizedMetadata({
   path: "/services/water-damage",
@@ -48,7 +49,12 @@ export default async function WaterDamagePage({
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd(locale, schema)) }}
+        dangerouslySetInnerHTML={{
+          // Same array the page renders — see serviceFaq.ts.
+          __html: JSON.stringify(
+            serviceJsonLd(locale, { ...schema, faq: WATER_DAMAGE_FAQ[locale] }),
+          ),
+        }}
       />
       <WaterDamageContent />
     </>
