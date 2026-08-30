@@ -59,6 +59,22 @@ const WATER_DAMAGE = {
   labelFr: "Restauration après dégât d'eau",
   href: "/services/water-damage",
 };
+/**
+ * Sewer backup. Listed only on the four Montréal boroughs, and that restraint
+ * is the point: the sewer-backup page's local content is built on Ville de
+ * Montréal's backwater-valve by-law and its Rénoplex subsidy, neither of which
+ * applies in Laval. Adding it to the Laval sectors would put a link there that
+ * the destination page cannot yet speak to specifically — the same "curated per
+ * housing stock, not blanket-linked" rule the rest of this file follows.
+ *
+ * Add the Laval sectors once someone has confirmed Laval's own requirement
+ * against a primary ville.laval.qc.ca source and the page says what it is.
+ */
+const SEWER_BACKUP = {
+  labelEn: "Sewer backup cleanup",
+  labelFr: "Nettoyage après refoulement d'égout",
+  href: "/services/sewer-backup",
+};
 const BASEMENTS = {
   labelEn: "Basement finishing",
   labelFr: "Aménagement de sous-sol",
@@ -477,7 +493,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "ahuntsic-cartierville",
     neighbors: ["saint-laurent", "montreal-nord", "chomedey"],
-    relatedServices: [WATER_DAMAGE, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING, FLOORING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING],
     sources: [
       { label: "Ville de Montréal — Ahuntsic-Cartierville", url: "https://montreal.ca/ahuntsic-cartierville" },
       {
@@ -550,7 +566,7 @@ export const serviceAreas: ServiceArea[] = [
     neighbors: ["ahuntsic-cartierville", "duvernay"],
     // 70% of households here rent, so the work skews heavily to landlord and
     // property-manager turnover rather than owner-occupier projects.
-    relatedServices: [WATER_DAMAGE, DRYWALL, PAINTING, REPAIRS, FLOORING, KITCHEN_BATH],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, PAINTING, REPAIRS, FLOORING],
     sources: [
       { label: "Ville de Montréal — Montréal-Nord", url: "https://montreal.ca/montreal-nord" },
       { label: "Montréal-Nord — Britannica", url: "https://www.britannica.com/place/Montreal-Nord" },
@@ -689,7 +705,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "lasalle",
     neighbors: ["saint-laurent", "ahuntsic-cartierville"],
-    relatedServices: [WATER_DAMAGE, RENOVATIONS, KITCHEN_BATH, DRYWALL, PAINTING, FLOORING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, RENOVATIONS, KITCHEN_BATH, DRYWALL, PAINTING],
     sources: [
       { label: "Ville de Montréal — LaSalle", url: "https://montreal.ca/lasalle" },
       { label: "LaSalle, Quebec — Wikipedia", url: "https://en.wikipedia.org/wiki/LaSalle,_Quebec" },
