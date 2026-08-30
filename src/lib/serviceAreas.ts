@@ -20,6 +20,12 @@ export type ServiceAreaLocaleContent = {
   /** Display name as it should read in running text. */
   name: string;
   tagline: string;
+  /**
+   * Compact SERP title (the layout template appends " | Renovision AnA").
+   * The tagline stays as the on-page H1; at 56-78 chars it was getting
+   * truncated in Google results once the brand suffix was added.
+   */
+  metaTitle: string;
   metaDescription: string;
   /** Sourced local context — real facts about the area. */
   context: string[];
@@ -31,6 +37,12 @@ export type ServiceAreaLocaleContent = {
 
 export type ServiceArea = {
   slug: string;
+  /**
+   * Slugs of nearby served sectors, rendered as a "nearby areas" block so the
+   * local pages link laterally instead of only up to the index. Loose
+   * geographic proximity, not strict adjacency.
+   */
+  neighbors: string[];
   /**
    * Service pages genuinely relevant to this area's housing stock, so internal
    * links mirror the real service hierarchy rather than linking everything to
@@ -84,6 +96,7 @@ const PAINTING = {
 export const serviceAreas: ServiceArea[] = [
   {
     slug: "chomedey",
+    neighbors: ["fabreville", "vimont", "saint-laurent"],
     // Multiplex water-damage work here is largely a board-and-paint job once
     // the wet material is out, and tenant turnover drives repainting.
     relatedServices: [WATER_DAMAGE, DRYWALL, KITCHEN_BATH, FLOORING, PAINTING, REPAIRS],
@@ -100,8 +113,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Chomedey",
       tagline: "Renovation and water damage restoration in Chomedey, Laval",
+      metaTitle: "Water Damage & Renovation in Chomedey, Laval",
       metaDescription:
-        "Renovation and water damage restoration in Chomedey, Laval. Multiplex and apartment work, bathroom and kitchen remodels, flooring — for owners, tenants-in-place, and property managers.",
+        "Renovation and water damage restoration in Chomedey. Multiplex and apartment work, bathroom and kitchen remodels, flooring — for owners and property managers.",
       context: [
         "Chomedey is the most populous sector of Laval, occupying the western part of Île Jésus. It is also one of the densest: roughly 45% of its dwellings are small apartment buildings, with larger apartment buildings and single detached homes making up most of the rest.",
         "Its housing stock spans several distinct waves of construction. About a third of homes here were built between 1960 and 1980, and most of the remainder date either from before 1960 or from the 1980s.",
@@ -128,8 +142,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Chomedey",
       tagline: "Rénovation et restauration après dégât d'eau à Chomedey, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Chomedey, Laval",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Chomedey, Laval. Travaux en multiplex et en immeuble, salles de bain et cuisines, revêtements de sol — pour propriétaires et gestionnaires immobiliers.",
+        "Rénovation et dégât d'eau à Chomedey, Laval. Multiplex et immeubles, salles de bain et cuisines, planchers — pour propriétaires et gestionnaires immobiliers.",
       context: [
         "Chomedey est le secteur le plus peuplé de Laval et occupe la partie ouest de l'île Jésus. C'est aussi l'un des plus denses : environ 45 % des logements s'y trouvent dans de petits immeubles à appartements, le reste étant surtout composé de grands immeubles et de maisons unifamiliales détachées.",
         "Le parc immobilier y couvre plusieurs vagues de construction distinctes. Environ un tiers des logements ont été construits entre 1960 et 1980, et la majeure partie du reste date soit d'avant 1960, soit des années 1980.",
@@ -157,6 +172,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "sainte-rose",
+    neighbors: ["fabreville", "vimont"],
     relatedServices: [WATER_DAMAGE, BASEMENTS, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING],
     sources: [
       {
@@ -170,8 +186,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Sainte-Rose",
       tagline: "Renovation and water damage restoration in Sainte-Rose, Laval",
+      metaTitle: "Water Damage & Renovation in Sainte-Rose, Laval",
       metaDescription:
-        "Renovation and water damage restoration in Sainte-Rose, Laval. Work on older homes in the Vieux Sainte-Rose core and family homes in the Champfleury and Champenois sectors.",
+        "Renovation and water damage restoration in Sainte-Rose, Laval: older homes of Vieux Sainte-Rose, family homes in Champfleury and Champenois.",
       context: [
         "Sainte-Rose sits along the Rivière des Mille Îles in northern Laval and joined the City of Laval at its founding in 1965. Its historic core, Vieux Sainte-Rose, runs along Boulevard Sainte-Rose and includes the Sainte-Rose-de-Lima church.",
         "The sector did not grow outward from its church the way many Quebec parishes did. Two river crossings shaped it instead, producing two separate development nodes — one along Rue des Patriotes and Boulevard Sainte-Rose, another around Boulevard Sainte-Rose and Boulevard Curé-Labelle. South of the old core lie the Champenois and Champfleury sectors, split by Boulevard Curé-Labelle.",
@@ -199,8 +216,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Sainte-Rose",
       tagline: "Rénovation et restauration après dégât d'eau à Sainte-Rose, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Sainte-Rose, Laval",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Sainte-Rose, Laval. Travaux sur les maisons anciennes du Vieux Sainte-Rose et les maisons familiales des secteurs Champfleury et Champenois.",
+        "Rénovation et dégât d'eau à Sainte-Rose, Laval : maisons anciennes du Vieux Sainte-Rose, maisons familiales de Champfleury et Champenois.",
       context: [
         "Sainte-Rose borde la rivière des Mille Îles, au nord de Laval, et s'est jointe à la Ville de Laval lors de sa fondation en 1965. Son noyau historique, le Vieux Sainte-Rose, s'étend le long du boulevard Sainte-Rose et comprend l'église Sainte-Rose-de-Lima.",
         "Le secteur ne s'est pas développé autour de son église comme beaucoup de paroisses québécoises. Deux ponts ont plutôt façonné sa croissance, produisant deux pôles distincts — l'un le long de la rue des Patriotes et du boulevard Sainte-Rose, l'autre autour des boulevards Sainte-Rose et Curé-Labelle. Au sud du vieux noyau se trouvent les secteurs Champenois et Champfleury, séparés par le boulevard Curé-Labelle.",
@@ -229,6 +247,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "vimont",
+    neighbors: ["sainte-rose", "duvernay", "chomedey"],
     // Bungalow basement finishing is board, tape and paint more than anything
     // else, so those two sit high in this sector's list.
     relatedServices: [BASEMENTS, DRYWALL, RENOVATIONS, PAINTING, FLOORING, KITCHEN_BATH],
@@ -242,8 +261,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Vimont",
       tagline: "Renovation and water damage restoration in Vimont, Laval",
+      metaTitle: "Water Damage & Renovation in Vimont, Laval",
       metaDescription:
-        "Renovation and water damage restoration in Vimont, Laval. Specialists in 1950s–60s bungalow renovation: basement finishing, opening up closed layouts, flooring and kitchens.",
+        "Renovation and water damage restoration in Vimont, Laval. 1950s–60s bungalow specialists: basements, opening closed layouts, flooring and kitchens.",
       context: [
         "Vimont sits at the geographic centre of Île Jésus and is sometimes called the heart of Laval. It is the only Laval sector that does not border a waterway.",
         "The area stayed agricultural into the 1950s before developing as a residential suburb. Its architecture is defined by single-storey homes — bungalows — built mostly during the 1950s and 1960s, and those bungalows still characterise the sector today.",
@@ -271,8 +291,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Vimont",
       tagline: "Rénovation et restauration après dégât d'eau à Vimont, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Vimont, Laval",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Vimont, Laval. Spécialistes de la rénovation de bungalows des années 1950-60 : sous-sols, ouverture des aires fermées, planchers et cuisines.",
+        "Rénovation et dégât d'eau à Vimont, Laval. Spécialistes des bungalows 1950-60 : sous-sols, ouverture des aires fermées, planchers et cuisines.",
       context: [
         "Vimont se situe au centre géographique de l'île Jésus et est parfois appelé le cœur de Laval. C'est le seul secteur lavallois qui ne borde aucun cours d'eau.",
         "Le secteur est demeuré agricole jusque dans les années 1950 avant de se développer en banlieue résidentielle. Son architecture est marquée par les maisons de plain-pied — les bungalows — construites majoritairement durant les années 1950 et 1960, et ces bungalows caractérisent encore le quartier aujourd'hui.",
@@ -301,6 +322,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "fabreville",
+    neighbors: ["sainte-rose", "chomedey"],
     relatedServices: [RENOVATIONS, KITCHEN_BATH, FLOORING, BASEMENTS, DRYWALL, PAINTING],
     sources: [
       {
@@ -312,8 +334,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Fabreville",
       tagline: "Renovation and water damage restoration in Fabreville, Laval",
+      metaTitle: "Water Damage & Renovation in Fabreville, Laval",
       metaDescription:
-        "Renovation and water damage restoration in Fabreville, Laval. Single-family, semi-detached and townhouse renovation across a sector with housing from the 1950s to new construction.",
+        "Renovation and water damage restoration in Fabreville, Laval. Single-family, semi-detached and townhouse work, from 1950s stock to new builds.",
       context: [
         "Fabreville occupies the northwest of Laval. It was its own municipality — Ville de Fabreville, named for Mgr Édouard-Charles Fabre — from 1957 until the 1965 merger that created Laval, and the sector name was formally adopted on 5 December 1968.",
         "It has been in continuous development since. The housing is mainly single-family homes, along with semi-detached houses, townhouses, and a growing share of newer residential units.",
@@ -340,8 +363,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Fabreville",
       tagline: "Rénovation et restauration après dégât d'eau à Fabreville, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Fabreville, Laval",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Fabreville, Laval. Rénovation de maisons unifamiliales, jumelées et de ville dans un secteur bâti des années 1950 à aujourd'hui.",
+        "Rénovation et dégât d'eau à Fabreville, Laval. Maisons unifamiliales, jumelées et de ville, du parc des années 1950 aux constructions neuves.",
       context: [
         "Fabreville occupe le nord-ouest de Laval. Le secteur a été une municipalité à part entière — la ville de Fabreville, nommée en l'honneur de Mgr Édouard-Charles Fabre — de 1957 jusqu'à la fusion de 1965 qui a créé Laval, et son nom a été officialisé le 5 décembre 1968.",
         "Le secteur est en développement continu depuis. L'habitation y est principalement composée de maisons unifamiliales, auxquelles s'ajoutent des maisons jumelées, des maisons de ville et une proportion croissante d'unités résidentielles plus récentes.",
@@ -369,6 +393,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "duvernay",
+    neighbors: ["vimont", "montreal-nord"],
     // Flat-roof infiltration in the El Rancho stock lands on ceilings and
     // walls first, which is drywall work before it is anything else.
     relatedServices: [WATER_DAMAGE, DRYWALL, RENOVATIONS, BASEMENTS, PAINTING, FLOORING],
@@ -382,8 +407,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Duvernay",
       tagline: "Renovation and water damage restoration in Duvernay, Laval",
+      metaTitle: "Water Damage & Renovation in Duvernay, Laval",
       metaDescription:
-        "Renovation and water damage restoration in Duvernay, Laval — including the mid-century El Rancho ranch houses, where flat roofs create a distinct water infiltration profile.",
+        "Renovation and water damage restoration in Duvernay, Laval — including El Rancho's flat-roofed ranch houses and their distinct infiltration profile.",
       context: [
         "Duvernay's residential growth came mainly in its southwest, part of the broader wave of suburb-building across the Montreal region in the post-war decades. Through the 1960s the municipality added modern infrastructure of its own, including a municipal garage, a water treatment plant, and a town hall broken ground on 14 January 1961.",
         "Its most distinctive housing came from Maurice Joubert, mayor of Duvernay from 1957 to 1959 and a builder himself, who developed a residential enclave he named El Rancho after the mid-century modern style then popular on the American west coast. Those ranch-style houses, built between 1954 and 1963, are recognisable by their single storey and their flat roofs finished in cedar shingles.",
@@ -411,8 +437,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Duvernay",
       tagline: "Rénovation et restauration après dégât d'eau à Duvernay, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Duvernay, Laval",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Duvernay, Laval — incluant les maisons El Rancho d'époque moderne, dont les toits plats créent un profil d'infiltration distinct.",
+        "Rénovation et dégât d'eau à Duvernay, Laval — incluant les maisons El Rancho à toit plat et leur profil d'infiltration distinct.",
       context: [
         "La croissance résidentielle de Duvernay s'est faite principalement dans le sud-ouest, dans la foulée de la multiplication des secteurs de banlieue partout dans la région de Montréal durant l'après-guerre. Au cours des années 1960, la municipalité se dote d'installations modernes : garage municipal, usine d'épuration et hôtel de ville, dont la première pelletée de terre a lieu le 14 janvier 1961.",
         "Son habitation la plus distinctive vient de Maurice Joubert, maire de Duvernay de 1957 à 1959 et entrepreneur, qui a développé un secteur résidentiel baptisé El Rancho, inspiré du style mid-century modern alors en vogue sur la côte ouest américaine. Ces maisons d'allure ranch, construites entre 1954 et 1963, sont reconnaissables à leur unique étage et à leur toit plat recouvert de bardeaux de cèdre.",
@@ -449,6 +476,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "ahuntsic-cartierville",
+    neighbors: ["saint-laurent", "montreal-nord", "chomedey"],
     relatedServices: [WATER_DAMAGE, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING, FLOORING],
     sources: [
       { label: "Ville de Montréal — Ahuntsic-Cartierville", url: "https://montreal.ca/ahuntsic-cartierville" },
@@ -460,8 +488,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Ahuntsic-Cartierville",
       tagline: "Renovation and water damage restoration in Ahuntsic-Cartierville, Montreal",
+      metaTitle: "Water Damage & Renovation in Ahuntsic-Cartierville",
       metaDescription:
-        "Renovation and water damage restoration in Ahuntsic-Cartierville. Post-war brick duplex and triplex work, kitchens and bathrooms, plus older homes in the Sault-au-Récollet core.",
+        "Renovation and water damage restoration in Ahuntsic-Cartierville: post-war brick duplexes and triplexes, kitchens, bathrooms, Sault-au-Récollet homes.",
       context: [
         "Ahuntsic-Cartierville sits on the south bank of the Rivière des Prairies, directly across the water from Laval. Its oldest core, Sault-au-Récollet, grew from a Sulpician settlement established in 1696 and still holds houses dating from the 18th and 19th centuries.",
         "Cartierville developed later and for a different reason: it became the northern terminus of the Montreal Park and Island Railway tramway line in 1898 and was incorporated as a village in 1906, named for Sir George-Étienne Cartier. Most of the borough's current housing came later still, in the post-war push northward — solid brick duplexes and triplexes, bungalows, and two-storey homes.",
@@ -488,8 +517,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Ahuntsic-Cartierville",
       tagline: "Rénovation et restauration après dégât d'eau à Ahuntsic-Cartierville, Montréal",
+      metaTitle: "Dégât d'eau et rénovation à Ahuntsic-Cartierville",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Ahuntsic-Cartierville. Duplex et triplex de brique d'après-guerre, cuisines et salles de bain, et maisons anciennes du noyau du Sault-au-Récollet.",
+        "Rénovation et dégât d'eau à Ahuntsic-Cartierville : duplex et triplex de brique, cuisines et salles de bain, maisons du Sault-au-Récollet.",
       context: [
         "Ahuntsic-Cartierville borde la rive sud de la rivière des Prairies, directement en face de Laval. Son noyau le plus ancien, le Sault-au-Récollet, est né d'un établissement sulpicien fondé en 1696 et conserve encore des maisons des XVIIIe et XIXe siècles.",
         "Cartierville s'est développé plus tard et pour une autre raison : le secteur est devenu en 1898 le terminus nord de la ligne de tramway du Montreal Park and Island Railway, puis un village en 1906, nommé en l'honneur de sir George-Étienne Cartier. L'essentiel du parc actuel est toutefois plus récent, issu de l'expansion d'après-guerre vers le nord — duplex et triplex de brique massive, bungalows et maisons à deux étages.",
@@ -517,6 +547,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "montreal-nord",
+    neighbors: ["ahuntsic-cartierville", "duvernay"],
     // 70% of households here rent, so the work skews heavily to landlord and
     // property-manager turnover rather than owner-occupier projects.
     relatedServices: [WATER_DAMAGE, DRYWALL, PAINTING, REPAIRS, FLOORING, KITCHEN_BATH],
@@ -527,8 +558,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Montréal-Nord",
       tagline: "Renovation and water damage restoration in Montréal-Nord",
+      metaTitle: "Water Damage & Renovation in Montréal-Nord",
       metaDescription:
-        "Renovation and water damage restoration in Montréal-Nord. Apartment and duplex turnover work, water damage repair, drywall and painting — for landlords, property managers, and owners.",
+        "Renovation and water damage restoration in Montréal-Nord. Apartment and duplex turnovers, water damage repair, drywall and painting for landlords.",
       context: [
         "Montréal-Nord follows the south shore of the Rivière des Prairies, across the water from Laval. It was incorporated as a town in 1915, grew quickly after the Second World War, became a city in 1959, and was merged into Montreal as a borough in 2002.",
         "About half its buildings went up in the 1960s and 1970s, with most of the remainder predating 1960. Small apartment buildings are the most common housing type, duplexes are common too, and roughly 70% of households here rent rather than own.",
@@ -555,8 +587,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Montréal-Nord",
       tagline: "Rénovation et restauration après dégât d'eau à Montréal-Nord",
+      metaTitle: "Dégât d'eau et rénovation à Montréal-Nord",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Montréal-Nord. Remise en état entre locataires, dégâts d'eau, gypse et peinture — pour propriétaires-bailleurs et gestionnaires immobiliers.",
+        "Rénovation et dégât d'eau à Montréal-Nord. Remise en état entre locataires, gypse et peinture — pour propriétaires-bailleurs et gestionnaires.",
       context: [
         "Montréal-Nord longe la rive sud de la rivière des Prairies, en face de Laval. L'arrondissement a été constitué en ville en 1915, a connu une croissance rapide après la Seconde Guerre mondiale, est devenu une cité en 1959, puis a été fusionné à Montréal comme arrondissement en 2002.",
         "Environ la moitié des bâtiments datent des années 1960 et 1970, et la majeure partie du reste est antérieure à 1960. Les petits immeubles à logements y sont le type d'habitation le plus courant, les duplex sont fréquents, et environ 70 % des ménages y sont locataires plutôt que propriétaires.",
@@ -584,6 +617,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "saint-laurent",
+    neighbors: ["ahuntsic-cartierville", "lasalle", "chomedey"],
     relatedServices: [RENOVATIONS, KITCHEN_BATH, BASEMENTS, DRYWALL, FLOORING, PAINTING],
     sources: [
       { label: "Ville de Montréal — Saint-Laurent", url: "https://montreal.ca/en/about/saint-laurent" },
@@ -595,8 +629,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "Saint-Laurent",
       tagline: "Renovation and water damage restoration in Saint-Laurent, Montreal",
+      metaTitle: "Water Damage & Renovation in Saint-Laurent, Montreal",
       metaDescription:
-        "Renovation and water damage restoration in Saint-Laurent, Montreal. Wartime-era house renovations, kitchens and bathrooms, basements — across Norvick, Vieux-Saint-Laurent and Bois-Franc.",
+        "Renovation and water damage restoration in Saint-Laurent: wartime-house renovations, kitchens, bathrooms and basements in Norvick and Bois-Franc.",
       context: [
         "Saint-Laurent's residential character was shaped by the Second World War. Wartime Housing Limited, created by the federal government to house workers supporting the war effort, built several hundred modest, near-identical houses here — including 248 single-family homes in the Norvick sector beginning in 1942.",
         "After the war the borough boomed, becoming Quebec's second industrial city behind Montreal itself, helped by available land near Dorval and highway access. Its neighbourhoods have genuinely different origins: the historic Vieux-Saint-Laurent core, the 1940s wartime housing, and Bois-Franc, a residential development launched in 1993 on the former Cartierville Airport grounds.",
@@ -623,8 +658,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "Saint-Laurent",
       tagline: "Rénovation et restauration après dégât d'eau à Saint-Laurent, Montréal",
+      metaTitle: "Dégât d'eau et rénovation à Saint-Laurent, Montréal",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à Saint-Laurent, Montréal. Rénovation de maisons de guerre, cuisines et salles de bain, sous-sols — Norvick, Vieux-Saint-Laurent et Bois-Franc.",
+        "Rénovation et dégât d'eau à Saint-Laurent : maisons de guerre, cuisines, salles de bain et sous-sols — Norvick, Vieux-Saint-Laurent, Bois-Franc.",
       context: [
         "Le caractère résidentiel de Saint-Laurent a été façonné par la Seconde Guerre mondiale. Wartime Housing Limited, société créée par le gouvernement fédéral pour loger les travailleurs de l'effort de guerre, y a construit plusieurs centaines de maisons modestes et quasi identiques — dont 248 maisons unifamiliales dans le secteur Norvick à partir de 1942.",
         "Après la guerre, l'arrondissement a connu un essor considérable, devenant la deuxième ville industrielle du Québec derrière Montréal, favorisé par les terrains disponibles près de Dorval et l'accès aux autoroutes. Ses quartiers ont des origines réellement distinctes : le noyau historique du Vieux-Saint-Laurent, les maisons de guerre des années 1940, et Bois-Franc, un projet résidentiel lancé en 1993 sur les anciens terrains de l'aéroport de Cartierville.",
@@ -652,6 +688,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "lasalle",
+    neighbors: ["saint-laurent", "ahuntsic-cartierville"],
     relatedServices: [WATER_DAMAGE, RENOVATIONS, KITCHEN_BATH, DRYWALL, PAINTING, FLOORING],
     sources: [
       { label: "Ville de Montréal — LaSalle", url: "https://montreal.ca/lasalle" },
@@ -660,8 +697,9 @@ export const serviceAreas: ServiceArea[] = [
     en: {
       name: "LaSalle",
       tagline: "Renovation and water damage restoration in LaSalle, Montreal",
+      metaTitle: "Water Damage & Renovation in LaSalle, Montreal",
       metaDescription:
-        "Renovation and water damage restoration in LaSalle, Montreal. Post-war bungalow, duplex and low-rise apartment work, kitchens and bathrooms, plus riverside and condo properties.",
+        "Renovation and water damage restoration in LaSalle: post-war bungalows, duplexes and low-rise apartments, plus riverside and condo properties.",
       context: [
         "LaSalle formed part of Lachine from 1669 until 1848 and became an independent city in 1912, named for the explorer René-Robert Cavelier de La Salle. It was merged into Montreal as a borough in 2002.",
         "The Lachine Canal, cut in the 1820s to bypass the rapids, brought industry and the workers who settled beside it — modest workers' housing, early duplexes, and stone houses along the river. After the Second World War the borough grew quickly into a family-oriented suburb of bungalows, duplexes, triplexes and low-rise apartment buildings, and since the early 2000s former industrial land has been redeveloped with new low-rise condominiums near the water.",
@@ -688,8 +726,9 @@ export const serviceAreas: ServiceArea[] = [
     fr: {
       name: "LaSalle",
       tagline: "Rénovation et restauration après dégât d'eau à LaSalle, Montréal",
+      metaTitle: "Dégât d'eau et rénovation à LaSalle, Montréal",
       metaDescription:
-        "Rénovation et restauration après dégât d'eau à LaSalle, Montréal. Bungalows, duplex et petits immeubles d'après-guerre, cuisines et salles de bain, propriétés riveraines et copropriétés.",
+        "Rénovation et dégât d'eau à LaSalle : bungalows, duplex et petits immeubles d'après-guerre, propriétés riveraines et copropriétés.",
       context: [
         "LaSalle a fait partie de Lachine de 1669 à 1848 avant de devenir une ville indépendante en 1912, nommée en l'honneur de l'explorateur René-Robert Cavelier de La Salle. Le territoire a été fusionné à Montréal comme arrondissement en 2002.",
         "Le canal de Lachine, creusé dans les années 1820 pour contourner les rapides, a amené l'industrie et les travailleurs qui se sont installés à proximité — logements ouvriers modestes, premiers duplex et maisons de pierre le long du fleuve. Après la Seconde Guerre mondiale, l'arrondissement est rapidement devenu une banlieue familiale de bungalows, duplex, triplex et petits immeubles à logements; depuis le début des années 2000, d'anciens terrains industriels ont été réaménagés en copropriétés de faible hauteur près de l'eau.",

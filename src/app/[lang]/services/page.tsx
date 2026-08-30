@@ -12,7 +12,7 @@ export const generateMetadata = localizedMetadata({
   en: {
     title: "Services",
     description:
-      "Water damage restoration, flooring, kitchens & bathrooms, interior renovations, basement transformations, drywall, interior painting, and small repairs with color matching.",
+      "Water damage restoration, flooring, kitchens and bathrooms, renovations, basements, drywall, painting, and small repairs — in Laval and Montreal.",
   },
 });
 

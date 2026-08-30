@@ -6,7 +6,7 @@ import { useChat } from "@/components/chat/ChatProvider";
 import CtaBand from "@/components/home/CtaBand";
 import { IconCheckCircle, IconMapPin } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
-import type { ServiceArea } from "@/lib/serviceAreas";
+import { getServiceArea, type ServiceArea } from "@/lib/serviceAreas";
 
 export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
   const { t, locale } = useLanguage();
@@ -24,6 +24,7 @@ export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
           faqHeading: "Questions fréquentes",
           sourcesLabel: "Contexte local tiré de",
           backLink: "Tous les secteurs desservis",
+          neighborsHeading: "Autres secteurs desservis à proximité",
         }
       : {
           eyebrow: "Service area",
@@ -34,7 +35,14 @@ export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
           faqHeading: "Frequently asked questions",
           sourcesLabel: "Local context sourced from",
           backLink: "All service areas",
+          neighborsHeading: "Nearby areas we also serve",
         };
+
+  // Lateral links between local pages — before this, area pages only linked
+  // up to the index, so each one was a dead end for crawlers and readers.
+  const neighbors = area.neighbors
+    .map((slug) => getServiceArea(slug))
+    .filter((n): n is ServiceArea => Boolean(n));
 
   return (
     <>
@@ -166,6 +174,25 @@ export default function ServiceAreaContent({ area }: { area: ServiceArea }) {
             </div>
           ))}
         </dl>
+
+        {neighbors.length > 0 && (
+          <div className="mt-12">
+            <h2 className="font-heading text-xl font-bold text-brand-blue">
+              {labels.neighborsHeading}
+            </h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {neighbors.map((n) => (
+                <Link
+                  key={n.slug}
+                  href={`/service-areas/${n.slug}`}
+                  className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-brand-blue shadow-sm ring-1 ring-black/5 transition-all hover:bg-brand-blue hover:text-white"
+                >
+                  {(locale === "fr" ? n.fr : n.en).name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p className="mt-10">
           <Link href="/service-areas" className="text-sm font-semibold text-brand-blue hover:underline">

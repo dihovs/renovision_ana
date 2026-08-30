@@ -8,6 +8,12 @@ export type BlogPostSection =
 
 export type BlogPostLocaleContent = {
   title: string;
+  /**
+   * Compact SERP title (the layout template appends " | Renovision AnA").
+   * The full editorial title stays as the H1 and card headline; at 56-114
+   * chars those were getting truncated in Google results.
+   */
+  metaTitle: string;
   excerpt: string;
   metaDescription: string;
   sections: BlogPostSection[];
@@ -53,10 +59,11 @@ export const blogPosts: BlogPost[] = [
     },
     en: {
       title: "Bathroom Renovations and Home Value: What Laval & Montreal Homeowners Should Know",
+      metaTitle: "Bathroom Renovation ROI in Laval & Montreal",
       excerpt:
         "A well-planned bathroom renovation is one of the highest-return projects you can do to a home — here's what the latest Canadian data says, and what it actually means in dollars for Laval and Montreal.",
       metaDescription:
-        "See what recent Royal LePage and RE/MAX data says about bathroom renovation ROI, and what a 16% value increase looks like in dollar terms for homes in Laval and Montreal.",
+        "Recent Royal LePage and RE/MAX data on bathroom renovation ROI — and what a 16% value increase means in dollars for Laval and Montreal homes.",
       sections: [
         {
           type: "paragraph",
@@ -85,6 +92,12 @@ export const blogPosts: BlogPost[] = [
           type: "paragraph",
           text: "In Quebec, a full bathroom renovation typically runs $16,000 to $55,000, with most homeowners landing between $20,000 and $25,000 for a complete redo — new tile, vanity, tub or shower, plumbing, and lighting. A lighter refresh (paint, a new vanity, updated fixtures and accessories) can run as little as $5,000 to $12,000. RE/MAX's data suggests the sweet spot for resale value is the middle of that range: a $15,000–$35,000 renovation with a new vanity, modern tile, updated fixtures, and improved lighting tends to return 70–85% of its cost — often outperforming ultra-premium, highly customized builds.",
         },
+        {
+          type: "linkParagraph",
+          text: "Layout changes, plumbing moves, and tile choices swing that number more than anything else — our kitchen and bathroom page covers what a remodel includes and how we scope one.",
+          linkText: "See our kitchen & bathroom renovations →",
+          href: "/services/kitchen-bath",
+        },
         { type: "heading", text: "Why bathrooms matter more in today's market" },
         {
           type: "paragraph",
@@ -102,18 +115,21 @@ export const blogPosts: BlogPost[] = [
           ],
         },
         {
-          type: "paragraph",
-          text: "Whether you're renovating to enjoy the space yourselves or preparing to sell in the next few years, a bathroom renovation remains one of the more reliable ways to put money back into your home. Renovision AnA plans and builds kitchen and bathroom remodels across Laval and Montreal, from a quick refresh to a full gut renovation — get a rough estimate in minutes with our chat tool, or give us a call.",
+          type: "linkParagraph",
+          text: "Whether you're renovating to enjoy the space yourselves or preparing to sell in the next few years, a bathroom renovation remains one of the most reliable ways to put money back into your home. Renovision AnA plans and builds kitchen and bathroom remodels across Laval and Montreal, from a quick refresh to a full gut renovation.",
+          linkText: "Get a line-by-line estimate in minutes →",
+          href: "/estimation",
         },
       ],
     },
     fr: {
       title:
         "Rénovation de salle de bain et valeur immobilière : ce que les propriétaires de Laval et Montréal devraient savoir",
+      metaTitle: "Salle de bain : quelle valeur ajoutée à Laval?",
       excerpt:
         "Une rénovation de salle de bain bien planifiée est l'un des projets les plus rentables pour une maison — voici ce que disent les données canadiennes récentes, et ce que cela représente concrètement en dollars pour Laval et Montréal.",
       metaDescription:
-        "Découvrez ce que les données récentes de Royal LePage et RE/MAX révèlent sur le rendement d'une rénovation de salle de bain, et ce qu'une hausse de valeur de 16 % représente pour les propriétés de Laval et Montréal.",
+        "Les données de Royal LePage et RE/MAX sur le rendement d'une rénovation de salle de bain — et ce qu'une hausse de valeur de 16 % représente à Laval et Montréal.",
       sections: [
         {
           type: "paragraph",
@@ -145,6 +161,12 @@ export const blogPosts: BlogPost[] = [
           type: "paragraph",
           text: "Au Québec, une rénovation complète de salle de bain coûte généralement entre 16 000 $ et 55 000 $, la plupart des propriétaires se situant entre 20 000 $ et 25 000 $ pour une reprise complète : nouvelle céramique, vanité, baignoire ou douche, plomberie et éclairage. Un rafraîchissement plus léger (peinture, nouvelle vanité, robinetterie et accessoires mis à jour) peut coûter aussi peu que 5 000 $ à 12 000 $. Les données de RE/MAX suggèrent que le point optimal pour la valeur de revente se situe au milieu de cette fourchette : une rénovation de 15 000 $ à 35 000 $ avec nouvelle vanité, céramique moderne, robinetterie et éclairage mis à jour tend à récupérer de 70 % à 85 % de son coût — souvent plus qu'une construction ultra-haut de gamme et très personnalisée.",
         },
+        {
+          type: "linkParagraph",
+          text: "Les changements de configuration, les déplacements de plomberie et le choix de céramique font varier ce montant plus que tout le reste — notre page cuisine et salle de bain décrit ce qu'une rénovation comprend et comment nous l'évaluons.",
+          linkText: "Voir nos rénovations de cuisine et salle de bain →",
+          href: "/services/kitchen-bath",
+        },
         { type: "heading", text: "Pourquoi la salle de bain compte encore plus dans le marché actuel" },
         {
           type: "paragraph",
@@ -162,8 +184,10 @@ export const blogPosts: BlogPost[] = [
           ],
         },
         {
-          type: "paragraph",
-          text: "Que vous rénoviez pour profiter vous-même de l'espace ou que vous vous prépariez à vendre dans les prochaines années, la rénovation de salle de bain demeure l'un des moyens les plus fiables de réinvestir dans votre propriété. Renovision AnA planifie et réalise des rénovations de cuisine et de salle de bain à Laval et à Montréal, d'un simple rafraîchissement à une rénovation complète — obtenez une estimation approximative en quelques minutes avec notre outil de clavardage, ou appelez-nous.",
+          type: "linkParagraph",
+          text: "Que vous rénoviez pour profiter vous-même de l'espace ou que vous vous prépariez à vendre dans les prochaines années, la rénovation de salle de bain demeure l'un des moyens les plus fiables de réinvestir dans votre maison. Renovision AnA planifie et réalise des rénovations de cuisine et de salle de bain à Laval et à Montréal, d'un simple rafraîchissement à une rénovation complète.",
+          linkText: "Obtenez une estimation détaillée en quelques minutes →",
+          href: "/estimation",
         },
       ],
     },
@@ -187,10 +211,11 @@ export const blogPosts: BlogPost[] = [
     en: {
       title:
         "Quebec's Bill 16: What the New Contingency Fund Study Requirement Means for Your Condo Syndicate",
+      metaTitle: "Bill 16: Condo Contingency Fund Studies",
       excerpt:
         "Every condo syndicate in Quebec now has a legal deadline to get a contingency fund study — and the data shows most aren't financially ready for what it will find. Here's what Bill 16 requires, and what happens once your building has a repair timeline.",
       metaDescription:
-        "Quebec's Bill 16 now requires every condo syndicate to get a contingency fund study by August 2028. Here's what the law requires, why nearly 4 in 10 syndicates are underfunded, and what to do once your study identifies major repairs.",
+        "Bill 16 requires every Quebec condo syndicate to get a contingency fund study by August 2028. What it covers, what it costs, and how to prepare.",
       sections: [
         {
           type: "paragraph",
@@ -261,10 +286,11 @@ export const blogPosts: BlogPost[] = [
     fr: {
       title:
         "Loi 16 au Québec : ce que la nouvelle étude du fonds de prévoyance signifie pour votre syndicat de copropriété",
+      metaTitle: "Loi 16 : l'étude du fonds de prévoyance",
       excerpt:
         "Chaque syndicat de copropriété au Québec a désormais une échéance légale pour obtenir une étude du fonds de prévoyance — et les données montrent que la plupart ne sont pas financièrement prêts pour ce qu'elle révélera. Voici ce qu'exige la Loi 16, et ce qui se passe une fois que votre immeuble a un échéancier de travaux.",
       metaDescription:
-        "La Loi 16 du Québec oblige désormais chaque syndicat de copropriété à obtenir une étude du fonds de prévoyance d'ici août 2028. Voici ce que la loi exige, pourquoi près de 4 syndicats sur 10 sont sous-financés, et quoi faire une fois les travaux majeurs identifiés.",
+        "La Loi 16 oblige chaque syndicat de copropriété à obtenir une étude du fonds de prévoyance d'ici août 2028. Ce qu'elle couvre, ce qu'elle coûte, comment s'y préparer.",
       sections: [
         {
           type: "paragraph",
@@ -351,10 +377,11 @@ export const blogPosts: BlogPost[] = [
     },
     en: {
       title: "Hidden Water Damage: Why Soaked Floors and Walls Need Fast Action, Not a Wait-and-See",
+      metaTitle: "Hidden Water Damage: The 48-Hour Mould Window",
       excerpt:
         "A small leak doesn't stay small. Here's what's actually happening inside your walls and floors in the hours and days after water exposure — and why waiting to deal with it costs more than acting fast.",
       metaDescription:
-        "Mold can start growing within 24-48 hours of water exposure. See the hidden damage timeline, the warning signs to watch for, and why fast action protects your home, your health, and your insurance claim.",
+        "Mould can start growing 24-48 hours after water exposure. The hidden damage timeline, the warning signs, and when to open up instead of waiting.",
       sections: [
         {
           type: "paragraph",
@@ -441,10 +468,11 @@ export const blogPosts: BlogPost[] = [
     },
     fr: {
       title: "Dégât d'eau caché : pourquoi les planchers et murs imbibés exigent une action rapide, pas d'attente",
+      metaTitle: "Dégât d'eau caché : 48 h avant la moisissure",
       excerpt:
         "Une petite fuite ne reste jamais petite. Voici ce qui se passe réellement dans vos murs et vos planchers dans les heures et les jours suivant un dégât d'eau — et pourquoi attendre coûte plus cher qu'agir rapidement.",
       metaDescription:
-        "La moisissure peut commencer à se développer en 24 à 48 heures après un dégât d'eau. Découvrez l'échéancier des dommages cachés, les signes à surveiller, et pourquoi agir vite protège votre maison, votre santé et votre réclamation d'assurance.",
+        "La moisissure peut apparaître 24 à 48 heures après un dégât d'eau. L'échéancier des dommages cachés, les signes avant-coureurs, et quand ouvrir les murs.",
       sections: [
         {
           type: "paragraph",
@@ -545,10 +573,11 @@ export const blogPosts: BlogPost[] = [
     },
     en: {
       title: "Finishing a Basement in Laval: Permits, Moisture and Radon",
+      metaTitle: "Finishing a Basement in Laval: What to Know",
       excerpt:
         "Finishing a basement isn't a cosmetic job. It changes which municipal rules apply and which health guidelines your space falls under — here's what Laval and Health Canada actually require.",
       metaDescription:
-        "What Laval requires a permit for in a basement renovation, why insulating a damp basement makes moisture worse, and the radon rule that only starts applying once the space becomes livable.",
+        "What Laval requires a permit for in a basement renovation, why insulating a damp basement backfires, and the radon rule most homeowners miss.",
       sections: [
         {
           type: "paragraph",
@@ -652,10 +681,11 @@ export const blogPosts: BlogPost[] = [
     },
     fr: {
       title: "Aménager un sous-sol à Laval : permis, humidité et radon",
+      metaTitle: "Aménager un sous-sol à Laval : permis et humidité",
       excerpt:
         "Aménager un sous-sol n'est pas un travail cosmétique. Cela change les règles municipales qui s'appliquent et les lignes directrices sanitaires qui régissent la pièce — voici ce qu'exigent réellement Laval et Santé Canada.",
       metaDescription:
-        "Ce qui exige un permis à Laval pour un sous-sol, pourquoi isoler un sous-sol humide aggrave le problème, et la règle sur le radon qui ne s'applique qu'une fois la pièce habitable.",
+        "Ce qui exige un permis à Laval pour un sous-sol, pourquoi isoler un sous-sol humide aggrave le problème, et la règle du radon souvent oubliée.",
       sections: [
         {
           type: "paragraph",
@@ -776,10 +806,11 @@ export const blogPosts: BlogPost[] = [
     },
     en: {
       title: "Quebec Just Pushed the Construction Code Deadline to 2027 — What It Means for Your Renovation",
+      metaTitle: "Quebec Construction Code: New 2027 Deadline",
       excerpt:
         "Regulations published on August 26 give the industry another year on the previous editions of the Building and Electricity chapters. It's a reprieve, not a repeal — and for a homeowner in Laval or Montreal, the operative rulebook may be your city's, not the province's.",
       metaDescription:
-        "Quebec extended the construction code transition period to October 17, 2027. What changed, what the newer Building and Electricity chapters require, and what a Laval or Montreal homeowner should ask before renovating.",
+        "Quebec extended the construction code transition to October 17, 2027. What changed, what the newer code requires, and what it means for your renovation.",
       sections: [
         {
           type: "paragraph",
@@ -867,10 +898,11 @@ export const blogPosts: BlogPost[] = [
     },
     fr: {
       title: "Québec repousse à 2027 l'échéance du Code de construction — ce que ça change pour votre rénovation",
+      metaTitle: "Code de construction : échéance reportée à 2027",
       excerpt:
         "Des règlements publiés le 26 août accordent à l'industrie une année de plus sur les éditions précédentes des chapitres Bâtiment et Électricité. C'est un sursis, pas une abrogation — et pour un propriétaire de Laval ou de Montréal, le règlement qui s'applique est peut-être celui de votre ville, pas celui de la province.",
       metaDescription:
-        "Québec prolonge jusqu'au 17 octobre 2027 la période transitoire du Code de construction. Ce qui change, ce qu'exigent les nouveaux chapitres Bâtiment et Électricité, et ce qu'un propriétaire de Laval ou Montréal devrait demander avant de rénover.",
+        "Québec prolonge la période transitoire du Code de construction jusqu'au 17 octobre 2027. Ce qui change et ce que ça signifie pour votre rénovation.",
       sections: [
         {
           type: "paragraph",

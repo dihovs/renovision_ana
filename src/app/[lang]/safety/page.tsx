@@ -15,7 +15,7 @@ export const generateMetadata = localizedMetadata({
   en: {
     title: "Safety & Certifications",
     description:
-      "Insurance companies and property managers need more than good work — they need proof. Here are the credentials, coverage, and practices behind every Renovision AnA job site.",
+      "Insurers and property managers need more than good work — they need proof. The credentials, coverage, and practices behind every Renovision AnA job site.",
   },
 });
 

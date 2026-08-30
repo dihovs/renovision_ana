@@ -8,6 +8,15 @@ import { ChatProvider } from "@/components/chat/ChatProvider";
 import ChromeGate from "@/components/layout/ChromeGate";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { serviceAreas } from "@/lib/serviceAreas";
+
+// Slim projection for the footer's sitewide area links — keeps the full
+// serviceAreas data file out of the client bundle.
+const footerAreaLinks = serviceAreas.map((a) => ({
+  slug: a.slug,
+  nameFr: a.fr.name,
+  nameEn: a.en.name,
+}));
 import ChatWidget from "@/components/chat/ChatWidget";
 import LocalBusinessSchema from "@/components/seo/LocalBusinessSchema";
 import { SITE_URL } from "@/lib/constants";
@@ -119,7 +128,7 @@ export default function RootLayout({
             </ChromeGate>
             <main className="flex-1">{children}</main>
             <ChromeGate>
-              <Footer year={currentYear()} />
+              <Footer year={currentYear()} areaLinks={footerAreaLinks} />
               <ChatWidget />
             </ChromeGate>
           </ChatProvider>

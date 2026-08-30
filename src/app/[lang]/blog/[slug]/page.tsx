@@ -32,9 +32,10 @@ export async function generateMetadata({
   // Metadata in the language of the article the crawler actually receives.
   // Both halves have always existed in blogPosts.ts; until the route split
   // only the French half had a URL to attach to.
+  // Compact metaTitle for the SERP; the full editorial title stays as the H1.
   return buildMetadata({
     locale,
-    title: post[locale].title,
+    title: post[locale].metaTitle,
     description: post[locale].metaDescription,
     path: `/blog/${post.slug}`,
     // Same source date as the BlogPosting JSON-LD on this page — the two must

@@ -5,14 +5,14 @@ import { toLocale } from "@/i18n/routing";
 export const generateMetadata = localizedMetadata({
   path: "/services/water-damage",
   fr: {
-    title: "Restauration après dégât d'eau à Laval et Montréal",
+    title: "Dégât d'eau et rénovation après sinistre à Laval",
     description:
-      "Extraction d'eau, séchage et remise en état après un dégât d'eau à Laval et Montréal. Intervention rapide 7 jours sur 7 — appelez pour une soumission gratuite.",
+      "Rénovation après sinistre à Laval et Montréal : extraction d'eau, séchage et remise en état complète après un dégât d'eau. Intervention rapide 7 jours sur 7.",
   },
   en: {
-    title: "Water Damage Restoration",
+    title: "Water Damage & Post-Disaster Restoration in Laval",
     description:
-      "Rapid response water extraction, drying, and repair services from Renovision AnA.",
+      "Water extraction, drying, and full post-disaster repair in Laval and Montreal. Documentation ready for your insurance claim — rapid response 7 days a week.",
   },
 });
 

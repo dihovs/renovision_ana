@@ -41,9 +41,10 @@ export async function generateMetadata({
   // Metadata in the language the page is served in. English metadata over
   // French content is what got these pages indexed with mismatched titles;
   // now each language has its own URL, so each gets its own half of the data.
+  // The compact metaTitle goes to the SERP; the full tagline stays as the H1.
   return buildMetadata({
     locale,
-    title: area[locale].tagline,
+    title: area[locale].metaTitle,
     description: area[locale].metaDescription,
     path: `/service-areas/${area.slug}`,
   });

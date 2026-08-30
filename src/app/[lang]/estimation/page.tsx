@@ -9,14 +9,14 @@ import { toLocale } from "@/i18n/routing";
 export const generateMetadata = localizedMetadata({
   path: "/estimation",
   fr: {
-    title: "Combien coûte votre rénovation à Laval? Estimation en ligne gratuite",
+    title: "Combien coûte votre rénovation à Laval?",
     description:
       "Estimation gratuite et détaillée pour cuisine, salle de bain, sous-sol, planchers ou dégât d'eau à Laval et Montréal — un prix par poste, en quelques minutes.",
   },
   en: {
-    title: "Know What Your Renovation Will Cost — in Minutes, Not Days",
+    title: "What Will Your Renovation Cost? Free Estimate in Minutes",
     description:
-      "Most contractors make you wait for a callback just to hear a rough number. Our estimate assistant prices your project line by line — materials, labour, even travel to your address — using the same price list our crews actually work from, and hands you a detailed range in a few minutes. No forms, no waiting, no obligation.",
+      "Price your renovation line by line — materials, labour, travel — from the price list our crews work from. A detailed range in minutes, no forms, no waiting.",
   },
 });
 

@@ -4,7 +4,7 @@ import { localizedMetadata } from "@/lib/seo";
 export const generateMetadata = localizedMetadata({
   path: "/gallery",
   fr: {
-    title: "Galerie de projets de rénovation à Laval et Montréal",
+    title: "Galerie de projets — Laval et Montréal",
     description:
       "Parcourez nos projets réalisés : rénovations, restaurations après dégât d'eau et sous-sols transformés à Laval et Montréal. Photos avant-après à l'appui.",
   },

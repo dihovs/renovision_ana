@@ -21,7 +21,7 @@ export const generateMetadata = localizedMetadata({
   en: {
     title: "Renovation & Water Damage Restoration in Laval & Montreal",
     description:
-      "Interior renovations, flooring, kitchen & bath remodels, basement transformations, and water damage restoration for property managers, insurers, and homeowners across Laval and greater Montreal.",
+      "Interior renovations, flooring, kitchens and baths, basements, and water damage restoration across Laval and greater Montreal. Fast, free estimates.",
   },
 });
 

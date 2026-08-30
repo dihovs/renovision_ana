@@ -52,7 +52,9 @@ const copy = {
       "Ahuntsic-Cartierville",
       "Saint-Laurent",
       "LaSalle",
-      "Montreal-North",
+      // The borough's official name, even in English copy — "Montreal-North"
+      // slugified to a page that doesn't exist, so the badge never linked.
+      "Montréal-Nord",
       "West Island",
       "Île-Perrot",
       "Longueuil",

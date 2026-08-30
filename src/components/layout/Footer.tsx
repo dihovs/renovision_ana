@@ -24,8 +24,12 @@ import {
  * hydration mismatch on every page of the site. The server picks the year now,
  * so both sides say whatever the cache says.
  */
-export default function Footer({ year }: { year: number }) {
-  const { t } = useLanguage();
+/** Slug + display names only — the full serviceAreas data file stays out of
+ * the client bundle; the server layout derives this. */
+export type FooterAreaLink = { slug: string; nameFr: string; nameEn: string };
+
+export default function Footer({ year, areaLinks }: { year: number; areaLinks: FooterAreaLink[] }) {
+  const { t, locale } = useLanguage();
   const pathname = usePathname();
   const [openSection, setOpenSection] = useState<string | null>(null);
 
@@ -147,6 +151,30 @@ export default function Footer({ year }: { year: number }) {
             </li>
           </ul>
         </div>
+      </div>
+
+      {/* Service-area links, sitewide. Before this, the only pages linking to
+          the local pages were the index and the about page — the footer gives
+          each area page a link from every page on the site. */}
+      <div className="border-t border-white/10 py-5">
+        <p className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4 text-center text-xs text-white/60">
+          <span className="font-semibold text-white/70">{t.nav.serviceAreas}:</span>
+          {areaLinks.map((area, i) => (
+            <span key={area.slug} className="flex items-center gap-x-2">
+              {i > 0 && (
+                <span aria-hidden className="text-white/25">
+                  &middot;
+                </span>
+              )}
+              <Link
+                href={`/service-areas/${area.slug}`}
+                className="text-white/60 underline-offset-2 hover:text-white hover:underline"
+              >
+                {locale === "fr" ? area.nameFr : area.nameEn}
+              </Link>
+            </span>
+          ))}
+        </p>
       </div>
 
       <div className="border-t border-white/10 py-5">

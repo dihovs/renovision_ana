@@ -8,6 +8,15 @@ import { HREFLANG, OG_LOCALE, toLocale } from "@/i18n/routing";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { serviceAreas } from "@/lib/serviceAreas";
+
+// Slim projection for the footer's sitewide area links — keeps the full
+// serviceAreas data file out of the client bundle.
+const footerAreaLinks = serviceAreas.map((a) => ({
+  slug: a.slug,
+  nameFr: a.fr.name,
+  nameEn: a.en.name,
+}));
 import ChatWidget from "@/components/chat/ChatWidget";
 import LocalBusinessSchema from "@/components/seo/LocalBusinessSchema";
 import { localeUrl } from "@/lib/seo";
@@ -149,7 +158,7 @@ export default async function LocaleLayout({
           <ChatProvider>
             <Header />
             <main className="flex-1">{children}</main>
-            <Footer year={currentYear()} />
+            <Footer year={currentYear()} areaLinks={footerAreaLinks} />
             <ChatWidget />
           </ChatProvider>
         </LanguageProvider>
