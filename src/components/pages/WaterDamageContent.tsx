@@ -9,13 +9,13 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
     eyebrow: "Water Damage Restoration",
     title: "Fast Response When Water Damage Can't Wait",
     intro:
-      "A leak or burst pipe gets worse every hour it sits. Here's exactly what happens once you call us — from the first assessment to the final repair.",
+      "A leak or burst pipe gets worse every hour it sits, and it rarely waits for business hours. Our line is answered 24/7. Here's exactly what happens once you call us — from the first assessment to the final repair.",
     processTitle: "How It Works",
     processIntro: "The same four steps whether it's a small leak or a multi-unit emergency.",
     processSteps: [
       {
         title: "Call & Assessment",
-        desc: "You call or message us with the details. We ask a few questions to understand the scope and get a crew moving.",
+        desc: "You call or message us with the details — any hour, any day. We ask a few questions to understand the scope and get a crew moving.",
       },
       {
         title: "Extraction & Containment",
@@ -68,13 +68,13 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
     eyebrow: "Restauration de dégâts d'eau",
     title: "Une intervention rapide quand un dégât d'eau ne peut pas attendre",
     intro:
-      "Une fuite ou un tuyau éclaté empire chaque heure qui passe. Voici exactement ce qui se passe une fois que vous nous appelez — de la première évaluation à la réparation finale.",
+      "Une fuite ou un tuyau éclaté empire chaque heure qui passe, et attend rarement les heures d'ouverture. Notre ligne est répondue 24/7. Voici exactement ce qui se passe une fois que vous nous appelez — de la première évaluation à la réparation finale.",
     processTitle: "Comment ça fonctionne",
     processIntro: "Les quatre mêmes étapes, qu'il s'agisse d'une petite fuite ou d'une urgence sur plusieurs logements.",
     processSteps: [
       {
         title: "Appel et évaluation",
-        desc: "Vous nous appelez ou nous écrivez avec les détails. Nous posons quelques questions pour comprendre l'ampleur des travaux et mobiliser une équipe.",
+        desc: "Vous nous appelez ou nous écrivez avec les détails — à toute heure, tous les jours. Nous posons quelques questions pour comprendre l'ampleur des travaux et mobiliser une équipe.",
       },
       {
         title: "Extraction et confinement",

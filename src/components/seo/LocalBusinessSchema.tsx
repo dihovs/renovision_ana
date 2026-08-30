@@ -119,16 +119,21 @@ export default async function LocalBusinessSchema() {
       latitude: 45.5604,
       longitude: -73.6889,
     },
-    // Placeholder hours pending the owner's real schedule: weekdays 8-18 is
-    // the defensible default for a renovation crew; weekend work happens by
-    // arrangement so it is deliberately not declared as regular hours.
-    // TODO(owner): correct these if the real hours differ.
+    // Confirmed by the owner 2026-08-30: the line is answered at any hour, any
+    // day — Ana takes the call when the office doesn't. `00:00`–`23:59` across
+    // all seven days is schema.org's way of saying that, and it is what earns
+    // the "Open 24 hours" treatment in a local result.
+    //
+    // This describes REACHABILITY, which is what a person searching "dégât
+    // d'eau" at 3am is actually asking about. It is not a claim that a crew is
+    // dispatched overnight — keep the visible copy (see Header's emergency
+    // strip) aligned with that same distinction.
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",
-        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        opens: "08:00",
-        closes: "18:00",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        opens: "00:00",
+        closes: "23:59",
       },
     ],
     logo: `${SITE_URL}/renovision-logo.png`,
