@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { Locale } from "@/i18n/translations";
 import { HREFLANG, OG_LOCALE, localePath, toLocale } from "@/i18n/routing";
+import type { FaqItem } from "./serviceFaq";
 import { SITE_NAME, SITE_URL } from "./constants";
 
 /** Absolute URL for a locale-independent path, e.g. `/about` → `…/en/about`. */
@@ -150,7 +151,18 @@ type ServiceSchemaCopy = { name: string; serviceType: string; description: strin
  */
 export function serviceJsonLd(
   locale: Locale,
-  config: { path: string; fr: ServiceSchemaCopy; en: ServiceSchemaCopy },
+  config: {
+    path: string;
+    fr: ServiceSchemaCopy;
+    en: ServiceSchemaCopy;
+    /**
+     * Optional Q&A for a FAQPage node. Pass the SAME array the page renders —
+     * import it from `serviceFaq.ts` rather than retyping it here. Google
+     * treats FAQ markup that doesn't appear on the page as a violation, and
+     * two copies of an answer drift silently.
+     */
+    faq?: FaqItem[];
+  },
 ) {
   const copy = config[locale];
   return {
@@ -171,6 +183,18 @@ export function serviceJsonLd(
         ],
         url: localeUrl(locale, config.path),
       },
+      ...(config.faq && config.faq.length > 0
+        ? [
+            {
+              "@type": "FAQPage",
+              mainEntity: config.faq.map((item) => ({
+                "@type": "Question",
+                name: item.question,
+                acceptedAnswer: { "@type": "Answer", text: item.answer },
+              })),
+            },
+          ]
+        : []),
       breadcrumbJsonLd(locale, [
         { name: HOME_LABEL[locale], path: "/" },
         { name: "Services", path: "/services" },
