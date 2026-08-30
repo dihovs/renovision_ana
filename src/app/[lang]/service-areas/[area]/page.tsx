@@ -4,6 +4,8 @@ import { HOME_LABEL, breadcrumbJsonLd, buildMetadata, localeUrl } from "@/lib/se
 import { getServiceArea, serviceAreas } from "@/lib/serviceAreas";
 import { toLocale } from "@/i18n/routing";
 import { SITE_URL } from "@/lib/constants";
+import { getGoogleReviewsData } from "@/lib/googleReviews";
+import { translations } from "@/i18n/translations";
 
 export function generateStaticParams() {
   return serviceAreas.map((area) => ({ area: area.slug }));
@@ -60,6 +62,16 @@ export default async function ServiceAreaPage({
   const area = getServiceArea(slug);
   if (!area) notFound();
 
+  // Same resolution order as LocalBusinessSchema: the live Google pull when it
+  // actually returns review text, the curated set in the page's own language
+  // otherwise. Three per page — enough to be worth reading, not so many that
+  // the area's own content gets pushed below a wall of testimonials.
+  const live = await getGoogleReviewsData();
+  const reviews = (live.items.length > 0 ? live.items : translations[locale].testimonials.items).slice(
+    0,
+    3,
+  );
+
   // FAQPage schema for the area-specific Q&A, plus an explicit Service node
   // tied back to the single canonical business @id in LocalBusinessSchema —
   // so these read as one business serving many areas, not many businesses.
@@ -108,7 +120,12 @@ export default async function ServiceAreaPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <ServiceAreaContent area={area} />
+      <ServiceAreaContent
+        area={area}
+        reviews={reviews}
+        overallRating={live.overallRating}
+        reviewCount={live.reviewCount}
+      />
     </>
   );
 }
