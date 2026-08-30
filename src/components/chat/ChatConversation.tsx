@@ -524,7 +524,11 @@ export default function ChatConversation({
       </div>
 
       {step === "leadCapture" && !leadSubmitted ? (
-        <LeadCaptureForm onSubmit={handleLeadSubmit} onSkip={handleSkipLead} />
+        <LeadCaptureForm
+          leadSource={leadSourceFor("chat")}
+          onSubmit={handleLeadSubmit}
+          onSkip={handleSkipLead}
+        />
       ) : (
         <div className="relative border-t border-black/10 bg-white">
           {/* Once an estimate exists, offer the details form as an

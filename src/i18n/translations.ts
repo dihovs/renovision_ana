@@ -113,6 +113,7 @@ const en: Record<string, unknown> & {
       | "consent"
       | "submit"
       | "later"
+      | "heardLabel"
       | "success"
       | "reference"
       | "failed"
@@ -423,6 +424,7 @@ const en: Record<string, unknown> & {
         "We use your details only to answer you and quote your project, and never sell them. You can ask to see, correct or delete them at any time.",
       submit: "Book my free visit",
       later: "Maybe later",
+      heardLabel: "How did you hear about us? (optional)",
       success: "Thanks! A confirmation email is on its way, and a member of our team will reach out shortly to schedule your free in-person visit.",
       // Spoken aloud on the phone as often as it is read, so the copy says the
       // number is for calling us — a reference nobody knows the purpose of gets
@@ -733,6 +735,7 @@ const fr: typeof en = {
         "Nous utilisons vos coordonnées uniquement pour vous répondre et estimer votre projet, et ne les vendons jamais. Vous pouvez demander à les consulter, les corriger ou les supprimer en tout temps.",
       submit: "Réserver ma visite gratuite",
       later: "Peut-être plus tard",
+      heardLabel: "Comment avez-vous entendu parler de nous? (facultatif)",
       success: "Merci! Un courriel de confirmation s'en vient, et un membre de notre équipe communiquera avec vous sous peu pour planifier votre visite gratuite.",
       reference:
         "Votre numéro de référence est le {ref}. Gardez-le à portée de main — si vous nous appelez au 579-999-5979 pour un suivi de votre estimation, donnez simplement ce numéro et nous le retrouverons.",

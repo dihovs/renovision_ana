@@ -3,17 +3,31 @@
 import Link from "@/components/ui/LocaleLink";
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import {
+  HEARD_ABOUT_OPTIONS,
+  HEARD_ABOUT_VALUES,
+  shouldAskHeardAbout,
+} from "@/lib/leads/heardAbout";
 import { isValidEmail, isValidPhone } from "./chatLogic";
 
 export default function LeadCaptureForm({
+  leadSource,
   onSubmit,
   onSkip,
 }: {
+  /**
+   * The attribution token the browser captured, or null. Passed in rather than
+   * read here so the form stays a dumb renderer and the decision lives with the
+   * caller that already knows the channel.
+   */
+  leadSource?: string | null;
   onSubmit: (data: {
     name: string;
     phone: string;
     email: string;
     address?: string;
+    /** Only ever present when the browser learned nothing — see heardAbout.ts. */
+    heardAbout?: string;
     marketingConsent: boolean;
     /**
      * Evidence of consent, not just the answer. The burden of proving consent
@@ -36,7 +50,9 @@ export default function LeadCaptureForm({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [heardAbout, setHeardAbout] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const askHeardAbout = shouldAskHeardAbout(leadSource);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +69,7 @@ export default function LeadCaptureForm({
         phone: phone.trim(),
         email: email.trim(),
         address: address.trim() || undefined,
+        heardAbout: heardAbout || undefined,
         marketingConsent,
         consent: marketingConsent
           ? {
@@ -104,6 +121,24 @@ export default function LeadCaptureForm({
         placeholder={t.chat.leadCapture.address}
         className={inputClass}
       />
+      {/* Asked only when attribution found nothing, and never required. It is
+          the last input on a form somebody with a flooding basement is filling
+          in — it must not be the reason they stop. */}
+      {askHeardAbout && (
+        <select
+          value={heardAbout}
+          onChange={(e) => setHeardAbout(e.target.value)}
+          aria-label={t.chat.leadCapture.heardLabel}
+          className={`${inputClass} cursor-pointer ${heardAbout ? "" : "text-charcoal/50"}`}
+        >
+          <option value="">{t.chat.leadCapture.heardLabel}</option>
+          {HEARD_ABOUT_VALUES.map((value) => (
+            <option key={value} value={value}>
+              {HEARD_ABOUT_OPTIONS[value][locale === "fr" ? "fr" : "en"]}
+            </option>
+          ))}
+        </select>
+      )}
       <label className="flex cursor-pointer items-start gap-2 text-xs leading-snug text-charcoal/70">
         <input
           type="checkbox"

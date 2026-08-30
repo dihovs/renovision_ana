@@ -51,6 +51,7 @@ function extraction(over: Partial<LeadExtraction> = {}): LeadExtraction {
     spokenPhone: "",
     projectType: "basement water damage",
     brief: "Water in the basement since Tuesday, source unknown.",
+    heardAbout: "",
     worthLead: true,
     ...over,
   };
@@ -222,6 +223,7 @@ describe("the prompt treats the transcript as data", () => {
       "spoken_phone",
       "project_type",
       "brief",
+      "heard_about",
       "worth_lead",
     ]);
   });
@@ -235,6 +237,7 @@ describe("parsing what the model sends back", () => {
         spoken_phone: "514 555 0199",
         project_type: "flooring",
         brief: "Living room laminate.",
+        heard_about: "plumber",
         worth_lead: true,
       }),
     ).toEqual({
@@ -242,8 +245,17 @@ describe("parsing what the model sends back", () => {
       spokenPhone: "514 555 0199",
       projectType: "flooring",
       brief: "Living room laminate.",
+      heardAbout: "plumber",
       worthLead: true,
     });
+
+    // The enum is declared on the tool and is still not a guarantee. Anything
+    // off the allowlist becomes empty rather than reaching the column the
+    // contact form fills — one stray value there splits a channel in two.
+    for (const bad of ["Google", "a plumber", "referral ", 7, null, undefined]) {
+      expect(parseExtraction({ brief: "x", heard_about: bad })?.heardAbout).toBe("");
+    }
+    expect(parseExtraction({ brief: "x", heard_about: "referral" })?.heardAbout).toBe("referral");
 
     // "true", 1, undefined — every non-boolean reads as no, because the
     // expensive mistake is a lead that shouldn't exist.

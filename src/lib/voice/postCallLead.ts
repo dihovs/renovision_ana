@@ -4,6 +4,7 @@ import { isOwnerNumber } from "./owner";
 import { SITE_PHONE_TEL } from "@/lib/constants";
 import { attachLeadToCall, getCallBySid, type CallTurn, type StoredCall } from "@/lib/crm/calls";
 import { db } from "@/lib/crm/db";
+import { isHeardAboutValue } from "@/lib/leads/heardAbout";
 import { saveLead } from "@/lib/leadStore";
 import type { ProjectBrief } from "@/lib/projectBrief";
 
@@ -168,6 +169,12 @@ export type LeadExtraction = {
   projectType: string;
   /** One paragraph for the estimator, in the caller's language. */
   brief: string;
+  /**
+   * How they found us, classified to the shared vocabulary, or "" when the
+   * transcript does not say. Read from the call rather than asked twice: Ana
+   * asks once during the intake and the answer is already in the words.
+   */
+  heardAbout: string;
   worthLead: boolean;
 };
 
@@ -194,6 +201,7 @@ How to fill the fields:
 - spoken_phone: any callback number the caller said out loud, exactly as transcribed. Speech recognition mangles digits, so this is unreliable by nature; it is filed as context only and is never dialled. Empty string if none was said.
 - project_type: the job in a few words, the way a contractor would label it ("basement water damage", "kitchen flooring"). Empty string if no job was described.
 - brief: one paragraph for the estimator who will call this person back — what the job is, where, what state it is in, and anything that changes the price or the urgency. Only facts from the transcript; if something important was NOT established, say so in a clause. Write it in the language the caller spoke.
+- heard_about: how the caller says they found the company, and ONLY if they actually said. Choose exactly one of: google (a search engine), referral (a friend, family, a neighbour, a past customer), plumber (a plumber or any other trade), insurance_broker (their broker, insurer or adjuster), social (Facebook or Instagram), neighbourhood (saw the work, a sign or a truck), other (anywhere else they named). Empty string if it never came up or is unclear — never guess from the area code, the job type, or anything but what the caller said.
 - worth_lead: true only when this sounds like a potential customer with real work — someone describing a job at a property, asking for a visit, a price, or a callback. False for wrong numbers, robocalls, vendors selling to us, job seekers, pranks, tests, and calls where no job of any kind came up.`;
 
 export const EXTRACTION_TOOL: Anthropic.Tool = {
@@ -211,9 +219,14 @@ export const EXTRACTION_TOOL: Anthropic.Tool = {
       },
       project_type: { type: "string", description: "The job in a few words, or empty." },
       brief: { type: "string", description: "One paragraph for the estimator, in the caller's language." },
+      heard_about: {
+        type: "string",
+        enum: ["google", "referral", "plumber", "insurance_broker", "social", "neighbourhood", "other", ""],
+        description: "How they said they found us, or empty when they did not say.",
+      },
       worth_lead: { type: "boolean", description: "True only for a potential customer with real work." },
     },
-    required: ["caller_name", "spoken_phone", "project_type", "brief", "worth_lead"],
+    required: ["caller_name", "spoken_phone", "project_type", "brief", "heard_about", "worth_lead"],
   },
 };
 
@@ -264,6 +277,11 @@ export function parseExtraction(input: unknown): LeadExtraction | null {
     spokenPhone: text(raw.spoken_phone, MAX_PHONE),
     projectType: text(raw.project_type, MAX_TYPE),
     brief: text(raw.brief, MAX_BRIEF),
+    // Off the allowlist means empty. The tool declares an enum, which the model
+    // follows nearly always and is not a guarantee — and a stray value here
+    // would land in the same column the contact form fills, quietly splitting
+    // one channel into two rows in the report it exists to produce.
+    heardAbout: isHeardAboutValue(raw.heard_about) ? raw.heard_about : "",
     worthLead: raw.worth_lead === true,
   };
 
@@ -446,6 +464,9 @@ export async function fileLeadFromCall(callSid: string): Promise<void> {
         scopeSummary: result.extraction.brief || result.extraction.projectType,
         projectBrief: brief,
         source: "voice",
+        // The phone's whole reason for asking: a call has no referrer, so this
+        // is the only attribution a voice lead can ever carry.
+        heardAbout: result.extraction.heardAbout || undefined,
       }))?.id ?? null;
     } catch (err) {
       // The lead insert failed but the extraction didn't — the brief still
