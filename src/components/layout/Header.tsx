@@ -23,14 +23,17 @@ import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 const FULL_BLEED_HERO_PATHS = ["/"];
 
 /**
- * The emergency strip claims a standing 7-day emergency response service.
- * Turned off 2026-08-03 on the owner's word: that service doesn't exist yet,
- * even in the deliberately softened "7 jours sur 7" (not "24/7") form below —
- * this site only publishes claims that are true. Flip back to `true` once
- * there is a real emergency-response capability behind it; the markup is left
- * in place rather than deleted for exactly that day.
+ * The emergency strip was turned off 2026-08-03 because after-hours calls went
+ * to voicemail and this site only publishes claims that are true.
+ *
+ * Turned back on 2026-08-30: Ana now answers the line at any hour, so the claim
+ * has something real behind it. Note the wording it renders — "Answered 24/7" /
+ * « Réponse 24/7 ». That is a promise about the *phone being answered*, not
+ * about a crew arriving overnight. Keep it that way unless overnight dispatch
+ * genuinely exists; the whole reason this strip sat dark for four weeks was
+ * that the softer "7 jours sur 7" still overstated things.
  */
-const EMERGENCY_STRIP_ENABLED = false;
+const EMERGENCY_STRIP_ENABLED = true;
 
 export default function Header() {
   const { t } = useLanguage();
@@ -156,11 +159,10 @@ export default function Header() {
   return (
     <>
     {/* Emergency strip: water damage is a phone-first, panic-driven search,
-        and the call path must be visible before anything else. Deliberately
-        says "7 jours sur 7", not "24/7" — after-hours currently goes to
-        voicemail, and we only publish claims that are true. Not sticky: it
+        and the call path must be visible before anything else. Not sticky: it
         scrolls away with the page top, leaving the header's phone icon as
-        the persistent call affordance. Gated off — see EMERGENCY_STRIP_ENABLED. */}
+        the persistent call affordance. See EMERGENCY_STRIP_ENABLED above for
+        why the copy says "answered" rather than promising overnight dispatch. */}
     {EMERGENCY_STRIP_ENABLED && (
       <div className="bg-charcoal-dark px-3 py-1.5 text-center text-xs font-semibold text-white/85">
         <span>{t.header.emergencyPrompt}</span>{" "}

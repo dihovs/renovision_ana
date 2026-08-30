@@ -142,7 +142,10 @@ const en: Record<string, unknown> & {
   header: {
     freeEstimate: "Get a Free Estimate",
     emergencyPrompt: "Water damage emergency?",
-    emergencyAvailability: "7 days a week",
+    // "Answered", not "on site" — Ana picks up any hour of any day, which is a
+    // real and verifiable claim. Overnight dispatch of a crew is not promised
+    // here, and the wording is deliberate about the difference.
+    emergencyAvailability: "Answered 24/7",
   },
   hero: {
     eyebrow: "Renovations & Water Damage Restoration",
@@ -454,7 +457,9 @@ const fr: typeof en = {
   header: {
     freeEstimate: "Estimation gratuite",
     emergencyPrompt: "Urgence dégât d'eau?",
-    emergencyAvailability: "7 jours sur 7",
+    // « Réponse », pas « intervention » : Ana répond à toute heure, ce qui est
+    // vérifiable. Le déplacement d'une équipe la nuit n'est pas promis ici.
+    emergencyAvailability: "Réponse 24/7",
   },
   hero: {
     eyebrow: "Rénovations et restauration de dégâts d'eau",

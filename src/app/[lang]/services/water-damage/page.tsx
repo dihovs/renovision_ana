@@ -6,13 +6,16 @@ export const generateMetadata = localizedMetadata({
   path: "/services/water-damage",
   fr: {
     title: "Dégât d'eau et rénovation après sinistre à Laval",
+    // « Répondu 24/7 » plutôt que « intervention 24/7 » : c'est la ligne qui
+    // est répondue à toute heure. Placé en fin de description parce que c'est
+    // l'argument qui décide un clic à 3h du matin.
     description:
-      "Rénovation après sinistre à Laval et Montréal : extraction d'eau, séchage et remise en état complète après un dégât d'eau. Intervention rapide 7 jours sur 7.",
+      "Rénovation après sinistre à Laval et Montréal : extraction d'eau, séchage et remise en état après un dégât d'eau. Urgence répondue 24/7.",
   },
   en: {
     title: "Water Damage & Post-Disaster Restoration in Laval",
     description:
-      "Water extraction, drying, and full post-disaster repair in Laval and Montreal. Documentation ready for your insurance claim — rapid response 7 days a week.",
+      "Water extraction, drying, and full post-disaster repair in Laval and Montreal. Documentation ready for your insurance claim — emergency line answered 24/7.",
   },
 });
 
