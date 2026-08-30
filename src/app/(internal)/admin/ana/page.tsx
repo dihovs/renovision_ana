@@ -68,9 +68,10 @@ export default function TalkToAnaPage() {
       <div>
         <h1 className="font-heading text-lg font-bold text-charcoal">Talk to Ana</h1>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-charcoal/50">
-          Voice or typed, right here — no call needed. She already has read access to the CRM and
-          can write down anything you tell her to remember; it lands on the same task list as a
-          note dictated over the phone. Click the bubble in the corner to start.
+          Voice or typed, right here — no call needed. She can read the CRM, the crew&apos;s
+          WhatsApp threads and customers&apos; texts, and can write down anything you tell her to
+          remember; it lands on the same task list as a note dictated over the phone. Click the
+          bubble in the corner to start.
         </p>
       </div>
 
