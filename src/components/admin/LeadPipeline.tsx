@@ -8,6 +8,7 @@ import AdminNotice from "./AdminNotice";
 import { LEAD_STATUSES, type LeadStatus, type StoredLead } from "@/lib/leadStore";
 import AskClaude from "./AskClaude";
 import ProjectBriefCard from "./ProjectBriefCard";
+import SourceBreakdown from "./SourceBreakdown";
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
   new: "New",
@@ -80,6 +81,12 @@ export default function LeadPipeline({
 
   return (
     <div>
+      {/* Counted from every lead, not the filtered view: "where does the work
+          come from" is a question about the business, and answering it from
+          whichever chip happens to be selected would quietly change the answer
+          as the owner clicks around. */}
+      <SourceBreakdown leads={leads} />
+
       {/* Horizontally scrollable on a phone rather than wrapping into a block
           of chips that pushes the actual list below the fold. */}
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
