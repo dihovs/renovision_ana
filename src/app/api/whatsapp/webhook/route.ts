@@ -6,6 +6,9 @@ import {
   upsertContact,
   type WhatsAppMessage,
 } from "@/lib/whatsapp/store";
+// One version string for the whole integration. Two of them drift, and the one
+// that drifts is always the one nobody is looking at.
+import { GRAPH_VERSION } from "@/lib/whatsapp/send";
 
 /**
  * WhatsApp Cloud API webhook.
@@ -24,8 +27,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const GRAPH_VERSION = "v21.0";
 
 /**
  * Meta's subscription handshake: they GET with a token we chose, and we echo
@@ -108,10 +109,27 @@ type MetaWebhookPayload = {
       value?: {
         contacts?: { wa_id?: string; profile?: { name?: string } }[];
         messages?: MetaMessage[];
-        statuses?: { id?: string; status?: string }[];
+        statuses?: MetaStatus[];
       };
     }[];
   }[];
+};
+
+/**
+ * A delivery receipt. `errors` and `pricing` are the two fields worth having:
+ * the first says why a message never arrived (131026 — not a WhatsApp user — is
+ * the one with an answer, which is SMS), and the second says what Meta actually
+ * billed it as, which is the only place a utility template silently
+ * recategorised as marketing shows up.
+ */
+type MetaStatus = {
+  id?: string;
+  status?: string;
+  timestamp?: string;
+  recipient_id?: string;
+  errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
+  pricing?: { category?: string; billable?: boolean };
+  biz_opaque_callback_data?: string;
 };
 
 type MetaMessage = {
@@ -135,7 +153,7 @@ async function handle(payload: MetaWebhookPayload): Promise<void> {
 
       // Delivery receipts for our own outbound messages.
       for (const status of value.statuses ?? []) {
-        if (status.id && status.status) await updateStatus(status.id, status.status);
+        if (status.id && status.status) await updateStatus(status);
       }
 
       const profileByWaId = new Map<string, string>();
@@ -258,12 +276,43 @@ async function downloadMedia(
   }
 }
 
-async function updateStatus(waMessageId: string, status: string): Promise<void> {
+/**
+ * Walk an outbound message along sent → delivered → read, or park it at failed.
+ *
+ * Mirrored onto `job_dispatches` as well as the message, because those are two
+ * different questions: the message row answers "what happened to this envelope",
+ * the dispatch row answers "does the crew know about this job". A status that
+ * only updated the message would leave the dispatch list claiming everyone was
+ * told when one of them was never reachable.
+ */
+async function updateStatus(status: MetaStatus): Promise<void> {
   const { db } = await import("@/lib/crm/db");
   const client = db();
-  if (!client) return;
+  if (!client || !status.id) return;
+
+  const error = status.errors?.[0];
+  const at = status.timestamp
+    ? new Date(Number(status.timestamp) * 1000).toISOString()
+    : new Date().toISOString();
+
   await client
     .from("whatsapp_messages")
-    .update({ status })
-    .eq("wa_message_id", waMessageId);
+    .update({
+      status: status.status,
+      ...(error ? { error_code: error.code ?? null, error_detail: error.error_data?.details ?? error.title ?? null } : {}),
+      ...(status.pricing?.category ? { billing_category: status.pricing.category } : {}),
+    })
+    .eq("wa_message_id", status.id);
+
+  const dispatchPatch: Record<string, unknown> = {};
+  if (status.status === "delivered") dispatchPatch.delivered_at = at;
+  if (status.status === "read") dispatchPatch.read_at = at;
+  if (status.status === "failed") {
+    dispatchPatch.failed_at = at;
+    dispatchPatch.error_code = error?.code ?? null;
+    dispatchPatch.error_detail = error?.error_data?.details ?? error?.title ?? null;
+  }
+  if (Object.keys(dispatchPatch).length === 0) return;
+
+  await client.from("job_dispatches").update(dispatchPatch).eq("wa_message_id", status.id);
 }

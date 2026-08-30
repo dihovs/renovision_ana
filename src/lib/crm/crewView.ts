@@ -520,6 +520,28 @@ export async function ensureCrewToken(jobId: string, now: Date = new Date()): Pr
 }
 
 /**
+ * This job's crew link if one has already been minted, without minting one.
+ *
+ * Separate from `ensureCrewToken` on purpose: reading a job page must not
+ * create a credential. Minting happens when somebody decides to hand the link
+ * over, which is the dispatch, not the visit.
+ */
+export async function getCrewToken(jobId: string, now: Date = new Date()): Promise<string | null> {
+  const client = db();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from("job_crew_tokens")
+    .select("token, expires_at")
+    .eq("job_id", jobId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const row = data as { token: string; expires_at: string };
+  return new Date(row.expires_at).getTime() > now.getTime() ? row.token : null;
+}
+
+/**
  * Revoke the link. Deleting the row rather than blanking a column: there is
  * one row per job, so the row IS the grant, and the next `ensureCrewToken`
  * mints a different token.

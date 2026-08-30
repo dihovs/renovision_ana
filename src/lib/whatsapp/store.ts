@@ -314,3 +314,127 @@ export async function saveSummary(
   );
   if (error) console.error("[whatsapp] could not save summary:", error.message);
 }
+
+// ---------------------------------------------------------------------------
+// Outbound
+// ---------------------------------------------------------------------------
+
+/**
+ * Record something we sent.
+ *
+ * Same upsert discipline as `recordMessage` — a status webhook can arrive
+ * before this row is written when Meta is fast and Postgres is not, and the
+ * webhook's update must not create a second copy of the message.
+ *
+ * `needs_filing` is always false: an outbound message was composed against a
+ * job by definition, so there is nothing for a human to file.
+ */
+export async function recordOutbound(input: {
+  waMessageId: string | null;
+  contactId: string | null;
+  jobId: string | null;
+  kind?: WhatsAppMessage["kind"];
+  body: string | null;
+  templateName?: string | null;
+  errorCode?: number | null;
+  errorDetail?: string | null;
+  status?: string | null;
+}): Promise<string | null> {
+  const client = db();
+  if (!client) return null;
+
+  const { data, error } = await client
+    .from("whatsapp_messages")
+    .upsert(
+      {
+        wa_message_id: input.waMessageId,
+        contact_id: input.contactId,
+        job_id: input.jobId,
+        direction: "outbound",
+        kind: input.kind ?? "text",
+        body: input.body,
+        template_name: input.templateName ?? null,
+        error_code: input.errorCode ?? null,
+        error_detail: input.errorDetail ?? null,
+        status: input.status ?? (input.waMessageId ? "sent" : "failed"),
+        sent_at: new Date().toISOString(),
+        needs_filing: false,
+      },
+      { onConflict: "wa_message_id", ignoreDuplicates: false },
+    )
+    .select("id")
+    .single();
+
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("whatsapp_messages");
+    console.error("[whatsapp] could not record outbound message:", error.message);
+    return null;
+  }
+  return data.id as string;
+}
+
+/**
+ * Has this contact messaged us in the last 24 hours?
+ *
+ * That is Meta's customer-service window: inside it, free-form text is allowed
+ * and a template is unnecessary. Outside it, free-form is refused with 131047.
+ * Read from our own table rather than asked of Meta — there is no API for it,
+ * and our inbound record is the same event Meta is counting.
+ */
+export async function hasRecentInboundFrom(
+  contactId: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const client = db();
+  if (!client) return false;
+
+  // 23 hours, not 24. The window closes on Meta's clock, not ours, and a
+  // free-form send rejected at the boundary costs a retry as a template.
+  const since = new Date(now.getTime() - 23 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await client
+    .from("whatsapp_messages")
+    .select("id")
+    .eq("contact_id", contactId)
+    .eq("direction", "inbound")
+    .gte("sent_at", since)
+    .limit(1);
+
+  if (error) return false;
+  return ((data ?? []) as unknown[]).length > 0;
+}
+
+/**
+ * Who can be dispatched to: subcontractors and suppliers who have opted in.
+ *
+ * The opt-in is not decoration. A business-initiated WhatsApp message to
+ * somebody who never agreed to receive one is against Meta's own rules and is
+ * how an account gets quality-flagged. `opted_in_at` is set when the owner
+ * asks them, in person, and records the date.
+ */
+export async function listDispatchableContacts(): Promise<WhatsAppContact[]> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("whatsapp_contacts")
+    .select("*")
+    .in("role", ["subcontractor", "supplier"])
+    .is("archived_at", null)
+    .order("display_name", { ascending: true, nullsFirst: false });
+
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("whatsapp_contacts");
+    throw new Error(`Could not load the crew list: ${error.message}`);
+  }
+  return (data ?? []) as WhatsAppContact[];
+}
+
+export async function getContact(id: string): Promise<WhatsAppContact | null> {
+  const client = db();
+  if (!client) return null;
+  const { data } = await client.from("whatsapp_contacts").select("*").eq("id", id).maybeSingle();
+  return (data as WhatsAppContact) ?? null;
+}
+
+/** What to call somebody: what the owner named them, else their profile name. */
+export function contactLabel(contact: WhatsAppContact): string {
+  return contact.display_name ?? contact.profile_name ?? `+${contact.wa_id}`;
+}

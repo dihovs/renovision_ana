@@ -22,6 +22,7 @@ import CallButton from "@/components/admin/CallButton";
 import JobChecklist from "@/components/admin/JobChecklist";
 import JobDetail from "@/components/admin/JobDetail";
 import JobRecurrence, { type RecurrenceAnchor } from "@/components/admin/JobRecurrence";
+import CrewDispatch from "@/components/admin/CrewDispatch";
 import JobThread from "@/components/admin/JobThread";
 import { db, MigrationPendingError } from "@/lib/crm/db";
 import { getJob, getJobExtras } from "@/lib/crm/jobs";
@@ -179,6 +180,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       </div>
 
       <AskClaude subject={{ kind: "job", id: job.id }} />
+
+      <CrewDispatch jobId={job.id} />
 
       <JobThread jobId={job.id} />
 

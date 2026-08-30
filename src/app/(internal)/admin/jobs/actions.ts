@@ -312,3 +312,48 @@ export async function moveChecklistItemAction(
   await moveChecklistItem(jobId, itemId, direction);
   revalidatePath(`/admin/jobs/${jobId}`);
 }
+
+// ---------------------------------------------------------------------------
+// Telling the crew
+// ---------------------------------------------------------------------------
+
+export type DispatchState = { error?: string; ok?: string; lines?: string[] };
+
+/**
+ * Send this job's details to the crew members ticked on the form.
+ *
+ * Returns one line per person rather than a single "sent" — three sends have
+ * three outcomes, and "sent to 2 of 3" without saying which two is a message
+ * the owner has to go and verify by hand anyway.
+ */
+export async function notifyCrewAction(
+  jobId: string,
+  _prev: DispatchState,
+  formData: FormData,
+): Promise<DispatchState> {
+  await requireSession();
+
+  const contactIds = formData.getAll("contactId").map(String).filter(Boolean);
+  const kindRaw = str(formData, "kind");
+  const kind = kindRaw === "schedule_changed" ? "schedule_changed" : "scheduled";
+  const language = str(formData, "language") === "en" ? "en" : "fr";
+
+  if (contactIds.length === 0) return { error: "Tick at least one person first." };
+
+  const { dispatchJob } = await import("@/lib/crm/dispatch");
+
+  let result;
+  try {
+    result = await dispatchJob({ jobId, contactIds, kind, language });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "The dispatch failed." };
+  }
+
+  revalidatePath(`/admin/jobs/${jobId}`);
+
+  const lines = result.outcomes.map((o) => `${o.name}: ${o.detail}`);
+  if (result.blocked) return { error: result.blocked };
+  return result.ok
+    ? { ok: `Sent to ${result.outcomes.filter((o) => o.ok).length} of ${result.outcomes.length}.`, lines }
+    : { error: "Nothing was sent.", lines };
+}
