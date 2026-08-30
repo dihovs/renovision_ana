@@ -136,7 +136,7 @@ export const serviceAreas: ServiceArea[] = [
         "Chomedey is the most populous sector of Laval, occupying the western part of Île Jésus. It is also one of the densest: roughly 45% of its dwellings are small apartment buildings, with larger apartment buildings and single detached homes making up most of the rest.",
         "Its housing stock spans several distinct waves of construction. About a third of homes here were built between 1960 and 1980, and most of the remainder date either from before 1960 or from the 1980s.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation and water damage in Chomedey",
       whatThisMeans: [
         "A high share of small apartment buildings means much of our Chomedey work is for landlords and property managers rather than single-family owners — units that have to be turned over on a schedule, often with neighbours still living on the other side of the wall.",
         "In buildings of this era, supply lines, shut-off valves, and original bathroom waterproofing are commonly at or past the end of their service life. That is the most frequent origin of the water-damage calls we take in dense Laval sectors — a failure inside one unit that reaches the units below before anyone notices.",
@@ -165,7 +165,7 @@ export const serviceAreas: ServiceArea[] = [
         "Chomedey est le secteur le plus peuplé de Laval et occupe la partie ouest de l'île Jésus. C'est aussi l'un des plus denses : environ 45 % des logements s'y trouvent dans de petits immeubles à appartements, le reste étant surtout composé de grands immeubles et de maisons unifamiliales détachées.",
         "Le parc immobilier y couvre plusieurs vagues de construction distinctes. Environ un tiers des logements ont été construits entre 1960 et 1980, et la majeure partie du reste date soit d'avant 1960, soit des années 1980.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Chomedey",
       whatThisMeans: [
         "La forte proportion de petits immeubles fait qu'une grande partie de nos travaux à Chomedey est réalisée pour des propriétaires-bailleurs et des gestionnaires immobiliers — des logements à remettre en état selon un échéancier, souvent avec des voisins toujours sur place de l'autre côté du mur.",
         "Dans les immeubles de cette époque, les conduites d'alimentation, les valves d'arrêt et l'imperméabilisation d'origine des salles de bain arrivent souvent en fin de vie utile. C'est l'origine la plus fréquente des appels de dégât d'eau que nous recevons dans les secteurs denses de Laval : une défaillance dans un logement qui atteint ceux du dessous avant que quiconque s'en aperçoive.",
@@ -210,7 +210,7 @@ export const serviceAreas: ServiceArea[] = [
         "The sector did not grow outward from its church the way many Quebec parishes did. Two river crossings shaped it instead, producing two separate development nodes — one along Rue des Patriotes and Boulevard Sainte-Rose, another around Boulevard Sainte-Rose and Boulevard Curé-Labelle. South of the old core lie the Champenois and Champfleury sectors, split by Boulevard Curé-Labelle.",
         "Statistics Canada's 2021 census counted roughly 35,000 residents here, with a median age of 44.5 — an established, family-heavy population.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation and water damage in Sainte-Rose",
       whatThisMeans: [
         "Sainte-Rose is really two renovation markets in one sector. In and around the old core, we work on genuinely older houses where framing, floor levels, and existing finishes rarely match modern standard dimensions, and where matching what is already there matters more than installing the fastest product.",
         "In the Champfleury and Champenois sectors the stock is more uniformly suburban and family-sized, where the common projects are basement finishing, bathroom updates, and flooring replacement.",
@@ -240,7 +240,7 @@ export const serviceAreas: ServiceArea[] = [
         "Le secteur ne s'est pas développé autour de son église comme beaucoup de paroisses québécoises. Deux ponts ont plutôt façonné sa croissance, produisant deux pôles distincts — l'un le long de la rue des Patriotes et du boulevard Sainte-Rose, l'autre autour des boulevards Sainte-Rose et Curé-Labelle. Au sud du vieux noyau se trouvent les secteurs Champenois et Champfleury, séparés par le boulevard Curé-Labelle.",
         "Le recensement de Statistique Canada de 2021 y dénombrait environ 35 000 résidents, avec un âge médian de 44,5 ans — une population établie, à forte présence familiale.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Sainte-Rose",
       whatThisMeans: [
         "Sainte-Rose représente en réalité deux marchés de rénovation dans un même secteur. Dans le vieux noyau et ses environs, nous travaillons sur des maisons réellement anciennes où la charpente, les niveaux de plancher et les finis existants correspondent rarement aux dimensions standard modernes, et où l'agencement avec l'existant compte davantage que la rapidité de pose.",
         "Dans les secteurs Champfleury et Champenois, le parc est plus uniformément banlieusard et familial : les projets courants y sont l'aménagement de sous-sol, la mise à jour des salles de bain et le remplacement des revêtements de sol.",
@@ -284,7 +284,7 @@ export const serviceAreas: ServiceArea[] = [
         "Vimont sits at the geographic centre of Île Jésus and is sometimes called the heart of Laval. It is the only Laval sector that does not border a waterway.",
         "The area stayed agricultural into the 1950s before developing as a residential suburb. Its architecture is defined by single-storey homes — bungalows — built mostly during the 1950s and 1960s, and those bungalows still characterise the sector today.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation and water damage in Vimont",
       whatThisMeans: [
         "Vimont has one of the most consistent housing profiles we work in. When a homeowner here describes their house, we usually already know the general layout, the ceiling height we will be working under, and the era of the systems behind the walls.",
         "That consistency is an advantage for estimating: comparable bungalow projects in this sector price more predictably than mixed-era stock elsewhere in Laval.",
@@ -314,7 +314,7 @@ export const serviceAreas: ServiceArea[] = [
         "Vimont se situe au centre géographique de l'île Jésus et est parfois appelé le cœur de Laval. C'est le seul secteur lavallois qui ne borde aucun cours d'eau.",
         "Le secteur est demeuré agricole jusque dans les années 1950 avant de se développer en banlieue résidentielle. Son architecture est marquée par les maisons de plain-pied — les bungalows — construites majoritairement durant les années 1950 et 1960, et ces bungalows caractérisent encore le quartier aujourd'hui.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Vimont",
       whatThisMeans: [
         "Vimont présente l'un des profils résidentiels les plus homogènes parmi les secteurs où nous travaillons. Quand un propriétaire d'ici nous décrit sa maison, nous connaissons généralement déjà l'agencement général, la hauteur de plafond sous laquelle nous travaillerons et l'époque des systèmes derrière les murs.",
         "Cette homogénéité est un avantage pour l'estimation : des projets de bungalow comparables se chiffrent ici de façon plus prévisible qu'un parc d'époques mélangées ailleurs à Laval.",
@@ -357,7 +357,7 @@ export const serviceAreas: ServiceArea[] = [
         "Fabreville occupies the northwest of Laval. It was its own municipality — Ville de Fabreville, named for Mgr Édouard-Charles Fabre — from 1957 until the 1965 merger that created Laval, and the sector name was formally adopted on 5 December 1968.",
         "It has been in continuous development since. The housing is mainly single-family homes, along with semi-detached houses, townhouses, and a growing share of newer residential units.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation and water damage in Fabreville",
       whatThisMeans: [
         "Fabreville is the opposite of a single-era sector. Because it has been built out continuously rather than in one wave, two houses a few streets apart can be separated by decades of construction practice — different framing standards, different insulation, different plumbing and electrical of their day.",
         "That is why we do not quote Fabreville work from an address and a square footage alone. The construction era changes both what we find behind the walls and what the job actually costs, so the site visit does real work here.",
@@ -386,7 +386,7 @@ export const serviceAreas: ServiceArea[] = [
         "Fabreville occupe le nord-ouest de Laval. Le secteur a été une municipalité à part entière — la ville de Fabreville, nommée en l'honneur de Mgr Édouard-Charles Fabre — de 1957 jusqu'à la fusion de 1965 qui a créé Laval, et son nom a été officialisé le 5 décembre 1968.",
         "Le secteur est en développement continu depuis. L'habitation y est principalement composée de maisons unifamiliales, auxquelles s'ajoutent des maisons jumelées, des maisons de ville et une proportion croissante d'unités résidentielles plus récentes.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Fabreville",
       whatThisMeans: [
         "Fabreville est l'inverse d'un secteur d'une seule époque. Comme il s'est bâti en continu plutôt qu'en une seule vague, deux maisons situées à quelques rues l'une de l'autre peuvent être séparées par des décennies de pratiques de construction — normes de charpente, isolation, plomberie et électricité de leur temps.",
         "C'est pourquoi nous ne chiffrons pas un projet à Fabreville à partir d'une adresse et d'une superficie seulement. L'époque de construction change à la fois ce que nous trouvons derrière les murs et le coût réel des travaux : la visite sur place a ici une véritable utilité.",
@@ -430,7 +430,7 @@ export const serviceAreas: ServiceArea[] = [
         "Duvernay's residential growth came mainly in its southwest, part of the broader wave of suburb-building across the Montreal region in the post-war decades. Through the 1960s the municipality added modern infrastructure of its own, including a municipal garage, a water treatment plant, and a town hall broken ground on 14 January 1961.",
         "Its most distinctive housing came from Maurice Joubert, mayor of Duvernay from 1957 to 1959 and a builder himself, who developed a residential enclave he named El Rancho after the mid-century modern style then popular on the American west coast. Those ranch-style houses, built between 1954 and 1963, are recognisable by their single storey and their flat roofs finished in cedar shingles.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation and water damage in Duvernay",
       whatThisMeans: [
         "Duvernay is the one Laval sector where roof type changes our water-damage conversation before we have even seen the house. A flat roof sheds water completely differently from a pitched one: drainage matters more, ponding is possible, and infiltration tends to appear on the interior some distance from where it actually got in.",
         "That gap between where water shows up and where it entered is the single most expensive misunderstanding in this kind of house. Chasing the stain instead of the source is how the same ceiling gets repaired twice.",
@@ -460,7 +460,7 @@ export const serviceAreas: ServiceArea[] = [
         "La croissance résidentielle de Duvernay s'est faite principalement dans le sud-ouest, dans la foulée de la multiplication des secteurs de banlieue partout dans la région de Montréal durant l'après-guerre. Au cours des années 1960, la municipalité se dote d'installations modernes : garage municipal, usine d'épuration et hôtel de ville, dont la première pelletée de terre a lieu le 14 janvier 1961.",
         "Son habitation la plus distinctive vient de Maurice Joubert, maire de Duvernay de 1957 à 1959 et entrepreneur, qui a développé un secteur résidentiel baptisé El Rancho, inspiré du style mid-century modern alors en vogue sur la côte ouest américaine. Ces maisons d'allure ranch, construites entre 1954 et 1963, sont reconnaissables à leur unique étage et à leur toit plat recouvert de bardeaux de cèdre.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Duvernay",
       whatThisMeans: [
         "Duvernay est le secteur lavallois où le type de toiture change notre conversation sur les dégâts d'eau avant même d'avoir vu la maison. Un toit plat évacue l'eau tout autrement qu'un toit en pente : le drainage compte davantage, l'accumulation est possible, et l'infiltration se manifeste souvent à l'intérieur à bonne distance de son point d'entrée réel.",
         "Cet écart entre l'endroit où l'eau apparaît et celui où elle est entrée est le malentendu le plus coûteux dans ce type de maison. Poursuivre la tache plutôt que la source, c'est réparer deux fois le même plafond.",
@@ -511,7 +511,7 @@ export const serviceAreas: ServiceArea[] = [
         "Ahuntsic-Cartierville sits on the south bank of the Rivière des Prairies, directly across the water from Laval. Its oldest core, Sault-au-Récollet, grew from a Sulpician settlement established in 1696 and still holds houses dating from the 18th and 19th centuries.",
         "Cartierville developed later and for a different reason: it became the northern terminus of the Montreal Park and Island Railway tramway line in 1898 and was incorporated as a village in 1906, named for Sir George-Étienne Cartier. Most of the borough's current housing came later still, in the post-war push northward — solid brick duplexes and triplexes, bungalows, and two-storey homes.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation and water damage in Ahuntsic-Cartierville",
       whatThisMeans: [
         "This is really two housing stocks in one borough, and they call for different work. A 19th-century house in Sault-au-Récollet and a 1950s brick triplex a few streets away have almost nothing in common once the walls are open.",
         "The post-war duplexes and triplexes are the bulk of it, and their units are typically larger than the narrow Plateau format — which means full kitchen and bathroom renovations are common rather than the compact reworks that tighter floor plans force.",
@@ -540,7 +540,7 @@ export const serviceAreas: ServiceArea[] = [
         "Ahuntsic-Cartierville borde la rive sud de la rivière des Prairies, directement en face de Laval. Son noyau le plus ancien, le Sault-au-Récollet, est né d'un établissement sulpicien fondé en 1696 et conserve encore des maisons des XVIIIe et XIXe siècles.",
         "Cartierville s'est développé plus tard et pour une autre raison : le secteur est devenu en 1898 le terminus nord de la ligne de tramway du Montreal Park and Island Railway, puis un village en 1906, nommé en l'honneur de sir George-Étienne Cartier. L'essentiel du parc actuel est toutefois plus récent, issu de l'expansion d'après-guerre vers le nord — duplex et triplex de brique massive, bungalows et maisons à deux étages.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Ahuntsic-Cartierville",
       whatThisMeans: [
         "Il s'agit en réalité de deux parcs immobiliers dans un même arrondissement, et ils appellent des travaux différents. Une maison du XIXe siècle au Sault-au-Récollet et un triplex de brique des années 1950 à quelques rues de là n'ont pratiquement rien en commun une fois les murs ouverts.",
         "Les duplex et triplex d'après-guerre forment le gros du parc, et leurs logements sont généralement plus grands que l'étroit format du Plateau — ce qui rend courantes les rénovations complètes de cuisine et de salle de bain, plutôt que les réaménagements compacts qu'imposent des plans plus serrés.",
@@ -581,7 +581,7 @@ export const serviceAreas: ServiceArea[] = [
         "Montréal-Nord follows the south shore of the Rivière des Prairies, across the water from Laval. It was incorporated as a town in 1915, grew quickly after the Second World War, became a city in 1959, and was merged into Montreal as a borough in 2002.",
         "About half its buildings went up in the 1960s and 1970s, with most of the remainder predating 1960. Small apartment buildings are the most common housing type, duplexes are common too, and roughly 70% of households here rent rather than own.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation and water damage in Montréal-Nord",
       whatThisMeans: [
         "A borough where seven households in ten are renters produces a particular kind of work: turnover between tenants, scheduled against lease dates rather than preference, and priced to be worth doing repeatedly. Patch, prime, paint and flooring make up a large share of it.",
         "The 1960s-70s stock that dominates here is the same era we work in constantly across the river in Chomedey, and it fails in the same places — supply lines, shut-off valves, and original bathroom waterproofing at or past the end of their service life.",
@@ -610,7 +610,7 @@ export const serviceAreas: ServiceArea[] = [
         "Montréal-Nord longe la rive sud de la rivière des Prairies, en face de Laval. L'arrondissement a été constitué en ville en 1915, a connu une croissance rapide après la Seconde Guerre mondiale, est devenu une cité en 1959, puis a été fusionné à Montréal comme arrondissement en 2002.",
         "Environ la moitié des bâtiments datent des années 1960 et 1970, et la majeure partie du reste est antérieure à 1960. Les petits immeubles à logements y sont le type d'habitation le plus courant, les duplex sont fréquents, et environ 70 % des ménages y sont locataires plutôt que propriétaires.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Montréal-Nord",
       whatThisMeans: [
         "Un arrondissement où sept ménages sur dix sont locataires génère un type de travail bien précis : la remise en état entre deux locataires, planifiée en fonction des dates de bail et non des préférences, et chiffrée pour valoir la peine d'être refaite souvent. Rebouchage, apprêt, peinture et revêtements de sol en composent une grande part.",
         "Le parc des années 1960-70 qui domine ici correspond à l'époque dans laquelle nous travaillons constamment de l'autre côté de la rivière, à Chomedey, et il cède aux mêmes endroits : conduites d'alimentation, valves d'arrêt et imperméabilisation d'origine des salles de bain en fin de vie utile.",
@@ -652,7 +652,7 @@ export const serviceAreas: ServiceArea[] = [
         "Saint-Laurent's residential character was shaped by the Second World War. Wartime Housing Limited, created by the federal government to house workers supporting the war effort, built several hundred modest, near-identical houses here — including 248 single-family homes in the Norvick sector beginning in 1942.",
         "After the war the borough boomed, becoming Quebec's second industrial city behind Montreal itself, helped by available land near Dorval and highway access. Its neighbourhoods have genuinely different origins: the historic Vieux-Saint-Laurent core, the 1940s wartime housing, and Bois-Franc, a residential development launched in 1993 on the former Cartierville Airport grounds.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation work in Saint-Laurent",
       whatThisMeans: [
         "The wartime houses were built quickly, modestly, and to a common plan. That standardization is useful for estimating in the same way Vimont's bungalows are — comparable projects price predictably. It also means the same constraints recur: small footprints, tight room dimensions, and original systems now more than eighty years old.",
         "Houses built as modest wartime dwellings are frequently the ones where owners want space opened up. That is a structural question first, so we establish what is load-bearing before anyone starts choosing finishes.",
@@ -681,7 +681,7 @@ export const serviceAreas: ServiceArea[] = [
         "Le caractère résidentiel de Saint-Laurent a été façonné par la Seconde Guerre mondiale. Wartime Housing Limited, société créée par le gouvernement fédéral pour loger les travailleurs de l'effort de guerre, y a construit plusieurs centaines de maisons modestes et quasi identiques — dont 248 maisons unifamiliales dans le secteur Norvick à partir de 1942.",
         "Après la guerre, l'arrondissement a connu un essor considérable, devenant la deuxième ville industrielle du Québec derrière Montréal, favorisé par les terrains disponibles près de Dorval et l'accès aux autoroutes. Ses quartiers ont des origines réellement distinctes : le noyau historique du Vieux-Saint-Laurent, les maisons de guerre des années 1940, et Bois-Franc, un projet résidentiel lancé en 1993 sur les anciens terrains de l'aéroport de Cartierville.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour les travaux de rénovation à Saint-Laurent",
       whatThisMeans: [
         "Les maisons de guerre ont été bâties rapidement, modestement et sur un plan commun. Cette standardisation aide à l'estimation, comme pour les bungalows de Vimont : des projets comparables se chiffrent de façon prévisible. Elle signifie aussi que les mêmes contraintes reviennent — petites superficies, pièces exiguës et systèmes d'origine aujourd'hui vieux de plus de quatre-vingts ans.",
         "Les maisons conçues comme logements de guerre modestes sont souvent celles où les propriétaires souhaitent ouvrir l'espace. C'est d'abord une question structurale : nous déterminons ce qui est porteur avant que quiconque choisisse des finis.",
@@ -720,7 +720,7 @@ export const serviceAreas: ServiceArea[] = [
         "LaSalle formed part of Lachine from 1669 until 1848 and became an independent city in 1912, named for the explorer René-Robert Cavelier de La Salle. It was merged into Montreal as a borough in 2002.",
         "The Lachine Canal, cut in the 1820s to bypass the rapids, brought industry and the workers who settled beside it — modest workers' housing, early duplexes, and stone houses along the river. After the Second World War the borough grew quickly into a family-oriented suburb of bungalows, duplexes, triplexes and low-rise apartment buildings, and since the early 2000s former industrial land has been redeveloped with new low-rise condominiums near the water.",
       ],
-      whatThisMeansHeading: "What that means for renovation work here",
+      whatThisMeansHeading: "What that means for renovation work in LaSalle",
       whatThisMeans: [
         "Three eras sit side by side here, and the right approach differs sharply between them. Canal-era workers' housing and riverside stone, post-war suburban bungalows and triplexes, and 2000s condominium stock are effectively three different trades.",
         "The post-war suburban housing is the volume of it, and it behaves the way that stock does everywhere on the island: dated finishes over systems that have reached the end of their service life, and closed layouts owners want opened.",
@@ -749,7 +749,7 @@ export const serviceAreas: ServiceArea[] = [
         "LaSalle a fait partie de Lachine de 1669 à 1848 avant de devenir une ville indépendante en 1912, nommée en l'honneur de l'explorateur René-Robert Cavelier de La Salle. Le territoire a été fusionné à Montréal comme arrondissement en 2002.",
         "Le canal de Lachine, creusé dans les années 1820 pour contourner les rapides, a amené l'industrie et les travailleurs qui se sont installés à proximité — logements ouvriers modestes, premiers duplex et maisons de pierre le long du fleuve. Après la Seconde Guerre mondiale, l'arrondissement est rapidement devenu une banlieue familiale de bungalows, duplex, triplex et petits immeubles à logements; depuis le début des années 2000, d'anciens terrains industriels ont été réaménagés en copropriétés de faible hauteur près de l'eau.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux ici",
+      whatThisMeansHeading: "Ce que cela implique pour les travaux de rénovation à LaSalle",
       whatThisMeans: [
         "Trois époques cohabitent ici, et l'approche appropriée diffère nettement de l'une à l'autre. Les logements ouvriers de l'époque du canal et la pierre riveraine, les bungalows et triplex de banlieue d'après-guerre, et le parc de copropriétés des années 2000 constituent en pratique trois métiers différents.",
         "Le parc de banlieue d'après-guerre représente le volume, et il se comporte comme partout ailleurs sur l'île : des finis désuets par-dessus des systèmes arrivés en fin de vie utile, et des aménagements fermés que les propriétaires veulent ouvrir.",
