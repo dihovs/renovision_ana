@@ -16,15 +16,27 @@ Two independent channels that look similar and share nothing:
 | | Channel | Inbound | Outbound | Storage |
 |---|---|---|---|---|
 | **SMS / MMS** | Twilio | `POST /api/sms/incoming` | `sendSms()` → Twilio REST | `sms_messages` |
-| **WhatsApp** | Meta | its own webhook | not built | `whatsapp_*` via `lib/whatsapp/store.ts` |
+| **WhatsApp** | Meta | its own webhook | `lib/whatsapp/send.ts` → Cloud API | `whatsapp_*` via `lib/whatsapp/store.ts` |
 
 They are deliberately separate. WhatsApp is an **unfiled queue** whose goal is to
 be emptied onto jobs; SMS is a **conversation** kept per number. Do not merge
 them without being asked.
 
+That rule is about **writing**. `lib/crm/conversations.ts` reads across both so
+the assistant can answer "what did Mike say" without being asked which app it
+arrived in — read-only, nothing merged, every row still labelled with its
+channel. Adding a write path that spans them is still off the table.
+
 Where things live:
 
 ```
+src/app/api/whatsapp/webhook/route.ts   inbound + delivery receipts
+src/lib/whatsapp/send.ts                the only caller of Meta's /messages
+src/lib/whatsapp/templates.ts           the two approved templates
+src/lib/crm/dispatch.ts                 who gets told, and what happens if it fails
+src/lib/crm/conversations.ts            reading both channels back, for Ana
+src/components/admin/NotifyCrew.tsx     the "Notify crew" panel on a job
+
 src/app/api/sms/incoming/route.ts    the webhook
 src/lib/sms/send.ts                  sendSms, opt-outs, E.164, STOP/START
 src/lib/sms/media.ts                 MMS media in and out of our bucket
@@ -205,3 +217,49 @@ deployment; it needs a rebuild.
 There is no test for the webhook route itself, and none of the MMS path has been
 exercised against a real Twilio message. **Sending yourself a photo from a real
 phone is the only thing that proves the inbound path**, and it has not been done.
+
+---
+
+## 9. Dispatch — telling the crew, and what is left to switch it on
+
+Built 30 Aug 2026, to the design in `Docs/WhatsApp-Team-Dispatch-Research.md`.
+**Nothing here has been sent to a real phone yet** — every step below that is a
+Meta console step is the owner's, and until they are done `dispatchJob` returns
+"WhatsApp sending is not configured yet" and sends nothing.
+
+### What the code does
+
+One utility template per crew member, carrying the job number, the arrival
+window, the street and a button to the crew page. No tasks, no photos, no
+prices — those are behind the token, where `crewView.ts`'s allowlist keeps money
+out. The panel is on the job page: tick who, pick "booked" or "time changed",
+send. Nobody is pre-ticked, and anybody without `opted_in_at` cannot be ticked.
+
+If a 24-hour window happens to be open (they messaged us today), it sends
+ordinary text instead of a template — same content, reads better. Never the
+other way round: free-form as the mechanism would mean dispatch only works when
+the crew remembered to message first.
+
+**Only one failure falls back to SMS:** `131026`, not a WhatsApp user. A dead
+token, a paused template or a rate limit are problems with us, and texting
+around them would hide the thing that needs fixing.
+
+### To switch it on
+
+1. **Apply `supabase/migrations/0044_whatsapp_dispatch.sql`** in the Supabase SQL
+   editor, ending with the `notify pgrst` line it already carries.
+2. **Meta console, `Docs/WhatsApp-Team-Dispatch-Research.md` §10** — the phone
+   number ID, a *permanent System User* access token (a 24-hour test token works
+   for a day and then every send fails with `190`), and the two templates.
+3. **Vercel env**: `WHATSAPP_PHONE_NUMBER_ID`, `CREW_LINK_BASE_URL`, and the
+   permanent token in `WHATSAPP_ACCESS_TOKEN`. Vercel injects at build time —
+   adding one needs a redeploy.
+4. **Add the crew to `whatsapp_contacts`** with `role = 'subcontractor'` and
+   `opted_in_at` set on the date each of them agreed, in person.
+
+### Known limitation, decided deliberately
+
+The crew token is per **job**, not per person, so `last_viewed_at` and the
+`acknowledged_at` column 0044 adds can only ever say *someone* opened the link
+— never who. Changing that is `(job_id, contact_id)` as the key and one token
+per person: contained today, a migration with live links in the wild later.
