@@ -16,6 +16,7 @@
  * more than an approximate stand-in.
  */
 import {
+  ArrowUpFromLine,
   Bath,
   Building2,
   CalendarDays,
@@ -78,6 +79,13 @@ export const IconBrush = make(PaintRoller);
 export const IconWrench = make(Wrench);
 /** Drywall — previously shared the hammer with renovations. */
 export const IconDrywall = make(Frame);
+/**
+ * Sewer backup. Deliberately not the droplet: water damage and a backup are
+ * different jobs with different decontamination rules, and two identical cards
+ * would flatten that. An arrow coming *up* out of a line is the literal thing
+ * that happens.
+ */
+export const IconBackflow = make(ArrowUpFromLine);
 
 /** Basement transformations. Hand-drawn: Lucide has no stairs glyph. */
 export function IconStairs({ className = base }: IconProps) {

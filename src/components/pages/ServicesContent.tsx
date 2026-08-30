@@ -4,6 +4,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import FeatureCard from "@/components/ui/FeatureCard";
 import {
   IconDroplet,
+  IconBackflow,
   IconTiles,
   IconKitchen,
   IconHammer,
@@ -15,6 +16,7 @@ import {
 
 const icons = {
   droplet: IconDroplet,
+  backflow: IconBackflow,
   tiles: IconTiles,
   kitchen: IconKitchen,
   hammer: IconHammer,
@@ -39,6 +41,12 @@ const copy: Record<"en" | "fr", { title: string; intro: string; services: Servic
         icon: "droplet",
         title: "Water Damage Restoration",
         desc: "Rapid response water extraction, drying, and repair — with moisture readings and photos documented for your insurance claim, and the same crew handling the rebuild.",
+      },
+      {
+        href: "/services/sewer-backup",
+        icon: "backflow",
+        title: "Sewer Backup Cleanup",
+        desc: "Contaminated water extracted, disinfected, and the soaked material removed rather than dried — then rebuilt, with the backwater valve left accessible.",
       },
       {
         href: "/services/flooring",
@@ -94,6 +102,12 @@ const copy: Record<"en" | "fr", { title: string; intro: string; services: Servic
         icon: "droplet",
         title: "Restauration après dégât d'eau",
         desc: "Extraction d'eau, séchage et remise en état — intervention rapide, relevés d'humidité et photos consignés pour votre réclamation d'assurance.",
+      },
+      {
+        href: "/services/sewer-backup",
+        icon: "backflow",
+        title: "Nettoyage après refoulement d'égout",
+        desc: "Eau contaminée extraite et désinfectée, matériaux imbibés retirés plutôt que séchés — puis remise en état, en gardant le clapet antiretour accessible.",
       },
       {
         href: "/services/flooring",
