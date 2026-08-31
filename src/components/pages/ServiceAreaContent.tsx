@@ -4,6 +4,7 @@ import Link from "@/components/ui/LocaleLink";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useChat } from "@/components/chat/ChatProvider";
 import CtaBand from "@/components/home/CtaBand";
+import TrustBar from "@/components/home/TrustBar";
 import { IconCheckCircle, IconMapPin } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 import { getServiceArea, type ServiceArea } from "@/lib/serviceAreas";
@@ -267,6 +268,11 @@ export default function ServiceAreaContent({
           </Link>
         </p>
       </section>
+
+      {/* Same placement fix as the service pages: insured, insurer-approved and
+          warranted, stated on the page where a sector visitor actually decides
+          rather than only on a homepage they never reach. */}
+      <TrustBar />
 
       <CtaBand />
     </>
