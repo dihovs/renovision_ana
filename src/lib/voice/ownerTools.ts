@@ -20,6 +20,7 @@ import { resolveContact, type ContactMatch } from "@/lib/crm/contactMatch";
 import { countJobsByStatus, listJobs, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { listInvoices, receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
+import { listPriceBook } from "@/lib/crm/priceBook";
 import { countQuotesByStatus, listQuotes } from "@/lib/crm/quotes";
 import { QUOTE_FOLLOWUP_AFTER_DAYS } from "@/lib/crm/followups";
 import { createOwnerTask, listOpenOwnerTasks, rankTaskMatches, setOwnerTaskDone } from "@/lib/crm/tasks";
@@ -332,6 +333,22 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days: { type: "integer", description: "How far back, in days. Defaults to 7." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "price_lookup",
+    description:
+      "What the price book says we charge for something — 'what do we charge for laminate', 'price on drywall repair'. Answers with the item, its unit and its price, and lists the options when several match. It reads the book; it never totals a job or invents a price for something the book does not have.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A word from the item's name — 'laminate', 'gypse', 'peinture'.",
+        },
+      },
+      required: ["query"],
       additionalProperties: false,
     },
   },
@@ -692,6 +709,34 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async price_lookup(input, locale) {
+    const query = asString(input.query);
+    if (!query) return locale === "fr" ? "Chercher quel article?" : "Look up which item?";
+
+    const items = await listPriceBook({ search: query, limit: 8 }).catch(() => null);
+    if (items === null) {
+      return locale === "fr"
+        ? "Je n'arrive pas à lire le carnet de prix pour le moment."
+        : "I cannot read the price book at the moment.";
+    }
+    if (items.length === 0) {
+      return locale === "fr"
+        ? `Rien dans le carnet de prix pour « ${query} ». Dis-le au propriétaire — n'invente jamais un prix.`
+        : `Nothing in the price book for "${query}". Say so — never invent a price.`;
+    }
+
+    const lines = items.map((item) => {
+      const unit = item.unit ? (locale === "fr" ? ` le ${item.unit}` : ` per ${item.unit}`) : "";
+      return `- ${item.name}: ${spokenMoney(item.unit_price_cents, locale)}${unit}`;
+    });
+    if (items.length === 1) return lines[0].slice(2);
+    const heading =
+      locale === "fr"
+        ? `${items.length} articles correspondent — lis-les et demande lequel:`
+        : `${items.length} items match — read them out and ask which:`;
+    return `${heading}\n${lines.join("\n")}`;
   },
 
   async whats_slipping(_input, locale) {

@@ -48,7 +48,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | **Part 4 — doing the work** | | |
 | ANA-10 | Close the task loop | ✅ done |
 | ANA-11 | What is slipping | ✅ done |
-| ANA-12 | What do we charge | ⬜ not started |
+| ANA-12 | What do we charge | ✅ done |
 | ANA-13 | Did this job make money | ⬜ not started |
 | ANA-14 | Moisture readings | ⬜ not started |
 | ANA-15 | Draft an estimate, never send it | ⬜ not started |
@@ -439,6 +439,10 @@ formatter.
 when several match.
 
 **Do not** total anything. It reads the book. Pricing a job is ANA-15.
+
+**Shipped.** `price_lookup` over `listPriceBook({search})`, price through the money-to-words
+formatter, several matches read out as a question. The no-match answer instructs the model
+in so many words: say so — never invent a price.
 
 ---
 
