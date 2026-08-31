@@ -9,9 +9,12 @@ import {
 import { countClients } from "@/lib/crm/clients";
 import {
   asTranscript,
+  IMPLEMENTED_CHANNELS,
   jobConversation,
   recentTeamMessages,
   searchConversations,
+  type ChannelFilter,
+  type ConversationChannel,
 } from "@/lib/crm/conversations";
 import { resolveContact, type ContactMatch } from "@/lib/crm/contactMatch";
 import { countJobsByStatus, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
@@ -281,8 +284,13 @@ const TOOLS: Anthropic.Tool[] = [
         },
         channel: {
           type: "string",
-          enum: ["whatsapp", "sms", "both"],
-          description: "WhatsApp is the crew and suppliers; SMS is customers. Defaults to both.",
+          // Derived from the readers that exist, never hand-listed — so Ana is
+          // not offered a channel that would come back empty, and a channel
+          // added in a later order appears here without anyone remembering to
+          // edit this line. See CHANNEL_READERS in crm/conversations.ts.
+          enum: [...IMPLEMENTED_CHANNELS, "all"],
+          description:
+            "Where to look. WhatsApp is the crew and suppliers; SMS is customers. Defaults to every channel we hold.",
         },
         days: {
           type: "integer",
@@ -572,8 +580,12 @@ const HANDLERS: Record<string, Handler> = {
     const query = asString(input.query);
     const who = asString(input.who);
     const channelRaw = asString(input.channel);
-    const channel =
-      channelRaw === "whatsapp" || channelRaw === "sms" ? channelRaw : "both";
+    // Anything unrecognised widens to everything rather than narrowing to one
+    // guess: a misheard channel name should cost a longer answer, never a
+    // silently missing half of the conversation.
+    const channel: ChannelFilter = IMPLEMENTED_CHANNELS.includes(channelRaw as ConversationChannel)
+      ? (channelRaw as ConversationChannel)
+      : "all";
     const days = asCount(input.days, 90, 365);
 
     const messages = await searchConversations({ query, who, channel, days, limit: MAX_MESSAGES });

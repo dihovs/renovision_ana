@@ -34,9 +34,9 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | Order | What | Status |
 |---|---|---|
 | **Part 1 — foundations** | | |
-| ANA-01 | The write boundary, stated in code | ✅ done — `aa8c286` |
-| ANA-02 | Identity: one person across five systems | ✅ code done — migration 0046 needs applying |
-| ANA-03 | Channels, plural | ⬜ not started |
+| ANA-01 | The write boundary, stated in code | ✅ done — `6cb05d1` |
+| ANA-02 | Identity: one person across five systems | ✅ done `8731b15` — 0046 unapplied (owner: batch with 0044) |
+| ANA-03 | Channels, plural | ✅ done |
 | **Part 2 — Microsoft, one integration** | | |
 | ANA-04 | The Graph connection, scoped to exclude voice | ⬜ owner is tenant admin ✓, Vercel Pro ✓ |
 | ANA-05 | Teams chat | ⬜ not started |
@@ -204,6 +204,19 @@ was said.
 four channels, and adding a fifth means adding a reader, not editing a switch in six places.
 
 **Do not** migrate WhatsApp and SMS into one table. Revisit only if the fan-out measurably hurts.
+
+**Shipped.** `CHANNEL_READERS` is the registry and the only place the list is
+written; `IMPLEMENTED_CHANNELS` derives from it, and `search_messages`'s enum
+derives from that — so Ana cannot be offered a channel with nothing behind it.
+`channelsFor()` drops an unbuilt channel rather than throwing mid-call, and
+`asTranscript` now labels every line including WhatsApp, which used to be the
+implied default. Ten tests, mutation-checked: removing the filter fails two of
+them by name.
+
+**The failure mode these tests exist for:** a channel offered without a reader
+answers "nothing was said about the boiler" when the truth is "nobody built
+that yet" — indistinguishable from a real answer, which is the one thing a
+search tool must never be.
 
 ---
 

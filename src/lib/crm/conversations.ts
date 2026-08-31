@@ -23,7 +23,26 @@ import { contactLabel, type WhatsAppContact } from "@/lib/whatsapp/store";
 const MAX_ROWS = 40;
 const MAX_BODY_CHARS = 400;
 
-export type ConversationChannel = "whatsapp" | "sms";
+/**
+ * Every channel a message can arrive on.
+ *
+ * THE VOCABULARY, NOT THE INVENTORY. `teams` and `email` are named here before
+ * anything can read them: the tables that hold them arrive in later orders
+ * (ANA-05, ANA-06) and the type has to exist for the identity work to compile
+ * against in the meantime.
+ *
+ * What is actually searchable is IMPLEMENTED_CHANNELS, derived from the readers
+ * that exist. Ana is offered that list and never this one, so she cannot advertise
+ * a channel that would silently come back empty.
+ */
+export type ConversationChannel = "whatsapp" | "sms" | "teams" | "email";
+
+/**
+ * Which channels a search should cover. `"all"` means every implemented one,
+ * which is the sensible default: the owner asking what somebody said does not
+ * know which app it arrived in, and making him ask twice would be the bug.
+ */
+export type ChannelFilter = ConversationChannel | ConversationChannel[] | "all";
 
 export type ConversationMessage = {
   channel: ConversationChannel;
@@ -41,7 +60,7 @@ export type ConversationMessage = {
 type Search = {
   /** Free text, matched case-insensitively against the message body. */
   query?: string | null;
-  channel?: ConversationChannel | "both";
+  channel?: ChannelFilter;
   /** Only messages this many days back. Defaults to 90. */
   days?: number;
   /** Only this job's thread, by the number the owner says out loud. */
@@ -79,16 +98,36 @@ export async function searchConversations(search: Search = {}): Promise<Conversa
   const limit = Math.max(1, Math.min(MAX_ROWS, search.limit ?? 20));
   const days = Math.max(1, Math.min(365, search.days ?? 90));
   const since = new Date(Date.now() - days * 24 * 3_600_000).toISOString();
-  const channel = search.channel ?? "both";
 
-  const [whatsapp, sms] = await Promise.all([
-    channel === "sms" ? [] : searchWhatsApp(client, search, since, limit),
-    channel === "whatsapp" ? [] : searchSms(client, search, since, limit),
-  ]);
+  const results = await Promise.all(
+    channelsFor(search.channel).map(
+      (channel) => CHANNEL_READERS[channel]?.(client, search, since, limit) ?? [],
+    ),
+  );
 
-  return [...whatsapp, ...sms]
+  return results
+    .flat()
     .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
     .slice(0, limit);
+}
+
+/**
+ * The asked-for channels, narrowed to the ones something can actually read.
+ *
+ * A channel with no reader is dropped rather than raised. Asking for Teams
+ * before ANA-05 lands should give back the other channels, not an exception in
+ * the middle of a phone call — and "we have no Teams messages" is a true answer
+ * either way.
+ *
+ * Exported because it is the only part of the fan-out that decides anything,
+ * and it decides it without a database — the same split `contactMatch.ts` makes
+ * between `rankMatches` and `resolveContact`, so the deciding can be tested
+ * against hand-written values rather than a mocked query builder.
+ */
+export function channelsFor(filter: ChannelFilter | undefined): ConversationChannel[] {
+  if (!filter || filter === "all") return [...IMPLEMENTED_CHANNELS];
+  const asked = Array.isArray(filter) ? filter : [filter];
+  return asked.filter((channel) => channel in CHANNEL_READERS);
 }
 
 type Client = NonNullable<ReturnType<typeof db>>;
@@ -212,6 +251,51 @@ async function searchSms(
     })
     .filter((row) => !wanted || row.who.toLowerCase().includes(wanted));
 }
+
+/**
+ * One reader per channel, and the only place that list is written down.
+ *
+ * ADDING A CHANNEL IS ADDING A LINE HERE. The searchable set, the tool schema
+ * Ana is given, and the fan-out above all derive from this object — so a new
+ * channel cannot arrive half-wired, readable by the code but never offered to
+ * the model, or offered to the model with nothing behind it.
+ *
+ * Per-channel tables stay separate on purpose. Each has fields the others do
+ * not — `wamid` and `billing_category` for WhatsApp, a thread id for mail — and
+ * flattening them into one table would lose exactly the information that makes
+ * each channel worth reading. Docs/CRM-Messaging.md's "keep them separate" rule
+ * is about writing and about the inboxes; merging on the way OUT is what this
+ * module is for.
+ */
+const CHANNEL_READERS: Partial<Record<ConversationChannel, ChannelReader>> = {
+  whatsapp: searchWhatsApp,
+  sms: searchSms,
+};
+
+type ChannelReader = (
+  client: Client,
+  search: Search,
+  since: string,
+  limit: number,
+) => Promise<ConversationMessage[]>;
+
+/** The channels something can actually read today. Derived, never hand-listed. */
+export const IMPLEMENTED_CHANNELS = Object.keys(CHANNEL_READERS) as ConversationChannel[];
+
+/**
+ * What to call each channel out loud.
+ *
+ * Every line of a transcript is labelled, including WhatsApp — which used to go
+ * unmarked as the implied default. With four channels there is no default, and
+ * "where was this said" is half the answer when a customer said one thing by
+ * email and the crew heard another on WhatsApp.
+ */
+const CHANNEL_LABEL: Record<ConversationChannel, string> = {
+  whatsapp: "WhatsApp",
+  sms: "SMS",
+  teams: "Teams",
+  email: "email",
+};
 
 /**
  * One job's thread, oldest first — the shape you read rather than search.
@@ -342,7 +426,7 @@ export function asTranscript(messages: ConversationMessage[]): string {
         minute: "2-digit",
       });
       const job = m.jobNumber ? ` [job ${m.jobNumber}]` : "";
-      const channel = m.channel === "sms" ? " (SMS)" : "";
+      const channel = ` (${CHANNEL_LABEL[m.channel]})`;
       const who = m.direction === "outbound" ? `Us → ${m.who}` : m.who;
       const attachment = m.attachment ? ` [sent a ${m.attachment}]` : "";
       return `${when}${job}${channel} — ${who}: ${m.text}${attachment}`;

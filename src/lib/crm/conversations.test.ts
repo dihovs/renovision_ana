@@ -39,7 +39,8 @@ vi.mock("./db", () => ({
   }),
 }));
 
-const { asTranscript, searchConversations } = await import("./conversations");
+const { asTranscript, channelsFor, IMPLEMENTED_CHANNELS, searchConversations } =
+  await import("./conversations");
 
 beforeEach(() => {
   for (const key of Object.keys(tables)) delete tables[key];
@@ -136,5 +137,88 @@ describe("asTranscript", () => {
 
   it("says so when there is nothing, rather than returning an empty string", () => {
     expect(asTranscript([])).toBe("No messages.");
+  });
+});
+
+/**
+ * Which channels a search actually covers. (ANA-03)
+ *
+ * The type names four channels; two have readers. That gap is deliberate and it
+ * is exactly where this can go wrong: offer Ana a channel with nothing behind
+ * it and she answers "nothing was said about the boiler" when the truth is
+ * "nobody has built that yet" — the one failure mode a search tool must never
+ * have, because it is indistinguishable from a real answer.
+ */
+describe("channelsFor", () => {
+  it("covers everything implemented when nothing is asked for", () => {
+    expect(channelsFor(undefined).sort()).toEqual([...IMPLEMENTED_CHANNELS].sort());
+  });
+
+  it('treats "all" as asking for nothing in particular', () => {
+    expect(channelsFor("all").sort()).toEqual(channelsFor(undefined).sort());
+  });
+
+  it("narrows to one channel when one is named", () => {
+    expect(channelsFor("whatsapp")).toEqual(["whatsapp"]);
+    expect(channelsFor("sms")).toEqual(["sms"]);
+  });
+
+  it("takes a list", () => {
+    expect(channelsFor(["whatsapp", "sms"]).sort()).toEqual(["sms", "whatsapp"]);
+  });
+
+  it("drops a channel nothing can read yet rather than throwing mid-call", () => {
+    expect(channelsFor(["whatsapp", "teams"])).toEqual(["whatsapp"]);
+  });
+
+  it("asks nothing at all when only unbuilt channels are named", () => {
+    // Returning [] means searchConversations returns no messages, which is the
+    // honest answer: we hold no Teams messages, because we hold none yet.
+    expect(channelsFor(["teams", "email"])).toEqual([]);
+  });
+});
+
+describe("IMPLEMENTED_CHANNELS", () => {
+  it("is what has a reader, not what the type allows", () => {
+    expect([...IMPLEMENTED_CHANNELS].sort()).toEqual(["sms", "whatsapp"]);
+  });
+
+  it("does not advertise a channel whose order has not landed", () => {
+    // ANA-05 and ANA-06 add these. When they do, this test changes with them —
+    // which is the point: the list Ana is offered cannot drift from the readers.
+    expect(IMPLEMENTED_CHANNELS).not.toContain("teams");
+    expect(IMPLEMENTED_CHANNELS).not.toContain("email");
+  });
+});
+
+describe("asTranscript, once there is more than one channel", () => {
+  const base = {
+    who: "Mike (plumber)",
+    direction: "inbound" as const,
+    sentAt: "2026-08-01T16:30:00Z",
+    text: "The tiles are the wrong colour",
+    jobNumber: 1042,
+    attachment: null,
+  };
+
+  it("labels every line, including WhatsApp", () => {
+    // WhatsApp used to be the implied default and went unmarked. With four
+    // channels there is no default to imply.
+    expect(asTranscript([{ ...base, channel: "whatsapp" }])).toContain("(WhatsApp)");
+    expect(asTranscript([{ ...base, channel: "sms" }])).toContain("(SMS)");
+    expect(asTranscript([{ ...base, channel: "teams" }])).toContain("(Teams)");
+    expect(asTranscript([{ ...base, channel: "email" }])).toContain("(email)");
+  });
+
+  it("tells apart two accounts of the same job said in different places", () => {
+    // The reason the owner asked for any of this: the customer said one thing
+    // by email and the crew heard another on WhatsApp, and which is which is
+    // half the answer.
+    const transcript = asTranscript([
+      { ...base, channel: "email", who: "Mme Tremblay", text: "We agreed on the grey tile" },
+      { ...base, channel: "whatsapp", who: "Mike (plumber)", text: "She told me beige" },
+    ]);
+    expect(transcript).toContain("(email) — Mme Tremblay: We agreed on the grey tile");
+    expect(transcript).toContain("(WhatsApp) — Mike (plumber): She told me beige");
   });
 });
