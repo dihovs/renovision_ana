@@ -709,6 +709,10 @@ export const serviceAreas: ServiceArea[] = [
     sources: [
       { label: "Ville de Montréal — LaSalle", url: "https://montreal.ca/lasalle" },
       { label: "LaSalle, Quebec — Wikipedia", url: "https://en.wikipedia.org/wiki/LaSalle,_Quebec" },
+      {
+        label: "Ville de Montréal — Clapet antiretour",
+        url: "https://montreal.ca/articles/clapet-antiretour-la-cle-pour-prevenir-refoulement-degout-et-inondation-27249",
+      },
     ],
     en: {
       name: "LaSalle",
@@ -720,10 +724,11 @@ export const serviceAreas: ServiceArea[] = [
         "LaSalle formed part of Lachine from 1669 until 1848 and became an independent city in 1912, named for the explorer René-Robert Cavelier de La Salle. It was merged into Montreal as a borough in 2002.",
         "The Lachine Canal, cut in the 1820s to bypass the rapids, brought industry and the workers who settled beside it — modest workers' housing, early duplexes, and stone houses along the river. After the Second World War the borough grew quickly into a family-oriented suburb of bungalows, duplexes, triplexes and low-rise apartment buildings, and since the early 2000s former industrial land has been redeveloped with new low-rise condominiums near the water.",
       ],
-      whatThisMeansHeading: "What that means for renovation work in LaSalle",
+      whatThisMeansHeading: "What that means for renovation and water damage in LaSalle",
       whatThisMeans: [
         "Three eras sit side by side here, and the right approach differs sharply between them. Canal-era workers' housing and riverside stone, post-war suburban bungalows and triplexes, and 2000s condominium stock are effectively three different trades.",
         "The post-war suburban housing is the volume of it, and it behaves the way that stock does everywhere on the island: dated finishes over systems that have reached the end of their service life, and closed layouts owners want opened.",
+        "The finished basement is what makes water damage different here. The post-war stock was built with basements finished as living space, and that is where the water ends up — through infiltration, through a pipe that lets go upstairs, or through a sewer backup. On the island a backwater valve is not optional: Ville de Montréal's municipal by-law makes them mandatory, and every building built since 2011 has to have one. The city also notes that a valve has to stay accessible and be serviced about twice a year — and that flooring laid over the access point is one of the most common reasons it isn't. That is a renovation mistake, not a plumbing one, and it is why we keep the hatch reachable when we put a basement floor back.",
         "The newer condominium stock brings syndicate work with it. Quebec's Bill 16 requires every syndicate to obtain a contingency fund study by August 2028, and buildings that have one tend to plan common-area work rather than defer it.",
       ],
       faq: [
@@ -749,10 +754,11 @@ export const serviceAreas: ServiceArea[] = [
         "LaSalle a fait partie de Lachine de 1669 à 1848 avant de devenir une ville indépendante en 1912, nommée en l'honneur de l'explorateur René-Robert Cavelier de La Salle. Le territoire a été fusionné à Montréal comme arrondissement en 2002.",
         "Le canal de Lachine, creusé dans les années 1820 pour contourner les rapides, a amené l'industrie et les travailleurs qui se sont installés à proximité — logements ouvriers modestes, premiers duplex et maisons de pierre le long du fleuve. Après la Seconde Guerre mondiale, l'arrondissement est rapidement devenu une banlieue familiale de bungalows, duplex, triplex et petits immeubles à logements; depuis le début des années 2000, d'anciens terrains industriels ont été réaménagés en copropriétés de faible hauteur près de l'eau.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour les travaux de rénovation à LaSalle",
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à LaSalle",
       whatThisMeans: [
         "Trois époques cohabitent ici, et l'approche appropriée diffère nettement de l'une à l'autre. Les logements ouvriers de l'époque du canal et la pierre riveraine, les bungalows et triplex de banlieue d'après-guerre, et le parc de copropriétés des années 2000 constituent en pratique trois métiers différents.",
         "Le parc de banlieue d'après-guerre représente le volume, et il se comporte comme partout ailleurs sur l'île : des finis désuets par-dessus des systèmes arrivés en fin de vie utile, et des aménagements fermés que les propriétaires veulent ouvrir.",
+        "Le sous-sol fini est ce qui distingue le dégât d'eau ici. Le parc d'après-guerre a été bâti avec des sous-sols aménagés en pièces habitables, et c'est là que l'eau se retrouve — par infiltration, par un tuyau qui cède à l'étage, ou par un refoulement d'égout. Sur l'île, le clapet antiretour n'est pas optionnel : le règlement municipal de la Ville de Montréal le rend obligatoire, et tout bâtiment construit depuis 2011 doit en être muni. La Ville rappelle aussi qu'un clapet doit rester accessible et être entretenu environ deux fois par année — et qu'un plancher posé par-dessus le point d'accès est l'une des causes les plus fréquentes d'inaccessibilité. C'est une erreur de rénovation, pas de plomberie, et c'est pourquoi nous gardons la trappe atteignable quand nous reposons un plancher de sous-sol.",
         "Le parc de copropriétés plus récent amène avec lui le travail avec les syndicats. La loi 16 du Québec exige que chaque syndicat obtienne une étude du fonds de prévoyance d'ici août 2028, et les immeubles qui en disposent tendent à planifier les travaux des parties communes plutôt qu'à les reporter.",
       ],
       faq: [
