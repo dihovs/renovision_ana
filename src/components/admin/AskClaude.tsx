@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 
 /**
- * "Ask about this" — the assistant panel on a lead, job or client.
+ * The assistant panel: "Ask about this" on a record, "Ask Ana" without one.
  *
  * Collapsed by default. It is a tool for the moment before a phone call, not
  * something that should occupy the screen on every page load, and an always-open
@@ -46,19 +46,43 @@ const TOOL_LABEL: Record<string, string> = {
   queue_customer_call: "Queueing the call",
 };
 
-const SUGGESTIONS = [
+const RECORD_SUGGESTIONS = [
   "Summarise this for me",
   "What should I ask on the call?",
   "What's still unconfirmed?",
   "Anything here look wrong?",
 ];
 
+/**
+ * With no record open the useful questions are the ones that reach across the
+ * business — which is exactly what the tools added in ANA-20 are for.
+ */
+const GENERAL_SUGGESTIONS = [
+  "What's slipping?",
+  "What's on my list?",
+  "What do we charge for laminate?",
+  "Anything from the crew today?",
+];
+
 export default function AskClaude({
   subject,
+  /** Open on mount, for the page where asking IS the page. */
+  startOpen = false,
+  title,
 }: {
-  subject: { kind: "lead" | "job" | "client"; id: string };
+  /**
+   * The record on screen, when there is one. Absent on /admin/ana, where the
+   * box is the whole point rather than a panel on somebody's file — the tools
+   * reach the CRM either way, so no record is a narrower question, not an
+   * empty one.
+   */
+  subject?: { kind: "lead" | "job" | "client"; id: string };
+  startOpen?: boolean;
+  title?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
+  // "Ask about this" only makes sense when a "this" is on screen.
+  const heading = title ?? (subject ? "Ask about this" : "Ask Ana");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -164,7 +188,7 @@ export default function AskClaude({
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="M12 3a9 9 0 0 0-9 9c0 1.5.4 2.9 1 4.2L3 21l4.8-1a9 9 0 1 0 4.2-17z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Ask about this
+        {heading}
       </button>
     );
   }
@@ -172,7 +196,7 @@ export default function AskClaude({
   return (
     <section className="rounded-xl border border-black/5 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-black/5 px-4 py-3">
-        <h2 className="font-heading text-sm font-bold text-charcoal">Ask about this</h2>
+        <h2 className="font-heading text-sm font-bold text-charcoal">{heading}</h2>
         <div className="flex items-center gap-3">
           <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-charcoal/50">
             <input
@@ -199,7 +223,7 @@ export default function AskClaude({
       <div className="max-h-96 space-y-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {SUGGESTIONS.map((suggestion) => (
+            {(subject ? RECORD_SUGGESTIONS : GENERAL_SUGGESTIONS).map((suggestion) => (
               <button
                 key={suggestion}
                 type="button"

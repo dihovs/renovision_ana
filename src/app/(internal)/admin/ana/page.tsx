@@ -1,4 +1,5 @@
 import Script from "next/script";
+import AskClaude from "@/components/admin/AskClaude";
 
 /**
  * Talk to Ana, live, from inside the admin — voice or typed, no phone needed.
@@ -49,48 +50,63 @@ export const metadata = { robots: { index: false, follow: false } };
 export default function TalkToAnaPage() {
   const agentId = process.env.ELEVENLABS_ADMIN_AGENT_ID;
 
-  if (!agentId) {
-    return (
-      <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
-        <h2 className="font-heading text-base font-bold text-brand-blue">
-          Talk to Ana isn&apos;t configured yet
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-charcoal/70">
-          Set <code className="font-mono text-brand-blue">ELEVENLABS_ADMIN_AGENT_ID</code> to turn
-          this on.
-        </p>
-      </div>
-    );
-  }
+  // NO EARLY RETURN ON A MISSING AGENT ID. The typed box below needs only
+  // ANTHROPIC_API_KEY; the widget is the only thing ElevenLabs gates. Bailing
+  // out here — as this page did until ANA-20 — would have hidden a working
+  // assistant behind a voice credential it never touches.
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-heading text-lg font-bold text-charcoal">Talk to Ana</h1>
+        <h1 className="font-heading text-lg font-bold text-charcoal">Ask Ana</h1>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-charcoal/50">
-          Voice or typed, right here — no call needed. She can read the CRM, the crew&apos;s
-          WhatsApp threads and customers&apos; texts, and can write down anything you tell her to
-          remember; it lands on the same task list as a note dictated over the phone. Click the
-          bubble in the corner to start.
+          Type below, or click the bubble in the corner to talk. Either way she reads the CRM,
+          the crew&apos;s WhatsApp threads and customers&apos; texts, finds what is slipping,
+          prices from the book, and drafts estimates, invoices and email replies — as drafts,
+          for you to send. Anything you tell her to write down lands on the same list as a note
+          dictated over the phone.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-dashed border-black/10 bg-white px-4 py-10 text-center text-xs text-charcoal/45">
-        The conversation opens in the floating widget at the bottom right of this page.
+      {/* TWO WAYS TO ASK THE SAME AGENT, and they are genuinely different tools
+          rather than a duplicate. The widget below is the voice agent: talk to
+          it hands-free, and it answers aloud. This box is typed, streams into
+          the page, runs on the cheap model, and — because it asks for the
+          screen surface — writes amounts as $1,240.00 where the voice path has
+          to say them as words or be misread by a factor of a hundred.
+
+          Both reach the same tools through ownerToolsFor(), so neither can do
+          anything the other cannot. */}
+      <AskClaude startOpen title="Ask Ana" />
+
+      <div className="rounded-2xl border border-dashed border-black/10 bg-white px-4 py-6 text-center text-xs text-charcoal/45">
+        {agentId ? (
+          "Prefer to talk? The voice conversation opens in the floating widget at the bottom right."
+        ) : (
+          <>
+            Typing is the only way in right now — set{" "}
+            <code className="font-mono text-brand-blue">ELEVENLABS_ADMIN_AGENT_ID</code> to add the
+            voice widget. Everything above works without it.
+          </>
+        )}
       </div>
 
       {/* agent-id is not a secret — ElevenLabs' widget is designed to be
           embedded publicly. dynamic-variables is annotation only: it reaches
           ElevenLabs' conversation log but never our endpoint. See above. */}
-      <elevenlabs-convai
-        agent-id={agentId}
-        dynamic-variables={JSON.stringify({ dashboard_owner_session: "authenticated" })}
-      />
-      <Script
-        src="https://unpkg.com/@elevenlabs/convai-widget-embed"
-        strategy="afterInteractive"
-        async
-      />
+      {agentId && (
+        <>
+          <elevenlabs-convai
+            agent-id={agentId}
+            dynamic-variables={JSON.stringify({ dashboard_owner_session: "authenticated" })}
+          />
+          <Script
+            src="https://unpkg.com/@elevenlabs/convai-widget-embed"
+            strategy="afterInteractive"
+            async
+          />
+        </>
+      )}
     </div>
   );
 }

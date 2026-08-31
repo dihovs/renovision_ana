@@ -636,8 +636,19 @@ works today with Teams and email simply absent until ANA-04 unblocks.
   somebody's file. A malformed subject is still refused.
 - **Named activity in the UI** — "Checking the price book…", not a spinner.
 
-**Not done:** no general "Ask Ana" entry point in the admin nav yet — the route accepts a
-null subject, so that is a UI addition whenever it is wanted.
+**The nav link already existed** — `/admin/ana`, "Talk to Ana", in both the rail and the
+mobile tab bar, serving the ElevenLabs widget. And because that widget delegates to the
+voice chat route, it had **already picked up all twenty tools for free** through
+`ownerToolsFor()`. What was missing was not a link but a good typed path: the widget is
+voice-shaped and speaks amounts as words.
+
+So `/admin/ana` now carries both — the typed `AskClaude` box (screen surface, digits,
+streams, cheap model) above, the voice widget still in the corner. `subject` became
+optional with its own suggestions ("What's slipping?", "What's on my list?").
+
+**A bug found while doing it:** that page returned early when
+`ELEVENLABS_ADMIN_AGENT_ID` was unset, which would have hidden the typed assistant behind
+a voice credential it never touches. The widget is now the only thing that env var gates.
 
 ---
 
