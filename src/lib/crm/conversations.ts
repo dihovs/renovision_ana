@@ -315,6 +315,72 @@ async function searchTeams(
     }));
 }
 
+async function searchEmail(
+  client: Client,
+  search: Search,
+  since: string,
+  limit: number,
+): Promise<ConversationMessage[]> {
+  let jobId: string | null = null;
+  if (search.jobNumber != null) {
+    const { data } = await client
+      .from("jobs")
+      .select("id")
+      .eq("job_number", search.jobNumber)
+      .maybeSingle();
+    jobId = (data as { id: string } | null)?.id ?? null;
+    if (!jobId) return [];
+  }
+
+  let query = client
+    .from("email_messages")
+    .select("body, attachment, direction, sent_at, from_name, from_address, counterpart_name, jobs(job_number)")
+    .gte("sent_at", since)
+    .order("sent_at", { ascending: false })
+    .limit(limit);
+
+  if (jobId) query = query.eq("job_id", jobId);
+  // The body carries the subject on its first line (migration 0049), so one
+  // ilike covers both — same shape as every other channel.
+  if (search.query) query = query.ilike("body", `%${escapeLike(search.query)}%`);
+
+  const { data, error } = await query;
+  if (error) return [];
+
+  const rows = (data ?? []) as unknown as {
+    body: string | null;
+    attachment: string | null;
+    direction: "inbound" | "outbound";
+    sent_at: string;
+    from_name: string | null;
+    from_address: string | null;
+    counterpart_name: string | null;
+    jobs: { job_number: number } | null;
+  }[];
+
+  const wanted = search.who?.toLowerCase().trim();
+
+  return rows
+    .filter((row) => {
+      if (!wanted) return true;
+      return `${row.from_name ?? ""} ${row.from_address ?? ""} ${row.counterpart_name ?? ""}`
+        .toLowerCase()
+        .includes(wanted);
+    })
+    .map((row) => ({
+      channel: "email" as const,
+      who:
+        row.direction === "inbound"
+          ? (row.from_name ?? row.from_address ?? "Unknown sender")
+          : (row.counterpart_name ?? "email"),
+      direction: row.direction,
+      sentAt: row.sent_at,
+      text: trim(row.body, "(empty message)"),
+      jobNumber: row.jobs?.job_number ?? null,
+      attachment: row.attachment,
+    }));
+}
+
 /**
  * One reader per channel, and the only place that list is written down.
  *
@@ -334,6 +400,7 @@ const CHANNEL_READERS: Partial<Record<ConversationChannel, ChannelReader>> = {
   whatsapp: searchWhatsApp,
   sms: searchSms,
   teams: searchTeams,
+  email: searchEmail,
 };
 
 type ChannelReader = (

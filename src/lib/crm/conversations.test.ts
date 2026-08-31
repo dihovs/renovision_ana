@@ -168,26 +168,20 @@ describe("channelsFor", () => {
   });
 
   it("drops a channel nothing can read yet rather than throwing mid-call", () => {
-    expect(channelsFor(["whatsapp", "email"])).toEqual(["whatsapp"]);
-  });
-
-  it("asks nothing at all when only unbuilt channels are named", () => {
-    // Returning [] means searchConversations returns no messages, which is the
-    // honest answer: we hold no email, because nothing ingests it yet.
-    expect(channelsFor(["email"])).toEqual([]);
+    // Every channel the type names is implemented as of ANA-06, so the drop
+    // rule is exercised with a channel that does not exist at all — the shape
+    // a future fifth channel is in before its reader lands.
+    const future = ["whatsapp", "signal"] as unknown as Parameters<typeof channelsFor>[0];
+    expect(channelsFor(future)).toEqual(["whatsapp"]);
   });
 });
 
 describe("IMPLEMENTED_CHANNELS", () => {
-  it("is what has a reader, not what the type allows", () => {
-    // teams joined in ANA-05. This list grows exactly when a reader lands.
-    expect([...IMPLEMENTED_CHANNELS].sort()).toEqual(["sms", "teams", "whatsapp"]);
-  });
-
-  it("does not advertise a channel whose order has not landed", () => {
-    // ANA-06 adds email. When it does, this test changes with it — which is
-    // the point: the list Ana is offered cannot drift from the readers.
-    expect(IMPLEMENTED_CHANNELS).not.toContain("email");
+  it("is what has a reader — all four, as of ANA-06", () => {
+    // This list grew one line per order: whatsapp/sms (ANA-03), teams
+    // (ANA-05), email (ANA-06). A fifth channel joins by adding a reader,
+    // and this test, by failing, makes sure it was added on purpose.
+    expect([...IMPLEMENTED_CHANNELS].sort()).toEqual(["email", "sms", "teams", "whatsapp"]);
   });
 });
 

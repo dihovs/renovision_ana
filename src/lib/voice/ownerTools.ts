@@ -270,7 +270,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "search_messages",
     description:
-      "Search what people actually said — crew WhatsApp, customer texts, and Teams chats, in their own words. Use it for any question about what somebody said, agreed, complained about, promised or asked for: 'what did Mike say about the Fleury bathroom', 'did the customer ever confirm the tiles', 'has anyone mentioned the boiler'. Returns the newest matches first with the date and who said it. It searches the words of the message, so search for a word that would appear IN the message, not for a description of it.",
+      "Search what people actually said — crew WhatsApp, customer texts, Teams chats, and his email, in their own words. Use it for any question about what somebody said, agreed, complained about, promised or asked for: 'what did Mike say about the Fleury bathroom', 'did the customer ever confirm the tiles', 'has anyone mentioned the boiler'. Returns the newest matches first with the date and who said it. It searches the words of the message, so search for a word that would appear IN the message, not for a description of it.",
     input_schema: {
       type: "object",
       properties: {
@@ -290,7 +290,7 @@ const TOOLS: Anthropic.Tool[] = [
           // edit this line. See CHANNEL_READERS in crm/conversations.ts.
           enum: [...IMPLEMENTED_CHANNELS, "all"],
           description:
-            "Where to look. WhatsApp is the crew and suppliers; SMS is customers; Teams is business contacts. Defaults to every channel we hold.",
+            "Where to look. WhatsApp is the crew and suppliers; SMS is customers; Teams and email are business contacts. Defaults to every channel we hold.",
         },
         days: {
           type: "integer",

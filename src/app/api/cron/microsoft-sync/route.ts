@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { syncMailMessages } from "@/lib/microsoft/mail";
 import { syncTeamsMessages } from "@/lib/microsoft/teams";
 
 /**
@@ -28,10 +29,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Sequential, not parallel: both talk to the same tenant, and Graph
+  // throttling is per-app — two syncs racing each other is how both get 429s.
   const teams = await syncTeamsMessages();
   if (teams.errors?.length) {
     console.error("[microsoft-sync] teams sync errors:", teams.errors.join(" | "));
   }
+  const mail = await syncMailMessages();
+  if (mail.errors?.length) {
+    console.error("[microsoft-sync] mail sync errors:", mail.errors.join(" | "));
+  }
 
-  return NextResponse.json({ teams });
+  return NextResponse.json({ teams, mail });
 }

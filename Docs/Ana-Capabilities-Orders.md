@@ -40,7 +40,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | **Part 2 — Microsoft, one integration** | | |
 | ANA-04 | The Graph connection, scoped to exclude voice | ✅ code done — owner: Entra registration + env vars + migration 0047, see Docs/Microsoft-Graph-Setup.md |
 | ANA-05 | Teams chat | ✅ done — sync runs once Microsoft is connected |
-| ANA-06 | Outlook mail | ⬜ not started |
+| ANA-06 | Outlook mail | ✅ done — sync runs once Microsoft is connected |
 | ANA-07 | OneDrive, searched not synced | ⬜ not started |
 | **Part 3 — one place** | | |
 | ANA-08 | `record_brief` across every channel | ⬜ not started |
@@ -308,6 +308,15 @@ answer as the Teams half.
 
 **Do not** store whole mailboxes indefinitely, and do not ingest bodies without the ANA-01
 quoting discipline. This is the widest untrusted input in the system.
+
+**Shipped.** Migration 0049 (`email_messages`, RLS + grants, applied 31 Aug 2026);
+`src/lib/microsoft/mail.ts` on the same cron route as Teams (sequential, not parallel —
+Graph throttling is per-app). One /me/messages query covers both directions; direction is
+decided by the From address against the owner's own, never by folder. Drafts skipped;
+attachment names only; bodies capped at 20k; subject rides the body's first line so one
+ilike finds both (0049 explains). Sender resolves for inbound, first recipient for
+outbound — the owner is not "a person we talk to". `email` reader registered: all four
+channels of `ConversationChannel` are now implemented. Waits on: ANA-04's owner steps.
 
 ---
 
