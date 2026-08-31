@@ -55,7 +55,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-16 | Draft an invoice, never send it | ✅ done |
 | ANA-17 | Draft an email reply, never send it | ✅ done — scope widened BEFORE the one consent |
 | ANA-18 | Message the crew | ✅ done, one premise corrected — still blocked in prod on Meta console |
-| ANA-19 | Memory | ⬜ not started |
+| ANA-19 | Memory | 📄 proposal written — `Ana-Memory-Proposal.md`, three decisions are his |
 | **Part 5 — blocked** | | |
 | ANA-20 | QuickBooks | 🚫 blocked — Intuit, owner-only |
 
@@ -601,6 +601,12 @@ deletes what she kept. Then build it.
 
 **Done when** he can say "remember that" and hear it back on a later call, and there is no path
 from ingested content into the store.
+
+**Proposal written** (31 Aug 2026): `Docs/Ana-Memory-Proposal.md` — three kinds (fact,
+preference, decision), written only from dictation in an authenticated session, recall as
+quoting not believing, one table, three tools, and the three decisions only he can make
+(recall scope, unpinned standing memories, decision retention). Code waits for his
+"build as proposed".
 
 ---
 
