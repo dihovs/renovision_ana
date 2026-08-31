@@ -429,6 +429,84 @@ const CHANNEL_LABEL: Record<ConversationChannel, string> = {
 };
 
 /**
+ * Teams and email for one client, newest first, joined through people (0046).
+ *
+ * The join is the point: a message row knows a person, a person knows their
+ * client, and this is the first function that walks that chain end to end.
+ * WhatsApp and SMS have their own per-record paths (jobConversation,
+ * clientMessages); these two channels attach to records only through identity.
+ */
+export async function clientChannelMessages(
+  clientId: string,
+  limit = 15,
+): Promise<ConversationMessage[]> {
+  const client = db();
+  if (!client) return [];
+
+  const [teamsResult, emailResult] = await Promise.all([
+    client
+      .from("teams_messages")
+      .select("body, attachment, direction, sent_at, sender_name, counterpart_name, people!inner(client_id)")
+      .eq("people.client_id", clientId)
+      .order("sent_at", { ascending: false })
+      .limit(limit),
+    client
+      .from("email_messages")
+      .select("body, attachment, direction, sent_at, from_name, from_address, counterpart_name, people!inner(client_id)")
+      .eq("people.client_id", clientId)
+      .order("sent_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  // An error on either side (0048/0049 not applied yet, most likely) costs
+  // that channel's section, never the brief it belongs to.
+  const teams = ((teamsResult.error ? [] : (teamsResult.data ?? [])) as unknown as {
+    body: string | null;
+    attachment: string | null;
+    direction: "inbound" | "outbound";
+    sent_at: string;
+    sender_name: string | null;
+    counterpart_name: string | null;
+  }[]).map((row) => ({
+    channel: "teams" as const,
+    who:
+      row.direction === "inbound"
+        ? (row.sender_name ?? "Teams contact")
+        : (row.counterpart_name ?? "Teams chat"),
+    direction: row.direction,
+    sentAt: row.sent_at,
+    text: trim(row.body, "(empty message)"),
+    jobNumber: null,
+    attachment: row.attachment,
+  }));
+
+  const email = ((emailResult.error ? [] : (emailResult.data ?? [])) as unknown as {
+    body: string | null;
+    attachment: string | null;
+    direction: "inbound" | "outbound";
+    sent_at: string;
+    from_name: string | null;
+    from_address: string | null;
+    counterpart_name: string | null;
+  }[]).map((row) => ({
+    channel: "email" as const,
+    who:
+      row.direction === "inbound"
+        ? (row.from_name ?? row.from_address ?? "Unknown sender")
+        : (row.counterpart_name ?? "email"),
+    direction: row.direction,
+    sentAt: row.sent_at,
+    text: trim(row.body, "(empty message)"),
+    jobNumber: null,
+    attachment: row.attachment,
+  }));
+
+  return [...teams, ...email]
+    .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+    .slice(0, limit);
+}
+
+/**
  * One job's thread, oldest first — the shape you read rather than search.
  *
  * WhatsApp only, deliberately: a job's WhatsApp messages were filed against it

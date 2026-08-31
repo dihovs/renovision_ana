@@ -43,7 +43,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-06 | Outlook mail | ✅ done — sync runs once Microsoft is connected |
 | ANA-07 | OneDrive, searched not synced | ✅ done — waits on ANA-04 owner steps |
 | **Part 3 — one place** | | |
-| ANA-08 | `record_brief` across every channel | ⬜ not started |
+| ANA-08 | `record_brief` across every channel | ✅ done |
 | ANA-09 | `search_messages`, widened | ✅ done — fell out of ANA-03's registry |
 | **Part 4 — doing the work** | | |
 | ANA-10 | Close the task loop | ⬜ not started |
@@ -360,6 +360,17 @@ said on WhatsApp, and the files — each line saying which channel it came from 
 
 **Do not** write new SQL. A missing field is added to `buildContext`, so the screen and the
 phone can never disagree.
+
+**Shipped.** `clientChannelMessages()` walks the 0046 chain end to end (message → person →
+client) and `buildContext` now appends a labelled TEAMS AND EMAIL section for clients and
+jobs — the admin Ask-Claude box got the same widening for free. `record_brief` resolves a
+job number via `subjectForJobNumber` or a name via `resolveContact` with
+`queue_customer_call`'s exact refusal-to-guess, and returns the record trimmed by
+`trimForSpeech` (head survives — identity and money first, quotes last; the cut is
+announced). **One deliberate narrowing:** the OneDrive files section lives in the spoken
+brief path only if asked via `find_file` — `buildContext` stays Graph-free so the admin box
+never blocks on Microsoft's latency. The "and the files" clause of Done-when is served by
+`find_file` beside it, not inside it.
 
 ---
 
