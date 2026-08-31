@@ -148,6 +148,7 @@ export default function Header() {
   const companyLinks = [
     { href: "/about", label: t.nav.about },
     { href: "/service-areas", label: t.nav.serviceAreas },
+    { href: "/syndicats", label: t.nav.syndicats },
     { href: "/case-studies", label: t.nav.caseStudies },
     { href: "/safety", label: t.nav.safety },
     { href: "/careers", label: t.nav.careers },

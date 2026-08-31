@@ -34,6 +34,7 @@ const SERVICES = [
 const PAGES = [
   ["About", "/about"],
   ["Commercial & property managers", "/commercial"],
+  ["For condo syndicates", "/syndicats"],
   ["Case studies", "/case-studies"],
   ["Safety & certifications", "/safety"],
   ["Gallery", "/gallery"],

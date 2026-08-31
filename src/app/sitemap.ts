@@ -19,6 +19,7 @@ const routes = [
   "/services/painting",
   "/services/repairs",
   "/commercial",
+  "/syndicats",
   "/about",
   "/gallery",
   "/case-studies",
