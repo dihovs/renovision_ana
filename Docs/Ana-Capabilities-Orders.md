@@ -38,7 +38,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-02 | Identity: one person across five systems | ✅ done `8731b15` — 0046 unapplied (owner: batch with 0044) |
 | ANA-03 | Channels, plural | ✅ done |
 | **Part 2 — Microsoft, one integration** | | |
-| ANA-04 | The Graph connection, scoped to exclude voice | ⬜ owner is tenant admin ✓, Vercel Pro ✓ |
+| ANA-04 | The Graph connection, scoped to exclude voice | ✅ code done — owner: Entra registration + env vars + migration 0047, see Docs/Microsoft-Graph-Setup.md |
 | ANA-05 | Teams chat | ⬜ not started |
 | ANA-06 | Outlook mail | ⬜ not started |
 | ANA-07 | OneDrive, searched not synced | ⬜ not started |
@@ -255,6 +255,19 @@ scopes, and the consent screen shows no access to calls.
 
 **Do not** request application-level permissions "to make it simpler". Delegated access is
 exactly the boundary the owner described: his Teams, his mail, his files.
+
+**Shipped.** `src/lib/microsoft/` — `scopes.ts` (the boundary: GRAPH_SCOPES requested,
+FORBIDDEN_SCOPES pinned by test; the authorize URL itself is tested to carry no call
+scope), `tokens.ts` (AES-256-GCM at rest, refuses to store plaintext when the key is
+missing), `auth.ts` (auth-code + PKCE, single tenant, silent refresh, invalid_grant
+invalidates rather than retries). Routes: `/api/v1/microsoft/{connect,callback,status}` —
+status reports granted-vs-requested so a narrowed grant cannot pass silently. Migration
+0047 (one-row table, RLS + service_role grant per the 0040/0046 lesson). 23 tests;
+mutation-checked: adding `CallRecords.Read.All` fails four of them.
+
+**Remaining, owner-only:** the seven steps in `Docs/Microsoft-Graph-Setup.md` —
+Entra registration, secret, the five delegated permissions + admin consent, the four
+env vars in Vercel, migration 0047, then /connect and /status.
 
 ---
 
