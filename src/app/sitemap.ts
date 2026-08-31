@@ -9,6 +9,7 @@ const routes = [
   "/estimation",
   "/services",
   "/services/water-damage",
+  "/services/water-damage/ceiling",
   "/services/sewer-backup",
   "/services/flooring",
   "/services/kitchen-bath",

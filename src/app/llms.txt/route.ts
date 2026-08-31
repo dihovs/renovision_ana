@@ -20,6 +20,7 @@ export const dynamic = "force-static";
 
 const SERVICES = [
   ["Water damage restoration", "/services/water-damage"],
+  ["Ceiling water damage repair", "/services/water-damage/ceiling"],
   ["Sewer backup cleanup (refoulement d'égout)", "/services/sewer-backup"],
   ["Flooring", "/services/flooring"],
   ["Kitchen & bathroom remodeling", "/services/kitchen-bath"],

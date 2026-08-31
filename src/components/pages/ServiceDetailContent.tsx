@@ -44,6 +44,14 @@ export type ServiceLocalContext = {
   heading: string;
   paragraphs: string[];
   readMore?: { label: string; href: string };
+  /**
+   * A second link out of the local context, for the case `readMore` can't
+   * serve: pointing at a narrower page of our own rather than at the post
+   * carrying the citations. Added so /services/water-damage could send a reader
+   * whose damage is specifically a ceiling to the ceiling page without giving
+   * up its link to the mould timeline. Both render, `readMore` first.
+   */
+  alsoSee?: { label: string; href: string };
 };
 
 export type ServiceDetailCopy = {
@@ -235,6 +243,20 @@ export default function ServiceDetailContent({
                 className="group mt-10 inline-flex items-center gap-1.5 text-base text-brand-green transition-colors hover:text-brand-green-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-green sm:mt-12"
               >
                 {copy.localContext.readMore.label}
+                <span
+                  aria-hidden
+                  className="text-lg leading-none transition-transform duration-200 motion-safe:group-hover:translate-x-1"
+                >
+                  &rsaquo;
+                </span>
+              </Link>
+            )}
+            {copy.localContext.alsoSee && (
+              <Link
+                href={copy.localContext.alsoSee.href}
+                className="group mt-4 flex items-center gap-1.5 text-base text-brand-green transition-colors hover:text-brand-green-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-green"
+              >
+                {copy.localContext.alsoSee.label}
                 <span
                   aria-hidden
                   className="text-lg leading-none transition-transform duration-200 motion-safe:group-hover:translate-x-1"

@@ -16,6 +16,65 @@ export type FaqItem = { question: string; answer: string };
  * the questions, and dodging them is how you lose the click back to a
  * competitor who answers them.
  */
+/**
+ * Ceiling water damage. These four are the SERP's own "People also ask" for
+ * « dégât d'eau plafond réparation Montréal », kept close to the wording people
+ * actually type — that is the whole point of harvesting them rather than
+ * inventing questions that flatter the service.
+ *
+ * The "who pays" answer is deliberately the general Quebec framework and
+ * nothing more: two policies, the deductible question, and go read your own
+ * declaration. Owner's decision, 2026-08-30. Do not turn it into a worked
+ * example — the page ranks for the query either way, and only one version is
+ * safe to publish.
+ */
+export const CEILING_FAQ: Record<Locale, FaqItem[]> = {
+  en: [
+    {
+      question: "What if the ceiling is damaged but it's stopped dripping?",
+      answer:
+        "Don't assume it's over. The water has stopped coming through, which says nothing about what is still wet above it — insulation and the service void hold moisture long after the visible drip stops. Photograph it, and have the moisture read before repainting. Painting over still-damp drywall is the most frequently redone repair we see.",
+    },
+    {
+      question: "How do you repair a water stain on a ceiling?",
+      answer:
+        "If the board is sound and dry: seal the stain with a blocking primer, skim it if the texture has moved, then two coats. A stain that comes back through fresh paint means it wasn't sealed, not that it needs a third coat.",
+    },
+    {
+      question: "How long does a ceiling take to dry?",
+      answer:
+        "Typically three to five days of equipment — longer than a wall, because a ceiling dries from one face only while the insulation above it stays wet. The number that ends drying is the moisture reading, not the calendar.",
+    },
+    {
+      question: "Who pays when the damage comes from the condo above?",
+      answer:
+        "In a Quebec co-ownership, two policies generally come into play: the syndicate's, which covers the building and common portions, and yours, which covers your improvements and belongings. The practical question is usually the deductible and how it is split. That split depends on your declaration of co-ownership and the policies in force — read it and call your insurer before settling anything with your neighbour. We document what got wet; we don't decide what's covered.",
+    },
+  ],
+  fr: [
+    {
+      question: "Que faire si le plafond est endommagé mais qu'il ne coule plus ?",
+      answer:
+        "Ne présumez pas que c'est terminé. L'eau a cessé de traverser, ce qui ne dit rien de ce qui reste humide au-dessus : l'isolant et le vide technique retiennent l'humidité bien après l'arrêt de la goutte visible. Photographiez, et faites lire l'humidité avant de repeindre. Repeindre par-dessus un gypse encore humide est la réparation la plus souvent refaite que nous voyons.",
+    },
+    {
+      question: "Comment réparer une tache d'eau au plafond ?",
+      answer:
+        "Si le panneau est sain et sec : on scelle la tache avec un apprêt bloquant, on ratisse si la texture a bougé, puis deux couches. Une tache qui revient à travers une peinture neuve signifie qu'elle n'a pas été scellée, et non qu'il faut une troisième couche.",
+    },
+    {
+      question: "Combien de temps pour faire sécher un plafond ?",
+      answer:
+        "Généralement de trois à cinq jours d'appareils — plus longtemps qu'un mur, parce qu'un plafond ne sèche que par une seule face pendant que l'isolant au-dessus reste mouillé. Le chiffre qui met fin au séchage est le relevé d'humidité, pas le calendrier.",
+    },
+    {
+      question: "Qui doit payer quand le dégât vient du condo au-dessus ?",
+      answer:
+        "En copropriété au Québec, deux polices entrent généralement en jeu : celle du syndicat, qui couvre l'immeuble et les parties communes, et la vôtre, qui couvre vos améliorations et vos biens. La question pratique est habituellement celle de la franchise et de sa répartition. Cette répartition dépend de votre déclaration de copropriété et des polices en vigueur — lisez-la et appelez votre assureur avant de vous entendre avec le voisin. Nous documentons ce qui a été mouillé; nous ne décidons pas de ce qui est couvert.",
+    },
+  ],
+};
+
 export const WATER_DAMAGE_FAQ: Record<Locale, FaqItem[]> = {
   en: [
     {
