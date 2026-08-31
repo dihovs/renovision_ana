@@ -17,9 +17,10 @@ import {
   type ConversationChannel,
 } from "@/lib/crm/conversations";
 import { resolveContact, type ContactMatch } from "@/lib/crm/contactMatch";
-import { countJobsByStatus, listJobs, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
+import { countJobsByStatus, getJob, listJobs, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { listInvoices, receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
+import { formatHours, listExpenses, listTimeEntries } from "@/lib/crm/expenses";
 import { listPriceBook } from "@/lib/crm/priceBook";
 import { countQuotesByStatus, listQuotes } from "@/lib/crm/quotes";
 import { QUOTE_FOLLOWUP_AFTER_DAYS } from "@/lib/crm/followups";
@@ -333,6 +334,19 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days: { type: "integer", description: "How far back, in days. Defaults to 7." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "job_margin",
+    description:
+      "Did a job make money: what was quoted, what was invoiced, what was spent, and the hours logged — with the gap. Use it for 'did we make money on Fleury', 'how did job eleven come out', 'what did that job cost us'. It reports what is recorded and says plainly when costs have not been entered — a job with no expenses on file is not a job with no expenses.",
+    input_schema: {
+      type: "object",
+      properties: {
+        jobNumber: { type: "integer", description: "The job number, as he says it." },
+      },
+      required: ["jobNumber"],
       additionalProperties: false,
     },
   },
@@ -709,6 +723,74 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async job_margin(input, locale) {
+    const rawNumber = typeof input.jobNumber === "number" ? input.jobNumber : Number(input.jobNumber);
+    const jobNumber = Number.isInteger(rawNumber) && rawNumber > 0 ? rawNumber : null;
+    if (!jobNumber) return "Which job? Ask the owner for the job number.";
+
+    const subject = await subjectForJobNumber(jobNumber);
+    if (!subject) {
+      return locale === "fr" ? `Aucun travail numéro ${jobNumber}.` : `There is no job number ${jobNumber}.`;
+    }
+
+    const [job, invoices, expenses, time] = await Promise.all([
+      getJob(subject.id).catch(() => null),
+      listInvoices({ limit: 200 }).catch(() => []),
+      listExpenses(300).catch(() => []),
+      listTimeEntries(300).catch(() => []),
+    ]);
+    if (!job) {
+      return locale === "fr"
+        ? "Je n'arrive pas à lire ce travail pour le moment."
+        : "I cannot read that job at the moment.";
+    }
+
+    const quoted = Number(job.total_cents) || 0;
+    const jobInvoices = invoices.filter((invoice) => invoice.job_id === subject.id);
+    const invoiced = jobInvoices.reduce((sum, invoice) => sum + (Number(invoice.total_cents) || 0), 0);
+    const jobExpenses = expenses.filter((expense) => expense.job_id === subject.id);
+    const spent = jobExpenses.reduce((sum, expense) => sum + (Number(expense.amount_cents) || 0), 0);
+    const minutes = time
+      .filter((entry) => entry.job_id === subject.id)
+      .reduce((sum, entry) => sum + (Number(entry.minutes) || 0), 0);
+
+    const fr = locale === "fr";
+    const lines = [
+      `${fr ? "Travail" : "Job"} ${jobNumber}${job.title ? `, ${job.title}` : ""}.`,
+      `${fr ? "Soumissionné" : "Quoted"}: ${spokenMoney(quoted, locale)}.`,
+      jobInvoices.length
+        ? `${fr ? "Facturé" : "Invoiced"}: ${spokenMoney(invoiced, locale)} (${jobInvoices.length} ${fr ? "facture" : "invoice"}${jobInvoices.length > 1 ? "s" : ""}).`
+        : fr
+          ? "Rien de facturé encore."
+          : "Nothing invoiced yet.",
+    ];
+
+    // The honesty rule this tool exists for: an empty expense list is missing
+    // data, not zero cost, and the difference is the whole answer.
+    if (jobExpenses.length === 0 && minutes === 0) {
+      lines.push(
+        fr
+          ? "Aucune dépense ni heure n'est entrée pour ce travail — je ne peux pas dire s'il a été payant, seulement ce qui a été facturé."
+          : "No expenses or hours are entered for this job — I cannot say whether it made money, only what was billed.",
+      );
+      return lines.join(" ");
+    }
+
+    lines.push(`${fr ? "Dépensé" : "Spent"}: ${spokenMoney(spent, locale)}.`);
+    if (minutes > 0) lines.push(`${fr ? "Heures" : "Hours"}: ${formatHours(minutes)}.`);
+    const basis = invoiced > 0 ? invoiced : quoted;
+    const gap = basis - spent;
+    lines.push(
+      gap >= 0
+        ? `${fr ? "Marge sur ce qui est enregistré" : "Margin on what is recorded"}: ${spokenMoney(gap, locale)}.`
+        : `${fr ? "À perte sur ce qui est enregistré" : "Underwater on what is recorded"}: ${spokenMoney(Math.abs(gap), locale)}.`,
+    );
+    if (jobExpenses.length > 0 && minutes === 0) {
+      lines.push(fr ? "Aucune heure n'est entrée." : "No hours are entered.");
+    }
+    return lines.join(" ");
   },
 
   async price_lookup(input, locale) {

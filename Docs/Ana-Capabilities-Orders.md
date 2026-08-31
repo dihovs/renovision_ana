@@ -49,7 +49,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-10 | Close the task loop | ✅ done |
 | ANA-11 | What is slipping | ✅ done |
 | ANA-12 | What do we charge | ✅ done |
-| ANA-13 | Did this job make money | ⬜ not started |
+| ANA-13 | Did this job make money | ✅ done |
 | ANA-14 | Moisture readings | ⬜ not started |
 | ANA-15 | Draft an estimate, never send it | ⬜ not started |
 | ANA-16 | Draft an invoice, never send it | ⬜ not started |
@@ -457,6 +457,11 @@ has what was billed. Nothing puts the three side by side, on any surface.
 not been entered rather than implying a profit that is only missing data.
 
 **Do not** invent an overhead allocation. Report what is recorded.
+
+**Shipped.** `job_margin`: quoted from the job, invoiced from `listInvoices` filtered by
+`job_id`, spent and hours from `listExpenses`/`listTimeEntries`. The honesty branch is the
+feature: zero recorded expenses answers "I cannot say whether it made money", never a
+margin equal to the whole invoice.
 
 ---
 
