@@ -115,7 +115,7 @@ export const serviceAreas: ServiceArea[] = [
     neighbors: ["fabreville", "vimont", "saint-laurent"],
     // Multiplex water-damage work here is largely a board-and-paint job once
     // the wet material is out, and tenant turnover drives repainting.
-    relatedServices: [WATER_DAMAGE, DRYWALL, KITCHEN_BATH, FLOORING, PAINTING, REPAIRS],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, KITCHEN_BATH, FLOORING, PAINTING],
     sources: [
       {
         label: "Ville de Laval — Chomedey municipal history",
@@ -189,7 +189,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "sainte-rose",
     neighbors: ["fabreville", "vimont", "terrebonne"],
-    relatedServices: [WATER_DAMAGE, BASEMENTS, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING],
     sources: [
       {
         // Laval abbreviates this sector's slug to "ste-rose" — the spelled-out
@@ -412,7 +412,7 @@ export const serviceAreas: ServiceArea[] = [
     neighbors: ["vimont", "montreal-nord", "terrebonne"],
     // Flat-roof infiltration in the El Rancho stock lands on ceilings and
     // walls first, which is drywall work before it is anything else.
-    relatedServices: [WATER_DAMAGE, DRYWALL, RENOVATIONS, BASEMENTS, PAINTING, FLOORING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, RENOVATIONS, BASEMENTS, PAINTING],
     sources: [
       {
         label: "Ville de Laval — Duvernay municipal history",
