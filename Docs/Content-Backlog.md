@@ -25,7 +25,7 @@ next." Process is in `Docs/Content-Engine.md`. Evidence is in
 |---|---|---|---|---|
 | 1 | Ceiling water damage | new route `/services/water-damage/ceiling` | dégât d'eau plafond réparation Montréal | `done` 2026-08-30 |
 | 2 | Condo — who pays? | blog post | dégât d'eau condo qui doit payer | `done` 2026-08-30 |
-| 3 | Insurance claim guide | blog post | réclamation assurance dégât d'eau Québec | `queued` |
+| 3 | Insurance claim guide | blog post | réclamation assurance dégât d'eau Québec | `done` 2026-08-30 |
 | 4 | `/syndicats` | new route | syndicat de copropriété dégât d'eau responsabilité | `queued` |
 | 5 | `/gestionnaires` | new route | gestionnaire immobilier entrepreneur rénovation Montréal | `queued` |
 | 6 | Terrebonne + Rive-Nord | new area pages | dégât d'eau Terrebonne | `queued` |

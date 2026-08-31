@@ -41,6 +41,90 @@ export function parseBlogDate(iso: string): Date {
 }
 
 export const blogPosts: BlogPost[] = [
+  {
+    slug: "insurance-claim-water-damage-quebec",
+    categoryTag: { en: "Water damage · Insurance claims", fr: "Dégât d'eau · Réclamation d'assurance" },
+    publishedAt: "2026-08-30",
+    readTimeMinutes: 5,
+    heroStat: {
+      value: "Art. 10",
+      label: { en: "The code of ethics article requiring a claims adjuster to act with integrity, promptly, honestly and fairly — ChAD", fr: "L'article du code de déontologie qui oblige l'expert en sinistre à agir avec intégrité, avec diligence, honnêteté et équité — ChAD" },
+    },
+    en: {
+      title: "A Water Damage Claim: What Actually Moves the File, Seen From the Job Site",
+      metaTitle: "Water Damage Claims in Quebec: The File",
+      excerpt: "Between the loss and the first visit there's a gap where a lot of people wait without knowing whether they should. Here's what's happening inside the file, and what you can do meanwhile.",
+      metaDescription: "What a claims adjuster must do under ChAD guidance, why waiting isn't an instruction, and the documents that actually move a water damage claim.",
+      sections: [
+        { type: "paragraph", text: "The hard part of a water damage claim is almost never the form. It's the gap between the water arriving and someone showing up: a few hours, sometimes a few days, during which you've been told not to touch anything while the material goes on absorbing. We spend our working lives inside that gap. Here's what actually happens in it." },
+        { type: "heading", text: "What the claims adjuster has to do" },
+        { type: "paragraph", text: "A claims adjuster isn't an administrative middleman. The Chambre de l'assurance de dommages, which regulates the profession in Quebec, describes the role in three verbs: investigate, estimate, negotiate. It asks the adjuster to consult the loss notice without delay, make early contact with the insured to explain the process and guide them on limiting damage, and record interventions meticulously in the file. Article 10 of the code of ethics requires acting with integrity, promptly, honestly and fairly." },
+        { type: "heading", text: "Waiting is not an instruction" },
+        { type: "paragraph", text: "This is the part insurers don't put on their own sites, and it changes how the first days feel. Per ChAD, coordinating urgent work falls to the adjuster — and failing to put measures in place in time, such as opening walls and ceilings or establishing ventilation, breaches professional obligations and can let mould proliferate, driving the cost up. Put plainly: delay is not a normal step in the process. The body that regulates the profession treats it as a problem." },
+        { type: "paragraph", text: "The other half of the equation is yours: the insured must limit the damage and preserve the evidence. Drying early is therefore not 'starting work without authorisation'. It is precisely what the contract expects of you. The distinction worth keeping clear is this one: drying and containment are mitigation; rebuilding waits for agreement on the scope." },
+        { type: "heading", text: "The documents that move a file" },
+        { type: "paragraph", text: "ChAD asks the adjuster to gather photos, videos and supplier reports. We are those suppliers. After several hundred files, four documents come back as the ones that genuinely move a claim, because each one closes a question the adjuster would otherwise have had to ask." },
+        { type: "list", items: ["Dated photographs taken before anything moves, including of what looks untouched. The initial state cannot be reconstructed afterwards.", "A dated moisture reading, repeated until drying ends. It's what separates 'it's dry' from 'it looks dry', and it's the only thing that objectively justifies how long drying took.", "A written scope that separates structure from your improvements. That separation is what the adjuster has to rule on; handing it over already done saves a round trip.", "The cause, where it's known, described factually and without a conclusion. 'Supply line fitting under the sink, failed' beats 'the plumber did a bad job'."] },
+        { type: "heading", text: "What puts a file on hold" },
+        { type: "list", items: ["Photographs taken after the cleanup. Understandable, and unrecoverable.", "A single moisture reading, taken on the last day. It proves it's dry today, not that the drying was necessary yesterday.", "A lump-sum quote with no detail, mixing structure and improvements. The adjuster can't approve it as it stands, and the file comes back.", "Different versions of the same thing: one date on the phone, another in the email, a third in the quote. Every discrepancy becomes a follow-up request."] },
+        {
+          type: "timeline",
+          items: [
+            { time: "Hour 0", text: "Shut off the water and the power to the affected area. Photograph before moving anything." },
+            { time: "Hours 0-24", text: "Report the loss. Start containment and drying — that's mitigation, not work." },
+            { time: "24-48 h", text: "The EPA window for mould on wet material. Whatever is still saturated after it costs more to deal with." },
+            { time: "First few days", text: "The adjuster makes contact, explains the process, and coordinates urgent measures." },
+            { time: "During drying", text: "Moisture readings logged until target values are reached, not until a date arrives." },
+            { time: "Only then", text: "Written scope, agreement, and rebuilding." },
+          ],
+        },
+        {
+          type: "linkParagraph",
+          text: "All of the above describes the file. The work itself stays the same: extract, dry to the readings, then restore — with the documentation produced as we go rather than reconstructed at the end.",
+          linkText: "Our water damage restoration service",
+          href: "/services/water-damage",
+        },
+        { type: "paragraph", text: "One limit worth naming: nothing here tells you what your policy covers, or what your insurer will decide. Those answers live in your contract and with your insurer, and nowhere else. What we can do is narrower and sometimes more useful: dry quickly, document cleanly, and hand your adjuster a file they can process without calling you back." },
+      ],
+    },
+    fr: {
+      title: "Réclamation pour dégât d'eau : ce qui fait avancer un dossier, vu du chantier",
+      metaTitle: "Réclamation dégât d'eau au Québec : le dossier",
+      excerpt: "Entre le sinistre et la première visite, il y a un vide où beaucoup de gens attendent sans savoir s'ils devraient. Voici ce qui se passe dans un dossier, et ce que vous pouvez faire pendant ce temps.",
+      metaDescription: "Ce que l'expert en sinistre doit faire selon la ChAD, pourquoi attendre n'est pas une consigne, et les documents qui font vraiment avancer une réclamation.",
+      sections: [
+        { type: "paragraph", text: "Le plus difficile dans une réclamation pour dégât d'eau n'est presque jamais le formulaire. C'est le vide entre le moment où l'eau arrive et celui où quelqu'un se présente : quelques heures, parfois quelques jours, pendant lesquels on vous a dit de ne rien toucher et où le matériau, lui, continue de s'imbiber. Nous passons nos journées dans ce vide-là. Voici ce qui s'y passe réellement." },
+        { type: "heading", text: "Ce que l'expert en sinistre doit faire" },
+        { type: "paragraph", text: "L'expert en sinistre n'est pas un intermédiaire administratif. La Chambre de l'assurance de dommages, qui encadre la profession, décrit son rôle en trois verbes : enquêter, estimer, négocier. Elle lui demande de consulter sans délai la déclaration de sinistre, d'entrer en contact tôt avec l'assuré pour lui expliquer le processus et le guider sur la limitation des dommages, et de consigner méticuleusement ses interventions au dossier. L'article 10 du code de déontologie lui impose d'agir avec intégrité, avec diligence, honnêteté et équité." },
+        { type: "heading", text: "Attendre n'est pas une consigne" },
+        { type: "paragraph", text: "C'est le point que les assureurs ne mettent pas sur leur site, et il change la façon dont on vit les premiers jours. Selon la ChAD, c'est à l'expert en sinistre que revient la coordination des travaux urgents — et l'absence de mesures en temps utile, comme l'ouverture des murs et des plafonds ou la mise en place d'une ventilation, contrevient à ses obligations professionnelles et peut laisser la moisissure proliférer, ce qui fait grimper la facture. Autrement dit : le délai n'est pas une étape normale du processus. Il est traité comme un problème par l'organisme qui encadre la profession." },
+        { type: "paragraph", text: "L'autre moitié de l'équation vous revient : l'assuré doit limiter les dommages et préserver la preuve. Assécher tôt n'est donc pas « commencer les travaux sans autorisation ». C'est précisément ce que le contrat attend de vous. La distinction à garder claire est celle-ci : l'assèchement et le confinement sont de la mitigation; la reconstruction, elle, attend l'entente sur la portée des travaux." },
+        { type: "heading", text: "Les documents qui font avancer un dossier" },
+        { type: "paragraph", text: "La ChAD demande à l'expert de réunir photos, vidéos et rapports de fournisseurs. C'est nous, ces fournisseurs. Après plusieurs centaines de dossiers, quatre documents reviennent comme ceux qui déplacent réellement une réclamation, parce que chacun ferme une question que l'expert aurait autrement dû poser." },
+        { type: "list", items: ["Des photos datées prises avant que quoi que ce soit ne bouge, y compris de ce qui semble intact. L'état initial ne se reconstitue pas après coup.", "Un relevé d'humidité daté, répété jusqu'à la fin du séchage. C'est ce qui distingue « c'est sec » de « ça en a l'air », et c'est le seul élément qui justifie objectivement la durée de l'assèchement.", "Une portée de travaux écrite qui sépare la structure de vos améliorations. Cette séparation est celle sur laquelle l'expert doit trancher; la lui fournir déjà faite épargne un aller-retour.", "La cause, quand elle est connue, décrite factuellement et sans conclusion. « Raccord de la conduite d'alimentation sous l'évier, rupture » vaut mieux que « le plombier a mal fait son travail »."] },
+        { type: "heading", text: "Ce qui met un dossier en attente" },
+        { type: "list", items: ["Des photos prises après le nettoyage. Compréhensible, et irrécupérable.", "Un seul relevé d'humidité, pris le dernier jour. Il prouve que c'est sec aujourd'hui, pas que le séchage était nécessaire hier.", "Une soumission globale sans détail, qui mélange la structure et les améliorations. L'expert ne peut pas l'approuver telle quelle, et le dossier revient.", "Des versions différentes de la même chose : une date au téléphone, une autre dans le courriel, une troisième dans la soumission. Chaque écart devient une demande de suivi."] },
+        {
+          type: "timeline",
+          items: [
+            { time: "Heure 0", text: "Couper l'eau et le courant de la zone touchée. Photographier avant de déplacer quoi que ce soit." },
+            { time: "Heures 0-24", text: "Déclarer le sinistre. Commencer le confinement et l'assèchement : c'est de la mitigation, pas des travaux." },
+            { time: "24-48 h", text: "La fenêtre de l'EPA pour la moisissure sur un matériau mouillé. Ce qui est encore imbibé après ce délai coûte davantage à traiter." },
+            { time: "Premiers jours", text: "Contact de l'expert en sinistre, qui explique le processus et coordonne les mesures urgentes." },
+            { time: "Pendant le séchage", text: "Relevés d'humidité consignés jusqu'à l'atteinte des valeurs cibles, pas jusqu'à une date." },
+            { time: "Puis seulement", text: "Portée de travaux écrite, entente, et reconstruction." },
+          ],
+        },
+        {
+          type: "linkParagraph",
+          text: "Tout ce qui précède décrit le dossier. Le travail, lui, reste le même : extraire, assécher jusqu'aux relevés, puis remettre en état — avec la documentation produite au fur et à mesure plutôt que reconstituée à la fin.",
+          linkText: "Notre service de restauration après dégât d'eau",
+          href: "/services/water-damage",
+        },
+        { type: "paragraph", text: "Une limite qu'il faut nommer : rien ici ne vous dit ce que votre police couvre, ni ce que votre assureur décidera. Ces réponses se trouvent dans votre contrat et chez votre assureur, et nulle part ailleurs. Ce que nous pouvons faire est plus étroit et parfois plus utile : assécher rapidement, documenter proprement, et remettre à votre expert en sinistre un dossier qu'il peut traiter sans vous rappeler." },
+      ],
+    },
+  },
 
   {
     slug: "condo-water-damage-who-pays",
