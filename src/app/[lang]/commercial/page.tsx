@@ -6,12 +6,12 @@ export const generateMetadata = localizedMetadata({
   fr: {
     title: "Rénovation pour gestionnaires immobiliers",
     description:
-      "Remise en état rapide de logements, un seul point de contact, documentation prête pour l'assureur et réponse aux dégâts d'eau 7 jours sur 7 à Laval et Montréal.",
+      "Remise en état rapide de logements, un seul point de contact, documentation prête pour l'assureur et urgence dégât d'eau répondue 24/7 à Laval et Montréal.",
   },
   en: {
     title: "Renovations for Property Managers in Laval & Montreal",
     description:
-      "Renovation partner for property managers in Laval and Montreal: fast unit turnovers, one contact for all trades, insurer-ready documentation, 7-day response.",
+      "Renovation partner for property managers in Laval and Montreal: fast unit turnovers, one contact for all trades, insurer-ready documentation, emergency line answered 24/7.",
   },
 });
 
