@@ -112,7 +112,7 @@ const PAINTING = {
 export const serviceAreas: ServiceArea[] = [
   {
     slug: "chomedey",
-    neighbors: ["fabreville", "vimont", "saint-laurent"],
+    neighbors: ["fabreville", "vimont", "saint-laurent", "laval-des-rapides"],
     // Multiplex water-damage work here is largely a board-and-paint job once
     // the wet material is out, and tenant turnover drives repainting.
     relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, KITCHEN_BATH, FLOORING, PAINTING],
@@ -420,7 +420,7 @@ export const serviceAreas: ServiceArea[] = [
 
   {
     slug: "duvernay",
-    neighbors: ["vimont", "montreal-nord", "terrebonne"],
+    neighbors: ["vimont", "montreal-nord", "terrebonne", "pont-viau"],
     // Flat-roof infiltration in the El Rancho stock lands on ceilings and
     // walls first, which is drywall work before it is anything else.
     relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, RENOVATIONS, BASEMENTS, PAINTING],
@@ -872,6 +872,171 @@ export const serviceAreas: ServiceArea[] = [
           question: "En combien de temps pouvez-vous venir à Terrebonne ?",
           answer:
             "Notre ligne est répondue 24/7 et nous planifions l'intervention à partir de cet appel. Nous ne promettons pas un délai fixe : quelqu'un qui garantit un nombre de minutes sans savoir ce qui se passe chez vous devine. Ce que nous pouvons dire, c'est que l'assèchement commence avant que la question de la responsabilité soit réglée, parce que le matériau, lui, n'attend pas.",
+        },
+      ],
+    },
+  },
+
+  /**
+   * Pont-Viau and Laval-des-Rapides — the eleventh and twelfth areas, and the
+   * last two Laval sectors LocalBusinessSchema claimed in `areaServed` without
+   * a page behind them. Longueuil, Île-Perrot and the West Island remain.
+   *
+   * Sourced from Ville de Laval's own municipal histories, which return HTTP
+   * 403 to automated fetching and are French-only — they had to be read in a
+   * real browser. That was worth the trouble twice over. It corrected a fact
+   * this file nearly shipped from Wikipedia (see the Pont-Viau name note), and
+   * it turned Laval-des-Rapides from the thinnest page in the set into one of
+   * the better-sourced ones.
+   */
+  {
+    slug: "pont-viau",
+    neighbors: ["laval-des-rapides", "duvernay"],
+    // Water damage leads: a pre-1965 sector, 90% built out by then, whose water
+    // network dates to the late 1920s. SEWER_BACKUP earns its place here — the
+    // copy states the L-5057 obligation and these are basements below street
+    // crown, which is exactly what the article covers.
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING],
+    sources: [
+      {
+        label: "Ville de Laval — Histoire municipale, Pont-Viau",
+        url: "https://www.laval.ca/culture/histoire-patrimoine/histoire-municipale/pont-viau/",
+      },
+      {
+        label: "Ville de Laval — Règlements sur les clapets antiretour",
+        url: "https://www.laval.ca/Pages/Fr/Citoyens/clapet-antiretour.aspx",
+      },
+    ],
+    en: {
+      name: "Pont-Viau",
+      tagline: "Renovation and water damage restoration in Pont-Viau, Laval",
+      metaTitle: "Water Damage & Renovation in Pont-Viau, Laval",
+      metaDescription:
+        "Renovation and water damage restoration in Pont-Viau, Laval: dense pre-1965 stock, basements below street level, and a water network laid in the 1920s.",
+      context: [
+        "Pont-Viau grew up beside the bridge linking Île Jésus to the Island of Montreal. Ville de Laval attributes the name to a 19th-century farmer who probably held land in the sector. By the end of that century the cluster of houses was known first as the Marigot peninsula near the Viau bridge, then simply as Pont-Viau. The Saint-Christophe parish was founded here in 1915, a first attempt at separate municipal status failed in 1920, and the municipality was finally created on 6 April 1926 by proclamation of the lieutenant-governor. It became a ville on 10 May 1947 and a cité on 6 February 1958, before the creation of Ville de Laval in 1965.",
+        "Two things shaped the sector physically. In 1927 the municipality began installing an aqueduct, drawing water from neighbouring Laval-des-Rapides — and in the same year Montreal Island Power announced a hydroelectric dam on the Rivière des Prairies that would flood part of southern Pont-Viau around the Marigot, roughly south of today's boulevards Lévesque and Cartier. The owners of the flooded lots moved to the north of the municipality on condition the aqueduct followed them, so the water network was replanned northward and mains already designed for the south were abandoned. By the creation of Ville de Laval in 1965 the territory was close to 90% developed and the densest on Île Jésus, at roughly 30 people per acre against about 20 in Laval-des-Rapides and 15 in Duvernay.",
+      ],
+      whatThisMeansHeading: "What that means for renovation and water damage in Pont-Viau",
+      whatThisMeans: [
+        "Ninety percent built out by 1965 means almost nothing here is new construction. Practically everything we do in Pont-Viau is work on existing stock, at the density that figure implies: close neighbours, shared walls in the plex stock, and street access that has to be planned rather than assumed. Containment and access get decided before demolition starts, not during.",
+        "A water network first laid in the late 1920s and extended northward through the following decades is now approaching a century in its oldest sections. That does not mean anything about a particular address, but across a sector of this age the water damage we respond to usually starts inside the building — a supply line, a shut-off valve, or original bathroom waterproofing at the end of its service life — and reaches the floor below before anyone notices.",
+        "Basements here sit below street crown level, which brings Laval's by-law into play directly. L-5057 art. 3.03.02 requires a backwater valve on every discharge connection serving fixtures below that level, forbids one of any type on the main collector, and requires that valves stay easy to reach and be kept working. Where an owner is in default of installing or maintaining them, the City is not responsible for backup damage. When we put a basement floor back here, the access hatch stays reachable.",
+      ],
+      faq: [
+        {
+          question: "Do you work in the plexes and apartment buildings?",
+          answer:
+            "Yes, and it is a good part of what we do in this sector. In an occupied building, containment and access are planned before demolition, and conditions are documented in writing for owners and insurers.",
+        },
+        {
+          question: "My house is from the 1950s. Does the age change the price?",
+          answer:
+            "It mostly changes what we find. Original systems from that period are often at the end of their service life, and it is better to discover that at the visit than mid-job. That is why we do not give firm prices over the phone in this sector.",
+        },
+      ],
+    },
+    fr: {
+      name: "Pont-Viau",
+      tagline: "Rénovation et restauration après dégât d'eau à Pont-Viau, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Pont-Viau, Laval",
+      metaDescription:
+        "Rénovation et dégât d'eau à Pont-Viau, Laval : parc dense d'avant 1965, sous-sols sous la couronne de rue, réseau d'aqueduc des années 1920.",
+      context: [
+        "Pont-Viau s'est développé à proximité du pont reliant l'île Jésus à l'île de Montréal. La Ville de Laval attribue le nom à un cultivateur du 19e siècle qui aurait vraisemblablement eu une terre dans le secteur. À la fin de ce siècle, le regroupement d'habitations est d'abord désigné comme la presqu'île du Marigot près du pont Viau, puis simplement comme Pont-Viau. La paroisse Saint-Christophe y est érigée en 1915; une première tentative de constitution en municipalité distincte échoue en 1920, et la municipalité est finalement créée le 6 avril 1926 par proclamation du lieutenant-gouverneur. Elle devient ville le 10 mai 1947, puis cité le 6 février 1958, avant la création de la Ville de Laval en 1965.",
+        "Deux événements ont façonné le secteur physiquement. En 1927, la municipalité amorce l'installation d'un aqueduc alimenté par sa voisine Laval-des-Rapides — et la même année, la compagnie Montreal Island Power annonce un barrage hydroélectrique sur la rivière des Prairies qui inondera une partie du sud de Pont-Viau, aux abords du Marigot, approximativement au sud des actuels boulevards Lévesque et Cartier. Les propriétaires des lots inondés s'installent dans la partie nord de la municipalité à condition que l'aqueduc les y suive : le réseau est donc replanifié vers le nord et des conduites prévues au sud sont abandonnées. À la création de la Ville de Laval en 1965, le territoire est développé à près de 90 % et il est le plus dense de l'île Jésus, avec environ 30 personnes à l'acre contre une vingtaine à Laval-des-Rapides et une quinzaine à Duvernay.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Pont-Viau",
+      whatThisMeans: [
+        "Un territoire bâti à 90 % dès 1965 veut dire qu'il ne s'y construit à peu près rien de neuf. Presque tout ce que nous faisons à Pont-Viau porte sur du bâti existant, avec la densité que ce chiffre suppose : des voisins proches, des murs mitoyens dans le parc de plex, et un accès de rue qui se planifie au lieu de se présumer. Le confinement et les accès se décident avant le début de la démolition, pas pendant.",
+        "Un réseau d'aqueduc posé à la fin des années 1920 et étendu vers le nord au fil des décennies suivantes approche aujourd'hui du siècle dans ses tronçons les plus anciens. Cela ne dit rien d'une adresse en particulier, mais dans un secteur de cet âge, les dégâts d'eau auxquels nous répondons proviennent le plus souvent de l'intérieur du bâtiment — une conduite d'alimentation, une valve d'arrêt, ou l'imperméabilisation d'origine d'une salle de bain en fin de vie utile — et atteignent l'étage inférieur avant que quiconque s'en aperçoive.",
+        "Les sous-sols du secteur se trouvent sous la couronne de rue, ce qui met directement en jeu la réglementation lavalloise. Le règlement L-5057, à l'article 3.03.02, exige un clapet antiretour sur chaque branchement d'évacuation desservant des appareils situés sous ce niveau, en interdit un de tout type sur le collecteur principal, et exige que les clapets restent faciles d'accès et soient maintenus fonctionnels. En cas de défaut du propriétaire de les installer ou de les entretenir, la Ville n'est pas responsable des dommages causés par un refoulement. Quand nous reposons un plancher de sous-sol ici, la trappe d'accès reste atteignable.",
+      ],
+      faq: [
+        {
+          question: "Travaillez-vous dans les plex et les immeubles à logements ?",
+          answer:
+            "Oui, et c'est une bonne partie de ce que nous faisons dans ce secteur. Dans un immeuble occupé, le confinement et les accès se planifient avant la démolition, et les conditions se documentent par écrit pour les propriétaires et les assureurs.",
+        },
+        {
+          question: "Ma maison date des années 1950. Est-ce que l'âge change le prix ?",
+          answer:
+            "Il change surtout ce qu'on trouve. Les systèmes d'origine de cette époque sont souvent au bout de leur vie utile, et il vaut mieux le découvrir à la visite qu'au milieu du chantier. C'est pourquoi nous ne donnons pas de prix ferme par téléphone dans ce secteur.",
+        },
+      ],
+    },
+  },
+
+  {
+    slug: "laval-des-rapides",
+    neighbors: ["pont-viau", "chomedey"],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING],
+    sources: [
+      {
+        label: "Ville de Laval — Histoire municipale, Laval-des-Rapides",
+        url: "https://www.laval.ca/culture/histoire-patrimoine/histoire-municipale/laval-des-rapides/",
+      },
+      {
+        label: "Ville de Laval — Règlements sur les clapets antiretour",
+        url: "https://www.laval.ca/Pages/Fr/Citoyens/clapet-antiretour.aspx",
+      },
+    ],
+    en: {
+      name: "Laval-des-Rapides",
+      tagline: "Renovation and water damage restoration in Laval-des-Rapides",
+      metaTitle: "Water Damage & Renovation in Laval-des-Rapides",
+      metaDescription:
+        "Renovation and water damage restoration in Laval-des-Rapides, where our office is. Post-war bungalow streets, pre-1965 systems, basements below street level.",
+      context: [
+        "Laval-des-Rapides began as a rural part of the Saint-Martin parish and turned residential earlier than its neighbours. At the very end of the 19th century a village called Parc-Laval grew on either side of the moulin du Crochet, the sector's economic centre since the seigneurial period, and the arrival of the railway let people working in Montreal settle there for a life that still felt like the countryside. On 3 April 1912 the village detached from Saint-Martin and became the ville de Laval des Rapides; its first council met on 22 May 1912 under mayor François Souillart, and that first council built the aqueduct and sewer network that was running within the municipality's first years.",
+        "Its residential vocation set the pattern for how it was built. Development accelerated after the Second World War, and the first residential streets were opened by farmers subdividing their own land for houses, generally bungalows — boulevard Clermont ceded in 1947, rue Guilbault in 1949, avenue Desmarteau in 1953, avenue Parissi between 1953 and 1957. From the mid-1950s, land held by religious communities was built on too. The municipality adopted construction standards and zoning at the end of 1957, annexed part of the ville de Renaud on 11 February 1959, and became the cité de Laval-des-Rapides on 6 July 1962. At the creation of Ville de Laval it was the second most populous municipality on Île Jésus.",
+      ],
+      whatThisMeansHeading: "What that means for renovation and water damage in Laval-des-Rapides",
+      whatThisMeans: [
+        "This is the sector our office is in, on boulevard Cartier Ouest. We mention it for one practical reason: on a water loss, distance decides what time drying starts, and the EPA's 24-to-48-hour mould window runs from the loss, not from our arrival.",
+        "The street-by-street subdivision of farmland between 1947 and 1957 produced a recognisable stock — post-war bungalows, opened one landowner at a time — and that consistency is useful for estimating in the same way Vimont's is. What varies is what has already been redone. A 1950s bungalow that was renovated in the 1990s and one that never was are different jobs behind the same façade.",
+        "The sewer network here is among the oldest municipal infrastructure in Laval, begun by that first council in the 1910s. Basements sit below street crown level, so L-5057 art. 3.03.02 applies: a backwater valve is required on every discharge connection serving fixtures below that level, none of any type is allowed on the main collector, and valves must stay accessible and working. Where an owner is in default, the City is not responsible for backup damage — which is why the access hatch stays reachable when we put a floor back.",
+      ],
+      faq: [
+        {
+          question: "Is your office really in this sector?",
+          answer:
+            "Yes — 68 boulevard Cartier Ouest. It matters most for emergencies: less road between the call and the start of drying.",
+        },
+        {
+          question: "Do you take small jobs, or only full projects?",
+          answer:
+            "Both. A single drywall repair and a complete basement go through the same crew, and we do not turn down small work in the sector we are based in.",
+        },
+      ],
+    },
+    fr: {
+      name: "Laval-des-Rapides",
+      tagline: "Rénovation et restauration après dégât d'eau à Laval-des-Rapides",
+      metaTitle: "Dégât d'eau et rénovation à Laval-des-Rapides",
+      metaDescription:
+        "Rénovation et dégât d'eau à Laval-des-Rapides, le secteur où se trouve notre bureau : bungalows d'après-guerre, systèmes d'avant 1965, sous-sols en contrebas.",
+      context: [
+        "Laval-des-Rapides est à l'origine un secteur rural de la paroisse de Saint-Martin qui prend une vocation résidentielle plus tôt que ses voisins. À la toute fin du 19e siècle, un village nommé Parc-Laval se développe de part et d'autre du moulin du Crochet, centre économique du secteur depuis la période seigneuriale, et l'arrivée du chemin de fer permet à des gens travaillant à Montréal de venir s'y installer dans un milieu de vie rappelant la campagne. Le 3 avril 1912, le village se détache de Saint-Martin et devient la ville de Laval des Rapides; son premier conseil siège le 22 mai 1912 sous le maire François Souillart, et c'est ce premier conseil qui met en place le réseau d'aqueduc et d'égouts, en fonction dès les premières années de la municipalité.",
+        "Sa vocation résidentielle a déterminé la façon dont le secteur s'est bâti. Le développement s'accélère après la Seconde Guerre mondiale, et les premières rues résidentielles sont ouvertes par des propriétaires terriens qui subdivisent leur terre pour y faire construire des maisons, généralement des bungalows — le boulevard Clermont cédé en 1947, la rue Guilbault en 1949, l'avenue Desmarteau en 1953, l'avenue Parissi entre 1953 et 1957. Dès le milieu des années 1950, on bâtit aussi sur des terrains appartenant à des communautés religieuses. La municipalité adopte des normes de construction et un zonage à la fin de 1957, annexe une partie de la ville de Renaud le 11 février 1959, et devient la cité de Laval-des-Rapides le 6 juillet 1962. À la création de la Ville de Laval, elle est la deuxième municipalité la plus populeuse de l'île Jésus.",
+      ],
+      whatThisMeansHeading:
+        "Ce que cela implique pour la rénovation et les dégâts d'eau à Laval-des-Rapides",
+      whatThisMeans: [
+        "C'est le secteur où se trouve notre bureau, sur le boulevard Cartier Ouest. Nous le mentionnons pour une raison pratique : sur un dégât d'eau, la distance décide de l'heure à laquelle l'assèchement commence, et le seuil de 24 à 48 heures de l'EPA pour la moisissure court à partir du sinistre, pas de notre arrivée.",
+        "La subdivision des terres agricoles rue par rue entre 1947 et 1957 a produit un parc reconnaissable — des bungalows d'après-guerre, ouverts un propriétaire à la fois — et cette homogénéité aide à l'estimation, comme à Vimont. Ce qui varie, c'est ce qui a déjà été refait. Un bungalow des années 1950 rénové dans les années 1990 et un autre qui ne l'a jamais été sont deux chantiers différents derrière la même façade.",
+        "Le réseau d'égouts d'ici compte parmi les plus anciennes infrastructures municipales de Laval, mis en place par ce premier conseil dans les années 1910. Les sous-sols se trouvent sous la couronne de rue : le règlement L-5057, article 3.03.02, exige donc un clapet antiretour sur chaque branchement d'évacuation desservant des appareils situés sous ce niveau, en interdit un de tout type sur le collecteur principal, et exige que les clapets restent accessibles et fonctionnels. En cas de défaut du propriétaire, la Ville n'est pas responsable des dommages causés par un refoulement — d'où la trappe d'accès qui reste atteignable quand nous reposons un plancher.",
+      ],
+      faq: [
+        {
+          question: "Votre bureau est-il vraiment dans le secteur ?",
+          answer:
+            "Oui — 68, boulevard Cartier Ouest. C'est utile surtout pour les urgences : moins de route entre l'appel et le début de l'assèchement.",
+        },
+        {
+          question: "Faites-vous les petits travaux ou seulement les gros chantiers ?",
+          answer:
+            "Les deux. Une réparation ponctuelle de gypse et un sous-sol complet passent par la même équipe, et nous ne refusons pas les petits mandats dans le secteur où nous sommes établis.",
         },
       ],
     },

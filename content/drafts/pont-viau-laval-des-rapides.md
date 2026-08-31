@@ -203,3 +203,40 @@ No $/pi². No m², no €.
 5. Two of the five unbacked `areaServed` claims closed; Longueuil, Île-Perrot and
    the West Island remain.
 6. Commit alone, cherry-pick to `master`.
+
+---
+
+## UPDATE — landed 2026-08-31, and the sourcing problem is gone
+
+The brief said Laval-des-Rapides was thinly sourced because Ville de Laval's
+municipal history is French-only and returns 403 to automated fetching. It was
+read in a real browser instead, which resolved it completely — and that page
+turned out to be *richer* than Wikipedia, not poorer.
+
+**What that gave Laval-des-Rapides:** the village of Parc-Laval at the end of the
+19th century, either side of the moulin du Crochet; the railway that made it a
+Montreal commuter village; detachment from Saint-Martin on 3 April 1912; the
+first council on 22 May 1912 under mayor François Souillart, and that council
+building the aqueduct and sewer network still under the streets; the farmland
+subdivisions street by street (Clermont 1947, Guilbault 1949, Desmarteau 1953,
+Parissi 1953-57); zoning at the end of 1957; the Renaud annexation of
+11 February 1959; cité status on 6 July 1962; second most populous municipality
+on Île Jésus at the 1965 merger.
+
+**What it gave Pont-Viau** beyond what Wikipedia had: the 1927 aqueduct drawing
+water from Laval-des-Rapides, the Montreal Island Power dam that flooded the
+Marigot and forced the water network to be replanned northward, ~90% built out
+by 1965, and the densest population on Île Jésus at roughly 30 people per acre
+against 20 in Laval-des-Rapides and 15 in Duvernay.
+
+**And it corrected a fact this draft nearly shipped.** The draft said the sector
+was named for Christophe Veau, "a family name a clerk misspelled into Viau" —
+which is what Wikipedia asserts. Ville de Laval says only that the bridge bore
+the name Viau *« vraisemblablement en l'honneur d'un cultivateur du 19e siècle
+qui aurait eu une terre dans ce secteur »*. The municipal source hedges twice in
+one sentence. The published copy hedges with it, and the Veau story is not on
+the site.
+
+That is the second time this week a confident secondary source was wrong where
+the primary one was careful, after the Laval backwater-valve rule. Same lesson,
+written down again: a search result is not a source.

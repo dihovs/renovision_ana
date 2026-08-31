@@ -86,7 +86,7 @@ without them, because those three facts *are* the page.
 | # | Item | Shape | Target query | Status |
 |---|---|---|---|---|
 | 9 | Frozen pipe / water heater leak | blog post | tuyau gelé · chauffe-eau qui coule | `done` 2026-08-31 (published early, before the cold) |
-| 10 | Pont-Viau + Laval-des-Rapides | new area pages | dégât d'eau Pont-Viau | `queued` |
+| 10 | Pont-Viau + Laval-des-Rapides | new area pages | dégât d'eau Pont-Viau | `done` 2026-08-31 |
 | 11 | Sewer backup: insurance + after | blog post | assurance refoulement d'égout, avenant 42 | `queued` |
 
 **9** publishes early November — a page indexed the week the first pipe bursts
