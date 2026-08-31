@@ -81,6 +81,10 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         label: "Read the hidden water damage and mould timeline",
         href: "/blog/hidden-water-damage-and-mold-timeline",
       },
+      alsoSee: {
+        label: "Who actually pays for a condo water loss in Quebec",
+        href: "/blog/condo-water-damage-who-pays",
+      },
     },
     faq: CEILING_FAQ.en,
   },
@@ -140,6 +144,10 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
       readMore: {
         label: "Lire la chronologie des dégâts d'eau cachés et de la moisissure",
         href: "/blog/hidden-water-damage-and-mold-timeline",
+      },
+      alsoSee: {
+        label: "Qui paie vraiment un dégât d'eau en copropriété au Québec",
+        href: "/blog/condo-water-damage-who-pays",
       },
     },
     faq: CEILING_FAQ.fr,

@@ -41,6 +41,89 @@ export function parseBlogDate(iso: string): Date {
 }
 
 export const blogPosts: BlogPost[] = [
+
+  {
+    slug: "condo-water-damage-who-pays",
+    categoryTag: { en: "Co-ownership · Water damage liability", fr: "Copropriété · Responsabilité en cas de dégât d'eau" },
+    publishedAt: "2026-08-30",
+    readTimeMinutes: 5,
+    heroStat: {
+      value: "500 000 $",
+      label: { en: "What the deductible on a syndicate's policy can reach in some downtown Montreal towers — Radio-Canada", fr: "Ce que peut atteindre la franchise de la police du syndicat dans certaines tours du centre-ville de Montréal — Radio-Canada" },
+    },
+    en: {
+      title: "Water Damage in a Condo: Who Actually Pays, and Why the Repair Stalls",
+      metaTitle: "Condo Water Damage: Who Pays in Quebec",
+      excerpt: "Everyone knows where the water came from, and that settles far less than you'd think. What the Civil Code actually says, and why the work sits still between two insurers.",
+      metaDescription: "Water damage in a Quebec co-ownership: what articles 1074.1 and 1074.2 say, why liability isn't presumed, and who carries the deductible.",
+      sections: [
+        { type: "paragraph", text: "The water came from the unit above. Everyone knows it, the neighbour admits it, and the question looks settled: they pay. That's the assumption almost every condo client calls us with, and it is wrong more often than it is right — not because anyone is cheating, but because Quebec co-ownership law does not work that way." },
+        { type: "heading", text: "What almost everyone assumes" },
+        { type: "paragraph", text: "The assumption is simple: the damage has an origin, the origin has an owner, so that owner repairs it. That is how intuition works, and how most conversations between neighbours go in the days after a loss. The problem is that co-ownership is precisely the regime where that intuition has been replaced with something else." },
+        { type: "heading", text: "What the Civil Code says" },
+        { type: "paragraph", text: "Articles 1074.1 and 1074.2 of the Civil Code of Québec collectivise the cost of a loss. In practice the costs are borne by the co-owners as a group — through common charges or the self-insurance fund — rather than by the person the water started with. As the firm Dunton Rainville puts it, it is the co-owners, through their contribution to common charges, who pay the deductibles and the repairs." },
+        { type: "list", items: ["The syndicate's policy covers the building and the common portions. It answers for the structure, and it is its deductible that is in play in most serious water losses.", "Your own policy covers your belongings and your improvements — what you have added to the unit since it was built, which often includes the flooring, the cabinets and the bathroom you redid.", "Common charges and the self-insurance fund absorb the rest, including the syndicate's deductible. Which is to say: you, and all your neighbours, including the ones nothing happened to."] },
+        { type: "heading", text: "Liability is not presumed" },
+        { type: "paragraph", text: "This is the point almost nobody knows, and it is the one that changes the conversation with the neighbour. Per Dunton Rainville, a co-owner's liability is not presumed even when the origin of the loss is known. To claim the deductible from a co-owner, the syndicate has to demonstrate fault — not merely an origin — and recent case law declines to fill gaps in the evidence by deduction. Knowing where the water came from is a starting point, not a conclusion. Charging a co-owner remains the exception, reserved for where their fault is established." },
+        { type: "heading", text: "The deductible is the real issue" },
+        { type: "paragraph", text: "Since the reform, syndicates have had to maintain a self-insurance fund intended in part to absorb the deductible on their own policy. The reason is arithmetic: those deductibles have climbed. Radio-Canada reports they now reach tens of thousands of dollars, and up to half a million in some downtown Montreal towers. It is that figure, not the question of who left the bath running, that determines how quickly your unit gets repaired." },
+        {
+          type: "stats",
+          items: [
+            { value: "1074.1", label: "The Civil Code article that collectivises the cost of a loss among co-owners" },
+            { value: "$500,000", label: "Deductible reached by some syndicate policies in downtown Montreal — Radio-Canada" },
+            { value: "2 policies", label: "The syndicate's for the building, yours for your improvements and belongings" },
+          ],
+        },
+        { type: "heading", text: "Why the repair isn't moving" },
+        { type: "paragraph", text: "Here is the part insurers and lawyers don't write, because they aren't in the unit afterwards. A water loss in a co-ownership opens two files in parallel: the syndicate's for the structure and common portions, and yours for what belongs to you. Two adjusters, two timelines, and a grey zone in the middle — the drywall, the insulation, the flooring — that each side sometimes treats as the other's. Meanwhile the material stays wet, and the EPA's 24-to-48-hour mould benchmark keeps running, indifferent to the discussion." },
+        { type: "list", items: ["Dry it before settling liability. Drying is mitigation, it documents itself, and no insurer faults a policyholder for limiting the damage while the file was opening.", "One dated set of moisture readings and photographs, from day one to the end. Two files can rest on the same documentation; neither can rest on recollection.", "A written scope that clearly separates what belongs to the structure from what belongs to your improvements. That separation, not the argument about fault, is usually what unblocks both files.", "Ask the syndicate what the deductible on its policy is. That number often decides whether a claim is made at all or absorbed — and you're entitled to know it before agreeing anything with anyone."] },
+        {
+          type: "linkParagraph",
+          text: "A building that knows the state of its finances makes these decisions faster. Since Bill 16, every syndicate must obtain a contingency fund study by August 2028, and the ones that already have it know what they can absorb without a special assessment.",
+          linkText: "What Bill 16 requires of syndicates, and by when",
+          href: "/blog/quebec-bill-16-condo-contingency-fund-study",
+        },
+        { type: "paragraph", text: "One qualification that matters: none of the above tells you what your policy covers. The split depends on your declaration of co-ownership and the policies in force, and those documents differ from one building to the next. Read your declaration and call your insurer before agreeing anything with your neighbour. What we do is narrower: we dry, we document what got wet with readings and photographs, and we put the unit back in a form both adjusters can process. We don't decide what's covered — but we can keep the question from delaying the drying." },
+      ],
+    },
+    fr: {
+      title: "Dégât d'eau en condo : qui paie vraiment, et pourquoi la réparation n'avance pas",
+      metaTitle: "Dégât d'eau en condo : qui paie au Québec",
+      excerpt: "Tout le monde sait d'où vient l'eau, et ça règle beaucoup moins de choses qu'on le croit. Ce que dit réellement le Code civil, et pourquoi les travaux restent bloqués entre deux assureurs.",
+      metaDescription: "Dégât d'eau en copropriété au Québec : ce que disent les articles 1074.1 et 1074.2, pourquoi la responsabilité ne se présume pas, et qui assume la franchise.",
+      sections: [
+        { type: "paragraph", text: "L'eau vient du logement au-dessus. Tout le monde le sait, le voisin l'admet, et la question semble réglée : c'est lui qui paie. C'est l'hypothèse avec laquelle presque tous nos clients en copropriété nous appellent, et elle est fausse plus souvent qu'elle n'est vraie. Non pas parce que quelqu'un triche, mais parce que le droit québécois de la copropriété ne fonctionne pas de cette façon." },
+        { type: "heading", text: "Ce que presque tout le monde suppose" },
+        { type: "paragraph", text: "L'hypothèse est simple : le dégât a une origine, l'origine a un propriétaire, donc ce propriétaire répare. C'est ainsi que fonctionne l'intuition, et c'est ainsi que fonctionnent la plupart des conversations entre voisins dans les jours qui suivent un sinistre. Le problème est que la copropriété est précisément le régime où cette intuition a été remplacée par autre chose." },
+        { type: "heading", text: "Ce que dit le Code civil" },
+        { type: "paragraph", text: "Les articles 1074.1 et 1074.2 du Code civil du Québec collectivisent le coût des sinistres. Concrètement, les frais sont assumés par l'ensemble des copropriétaires — par les charges communes ou par le fonds d'autoassurance — plutôt que par la personne chez qui l'eau a commencé. Comme le résume le cabinet Dunton Rainville, « ce sont les copropriétaires, par leur contribution aux charges communes, qui payent les franchises et les réparations »." },
+        { type: "list", items: ["La police du syndicat couvre l'immeuble et les parties communes. C'est elle qui répond de la structure, et c'est sa franchise qui est en jeu dans la plupart des dégâts d'eau sérieux.", "Votre police personnelle couvre vos biens et vos améliorations — ce que vous avez ajouté à l'unité depuis sa construction, ce qui inclut souvent les planchers, les armoires et la salle de bain que vous avez refaits.", "Les charges communes et le fonds d'autoassurance absorbent le reste, dont la franchise du syndicat. C'est-à-dire : vous, et tous vos voisins, y compris ceux qui n'ont rien eu."] },
+        { type: "heading", text: "La responsabilité ne se présume pas" },
+        { type: "paragraph", text: "C'est le point que presque personne ne connaît, et c'est celui qui change la conversation avec le voisin. Selon Dunton Rainville, « la responsabilité d'un copropriétaire ne se présume pas, même lorsque l'origine du sinistre est connue ». Pour réclamer la franchise à un copropriétaire, le syndicat doit démontrer une faute — pas seulement une origine — et la jurisprudence récente refuse de combler les trous de preuve par déduction. Savoir d'où vient l'eau est un point de départ, pas une conclusion. Imputer les charges à un copropriétaire demeure l'exception, réservée au cas où sa faute est établie." },
+        { type: "heading", text: "La franchise est le vrai enjeu" },
+        { type: "paragraph", text: "Depuis la réforme, les syndicats doivent maintenir un fonds d'autoassurance destiné notamment à absorber la franchise de leur propre police. La raison est arithmétique : ces franchises ont grimpé. Radio-Canada rapporte qu'elles atteignent désormais plusieurs dizaines de milliers de dollars, et jusqu'à un demi-million dans certaines tours du centre-ville de Montréal. C'est ce chiffre, et non la question de savoir qui a laissé couler le bain, qui détermine la vitesse à laquelle votre unité sera réparée." },
+        {
+          type: "stats",
+          items: [
+            { value: "1074.1", label: "L'article du Code civil qui collectivise le coût d'un sinistre entre les copropriétaires" },
+            { value: "500 000 $", label: "Franchise atteinte par certaines polices de syndicat au centre-ville de Montréal (Radio-Canada)" },
+            { value: "2 polices", label: "Celle du syndicat pour l'immeuble, la vôtre pour vos améliorations et vos biens" },
+          ],
+        },
+        { type: "heading", text: "Pourquoi la réparation n'avance pas" },
+        { type: "paragraph", text: "Voici la partie que les assureurs et les avocats n'écrivent pas, parce qu'ils ne sont pas dans le logement après coup. Un dégât d'eau en copropriété ouvre deux dossiers en parallèle : celui du syndicat pour la structure et les parties communes, et le vôtre pour ce qui vous appartient. Deux experts en sinistre, deux échéanciers, et une zone grise au milieu — le gypse, l'isolant, le plancher — que chacun considère parfois comme relevant de l'autre. Pendant ce temps, le matériau reste mouillé, et le seuil de 24 à 48 heures de l'EPA pour la moisissure continue de courir, indifférent aux discussions." },
+        { type: "list", items: ["Faites assécher avant de trancher la responsabilité. L'assèchement est de la mitigation, il se documente, et aucun assureur ne reproche à un assuré d'avoir limité les dégâts pendant que le dossier s'ouvrait.", "Un seul jeu de relevés d'humidité et de photos, daté, du premier jour à la fin. Deux dossiers peuvent s'appuyer sur la même documentation; aucun ne peut s'appuyer sur des souvenirs.", "Une portée de travaux écrite qui sépare clairement ce qui relève de la structure et ce qui relève de vos améliorations. C'est cette séparation, pas le débat sur la faute, qui débloque habituellement les deux dossiers.", "Demandez au syndicat quelle est la franchise de sa police. Ce chiffre décide souvent si la réclamation est faite ou absorbée — et vous avez le droit de le savoir avant de vous entendre avec qui que ce soit."] },
+        {
+          type: "linkParagraph",
+          text: "Un immeuble qui connaît l'état de ses finances prend ces décisions plus vite. Depuis la loi 16, chaque syndicat doit obtenir une étude du fonds de prévoyance d'ici août 2028, et ceux qui l'ont déjà faite savent ce qu'ils peuvent absorber sans cotisation spéciale.",
+          linkText: "Ce que la loi 16 exige des syndicats, et d'ici quand",
+          href: "/blog/quebec-bill-16-condo-contingency-fund-study",
+        },
+        { type: "paragraph", text: "Une précision qui compte : rien de ce qui précède ne vous dit ce que votre police couvre. Le partage dépend de votre déclaration de copropriété et des polices en vigueur, et ces documents diffèrent d'un immeuble à l'autre. Lisez votre déclaration et appelez votre assureur avant de convenir de quoi que ce soit avec le voisin. Ce que nous faisons est plus étroit : nous asséchons, nous documentons ce qui a été mouillé avec relevés et photos, et nous remettons l'unité en état sous une forme que les deux experts peuvent traiter. Nous ne décidons pas de ce qui est couvert — mais nous pouvons faire en sorte que la question ne retarde pas le séchage." },
+      ],
+    },
+  },
   {
     slug: "bathroom-renovation-roi-laval-montreal",
     categoryTag: {
