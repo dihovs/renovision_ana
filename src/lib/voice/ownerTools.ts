@@ -17,10 +17,11 @@ import {
   type ConversationChannel,
 } from "@/lib/crm/conversations";
 import { resolveContact, type ContactMatch } from "@/lib/crm/contactMatch";
-import { countJobsByStatus, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
-import { receivablesSummary } from "@/lib/crm/invoices";
+import { countJobsByStatus, listJobs, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
+import { listInvoices, receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
-import { countQuotesByStatus } from "@/lib/crm/quotes";
+import { countQuotesByStatus, listQuotes } from "@/lib/crm/quotes";
+import { QUOTE_FOLLOWUP_AFTER_DAYS } from "@/lib/crm/followups";
 import { createOwnerTask, listOpenOwnerTasks, rankTaskMatches, setOwnerTaskDone } from "@/lib/crm/tasks";
 import { buildContext, subjectForJobNumber, trimForSpeech } from "@/lib/crm/assistant";
 import { searchDriveFiles } from "@/lib/microsoft/files";
@@ -333,6 +334,12 @@ const TOOLS: Anthropic.Tool[] = [
       },
       additionalProperties: false,
     },
+  },
+  {
+    name: "whats_slipping",
+    description:
+      "What has gone quiet and needs a push: quotes sent and never answered, invoices past their due date, and running jobs the crew has not reported on in a week. Oldest first, with how long each has been waiting. Use it for 'what's slipping', 'what am I forgetting', 'who do I need to chase'.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "my_tasks",
@@ -685,6 +692,71 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async whats_slipping(_input, locale) {
+    const now = Date.now();
+    const days = (iso: string | null) =>
+      iso ? Math.floor((now - new Date(iso).getTime()) / 86_400_000) : 0;
+
+    // The quote threshold is followups.ts's own — the same number the
+    // automatic follow-up fires on, so "slipping" and "reminded" cannot
+    // disagree. Invoices use their own due date: past due IS the definition.
+    const [quotes, invoices, jobs, recent] = await Promise.all([
+      listQuotes({ status: "sent", limit: 100 }).catch(() => []),
+      listInvoices({ status: "sent", limit: 100 }).catch(() => []),
+      listJobs({ status: "in_progress", limit: 100 }).catch(() => []),
+      recentTeamMessages(7, 200).catch(() => []),
+    ]);
+
+    const staleQuotes = quotes
+      .filter((quote) => quote.sent_at && days(quote.sent_at) >= QUOTE_FOLLOWUP_AFTER_DAYS)
+      .sort((a, b) => days(b.sent_at) - days(a.sent_at))
+      .slice(0, 5);
+
+    const today = new Date(now).toISOString().slice(0, 10);
+    const overdue = invoices
+      .filter((invoice) => invoice.due_date && invoice.due_date < today)
+      .sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1))
+      .slice(0, 5);
+
+    const heardFrom = new Set(recent.map((message) => message.jobNumber).filter(Boolean));
+    const quietJobs = jobs.filter((job) => !heardFrom.has(job.job_number)).slice(0, 5);
+
+    if (staleQuotes.length === 0 && overdue.length === 0 && quietJobs.length === 0) {
+      return locale === "fr"
+        ? "Rien ne traîne: pas de soumission sans réponse, pas de facture en retard, et les chantiers en cours ont donné des nouvelles cette semaine."
+        : "Nothing is slipping: no unanswered quotes, no overdue invoices, and every running job has been heard from this week.";
+    }
+
+    const lines: string[] = [];
+    if (staleQuotes.length) {
+      lines.push(locale === "fr" ? "Soumissions sans réponse:" : "Quotes with no answer:");
+      for (const quote of staleQuotes) {
+        lines.push(
+          `- ${quote.client_name}, ${spokenMoney(quote.total_cents ?? 0, locale)}, ${days(quote.sent_at)} ${locale === "fr" ? "jours" : "days"}`,
+        );
+      }
+    }
+    if (overdue.length) {
+      lines.push(locale === "fr" ? "Factures en retard:" : "Invoices past due:");
+      for (const invoice of overdue) {
+        lines.push(
+          `- ${invoice.client_name}, ${spokenMoney(invoice.total_cents ?? 0, locale)}, ${days(invoice.due_date)} ${locale === "fr" ? "jours de retard" : "days late"}`,
+        );
+      }
+    }
+    if (quietJobs.length) {
+      lines.push(
+        locale === "fr"
+          ? "Chantiers sans nouvelles de l'équipe depuis sept jours:"
+          : "Jobs with nothing from the crew in seven days:",
+      );
+      for (const job of quietJobs) {
+        lines.push(`- ${locale === "fr" ? "travail" : "job"} ${job.job_number}${job.title ? `, ${job.title}` : ""}`);
+      }
+    }
+    return lines.join("\n");
   },
 
   async my_tasks(_input, locale) {

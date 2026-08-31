@@ -47,7 +47,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-09 | `search_messages`, widened | ✅ done — fell out of ANA-03's registry |
 | **Part 4 — doing the work** | | |
 | ANA-10 | Close the task loop | ✅ done |
-| ANA-11 | What is slipping | ⬜ not started |
+| ANA-11 | What is slipping | ✅ done |
 | ANA-12 | What do we charge | ⬜ not started |
 | ANA-13 | Did this job make money | ⬜ not started |
 | ANA-14 | Moisture readings | ⬜ not started |
@@ -420,6 +420,11 @@ reminds at 3 and 14. Nothing tells the owner *which* records tripped them.
 N days across every channel from ANA-03.
 
 **Done when** it names the records, oldest first, with how long each has been quiet.
+
+**Shipped.** Composed entirely from existing readers — `listQuotes` + the
+`QUOTE_FOLLOWUP_AFTER_DAYS` threshold followups fires on, `listInvoices` against their own
+due dates, `listJobs(in_progress)` minus the jobs `recentTeamMessages(7)` heard from. No
+new SQL. Speaks money through the existing formatter; caps at five per category.
 
 ---
 
