@@ -94,6 +94,10 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         label: "Read the hidden water damage and mould timeline",
         href: "/blog/hidden-water-damage-and-mold-timeline",
       },
+      alsoSee: {
+        label: "What actually moves an insurance claim, seen from the job site",
+        href: "/blog/insurance-claim-water-damage-quebec",
+      },
     },
   },
   fr: {
@@ -154,6 +158,10 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
       readMore: {
         label: "Lire la chronologie des dégâts d'eau cachés et de la moisissure",
         href: "/blog/hidden-water-damage-and-mold-timeline",
+      },
+      alsoSee: {
+        label: "Ce qui fait vraiment avancer une réclamation, vu du chantier",
+        href: "/blog/insurance-claim-water-damage-quebec",
       },
     },
   },
