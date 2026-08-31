@@ -35,7 +35,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 |---|---|---|
 | **Part 1 — foundations** | | |
 | ANA-01 | The write boundary, stated in code | ✅ done — `aa8c286` |
-| ANA-02 | Identity: one person across five systems | ⬜ not started |
+| ANA-02 | Identity: one person across five systems | ✅ code done — migration 0046 needs applying |
 | ANA-03 | Channels, plural | ⬜ not started |
 | **Part 2 — Microsoft, one integration** | | |
 | ANA-04 | The Graph connection, scoped to exclude voice | ⬜ owner is tenant admin ✓, Vercel Pro ✓ |
@@ -229,6 +229,11 @@ named constant listing every requested scope:
 
 `Chat.Read` · `Mail.Read` · `Files.Read.All` · `User.Read` · `offline_access`
 
+**`ChannelMessage.Read.All` is deliberately absent.** The owner confirmed on 30 Aug 2026
+that people message him in **direct 1:1 chats**, not team channels, so `Chat.Read` covers it.
+That is the narrower grant and it needs no extra consent. If channels are ever wanted, it is
+a new decision and a new scope, not a quiet addition here.
+
 and a comment recording that call and meeting scopes are **deliberately absent at the owner's
 instruction**, so the next person to touch this file knows the omission is a decision.
 
@@ -244,8 +249,7 @@ exactly the boundary the owner described: his Teams, his mail, his files.
 
 **Do** — read 1:1 and group chat messages via Graph, store in `teams_messages`, resolve the
 sender through `resolvePerson('teams_user_id', …)` from ANA-02, and keep current with change
-notifications plus a delta backfill. Channel messages only if the owner says the crew uses
-team channels rather than chats.
+notifications plus a delta backfill. **1:1 chats only** — confirmed 30 Aug 2026. No channel ingest, and no scope for it.
 
 **Done when** a Teams message from a customer is searchable by Ana and attached to the right
 person.
