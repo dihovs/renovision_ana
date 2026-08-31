@@ -1,0 +1,216 @@
+{
+  "slug": "frozen-pipe-water-heater-winter-leaks",
+  "categoryTag": {
+    "en": "Winter water damage · Emergency response",
+    "fr": "Dégâts d'eau d'hiver · Intervention d'urgence"
+  },
+  "publishedAt": "2026-11-03",
+  "readTimeMinutes": 5,
+  "heroStat": {
+    "value": "10 °C",
+    "label": {
+      "en": "The minimum indoor temperature CAA-Québec recommends holding in a home left empty in winter",
+      "fr": "La température intérieure minimale que CAA-Québec recommande de maintenir dans une maison inoccupée l'hiver"
+    }
+  },
+  "fr": {
+    "title": "Tuyau gelé, chauffe-eau qui coule : les deux appels d'hiver, et ce qui vient après",
+    "metaTitle": "Tuyau gelé ou chauffe-eau qui coule : quoi faire",
+    "excerpt": "Le robinet ne donne rien, ou une flaque s'élargit sous le réservoir. Comment reconnaître et dégeler un tuyau sans mettre le feu — et surtout, ce qui se passe après qu'il a éclaté.",
+    "metaDescription": "Tuyau gelé ou chauffe-eau qui fuit au Québec : les signes, comment dégeler sans danger, et la première heure après un éclatement. Ligne répondue 24/7.",
+    "sections": [
+      {
+        "type": "paragraph",
+        "text": "L'hiver produit deux appels chez nous, et ils ne se ressemblent pas. Le premier arrive vite : un robinet qui ne donne rien, puis un tuyau qui cède quand la glace se dilate. Le second arrive lentement : une flaque sous le chauffe-eau qui grandit depuis des semaines avant que quelqu'un la remarque. Le dégât final se ressemble — du gypse mouillé, un sous-plancher imbibé, un sous-sol fini à refaire — mais du point de vue de votre assurance, ce sont deux histoires opposées."
+      },
+      {
+        "type": "heading",
+        "text": "Reconnaître un tuyau gelé avant qu'il éclate"
+      },
+      {
+        "type": "paragraph",
+        "text": "CAA-Québec donne trois indices, et ils apparaissent souvent avant la rupture. Les tuyaux les plus vulnérables sont ceux situés dans des murs extérieurs hors-sol ou dans un espace non chauffé; un vide sanitaire l'est moins, parce qu'il est réchauffé par le dessus."
+      },
+      {
+        "type": "list",
+        "items": [
+          "Un débit d'eau réduit ou absent quand vous ouvrez un robinet — souvent le tout premier signe, un matin.",
+          "Des bruits inhabituels dans la tuyauterie.",
+          "Une section de tuyau anormalement froide par rapport aux conduites voisines."
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Le dégeler sans mettre le feu à la maison"
+      },
+      {
+        "type": "paragraph",
+        "text": "Ouvrez le robinet en premier : l'eau qui recommence à couler vous dira que ça fonctionne, et laisse la pression s'échapper au lieu de s'accumuler derrière le bouchon de glace. Puis réchauffez doucement la conduite avec un séchoir à cheveux, en déplaçant lentement l'appareil vers la zone gelée pour répartir la chaleur. Une couverture chauffante, un petit radiateur ou une lampe chauffante font aussi le travail. Soyez patient : ça prend du temps, et c'est normal. Ce qu'il ne faut jamais utiliser, c'est une lampe à souder ou un chalumeau au propane — CAA-Québec est catégorique là-dessus, parce que la flamme endommage les tuyaux de plastique et les joints soudés, et peut provoquer un incendie. Un tuyau gelé est un problème coûteux; une maison en feu en est un autre."
+      },
+      {
+        "type": "heading",
+        "text": "S'il a déjà éclaté : la première heure"
+      },
+      {
+        "type": "timeline",
+        "items": [
+          {
+            "time": "Tout de suite",
+            "text": "Fermez l'entrée d'eau principale. La CMMTQ le place en premier pour une raison : tant que la conduite alimente, tout le reste ne fait que gérer les dégâts en cours."
+          },
+          {
+            "time": "2 minutes",
+            "text": "Coupez le courant de la zone touchée au panneau, pas à l'interrupteur du mur. De l'eau qui traverse un plafond trouve les boîtes électriques avant de trouver le plancher."
+          },
+          {
+            "time": "5 minutes",
+            "text": "Photographiez avant de déplacer quoi que ce soit. Ce dossier n'existe qu'une fois, et c'est celui que votre assureur regardera."
+          },
+          {
+            "time": "15 minutes",
+            "text": "Appelez un plombier licencié pour la conduite. La réparation du tuyau est son métier, pas le nôtre."
+          },
+          {
+            "time": "Ensuite",
+            "text": "Appelez-nous pour l'eau. Notre ligne est répondue 24/7, et le seuil de 24 à 48 heures de l'EPA pour la moisissure commence à courir au moment où le tuyau a cédé, pas au moment où le plombier repart."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Le chauffe-eau, l'autre appel d'hiver"
+      },
+      {
+        "type": "paragraph",
+        "text": "Un chauffe-eau annonce rarement sa fin. Il suinte d'abord — une trace de rouille sur la base, un cerne sur la dalle, une odeur d'humidité dans un sous-sol fini — et ces semaines-là comptent, parce que les polices d'assurance habitation au Québec distinguent généralement un événement soudain et accidentel, couvert, d'une fuite lente ou d'un problème que le propriétaire connaissait sans agir, souvent exclu. Un tuyau qui éclate la nuit du 12 janvier est une date. Un réservoir qui coule depuis novembre est un historique. Si vous voyez une trace sous le vôtre, photographiez-la aujourd'hui et faites-la voir : c'est la seule fenêtre où l'information joue encore en votre faveur."
+      },
+      {
+        "type": "stats",
+        "items": [
+          {
+            "value": "10 °C",
+            "label": "Température intérieure minimale recommandée dans une maison inoccupée (CAA-Québec)"
+          },
+          {
+            "value": "24–48 h",
+            "label": "Fenêtre de l'EPA avant qu'un matériau mouillé développe très probablement de la moisissure"
+          },
+          {
+            "value": "0 flamme",
+            "label": "Lampe à souder et chalumeau : jamais, sur aucun tuyau"
+          }
+        ]
+      },
+      {
+        "type": "linkParagraph",
+        "text": "Une fois l'eau arrêtée, ce qui décide de la suite n'est pas la taille du dégât mais la qualité du dossier : relevés d'humidité datés, photos, et une portée de travaux écrite que l'expert peut traiter sans rappel.",
+        "linkText": "Ce qui fait vraiment avancer une réclamation, vu du chantier",
+        "href": "/blog/insurance-claim-water-damage-quebec"
+      },
+      {
+        "type": "paragraph",
+        "text": "Le plombier répare la conduite et s'en va, et c'est là que commence notre partie : l'eau qui est entrée dans les murs, le plafond en dessous et le sous-sol fini. Nous asséchons jusqu'aux relevés d'humidité plutôt que jusqu'à une date, nous documentons ce qui a été mouillé, et nous remettons en état le gypse, l'isolant, le plancher et la peinture. Notre ligne est répondue 24/7 — et en janvier, c'est rarement une figure de style."
+      }
+    ]
+  },
+  "en": {
+    "title": "Frozen Pipes and Leaking Water Heaters: Winter's Two Calls, and What Comes After",
+    "metaTitle": "Frozen Pipe or Leaking Water Heater: What to Do",
+    "excerpt": "The tap gives nothing, or a puddle is spreading under the tank. How to spot and thaw a frozen pipe without starting a fire — and, more importantly, what happens after it bursts.",
+    "metaDescription": "Frozen pipes and leaking water heaters in Quebec: the warning signs, how to thaw safely, and the first hour after a burst. Line answered 24/7.",
+    "sections": [
+      {
+        "type": "paragraph",
+        "text": "Winter produces two calls, and they don't look alike. The first arrives fast: a tap that gives nothing, then a pipe that lets go as the ice expands. The second arrives slowly: a puddle under the water heater that has been growing for weeks before anyone notices. The end damage looks the same — wet drywall, a soaked subfloor, a finished basement to redo — but from your insurer's point of view they are opposite stories."
+      },
+      {
+        "type": "heading",
+        "text": "Spotting a frozen pipe before it bursts"
+      },
+      {
+        "type": "paragraph",
+        "text": "CAA-Québec gives three signs, and they usually show up before the rupture. The most vulnerable pipes are those in above-grade exterior walls or in unheated spaces; a crawl space is less exposed, being warmed from above."
+      },
+      {
+        "type": "list",
+        "items": [
+          "Reduced or absent flow when you open a tap — often the very first sign, on a cold morning.",
+          "Unusual noises in the piping.",
+          "A section of pipe that feels abnormally cold compared with the ones beside it."
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Thawing it without setting the house on fire"
+      },
+      {
+        "type": "paragraph",
+        "text": "Open the tap first: running water tells you it's working, and lets pressure escape rather than build behind the ice plug. Then warm the line gently with a hair dryer, moving it slowly toward the frozen section so the heat spreads. A heating blanket, a small radiator or a heat lamp will also do it. Be patient — it takes time, and that's normal. What you must never use is a blowtorch or propane torch. CAA-Québec is categorical: the flame damages plastic pipe and soldered joints, and it can start a fire. A frozen pipe is one expensive problem; a house fire is another."
+      },
+      {
+        "type": "heading",
+        "text": "If it has already burst: the first hour"
+      },
+      {
+        "type": "timeline",
+        "items": [
+          {
+            "time": "Immediately",
+            "text": "Close the main water supply. The CMMTQ puts this first for a reason: while the line is still feeding, everything else is just managing damage in progress."
+          },
+          {
+            "time": "2 minutes",
+            "text": "Cut power to the affected area at the panel, not at the wall switch. Water crossing a ceiling finds the electrical boxes before it finds the floor."
+          },
+          {
+            "time": "5 minutes",
+            "text": "Photograph before moving anything. That record only exists once, and it's the one your insurer works from."
+          },
+          {
+            "time": "15 minutes",
+            "text": "Call a licensed plumber for the line. Repairing the pipe is their trade, not ours."
+          },
+          {
+            "time": "Then",
+            "text": "Call us for the water. Our line is answered 24/7, and the EPA's 24-to-48-hour mould window starts when the pipe let go, not when the plumber leaves."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "The water heater, winter's other call"
+      },
+      {
+        "type": "paragraph",
+        "text": "A water heater rarely announces its end. It weeps first — a rust trace on the base, a ring on the slab, a damp smell in a finished basement — and those weeks matter, because Quebec home insurance policies generally distinguish a sudden, accidental event, which is covered, from a slow leak or a problem the owner knew about and didn't act on, which is often excluded. A pipe bursting on the night of 12 January is a date. A tank that has been seeping since November is a history. If you can see a trace under yours, photograph it today and have it looked at: that is the only window where the information still works in your favour."
+      },
+      {
+        "type": "stats",
+        "items": [
+          {
+            "value": "10 °C",
+            "label": "Minimum indoor temperature recommended for an unoccupied home (CAA-Québec)"
+          },
+          {
+            "value": "24–48 h",
+            "label": "The EPA's window before wet material is very likely to grow mould"
+          },
+          {
+            "value": "No flame",
+            "label": "Blowtorch and propane torch: never, on any pipe"
+          }
+        ]
+      },
+      {
+        "type": "linkParagraph",
+        "text": "Once the water is off, what decides the rest isn't the size of the damage but the quality of the file: dated moisture readings, photographs, and a written scope the adjuster can process without a follow-up call.",
+        "linkText": "What actually moves an insurance claim, seen from the job site",
+        "href": "/blog/insurance-claim-water-damage-quebec"
+      },
+      {
+        "type": "paragraph",
+        "text": "The plumber fixes the line and leaves, and that is where our part starts: the water that went into the walls, the ceiling below, and the finished basement. We dry to moisture readings rather than to a date, document what got wet, and put back the drywall, insulation, flooring and paint. Our line is answered 24/7 — and in January that is rarely a figure of speech."
+      }
+    ]
+  }
+}
