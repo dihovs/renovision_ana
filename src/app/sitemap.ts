@@ -42,7 +42,7 @@ const routes = [
 //   MARKETING_LAST_UPDATED — the static marketing routes above.
 //   AREAS_LAST_UPDATED     — the sourced content in `src/lib/serviceAreas.ts`.
 const MARKETING_LAST_UPDATED = new Date("2026-08-30");
-const AREAS_LAST_UPDATED = new Date("2026-08-30");
+const AREAS_LAST_UPDATED = new Date("2026-08-31");
 
 /**
  * Every route is listed twice, once per language, and each entry carries the
