@@ -46,7 +46,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-08 | `record_brief` across every channel | ✅ done |
 | ANA-09 | `search_messages`, widened | ✅ done — fell out of ANA-03's registry |
 | **Part 4 — doing the work** | | |
-| ANA-10 | Close the task loop | ⬜ not started |
+| ANA-10 | Close the task loop | ✅ done |
 | ANA-11 | What is slipping | ⬜ not started |
 | ANA-12 | What do we charge | ⬜ not started |
 | ANA-13 | Did this job make money | ⬜ not started |
@@ -403,6 +403,11 @@ an id he would have to read aloud.
 **Done when** he can dictate a task Monday, hear it back Tuesday, and close it.
 
 **Do not** guess between two similar tasks. Read both, ask which.
+
+**Shipped.** `rankTaskMatches` in `crm/tasks.ts` — pure, stopworded in both languages,
+fails towards asking exactly like `contactMatch`: a clear winner needs every meaningful
+spoken word in exactly one task. `setOwnerTaskDone` joined PERMITTED_CRM_WRITES with its
+justification written beside it (undoable in one tap — the same function backwards).
 
 ---
 

@@ -21,7 +21,7 @@ import { countJobsByStatus, listVisitsBetween, type ScheduledVisit } from "@/lib
 import { receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
 import { countQuotesByStatus } from "@/lib/crm/quotes";
-import { createOwnerTask } from "@/lib/crm/tasks";
+import { createOwnerTask, listOpenOwnerTasks, rankTaskMatches, setOwnerTaskDone } from "@/lib/crm/tasks";
 import { buildContext, subjectForJobNumber, trimForSpeech } from "@/lib/crm/assistant";
 import { searchDriveFiles } from "@/lib/microsoft/files";
 import { listLeads, type StoredLead } from "@/lib/leadStore";
@@ -98,6 +98,10 @@ export const PERMITTED_CRM_WRITES = [
   // Puts a notification call in the outbound queue. The tightest tool here;
   // see the note above and the queue_customer_call description below.
   "queueDictatedCall",
+  // Ticks a task on the owner's own list. Undone in one tap in the admin —
+  // setOwnerTaskDone(id, false) is the same function backwards — and the
+  // matcher behind it never guesses between two similar tasks (ANA-10).
+  "setOwnerTaskDone",
 ] as const;
 
 /** The business runs on Montreal time; the server runs on UTC. */
@@ -327,6 +331,28 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days: { type: "integer", description: "How far back, in days. Defaults to 7." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "my_tasks",
+    description:
+      "Read back the owner's open to-do list, newest first. Use it when he asks what is on his list, what he had to do, or whether he noted something.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "complete_task",
+    description:
+      "Tick one task off the owner's list, matched by the words he says — 'the adjuster one is done', 'cross off the tile order'. If several tasks fit you will be given the list: read it out, ask which he means, and call again with more of its words. Repeat back what was ticked off.",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The task as he described it, in his words. Words from the task beat a paraphrase.",
+        },
+      },
+      required: ["text"],
       additionalProperties: false,
     },
   },
@@ -659,6 +685,69 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async my_tasks(_input, locale) {
+    const tasks = await listOpenOwnerTasks(10);
+    if (tasks === null) {
+      return locale === "fr"
+        ? "Je n'arrive pas à lire la liste pour le moment."
+        : "I cannot read the list at the moment.";
+    }
+    if (tasks.length === 0) {
+      return locale === "fr" ? "Rien d'ouvert sur la liste." : "Nothing open on the list.";
+    }
+    const lines = tasks.map((task, index) => {
+      const due = task.due_date ? ` (${locale === "fr" ? "pour le" : "due"} ${task.due_date})` : "";
+      return `${index + 1}. ${task.body}${due}`;
+    });
+    const heading =
+      locale === "fr"
+        ? `${tasks.length} tâche${tasks.length > 1 ? "s" : ""} ouverte${tasks.length > 1 ? "s" : ""}:`
+        : `${tasks.length} open task${tasks.length > 1 ? "s" : ""}:`;
+    return `${heading}\n${lines.join("\n")}`;
+  },
+
+  async complete_task(input, locale) {
+    const spoken = asString(input.text);
+    if (!spoken) return "Which task? Ask the owner which one he means.";
+
+    const tasks = await listOpenOwnerTasks(50);
+    if (tasks === null) {
+      return locale === "fr"
+        ? "Je n'arrive pas à lire la liste pour le moment — rien n'a été coché."
+        : "I cannot read the list at the moment — nothing was ticked off.";
+    }
+    if (tasks.length === 0) {
+      return locale === "fr"
+        ? "La liste est vide — rien à cocher."
+        : "The list is empty — nothing to tick off.";
+    }
+
+    const match = rankTaskMatches(spoken, tasks);
+    if (match.kind === "none") {
+      return `NOTHING TICKED OFF. No open task matches "${spoken}". Offer to read the list instead.`;
+    }
+    if (match.kind === "many") {
+      const options = match.tasks.map((task, index) => `${index + 1}. ${task.body}`).join("\n");
+      return [
+        `NOTHING TICKED OFF — more than one task fits "${spoken}" and you must not choose.`,
+        "Read these out, ask which one he means, then call complete_task again with more of its words:",
+        options,
+      ].join("\n");
+    }
+
+    const result = await setOwnerTaskDone(match.task.id, true);
+    if (!result.ok) {
+      // Same rule as capture_task: claiming a write that did not happen is
+      // worse than not having the feature.
+      return locale === "fr"
+        ? "Ça n'a pas marché — la tâche est toujours ouverte."
+        : "That did not take — the task is still open.";
+    }
+    return locale === "fr"
+      ? `Coché: « ${match.task.body} ». Redis-le au propriétaire pour qu'il confirme que c'était la bonne.`
+      : `Ticked off: "${match.task.body}". Say it back to the owner so he can catch it if that was the wrong one.`;
   },
 
   async record_brief(input, locale) {

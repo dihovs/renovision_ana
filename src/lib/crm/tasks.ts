@@ -211,3 +211,67 @@ export async function setOwnerTaskDone(id: string, done: boolean): Promise<TaskU
   }
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Matching a spoken sentence to an open task (ANA-10)
+// ---------------------------------------------------------------------------
+
+export type TaskMatch =
+  | { kind: "none" }
+  | { kind: "one"; task: OwnerTask }
+  | { kind: "many"; tasks: OwnerTask[] };
+
+/**
+ * Words that carry no meaning about WHICH task — both languages, because he
+ * dictates in either. Without this, "the Tremblay one" scores a hit on every
+ * task containing "the", and the matcher starts asking about tasks that share
+ * nothing but an article.
+ */
+const TASK_STOPWORDS = new Set([
+  "the", "and", "for", "that", "this", "with", "about", "one", "task", "thing",
+  "les", "des", "une", "pour", "avec", "chez", "dans", "cette", "tache",
+]);
+
+/** Lowercased, unaccented, split into words — the shape speech survives in. */
+function taskTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 2 && !TASK_STOPWORDS.has(word));
+}
+
+/**
+ * Which open task the owner means, from what he said.
+ *
+ * The same philosophy as contactMatch: fail towards asking. Ticking off the
+ * wrong task un-remembers something he still had to do, which is worse than
+ * any amount of "which one did you mean" — so a clear winner needs every
+ * meaningful spoken word to appear in exactly one task. Anything else is a
+ * question, never a guess. Pure, so the deciding is testable without a
+ * database.
+ */
+export function rankTaskMatches(spoken: string, tasks: OwnerTask[]): TaskMatch {
+  const wanted = taskTokens(spoken);
+  if (wanted.length === 0 || tasks.length === 0) return { kind: "none" };
+
+  const scored = tasks
+    .map((task) => {
+      const body = taskTokens(task.body);
+      const hits = wanted.filter((word) => body.some((b) => b.includes(word))).length;
+      return { task, hits, complete: hits === wanted.length };
+    })
+    .filter((entry) => entry.hits > 0)
+    .sort((a, b) => b.hits - a.hits);
+
+  if (scored.length === 0) return { kind: "none" };
+
+  const full = scored.filter((entry) => entry.complete);
+  if (full.length === 1) return { kind: "one", task: full[0].task };
+  if (full.length > 1) return { kind: "many", tasks: full.map((entry) => entry.task) };
+
+  // Nothing contained every word: offer the best partials rather than nothing,
+  // but never act on them.
+  return { kind: "many", tasks: scored.slice(0, 3).map((entry) => entry.task) };
+}
