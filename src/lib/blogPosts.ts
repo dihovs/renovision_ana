@@ -612,6 +612,12 @@ export const blogPosts: BlogPost[] = [
             { value: "1–3 wks", label: "Typical remediation time once mold reaches structural materials, vs. 3–7 days if caught early" },
           ],
         },
+        {
+          type: "linkParagraph",
+          text: "If mould has already taken hold rather than merely threatening to, the order of work changes: the water has to be found before anything is removed, or it grows back in the same place.",
+          linkText: "How we handle mould that has already started",
+          href: "/services/mould-remediation",
+        },
         { type: "heading", text: "How Renovision AnA finds it before it spreads" },
         {
           type: "paragraph",
@@ -702,6 +708,12 @@ export const blogPosts: BlogPost[] = [
             { value: "24–48 h", label: "Délai de séchage complet de l'EPA avant de présumer une croissance de moisissure" },
             { value: "1–3 sem.", label: "Durée typique de décontamination une fois la structure atteinte, contre 3 à 7 jours si le problème est pris tôt" },
           ],
+        },
+        {
+          type: "linkParagraph",
+          text: "Si la moisissure est déjà installée plutôt que simplement menaçante, l'ordre des travaux change : il faut trouver l'eau avant de retirer quoi que ce soit, sinon elle repousse au même endroit.",
+          linkText: "Comment nous traitons une moisissure déjà installée",
+          href: "/services/mould-remediation",
         },
         { type: "heading", text: "Comment Renovision AnA le détecte avant que ça se propage" },
         {

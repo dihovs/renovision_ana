@@ -22,6 +22,7 @@ const SERVICES = [
   ["Water damage restoration", "/services/water-damage"],
   ["Ceiling water damage repair", "/services/water-damage/ceiling"],
   ["Sewer backup cleanup (refoulement d'égout)", "/services/sewer-backup"],
+  ["Mould remediation (moisissure)", "/services/mould-remediation"],
   ["Flooring", "/services/flooring"],
   ["Kitchen & bathroom remodeling", "/services/kitchen-bath"],
   ["General renovations", "/services/renovations"],

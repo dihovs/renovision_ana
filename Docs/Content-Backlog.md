@@ -29,7 +29,7 @@ next." Process is in `Docs/Content-Engine.md`. Evidence is in
 | 4 | `/syndicats` | new route | syndicat de copropriété dégât d'eau responsabilité | `queued` |
 | 5 | `/gestionnaires` | ~~new route~~ → rewrite of `/commercial` | gestionnaire immobilier entrepreneur rénovation Montréal | `done` 2026-08-30 |
 | 6 | Terrebonne + Rive-Nord | new area pages | dégât d'eau Terrebonne | `done` 2026-08-30 (Terrebonne only; Rive-Nord hub still queued) |
-| 7 | Mould / moisissure | new route `/services/moisissure` | décontamination moisissure Laval | `blocked` |
+| 7 | Mould / moisissure | new route `/services/mould-remediation` | décontamination moisissure Laval | `done` 2026-08-30 (blocker cleared: we do it ourselves) |
 | 8 | `/assureurs` | new route | entrepreneur approuvé par les assureurs | `blocked` |
 
 **1 · Ceiling water damage.** The single cleanest open lane found in the whole

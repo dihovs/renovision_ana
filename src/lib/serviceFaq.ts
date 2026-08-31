@@ -17,6 +17,64 @@ export type FaqItem = { question: string; answer: string };
  * competitor who answers them.
  */
 /**
+ * Mould remediation. Four questions harvested from the SERP, and the first one
+ * is the reason this block needed care: "is it dangerous" is a medical question
+ * on a contractor's page. The answer names a doctor or the CLSC rather than
+ * reassuring or alarming, because we are not qualified to do either and a
+ * reader with an asthmatic child deserves better than marketing copy.
+ *
+ * Deliberately absent, all owner decisions of 2026-08-30: any certification
+ * claim (there is no credential to name, and vague wording would read as one),
+ * any mention of air testing, any mention of asbestos.
+ */
+export const MOULD_FAQ: Record<Locale, FaqItem[]> = {
+  en: [
+    {
+      question: "Is it dangerous?",
+      answer:
+        "That depends on the person as much as on the mould, and we are not the right people to judge it. A doctor or your CLSC can answer for your situation. What we can say: the larger the area and the longer the material stayed wet, the less reasonable it is to live beside it while you decide.",
+    },
+    {
+      question: "Can I clean it myself?",
+      answer:
+        "A small patch on a hard, non-porous surface — tile, sealed concrete — cleans up. Affected drywall, insulation or pressed wood does not: the material is porous, and scrubbing the surface moves spores around without removing what is inside it. The question isn't how big the patch is, but what is behind it.",
+    },
+    {
+      question: "Will it come back?",
+      answer:
+        "If the source isn't fixed, yes, and usually in the same place. That is why the first step here is finding the water rather than starting with removal.",
+    },
+    {
+      question: "How long does it take?",
+      answer:
+        "Removal is often the shortest part. Drying sets the schedule, and it ends at a moisture reading rather than a date. The rebuild follows, and how long it takes depends on what came out.",
+    },
+  ],
+  fr: [
+    {
+      question: "Est-ce dangereux ?",
+      answer:
+        "Cela dépend de la personne autant que de la moisissure, et nous ne sommes pas les bonnes personnes pour trancher. Un médecin ou votre CLSC peut répondre pour votre situation. Ce que nous pouvons dire : plus la surface est grande et plus longtemps le matériau est resté mouillé, moins il est raisonnable de vivre à côté en attendant.",
+    },
+    {
+      question: "Puis-je la nettoyer moi-même ?",
+      answer:
+        "Une petite tache sur une surface dure et non poreuse — céramique, béton scellé — se nettoie. Du gypse, de l'isolant ou du bois pressé atteints ne se nettoient pas : le matériau est poreux, et frotter la surface déplace les spores sans retirer ce qui est dans l'épaisseur. La question à se poser n'est pas la taille de la tache, mais ce qu'il y a derrière.",
+    },
+    {
+      question: "Est-ce que ça va revenir ?",
+      answer:
+        "Si la source n'est pas réglée, oui, et généralement au même endroit. C'est pourquoi la première étape ici est de trouver l'eau plutôt que de commencer par le retrait.",
+    },
+    {
+      question: "Combien de temps ça prend ?",
+      answer:
+        "Le retrait est souvent l'étape la plus courte. C'est le séchage qui commande l'échéancier, et il se termine à un relevé d'humidité, pas à une date. La remise en état suit, et sa durée dépend de ce qui est sorti.",
+    },
+  ],
+};
+
+/**
  * Ceiling water damage. These four are the SERP's own "People also ask" for
  * « dégât d'eau plafond réparation Montréal », kept close to the wording people
  * actually type — that is the whole point of harvesting them rather than

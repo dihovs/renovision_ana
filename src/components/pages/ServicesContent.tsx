@@ -5,6 +5,7 @@ import FeatureCard from "@/components/ui/FeatureCard";
 import {
   IconDroplet,
   IconBackflow,
+  IconShield,
   IconTiles,
   IconKitchen,
   IconHammer,
@@ -17,6 +18,7 @@ import {
 const icons = {
   droplet: IconDroplet,
   backflow: IconBackflow,
+  shield: IconShield,
   tiles: IconTiles,
   kitchen: IconKitchen,
   hammer: IconHammer,
@@ -47,6 +49,12 @@ const copy: Record<"en" | "fr", { title: string; intro: string; services: Servic
         icon: "backflow",
         title: "Sewer Backup Cleanup",
         desc: "Contaminated water extracted, disinfected, and the soaked material removed rather than dried — then rebuilt, with the backwater valve left accessible.",
+      },
+      {
+        href: "/services/mould-remediation",
+        icon: "shield",
+        title: "Mould Remediation",
+        desc: "Found the source first, then removed and rebuilt — because mould taken out without fixing the water comes back in the same spot.",
       },
       {
         href: "/services/flooring",
@@ -110,6 +118,12 @@ const copy: Record<"en" | "fr", { title: string; intro: string; services: Servic
         desc: "Eau contaminée extraite et désinfectée, matériaux imbibés retirés plutôt que séchés — puis remise en état, en gardant le clapet antiretour accessible.",
       },
       {
+        href: "/services/mould-remediation",
+        icon: "shield",
+        title: "Décontamination de moisissure",
+        desc: "On trouve d'abord la source, puis on retire et on refait — parce qu'une moisissure enlevée sans régler l'eau repousse au même endroit.",
+      },
+      {
         href: "/services/flooring",
         icon: "tiles",
         title: "Planchers",
@@ -165,8 +179,10 @@ export default function ServicesContent() {
         {c.title}
       </h1>
       <p className="mx-auto mt-3 max-w-2xl text-center text-charcoal/70">{c.intro}</p>
-      {/* 2 or 4 columns, never 3 — eight services leave an orphan in a
-          three-column row. See ServicesSection for the same reasoning. */}
+      {/* 2 or 4 columns, never 3. The rule was written when there were eight
+          services and one would have been orphaned in a three-column row; at
+          ten it still holds (4+4+2 reads fine, 3+3+3+1 does not). See
+          ServicesSection for the same reasoning. */}
       <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {c.services.map(({ href, icon, title, desc }) => (
           <FeatureCard
