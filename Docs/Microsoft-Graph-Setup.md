@@ -1,7 +1,13 @@
 # Microsoft Graph — the owner's setup steps (ANA-04)
 
-Fifteen minutes in the Entra portal, once. Nobody else can do these: they need
-the Microsoft 365 tenant administrator, which (confirmed 30 Aug 2026) is Artush.
+Fifteen minutes in the Entra portal, once. They need the Microsoft 365 tenant
+administrator.
+
+**WHO THAT IS, IS UNSETTLED.** This document said it was Artush, on a 30 Aug 2026
+confirmation that turned out to be a misreading of a voice answer. On 31 Aug he
+said he believes it is **Arman** and that he cannot sign in himself. Step 1 below
+cannot start until that is resolved — see `Docs/Microsoft-Graph-Handoff.md` for what
+to ask the admin for.
 
 The code side is built: `/api/v1/microsoft/connect` starts consent,
 `/api/v1/microsoft/callback` finishes it, `/api/v1/microsoft/status` reports

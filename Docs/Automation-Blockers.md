@@ -84,8 +84,14 @@ sending** or the answer will not cover what is actually wanted.
 > **Not to be confused with Teams *messages*.** The owner asked on 30 Aug 2026 for Ana to
 > read Teams chat, Outlook and OneDrive — and explicitly **not** Teams calls. That work is
 > `Ana-Capabilities-Orders.md` ANA-04 to ANA-07, and it is a different question from the
-> call-forwarding one below. He confirmed he administers the Microsoft 365 tenant, so the
-> Entra app registration is his to make.
+> call-forwarding one below.
+>
+> **WHO ADMINISTERS THE TENANT IS AN OPEN QUESTION, and it gates all of it.** On 30 Aug
+> 2026 this file recorded that Artush administers the tenant. That was my reading of a
+> garbled voice answer and it was **wrong**: on 31 Aug he said he believes **Arman** is the
+> admin and that he probably cannot sign in to the Entra portal himself. Until that is
+> settled, the Entra app registration in `Docs/Microsoft-Graph-Setup.md` has no owner and
+> ANA-04 through ANA-07 and ANA-17 are blocked — the code is built and tested, and inert.
  — 15 minutes, do this first
 
 Can the Teams tenant forward **+1 579-990-3077** to an external number? Forward

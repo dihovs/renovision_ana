@@ -38,7 +38,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-02 | Identity: one person across five systems | ✅ done `8731b15` — 0046 unapplied (owner: batch with 0044) |
 | ANA-03 | Channels, plural | ✅ done |
 | **Part 2 — Microsoft, one integration** | | |
-| ANA-04 | The Graph connection, scoped to exclude voice | ✅ code done — owner: Entra registration + env vars + migration 0047, see Docs/Microsoft-Graph-Setup.md |
+| ANA-04 | The Graph connection, scoped to exclude voice | 🚫 code done, tested — **BLOCKED: tenant admin is likely Arman, not Artush** |
 | ANA-05 | Teams chat | ✅ done — sync runs once Microsoft is connected |
 | ANA-06 | Outlook mail | ✅ done — sync runs once Microsoft is connected |
 | ANA-07 | OneDrive, searched not synced | ✅ done — waits on ANA-04 owner steps |
