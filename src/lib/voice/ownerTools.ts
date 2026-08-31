@@ -18,8 +18,9 @@ import {
 } from "@/lib/crm/conversations";
 import { resolveContact, type ContactMatch } from "@/lib/crm/contactMatch";
 import { countJobsByStatus, getJob, listJobs, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
-import { listInvoices, receivablesSummary } from "@/lib/crm/invoices";
+import { createInvoiceFromJob, listInvoices, receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
+import { isConversionRefused } from "@/lib/crm/conversions";
 import { formatHours, listExpenses, listTimeEntries } from "@/lib/crm/expenses";
 import {
   createMoistureReading,
@@ -120,6 +121,10 @@ export const PERMITTED_CRM_WRITES = [
   // Editable and deletable in the admin until a human sends it; sendQuote is
   // on the NEVER list and the tests hold the line (ANA-15).
   "createQuote",
+  // Creates an invoice in `draft` from a job the CRM already priced. Same
+  // shape as createQuote: no effect outside the company until a human presses
+  // Send, and sendInvoice/recordPayment stay on the NEVER list (ANA-16).
+  "createInvoiceFromJob",
 ] as const;
 
 /** The business runs on Montreal time; the server runs on UTC. */
@@ -349,6 +354,19 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days: { type: "integer", description: "How far back, in days. Defaults to 7." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "draft_invoice",
+    description:
+      "Draft the invoice for a finished job — 'invoice the Fleury job', 'bill job eleven'. The CRM prices it from the job's own lines and taxes; no amount is dictated and none can be. THE RESULT IS A DRAFT IN THE ADMIN AND NOTHING MORE — the customer is not billed, nothing is sent, and only the owner pressing Send changes that. The CRM refuses jobs that cannot be invoiced (cancelled, unapproved quote, already invoiced) — relay its exact reason.",
+    input_schema: {
+      type: "object",
+      properties: {
+        jobNumber: { type: "integer", description: "The job number, as he says it." },
+      },
+      required: ["jobNumber"],
       additionalProperties: false,
     },
   },
@@ -797,6 +815,40 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async draft_invoice(input, locale) {
+    const fr = locale === "fr";
+    const rawNumber = typeof input.jobNumber === "number" ? input.jobNumber : Number(input.jobNumber);
+    const jobNumber = Number.isInteger(rawNumber) && rawNumber > 0 ? rawNumber : null;
+    if (!jobNumber) return "NOTHING DRAFTED. Which job? Ask for the job number.";
+
+    const subject = await subjectForJobNumber(jobNumber);
+    if (!subject) return fr ? `Aucun travail numéro ${jobNumber}.` : `There is no job number ${jobNumber}.`;
+
+    try {
+      const result = await createInvoiceFromJob(subject.id);
+      if (!result.created) {
+        // The database's one-final-invoice-per-job constraint answered: it
+        // already exists. Saying "created" here would double-bill in his head.
+        return fr
+          ? `Ce travail a déjà sa facture — rien de nouveau n'a été créé. Elle est dans l'admin.`
+          : `That job already has its invoice — nothing new was created. It is in the admin.`;
+      }
+      return fr
+        ? `Facture en BROUILLON pour le travail ${jobNumber}, aux montants du travail lui-même. Rien n'a été envoyé au client — seul le propriétaire peut l'envoyer, depuis l'admin. Répète-lui ça.`
+        : `Invoice DRAFTED for job ${jobNumber}, priced from the job's own lines. Nothing was sent to the customer — only the owner can send it, from the admin. Repeat that back to him.`;
+    } catch (err) {
+      // The CRM's refusals are already sentences written for a human — "job 12
+      // was cancelled", "the quote was never approved". Relay, don't rephrase.
+      if (isConversionRefused(err)) {
+        return `NOTHING DRAFTED. ${err.message}`;
+      }
+      console.error("[voice-owner] draft_invoice failed:", err);
+      return fr
+        ? "Ça n'a pas été créé — rien n'existe. Réessaie ou fais-le depuis l'admin."
+        : "It was not created — nothing exists. Try again or do it from the admin.";
+    }
   },
 
   async draft_estimate(input, locale) {

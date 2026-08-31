@@ -52,7 +52,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-13 | Did this job make money | ✅ done |
 | ANA-14 | Moisture readings | ✅ done |
 | ANA-15 | Draft an estimate, never send it | ✅ done |
-| ANA-16 | Draft an invoice, never send it | ⬜ not started |
+| ANA-16 | Draft an invoice, never send it | ✅ done |
 | ANA-17 | Draft an email reply, never send it | ⬜ not started |
 | ANA-18 | Message the crew | ⬜ not started |
 | ANA-19 | Memory | ⬜ not started |
@@ -520,6 +520,12 @@ anyone.
 
 **Do not** touch `sendInvoice`, `recordPayment` or `setInvoiceStatus`. An invoice leaving the
 building is a human action, permanently.
+
+**Shipped.** `draft_invoice` over `createInvoiceFromJob` — no dictated amounts, no
+arithmetic added; the CRM's own refusals (cancelled job, unapproved quote, already
+invoiced) are relayed verbatim because they were already written for a human.
+`created:false` is spoken as "already has its invoice", never as success.
+`createInvoiceFromJob` is the sixth entry on PERMITTED_CRM_WRITES.
 
 ---
 
