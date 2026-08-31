@@ -63,6 +63,10 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         label: "Read the hidden water damage and mould timeline",
         href: "/blog/hidden-water-damage-and-mold-timeline",
       },
+      alsoSee: {
+        label: "Damage to a ceiling? What to do, and who pays",
+        href: "/services/water-damage/ceiling",
+      },
     },
   },
   fr: {
@@ -121,6 +125,10 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
       readMore: {
         label: "Lire l'article sur les dégâts d'eau cachés et la moisissure",
         href: "/blog/hidden-water-damage-and-mold-timeline",
+      },
+      alsoSee: {
+        label: "Un dégât au plafond? Quoi faire, et qui paie",
+        href: "/services/water-damage/ceiling",
       },
     },
   },
