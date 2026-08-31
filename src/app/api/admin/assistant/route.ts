@@ -1,6 +1,13 @@
 import { isSignedIn } from "@/lib/adminAuth";
 import type Anthropic from "@anthropic-ai/sdk";
-import { buildContext, streamAnswer, type AssistantMessage, type AssistantSubject } from "@/lib/crm/assistant";
+import {
+  buildContext,
+  MAX_IMAGES_PER_TURN,
+  sanitiseImages,
+  streamAnswer,
+  type AssistantMessage,
+  type AssistantSubject,
+} from "@/lib/crm/assistant";
 import { ADMIN_OWNER_SESSION } from "@/lib/voice/owner";
 import { ownerToolsFor, runOwnerTool } from "@/lib/voice/ownerTools";
 
@@ -39,6 +46,8 @@ const MAX_TURNS = 20;
 const MAX_TOOL_ROUNDS = 6;
 const MAX_QUESTION_CHARS = 2000;
 
+
+
 export async function POST(request: Request) {
   if (!(await isSignedIn())) {
     return Response.json({ error: "Not authorised" }, { status: 401 });
@@ -76,13 +85,38 @@ export async function POST(request: Request) {
         Boolean(m) &&
         (m.role === "user" || m.role === "assistant") &&
         typeof m.content === "string" &&
-        m.content.trim().length > 0,
+        // A photo with no words is still a question ("what is this?"), so an
+        // empty string is allowed when something is attached to it.
+        (m.content.trim().length > 0 || Boolean(m.images?.length)),
     )
     .slice(-MAX_TURNS)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_QUESTION_CHARS) }));
+    .map((m) => ({
+      role: m.role,
+      content: m.content.slice(0, MAX_QUESTION_CHARS),
+      images: sanitiseImages(m.images),
+    }));
 
   if (messages.length === 0) {
     return Response.json({ error: "Ask a question" }, { status: 400 });
+  }
+
+  // A photo that was sent but silently dropped would have him believing Ana
+  // looked at something she never saw, so a rejected attachment is an error
+  // rather than a quieter answer.
+  for (const [index, original] of (body.messages ?? []).entries()) {
+    const kept = messages[index]?.images?.length ?? 0;
+    const sent = original?.images?.length ?? 0;
+    if (sent > kept && sent > 0) {
+      return Response.json(
+        {
+          error:
+            sent > MAX_IMAGES_PER_TURN
+              ? `Three photos at a time, please — that was ${sent}.`
+              : "That photo could not be read. JPEG, PNG, GIF or WebP, under about 3 MB.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const context = subject ? await buildContext(subject) : null;

@@ -58,6 +58,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-19 | Memory | 📄 proposal written — `Ana-Memory-Proposal.md`, three decisions are his |
 | **Part 5 — blocked** | | |
 | ANA-20 | Ana's tools in the admin chat box | ✅ done |
+| ANA-22 | The composer: text, photo, voice, on the home screen | ✅ done |
 | ANA-21 | QuickBooks | 🚫 blocked — Intuit, owner-only |
 
 ---
@@ -649,6 +650,40 @@ optional with its own suggestions ("What's slipping?", "What's on my list?").
 **A bug found while doing it:** that page returned early when
 `ELEVENLABS_ADMIN_AGENT_ID` was unset, which would have hidden the typed assistant behind
 a voice credential it never touches. The widget is now the only thing that env var gates.
+
+---
+
+## ANA-22 — The composer: type it, say it, or photograph it  ✅
+
+Asked for on 31 Aug: *"like ChatGPT... I can send photos, I can send the voice, and I
+can even text"*, on the home screen. The heroes there were both a tap that changes
+screen first and asks second; the most common thing to want on a job site is one
+question, and that should cost nothing but typing it.
+
+**Shipped.**
+
+- **Photo.** `capture="environment"` opens the camera straight away on the phone. Each
+  photo goes through the existing `stripImageMetadata` — EXIF and **GPS removed in the
+  browser**, downscaled to Anthropic's 1568px guidance, and it **fails closed**: a photo
+  that cannot be re-encoded is refused rather than sent with a customer's home
+  coordinates attached. Vision blocks are image-first, text-after.
+- **A photo always gets the better model.** Haiku is right for reading a record; a photo
+  of water damage is the one question where being wrong is expensive, and it is asked
+  rarely enough not to move the bill.
+- **Voice → text, not voice → action.** `/api/admin/transcribe` over ElevenLabs Scribe
+  (the key already exists), and the transcript lands **in the box** rather than being
+  sent. That human checkpoint is the point: "log eighteen percent" misheard as eighty is
+  a drying log an adjuster reads later. Appended to whatever was already typed, never
+  replacing it; the mic is released the instant recording stops, and on unmount.
+- **All-or-nothing attachments.** `sanitiseImages` refuses the whole set if any photo is
+  the wrong type, oversized, or carries a `data:` prefix — dropping one and sending the
+  rest would have him believing Ana looked at something she never saw. Seven tests.
+- **Both home screens** — the native calm home and the desktop dashboard — plus every
+  record page and `/admin/ana`, all one component.
+
+**Not done:** photos are a question, never a record. Filing one against a job stays
+`RoomEvidence`'s job; conflating them would quietly fill project files with pictures he
+only meant to ask about.
 
 ---
 

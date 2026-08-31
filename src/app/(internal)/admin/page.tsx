@@ -1,3 +1,4 @@
+import AskClaude from "@/components/admin/AskClaude";
 import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
 import { countClients } from "@/lib/crm/clients";
@@ -126,6 +127,11 @@ export default async function AdminHomePage() {
 
   return (
     <div className="space-y-6">
+      {/* The same composer as the native home screen (ANA-22). One question is
+          the most common thing to want on either surface, and a desk is where
+          the typed path is fastest. */}
+      <AskClaude startOpen title="Ask Ana" />
+
       <div>
         <h2 className="font-heading text-xl font-bold text-charcoal">{greeting}, Artush</h2>
         <p className="mt-0.5 text-sm text-charcoal/50">{today}</p>

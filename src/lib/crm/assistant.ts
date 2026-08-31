@@ -331,7 +331,73 @@ WHAT THE TOOLS WILL NOT DO, AND NEITHER WILL YOU
 - A tool that refuses has a reason written for a human. Relay that reason. Do not retry with different arguments, do not pick a "closest" option, and never work around a refusal.
 - A tool that asks which of several it should have used is asking HIM, not you. Read the options out and wait.`;
 
-export type AssistantMessage = { role: "user" | "assistant"; content: string };
+/**
+ * A photo the owner attached to a question. (ANA-22)
+ *
+ * Base64 rather than a URL because these are not filed anywhere: a photo asked
+ * ABOUT is a question, not a record. It reaches Claude, answers the question,
+ * and is gone. Filing a photo against a job is a different act with its own
+ * screen (RoomEvidence), and conflating the two would quietly fill the project
+ * files with pictures he only meant to ask about.
+ */
+export type AssistantImage = {
+  /** image/jpeg, image/png, image/gif or image/webp — checked at the route. */
+  media_type: string;
+  /** Base64 payload only, no data: prefix. */
+  data: string;
+};
+
+/**
+ * Photo limits, measured on what actually arrived rather than what was claimed.
+ *
+ * Three is what a person attaches to one question; a fourth is a gallery, and a
+ * gallery is a different feature. 4 MB of base64 is roughly a 3 MB photo — the
+ * composer downscales to 1568px before sending, so hitting this means something
+ * went wrong rather than someone being thorough.
+ */
+export const MAX_IMAGES_PER_TURN = 3;
+const MAX_IMAGE_BASE64_CHARS = 4_000_000;
+
+/** What Claude's vision accepts. Anything else is refused rather than guessed. */
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/**
+ * The attachments worth sending, or undefined if the set is not all-or-nothing.
+ *
+ * ALL OR NOTHING IS THE POINT. Dropping one bad photo and sending the rest
+ * would have him believing Ana looked at something she never saw — and on a
+ * question about damage, "she didn't mention the ceiling" would read as an
+ * opinion rather than a photo that went missing. So a set with anything wrong
+ * in it comes back undefined and the caller reports it.
+ *
+ * Type and size are checked against what arrived, never against what the
+ * browser said it was sending — the same rule the photo upload route follows.
+ */
+export function sanitiseImages(
+  images: AssistantImage[] | undefined,
+): AssistantImage[] | undefined {
+  if (!images?.length) return undefined;
+  if (images.length > MAX_IMAGES_PER_TURN) return undefined;
+  const kept = images.filter(
+    (image) =>
+      image &&
+      typeof image.data === "string" &&
+      typeof image.media_type === "string" &&
+      IMAGE_TYPES.has(image.media_type) &&
+      image.data.length > 0 &&
+      image.data.length <= MAX_IMAGE_BASE64_CHARS &&
+      // Base64 and nothing else: a data: prefix left on the front is the
+      // common mistake, and it produces a 400 from the API rather than here.
+      /^[A-Za-z0-9+/=\r\n]+$/.test(image.data),
+  );
+  return kept.length === images.length ? kept : undefined;
+}
+
+export type AssistantMessage = {
+  role: "user" | "assistant";
+  content: string;
+  images?: AssistantImage[];
+};
 
 /**
  * Stream an answer.
@@ -348,9 +414,15 @@ export function streamAnswer(
 ) {
   const client = new Anthropic();
   const tools = options.tools ?? [];
+  const hasImages = messages.some((m) => m.images?.length);
 
   return client.messages.stream({
-    model: options.escalate ? ESCALATED_MODEL : MODEL,
+    // A PHOTO ALWAYS GETS THE BETTER MODEL. Haiku is the right default for
+    // reading a record — it is cheap and this is a summarisation job. But a
+    // photo of water damage is the one question where being wrong is
+    // expensive, it is asked rarely enough not to move the bill, and reading
+    // an image is not the same task as reading a paragraph.
+    model: options.escalate || hasImages ? ESCALATED_MODEL : MODEL,
     max_tokens: 1500,
     ...(tools.length ? { tools } : {}),
     system: [
@@ -368,6 +440,36 @@ export function streamAnswer(
       // opened on the dashboard rather than on somebody's file.
       ...(context ? [{ type: "text" as const, text: `THE RECORD\n\n${context}` }] : []),
     ],
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: messages.map(toMessageParam),
   });
+}
+
+/**
+ * One turn as the API wants it: a plain string when there is nothing but words,
+ * blocks when a photo came with the question.
+ *
+ * The image goes FIRST and the words after, which is what the vision docs ask
+ * for and also how a person hands you a photo — here, look at this, now my
+ * question about it.
+ */
+function toMessageParam(message: AssistantMessage): Anthropic.MessageParam {
+  if (!message.images?.length) {
+    return { role: message.role, content: message.content };
+  }
+  return {
+    role: message.role,
+    content: [
+      ...message.images.map(
+        (image): Anthropic.ImageBlockParam => ({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: image.media_type as Anthropic.Base64ImageSource["media_type"],
+            data: image.data,
+          },
+        }),
+      ),
+      { type: "text", text: message.content },
+    ],
+  };
 }

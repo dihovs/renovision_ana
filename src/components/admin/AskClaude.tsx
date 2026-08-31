@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { stripImageMetadata } from "@/lib/stripImageMetadata";
 
 /**
  * The assistant panel: "Ask about this" on a record, "Ask Ana" without one.
@@ -10,7 +11,8 @@ import { useRef, useState } from "react";
  * chat box on a record page reads as clutter the rest of the time.
  */
 
-type Message = { role: "user" | "assistant"; content: string };
+type Attachment = { media_type: string; data: string; preview: string };
+type Message = { role: "user" | "assistant"; content: string; images?: Attachment[] };
 
 /**
  * What to say while a tool runs. (ANA-20)
@@ -45,6 +47,9 @@ const TOOL_LABEL: Record<string, string> = {
   notify_crew: "Messaging the crew",
   queue_customer_call: "Queueing the call",
 };
+
+/** Three is what a person attaches to one question; a fourth is a gallery. */
+const MAX_PHOTOS = 3;
 
 const RECORD_SUGGESTIONS = [
   "Summarise this for me",
@@ -88,18 +93,125 @@ export default function AskClaude({
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activity, setActivity] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<Attachment[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
   // Escalation is deliberate here: the owner can see the answer and judge it.
   // On a phone call the same switch will have to be detected automatically.
   const [escalate, setEscalate] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  /**
+   * Photos in, stripped and downscaled before they ever leave the device.
+   *
+   * stripImageMetadata fails closed — a photo that cannot be re-encoded is
+   * refused rather than sent as-is, because the fallback would be sending the
+   * GPS coordinates of a customer's home that the re-encode exists to remove.
+   */
+  // A recorder still running when the panel closes would hold the microphone
+  // open with nothing listening for its result.
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    };
+  }, []);
+
+  async function attachPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    setError(null);
+    const room = MAX_PHOTOS - photos.length;
+    if (room <= 0) {
+      setError(`Three photos at a time.`);
+      return;
+    }
+    const added: Attachment[] = [];
+    for (const file of Array.from(files).slice(0, room)) {
+      try {
+        const dataUrl = await stripImageMetadata(file);
+        added.push({
+          media_type: "image/jpeg",
+          data: dataUrl.slice("data:image/jpeg;base64,".length),
+          preview: dataUrl,
+        });
+      } catch {
+        setError("That photo could not be read. Try taking it again.");
+      }
+    }
+    if (added.length) setPhotos((prev) => [...prev, ...added]);
+  }
+
+  /**
+   * Dictate, then read it back before it is asked.
+   *
+   * The transcript lands in the box rather than being sent, which is the whole
+   * point: "log eighteen percent" misheard as eighty is a drying log an
+   * adjuster reads later, and a glance at the words costs a second.
+   */
+  async function toggleRecording() {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    setError(null);
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError("No microphone — check the app's permissions.");
+      return;
+    }
+
+    const chunks: Blob[] = [];
+    const recorder = new MediaRecorder(stream);
+    recorderRef.current = recorder;
+    recorder.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    recorder.onstop = async () => {
+      // Release the mic immediately — a live indicator on a phone after the
+      // note is finished reads as an app that is still listening.
+      stream.getTracks().forEach((track) => track.stop());
+      setRecording(false);
+      if (!chunks.length) return;
+
+      setTranscribing(true);
+      try {
+        const body = new FormData();
+        body.append("audio", new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+        const res = await fetch("/api/admin/transcribe", { method: "POST", body });
+        const json = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+        if (!res.ok || !json.text) {
+          setError(json.error ?? "That did not transcribe.");
+        } else {
+          // Appended, not replaced: he may have typed half the question first.
+          setInput((prev) => (prev ? `${prev.trim()} ${json.text}` : (json.text as string)));
+        }
+      } catch {
+        setError("That did not transcribe.");
+      } finally {
+        setTranscribing(false);
+      }
+    };
+    recorder.start();
+    setRecording(true);
+  }
+
   async function ask(question: string) {
     const trimmed = question.trim();
-    if (!trimmed || streaming) return;
+    // A photo on its own is a question — "what is this?" — so words are only
+    // required when nothing is attached.
+    if ((!trimmed && photos.length === 0) || streaming) return;
 
     setError(null);
     setInput("");
-    const history: Message[] = [...messages, { role: "user", content: trimmed }];
+    const attached = photos;
+    setPhotos([]);
+    const history: Message[] = [
+      ...messages,
+      { role: "user", content: trimmed, ...(attached.length ? { images: attached } : {}) },
+    ];
     // The empty assistant turn is appended immediately so the streamed text has
     // somewhere to land, and the owner sees it start rather than a dead pause.
     setMessages([...history, { role: "assistant", content: "" }]);
@@ -113,7 +225,19 @@ export default function AskClaude({
       const res = await fetch("/api/admin/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, messages: history, escalate }),
+        body: JSON.stringify({
+          subject,
+          // `preview` is a data URL this browser renders thumbnails from; it
+          // would double every photo's weight on the wire for nothing.
+          messages: history.map(({ role, content, images }) => ({
+            role,
+            content,
+            ...(images?.length
+              ? { images: images.map(({ media_type, data }) => ({ media_type, data })) }
+              : {}),
+          })),
+          escalate,
+        }),
         signal: controller.signal,
       });
 
@@ -245,6 +369,19 @@ export default function AskClaude({
                 : "max-w-[92%] text-sm leading-relaxed whitespace-pre-wrap text-charcoal/85"
             }
           >
+            {message.images?.length ? (
+              <span className="mb-1.5 flex flex-wrap gap-1.5">
+                {message.images.map((image, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={image.preview}
+                    alt=""
+                    className="h-16 w-16 rounded-lg object-cover"
+                  />
+                ))}
+              </span>
+            ) : null}
             {message.content ||
               (streaming && index === messages.length - 1 ? (
                 <span className="inline-flex items-center gap-2 py-1">
@@ -277,28 +414,123 @@ export default function AskClaude({
           e.preventDefault();
           ask(input);
         }}
-        className="flex gap-2 border-t border-black/5 p-3"
+        className="border-t border-black/5 p-3"
       >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask anything about this record"
-          className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-sm outline-none transition-colors placeholder:text-charcoal/30 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/15"
-        />
-        <button
-          type="submit"
-          disabled={streaming || !input.trim()}
-          className="cursor-pointer rounded-lg bg-brand-blue px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Ask
-        </button>
+        {photos.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {photos.map((photo, index) => (
+              <div key={index} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.preview} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setPhotos((prev) => prev.filter((_, i) => i !== index))}
+                  aria-label="Remove this photo"
+                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-charcoal text-xs font-bold text-white"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          {/* capture="environment" opens the camera straight away on the phone,
+              which is where this is used — standing in front of the damage. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void attachPhotos(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <IconButton
+            label="Add a photo"
+            onClick={() => fileRef.current?.click()}
+            disabled={streaming || photos.length >= MAX_PHOTOS}
+          >
+            <path d="M3 7h3l2-3h8l2 3h3v13H3z" strokeLinejoin="round" />
+            <circle cx="12" cy="13" r="4" />
+          </IconButton>
+          <IconButton
+            label={recording ? "Stop recording" : "Dictate a question"}
+            onClick={() => void toggleRecording()}
+            disabled={streaming || transcribing}
+            active={recording}
+          >
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" strokeLinecap="round" />
+          </IconButton>
+
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={
+              recording
+                ? "Listening…"
+                : transcribing
+                  ? "Writing it down…"
+                  : subject
+                    ? "Ask anything about this record"
+                    : "Ask Ana anything"
+            }
+            disabled={recording || transcribing}
+            className="min-w-0 flex-1 rounded-lg border border-black/10 px-3 py-2 text-sm outline-none transition-colors placeholder:text-charcoal/30 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/15 disabled:bg-black/[0.02]"
+          />
+          <button
+            type="submit"
+            disabled={streaming || recording || transcribing || (!input.trim() && photos.length === 0)}
+            className="cursor-pointer rounded-lg bg-brand-blue px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Ask
+          </button>
+        </div>
       </form>
 
       <p className="px-3 pb-3 text-[11px] leading-snug text-charcoal/40">
-        Only you see this. It answers from this record alone and will tell you when
-        something isn&apos;t in it.
+        Only you see this. Ana reads the CRM and your messages, and drafts — she never sends.
       </p>
     </section>
+  );
+}
+
+/** A square icon button, sized for a thumb on a job site. */
+function IconButton({
+  label,
+  onClick,
+  disabled,
+  active,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={`flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        active
+          ? "border-red-600 bg-red-600 text-white"
+          : "border-black/10 text-charcoal/60 hover:bg-black/[0.03]"
+      }`}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        {children}
+      </svg>
+    </button>
   );
 }
 
