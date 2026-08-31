@@ -9,6 +9,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { getAreasForService } from "@/lib/serviceAreas";
 import { useChat } from "@/components/chat/ChatProvider";
 import CtaBand from "@/components/home/CtaBand";
+import TrustBar from "@/components/home/TrustBar";
 import { IconCheckCircle } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 import type { FaqItem } from "@/lib/serviceFaq";
@@ -306,6 +307,14 @@ export default function ServiceDetailContent({
           </div>
         </section>
       )}
+
+      {/* Insured / warranty / insurer-network line, immediately before the ask.
+          It used to render on the homepage only, which is the wrong page for
+          it: someone arriving on a service page from search decides here and
+          never sees the homepage at all. Same component, same strings — this
+          is a placement fix, not a new claim, and every line of it is backed
+          by the Sécurité et garantie page. */}
+      <TrustBar />
 
       <CtaBand />
     </>

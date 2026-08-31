@@ -136,6 +136,26 @@ export default async function LocalBusinessSchema() {
         closes: "23:59",
       },
     ],
+    // Bilingual service, declared rather than merely implied by the /en tree.
+    // Both tags are the Canadian variants the hreflang set already uses.
+    knowsLanguage: ["fr-CA", "en-CA"],
+    // The two credentials that carry the most weight for this trade — the same
+    // pair the Sécurité et garantie page states and the directory listings
+    // repeat. `hasCredential` is the closest honest fit: these are assurances
+    // about the business, not certifications from an awarding body, so they are
+    // typed as plain descriptive credentials without inventing an issuer.
+    hasCredential: [
+      {
+        "@type": "EducationalOccupationalCredential",
+        credentialCategory: "Insurance",
+        name: "Comprehensive liability insurance — certificates available on request",
+      },
+      {
+        "@type": "EducationalOccupationalCredential",
+        credentialCategory: "Warranty",
+        name: "One-year written workmanship warranty",
+      },
+    ],
     logo: `${SITE_URL}/renovision-logo.png`,
     image: `${SITE_URL}/renovision-logo.png`,
     sameAs: [SOCIAL_LINKS.facebook, SOCIAL_LINKS.instagram],
