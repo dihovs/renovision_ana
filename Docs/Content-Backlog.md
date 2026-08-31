@@ -26,7 +26,7 @@ next." Process is in `Docs/Content-Engine.md`. Evidence is in
 | 1 | Ceiling water damage | new route `/services/water-damage/ceiling` | dégât d'eau plafond réparation Montréal | `done` 2026-08-30 |
 | 2 | Condo — who pays? | blog post | dégât d'eau condo qui doit payer | `done` 2026-08-30 |
 | 3 | Insurance claim guide | blog post | réclamation assurance dégât d'eau Québec | `done` 2026-08-30 |
-| 4 | `/syndicats` | new route | syndicat de copropriété dégât d'eau responsabilité | `queued` |
+| 4 | `/syndicats` | new route | syndicat de copropriété dégât d'eau responsabilité | `done` 2026-08-30 |
 | 5 | `/gestionnaires` | ~~new route~~ → rewrite of `/commercial` | gestionnaire immobilier entrepreneur rénovation Montréal | `done` 2026-08-30 |
 | 6 | Terrebonne + Rive-Nord | new area pages | dégât d'eau Terrebonne | `done` 2026-08-30 (Terrebonne only; Rive-Nord hub still queued) |
 | 7 | Mould / moisissure | new route `/services/mould-remediation` | décontamination moisissure Laval | `done` 2026-08-30 (blocker cleared: we do it ourselves) |
