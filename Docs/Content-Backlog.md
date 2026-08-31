@@ -28,7 +28,7 @@ next." Process is in `Docs/Content-Engine.md`. Evidence is in
 | 3 | Insurance claim guide | blog post | réclamation assurance dégât d'eau Québec | `done` 2026-08-30 |
 | 4 | `/syndicats` | new route | syndicat de copropriété dégât d'eau responsabilité | `queued` |
 | 5 | `/gestionnaires` | ~~new route~~ → rewrite of `/commercial` | gestionnaire immobilier entrepreneur rénovation Montréal | `done` 2026-08-30 |
-| 6 | Terrebonne + Rive-Nord | new area pages | dégât d'eau Terrebonne | `queued` |
+| 6 | Terrebonne + Rive-Nord | new area pages | dégât d'eau Terrebonne | `done` 2026-08-30 (Terrebonne only; Rive-Nord hub still queued) |
 | 7 | Mould / moisissure | new route `/services/moisissure` | décontamination moisissure Laval | `blocked` |
 | 8 | `/assureurs` | new route | entrepreneur approuvé par les assureurs | `blocked` |
 
