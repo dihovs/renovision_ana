@@ -119,6 +119,36 @@ create index if not exists sms_messages_person_idx on public.sms_messages (perso
 create index if not exists sms_messages_job_idx    on public.sms_messages (job_id);
 
 -- ---------------------------------------------------------------------------
+-- Access
+-- ---------------------------------------------------------------------------
+--
+-- RLS on with no policies, which is what every other table here does (0001,
+-- 0004, 0006, 0007, 0010 ...). These two hold the name, email address and phone
+-- number of every client, subcontractor and supplier we have ever spoken to,
+-- joined together — which is a worse thing to leak than any one of the tables it
+-- was assembled from. Nothing outside the server has business in them, and
+-- service_role bypasses RLS, so no policy is needed for the app to work.
+--
+-- THE GRANTS ARE NOT REDUNDANT, and 0040 is the reason they are written out.
+-- A table created by hand in the SQL editor is created by a role whose default
+-- privileges do not include the API roles, so service_role ends up with
+-- REFERENCES, TRIGGER and TRUNCATE and none of SELECT, INSERT, UPDATE, DELETE.
+-- That failure is silent in both directions: reads come back empty rather than
+-- erroring, so the server reports "we know nobody by that number" — true, and
+-- entirely misleading. 0040 added a default-privileges rule to stop it
+-- recurring; these two lines make this migration correct whether or not that
+-- rule applies to whoever runs it.
+
+alter table public.people            enable row level security;
+alter table public.person_identities enable row level security;
+
+grant select, insert, update, delete on table public.people            to service_role;
+grant select, insert, update, delete on table public.person_identities to service_role;
+
+-- PostgREST caches privileges along with the schema.
+notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------------
 -- Backfill
 -- ---------------------------------------------------------------------------
 --
