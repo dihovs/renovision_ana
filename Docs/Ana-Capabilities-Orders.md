@@ -51,7 +51,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-12 | What do we charge | ✅ done |
 | ANA-13 | Did this job make money | ✅ done |
 | ANA-14 | Moisture readings | ✅ done |
-| ANA-15 | Draft an estimate, never send it | ⬜ not started |
+| ANA-15 | Draft an estimate, never send it | ✅ done |
 | ANA-16 | Draft an invoice, never send it | ⬜ not started |
 | ANA-17 | Draft an email reply, never send it | ⬜ not started |
 | ANA-18 | Message the crew | ⬜ not started |
@@ -500,6 +500,13 @@ and `sendQuote` appears nowhere in Ana's reachable set.
 
 **Do not** call `sendQuote`, `setQuoteStatus` or `approveQuoteByToken`. The ANA-01 test should
 already be stopping you.
+
+**Shipped.** `draft_estimate`: client through `resolveContact`, every dictated line matched
+against the price book **all-or-nothing** — one unresolved line and nothing is created,
+because a draft missing lines is a priced document saying something he did not say. Lands
+in `draft` via `createQuote` (fifth entry on PERMITTED_CRM_WRITES); the before-tax figure
+is code's arithmetic over book prices, never the model's. `sendQuote` remains on the NEVER
+list, tested.
 
 ---
 

@@ -29,7 +29,7 @@ import {
 import { projectForJob } from "@/lib/crm/projects";
 import { listRoomScans } from "@/lib/crm/roomScans";
 import { listPriceBook } from "@/lib/crm/priceBook";
-import { countQuotesByStatus, listQuotes } from "@/lib/crm/quotes";
+import { countQuotesByStatus, createQuote, listQuotes, type QuoteLineInput } from "@/lib/crm/quotes";
 import { QUOTE_FOLLOWUP_AFTER_DAYS } from "@/lib/crm/followups";
 import { createOwnerTask, listOpenOwnerTasks, rankTaskMatches, setOwnerTaskDone } from "@/lib/crm/tasks";
 import { buildContext, subjectForJobNumber, trimForSpeech } from "@/lib/crm/assistant";
@@ -116,6 +116,10 @@ export const PERMITTED_CRM_WRITES = [
   // number is corrected by taking another reading, the admin can delete one,
   // and the room matcher never guesses between two rooms (ANA-14).
   "createMoistureReading",
+  // Creates a quote in `draft` — a state with no effect outside the company.
+  // Editable and deletable in the admin until a human sends it; sendQuote is
+  // on the NEVER list and the tests hold the line (ANA-15).
+  "createQuote",
 ] as const;
 
 /** The business runs on Montreal time; the server runs on UTC. */
@@ -345,6 +349,33 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days: { type: "integer", description: "How far back, in days. Defaults to 7." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "draft_estimate",
+    description:
+      "Draft an estimate for a client from dictated price-book items — 'draft an estimate for Tremblay: eighty square feet of laminate and two hours of demolition'. Every item must exist in the price book; quantities are his. THE RESULT IS A DRAFT IN THE ADMIN AND NOTHING MORE — it is not sent, the customer knows nothing, and only the owner pressing Send in the admin changes that. If any item does not match the book exactly, nothing is created at all: report which item, never substitute, never invent a price. Afterwards repeat back the client, the lines and the before-tax figure.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The client, as the owner said it." },
+        title: { type: "string", description: "What the job is, in a few words. Optional." },
+        items: {
+          type: "array",
+          description: "The dictated lines. Each names a price-book item and a quantity in that item's unit.",
+          items: {
+            type: "object",
+            properties: {
+              item: { type: "string", description: "A word from the price-book item's name." },
+              quantity: { type: "number", description: "How many of the item's unit. Greater than zero." },
+            },
+            required: ["item", "quantity"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["name", "items"],
       additionalProperties: false,
     },
   },
@@ -766,6 +797,109 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async draft_estimate(input, locale) {
+    const fr = locale === "fr";
+    const spokenName = asString(input.name);
+    if (!spokenName) return "NOTHING DRAFTED. Which client? Ask the owner.";
+
+    const items = Array.isArray(input.items) ? (input.items as { item?: unknown; quantity?: unknown }[]) : [];
+    if (items.length === 0 || items.length > 20) {
+      return "NOTHING DRAFTED. Ask the owner what goes on the estimate — up to twenty lines.";
+    }
+
+    const resolved = await resolveContact(spokenName);
+    if (resolved.kind === "none") {
+      return `NOTHING DRAFTED. Nobody on the client list matches "${spokenName}". Ask him to say the name again or spell the surname.`;
+    }
+    if (resolved.kind === "ambiguous") {
+      const options = resolved.matches
+        .map((match, index) => `${index + 1}. ${describeMatch(match)}`)
+        .join("\n");
+      return [
+        `NOTHING DRAFTED — "${spokenName}" matches more than one client and you must not choose.`,
+        "Read these out, ask which one, then call draft_estimate again with the fuller name:",
+        options,
+      ].join("\n");
+    }
+
+    // ALL OR NOTHING. Every dictated line must land on exactly one price-book
+    // item before anything is created — a draft with a silently dropped or
+    // swapped line is a priced document that says something he did not say.
+    const lines: QuoteLineInput[] = [];
+    const problems: string[] = [];
+    for (const dictated of items) {
+      const spoken = asString(dictated.item);
+      const quantity = typeof dictated.quantity === "number" ? dictated.quantity : Number(dictated.quantity);
+      if (!spoken) {
+        problems.push("- an item with no name");
+        continue;
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 100_000) {
+        problems.push(`- "${spoken}": the quantity did not come through`);
+        continue;
+      }
+      const matches = await listPriceBook({ search: spoken, limit: 5 }).catch(() => []);
+      if (matches.length === 0) {
+        problems.push(`- "${spoken}": nothing in the price book. Never invent a price — tell him.`);
+        continue;
+      }
+      if (matches.length > 1) {
+        problems.push(
+          `- "${spoken}" matches several: ${matches.map((item) => item.name).join("; ")}. Ask which.`,
+        );
+        continue;
+      }
+      const item = matches[0];
+      lines.push({
+        kind: "item",
+        name: item.name,
+        description: item.description ?? null,
+        quantityMilli: Math.round(quantity * 1000),
+        unit: item.unit ?? null,
+        unitCostCents: item.unit_cost_cents ?? null,
+        unitPriceCents: item.unit_price_cents,
+        laborHours: item.labor_hours_per_unit ?? null,
+        priceBookItemId: item.id,
+      });
+    }
+
+    if (problems.length > 0) {
+      return [
+        "NOTHING DRAFTED — these lines did not resolve, and a draft missing lines says something he did not say:",
+        ...problems,
+        "Sort these out with him, then call draft_estimate again with all the lines.",
+      ].join("\n");
+    }
+
+    let quoteId: string;
+    try {
+      quoteId = await createQuote({
+        clientId: resolved.match.clientId,
+        title: asString(input.title),
+        language: fr ? "fr" : "en",
+        internalNotes: "Drafted by Ana from dictation",
+        lines,
+      });
+    } catch (err) {
+      console.error("[voice-owner] draft_estimate failed:", err);
+      return fr
+        ? "Ça n'a pas été créé — rien n'existe. Réessaie ou note-le."
+        : "It was not created — nothing exists. Try again or write it down.";
+    }
+    void quoteId;
+
+    const beforeTax = lines.reduce(
+      (sum, line) => sum + Math.round(((line.quantityMilli ?? 0) / 1000) * (line.unitPriceCents ?? 0)),
+      0,
+    );
+    const spokenLines = lines
+      .map((line) => `${(line.quantityMilli ?? 0) / 1000} ${line.unit ?? ""} ${line.name}`.trim())
+      .join("; ");
+    return fr
+      ? `Brouillon créé pour ${resolved.match.displayName}: ${spokenLines}. Environ ${spokenMoney(beforeTax, locale)} avant taxes. C'est un BROUILLON dans l'admin — rien n'a été envoyé au client, et seul le propriétaire peut l'envoyer. Répète-lui tout ça.`
+      : `Draft created for ${resolved.match.displayName}: ${spokenLines}. About ${spokenMoney(beforeTax, locale)} before tax. It is a DRAFT in the admin — nothing was sent to the customer, and only the owner can send it. Repeat all of that back to him.`;
   },
 
   async moisture_readings(input, locale) {
