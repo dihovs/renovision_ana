@@ -28,12 +28,19 @@ import { IconBackflow } from "@/components/ui/icons";
  *  - The 24-to-48-hour mould window is the EPA benchmark already cited on the
  *    water-damage page and in the linked blog post.
  *
- * Deliberately NOT claimed: anything about Laval's own by-law. A search
- * suggested Laval prohibits a backwater valve on the main building drain,
- * which would be a genuinely useful thing to tell people — but it could not be
- * confirmed against a primary Ville de Laval source, so the copy says we
- * confirm the local requirement instead of asserting what it is. Replace this
- * with the real rule once someone has read it on ville.laval.qc.ca.
+ *  - Laval's own rule, verified 2026-08-30 against Ville de Laval's regulation
+ *    sheet citing by-laws L-113, L-2863, L-5057 and L-9618. This paragraph
+ *    hedged for a week because a search result is not a source; the primary
+ *    document says: a valve is required on every discharge connection serving
+ *    fixtures below street crown level (L-5057 art. 3.03.02), one of any type
+ *    on the MAIN COLLECTOR is forbidden — the opposite of what the Montreal
+ *    rule would lead you to assume — valves must be easy to access at all
+ *    times and kept working by frequent cleaning, and where an owner is in
+ *    default of installing or maintaining them the City is not responsible for
+ *    backup damage. That last clause ties access to liability, which is what
+ *    makes the flooring-over-the-hatch argument sharper here than in Montreal.
+ *    Source: laval.ca/wp-content/uploads/2025/02/reclamations-reglement
+ *    -refoulement-egout-branchement-egouts-sanitaire-pluvial.pdf
  */
 const copy: Record<"en" | "fr", ServiceDetailCopy> = {
   en: {
@@ -88,7 +95,7 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         "The difference between a backup and a burst pipe is what's in the water. A supply line lets go and you have clean water that can often be dried in place. A backup brings contaminated water, so the rule changes: soaked porous material — carpet underlay, the bottom of the drywall, insulation in a finished basement — comes out rather than getting dried and hoped over. The EPA's 24-to-48-hour benchmark for mould growth on wet material still applies on top of that, which is why the removal decision gets made on the first visit rather than after a week of monitoring.",
         "On the island, backwater valves are not optional. Ville de Montréal's municipal by-law makes them mandatory, and every building built since 2011 has to have one. The city's Rénoplex program helps with the cost for owners of one- to five-unit buildings: roughly $80 toward a standard valve, up to $560 per valve where it has to go in under an existing floor, and $1,500 toward a retention basin with a pump system.",
         "Here's the part that concerns us specifically, and it comes straight from the city's own guidance: a valve needs servicing about twice a year, and it has to stay accessible — and flooring laid over the access point is one of the most common reasons it isn't. That is a renovation mistake, not a plumbing one. When we put a basement floor back after a backup, the access hatch stays reachable, because the alternative is that the next inspection starts by pulling up a floor you just paid for.",
-        "Requirements differ between municipalities, and Laval's are not Montreal's. We confirm what applies to your address before the rebuild rather than assuming the Montreal rule travels across the bridge. Worth checking separately: sewer-backup coverage is frequently a separate endorsement on a Quebec home insurance policy rather than part of the base coverage — the time to read that page of your contract is before you need it.",
+        "In Laval the rule is not Montreal's, and it surprises people. Municipal by-law L-5057 requires a backwater valve on every discharge connection serving fixtures below street crown level — but forbids installing one of any type on the main collector. The same by-law requires valves to be easily accessible at all times and maintained by frequent cleaning, and states that where an owner is in default of installing or properly maintaining them, the City is not responsible for damage caused by a backup. That is why the access hatch stays reachable when we put a floor back: in Laval, an unreachable valve isn't only a maintenance problem. Worth checking separately: sewer-backup coverage is frequently a separate endorsement on a Quebec home insurance policy rather than part of the base coverage — the time to read that page of your contract is before you need it.",
       ],
       readMore: {
         label: "Read the hidden water damage and mould timeline",
@@ -153,7 +160,7 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
         "Ce qui distingue un refoulement d'un tuyau éclaté, c'est ce que contient l'eau. Une conduite d'alimentation qui cède laisse de l'eau propre, souvent séchable sur place. Un refoulement amène de l'eau contaminée, et la règle change : les matériaux poreux imbibés — thibaude, bas du gypse, isolant d'un sous-sol fini — sont retirés plutôt que séchés en espérant. Le seuil de 24 à 48 heures de l'EPA pour la moisissure sur un matériau mouillé s'ajoute à cela, d'où la décision de retrait prise dès la première visite plutôt qu'après une semaine de suivi.",
         "Sur l'île, le clapet antiretour n'est pas optionnel. Le règlement municipal de la Ville de Montréal le rend obligatoire, et tout bâtiment construit depuis 2011 doit en être muni. Le programme Rénoplex aide à en payer le coût pour les propriétaires de bâtiments de un à cinq logements : environ 80 $ pour un clapet standard, jusqu'à 560 $ par clapet lorsqu'il doit être installé sous un plancher existant, et 1 500 $ pour un bassin de rétention avec système de pompage.",
         "Voici la partie qui nous concerne directement, et elle vient des consignes mêmes de la Ville : un clapet doit être entretenu environ deux fois par année et doit rester accessible — et un plancher posé par-dessus le point d'accès est l'une des causes les plus fréquentes d'inaccessibilité. C'est une erreur de rénovation, pas de plomberie. Quand nous reposons un plancher de sous-sol après un refoulement, la trappe d'accès reste atteignable, parce que l'autre option, c'est que la prochaine inspection commence par arracher le plancher que vous venez de payer.",
-        "Les exigences varient d'une municipalité à l'autre, et celles de Laval ne sont pas celles de Montréal. Nous confirmons ce qui s'applique à votre adresse avant la remise en état plutôt que de présumer que la règle montréalaise traverse le pont. À vérifier de votre côté : au Québec, la protection contre le refoulement d'égout est souvent un avenant distinct de la police d'assurance habitation plutôt qu'une garantie de base — le bon moment pour lire cette page de votre contrat, c'est avant d'en avoir besoin.",
+        "À Laval, la règle n'est pas celle de Montréal, et elle surprend. Le règlement municipal L-5057 exige un clapet antiretour sur tous les branchements d'évacuation qui reçoivent des appareils situés sous la couronne de rue — mais il interdit d'en installer un, de quelque type que ce soit, sur le collecteur principal. Le même règlement exige que les clapets soient faciles d'accès en tout temps et entretenus par des nettoyages fréquents, et il précise qu'en cas de défaut du propriétaire de les installer ou de les entretenir adéquatement, la Ville n'est pas responsable des dommages causés par un refoulement. C'est pour cela que la trappe d'accès reste atteignable quand nous reposons un plancher : à Laval, un clapet inaccessible n'est pas seulement un problème d'entretien. À vérifier de votre côté : au Québec, la protection contre le refoulement d'égout est souvent un avenant distinct de la police d'assurance habitation plutôt qu'une garantie de base — le bon moment pour lire cette page de votre contrat, c'est avant d'en avoir besoin.",
       ],
       readMore: {
         label: "Lire la chronologie des dégâts d'eau cachés et de la moisissure",
