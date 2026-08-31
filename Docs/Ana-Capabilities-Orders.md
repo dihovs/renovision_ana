@@ -41,10 +41,10 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-04 | The Graph connection, scoped to exclude voice | ✅ code done — owner: Entra registration + env vars + migration 0047, see Docs/Microsoft-Graph-Setup.md |
 | ANA-05 | Teams chat | ✅ done — sync runs once Microsoft is connected |
 | ANA-06 | Outlook mail | ✅ done — sync runs once Microsoft is connected |
-| ANA-07 | OneDrive, searched not synced | ⬜ not started |
+| ANA-07 | OneDrive, searched not synced | ✅ done — waits on ANA-04 owner steps |
 | **Part 3 — one place** | | |
 | ANA-08 | `record_brief` across every channel | ⬜ not started |
-| ANA-09 | `search_messages`, widened | ⬜ not started |
+| ANA-09 | `search_messages`, widened | ✅ done — fell out of ANA-03's registry |
 | **Part 4 — doing the work** | | |
 | ANA-10 | Close the task loop | ⬜ not started |
 | ANA-11 | What is slipping | ⬜ not started |
@@ -332,6 +332,11 @@ a link. Fetch content only for a named file, on demand, and only for text and PD
 
 **Do not** index the drive, and do not open a file just because a message mentioned it.
 
+**Shipped.** `src/lib/microsoft/files.ts` over Graph drive search (names, folders, dates,
+editors — never contents; folders themselves are dropped from results), and a `find_file`
+owner tool that speaks the list in either language. No table, no migration: the one
+channel that is searched at question time rather than synced. Waits on ANA-04's owner steps.
+
 ---
 
 # Part 3 — One place
@@ -366,6 +371,11 @@ a breath long.
 
 **Done when** *"has anyone mentioned the boiler"* finds it whether it was said on WhatsApp, in
 Teams, or in an email.
+
+**Done, and nobody edited search_messages to do it.** The channel enum derives from
+IMPLEMENTED_CHANNELS, the default is "all", and the cap was already MAX_MESSAGES — so
+ANA-05 and ANA-06 registering their readers WAS this order. Recorded as the ANA-03
+registry design paying out.
 
 ---
 

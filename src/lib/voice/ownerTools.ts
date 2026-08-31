@@ -22,6 +22,7 @@ import { receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
 import { countQuotesByStatus } from "@/lib/crm/quotes";
 import { createOwnerTask } from "@/lib/crm/tasks";
+import { searchDriveFiles } from "@/lib/microsoft/files";
 import { listLeads, type StoredLead } from "@/lib/leadStore";
 import type { OwnerSession } from "./owner";
 
@@ -329,6 +330,22 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "find_file",
+    description:
+      "Look for a document in the owner's OneDrive by a word from its name or its contents — 'the Fleury plan', 'the adjuster's report'. Says what exists and where: name, folder, when it changed and who changed it. It never opens or reads the file. Use it for 'did she send the plan', 'is the report in yet', 'where is the Tremblay estimate'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A word or two from the file's name or contents. Short beats long.",
+        },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "capture_task",
     description:
       "Write down something the owner has just dictated, so it is waiting for him in the admin. Use this whenever he says to remember, note, or add something. Repeat the note back to him afterwards so he knows it was heard correctly.",
@@ -622,6 +639,43 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async find_file(input, locale) {
+    const query = asString(input.query);
+    if (!query) return locale === "fr" ? "Chercher quoi, au juste?" : "Search for what, exactly?";
+
+    const result = await searchDriveFiles(query);
+    if (!result.ok) {
+      // "Not connected" and "Graph is down" get the same sentence: the owner
+      // is on the phone, and which server to kick is a screen problem.
+      return locale === "fr"
+        ? "Je n'arrive pas à joindre OneDrive pour le moment."
+        : "I cannot reach OneDrive at the moment.";
+    }
+    if (result.files.length === 0) {
+      return locale === "fr"
+        ? `Rien dans OneDrive pour « ${query} ».`
+        : `Nothing in OneDrive for "${query}".`;
+    }
+
+    const lines = result.files.map((file) => {
+      const where = file.folder ? ` — ${file.folder}` : "";
+      const when = file.modifiedAt
+        ? new Date(file.modifiedAt).toLocaleDateString(locale === "fr" ? "fr-CA" : "en-CA", {
+            month: "short",
+            day: "numeric",
+            timeZone: TZ,
+          })
+        : null;
+      const by = file.modifiedBy ? `, ${file.modifiedBy}` : "";
+      return `${file.name}${where}${when ? ` (${when}${by})` : ""}`;
+    });
+    const heading =
+      locale === "fr"
+        ? `${result.files.length} fichier${result.files.length > 1 ? "s" : ""}:`
+        : `${result.files.length} file${result.files.length > 1 ? "s" : ""}:`;
+    return `${heading}\n${lines.join("\n")}`;
   },
 
   async capture_task(input, _locale, context) {
