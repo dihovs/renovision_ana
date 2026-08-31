@@ -11,6 +11,7 @@ const routes = [
   "/services/water-damage",
   "/services/water-damage/ceiling",
   "/services/sewer-backup",
+  "/services/mould-remediation",
   "/services/flooring",
   "/services/kitchen-bath",
   "/services/renovations",
