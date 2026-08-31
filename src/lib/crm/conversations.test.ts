@@ -168,25 +168,25 @@ describe("channelsFor", () => {
   });
 
   it("drops a channel nothing can read yet rather than throwing mid-call", () => {
-    expect(channelsFor(["whatsapp", "teams"])).toEqual(["whatsapp"]);
+    expect(channelsFor(["whatsapp", "email"])).toEqual(["whatsapp"]);
   });
 
   it("asks nothing at all when only unbuilt channels are named", () => {
     // Returning [] means searchConversations returns no messages, which is the
-    // honest answer: we hold no Teams messages, because we hold none yet.
-    expect(channelsFor(["teams", "email"])).toEqual([]);
+    // honest answer: we hold no email, because nothing ingests it yet.
+    expect(channelsFor(["email"])).toEqual([]);
   });
 });
 
 describe("IMPLEMENTED_CHANNELS", () => {
   it("is what has a reader, not what the type allows", () => {
-    expect([...IMPLEMENTED_CHANNELS].sort()).toEqual(["sms", "whatsapp"]);
+    // teams joined in ANA-05. This list grows exactly when a reader lands.
+    expect([...IMPLEMENTED_CHANNELS].sort()).toEqual(["sms", "teams", "whatsapp"]);
   });
 
   it("does not advertise a channel whose order has not landed", () => {
-    // ANA-05 and ANA-06 add these. When they do, this test changes with them —
-    // which is the point: the list Ana is offered cannot drift from the readers.
-    expect(IMPLEMENTED_CHANNELS).not.toContain("teams");
+    // ANA-06 adds email. When it does, this test changes with it — which is
+    // the point: the list Ana is offered cannot drift from the readers.
     expect(IMPLEMENTED_CHANNELS).not.toContain("email");
   });
 });

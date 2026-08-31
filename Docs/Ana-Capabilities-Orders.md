@@ -39,7 +39,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-03 | Channels, plural | ✅ done |
 | **Part 2 — Microsoft, one integration** | | |
 | ANA-04 | The Graph connection, scoped to exclude voice | ✅ code done — owner: Entra registration + env vars + migration 0047, see Docs/Microsoft-Graph-Setup.md |
-| ANA-05 | Teams chat | ⬜ not started |
+| ANA-05 | Teams chat | ✅ done — sync runs once Microsoft is connected |
 | ANA-06 | Outlook mail | ⬜ not started |
 | ANA-07 | OneDrive, searched not synced | ⬜ not started |
 | **Part 3 — one place** | | |
@@ -282,6 +282,17 @@ person.
 
 **Do not** ingest call records, transcripts, recordings or meeting artefacts. The scope was
 never requested; do not add it here.
+
+**Shipped.** Migration 0048 (`teams_messages`, RLS + grants, applied 31 Aug 2026);
+`src/lib/microsoft/teams.ts` — polled sync on the 15-minute cron
+(`/api/cron/microsoft-sync`), not webhooks: a Graph subscription expires every ~3 days
+and needs its own renewal job and validation endpoint, and 15-minute latency is well
+inside "Ana, what did he say". Skips, each tested by name: meeting chats (the chat
+surface of a call), systemEventMessage rows (where call events live), bots, deleted
+messages, reaction-only messages. Inbound senders resolve through
+`personForIdentity('teams_user_id', …)`. The `teams` reader is registered in
+CHANNEL_READERS, so IMPLEMENTED_CHANNELS and the search_messages enum picked it up
+without an edit — the ANA-03 registry doing its job. Waits on: ANA-04's owner steps.
 
 ---
 

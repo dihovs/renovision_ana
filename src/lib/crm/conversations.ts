@@ -252,6 +252,69 @@ async function searchSms(
     .filter((row) => !wanted || row.who.toLowerCase().includes(wanted));
 }
 
+async function searchTeams(
+  client: Client,
+  search: Search,
+  since: string,
+  limit: number,
+): Promise<ConversationMessage[]> {
+  let jobId: string | null = null;
+  if (search.jobNumber != null) {
+    const { data } = await client
+      .from("jobs")
+      .select("id")
+      .eq("job_number", search.jobNumber)
+      .maybeSingle();
+    jobId = (data as { id: string } | null)?.id ?? null;
+    if (!jobId) return [];
+  }
+
+  let query = client
+    .from("teams_messages")
+    .select("body, attachment, direction, sent_at, sender_name, counterpart_name, jobs(job_number)")
+    .gte("sent_at", since)
+    .order("sent_at", { ascending: false })
+    .limit(limit);
+
+  if (jobId) query = query.eq("job_id", jobId);
+  if (search.query) query = query.ilike("body", `%${escapeLike(search.query)}%`);
+
+  const { data, error } = await query;
+  if (error) return [];
+
+  const rows = (data ?? []) as unknown as {
+    body: string | null;
+    attachment: string | null;
+    direction: "inbound" | "outbound";
+    sent_at: string;
+    sender_name: string | null;
+    counterpart_name: string | null;
+    jobs: { job_number: number } | null;
+  }[];
+
+  const wanted = search.who?.toLowerCase().trim();
+
+  return rows
+    .filter((row) => {
+      if (!wanted) return true;
+      return `${row.sender_name ?? ""} ${row.counterpart_name ?? ""}`.toLowerCase().includes(wanted);
+    })
+    .map((row) => ({
+      channel: "teams" as const,
+      // Who said it on the way in; who it was said TO on the way out — the
+      // sender of an outbound message is always the owner, which labels nothing.
+      who:
+        row.direction === "inbound"
+          ? (row.sender_name ?? "Teams contact")
+          : (row.counterpart_name ?? "Teams chat"),
+      direction: row.direction,
+      sentAt: row.sent_at,
+      text: trim(row.body, "(empty message)"),
+      jobNumber: row.jobs?.job_number ?? null,
+      attachment: row.attachment,
+    }));
+}
+
 /**
  * One reader per channel, and the only place that list is written down.
  *
@@ -270,6 +333,7 @@ async function searchSms(
 const CHANNEL_READERS: Partial<Record<ConversationChannel, ChannelReader>> = {
   whatsapp: searchWhatsApp,
   sms: searchSms,
+  teams: searchTeams,
 };
 
 type ChannelReader = (
