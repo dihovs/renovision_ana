@@ -44,10 +44,13 @@ export const GRAPH_SCOPES = [
   // the tenant; this one does not.
   "Chat.Read",
 
-  // ANA-06. Read only. ANA-17 will need Mail.ReadWrite to leave a reply in his
-  // drafts folder — that is a separate order and must arrive as a visible
-  // change to this list, never as a quiet addition.
-  "Mail.Read",
+  // ANA-06 reads the mailbox; ANA-17 writes DRAFTS into it. This is the
+  // visible change that order required, replacing the original Mail.Read:
+  // Graph has no narrower "create drafts only" grant, so ReadWrite is the
+  // honest minimum, and it is still not sending — Mail.Send stays forbidden
+  // below, so a draft Ana leaves can only ever leave the building by the
+  // owner pressing Send in Outlook.
+  "Mail.ReadWrite",
 
   // ANA-07. Finding a document the adjuster sent, not indexing the drive.
   "Files.Read.All",

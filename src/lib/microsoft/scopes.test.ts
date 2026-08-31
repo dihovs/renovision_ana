@@ -38,9 +38,16 @@ describe("the scope boundary", () => {
     }
   });
 
-  it("asks for nothing that can write or send", () => {
+  it("asks for nothing that can send, and one deliberate write: mail drafts", () => {
+    // Mail.ReadWrite is ANA-17's visible exception — Graph has no narrower
+    // "create drafts only" scope. Everything else stays read-shaped, and
+    // nothing send-shaped gets in under any name.
     for (const scope of GRAPH_SCOPES) {
+      if (scope === "Mail.ReadWrite") continue;
       expect(scope).not.toMatch(/write|send|manage/i);
+    }
+    for (const scope of GRAPH_SCOPES) {
+      expect(scope).not.toMatch(/send/i);
     }
   });
 
@@ -50,7 +57,8 @@ describe("the scope boundary", () => {
 
   it("keeps the four the built orders need", () => {
     expect(GRAPH_SCOPES).toContain("Chat.Read");
-    expect(GRAPH_SCOPES).toContain("Mail.Read");
+    // Mail.ReadWrite covers ANA-06's reading and ANA-17's drafts in one grant.
+    expect(GRAPH_SCOPES).toContain("Mail.ReadWrite");
     expect(GRAPH_SCOPES).toContain("Files.Read.All");
     expect(GRAPH_SCOPES).toContain("User.Read");
   });
@@ -74,8 +82,8 @@ describe("missingScopes", () => {
   });
 
   it("names what an administrator quietly withheld", () => {
-    const granted = GRAPH_SCOPES.filter((s) => s !== "Mail.Read");
-    expect(missingScopes(granted)).toEqual(["Mail.Read"]);
+    const granted = GRAPH_SCOPES.filter((s) => s !== "Mail.ReadWrite");
+    expect(missingScopes(granted)).toEqual(["Mail.ReadWrite"]);
   });
 
   it("compares case-insensitively, because Microsoft echoes scopes in its own casing", () => {

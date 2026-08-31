@@ -53,7 +53,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-14 | Moisture readings | ✅ done |
 | ANA-15 | Draft an estimate, never send it | ✅ done |
 | ANA-16 | Draft an invoice, never send it | ✅ done |
-| ANA-17 | Draft an email reply, never send it | ⬜ not started |
+| ANA-17 | Draft an email reply, never send it | ✅ done — scope widened BEFORE the one consent |
 | ANA-18 | Message the crew | ⬜ not started |
 | ANA-19 | Memory | ⬜ not started |
 | **Part 5 — blocked** | | |
@@ -543,6 +543,14 @@ send mail.
 
 **Do not** request `Mail.Send`. Not for convenience, not for a "confirmed" send, not ever
 without the owner explicitly reversing this line.
+
+**Shipped.** `Mail.Read` became `Mail.ReadWrite` in the one visible diff this order
+required — done before the owner's first consent, so he consents once. Graph has no
+narrower create-drafts-only scope; `Mail.Send` stays forbidden and tested, so a draft can
+only leave by his hand in Outlook. `draft_reply` replies to the person's latest inbound
+mail (distinct senders sharing a name are a question), body is his dictated words only,
+and the tool description forbids composing from what the inbound email asked for.
+`createDraftReply` is the seventh entry on PERMITTED_CRM_WRITES.
 
 ---
 

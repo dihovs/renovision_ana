@@ -265,3 +265,98 @@ export async function syncMailMessages(): Promise<MailSyncReport> {
 
   return { ran: true, messagesStored: stored, messagesSkipped: skipped, errors };
 }
+
+// ---------------------------------------------------------------------------
+// Draft replies (ANA-17)
+// ---------------------------------------------------------------------------
+
+/**
+ * The latest inbound mail from someone whose name or address contains the
+ * spoken words. Reads OUR copy (email_messages), not Graph — the thing being
+ * replied to is by definition already ingested.
+ *
+ * Distinct senders are counted separately: "reply to Marie" when two different
+ * addresses have written as Marie is a question, not a coin flip.
+ */
+export async function latestInboundFrom(spoken: string): Promise<
+  | { kind: "none" }
+  | { kind: "one"; graphMessageId: string; fromName: string | null; fromAddress: string; subject: string | null }
+  | { kind: "many"; senders: { name: string | null; address: string }[] }
+> {
+  const client = db();
+  if (!client) return { kind: "none" };
+
+  const needle = spoken.toLowerCase().trim();
+  if (!needle) return { kind: "none" };
+
+  const { data, error } = await client
+    .from("email_messages")
+    .select("graph_message_id, from_name, from_address, subject, sent_at")
+    .eq("direction", "inbound")
+    .order("sent_at", { ascending: false })
+    .limit(200);
+  if (error || !data) return { kind: "none" };
+
+  const rows = data as { graph_message_id: string; from_name: string | null; from_address: string | null; subject: string | null }[];
+  const matches = rows.filter((row) =>
+    `${row.from_name ?? ""} ${row.from_address ?? ""}`.toLowerCase().includes(needle),
+  );
+  if (matches.length === 0) return { kind: "none" };
+
+  const senders = new Map<string, { name: string | null; address: string }>();
+  for (const row of matches) {
+    if (row.from_address && !senders.has(row.from_address)) {
+      senders.set(row.from_address, { name: row.from_name, address: row.from_address });
+    }
+  }
+  if (senders.size > 1) return { kind: "many", senders: [...senders.values()] };
+
+  const latest = matches[0];
+  return {
+    kind: "one",
+    graphMessageId: latest.graph_message_id,
+    fromName: latest.from_name,
+    fromAddress: latest.from_address ?? "",
+    subject: latest.subject,
+  };
+}
+
+/**
+ * Leave a reply in the owner's DRAFTS folder. Never sends.
+ *
+ * Two Graph calls: createReply makes the draft on the right thread with the
+ * right recipients, then a PATCH puts the dictated words in. The application
+ * cannot send it — Mail.Send is never requested (scopes.ts), so the draft can
+ * only leave the building by the owner pressing Send in Outlook. That is not a
+ * policy; it is what the token cannot do.
+ */
+export async function createDraftReply(
+  graphMessageId: string,
+  bodyText: string,
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const auth = await accessTokenForGraph();
+  if (!auth.ok) return { ok: false, detail: `no Graph access: ${auth.reason}` };
+
+  const created = await fetch(`${GRAPH}/me/messages/${graphMessageId}/createReply`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+    body: "{}",
+  });
+  if (!created.ok) {
+    const body = await created.text().catch(() => "");
+    return { ok: false, detail: `createReply ${created.status}: ${body.slice(0, 200)}` };
+  }
+  const draft = (await created.json()) as { id?: string };
+  if (!draft.id) return { ok: false, detail: "createReply returned no draft id" };
+
+  const patched = await fetch(`${GRAPH}/me/messages/${draft.id}`, {
+    method: "PATCH",
+    headers: { authorization: `Bearer ${auth.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ body: { contentType: "text", content: bodyText } }),
+  });
+  if (!patched.ok) {
+    const body = await patched.text().catch(() => "");
+    return { ok: false, detail: `patch ${patched.status}: ${body.slice(0, 200)}` };
+  }
+  return { ok: true };
+}

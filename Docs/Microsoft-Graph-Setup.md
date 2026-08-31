@@ -44,7 +44,7 @@ Diary note for the expiry: when it lapses, the admin's Microsoft panel will show
 - `offline_access`
 - `User.Read`
 - `Chat.Read`
-- `Mail.Read`
+- `Mail.ReadWrite` (reading the mailbox AND leaving draft replies — never sending)
 - `Files.Read.All`
 
 Then **Grant admin consent for [tenant]** — the button above the table. Chat.Read
