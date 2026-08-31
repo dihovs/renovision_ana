@@ -12,6 +12,40 @@ import { useRef, useState } from "react";
 
 type Message = { role: "user" | "assistant"; content: string };
 
+/**
+ * What to say while a tool runs. (ANA-20)
+ *
+ * A box that sits silent while it reads six tables looks broken, and this is
+ * also the only place the owner can see WHICH tools answered him — which
+ * matters when the answer is about his money. Unknown names fall back to the
+ * raw tool name rather than a vague "working": a tool nobody named here should
+ * look unfamiliar, not be disguised.
+ */
+const TOOL_LABEL: Record<string, string> = {
+  record_brief: "Reading the whole file",
+  business_snapshot: "Checking the dashboard",
+  recent_leads: "Looking at recent leads",
+  schedule: "Reading the calendar",
+  money_owed: "Checking receivables",
+  search_messages: "Searching messages",
+  job_conversation: "Reading the job thread",
+  team_updates: "Checking what the crew sent",
+  whats_slipping: "Looking for what has gone quiet",
+  my_tasks: "Reading your list",
+  complete_task: "Ticking it off",
+  capture_task: "Writing it down",
+  price_lookup: "Checking the price book",
+  job_margin: "Adding up the job",
+  moisture_readings: "Reading the drying log",
+  log_moisture_reading: "Logging the reading",
+  find_file: "Searching OneDrive",
+  draft_estimate: "Drafting the estimate",
+  draft_invoice: "Drafting the invoice",
+  draft_reply: "Writing the draft reply",
+  notify_crew: "Messaging the crew",
+  queue_customer_call: "Queueing the call",
+};
+
 const SUGGESTIONS = [
   "Summarise this for me",
   "What should I ask on the call?",
@@ -29,6 +63,7 @@ export default function AskClaude({
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activity, setActivity] = useState<string | null>(null);
   // Escalation is deliberate here: the owner can see the answer and judge it.
   // On a phone call the same switch will have to be detected automatically.
   const [escalate, setEscalate] = useState(false);
@@ -79,13 +114,17 @@ export default function AskClaude({
 
         for (const line of lines) {
           if (!line.trim()) continue;
-          let event: { type: string; text?: string; message?: string };
+          let event: { type: string; text?: string; message?: string; name?: string };
           try {
             event = JSON.parse(line);
           } catch {
             continue;
           }
-          if (event.type === "text" && event.text) {
+          if (event.type === "tool" && event.name) {
+            setActivity(TOOL_LABEL[event.name] ?? event.name);
+          } else if (event.type === "text" && event.text) {
+            // Words are arriving, so whatever it was doing is done.
+            setActivity(null);
             setMessages((prev) => {
               const next = [...prev];
               const last = next[next.length - 1];
@@ -105,6 +144,7 @@ export default function AskClaude({
       }
     } finally {
       setStreaming(false);
+      setActivity(null);
       // Drop a stillborn assistant turn so the thread doesn't keep an empty
       // bubble where an answer should be.
       setMessages((prev) => {
@@ -183,10 +223,19 @@ export default function AskClaude({
           >
             {message.content ||
               (streaming && index === messages.length - 1 ? (
-                <span className="inline-flex gap-1 py-1" aria-label="Thinking">
-                  <Dot delay="0ms" />
-                  <Dot delay="150ms" />
-                  <Dot delay="300ms" />
+                <span className="inline-flex items-center gap-2 py-1">
+                  <span className="inline-flex gap-1" aria-label="Thinking">
+                    <Dot delay="0ms" />
+                    <Dot delay="150ms" />
+                    <Dot delay="300ms" />
+                  </span>
+                  {/* Named, not a spinner: when the answer is about his money,
+                      which tools were consulted is part of the answer. */}
+                  {activity && (
+                    <span className="text-xs text-charcoal/50" aria-live="polite">
+                      {activity}…
+                    </span>
+                  )}
                 </span>
               ) : null)}
           </div>

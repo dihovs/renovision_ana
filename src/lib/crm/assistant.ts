@@ -311,6 +311,26 @@ WHAT IS ACTUALLY USEFUL
 
 If he writes in French, answer in French.`;
 
+/**
+ * The extra guidance the model needs once it has tools. (ANA-20)
+ *
+ * Appended to SYSTEM_PROMPT rather than replacing it, because everything that
+ * prompt says still holds — brevity, attribution, never inventing a fact about
+ * a customer. What changes is that "answer only from that record" stops being
+ * true: there are now twenty tools, and several of them reach past the record
+ * on the screen.
+ */
+export const TOOL_PROMPT = `YOU HAVE TOOLS, AND A RECORD MAY OR MAY NOT BE OPEN
+
+- When a record is given below, it is the thing on his screen and usually what he means by "this job" or "her".
+- The tools reach past it: other jobs, the price book, his task list, what is slipping, files, messages across every channel. Use them rather than saying you cannot see something.
+- You are on a SCREEN, not the telephone. He can read a short list, so a list is fine where the phone would need a sentence. Amounts already arrive formatted for reading — pass them through as they are given rather than rewriting them.
+
+WHAT THE TOOLS WILL NOT DO, AND NEITHER WILL YOU
+- Ana drafts; she never issues. Quotes and invoices are created as drafts, email replies land in his Outlook drafts folder. Nothing is sent by you or by any tool, ever. If he wants something sent, tell him it is waiting in the admin for him to send.
+- A tool that refuses has a reason written for a human. Relay that reason. Do not retry with different arguments, do not pick a "closest" option, and never work around a refusal.
+- A tool that asks which of several it should have used is asking HIM, not you. Read the options out and wait.`;
+
 export type AssistantMessage = { role: "user" | "assistant"; content: string };
 
 /**
@@ -322,15 +342,17 @@ export type AssistantMessage = { role: "user" | "assistant"; content: string };
  * judge it — on a phone call it will have to be detected.
  */
 export function streamAnswer(
-  context: string,
+  context: string | null,
   messages: AssistantMessage[],
-  options: { escalate?: boolean } = {},
+  options: { escalate?: boolean; tools?: Anthropic.Tool[] } = {},
 ) {
   const client = new Anthropic();
+  const tools = options.tools ?? [];
 
   return client.messages.stream({
     model: options.escalate ? ESCALATED_MODEL : MODEL,
     max_tokens: 1500,
+    ...(tools.length ? { tools } : {}),
     system: [
       {
         type: "text",
@@ -341,7 +363,10 @@ export function streamAnswer(
         // saving. Kept for when the prompt grows past the threshold.
         cache_control: { type: "ephemeral" },
       },
-      { type: "text", text: `THE RECORD\n\n${context}` },
+      ...(tools.length ? [{ type: "text" as const, text: TOOL_PROMPT }] : []),
+      // No record is an ordinary state once there are tools: the box can be
+      // opened on the dashboard rather than on somebody's file.
+      ...(context ? [{ type: "text" as const, text: `THE RECORD\n\n${context}` }] : []),
     ],
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });

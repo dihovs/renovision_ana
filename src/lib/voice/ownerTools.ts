@@ -19,7 +19,7 @@ import {
 import { resolveContact, type ContactMatch } from "@/lib/crm/contactMatch";
 import { countJobsByStatus, getJob, listJobs, listVisitsBetween, type ScheduledVisit } from "@/lib/crm/jobs";
 import { createInvoiceFromJob, listInvoices, receivablesSummary } from "@/lib/crm/invoices";
-import { parseMoneyToCents } from "@/lib/crm/money";
+import { formatMoney, parseMoneyToCents } from "@/lib/crm/money";
 import { isConversionRefused } from "@/lib/crm/conversions";
 import { dispatchJob, listJobDispatches } from "@/lib/crm/dispatch";
 import { formatHours, listExpenses, listTimeEntries } from "@/lib/crm/expenses";
@@ -259,6 +259,28 @@ export function spokenMoney(cents: number, locale: "fr" | "en" = "en"): string {
   const body = `${words} ${unit}`;
   if (!negative) return body;
   return locale === "fr" ? `moins ${body}` : `minus ${body}`;
+}
+
+/**
+ * Where a tool's answer is going to be read. (ANA-20)
+ *
+ * The tools were written for a phone, where every amount has to be words —
+ * "1240000" handed to a voice model gets read aloud off by a factor of a
+ * hundred, in the one kind of figure the owner would act on. On a screen that
+ * same care is wrong: "one thousand two hundred dollars" in a typed answer
+ * reads as a machine that cannot count, and the reader has to do the
+ * arithmetic back.
+ *
+ * So the surface travels with the call rather than being guessed, and money is
+ * the only thing that bends to it. Everything else — what a tool refuses, what
+ * it asks about, what it will not do — is identical on both, because those are
+ * boundaries and a boundary that varies by surface is not a boundary.
+ */
+export type ToolSurface = "voice" | "screen";
+
+/** An amount, formatted for wherever this answer is going to be read. */
+function money(cents: number, locale: "fr" | "en", surface: ToolSurface | undefined): string {
+  return surface === "screen" ? formatMoney(cents, locale) : spokenMoney(cents, locale);
 }
 
 // ---------------------------------------------------------------------------
@@ -644,7 +666,11 @@ export function ownerToolsFor(session: OwnerSession): Anthropic.Tool[] {
 type ToolInput = Record<string, unknown>;
 type Handler = (input: ToolInput, locale: "fr" | "en", context: ToolContext) => Promise<string>;
 
-export type ToolContext = { callSid?: string | null };
+export type ToolContext = {
+  callSid?: string | null;
+  /** Defaults to voice: the phone is the surface that breaks if this is wrong. */
+  surface?: ToolSurface;
+};
 
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -684,7 +710,7 @@ function expectedCents(lead: StoredLead): number {
 const OPEN_LEAD_STATUSES = new Set(["new", "contacted", "quoted"]);
 
 const HANDLERS: Record<string, Handler> = {
-  async business_snapshot(_input, locale) {
+  async business_snapshot(_input, locale, context) {
     const now = Date.now();
     // Same ±36h window the dashboard uses, then narrowed to Montreal days —
     // querying "this week" directly would need the UTC offset, which flips
@@ -708,10 +734,10 @@ const HANDLERS: Record<string, Handler> = {
     const openValue = open.reduce((sum, lead) => sum + expectedCents(lead), 0);
 
     const lines = [
-      `Leads in the last seven days: ${last7.length}. Never opened: ${unopened.length}. Open in the pipeline: ${open.length}, worth about ${spokenMoney(openValue, locale)} in AI estimates (not invoiced).`,
+      `Leads in the last seven days: ${last7.length}. Never opened: ${unopened.length}. Open in the pipeline: ${open.length}, worth about ${money(openValue, locale, context.surface)} in AI estimates (not invoiced).`,
       `Quotes: ${describeCounts(quotes)}.`,
       `Jobs: ${describeCounts(jobs)}.`,
-      `Receivables: ${spokenMoney(receivables.outstandingCents, locale)} outstanding across ${receivables.count} invoices, of which ${spokenMoney(receivables.overdueCents, locale)} is overdue.`,
+      `Receivables: ${money(receivables.outstandingCents, locale, context.surface)} outstanding across ${receivables.count} invoices, of which ${money(receivables.overdueCents, locale, context.surface)} is overdue.`,
       visits === null
         ? "Schedule: unavailable — the visits table has not been created yet."
         : `Visits booked in the next seven days: ${visits.length}.`,
@@ -720,7 +746,7 @@ const HANDLERS: Record<string, Handler> = {
     return lines.join("\n");
   },
 
-  async recent_leads(input, locale) {
+  async recent_leads(input, locale, context) {
     const limit = asCount(input.limit, 5, MAX_LEADS);
     const since = asDate(input.since);
 
@@ -738,7 +764,7 @@ const HANDLERS: Record<string, Handler> = {
       return [
         `${lead.name} (${lead.status}${lead.opened_at ? "" : ", never opened"})`,
         lead.scope_summary || "no scope recorded",
-        value > 0 ? `estimated ${spokenMoney(value, locale)}` : null,
+        value > 0 ? `estimated ${money(value, locale, context.surface)}` : null,
         `came in ${dayKey(lead.created_at)} via ${lead.source}`,
       ]
         .filter(Boolean)
@@ -786,13 +812,13 @@ const HANDLERS: Record<string, Handler> = {
     return `${inRange.length} booked between ${from} and ${to}; showing ${rows.length}.\n${rows.join("\n")}`;
   },
 
-  async money_owed(_input, locale) {
+  async money_owed(_input, locale, context) {
     const summary = await receivablesSummary();
     if (summary.count === 0) return "Nothing outstanding — every issued invoice is settled.";
     return [
-      `${spokenMoney(summary.outstandingCents, locale)} outstanding across ${summary.count} invoices.`,
+      `${money(summary.outstandingCents, locale, context.surface)} outstanding across ${summary.count} invoices.`,
       summary.overdueCents > 0
-        ? `${spokenMoney(summary.overdueCents, locale)} of that is past its due date.`
+        ? `${money(summary.overdueCents, locale, context.surface)} of that is past its due date.`
         : "None of it is past its due date yet.",
     ].join(" ");
   },
@@ -995,7 +1021,7 @@ const HANDLERS: Record<string, Handler> = {
     }
   },
 
-  async draft_estimate(input, locale) {
+  async draft_estimate(input, locale, context) {
     const fr = locale === "fr";
     const spokenName = asString(input.name);
     if (!spokenName) return "NOTHING DRAFTED. Which client? Ask the owner.";
@@ -1094,8 +1120,8 @@ const HANDLERS: Record<string, Handler> = {
       .map((line) => `${(line.quantityMilli ?? 0) / 1000} ${line.unit ?? ""} ${line.name}`.trim())
       .join("; ");
     return fr
-      ? `Brouillon créé pour ${resolved.match.displayName}: ${spokenLines}. Environ ${spokenMoney(beforeTax, locale)} avant taxes. C'est un BROUILLON dans l'admin — rien n'a été envoyé au client, et seul le propriétaire peut l'envoyer. Répète-lui tout ça.`
-      : `Draft created for ${resolved.match.displayName}: ${spokenLines}. About ${spokenMoney(beforeTax, locale)} before tax. It is a DRAFT in the admin — nothing was sent to the customer, and only the owner can send it. Repeat all of that back to him.`;
+      ? `Brouillon créé pour ${resolved.match.displayName}: ${spokenLines}. Environ ${money(beforeTax, locale, context.surface)} avant taxes. C'est un BROUILLON dans l'admin — rien n'a été envoyé au client, et seul le propriétaire peut l'envoyer. Répète-lui tout ça.`
+      : `Draft created for ${resolved.match.displayName}: ${spokenLines}. About ${money(beforeTax, locale, context.surface)} before tax. It is a DRAFT in the admin — nothing was sent to the customer, and only the owner can send it. Repeat all of that back to him.`;
   },
 
   async moisture_readings(input, locale) {
@@ -1215,7 +1241,7 @@ const HANDLERS: Record<string, Handler> = {
       : `Logged: ${percent}% in ${match.room.name}, job ${jobNumber}. Repeat it back so a misheard number is caught now.`;
   },
 
-  async job_margin(input, locale) {
+  async job_margin(input, locale, context) {
     const rawNumber = typeof input.jobNumber === "number" ? input.jobNumber : Number(input.jobNumber);
     const jobNumber = Number.isInteger(rawNumber) && rawNumber > 0 ? rawNumber : null;
     if (!jobNumber) return "Which job? Ask the owner for the job number.";
@@ -1249,9 +1275,9 @@ const HANDLERS: Record<string, Handler> = {
     const fr = locale === "fr";
     const lines = [
       `${fr ? "Travail" : "Job"} ${jobNumber}${job.title ? `, ${job.title}` : ""}.`,
-      `${fr ? "Soumissionné" : "Quoted"}: ${spokenMoney(quoted, locale)}.`,
+      `${fr ? "Soumissionné" : "Quoted"}: ${money(quoted, locale, context.surface)}.`,
       jobInvoices.length
-        ? `${fr ? "Facturé" : "Invoiced"}: ${spokenMoney(invoiced, locale)} (${jobInvoices.length} ${fr ? "facture" : "invoice"}${jobInvoices.length > 1 ? "s" : ""}).`
+        ? `${fr ? "Facturé" : "Invoiced"}: ${money(invoiced, locale, context.surface)} (${jobInvoices.length} ${fr ? "facture" : "invoice"}${jobInvoices.length > 1 ? "s" : ""}).`
         : fr
           ? "Rien de facturé encore."
           : "Nothing invoiced yet.",
@@ -1268,14 +1294,14 @@ const HANDLERS: Record<string, Handler> = {
       return lines.join(" ");
     }
 
-    lines.push(`${fr ? "Dépensé" : "Spent"}: ${spokenMoney(spent, locale)}.`);
+    lines.push(`${fr ? "Dépensé" : "Spent"}: ${money(spent, locale, context.surface)}.`);
     if (minutes > 0) lines.push(`${fr ? "Heures" : "Hours"}: ${formatHours(minutes)}.`);
     const basis = invoiced > 0 ? invoiced : quoted;
     const gap = basis - spent;
     lines.push(
       gap >= 0
-        ? `${fr ? "Marge sur ce qui est enregistré" : "Margin on what is recorded"}: ${spokenMoney(gap, locale)}.`
-        : `${fr ? "À perte sur ce qui est enregistré" : "Underwater on what is recorded"}: ${spokenMoney(Math.abs(gap), locale)}.`,
+        ? `${fr ? "Marge sur ce qui est enregistré" : "Margin on what is recorded"}: ${money(gap, locale, context.surface)}.`
+        : `${fr ? "À perte sur ce qui est enregistré" : "Underwater on what is recorded"}: ${money(Math.abs(gap), locale, context.surface)}.`,
     );
     if (jobExpenses.length > 0 && minutes === 0) {
       lines.push(fr ? "Aucune heure n'est entrée." : "No hours are entered.");
@@ -1283,7 +1309,7 @@ const HANDLERS: Record<string, Handler> = {
     return lines.join(" ");
   },
 
-  async price_lookup(input, locale) {
+  async price_lookup(input, locale, context) {
     const query = asString(input.query);
     if (!query) return locale === "fr" ? "Chercher quel article?" : "Look up which item?";
 
@@ -1301,7 +1327,7 @@ const HANDLERS: Record<string, Handler> = {
 
     const lines = items.map((item) => {
       const unit = item.unit ? (locale === "fr" ? ` le ${item.unit}` : ` per ${item.unit}`) : "";
-      return `- ${item.name}: ${spokenMoney(item.unit_price_cents, locale)}${unit}`;
+      return `- ${item.name}: ${money(item.unit_price_cents, locale, context.surface)}${unit}`;
     });
     if (items.length === 1) return lines[0].slice(2);
     const heading =
@@ -1311,7 +1337,7 @@ const HANDLERS: Record<string, Handler> = {
     return `${heading}\n${lines.join("\n")}`;
   },
 
-  async whats_slipping(_input, locale) {
+  async whats_slipping(_input, locale, context) {
     const now = Date.now();
     const days = (iso: string | null) =>
       iso ? Math.floor((now - new Date(iso).getTime()) / 86_400_000) : 0;
@@ -1351,7 +1377,7 @@ const HANDLERS: Record<string, Handler> = {
       lines.push(locale === "fr" ? "Soumissions sans réponse:" : "Quotes with no answer:");
       for (const quote of staleQuotes) {
         lines.push(
-          `- ${quote.client_name}, ${spokenMoney(quote.total_cents ?? 0, locale)}, ${days(quote.sent_at)} ${locale === "fr" ? "jours" : "days"}`,
+          `- ${quote.client_name}, ${money(quote.total_cents ?? 0, locale, context.surface)}, ${days(quote.sent_at)} ${locale === "fr" ? "jours" : "days"}`,
         );
       }
     }
@@ -1359,7 +1385,7 @@ const HANDLERS: Record<string, Handler> = {
       lines.push(locale === "fr" ? "Factures en retard:" : "Invoices past due:");
       for (const invoice of overdue) {
         lines.push(
-          `- ${invoice.client_name}, ${spokenMoney(invoice.total_cents ?? 0, locale)}, ${days(invoice.due_date)} ${locale === "fr" ? "jours de retard" : "days late"}`,
+          `- ${invoice.client_name}, ${money(invoice.total_cents ?? 0, locale, context.surface)}, ${days(invoice.due_date)} ${locale === "fr" ? "jours de retard" : "days late"}`,
         );
       }
     }
@@ -1673,7 +1699,7 @@ export async function runOwnerTool(
   session: OwnerSession,
   name: string,
   input: unknown,
-  options: { locale?: "fr" | "en"; callSid?: string | null } = {},
+  options: { locale?: "fr" | "en"; callSid?: string | null; surface?: ToolSurface } = {},
 ): Promise<string> {
   // Second gate. ownerToolsFor() already withheld the tools, so reaching here
   // unauthenticated means something upstream is wrong — refuse and say so in
@@ -1694,6 +1720,9 @@ export async function runOwnerTool(
     const value = (input ?? {}) as ToolInput;
     return await handler(typeof value === "object" ? value : {}, options.locale ?? "fr", {
       callSid: options.callSid ?? null,
+      // Voice by default: the phone is the surface that breaks loudly if this
+      // is wrong, so it is the one that does not depend on a caller remembering.
+      surface: options.surface ?? "voice",
     });
   } catch (err) {
     console.error(`[voice-owner] tool ${name} failed:`, err);

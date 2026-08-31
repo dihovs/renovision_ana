@@ -57,7 +57,8 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-18 | Message the crew | ✅ done, one premise corrected — still blocked in prod on Meta console |
 | ANA-19 | Memory | 📄 proposal written — `Ana-Memory-Proposal.md`, three decisions are his |
 | **Part 5 — blocked** | | |
-| ANA-20 | QuickBooks | 🚫 blocked — Intuit, owner-only |
+| ANA-20 | Ana's tools in the admin chat box | ✅ done |
+| ANA-21 | QuickBooks | 🚫 blocked — Intuit, owner-only |
 
 ---
 
@@ -610,6 +611,36 @@ quoting not believing, one table, three tools, and the three decisions only he c
 
 ---
 
+## ANA-20 — Ana's tools in the admin chat box  ✅
+
+The open question from the original plan, closed. Everything built in Part 4 was
+voice-only; typed at a desk it is often more useful, and against WhatsApp and SMS it
+works today with Teams and email simply absent until ANA-04 unblocks.
+
+**Shipped.**
+
+- **The second authenticated door.** `ADMIN_OWNER_SESSION` (`voice/owner.ts`) asserts
+  `authenticated: true` without a phone call. Safe for one reason, written beside it:
+  whoever holds the admin cookie can already send an invoice and delete a client with one
+  click and no model involved, so Ana's draft-only subset adds no capability.
+  `adminSurface.test.ts` holds the obligation — exactly one caller, and it must check
+  `isSignedIn()` in the same request. Mutation-checked: a second importer fails two tests
+  by name.
+- **A surface, and money bends to it.** `ToolSurface = "voice" | "screen"` travels with the
+  call; fifteen call sites format for where the answer is read. **Formatting only** — what
+  a tool refuses, asks about, or will not do is identical on both, because those are
+  boundaries and a boundary that varies by surface is not one.
+- **A tool loop** in `/api/admin/assistant`, capped at 6 rounds, `TOOL_PROMPT` appended to
+  the existing system prompt rather than replacing it.
+- **The record became optional**, so the box can open on the dashboard rather than on
+  somebody's file. A malformed subject is still refused.
+- **Named activity in the UI** — "Checking the price book…", not a spinner.
+
+**Not done:** no general "Ask Ana" entry point in the admin nav yet — the route accepts a
+null subject, so that is a UI addition whenever it is wanted.
+
+---
+
 # Part 5 — Blocked
 
 ## ANA-20 — QuickBooks  🚫 owner-only, not scheduled
@@ -646,5 +677,5 @@ than "find my estimates", and it may be answerable from the CRM plus bank data i
 3. **Which mailbox?** One address, or several — aliases and a shared info@ are different work.
 4. **What is OneDrive for** — client documents, photos, adjuster reports? ANA-07 is scoped for
    finding documents, not photo libraries.
-5. **Should these tools also serve the admin chat box?** They are plain `Anthropic.Tool`
-   objects, so re-serving them through `crm/assistant.ts` is cheap. Not in any order above.
+5. ~~Should these tools also serve the admin chat box?~~ **Answered 31 Aug 2026: yes** —
+   built as ANA-20.
