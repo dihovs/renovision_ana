@@ -21,6 +21,13 @@ import { countJobsByStatus, getJob, listJobs, listVisitsBetween, type ScheduledV
 import { listInvoices, receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
 import { formatHours, listExpenses, listTimeEntries } from "@/lib/crm/expenses";
+import {
+  createMoistureReading,
+  listProjectMoistureReadings,
+  rankRoomMatches,
+} from "@/lib/crm/dryingLog";
+import { projectForJob } from "@/lib/crm/projects";
+import { listRoomScans } from "@/lib/crm/roomScans";
 import { listPriceBook } from "@/lib/crm/priceBook";
 import { countQuotesByStatus, listQuotes } from "@/lib/crm/quotes";
 import { QUOTE_FOLLOWUP_AFTER_DAYS } from "@/lib/crm/followups";
@@ -105,6 +112,10 @@ export const PERMITTED_CRM_WRITES = [
   // setOwnerTaskDone(id, false) is the same function backwards — and the
   // matcher behind it never guesses between two similar tasks (ANA-10).
   "setOwnerTaskDone",
+  // Adds one moisture reading to a drying log, dictated on site. A wrong
+  // number is corrected by taking another reading, the admin can delete one,
+  // and the room matcher never guesses between two rooms (ANA-14).
+  "createMoistureReading",
 ] as const;
 
 /** The business runs on Montreal time; the server runs on UTC. */
@@ -334,6 +345,38 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days: { type: "integer", description: "How far back, in days. Defaults to 7." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "moisture_readings",
+    description:
+      "The drying log for one job: every moisture reading, room by room, oldest first. Use it for 'what are the readings on Fleury', 'is the basement drying', 'where were we yesterday on the humidity'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        jobNumber: { type: "integer", description: "The job number, as he says it." },
+      },
+      required: ["jobNumber"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "log_moisture_reading",
+    description:
+      "Write one dictated moisture reading into a job's drying log — 'log eighteen percent in the bathroom on the Fleury job'. Needs the job number, the room, and the percentage. If several rooms fit the name you will be given the list: read it, ask which, call again. Repeat the reading back afterwards so a misheard number is caught while he is still holding the meter.",
+    input_schema: {
+      type: "object",
+      properties: {
+        jobNumber: { type: "integer", description: "The job number." },
+        room: { type: "string", description: "The room, as he names it." },
+        percent: { type: "number", description: "Moisture content percent, as dictated. 0 to 100." },
+        material: {
+          type: "string",
+          description: "What was measured — gypse, wood, concrete. Only when he said it.",
+        },
+      },
+      required: ["jobNumber", "room", "percent"],
       additionalProperties: false,
     },
   },
@@ -723,6 +766,123 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async moisture_readings(input, locale) {
+    const rawNumber = typeof input.jobNumber === "number" ? input.jobNumber : Number(input.jobNumber);
+    const jobNumber = Number.isInteger(rawNumber) && rawNumber > 0 ? rawNumber : null;
+    if (!jobNumber) return "Which job? Ask the owner for the job number.";
+    const fr = locale === "fr";
+
+    const subject = await subjectForJobNumber(jobNumber);
+    if (!subject) return fr ? `Aucun travail numéro ${jobNumber}.` : `There is no job number ${jobNumber}.`;
+
+    const projectId = await projectForJob(subject.id);
+    if (!projectId) {
+      return fr
+        ? `Le travail ${jobNumber} n'a pas de projet attaché, donc pas de journal de séchage.`
+        : `Job ${jobNumber} has no project attached, so there is no drying log.`;
+    }
+
+    const readings = await listProjectMoistureReadings(projectId).catch(() => null);
+    if (readings === null) {
+      return fr ? "Je n'arrive pas à lire le journal pour le moment." : "I cannot read the log at the moment.";
+    }
+    if (readings.length === 0) {
+      return fr ? "Aucune lecture dans le journal encore." : "No readings in the log yet.";
+    }
+
+    // Spoken, so the tail matters more than the whole history: the last
+    // reading per room tells him where drying stands today.
+    const byRoom = new Map<string, typeof readings>();
+    for (const reading of readings) {
+      const list = byRoom.get(reading.room_name) ?? [];
+      list.push(reading);
+      byRoom.set(reading.room_name, list);
+    }
+    const lines: string[] = [];
+    for (const [room, list] of byRoom) {
+      const last = list[list.length - 1];
+      const when = new Date(last.taken_at).toLocaleDateString(fr ? "fr-CA" : "en-CA", {
+        month: "short",
+        day: "numeric",
+        timeZone: TZ,
+      });
+      const value =
+        last.material_percent != null
+          ? `${last.material_percent}%${last.material ? ` (${last.material})` : ""}`
+          : last.relative_humidity != null
+            ? `${last.relative_humidity}% RH`
+            : "—";
+      lines.push(
+        `- ${room}: ${value} ${fr ? "le" : "on"} ${when}${list.length > 1 ? ` (${list.length} ${fr ? "lectures" : "readings"})` : ""}`,
+      );
+    }
+    return lines.join("\n");
+  },
+
+  async log_moisture_reading(input, locale) {
+    const fr = locale === "fr";
+    const rawNumber = typeof input.jobNumber === "number" ? input.jobNumber : Number(input.jobNumber);
+    const jobNumber = Number.isInteger(rawNumber) && rawNumber > 0 ? rawNumber : null;
+    if (!jobNumber) return "NOTHING LOGGED. Which job? Ask for the job number.";
+
+    const spokenRoom = asString(input.room);
+    if (!spokenRoom) return "NOTHING LOGGED. Which room? Ask the owner.";
+
+    const percent = typeof input.percent === "number" ? input.percent : Number(input.percent);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      return "NOTHING LOGGED. The percentage did not come through — ask him to say the number again.";
+    }
+
+    const subject = await subjectForJobNumber(jobNumber);
+    if (!subject) return fr ? `Aucun travail numéro ${jobNumber}.` : `There is no job number ${jobNumber}.`;
+    const projectId = await projectForJob(subject.id);
+    if (!projectId) {
+      return fr
+        ? `NOTHING LOGGED — le travail ${jobNumber} n'a pas de projet, donc pas de journal.`
+        : `NOTHING LOGGED — job ${jobNumber} has no project attached, so there is no drying log to write into.`;
+    }
+
+    const rooms = await listRoomScans(projectId).catch(() => null);
+    if (!rooms || rooms.length === 0) {
+      return fr
+        ? "NOTHING LOGGED — ce projet n'a pas encore de pièces."
+        : "NOTHING LOGGED — that project has no rooms yet.";
+    }
+
+    const match = rankRoomMatches(spokenRoom, rooms.map((room) => ({ id: room.id, name: room.name })));
+    if (match.kind === "none") {
+      const names = rooms.map((room) => room.name).join(", ");
+      return `NOTHING LOGGED — no room called "${spokenRoom}" on that project. The rooms are: ${names}. Ask which he means.`;
+    }
+    if (match.kind === "many") {
+      const options = match.rooms.map((room, index) => `${index + 1}. ${room.name}`).join("\n");
+      return [
+        `NOTHING LOGGED — more than one room fits "${spokenRoom}" and you must not choose.`,
+        "Read these out, ask which, then call again with the full room name:",
+        options,
+      ].join("\n");
+    }
+
+    try {
+      await createMoistureReading({
+        roomScanId: match.room.id,
+        materialPercent: percent,
+        material: asString(input.material),
+        notes: "dictated to Ana",
+      });
+    } catch {
+      // Same rule as capture_task: claiming a write that did not happen is
+      // worse than not having the feature — here it is a hole in a drying log.
+      return fr
+        ? "Ça n'a pas été enregistré — redis-le ou note-le à la main."
+        : "That did not save — say it again or write it down.";
+    }
+
+    return fr
+      ? `Noté: ${percent}% dans ${match.room.name}, travail ${jobNumber}. Répète-le au propriétaire pour attraper un chiffre mal entendu.`
+      : `Logged: ${percent}% in ${match.room.name}, job ${jobNumber}. Repeat it back so a misheard number is caught now.`;
   },
 
   async job_margin(input, locale) {

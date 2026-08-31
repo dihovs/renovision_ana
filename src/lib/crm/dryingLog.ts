@@ -256,3 +256,48 @@ export function unitDays(
 export function totalUnitDays(placements: EquipmentPlacement[], asOf: Date): number {
   return placements.reduce((sum, placement) => sum + unitDays(placement, asOf), 0);
 }
+
+// ---------------------------------------------------------------------------
+// Matching a spoken room name to a room scan (ANA-14)
+// ---------------------------------------------------------------------------
+
+export type RoomMatch =
+  | { kind: "none" }
+  | { kind: "one"; room: { id: string; name: string } }
+  | { kind: "many"; rooms: { id: string; name: string }[] };
+
+function roomKey(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Which room the owner means, from what he said.
+ *
+ * Same posture as contactMatch and rankTaskMatches: fail towards asking. A
+ * reading filed against the wrong room corrupts the drying log an adjuster may
+ * later read, so a winner must be the only room whose name contains the spoken
+ * words (or vice versa — "the bathroom" should find "Salle de bain — bathroom"
+ * and "Bathroom 2nd floor" both, and then ask). Pure, for testing without a
+ * database.
+ */
+export function rankRoomMatches(
+  spoken: string,
+  rooms: { id: string; name: string }[],
+): RoomMatch {
+  const wanted = roomKey(spoken);
+  if (!wanted || rooms.length === 0) return { kind: "none" };
+
+  const hits = rooms.filter((room) => {
+    const name = roomKey(room.name);
+    return name.includes(wanted) || wanted.includes(name);
+  });
+
+  if (hits.length === 0) return { kind: "none" };
+  if (hits.length === 1) return { kind: "one", room: hits[0] };
+  return { kind: "many", rooms: hits };
+}

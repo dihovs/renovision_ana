@@ -821,6 +821,26 @@ export async function updateProjectStatus(id: string, status: ProjectStatus): Pr
   if (error) throw new Error(`Could not update the project: ${error.message}`);
 }
 
+/**
+ * The project a job is attached to, if any. (ANA-14)
+ *
+ * The read half of attachJob below. A job on this CRM can exist without a
+ * project — plenty do — so null is an ordinary answer meaning "no floor plans,
+ * no drying log", not a failure.
+ */
+export async function projectForJob(jobId: string): Promise<string | null> {
+  const client = db();
+  if (!client) return null;
+  const { data, error } = await client
+    .from("project_jobs")
+    .select("project_id")
+    .eq("job_id", jobId)
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { project_id: string } | null)?.project_id ?? null;
+}
+
 export async function attachJob(projectId: string, jobId: string): Promise<void> {
   const client = requireDb();
   const { error } = await client

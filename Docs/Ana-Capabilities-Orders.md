@@ -50,7 +50,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-11 | What is slipping | ✅ done |
 | ANA-12 | What do we charge | ✅ done |
 | ANA-13 | Did this job make money | ✅ done |
-| ANA-14 | Moisture readings | ⬜ not started |
+| ANA-14 | Moisture readings | ✅ done |
 | ANA-15 | Draft an estimate, never send it | ⬜ not started |
 | ANA-16 | Draft an invoice, never send it | ⬜ not started |
 | ANA-17 | Draft an email reply, never send it | ⬜ not started |
@@ -478,6 +478,12 @@ writing, as `capture_task` does.
 
 **Do not** add equipment placement. Reading a number is dictation; placing a dehumidifier is a
 plan edit.
+
+**Shipped.** `moisture_readings` (last reading per room, count of the history) and
+`log_moisture_reading` over the job → project chain (`projectForJob`, the new read half of
+`attachJob`). Rooms resolve through `rankRoomMatches` — pure, tested, fails towards asking,
+because a reading filed against the wrong room corrupts a drying log an adjuster may read.
+`createMoistureReading` joined PERMITTED_CRM_WRITES with its undo story beside it.
 
 ---
 
