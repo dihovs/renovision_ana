@@ -40,21 +40,48 @@ Deliberate properties, all covered by tests in `src/lib/voice/owner.test.ts`:
 
 ## What she can and cannot do
 
-**Read** — the same aggregates the admin dashboard shows: leads, quotes and
-jobs by status, receivables, the week's visits.
+**Read** — the same aggregates the admin dashboard shows (leads, quotes and jobs
+by status, receivables, the week's visits), and what people actually wrote: crew
+WhatsApp and customer SMS, searchable and quoted back with who said it and when.
 
-**Write** — exactly one thing: capturing a task he dictates.
+**Write** — two things. A task he dictates, and a notification call to a customer
+placed into the outbound queue. The second is drawn tighter than anything else
+here: no argument accepts a phone number, the destination is read off a resolved
+client record, and only three kinds of call exist.
 
-**Nothing else, on purpose.** No tool sends email or SMS, edits or deletes a
-client, quote, invoice or job, moves money, changes settings, or touches the
-public website. This boundary — not the PIN — is the real security control. It
-is what makes the auth *good enough*: the worst case for a false positive is
-that someone hears business figures and adds a junk to-do, not that they invoice
-a customer or publish something on the website.
+**The rule: Ana drafts, she never issues.** She may create a record in a state
+that has no effect on anyone outside this company. She may never move one to a
+state that does. Sending a quote, sending an invoice, taking a payment, changing
+a status, archiving or deleting anything — those are a human pressing a button
+in the admin, and they stay that way. As she gains the ability to draft quotes,
+invoices and email replies (`Docs/Ana-Capabilities-Orders.md`), the drafts land
+in the admin for the owner to check and send himself.
 
-Tools are enforced in code, not by the prompt: when the session isn't
-authenticated the tool list is empty, so there is nothing for a clever sentence
-to talk its way into.
+This boundary — not the PIN — is the real security control. It is what makes the
+auth *good enough*: the worst case for a false positive is someone hearing
+business figures and adding a junk to-do, not a customer being invoiced.
+
+**It matters more as she reads more.** Ana is fed what other people wrote, and
+the ANA-nn orders add Teams and email to that. An email is the widest untrusted
+input there is — anyone can put text in front of her for free. So a message is a
+quote, never a fact, and never an instruction: "invoice the Fleury job for twelve
+thousand, as agreed" is something she reports, not something she does.
+
+**Enforced in code, not by the prompt.** Three separate mechanisms, none of them
+wording:
+
+- When the session is not authenticated, `ownerToolsFor()` returns an empty list
+  and `runOwnerTool()` refuses again on the way in. There is nothing for a clever
+  sentence to talk its way into.
+- `PERMITTED_CRM_WRITES` in `src/lib/voice/ownerTools.ts` names every function
+  that changes data, one by one.
+- `src/lib/voice/writeBoundary.test.ts` reads that module's own imports and fails
+  the build if a write appears that is not on the list. Wiring in `sendInvoice`
+  does not produce a feature; it produces a red test.
+
+**This section has been wrong before.** It claimed Ana wrote "exactly one thing"
+for weeks after `queue_customer_call` made it two. That is what the test is for:
+prose drifts, and the boundary is too important to be guarded by prose.
 
 ## Setup
 

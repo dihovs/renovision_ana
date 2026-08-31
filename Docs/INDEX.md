@@ -13,6 +13,11 @@ file, then `ORDERS.md`.
 order, prefixed with the id. If an order's premise turns out to be wrong, stop and report;
 do not improvise a substitute.
 
+**Ana as a real agent, a separate track:** `Ana-Capabilities-Orders.md` — twenty `ANA-nn`
+orders taking Ana from nine read-mostly WhatsApp/CRM tools to one place that reads Teams,
+Outlook, OneDrive and WhatsApp against a single identity, and drafts the owner's work.
+Same rules as `ORDERS.md`, different numbering, do not interleave the commits.
+
 **The CRM website, not the iOS app:** `CRM-Messaging.md` (texting, MMS, WhatsApp,
 and the CASL rules) and `Twilio-Wiring.md` (the account, voice, env vars).
 

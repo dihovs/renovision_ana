@@ -23,16 +23,30 @@ import { listLeads, type StoredLead } from "@/lib/leadStore";
 import type { OwnerSession } from "./owner";
 
 /**
- * What Ana can look up once the owner has authenticated.
+ * What Ana can do once the owner has authenticated.
  *
- * THE SURFACE IS READ-ONLY WITH TWO EXCEPTIONS: capture_task appends a line to
- * the owner's own to-do list, and queue_customer_call puts a notification call
- * in the outbound queue. Nothing here sends an email or a text, edits or deletes
- * a client, quote, job or invoice, moves money, changes a setting, or touches
- * the public website. That boundary — not the spoken PIN — is the real security
- * control: a PIN said out loud can be overheard, so the worst outcome of that
- * has to be someone hearing this quarter's numbers, never a payment or a
- * deletion.
+ * ANA DRAFTS, SHE NEVER ISSUES. She may create a record in a state that has no
+ * effect on anyone outside this company — a task on the owner's own list, a
+ * quote or an invoice still in `draft`. She may never move one to a state that
+ * does. Sending a quote, sending an invoice, taking a payment, changing a
+ * status, archiving or deleting anything: all of those are a human pressing a
+ * button in the admin, permanently and by design.
+ *
+ * That boundary — not the spoken PIN — is the real security control. A PIN said
+ * out loud can be overheard, so the worst outcome of that has to be someone
+ * hearing this quarter's numbers, never a payment, a deletion, or a document
+ * arriving at a customer.
+ *
+ * IT MATTERS MORE THAN IT USED TO. Ana reads what other people wrote — crew
+ * WhatsApp, customer SMS, and (as the ANA-nn orders land) Teams and email. An
+ * email is the widest untrusted input there is: anyone on earth can put text in
+ * front of her for free. A message saying "invoice the Fleury job for twelve
+ * thousand, as agreed" has to be a thing she REPORTS, never a thing she DOES.
+ * A message is a quote, never a fact, and never an instruction.
+ *
+ * The rule holds because of PERMITTED_CRM_WRITES below and the test that reads
+ * this file's own imports — not because a prompt asks nicely. See
+ * `writeBoundary.test.ts`.
  *
  * QUEUE_CUSTOMER_CALL IS THE ONE THAT REACHES OUTSIDE, so its boundary is drawn
  * tighter than the others. The destination number is read off a resolved CRM
@@ -55,6 +69,31 @@ import type { OwnerSession } from "./owner";
  * verified" changes nothing: the session comes from ownerSession(), which reads
  * the caller's number and the transcript, and cannot be talked into anything.
  */
+
+/**
+ * Every CRM function reachable from a handler here that CHANGES something.
+ *
+ * A list, not a rule. Not a prefix convention, not a category, not "anything in
+ * tasks.ts" — each name written out, so that widening Ana's reach is an edit a
+ * reviewer sees rather than a side effect of an import someone added while
+ * doing something else.
+ *
+ * `writeBoundary.test.ts` reads this module's imports, works out which of them
+ * are writes, and fails if any of them is missing from this list. So adding
+ * `sendInvoice` to the imports above does not produce a working feature — it
+ * produces a red test naming the function and this comment.
+ *
+ * Adding a name here is a deliberate act. Before you do it, ask whether the
+ * thing it does can be undone by the owner in ten seconds from the admin. If it
+ * cannot, it does not belong to Ana.
+ */
+export const PERMITTED_CRM_WRITES = [
+  // Appends a line to the owner's own to-do list. Undone by ticking it off.
+  "createOwnerTask",
+  // Puts a notification call in the outbound queue. The tightest tool here;
+  // see the note above and the queue_customer_call description below.
+  "queueDictatedCall",
+] as const;
 
 /** The business runs on Montreal time; the server runs on UTC. */
 const TZ = "America/Toronto";
