@@ -54,7 +54,7 @@ Ana does the work he gives her. Explicitly **not** Teams voice calls.
 | ANA-15 | Draft an estimate, never send it | ✅ done |
 | ANA-16 | Draft an invoice, never send it | ✅ done |
 | ANA-17 | Draft an email reply, never send it | ✅ done — scope widened BEFORE the one consent |
-| ANA-18 | Message the crew | ⬜ not started |
+| ANA-18 | Message the crew | ✅ done, one premise corrected — still blocked in prod on Meta console |
 | ANA-19 | Memory | ⬜ not started |
 | **Part 5 — blocked** | | |
 | ANA-20 | QuickBooks | 🚫 blocked — Intuit, owner-only |
@@ -570,6 +570,16 @@ dispatch already refuses rather than half-sends.
 
 **Done when** the crew gets the same message the "Notify crew" panel sends, and no argument
 anywhere accepts a phone number.
+
+**Shipped, with one premise corrected.** This order asked for "message in the owner's own
+words" — and 0044's design refuses that *on purpose*: every distinct sentence is a separate
+Meta template and review, and a template whose only variables are a job number, a window, a
+street and a token has no field a price (or any dictated sentence) can travel in. The
+architecture wins. `notify_crew` sends the two template kinds to people already on the
+job's dispatch history — no destination argument, first-ever dispatch refused toward the
+admin panel where people are chosen. **If the owner wants free-text crew messages by voice,
+that is a new decision** (a new template, or session messages in the 24h window) — his
+call, not an improvisation. `dispatchJob` is the eighth entry on PERMITTED_CRM_WRITES.
 
 ---
 

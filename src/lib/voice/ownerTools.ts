@@ -21,6 +21,7 @@ import { countJobsByStatus, getJob, listJobs, listVisitsBetween, type ScheduledV
 import { createInvoiceFromJob, listInvoices, receivablesSummary } from "@/lib/crm/invoices";
 import { parseMoneyToCents } from "@/lib/crm/money";
 import { isConversionRefused } from "@/lib/crm/conversions";
+import { dispatchJob, listJobDispatches } from "@/lib/crm/dispatch";
 import { formatHours, listExpenses, listTimeEntries } from "@/lib/crm/expenses";
 import {
   createMoistureReading,
@@ -130,6 +131,11 @@ export const PERMITTED_CRM_WRITES = [
   // The application cannot send it: Mail.Send is never requested, so the
   // draft leaves the building only by his hand in Outlook (ANA-17).
   "createDraftReply",
+  // Re-sends a job's approved WhatsApp template to crew ALREADY on that job's
+  // dispatch history. Template-only by 0044's design — no field a price or a
+  // dictated sentence could travel in — and there is no destination argument:
+  // recipients come off the job's own history, never from speech (ANA-18).
+  "dispatchJob",
 ] as const;
 
 /** The business runs on Montreal time; the server runs on UTC. */
@@ -359,6 +365,24 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days: { type: "integer", description: "How far back, in days. Defaults to 7." },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "notify_crew",
+    description:
+      "Tell a job's crew, on WhatsApp, that the job is on ('scheduled') or that its time moved ('schedule_changed') — 'let the crew know the Fleury job moved'. It re-sends the job's approved template to the SAME people already on that job's dispatch history; a job whose crew was never dispatched from the admin panel is refused, because choosing people is done there. The message is the template — job number, time window, street, link — and cannot carry a dictated sentence; if the owner wants to SAY something to the crew, that is not this tool: offer to write it as a task instead. Repeat back who is being told and which of the two messages they get.",
+    input_schema: {
+      type: "object",
+      properties: {
+        jobNumber: { type: "integer", description: "The job number, as he says it." },
+        kind: {
+          type: "string",
+          enum: ["scheduled", "schedule_changed"],
+          description: "'scheduled': the job is on. 'schedule_changed': the time moved. Only these two exist.",
+        },
+      },
+      required: ["jobNumber", "kind"],
       additionalProperties: false,
     },
   },
@@ -837,6 +861,68 @@ const HANDLERS: Record<string, Handler> = {
     const messages = await recentTeamMessages(days, MAX_MESSAGES);
     if (messages.length === 0) return `Nothing has come in from the crew in the last ${days} days.`;
     return `${messages.length} from the crew in the last ${days} days, newest first.\n${asTranscript(messages)}`;
+  },
+
+  async notify_crew(input, locale) {
+    const fr = locale === "fr";
+    const rawNumber = typeof input.jobNumber === "number" ? input.jobNumber : Number(input.jobNumber);
+    const jobNumber = Number.isInteger(rawNumber) && rawNumber > 0 ? rawNumber : null;
+    if (!jobNumber) return "NOBODY NOTIFIED. Which job? Ask for the job number.";
+
+    const kind = asString(input.kind);
+    if (kind !== "scheduled" && kind !== "schedule_changed") {
+      return [
+        `NOBODY NOTIFIED. "${kind ?? "that"}" is not a message the crew can be sent.`,
+        "Only two exist: the job is on, or its time moved. Anything else the owner wants said",
+        "to the crew is not sendable from here — offer to write it down as a task.",
+      ].join(" ");
+    }
+
+    const subject = await subjectForJobNumber(jobNumber);
+    if (!subject) return fr ? `Aucun travail numéro ${jobNumber}.` : `There is no job number ${jobNumber}.`;
+
+    // Recipients come off the job's own dispatch history and nowhere else.
+    // There is deliberately no way to add a person by voice: choosing who is
+    // on a job is the admin panel's job, where names have faces next to them.
+    const history = await listJobDispatches(subject.id);
+    const contactIds = [...new Set(history.map((row) => row.contact_id).filter(Boolean))] as string[];
+    if (contactIds.length === 0) {
+      return fr
+        ? `NOBODY NOTIFIED — personne n'a encore été assigné au travail ${jobNumber}. Le premier envoi se fait depuis l'admin, où on choisit les personnes.`
+        : `NOBODY NOTIFIED — nobody has ever been dispatched on job ${jobNumber}. The first send is done from the admin panel, where the people are chosen.`;
+    }
+
+    const result = await dispatchJob({
+      jobId: subject.id,
+      contactIds,
+      kind,
+      language: fr ? "fr" : "en",
+    });
+
+    if (!result.ok) {
+      // dispatch refuses rather than half-sends; its reasons are sentences.
+      return `NOBODY NOTIFIED. ${result.blocked ?? "The send did not go through."}`;
+    }
+
+    const sent = result.outcomes.filter((outcome) => outcome.ok).length;
+    const failed = result.outcomes.length - sent;
+    const what =
+      kind === "scheduled"
+        ? fr ? "que le travail est confirmé" : "that the job is on"
+        : fr ? "que l'horaire a changé" : "that the schedule changed";
+    return [
+      fr
+        ? `${sent} personne${sent > 1 ? "s" : ""} de l'équipe du travail ${jobNumber} reçoit le message ${what}.`
+        : `${sent} crew member${sent > 1 ? "s" : ""} on job ${jobNumber} are being told ${what}.`,
+      failed > 0
+        ? fr
+          ? `${failed} envoi${failed > 1 ? "s ont" : " a"} échoué — l'admin montre qui.`
+          : `${failed} send${failed > 1 ? "s" : ""} failed — the admin shows who.`
+        : null,
+      fr ? "Répète-lui qui est prévenu et lequel des deux messages part." : "Repeat back who is being told and which of the two messages goes.",
+    ]
+      .filter(Boolean)
+      .join(" ");
   },
 
   async draft_reply(input, locale) {
