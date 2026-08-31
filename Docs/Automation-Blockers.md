@@ -21,6 +21,11 @@ invoices. It is in breach today.
 Three separate research agents flagged this independently. The risk is not a
 surprise bill — it is enforcement against the company's only web presence.
 
+**RESOLVED — the owner confirmed on 30 Aug 2026 that the account is on Pro, not Hobby.**
+This also unblocks the Microsoft Graph sync in `Ana-Capabilities-Orders.md` ANA-04, which
+needs cron more often than daily: Graph change-notification subscriptions expire in about
+three days and have to be renewed on a schedule.
+
 Dashboard → Settings → Billing → Upgrade.
 
 Also buys: 800s max function duration (vs 300s), 1 TB transfer, and cron more
@@ -63,11 +68,25 @@ The Intuit ticket is still worth opening; nothing has been asked of them yet.
 A drafted ticket is ready to send in `Docs/intuit-ticket-draft.md` — it needs the
 legal entity name and NEQ filled in first.
 
+**Two things learned on 30 Aug 2026.** The owner is an *admin* on the QuickBooks Online
+company but not its owner/master admin — worth confirming that an admin can create a
+developer app against the company file, because on some plans that is owner-only. And the
+drafted ticket scopes the ask as "our CRM pushes invoices into QBO. We read nothing back",
+which is now backwards: he wants to *read* estimates and payments back. **Reword before
+sending** or the answer will not cover what is actually wanted.
+
 ---
 
 ## Before the phone agent can take a real call
 
-### 4. Test Teams call forwarding — 15 minutes, do this first
+### 4. Test Teams call forwarding
+
+> **Not to be confused with Teams *messages*.** The owner asked on 30 Aug 2026 for Ana to
+> read Teams chat, Outlook and OneDrive — and explicitly **not** Teams calls. That work is
+> `Ana-Capabilities-Orders.md` ANA-04 to ANA-07, and it is a different question from the
+> call-forwarding one below. He confirmed he administers the Microsoft 365 tenant, so the
+> Entra app registration is his to make.
+ — 15 minutes, do this first
 
 Can the Teams tenant forward **+1 579-990-3077** to an external number? Forward
 it to your mobile and call it.
