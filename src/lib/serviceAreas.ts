@@ -266,7 +266,18 @@ export const serviceAreas: ServiceArea[] = [
     neighbors: ["sainte-rose", "duvernay", "chomedey"],
     // Bungalow basement finishing is board, tape and paint more than anything
     // else, so those two sit high in this sector's list.
-    relatedServices: [BASEMENTS, DRYWALL, RENOVATIONS, PAINTING, FLOORING, KITCHEN_BATH],
+    // Water damage was missing here while the page's title, H1, meta description
+    // and section heading all promised it, and its own copy carries a paragraph
+    // on interior water risk in 1950s-60s stock. The list was simply wrong.
+    // FLOORING makes way because it is the one service Vimont's four paragraphs
+    // never mention; KITCHEN_BATH stays because the "fuite lente derrière une
+    // salle de bain des années 1960" is precisely that job.
+    //
+    // Deliberately NOT SEWER_BACKUP, even though the Laval by-law applies and
+    // listing water damage now makes it eligible under the rule used elsewhere:
+    // this sector's water story is explicitly interior — "plus souvent de
+    // l'intérieur" — aging plumbing and failed water heaters, not backups.
+    relatedServices: [WATER_DAMAGE, BASEMENTS, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING],
     sources: [
       {
         label: "Ville de Laval — Vimont municipal history",
@@ -357,7 +368,7 @@ export const serviceAreas: ServiceArea[] = [
         "Fabreville occupies the northwest of Laval. It was its own municipality — Ville de Fabreville, named for Mgr Édouard-Charles Fabre — from 1957 until the 1965 merger that created Laval, and the sector name was formally adopted on 5 December 1968.",
         "It has been in continuous development since. The housing is mainly single-family homes, along with semi-detached houses, townhouses, and a growing share of newer residential units.",
       ],
-      whatThisMeansHeading: "What that means for renovation and water damage in Fabreville",
+      whatThisMeansHeading: "What that means for renovation work in Fabreville",
       whatThisMeans: [
         "Fabreville is the opposite of a single-era sector. Because it has been built out continuously rather than in one wave, two houses a few streets apart can be separated by decades of construction practice — different framing standards, different insulation, different plumbing and electrical of their day.",
         "That is why we do not quote Fabreville work from an address and a square footage alone. The construction era changes both what we find behind the walls and what the job actually costs, so the site visit does real work here.",
@@ -386,7 +397,7 @@ export const serviceAreas: ServiceArea[] = [
         "Fabreville occupe le nord-ouest de Laval. Le secteur a été une municipalité à part entière — la ville de Fabreville, nommée en l'honneur de Mgr Édouard-Charles Fabre — de 1957 jusqu'à la fusion de 1965 qui a créé Laval, et son nom a été officialisé le 5 décembre 1968.",
         "Le secteur est en développement continu depuis. L'habitation y est principalement composée de maisons unifamiliales, auxquelles s'ajoutent des maisons jumelées, des maisons de ville et une proportion croissante d'unités résidentielles plus récentes.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Fabreville",
+      whatThisMeansHeading: "Ce que cela implique pour les travaux de rénovation à Fabreville",
       whatThisMeans: [
         "Fabreville est l'inverse d'un secteur d'une seule époque. Comme il s'est bâti en continu plutôt qu'en une seule vague, deux maisons situées à quelques rues l'une de l'autre peuvent être séparées par des décennies de pratiques de construction — normes de charpente, isolation, plomberie et électricité de leur temps.",
         "C'est pourquoi nous ne chiffrons pas un projet à Fabreville à partir d'une adresse et d'une superficie seulement. L'époque de construction change à la fois ce que nous trouvons derrière les murs et le coût réel des travaux : la visite sur place a ici une véritable utilité.",
@@ -511,7 +522,7 @@ export const serviceAreas: ServiceArea[] = [
         "Ahuntsic-Cartierville sits on the south bank of the Rivière des Prairies, directly across the water from Laval. Its oldest core, Sault-au-Récollet, grew from a Sulpician settlement established in 1696 and still holds houses dating from the 18th and 19th centuries.",
         "Cartierville developed later and for a different reason: it became the northern terminus of the Montreal Park and Island Railway tramway line in 1898 and was incorporated as a village in 1906, named for Sir George-Étienne Cartier. Most of the borough's current housing came later still, in the post-war push northward — solid brick duplexes and triplexes, bungalows, and two-storey homes.",
       ],
-      whatThisMeansHeading: "What that means for renovation and water damage in Ahuntsic-Cartierville",
+      whatThisMeansHeading: "What that means for renovation work in Ahuntsic-Cartierville",
       whatThisMeans: [
         "This is really two housing stocks in one borough, and they call for different work. A 19th-century house in Sault-au-Récollet and a 1950s brick triplex a few streets away have almost nothing in common once the walls are open.",
         "The post-war duplexes and triplexes are the bulk of it, and their units are typically larger than the narrow Plateau format — which means full kitchen and bathroom renovations are common rather than the compact reworks that tighter floor plans force.",
@@ -540,7 +551,7 @@ export const serviceAreas: ServiceArea[] = [
         "Ahuntsic-Cartierville borde la rive sud de la rivière des Prairies, directement en face de Laval. Son noyau le plus ancien, le Sault-au-Récollet, est né d'un établissement sulpicien fondé en 1696 et conserve encore des maisons des XVIIIe et XIXe siècles.",
         "Cartierville s'est développé plus tard et pour une autre raison : le secteur est devenu en 1898 le terminus nord de la ligne de tramway du Montreal Park and Island Railway, puis un village en 1906, nommé en l'honneur de sir George-Étienne Cartier. L'essentiel du parc actuel est toutefois plus récent, issu de l'expansion d'après-guerre vers le nord — duplex et triplex de brique massive, bungalows et maisons à deux étages.",
       ],
-      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Ahuntsic-Cartierville",
+      whatThisMeansHeading: "Ce que cela implique pour les travaux de rénovation à Ahuntsic-Cartierville",
       whatThisMeans: [
         "Il s'agit en réalité de deux parcs immobiliers dans un même arrondissement, et ils appellent des travaux différents. Une maison du XIXe siècle au Sault-au-Récollet et un triplex de brique des années 1950 à quelques rues de là n'ont pratiquement rien en commun une fois les murs ouverts.",
         "Les duplex et triplex d'après-guerre forment le gros du parc, et leurs logements sont généralement plus grands que l'étroit format du Plateau — ce qui rend courantes les rénovations complètes de cuisine et de salle de bain, plutôt que les réaménagements compacts qu'imposent des plans plus serrés.",
