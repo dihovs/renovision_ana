@@ -57,6 +57,20 @@ const nextConfig: NextConfig = {
     // bare page. See src/app/global-not-found.tsx.
     globalNotFound: true,
   },
+  /**
+   * `/gestionnaires` is the URL a property manager might guess, and the one the
+   * content backlog originally specified as a new page. It isn't one:
+   * `/commercial` already is the property-manager audience page, and a second
+   * page would put two of ours in front of the same query. Permanent, so the
+   * redirect is cached and any link that ever points here consolidates onto the
+   * page that has the inbound links.
+   */
+  async redirects() {
+    return [
+      { source: "/gestionnaires", destination: "/commercial", permanent: true },
+      { source: "/en/gestionnaires", destination: "/en/commercial", permanent: true },
+    ];
+  },
   async headers() {
     // ORDER MATTERS. Both blocks match a /crew/<token> request, and when two
     // rules set the same header, the later one wins. The sitewide baseline

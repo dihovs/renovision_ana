@@ -13,20 +13,27 @@ import {
   IconShield,
   IconHome,
 } from "@/components/ui/icons";
+import TrustBar from "@/components/home/TrustBar";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 
 const copy = {
   en: {
     eyebrow: "For Property Management Companies",
-    title: "A Renovation Partner That Keeps Your Portfolio Moving",
+    title: "Renovation Contractor for Property Managers in Laval and Montreal",
     intro:
-      "Vacant units cost money every day they sit empty. We help property managers turn units fast, respond to emergencies, and keep tenants happy — with one point of contact and paperwork your office can actually use.",
+      "A partner that keeps your portfolio moving: vacant units cost money every day they sit empty. We help property managers turn units fast, respond to emergencies, and keep tenants happy — with one point of contact and paperwork your office can actually use.",
     narrativeTitle: "Built to Make a Property Manager's Job Easier",
     narrativeParagraphs: [
       "You manage more buildings than there are hours in the day. Every vacant unit is lost revenue, every maintenance call is a tenant relationship on the line, and every new vendor is one more phone number to track down when something goes wrong. That's the day-to-day reality of property management in Laval and greater Montreal — and it's exactly what Renovision AnA was built around.",
       "Instead of juggling a painter, a flooring installer, and a water damage crew separately, you call one number. We handle interior renovations, flooring, kitchen and bathroom remodels, basement build-outs, water damage restoration, and small color-matched repairs — all under one roof, with one coordinator who already knows your portfolio and your timelines.",
       "When a unit floods at 11pm or a tenant reports a leak on a Sunday, you need a crew that shows up — not a voicemail. We respond quickly, document everything with dated photos and itemized reports your owners and insurers can act on immediately, and our crews work cleanly around occupied units and common areas, because your tenants' patience is part of what you're protecting.",
       "The result: shorter vacancy windows, fewer vendor headaches, and documentation that holds up when an owner or an insurance adjuster asks questions.",
+    ],
+    occupiedTitle: "What changes when the building is occupied",
+    occupiedParagraphs: [
+      "A general contractor writes their page for an owner renovating their own home. You manage a building where the neighbours upstairs work from home, the corridor is shared, and the tenant in 3 is entitled to know when the noise stops. That is a different trade, and it gets planned before the first hammer.",
+      "In practice: containment and access are decided before demolition, not during it. Noisy hours are set in advance and communicated. Corridors and elevators get protected, because damage to common areas becomes your problem, not ours. And the site is closed down each evening in a state a tenant can walk past without calling you.",
+      "The same logic on the administrative side. One invoice per unit, itemised by line, in a form an owner can approve without calling you back to ask what a line means. Dated before-and-after photographs, because that is what settles a dispute six months later. And one number to call, rather than a painter, a flooring installer and a water damage crew for you to coordinate yourself.",
     ],
     benefitsTitle: "Why property managers work with us",
     benefits: [
@@ -72,15 +79,21 @@ const copy = {
   },
   fr: {
     eyebrow: "Pour les compagnies de gestion immobilière",
-    title: "Un partenaire de rénovation qui fait avancer votre portefeuille",
+    title: "Entrepreneur en rénovation pour gestionnaires immobiliers, à Laval et Montréal",
     intro:
-      "Un logement vacant coûte de l'argent chaque jour. Nous aidons les gestionnaires immobiliers à retourner les unités rapidement, à répondre aux urgences et à garder les locataires satisfaits — avec un seul point de contact et une documentation que votre bureau peut vraiment utiliser.",
+      "Un partenaire qui fait avancer votre portefeuille : un logement vacant coûte de l'argent chaque jour. Nous aidons les gestionnaires immobiliers à retourner les unités rapidement, à répondre aux urgences et à garder les locataires satisfaits — avec un seul point de contact et une documentation que votre bureau peut vraiment utiliser.",
     narrativeTitle: "Conçu pour faciliter le travail des gestionnaires immobiliers",
     narrativeParagraphs: [
       "Vous gérez plus d'immeubles qu'il n'y a d'heures dans une journée. Chaque unité vacante représente des revenus perdus, chaque appel de maintenance met en jeu une relation avec un locataire, et chaque nouveau fournisseur est un numéro de téléphone de plus à retracer quand quelque chose tourne mal. C'est le quotidien de la gestion immobilière à Laval et dans le grand Montréal — et c'est exactement ce pour quoi Renovision AnA a été conçue.",
       "Plutôt que de jongler séparément avec un peintre, un poseur de plancher et une équipe de restauration de dégâts d'eau, vous appelez un seul numéro. Nous prenons en charge les rénovations intérieures, les planchers, les rénovations de cuisine et de salle de bain, l'aménagement de sous-sols, la restauration de dégâts d'eau et les petites réparations avec agencement de couleurs — le tout sous un même toit, avec un seul coordonnateur qui connaît déjà votre portefeuille et vos échéanciers.",
       "Quand une unité est inondée à 23h ou qu'un locataire signale une fuite un dimanche, vous avez besoin d'une équipe qui se présente — pas d'une boîte vocale. Nous répondons rapidement, documentons tout avec des photos datées et des rapports détaillés que vos propriétaires et vos assureurs peuvent utiliser immédiatement, et nos équipes travaillent proprement autour des unités occupées et des aires communes, parce que la patience de vos locataires fait aussi partie de ce que vous protégez.",
       "Le résultat : des périodes de vacance plus courtes, moins de maux de tête liés aux fournisseurs, et une documentation qui tient la route quand un propriétaire ou un expert en sinistres pose des questions.",
+    ],
+    occupiedTitle: "Ce qui change quand l'immeuble est occupé",
+    occupiedParagraphs: [
+      "Un entrepreneur général écrit sa page pour un propriétaire qui rénove chez lui. Vous, vous gérez un immeuble où les voisins du dessus travaillent de la maison, où le corridor est commun, et où le locataire du 3 a le droit de savoir quand le bruit s'arrête. C'est un métier différent, et il se planifie avant le premier coup de marteau.",
+      "Concrètement : le confinement et les accès se décident avant la démolition, pas pendant. Les heures bruyantes se fixent d'avance et se communiquent. Les corridors et les ascenseurs se protègent, parce que les dommages aux parties communes deviennent votre problème, pas le nôtre. Et le chantier se referme chaque soir dans un état où un locataire peut passer devant sans vous appeler.",
+      "Côté administratif, la même logique. Une seule facture par unité, détaillée par poste, dans une forme qu'un propriétaire peut approuver sans vous rappeler pour demander ce que signifie une ligne. Des photos datées avant et après, parce que c'est ce qui règle une contestation six mois plus tard. Et un seul numéro à composer, plutôt qu'un peintre, un poseur de plancher et une équipe de dégât d'eau à coordonner vous-même.",
     ],
     benefitsTitle: "Pourquoi les gestionnaires immobiliers travaillent avec nous",
     benefits: [
@@ -205,6 +218,25 @@ export default function CommercialContent() {
         </div>
       </section>
 
+      {/* The intersection the SERP has nobody standing in: general contractors
+          write for an owner renovating their own home, property-management
+          firms sell management. This section is the page's reason to rank for
+          « gestionnaire immobilier entrepreneur rénovation » — it is about the
+          occupied building and the invoice, which is what actually decides
+          whether a manager calls back. */}
+      <section className="mx-auto max-w-3xl px-4 pb-20 sm:px-6 lg:px-8">
+        <h2 className="font-heading text-2xl font-bold text-brand-blue sm:text-3xl">
+          {c.occupiedTitle}
+        </h2>
+        <div className="mt-5 space-y-4">
+          {c.occupiedParagraphs.map((p) => (
+            <p key={p.slice(0, 24)} className="text-base leading-relaxed text-charcoal/75">
+              {p}
+            </p>
+          ))}
+        </div>
+      </section>
+
       <section className="bg-brand-blue-light/40 py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-center font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
@@ -236,6 +268,11 @@ export default function CommercialContent() {
           </div>
         </div>
       </section>
+
+      {/* Insured, insurer-approved, one-year written warranty — the three
+          things a manager checks before adding a vendor. This was the only
+          landing page of its kind without it. */}
+      <TrustBar />
     </>
   );
 }

@@ -4,7 +4,7 @@ import { localizedMetadata } from "@/lib/seo";
 export const generateMetadata = localizedMetadata({
   path: "/commercial",
   fr: {
-    title: "Rénovation pour gestionnaires immobiliers",
+    title: "Rénovation pour gestionnaires immobiliers à Montréal",
     description:
       "Remise en état rapide de logements, un seul point de contact, documentation prête pour l'assureur et urgence dégât d'eau répondue 24/7 à Laval et Montréal.",
   },
