@@ -1,5 +1,14 @@
 export const SITE_NAME = "Renovision AnA";
-export const SITE_PHONE = "+1 579-999-5979";
+// Display format. Deliberately the form Google already has indexed — owner's
+// call 2026-09-02, when the Bing Places and Apple Business Connect listings
+// were created, so all three match from day one. Citations are judged on exact
+// sameness, so do not "tidy" this into +1 form without changing the listings too.
+// SITE_PHONE_TEL below stays E.164: that is what tel: links and schema need.
+//
+// NOTE: this string is also spoken. It feeds Ana's voice scripts in
+// src/lib/voice/agent.ts, including the UTR 4(d) identification on outbound
+// calls. Changing it changes what she says aloud.
+export const SITE_PHONE = "(579) 999-5979";
 export const SITE_PHONE_TEL = "+15799995979";
 export const SITE_EMAIL = "info@renovisionana.ca";
 // Where lead notifications (contact form + chat estimate tool) actually get delivered.
