@@ -18,10 +18,21 @@ import { CEILING_FAQ } from "@/lib/serviceFaq";
  * content/briefs/degat-eau-plafond.md.
  *
  * The costs in `includes` come from the estimator price book (DEM-CEILING,
- * DW-INST-12, DW-MR, DW-TAPE-L4, DW-SKIM, PNT-PRIME-NEW, PNT-CEIL-2), summed
+ * DW-INST-12, DW-MR, DW-TAPE-L4, DW-SKIM, PNT-STAINBLOCK, PNT-PRIME-NEW,
+ * PNT-CEIL-2), summed
  * into ranges and labelled as rates rather than quotes. They are the one thing
  * the two pages currently outranking us cannot state without being wrong, so
  * they are worth keeping accurate — update them when the price book moves.
+ *
+ * Two different primers, and the distinction is the whole surface-repair price.
+ * A water STAIN on sound board needs PNT-STAINBLOCK (stain-blocking primer,
+ * 1.55) — which is what this page's copy actually promises, in both languages.
+ * PNT-PRIME-NEW (1.15) is for priming NEW board and is correct in the two
+ * replacement figures below, where the board is new. This shipped on 2026-08-31
+ * quoting the cheaper item against copy describing the dearer one, which
+ * under-quoted the surface repair by $0.40/sq ft. Caught because a parallel
+ * session working on ceiling rules listed PNT-STAINBLOCK among the codes it
+ * touches and this page did not use it.
  */
 const copy: Record<"en" | "fr", ServiceDetailCopy> = {
   en: {
@@ -54,7 +65,7 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
       "The moisture reading decides, not the look. Rates below are our labour and materials in $/sq ft — not quotes, since the affected area and the access decide the rest.",
     includes: [
       {
-        title: "Surface repair — about $8.65/sq ft",
+        title: "Surface repair — about $9.05/sq ft",
         desc: "Sound, dry board with a stain only: sealed with a blocking primer, skimmed if the texture moved, then two coats.",
       },
       {
@@ -118,7 +129,7 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
       "Le relevé d'humidité décide, pas l'apparence. Les taux ci-dessous sont notre main-d'œuvre et nos matériaux en $/pi² — ce ne sont pas des soumissions : la superficie touchée et l'accès font le reste.",
     includes: [
       {
-        title: "Réparation de surface — environ 8,65 $/pi²",
+        title: "Réparation de surface — environ 9,05 $/pi²",
         desc: "Panneau sain et sec, tache seulement : scellée avec un apprêt bloquant, ratissée si la texture a bougé, puis deux couches.",
       },
       {
