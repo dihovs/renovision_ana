@@ -1051,6 +1051,234 @@ export const serviceAreas: ServiceArea[] = [
       ],
     },
   },
+
+  {
+    slug: "sainte-dorothee",
+    neighbors: ["laval-des-rapides", "chomedey", "fabreville"],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING, ASSUREURS, GESTIONNAIRES],
+    sources: [
+      {
+        label: "Ville de Laval — Histoire municipale, Sainte-Dorothée",
+        url: "https://www.laval.ca/culture/histoire-patrimoine/histoire-municipale/ste-dorothee/",
+      },
+      {
+        label: "Sainte-Dorothée, Quebec — Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Sainte-Doroth%C3%A9e,_Quebec",
+      },
+    ],
+    en: {
+      name: "Sainte-Dorothée",
+      tagline: "Renovation and water damage restoration in Sainte-Dorothée, Laval",
+      metaTitle: "Water Damage & Renovation in Sainte-Dorothée, Laval",
+      metaDescription:
+        "Renovation and water damage restoration in Sainte-Dorothée, Laval. 1950s-60s bungalows, lakefront townhouses, and aging plumbing in an older stock.",
+      context: [
+        "Sainte-Dorothée occupies the south-west of Laval, along the Rivière des Prairies opposite Pierrefonds on Montreal Island. It was a separate city until the municipal mergers of 6 August 1965 that created the City of Laval.",
+        "The area that was once known for its forest and farmland transformed significantly from the early 2000s onward with commercial development along Highway 13, which in turn drove residential growth. Today its housing stock is a genuine mix: older single-family bungalows from the 1950s and 1960s, newer townhouse developments near the lakefront, and some low-rise condominiums.",
+        "A small seasonal cable ferry still crosses the Rivière des Prairies from Sainte-Dorothée to Île Bizard, a reminder of its pre-bridge history.",
+      ],
+      whatThisMeansHeading: "What that means for renovation and water damage in Sainte-Dorothée",
+      whatThisMeans: [
+        "The mix of older and newer stock makes this a sector where the right price depends on knowing what era you are in. The 1950s-60s bungalows carry the same risks as elsewhere in Laval: original supply lines, shut-off valves, and bathroom waterproofing at or past the end of their service life. Those failures account for most of our water-damage calls here.",
+        "The lakefront townhouses share a different kind of risk. They sit close to the Rivière des Prairies, which brings basement water management into scope — particularly around spring melt when infiltration through the envelope shows up in finished basements.",
+        "Newer stock also means a growing share of first-cycle renovation work: kitchens and bathrooms that are dated rather than failing, and basement finishing that was deferred at build time.",
+      ],
+      faq: [
+        {
+          question: "Do you work on older bungalows here?",
+          answer:
+            "Yes — they are a main part of our Sainte-Dorothée work. Homes of this age usually have original plumbing that is past its intended service life, which is worth planning for rather than discovering when the walls are open.",
+        },
+        {
+          question: "What about the lakefront townhouses?",
+          answer:
+            "We handle those too. Proximity to the river makes basement water management a live concern. If we are finishing or repairing a basement here, we look at the moisture path first.",
+        },
+      ],
+    },
+    fr: {
+      name: "Sainte-Dorothée",
+      tagline: "Rénovation et restauration après dégât d'eau à Sainte-Dorothée, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Sainte-Dorothée, Laval",
+      metaDescription:
+        "Rénovation et dégât d'eau à Sainte-Dorothée, Laval. Bungalows 1950-60, maisons de ville en bordure du lac, plomberie vieillissante dans un parc ancien.",
+      context: [
+        "Sainte-Dorothée occupe le sud-ouest de Laval, le long de la rivière des Prairies, en face de Pierrefonds sur l'île de Montréal. Le secteur était une ville indépendante jusqu'aux fusions municipales du 6 août 1965 qui ont créé la Ville de Laval.",
+        "Le secteur, autrefois connu pour ses forêts et ses terres agricoles, s'est transformé considérablement à partir du début des années 2000 avec le développement commercial le long de l'autoroute 13, ce qui a à son tour stimulé la croissance résidentielle. Aujourd'hui, le parc immobilier est un véritable mélange : bungalows unifamiliaux des années 1950-60, ensembles de maisons de ville plus récents près du lac et quelques copropriétés de faible hauteur.",
+        "Un petit traversier saisonnier traverse encore la rivière des Prairies entre Sainte-Dorothée et l'Île Bizard, rappel de l'histoire pré-pont du secteur.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Sainte-Dorothée",
+      whatThisMeans: [
+        "Le mélange de bâti ancien et récent fait de ce secteur un endroit où le juste prix dépend de la connaissance de l'époque de construction. Les bungalows 1950-60 comportent les mêmes risques qu'ailleurs à Laval : conduites d'alimentation d'origine, valves d'arrêt et imperméabilisation de salle de bain en fin de vie utile. Ces défaillances représentent la majorité de nos appels de dégâts d'eau ici.",
+        "Les maisons de ville en bordure du lac partagent un risque différent. Elles sont proches de la rivière des Prairies, ce qui rend la gestion de l'eau au sous-sol primordiale — particulièrement à la fonte printanière, quand l'infiltration par l'enveloppe se manifeste dans les sous-sols finis.",
+        "Le parc plus récent génère aussi une part croissante de travaux de première rénovation : cuisines et salles de bain démodées plutôt que défaillantes, et aménagement de sous-sol reporté à la construction.",
+      ],
+      faq: [
+        {
+          question: "Travaillez-vous sur les vieux bungalows ici ?",
+          answer:
+            "Oui — ils représentent une part importante de nos travaux à Sainte-Dorothée. Les maisons de cet âge ont généralement une plomberie d'origine qui a dépassé sa durée de vie utile, ce qui vaut la peine de planifier plutôt que de le découvrir quand les murs sont ouverts.",
+        },
+        {
+          question: "Qu'en est-il des maisons de ville en bordure du lac ?",
+          answer:
+            "Nous les traitons aussi. La proximité de la rivière fait de la gestion de l'eau au sous-sol une préoccupation concrète. Si nous aménageons ou réparons un sous-sol ici, nous examinons d'abord le chemin de l'humidité.",
+        },
+      ],
+    },
+  },
+
+  {
+    slug: "saint-vincent-de-paul",
+    neighbors: ["pont-viau", "duvernay", "terrebonne"],
+    relatedServices: [WATER_DAMAGE, RENOVATIONS, KITCHEN_BATH, BASEMENTS, DRYWALL, PAINTING, ASSUREURS, GESTIONNAIRES],
+    sources: [
+      {
+        label: "Ville de Laval — Histoire municipale, Saint-Vincent-de-Paul",
+        url: "https://www.laval.ca/culture/histoire-patrimoine/histoire-municipale/saint-vincent-de-paul/",
+      },
+      {
+        label: "Maxime Laforest — Saint-Vincent-de-Paul (Laval): local broker's top 10",
+        url: "https://maximelaforest.com/en/secteurs/laval-saint-vincent-de-paul",
+      },
+    ],
+    en: {
+      name: "Saint-Vincent-de-Paul",
+      tagline: "Renovation and water damage restoration in Saint-Vincent-de-Paul, Laval",
+      metaTitle: "Water Damage & Renovation in Saint-Vincent-de-Paul, Laval",
+      metaDescription:
+        "Renovation and water damage restoration in Saint-Vincent-de-Paul, Laval. Historic village core, heritage homes, and newer suburban development on the east end.",
+      context: [
+        "Saint-Vincent-de-Paul is, with Sainte-Rose, one of Laval's two oldest neighbourhoods. Its parish was founded in 1740, dedicated to Saint Vincent de Paul, and it was established as a parish municipality in 1855 before shrinking piece by piece — Pont-Viau broke off in 1926, and the village of Saint-Vincent-de-Paul itself was constituted in 1952. What was left was renamed Duvernay in 1957.",
+        "Today Saint-Vincent-de-Paul is a compact enclave surrounded by Duvernay, with 15,591 residents at the 2011 census. Its historic core runs around the old parish church on boulevard Lévesque Est, while newer suburban development extends northward toward boulevard des Laurentides and the Olivier-Charbonneau bridge corridor.",
+        "The sector is also known for the former Saint-Vincent-de-Paul federal penitentiary, built in 1873 and designated a National Historic Site. The old prison has sat abandoned since its closure, with periodic calls for redevelopment.",
+      ],
+      whatThisMeansHeading: "What that means for renovation and water damage in Saint-Vincent-de-Paul",
+      whatThisMeans: [
+        "Saint-Vincent-de-Paul is two neighbourhoods within the same boundary, and they need different approaches. In the historic village core we work on genuinely older homes where framing is out of square, floor levels are non-standard, and matching existing finishes matters more than installing the fastest product.",
+        "The newer suburban development — mostly from the 1990s onward — brings standard finishing work: basement finishing, kitchen and bathroom updates, and flooring replacement. The contrast between the two stocks means we must know which part of the sector an address falls in before pricing.",
+        "Because the sector is part of Laval, its older homes carry the same water-damage profile as elsewhere: aging supply lines and original bathroom waterproofing at or past the end of their service life, which accounts for most of our interior water damage calls here.",
+      ],
+      faq: [
+        {
+          question: "Do you work on heritage homes in the old village?",
+          answer:
+            "Yes. Historic homes need decisions made deliberately — what gets restored versus replaced, and where a modern assembly is genuinely the better answer. We raise those questions before demolition starts, not after.",
+        },
+        {
+          question: "Do you cover the newer developments too?",
+          answer:
+            "Yes — the same crew handles both. The difference is mostly in how we price and plan: newer construction is more standardised, older homes are not, and we account for that before quoting.",
+        },
+      ],
+    },
+    fr: {
+      name: "Saint-Vincent-de-Paul",
+      tagline: "Rénovation et restauration après dégât d'eau à Saint-Vincent-de-Paul, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Saint-Vincent-de-Paul, Laval",
+      metaDescription:
+        "Rénovation et dégât d'eau à Saint-Vincent-de-Paul, Laval. Noyau villageois historique, maisons patrimoniales et développement résidentiel récent à l'est.",
+      context: [
+        "Saint-Vincent-de-Paul est, avec Sainte-Rose, l'un des deux plus vieux quartiers de Laval. Sa paroisse a été fondée en 1740 et nommée en l'honneur de saint Vincent de Paul, apôtre de la charité. Érigée en municipalité de paroisse en 1855, son territoire s'est réduit au fil du temps — Pont-Viau s'en détache en 1926, et le village de Saint-Vincent-de-Paul est constitué en 1952. Ce qui restait a été renommé Duvernay en 1957.",
+        "Aujourd'hui, Saint-Vincent-de-Paul est une enclave compacte entourée par Duvernay, avec 15 591 habitants au recensement de 2011. Son noyau historique s'organise autour de l'ancienne église paroissiale sur le boulevard Lévesque Est, tandis que le développement résidentiel plus récent s'étend vers le nord en direction du boulevard des Laurentides et du corridor du pont Olivier-Charbonneau.",
+        "Le quartier est également connu pour l'ancien pénitencier fédéral Saint-Vincent-de-Paul, construit en 1873 et désigné lieu historique national. La vieille prison demeure abandonnée depuis sa fermeture, faisant l'objet de discussions périodiques sur sa revitalisation.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Saint-Vincent-de-Paul",
+      whatThisMeans: [
+        "Saint-Vincent-de-Paul est deux quartiers dans la même limite et ils exigent des approches différentes. Dans le noyau villageois historique, nous travaillons sur des maisons réellement anciennes où la charpente n'est pas d'équerre, les niveaux de plancher ne sont pas standard, et l'agencement avec les finis existants compte davantage que la rapidité de pose.",
+        "Le développement résidentiel plus récent — principalement à partir des années 1990 — amène des travaux de finition standard : aménagement de sous-sol, mise à jour de cuisines et salles de bain, remplacement de revêtements de sol. Le contraste entre les deux parcs signifie que nous devons savoir dans quelle partie du secteur se trouve une adresse avant de chiffrer.",
+        "Le secteur faisant partie de Laval, les maisons anciennes comportent le même profil de dégâts d'eau qu'ailleurs : conduites d'alimentation vieillissantes et imperméabilisation d'origine des salles de bain en fin de vie utile, qui représentent la majorité de nos appels intérieurs ici.",
+      ],
+      faq: [
+        {
+          question: "Travaillez-vous sur les maisons patrimoniales du vieux village ?",
+          answer:
+            "Oui. Les maisons historiques exigent des décisions délibérées : ce qu'on restaure et ce qu'on remplace, et les endroits où un assemblage moderne est réellement la meilleure réponse. Nous soulevons ces questions avant le début de la démolition, pas après.",
+        },
+        {
+          question: "Couvrez-vous aussi les développements plus récents ?",
+          answer:
+            "Oui — la même équipe s'occupe des deux. La différence est surtout dans la façon de chiffrer et de planifier : la construction récente est plus standardisée, les maisons anciennes ne le sont pas, et nous en tenons compte avant de soumettre un prix.",
+        },
+      ],
+    },
+  },
+
+  {
+    slug: "auteuil",
+    neighbors: ["fabreville", "sainte-rose", "vimont"],
+    relatedServices: [WATER_DAMAGE, BASEMENTS, KITCHEN_BATH, RENOVATIONS, DRYWALL, PAINTING, ASSUREURS, GESTIONNAIRES],
+    sources: [
+      {
+        label: "Ville de Laval — Histoire municipale, Auteuil",
+        url: "https://www.laval.ca/culture/histoire-patrimoine/histoire-municipale/auteuil/",
+      },
+      {
+        label: "Auteuil, Quebec — Wikipedia",
+        url: "https://en.wikipedia.org/wiki/Auteuil,_Quebec",
+      },
+    ],
+    en: {
+      name: "Auteuil",
+      tagline: "Renovation and water damage restoration in Auteuil, Laval",
+      metaTitle: "Water Damage & Renovation in Auteuil, Laval",
+      metaDescription:
+        "Renovation and water damage restoration in Auteuil, Laval. 1990s-2000s suburban family homes, finished basements, kitchen and bathroom updates.",
+      context: [
+        "Auteuil occupies the north-central part of Laval, bordered by the Rivière des Mille-Îles to the north-west. It corresponds roughly to the former territory of Sainte-Rose-Est Parish, which was renamed Auteuil in 1961 and remained a separate city until the municipal mergers of 6 August 1965 that created the City of Laval.",
+        "Unlike older Laval sectors, Auteuil was primarily agricultural into the mid-20th century and experienced its major residential growth later, from the 1990s through the 2000s. Its housing stock is dominated by newer single-family suburban homes, with few of the pre-1960s buildings that characterize Laval's older districts.",
+        "The area continues to see new development, with agricultural land north of boulevard des Laurentides still being converted to residential use.",
+      ],
+      whatThisMeansHeading: "What that means for renovation and water damage in Auteuil",
+      whatThisMeans: [
+        "Auteuil is the newest housing stock we serve in Laval. The absence of pre-1960s buildings changes the work: we rarely deal here with the aging systems that define calls in sectors like Pont-Viau or Chomedey. Water damage from plumbing that has reached the end of its service life is not the main story.",
+        "Instead, water damage here more often comes from appliance failures — a washer supply line that lets go, a water heater leak, an ice maker line — in homes where the finished basement is the norm rather than the exception. That hidden damage behind finished walls and under flooring is what the drying phase has to open up to find.",
+        "The main remodelling work in Auteuil follows the first renovation cycle for 1990s-2000s construction: kitchens and bathrooms that are dated rather than failing, basement finishing, and flooring updates.",
+      ],
+      faq: [
+        {
+          question: "Do you work on newer homes from the 1990s and 2000s?",
+          answer:
+            "Yes — that is actually the majority of what we do in Auteuil. The work is different from what we do in older sectors: fewer aging-system surprises, more finish-level upgrades and appliance-related water damage.",
+        },
+        {
+          question: "My finished basement had a washer leak. Can you handle it?",
+          answer:
+            "Yes. Water damage in a finished basement from an appliance failure is one of the most common calls here. We open up what is needed to dry the structure properly — not just replace what shows visible damage.",
+        },
+      ],
+    },
+    fr: {
+      name: "Auteuil",
+      tagline: "Rénovation et restauration après dégât d'eau à Auteuil, Laval",
+      metaTitle: "Dégât d'eau et rénovation à Auteuil, Laval",
+      metaDescription:
+        "Rénovation et dégât d'eau à Auteuil, Laval. Maisons familiales de banlieue 1990-2000, sous-sols finis, cuisines et salles de bain à rafraîchir.",
+      context: [
+        "Auteuil occupe le centre-nord de Laval, bordé par la rivière des Mille Îles au nord-ouest. Le territoire correspond approximativement à l'ancienne paroisse de Sainte-Rose-Est, qui a été renommée Auteuil en 1961 et est demeurée une ville indépendante jusqu'aux fusions municipales du 6 août 1965 qui ont créé la Ville de Laval.",
+        "Contrairement aux secteurs plus anciens de Laval, Auteuil était principalement agricole jusqu'au milieu du 20e siècle et a connu sa croissance résidentielle majeure plus tard, des années 1990 aux années 2000. Son parc immobilier est dominé par des maisons unifamiliales suburbaines récentes, avec peu de bâtiments d'avant 1960.",
+        "Le secteur continue de se développer, les terres agricoles au nord du boulevard des Laurentides étant encore converties à l'usage résidentiel.",
+      ],
+      whatThisMeansHeading: "Ce que cela implique pour la rénovation et les dégâts d'eau à Auteuil",
+      whatThisMeans: [
+        "Auteuil est le parc le plus récent que nous desservons à Laval. L'absence de bâtiments d'avant 1960 change la nature des travaux : nous y traitons rarement les systèmes vieillissants qui définissent les appels dans des secteurs comme Pont-Viau ou Chomedey. Les dégâts d'eau causés par la plomberie en fin de vie utile ne sont pas l'histoire principale.",
+        "Les dégâts d'eau ici proviennent plutôt de défaillances d'appareils électroménagers — un boyau de laveuse qui lâche, une fuite de chauffe-eau, un tuyau de machine à glaçons — dans des maisons où le sous-sol fini est la norme plutôt que l'exception. Ce dommage caché derrière des murs finis et sous les revêtements de sol est ce que la phase de séchage doit ouvrir pour trouver.",
+        "Les principaux travaux de rénovation à Auteuil suivent le premier cycle de rénovation pour les constructions 1990-2000 : cuisines et salles de bain démodées plutôt que défaillantes, aménagement de sous-sol et mise à jour des revêtements de sol.",
+      ],
+      faq: [
+        {
+          question: "Travaillez-vous sur les maisons récentes des années 1990 et 2000 ?",
+          answer:
+            "Oui — c'est même la majorité de ce que nous faisons à Auteuil. Le travail est différent de celui des secteurs plus anciens : moins de surprises dues aux systèmes vieillissants, plus de mises à niveau de finition et de dégâts d'eau liés aux appareils.",
+        },
+        {
+          question: "Mon sous-sol fini a eu une fuite de laveuse. Pouvez-vous le traiter ?",
+          answer:
+            "Oui. Un dégât d'eau dans un sous-sol fini causé par une défaillance d'appareil est l'un des appels les plus courants ici. Nous ouvrons ce qu'il faut pour bien sécher la structure — pas seulement remplacer ce qui montre des dommages visibles.",
+        },
+      ],
+    },
+  },
 ];
 
 export function getServiceArea(slug: string): ServiceArea | undefined {
