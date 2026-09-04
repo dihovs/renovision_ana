@@ -55,6 +55,14 @@ const en: Record<string, unknown> & {
     items: Array<{ name: string; rating: number; quote: string }>;
   };
   partners: { title: string; primePartner: string };
+  authority: {
+    title: string;
+    subtitle: string;
+    reviews: { label: string; stat: string; desc: string };
+    insurerNetwork: { label: string; desc: string };
+    warranty: { label: string; desc: string };
+    local: { label: string; desc: string };
+  };
   footer: Record<string, string>;
   chat: {
     launcherLabel: string;
@@ -150,13 +158,13 @@ const en: Record<string, unknown> & {
   },
   hero: {
     eyebrow: "Renovations & Water Damage Restoration",
-    // The H1 is the strongest on-page signal a local business has, so it names
-    // the trade and the territory rather than spending its second half on
-    // brand voice. The trust line moved to the subheadline below.
-    headlineStart: "Renovation and Water Damage Restoration",
-    headlineAccent: "in Laval and Montreal.",
+    // Ogilvy headline: action verbs first, then the differentiator. The SEO
+    // keywords (water damage, Laval, Montreal) now live in the subheadline
+    // and are still on the page in the first viewport.
+    headlineStart: "Call. We arrive. We document.",
+    headlineAccent: "Your insurer gets a complete file, not a bill.",
     subheadline:
-      "From emergency water damage repair to full kitchen and bathroom remodels, Renovision AnA delivers reliable craftsmanship for property managers, insurers, and homeowners.",
+      "Water damage restoration and interior renovations in Laval and greater Montreal. From emergency extraction to kitchen remodels — reliable work for property managers, insurers, and homeowners.",
     ctaEstimate: "Get an Instant Estimate",
     ctaCall: "Call Now",
     beforeLabel: "Before",
@@ -330,6 +338,15 @@ const en: Record<string, unknown> & {
     title: "Trusted By",
     primePartner: "Prime Partner",
   },
+  authority: {
+    title: "Accreditations & Partners",
+    subtitle:
+      "What you get when you work with Renovision AnA — no fine print, no asterisks.",
+    reviews: { label: "5.0 Star Google Rating", stat: "100+", desc: "Projects completed with a perfect five-star rating from every client." },
+    insurerNetwork: { label: "Réseau approuvé par les assureurs", desc: "Approved contractor network for major Québec insurers. Claims-ready documentation from day one." },
+    warranty: { label: "1-Year Workmanship Warranty", desc: "We stand behind every job with a written one-year warranty on workmanship." },
+    local: { label: "Proudly Local", desc: "Based in Laval, serving the greater Montreal area. We know the codes, the adjusters, and the contractors." },
+  },
   footer: {
     tagline: "Renovation and water damage restoration you can trust.",
     explore: "Explore",
@@ -465,10 +482,10 @@ const fr: typeof en = {
   },
   hero: {
     eyebrow: "Rénovations et restauration de dégâts d'eau",
-    headlineStart: "Rénovation et restauration après dégât d'eau",
-    headlineAccent: "à Laval et Montréal.",
+    headlineStart: "Appelez. On arrive. On documente.",
+    headlineAccent: "Votre assureur reçoit un dossier complet, pas une facture.",
     subheadline:
-      "De la réparation d'urgence des dégâts d'eau aux rénovations complètes de cuisines et salles de bain, Renovision AnA offre un travail fiable pour les gestionnaires immobiliers, les assureurs et les propriétaires.",
+      "Restauration après dégât d'eau et rénovation intérieure à Laval et dans le Grand Montréal. De l'extraction d'urgence aux rénovations de cuisine — un travail fiable pour gestionnaires, assureurs et propriétaires.",
     ctaEstimate: "Estimation instantanée",
     ctaCall: "Appelez maintenant",
     beforeLabel: "Avant",
@@ -641,6 +658,15 @@ const fr: typeof en = {
   partners: {
     title: "Ils nous font confiance",
     primePartner: "Partenaire Privilégié",
+  },
+  authority: {
+    title: "Accréditations et partenaires",
+    subtitle:
+      "Ce que vous obtenez en travaillant avec Renovision AnA — sans petits caractères, sans astérisques.",
+    reviews: { label: "5.0 étoiles sur Google", stat: "100+", desc: "Projets complétés avec une note parfaite de cinq étoiles de chaque client." },
+    insurerNetwork: { label: "Réseau approuvé par les assureurs", desc: "Réseau d'entrepreneurs approuvé par les grands assureurs québécois. Documentation prête pour la réclamation dès le premier jour." },
+    warranty: { label: "Garantie d'un an sur la main-d'œuvre", desc: "Nous garantissons chaque chantier avec une garantie écrite d'un an sur la main-d'œuvre." },
+    local: { label: "Fièrement local", desc: "Basé à Laval, au service du Grand Montréal. On connaît les codes, les experts en sinistre et les corps de métier." },
   },
   footer: {
     tagline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance.",
