@@ -71,6 +71,10 @@ const en: Record<string, unknown> & {
     estimate: { label: string; desc: string };
     opus: { label: string; desc: string };
   };
+  appNarrative: {
+    title: string;
+    paragraphs: [string, string];
+  };
   footer: Record<string, string>;
   chat: {
     launcherLabel: string;
@@ -365,6 +369,13 @@ const en: Record<string, unknown> & {
     dryingLog: { label: "Digital Drying Log", desc: "Moisture readings logged, dated, and delivered to your adjuster without anyone having to follow up." },
     estimate: { label: "Instant Estimate", desc: "Describe your project, get a price range in minutes. No appointment, no waiting." },
     opus: { label: "Powered by Opus 5", desc: "Opus 5 runs the calculations behind our estimates — trained on data our team collects from real Laval jobs. The AI speeds up the math; the estimator guarantees the result." },
+  },
+  appNarrative: {
+    title: "A project your insurer can follow remotely",
+    paragraphs: [
+      "Our mobile app lets your insurer track the job in real time. No more calls asking where things stand: every phase is documented, photographed, and time-stamped. The adjuster opens the app, sees what's been done, and approves without a follow-up call.",
+      "For you, that's peace of mind. You know what happened today, what's planned tomorrow, and you have every photo of the job — before, during, after — in your pocket. No logbook to reconstruct for the insurer six months later. It's already done.",
+    ],
   },
   footer: {
     tagline: "Renovation and water damage restoration you can trust.",
@@ -697,6 +708,13 @@ const fr: typeof en = {
     dryingLog: { label: "Rapport de séchage numérique", desc: "Relevés d'humidité datés, consignés et transmis à votre assureur sans qu'il ait à relancer personne." },
     estimate: { label: "Estimation instantanée en ligne", desc: "Décrivez votre projet, obtenez une fourchette de prix en minutes. Pas de rendez-vous, pas d'attente." },
     opus: { label: "Propulsé par Opus 5", desc: "Opus 5 fait les calculs derrière nos estimations — entraîné sur les données que notre équipe collecte sur de vrais chantiers lavallois. L'IA accélère le calcul ; l'estimateur garantit le résultat." },
+  },
+  appNarrative: {
+    title: "Un chantier que votre assureur peut suivre à distance",
+    paragraphs: [
+      "Notre application mobile permet à votre assureur de suivre l'évolution du chantier en temps réel. Fini les appels pour savoir où en sont les travaux : chaque phase est documentée, photographiée et horodatée. L'expert ouvre l'application, voit ce qui est fait, et approuve sans rappel.",
+      "Pour vous, c'est la tranquillité d'esprit. Vous savez ce qui s'est passé aujourd'hui, ce qui est prévu demain, et vous avez toutes les photos du chantier — avant, pendant, après — dans votre poche. Pas de journal de bord à reconstituer pour l'assureur six mois plus tard. Il est déjà fait.",
+    ],
   },
   footer: {
     tagline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance.",
