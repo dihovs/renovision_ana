@@ -21,8 +21,10 @@ import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
 import { FLOOR_LEVELS } from "@/lib/crm/floors";
 import {
   areaColor,
+  ceilingAreas,
   damageLabel,
   floorAreas,
+  planAreas,
   totalsBySurface,
   wallAreas,
   type AffectedArea,
@@ -685,11 +687,20 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             </tbody>
           </table>
 
-          {/* Two tables, never one. Named by surface, not just "affected
-              area": both of these are affected area, and an adjuster must be
-              able to tell which surface a figure priced. */}
+          {/* One table per surface, never one for all of them. Named by
+              surface, not just "affected area": all three of these are
+              affected area, and an adjuster must be able to tell which
+              surface a figure priced. Floor and ceiling especially — they
+              cover the same footprint and would look like one figure
+              double-counted if they were ever added. Each prints nothing
+              at all when that surface has nothing on it. */}
           <DamageTotals locale={locale} title={t.affectedFloorByCause} totals={damage.floor} />
           <DamageTotals locale={locale} title={t.affectedWallByCause} totals={damage.wall} />
+          <DamageTotals
+            locale={locale}
+            title={t.affectedCeilingByCause}
+            totals={damage.ceiling}
+          />
           {project.description && <p className="desc">{project.description}</p>}
           <PageFoot n={summaryPage ?? 0} of={totalPages} company={company} t={t} />
         </section>
@@ -768,8 +779,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 planX: room.planX ?? null,
                 planY: room.planY ?? null,
                 objects: room.objects,
-                areas: room.areas
-                  .filter((area) => area.surface !== "wall" && area.polygon.length >= 3)
+                areas: planAreas(room.areas)
+                  .filter((area) => area.polygon.length >= 3)
                   .map((area) => ({
                     id: area.id,
                     polygon: area.polygon,
@@ -854,10 +865,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   locale={locale}
                   objects={room.objects}
                   dimensions={onlyLockedDimensions ? "locked" : "all"}
-                  // Floor areas only — a wall area's polygon is in its
+                  // Plan-space areas only — floor and ceiling, which share
+                  // the plan's metres. A wall area's polygon is in its
                   // wall's own face space and belongs on the elevation.
-                  areas={room.areas
-                    .filter((area) => area.surface !== "wall" && area.polygon.length >= 3)
+                  areas={planAreas(room.areas)
+                    .filter((area) => area.polygon.length >= 3)
                     .map((area) => ({
                       id: area.id,
                       polygon: area.polygon,
@@ -895,8 +907,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             {room.areas.length > 0 && (
               <table className="measure key">
                 <tbody>
-                  {room.areas
-                    .filter((area) => area.surface !== "wall" && area.polygon.length >= 3)
+                  {planAreas(room.areas)
+                    .filter((area) => area.polygon.length >= 3)
                     .map((area, index) => (
                     <tr key={area.id}>
                       <th>
@@ -913,7 +925,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                         <span className="cause">
                           {" "}
                           {damageLabel(area.damage_type, locale)}
-                          {area.surface === "wall" ? " · wall" : " · floor"}
+                          {area.surface === "wall"
+                            ? " · wall"
+                            : area.surface === "ceiling"
+                              ? " · ceiling"
+                              : " · floor"}
                         </span>
                       </td>
                     </tr>
@@ -1033,17 +1049,16 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 </dl>
               )}
               {([
-                ["FLOOR", floorAreas(room.areas)],
-                ["WALL", wallAreas(room.areas)],
-              ] as const).map(([surface, list]) =>
+                ["FLOOR", floorAreas(room.areas), t.affectedFloorAreaCount],
+                ["WALL", wallAreas(room.areas), t.affectedWallAreaCount],
+                ["CEILING", ceilingAreas(room.areas), t.affectedCeilingAreaCount],
+              ] as const).map(([surface, list, count]) =>
                 list.length === 0 ? null : (
                   <Fragment key={surface}>
-                    <p className="area-count">
-                      {surface === "WALL"
-                        ? t.affectedWallAreaCount(list.length)
-                        : t.affectedFloorAreaCount(list.length)}
-                      {list.length === 1 ? "" : "S"}
-                    </p>
+                    {/* The heading string pluralises itself. It used to be
+                        given a second "S" here as well, which printed
+                        "2 AFFECTED FLOOR AREASS". */}
+                    <p className="area-count">{count(list.length)}</p>
                     {list.map((area) => (
                       <div className="area-entry" key={area.id}>
                       <dl className="area-block">

@@ -14,6 +14,7 @@ import {
   areaColor,
   floorAreas,
   wallAreas,
+  ceilingAreas,
   DAMAGE_LABEL,
   type AffectedArea,
 } from "@/lib/crm/areaShapes";
@@ -282,13 +283,16 @@ export default function RoomSheet({
               <div className="flex items-center justify-between px-4 py-3">
                 <h3 className="font-heading text-sm font-bold text-charcoal">Affected areas</h3>
                 {areas !== null && areas.length > 0 && (
-                  /* Floor and wall stated separately, never added. They are
-                     different trades at different rates, so one merged
-                     square-footage prices neither. */
+                  /* Floor, wall and ceiling stated separately, never added.
+                     They are different trades at different rates, so one
+                     merged square-footage prices neither — and floor and
+                     ceiling coincide in plan, so summing those two also
+                     double-counts the same square feet. */
                   <span className="text-xs font-bold tabular-nums text-charcoal/45">
                     {[
                       { label: "floor", list: floorAreas(areas) },
                       { label: "wall", list: wallAreas(areas) },
+                      { label: "ceiling", list: ceilingAreas(areas) },
                     ]
                       .filter(({ list }) => list.length > 0)
                       .map(
@@ -331,7 +335,9 @@ export default function RoomSheet({
                           {DAMAGE_LABEL[area.damage_type]} ·{" "}
                           {area.surface === "wall"
                             ? `wall ${(area.wall_index ?? 0) + 1}`
-                            : "floor"}
+                            : area.surface === "ceiling"
+                              ? "ceiling"
+                              : "floor"}
                         </span>
                       </span>
                       <span className="shrink-0 text-sm font-bold tabular-nums text-charcoal">

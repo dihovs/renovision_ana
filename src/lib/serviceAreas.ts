@@ -108,6 +108,16 @@ const PAINTING = {
   labelFr: "Peinture intérieure",
   href: "/services/painting",
 };
+const ASSUREURS = {
+  labelEn: "For Insurance Companies",
+  labelFr: "Pour les assureurs",
+  href: "/assureurs",
+};
+const GESTIONNAIRES = {
+  labelEn: "For Property Managers",
+  labelFr: "Pour les gestionnaires immobiliers",
+  href: "/gestionnaires",
+};
 
 export const serviceAreas: ServiceArea[] = [
   {
@@ -115,7 +125,7 @@ export const serviceAreas: ServiceArea[] = [
     neighbors: ["fabreville", "vimont", "saint-laurent", "laval-des-rapides"],
     // Multiplex water-damage work here is largely a board-and-paint job once
     // the wet material is out, and tenant turnover drives repainting.
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, KITCHEN_BATH, FLOORING, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, KITCHEN_BATH, FLOORING, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       {
         label: "Ville de Laval — Chomedey municipal history",
@@ -189,7 +199,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "sainte-rose",
     neighbors: ["fabreville", "vimont", "terrebonne"],
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       {
         // Laval abbreviates this sector's slug to "ste-rose" — the spelled-out
@@ -277,7 +287,7 @@ export const serviceAreas: ServiceArea[] = [
     // listing water damage now makes it eligible under the rule used elsewhere:
     // this sector's water story is explicitly interior — "plus souvent de
     // l'intérieur" — aging plumbing and failed water heaters, not backups.
-    relatedServices: [WATER_DAMAGE, BASEMENTS, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING],
+    relatedServices: [WATER_DAMAGE, BASEMENTS, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       {
         label: "Ville de Laval — Vimont municipal history",
@@ -350,7 +360,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "fabreville",
     neighbors: ["sainte-rose", "chomedey"],
-    relatedServices: [RENOVATIONS, KITCHEN_BATH, FLOORING, BASEMENTS, DRYWALL, PAINTING],
+    relatedServices: [RENOVATIONS, KITCHEN_BATH, FLOORING, BASEMENTS, DRYWALL, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       {
         label: "Ville de Laval — Fabreville municipal history",
@@ -423,7 +433,7 @@ export const serviceAreas: ServiceArea[] = [
     neighbors: ["vimont", "montreal-nord", "terrebonne", "pont-viau"],
     // Flat-roof infiltration in the El Rancho stock lands on ceilings and
     // walls first, which is drywall work before it is anything else.
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, RENOVATIONS, BASEMENTS, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, RENOVATIONS, BASEMENTS, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       {
         label: "Ville de Laval — Duvernay municipal history",
@@ -504,7 +514,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "ahuntsic-cartierville",
     neighbors: ["saint-laurent", "montreal-nord", "chomedey"],
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, RENOVATIONS, KITCHEN_BATH, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       { label: "Ville de Montréal — Ahuntsic-Cartierville", url: "https://montreal.ca/ahuntsic-cartierville" },
       {
@@ -577,7 +587,7 @@ export const serviceAreas: ServiceArea[] = [
     neighbors: ["ahuntsic-cartierville", "duvernay"],
     // 70% of households here rent, so the work skews heavily to landlord and
     // property-manager turnover rather than owner-occupier projects.
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, PAINTING, REPAIRS, FLOORING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, DRYWALL, PAINTING, REPAIRS, FLOORING, ASSUREURS, GESTIONNAIRES],
     sources: [
       { label: "Ville de Montréal — Montréal-Nord", url: "https://montreal.ca/montreal-nord" },
       { label: "Montréal-Nord — Britannica", url: "https://www.britannica.com/place/Montreal-Nord" },
@@ -645,7 +655,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "saint-laurent",
     neighbors: ["ahuntsic-cartierville", "lasalle", "chomedey"],
-    relatedServices: [RENOVATIONS, KITCHEN_BATH, BASEMENTS, DRYWALL, FLOORING, PAINTING],
+    relatedServices: [RENOVATIONS, KITCHEN_BATH, BASEMENTS, DRYWALL, FLOORING, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       { label: "Ville de Montréal — Saint-Laurent", url: "https://montreal.ca/en/about/saint-laurent" },
       {
@@ -716,7 +726,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "lasalle",
     neighbors: ["saint-laurent", "ahuntsic-cartierville"],
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, RENOVATIONS, KITCHEN_BATH, DRYWALL, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, RENOVATIONS, KITCHEN_BATH, DRYWALL, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       { label: "Ville de Montréal — LaSalle", url: "https://montreal.ca/lasalle" },
       { label: "LaSalle, Quebec — Wikipedia", url: "https://en.wikipedia.org/wiki/LaSalle,_Quebec" },
@@ -812,7 +822,7 @@ export const serviceAreas: ServiceArea[] = [
     // Curated for suburban stock with finished basements and a 1990s-2000s
     // first renovation cycle. Deliberately not SEWER_BACKUP: that page's local
     // content is Ville de Montréal's by-law, which does not apply here.
-    relatedServices: [WATER_DAMAGE, BASEMENTS, KITCHEN_BATH, RENOVATIONS, DRYWALL, PAINTING],
+    relatedServices: [WATER_DAMAGE, BASEMENTS, KITCHEN_BATH, RENOVATIONS, DRYWALL, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       { label: "Ville de Terrebonne", url: "https://terrebonne.ca/" },
       { label: "Terrebonne, Quebec — Wikipedia", url: "https://en.wikipedia.org/wiki/Terrebonne,_Quebec" },
@@ -896,7 +906,7 @@ export const serviceAreas: ServiceArea[] = [
     // network dates to the late 1920s. SEWER_BACKUP earns its place here — the
     // copy states the L-5057 obligation and these are basements below street
     // crown, which is exactly what the article covers.
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       {
         label: "Ville de Laval — Histoire municipale, Pont-Viau",
@@ -970,7 +980,7 @@ export const serviceAreas: ServiceArea[] = [
   {
     slug: "laval-des-rapides",
     neighbors: ["pont-viau", "chomedey"],
-    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING],
+    relatedServices: [WATER_DAMAGE, SEWER_BACKUP, BASEMENTS, DRYWALL, RENOVATIONS, PAINTING, ASSUREURS, GESTIONNAIRES],
     sources: [
       {
         label: "Ville de Laval — Histoire municipale, Laval-des-Rapides",

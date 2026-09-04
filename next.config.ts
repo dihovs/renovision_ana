@@ -58,18 +58,13 @@ const nextConfig: NextConfig = {
     globalNotFound: true,
   },
   /**
-   * `/gestionnaires` is the URL a property manager might guess, and the one the
-   * content backlog originally specified as a new page. It isn't one:
-   * `/commercial` already is the property-manager audience page, and a second
-   * page would put two of ours in front of the same query. Permanent, so the
-   * redirect is cached and any link that ever points here consolidates onto the
-   * page that has the inbound links.
+   * Was: `/gestionnaires` → `/commercial` redirect, removed Sep 2026 when a
+   * standalone property-manager page was built at `/gestionnaires`. The old
+   * redirect kept the page unreachable; now both `/assureurs` and
+   * `/gestionnaires` serve their own content.
    */
   async redirects() {
-    return [
-      { source: "/gestionnaires", destination: "/commercial", permanent: true },
-      { source: "/en/gestionnaires", destination: "/en/commercial", permanent: true },
-    ];
+    return [];
   },
   async headers() {
     // ORDER MATTERS. Both blocks match a /crew/<token> request, and when two

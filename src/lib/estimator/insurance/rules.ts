@@ -18,6 +18,7 @@
 // equipment per unit-day off the drying log.
 
 import type { AffectedArea } from "../../crm/areaShapes";
+import { ceilingAreas as ceilingAreasOf, floorAreas as floorAreasOf } from "../../crm/areaShapes";
 import type { RoomObject } from "../../crm/roomObjects";
 import type { EquipmentPlacement, MoistureReading } from "../../crm/dryingLog";
 import { unitDays } from "../../crm/dryingLog";
@@ -45,12 +46,22 @@ export type ProjectRule = {
 // ---------------------------------------------------------------------------
 // Small shared derivations
 
+// The three surface filters delegate to areaShapes rather than re-deriving
+// "not a wall" here. That negative form was this file's own bug: it read a
+// ceiling area as a floor area, and a wet ceiling priced as a wet floor is
+// the wrong trade at the wrong rate inside a document that goes to an
+// insurer. One definition of each surface, in the module that defines the
+// surfaces.
 function floorAreas(room: EstimateRoom): AffectedArea[] {
-  return room.affectedAreas.filter((area) => area.surface !== "wall");
+  return floorAreasOf(room.affectedAreas);
 }
 
 function wallAreas(room: EstimateRoom): AffectedArea[] {
   return room.affectedAreas.filter((area) => area.surface === "wall");
+}
+
+function ceilingAreas(room: EstimateRoom): AffectedArea[] {
+  return ceilingAreasOf(room.affectedAreas);
 }
 
 function affectedFloorSqFt(room: EstimateRoom): number {
@@ -59,6 +70,10 @@ function affectedFloorSqFt(room: EstimateRoom): number {
 
 function affectedWallSqFt(room: EstimateRoom): number {
   return sqmToSqFt(wallAreas(room).reduce((sum, area) => sum + area.area_sqm, 0));
+}
+
+function affectedCeilingSqFt(room: EstimateRoom): number {
+  return sqmToSqFt(ceilingAreas(room).reduce((sum, area) => sum + area.area_sqm, 0));
 }
 
 function areaNames(areas: AffectedArea[]): string {
@@ -225,36 +240,53 @@ export const ROOM_RULES: RoomRule[] = [
   },
   {
     id: "wall.baseboard",
-    title: "Baseboard on affected walls (only when the floor stays)",
+    title: "Baseboard off the affected walls, paint around the whole room",
+    // The two sides of trim have DIFFERENT reaches and billing them at one
+    // length is wrong whichever length is picked. Baseboard comes off the
+    // wall the drywall comes off — nowhere else — so the E&R follows the
+    // affected walls. Paint follows the repaint, and the repaint is the
+    // room: a painter who cuts in one wall's trim and leaves the other
+    // eleven feet in the old sheen has not finished the room, and the
+    // owner's own scoping of the first real job says so ("paint the entire
+    // room, every wall, the ceiling, and also the trims"). Same convention
+    // wall.paint already sets for the walls themselves — full room by
+    // default, trimmed down by the operator when the claim is partial.
     lines: (room) => {
       if (floorAreas(room).length > 0) return []; // floor.baseboard already owns it
       const walls = wallAreas(room);
       if (walls.length === 0) return [];
       const indices = [...new Set(walls.map((area) => area.wall_index ?? 0))];
-      const lengthFt = roundQuantity(
+      const affectedFt = roundQuantity(
         mToLinFt(indices.reduce((sum, i) => sum + (room.wallLengthsM[i] ?? 0), 0)),
       );
-      if (lengthFt === 0) return [];
-      const calc = `walls ${indices.join(", ")} — ${lengthFt} lin ft`;
-      return [
-        {
+      // Trim does not run across a doorway; the app's baseboard figure is the
+      // perimeter minus the door widths, and the raw perimeter overstates
+      // every room with a door.
+      const roomFt = roundQuantity(mToLinFt(room.baseboardLengthM));
+      const lines: RuleLine[] = [];
+      if (affectedFt > 0) {
+        lines.push({
           itemCode: "TRIM-BASE-INST",
           removalItemCode: "DEM-BASE",
           activity: "replace",
           tradeSection: "trim",
           unit: "linear ft",
-          quantity: lengthFt,
-          calc,
-        },
-        {
+          quantity: affectedFt,
+          calc: `walls ${indices.join(", ")} — ${affectedFt} lin ft`,
+        });
+      }
+      if (roomFt > 0) {
+        lines.push({
           itemCode: "PNT-TRIM-LF",
           activity: "install",
           tradeSection: "trim",
           unit: "linear ft",
-          quantity: lengthFt,
-          calc,
-        },
-      ];
+          quantity: roomFt,
+          calc: `baseboard length ${roomFt} lin ft (perimeter minus doorways) — full room`,
+          note: `Full room by default; ${affectedFt} lin ft of it is the trim coming off wall ${indices.join(", ")}.`,
+        });
+      }
+      return lines;
     },
   },
   {
@@ -311,6 +343,76 @@ export const ROOM_RULES: RoomRule[] = [
           quantity: sqft,
           calc: `net wall area ${sqft} sq ft — trim to the affected walls if partial`,
           note: "Full room by default; the reference claims often paint affected walls only.",
+        },
+      ];
+    },
+  },
+  {
+    id: "ceiling.drywall",
+    title: "Wet ceiling drywall out and back at the measured area",
+    // The wall pattern, with the ceiling's own removal item. DEM-CEILING
+    // exists in the book separately from DEM-DRYWALL because taking board
+    // down overhead is not the same job as taking it off a wall, and the
+    // rates say so; the install side is the same board either way.
+    lines: (room) => {
+      const ceilings = ceilingAreas(room);
+      if (ceilings.length === 0) return [];
+      const sqft = roundQuantity(affectedCeilingSqFt(room));
+      const calc = `affected ceiling: ${areaNames(ceilings)} = ${sqft} sq ft`;
+      return [
+        {
+          itemCode: "DW-INST-12",
+          removalItemCode: "DEM-CEILING",
+          activity: "replace",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: sqft,
+          calc,
+        },
+        {
+          itemCode: "DW-TAPE-L4",
+          activity: "install",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: sqft,
+          calc,
+        },
+        {
+          itemCode: "PNT-STAINBLOCK",
+          activity: "install",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: roundQuantity(sqft * 1.25),
+          calc: `${sqft} sq ft × 1,25 — seal past the patch joint`,
+        },
+      ];
+    },
+  },
+  {
+    id: "ceiling.paint",
+    title: "Repaint the ceiling when the room is repainted",
+    // Fires off a WALL area as well as a ceiling one, and that is the point.
+    // Repainting a room's walls and leaving the ceiling in its old sheen
+    // finishes nothing — the cut line between them is the most looked-at
+    // edge in the room — so the ceiling goes with the repaint the same way
+    // the trim does. PNT-CEIL-2 sat unused in the book until this rule; the
+    // first real job derived nine lines and the operator hand-added this one.
+    //
+    // Quantity is the FLOOR area, because the ceiling is the floor's plane:
+    // one measured figure, not a second one that could disagree with it.
+    lines: (room) => {
+      if (wallAreas(room).length === 0 && ceilingAreas(room).length === 0) return [];
+      const sqft = roundQuantity(sqmToSqFt(room.stats.floorAreaSqm));
+      if (sqft === 0) return [];
+      return [
+        {
+          itemCode: "PNT-CEIL-2",
+          activity: "install",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: sqft,
+          calc: `ceiling area = floor area ${sqft} sq ft — full room`,
+          note: "Full room by default; delete it when the ceiling is untouched and staying.",
         },
       ];
     },

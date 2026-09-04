@@ -21,6 +21,8 @@ const routes = [
   "/services/repairs",
   "/commercial",
   "/syndicats",
+  "/assureurs",
+  "/gestionnaires",
   "/about",
   "/gallery",
   "/case-studies",

@@ -47,6 +47,7 @@ export type ReportStrings = {
   wallAreaGross: string;
   affectedFloorByCause: string;
   affectedWallByCause: string;
+  affectedCeilingByCause: string;
   width: string;
   length: string;
   ceilingHeight: string;
@@ -65,6 +66,7 @@ export type ReportStrings = {
   seePhotosPage: (count: number) => string;
   affectedFloorAreaCount: (count: number) => string;
   affectedWallAreaCount: (count: number) => string;
+  affectedCeilingAreaCount: (count: number) => string;
   photosOf: (room: string) => string;
   photoNumber: (n: number) => string;
   /** Videos are numbered in their own series — `Video 1`, `Video 2` — never
@@ -133,6 +135,7 @@ const en: ReportStrings = {
   wallAreaGross: "Wall area (gross)",
   affectedFloorByCause: "Affected floor area by cause",
   affectedWallByCause: "Affected wall area by cause",
+  affectedCeilingByCause: "Affected ceiling area by cause",
   width: "WIDTH",
   length: "LENGTH",
   ceilingHeight: "CEILING HEIGHT",
@@ -153,6 +156,8 @@ const en: ReportStrings = {
     `${count} AFFECTED FLOOR AREA${count === 1 ? "" : "S"}`,
   affectedWallAreaCount: (count) =>
     `${count} AFFECTED WALL AREA${count === 1 ? "" : "S"}`,
+  affectedCeilingAreaCount: (count) =>
+    `${count} AFFECTED CEILING AREA${count === 1 ? "" : "S"}`,
   photosOf: (room) => `Photos / ${room}`,
   photoNumber: (n) => `Photo ${n}`,
   videoNumber: (n) => `Video ${n}`,
@@ -236,6 +241,7 @@ const fr: ReportStrings = {
   // notices immediately.
   affectedFloorByCause: "Superficie de plancher sinistrée par cause",
   affectedWallByCause: "Superficie de mur sinistrée par cause",
+  affectedCeilingByCause: "Superficie de plafond sinistrée par cause",
   width: "LARGEUR",
   length: "LONGUEUR",
   ceilingHeight: "HAUTEUR SOUS PLAFOND",
@@ -256,6 +262,8 @@ const fr: ReportStrings = {
     `${count} ZONE${count === 1 ? "" : "S"} DE PLANCHER SINISTRÉE${count === 1 ? "" : "S"}`,
   affectedWallAreaCount: (count) =>
     `${count} ZONE${count === 1 ? "" : "S"} DE MUR SINISTRÉE${count === 1 ? "" : "S"}`,
+  affectedCeilingAreaCount: (count) =>
+    `${count} ZONE${count === 1 ? "" : "S"} DE PLAFOND SINISTRÉE${count === 1 ? "" : "S"}`,
   photosOf: (room) => `Photos / ${room}`,
   photoNumber: (n) => `Photo ${n}`,
   videoNumber: (n) => `Vidéo ${n}`,

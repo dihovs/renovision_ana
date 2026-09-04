@@ -31,6 +31,8 @@ export {
   bySurface,
   floorAreas,
   wallAreas,
+  ceilingAreas,
+  planAreas,
   totalsByDamageType,
   totalsBySurface,
   wallEdgeCorners,

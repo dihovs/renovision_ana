@@ -93,6 +93,16 @@ export type AreaPoint = { x: number; y: number };
  * Corners are wound anticlockwise from the bottom-left, so `area_sqm` is
  * real square metres of wall rather than a signed or projected figure.
  *
+ * **`surface: "ceiling"`** — the plan's own metres again, the floor's space
+ * exactly, because the ceiling IS the floor's plane seen from underneath. A
+ * ceiling area therefore draws on the plan without a transform, the way a
+ * floor area does, and carries no `wall_index`. What it must never do is get
+ * ADDED to the floor. The two coincide in plan, so a single summed square
+ * footage double-counts every square foot; and they are different trades at
+ * different rates — a wet ceiling is drywall, tape and paint, a wet floor is
+ * covering — so no one rate prices the sum. Every filter here that means
+ * "the floor" therefore names the floor rather than saying "not a wall".
+ *
  * The face is taken in the edge's own parametric direction rather than
  * mirrored to "as seen standing in the room": winding is not guaranteed
  * across scanned rooms, so a from-inside rule would be a guess, while the
@@ -108,8 +118,9 @@ export type AffectedArea = {
   id: string;
   created_at: string;
   room_scan_id: string;
-  surface: "floor" | "wall";
-  /** Which edge of the room polygon a wall area sits on. Null on the floor. */
+  surface: "floor" | "wall" | "ceiling";
+  /** Which edge of the room polygon a wall area sits on. Null on the floor
+      and on the ceiling, neither of which is one edge of anything. */
   wall_index: number | null;
   name: string;
   damage_type: DamageType;
@@ -128,7 +139,7 @@ export type AffectedArea = {
 
 export type AffectedAreaInput = {
   roomScanId: string;
-  surface?: "floor" | "wall";
+  surface?: "floor" | "wall" | "ceiling";
   wallIndex?: number | null;
   name?: string;
   damageType?: DamageType;
@@ -185,17 +196,43 @@ export function areaColor(area: Pick<AffectedArea, "color" | "damage_type">): st
 export function bySurface(areas: AffectedArea[]): {
   floor: AffectedArea[];
   wall: AffectedArea[];
+  ceiling: AffectedArea[];
 } {
   return {
-    floor: areas.filter((area) => area.surface !== "wall"),
+    floor: floorAreas(areas),
     wall: areas.filter((area) => area.surface === "wall"),
+    ceiling: areas.filter((area) => area.surface === "ceiling"),
   };
 }
 
-/** Only what is on the floor. Anything drawn in plan coordinates wants this. */
+/** Only what is on the floor. Anything drawn in plan coordinates wants this
+    or `ceilingAreas`, and the two are drawn the same way — see the note on
+    `AffectedArea` for why they still must not be summed. */
 export function floorAreas(areas: AffectedArea[]): AffectedArea[] {
-  // Defaults to floor when absent: rows written before wall areas existed
-  // carry no surface, and every one of them is a floor area.
+  // Written as "is the floor" rather than "is not a wall". Rows predating
+  // wall areas carry no surface and are all floor areas, so absent still
+  // means floor — but a ceiling area answers "not a wall" too, and the
+  // negative form would have quietly priced every ceiling as a floor.
+  return areas.filter((area) => area.surface === "floor" || !area.surface);
+}
+
+/** Only what is on the ceiling. Plan coordinates, like the floor. */
+export function ceilingAreas(areas: AffectedArea[]): AffectedArea[] {
+  return areas.filter((area) => area.surface === "ceiling");
+}
+
+/**
+ * Every area whose polygon is in PLAN metres — the floor and the ceiling.
+ *
+ * This is the filter a renderer wants, and it is a different question from
+ * "which trade is this". Anything drawing on the plan needs the shapes that
+ * are in the plan's space and must leave out the wall areas, whose polygons
+ * are in their own wall's face space and would land somewhere meaningless.
+ * Named as the positive fact so no caller has to work out that "not a wall"
+ * happens to mean "drawable here" — the two came apart the moment the
+ * ceiling existed, and every filter that stayed negative got it wrong once.
+ */
+export function planAreas(areas: AffectedArea[]): AffectedArea[] {
   return areas.filter((area) => area.surface !== "wall");
 }
 
@@ -233,6 +270,7 @@ export function totalsByDamageType(areas: AffectedArea[]): { type: DamageType; s
 export type SurfaceTotals = {
   floor: { type: DamageType; sqm: number }[];
   wall: { type: DamageType; sqm: number }[];
+  ceiling: { type: DamageType; sqm: number }[];
 };
 
 /**
@@ -250,8 +288,12 @@ export type SurfaceTotals = {
  * to print.
  */
 export function totalsBySurface(areas: AffectedArea[]): SurfaceTotals {
-  const { floor, wall } = bySurface(areas);
-  return { floor: totalsByDamageType(floor), wall: totalsByDamageType(wall) };
+  const { floor, wall, ceiling } = bySurface(areas);
+  return {
+    floor: totalsByDamageType(floor),
+    wall: totalsByDamageType(wall),
+    ceiling: totalsByDamageType(ceiling),
+  };
 }
 
 /**
