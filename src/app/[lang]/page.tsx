@@ -8,6 +8,7 @@ import HowItWorks from "@/components/home/HowItWorks";
 import AuthorityBadges from "@/components/home/AuthorityBadges";
 import Testimonials from "@/components/home/Testimonials";
 import PartnerLogos from "@/components/home/PartnerLogos";
+import TechAdvantage from "@/components/home/TechAdvantage";
 import CtaBand from "@/components/home/CtaBand";
 import { localizedMetadata } from "@/lib/seo";
 import { getGoogleReviewsData } from "@/lib/googleReviews";
@@ -48,6 +49,7 @@ export default async function Home() {
       <AudienceSections />
       <ServicesSection />
       <HowItWorks />
+      <TechAdvantage />
       <PartnerLogos />
       <CtaBand />
     </>

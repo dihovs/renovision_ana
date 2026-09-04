@@ -1,4 +1,5 @@
 import ServicesContent from "@/components/pages/ServicesContent";
+import { SERVICES_PAGE_FAQ } from "@/lib/serviceFaq";
 import { HOME_LABEL, breadcrumbJsonLd, localizedMetadata } from "@/lib/seo";
 import { toLocale } from "@/i18n/routing";
 
@@ -22,6 +23,7 @@ export default async function ServicesPage({
   params: Promise<{ lang: string }>;
 }) {
   const locale = toLocale((await params).lang);
+  const faq = SERVICES_PAGE_FAQ[locale] ?? [];
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -29,6 +31,21 @@ export default async function ServicesPage({
         { name: HOME_LABEL[locale], path: "/" },
         { name: "Services", path: "/services" },
       ]),
+      ...(faq.length > 0
+        ? [
+            {
+              "@type": "FAQPage",
+              mainEntity: faq.map((item) => ({
+                "@type": "Question",
+                name: item.question,
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: item.answer,
+                },
+              })),
+            },
+          ]
+        : []),
     ],
   };
 

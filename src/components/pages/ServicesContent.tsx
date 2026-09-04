@@ -2,6 +2,7 @@
 
 import { useLanguage } from "@/i18n/LanguageProvider";
 import FeatureCard from "@/components/ui/FeatureCard";
+import { SERVICES_PAGE_FAQ } from "@/lib/serviceFaq";
 import {
   IconDroplet,
   IconBackflow,
@@ -195,6 +196,30 @@ export default function ServicesContent() {
           />
         ))}
       </div>
+      {(() => {
+        const faq = SERVICES_PAGE_FAQ[locale];
+        if (!faq || faq.length === 0) return null;
+        return (
+          <section className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+            <h2 className="font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
+              {locale === "fr" ? "Questions fréquentes" : "Frequently asked questions"}
+            </h2>
+            <dl className="mt-8 space-y-6">
+              {faq.map((item) => (
+                <div
+                  key={item.question}
+                  className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5"
+                >
+                  <dt className="font-heading text-base font-bold text-brand-blue">
+                    {item.question}
+                  </dt>
+                  <dd className="mt-2 text-sm leading-relaxed text-charcoal/75">{item.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        );
+      })()}
     </section>
   );
 }

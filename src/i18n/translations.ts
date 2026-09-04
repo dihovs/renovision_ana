@@ -63,6 +63,14 @@ const en: Record<string, unknown> & {
     warranty: { label: string; desc: string };
     local: { label: string; desc: string };
   };
+  techAdvantage: {
+    title: string;
+    subtitle: string;
+    app: { label: string; desc: string };
+    dryingLog: { label: string; desc: string };
+    estimate: { label: string; desc: string };
+    opus: { label: string; desc: string };
+  };
   footer: Record<string, string>;
   chat: {
     launcherLabel: string;
@@ -165,6 +173,7 @@ const en: Record<string, unknown> & {
     // and are still on the page in the first viewport.
     headlineStart: "Call. We arrive. We document.",
     headlineAccent: "Your insurer gets a complete file, not a bill.",
+    attitudeLine: "Not the biggest. The best rated. And we answer the phone.",
     subheadline:
       "Water damage restoration and interior renovations in Laval and greater Montreal. From emergency extraction to kitchen remodels — reliable work for property managers, insurers, and homeowners.",
     ctaEstimate: "Get an Instant Estimate",
@@ -349,6 +358,14 @@ const en: Record<string, unknown> & {
     warranty: { label: "1-Year Workmanship Warranty", desc: "We stand behind every job with a written one-year warranty on workmanship." },
     local: { label: "Proudly Local", desc: "Based in Laval, serving the greater Montreal area. We know the codes, the adjusters, and the contractors." },
   },
+  techAdvantage: {
+    title: "Built for speed, backed by tech",
+    subtitle: "Tools and systems that make your claim faster and your renovation smoother.",
+    app: { label: "Mobile App", desc: "Track your project in real time — photos, completed steps, and timeline, all in your pocket." },
+    dryingLog: { label: "Digital Drying Log", desc: "Moisture readings logged, dated, and delivered to your adjuster without anyone having to follow up." },
+    estimate: { label: "Instant Estimate", desc: "Describe your project, get a price range in minutes. No appointment, no waiting." },
+    opus: { label: "Powered by Opus 5", desc: "Opus 5 runs the calculations behind our estimates — trained on data our team collects from real Laval jobs. The AI speeds up the math; the estimator guarantees the result." },
+  },
   footer: {
     tagline: "Renovation and water damage restoration you can trust.",
     explore: "Explore",
@@ -488,6 +505,7 @@ const fr: typeof en = {
     eyebrow: "Rénovations et restauration de dégâts d'eau",
     headlineStart: "Appelez. On arrive. On documente.",
     headlineAccent: "Votre assureur reçoit un dossier complet, pas une facture.",
+    attitudeLine: "On n'est pas les plus gros. On est les mieux notés. Et on répond au téléphone.",
     subheadline:
       "Restauration après dégât d'eau et rénovation intérieure à Laval et dans le Grand Montréal. De l'extraction d'urgence aux rénovations de cuisine — un travail fiable pour gestionnaires, assureurs et propriétaires.",
     ctaEstimate: "Estimation instantanée",
@@ -671,6 +689,14 @@ const fr: typeof en = {
     insurerNetwork: { label: "Réseau approuvé par les assureurs", desc: "Réseau d'entrepreneurs approuvé par les grands assureurs québécois. Documentation prête pour la réclamation dès le premier jour." },
     warranty: { label: "Garantie d'un an sur la main-d'œuvre", desc: "Nous garantissons chaque chantier avec une garantie écrite d'un an sur la main-d'œuvre." },
     local: { label: "Fièrement local", desc: "Basé à Laval, au service du Grand Montréal. On connaît les codes, les experts en sinistre et les corps de métier." },
+  },
+  techAdvantage: {
+    title: "Conçu pour la vitesse, soutenu par la technologie",
+    subtitle: "Des outils et systèmes qui accélèrent votre réclamation et simplifient votre rénovation.",
+    app: { label: "Application mobile", desc: "Suivez votre chantier en temps réel — photos, étapes complétées, échéancier — tout dans votre poche." },
+    dryingLog: { label: "Rapport de séchage numérique", desc: "Relevés d'humidité datés, consignés et transmis à votre assureur sans qu'il ait à relancer personne." },
+    estimate: { label: "Estimation instantanée en ligne", desc: "Décrivez votre projet, obtenez une fourchette de prix en minutes. Pas de rendez-vous, pas d'attente." },
+    opus: { label: "Propulsé par Opus 5", desc: "Opus 5 fait les calculs derrière nos estimations — entraîné sur les données que notre équipe collecte sur de vrais chantiers lavallois. L'IA accélère le calcul ; l'estimateur garantit le résultat." },
   },
   footer: {
     tagline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance.",

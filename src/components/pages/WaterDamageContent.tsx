@@ -13,6 +13,37 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
       "A leak or burst pipe gets worse every hour it sits, and it rarely waits for business hours. Our line is answered 24/7. Here's exactly what happens once you call us — from the first assessment to the final repair.",
     processTitle: "How It Works",
     processIntro: "The same four steps whether it's a small leak or a multi-unit emergency.",
+    checklist: {
+      title: "What to do in case of water damage",
+      intro: "The first minutes count. Here's what you can do while you wait for our crew.",
+      steps: [
+        {
+          number: 1,
+          title: "Stop the water at the source",
+          desc: "If you can safely reach the shut-off valve on the leaking pipe, close it. If you don't know which one it is, close the main water supply. Knowing where that valve is before a pipe fails is the cheapest maintenance step there is.",
+        },
+        {
+          number: 2,
+          title: "Kill power to the affected area",
+          desc: "Go to the electrical panel and switch off the breaker for the wet rooms. Do NOT touch any switch or outlet while standing in water. If the panel is in a wet area, call Hydro-Quebec (514 385-7257 in Montreal, 450 646-6500 in Laval) or 911 instead.",
+        },
+        {
+          number: 3,
+          title: "Document everything before you move it",
+          desc: "Take photos and video of every affected room — the standing water, wet walls, dripping ceilings. This is the record your insurer works from, and you only get one shot. Don't throw anything out before the condition is recorded.",
+        },
+        {
+          number: 4,
+          title: "Move what you can lift out of the water",
+          desc: "Move small furniture, boxes, rugs, and valuables to a dry area. Leave heavy items (sofas, appliances) where they are — dragging them across wet flooring causes more damage.",
+        },
+        {
+          number: 5,
+          title: "Call your insurer, then call us",
+          desc: "Your policy requires prompt notification. Then call us at 579-999-5979 — the line is answered at any hour. We arrive with pumps, dehumidifiers, and everything needed to limit the damage.",
+        },
+      ],
+    },
     processSteps: [
       {
         title: "Call & Assessment",
@@ -76,6 +107,37 @@ const copy: Record<"en" | "fr", ServiceDetailCopy> = {
       "Une fuite ou un tuyau éclaté empire chaque heure qui passe, et attend rarement les heures d'ouverture. Notre ligne est répondue 24/7. Voici exactement ce qui se passe une fois que vous nous appelez — de la première évaluation à la réparation finale.",
     processTitle: "Comment ça fonctionne",
     processIntro: "Les quatre mêmes étapes, qu'il s'agisse d'une petite fuite ou d'une urgence sur plusieurs logements.",
+    checklist: {
+      title: "Quoi faire en cas de dégât d'eau",
+      intro: "Les premières minutes comptent. Voici ce qu'on peut faire en attendant notre arrivée.",
+      steps: [
+        {
+          number: 1,
+          title: "Fermez l'eau à la source",
+          desc: "Si vous pouvez atteindre le robinet d'arrêt ou la valve de la conduite qui fuit sans danger, fermez-la. Si vous ne savez pas où elle se trouve, fermez l'entrée d'eau principale. Savoir où se trouve cette valve avant qu'un tuyau ne cède est le geste d'entretien qui coûte le moins cher.",
+        },
+        {
+          number: 2,
+          title: "Coupez l'électricité dans la zone touchée",
+          desc: "Rendez-vous au panneau électrique et coupez le disjoncteur des pièces inondées. Ne touchez à AUCUN interrupteur ou prise électrique si vous êtes debout dans l'eau. Si le panneau est dans une zone mouillée, appelez Hydro-Québec (514 385-7257 à Montréal, 450 646-6500 à Laval) ou le 911 plutôt que d'y toucher.",
+        },
+        {
+          number: 3,
+          title: "Photographiez tout avant de déplacer quoi que ce soit",
+          desc: "Prenez des photos et vidéos de chaque pièce touchée, de l'eau au sol, des murs mouillés, des plafonds qui gouttent. C'est ce dossier que votre assureur regardera, et il n'existe qu'une fois. Ne jetez rien avant d'avoir documenté l'état des lieux.",
+        },
+        {
+          number: 4,
+          title: "Sortez de l'eau ce que vous pouvez soulever",
+          desc: "Déplacez les petits meubles, les cartons, les tapis et les objets de valeur vers une zone sèche. Laissez les meubles lourds (divans, électroménagers) là où ils sont — les traîner sur un plancher mouillé l'endommagerait davantage.",
+        },
+        {
+          number: 5,
+          title: "Appelez votre assureur, puis appelez-nous",
+          desc: "Votre police exige que vous déclariez le sinistre rapidement. Ensuite, appelez-nous au 579-999-5979 — la ligne est répondue à toute heure. On arrive avec les pompes, les déshumidificateurs et tout ce qu'il faut pour limiter les dégâts.",
+        },
+      ],
+    },
     processSteps: [
       {
         title: "Appel et évaluation",

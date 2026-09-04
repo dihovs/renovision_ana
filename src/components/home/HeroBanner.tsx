@@ -103,6 +103,9 @@ export default function HeroBanner({
             <em className="block text-[1.5rem] font-extrabold italic text-brand-green-soft sm:text-2xl lg:text-[2.5rem]">
               {t.hero.headlineAccent}
             </em>
+            <p className="mt-4 text-sm font-semibold leading-relaxed text-white/80 sm:text-base lg:text-lg">
+              {t.hero.attitudeLine}
+            </p>
           </h1>
         </div>
 
