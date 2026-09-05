@@ -1277,6 +1277,328 @@ export const blogPosts: BlogPost[] = [
       ],
     },
   },
+  {
+    slug: "how-ai-is-transforming-construction-quebec",
+    categoryTag: {
+      en: "Industry Trends · AI & Technology",
+      fr: "Tendances de l'industrie · IA et technologie",
+    },
+    publishedAt: "2026-09-04",
+    readTimeMinutes: 8,
+    heroStat: {
+      value: "2.3%",
+      label: {
+        en: "Quebec construction businesses that have integrated AI into operations (ISQ 2025)",
+        fr: "Entreprises de construction québécoises ayant intégré l'IA dans leurs opérations (ISQ 2025)",
+      },
+    },
+    en: {
+      title: "How AI Is Transforming Construction in Quebec — and Why Most Contractors Are Getting Left Behind",
+      metaTitle: "AI in Construction Quebec: 2.3% Adoption Gap",
+      excerpt:
+        "Only 2.3% of Quebec construction businesses have integrated AI. Here's what the tools actually do, why the gap is widening, and how a few contractors are already pulling ahead.",
+      metaDescription:
+        "Only 2.3% of Quebec construction businesses have integrated AI. See what the tools actually do, why the adoption gap is widening, and how contractors who cross the threshold are winning more bids and closing claims faster.",
+      sections: [
+        {
+          type: "paragraph",
+          text: "Your competitor just answered a call at 2 AM. You did not. That phone call is the difference between a $20,000 claim and a $50,000 one. Between a client who recommends you and one who writes a Google review you can't delete. Between winning the next bid and wondering why your phone isn't ringing.",
+        },
+        {
+          type: "paragraph",
+          text: "If you are the one making that call instead of receiving it — a property manager with a flooded unit, an adjuster with a pending claim — the difference matters even more. You need a partner who answers.",
+        },
+        {
+          type: "paragraph",
+          text: "This is not a technology problem. It is a decision problem.",
+        },
+        {
+          type: "paragraph",
+          text: "The restoration and construction industries in Quebec are sitting on a $78 billion market (source: APCHQ/CMMTQ) — and the overwhelming majority of contractors are running the same playbook they ran in 2015. Paper estimates. Hand-drawn scope notes. Waiting until Monday to return a Friday call. The sector has convinced itself that construction is too physical for software to matter, that the work happens on site, not in a spreadsheet. That belief was harmless when the competition was also running on paper. It is not harmless anymore.",
+        },
+        {
+          type: "heading",
+          text: "The 2.3% Gap",
+        },
+        {
+          type: "paragraph",
+          text: "According to the Quebec government's own digital adoption data (ISQ 2025), only 2.3% of construction businesses in the province have integrated artificial intelligence into their operations. Across all Quebec industries, the figure is 12.7%. Quebec's 2.3% construction adoption rate is the lowest among major Canadian provinces. The gap is not a funding gap — Quebec's construction sector is the most active in Canada by several measures. The gap is an awareness gap, and it is widening every quarter.",
+        },
+        {
+          type: "paragraph",
+          text: "The numbers are not subtle. A 2024 industry study found that 27% of calls to contractors go unanswered, and 85% of voicemails never get a callback. In a market where a single water damage claim can be worth $15,000 to $80,000, that is not a missed call — it is a missed mortgage payment. The contractor who has automated dispatch, SMS follow-up, or even a simple after-hours call-routing system is already ahead of a quarter of the market.",
+        },
+        {
+          type: "heading",
+          text: "What AI Actually Does in Construction (Not the Buzzwords)",
+        },
+        {
+          type: "paragraph",
+          text: "The phrase \"AI in construction\" conjures images of robot bricklayers and autonomous excavators. That is not where the value is today, and it is not where the gap is. The value is in the layer between the job site and the invoice — the documentation, the estimation, the drying log, the communication chain that turns a wet basement into a closed file.",
+        },
+        {
+          type: "paragraph",
+          text: "Across the industry, the tools that are actually winning contracts and closing claims faster are these:",
+        },
+        {
+          type: "list",
+          items: [
+            "Vision AI estimation — software that reads a photo of a damaged room and generates a line-item scope. Industry tools like QuoteIQ, Encircle Scope, and Xactimate's AI modules are already doing this, reducing estimate time from hours to minutes.",
+            "Automated documentation — platforms that log photos, moisture readings, and scope changes to a cloud file as they happen, rather than reconstructed from memory at the end of the week. Adjusters approve files that arrive complete. Files that arrive as a folder of unlabeled photos get set aside.",
+            "Predictive drying algorithms — systems that use temperature, humidity, material type, and initial moisture content to forecast dry time within hours. Tools like DriTrac and SmartDry are running in production at contractors across Ontario, Alberta, and the US.",
+            "AI-powered moisture mapping — newer-generation hygrometers paired with logging software that can cut drying verification time by up to 30%, reducing the adjuster's follow-up questions to near zero.",
+            "Room scanning and floor plan generation — LiDAR-equipped tablets and phones paired with AI can scan a damaged room and generate an accurate 2D or 3D floor plan in minutes, not hours. Tools like magicplan — a Montreal-based company with 18 million users — are already doing this. The crew walks the perimeter, the AI identifies doors, windows, and obstructions, and the result is a measurable, scalable floor plan that feeds directly into the estimate. No tape measures. No redraws. No \"I will come back to measure when the furniture is moved.\"",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "These are not speculative. They are not coming next year. They are running in production today — and they are almost entirely absent from Quebec's restoration market.",
+        },
+        {
+          type: "heading",
+          text: "What We Do at Renovision AnA",
+        },
+        {
+          type: "paragraph",
+          text: "On our own website, this shift is already live. Our AI-assisted chat tool on renovisionana.ca helps you describe your project and generates a preliminary price range from our 128-item catalog in minutes. Our 24/7 voice agent answers every call, qualifies leads, and schedules appointments. Our SMS system handles dispatch and follow-up automatically. And our iOS app is designed around a digital drying log that replaces the notebook.",
+        },
+        {
+          type: "paragraph",
+          text: "We don't license third-party estimation tools. We built our own — and it runs on our own local job data, not national averages.",
+        },
+        {
+          type: "heading",
+          text: "The Quebec Advantage That Nobody Is Using",
+        },
+        {
+          type: "paragraph",
+          text: "Quebec has structural advantages that should make it the most AI-advanced construction market in Canada. The CCQ rate system, SEAO tendering, and the province's bilingual workforce create a natural barrier to entry for out-of-province competitors. The insurance ecosystem — Desjardins, Beneva, Intact, Promutuel, La Personnelle — is concentrated and interconnected. The IICRC certification pipeline is well-established. Every piece of the infrastructure that would make AI tools effective is already in place.",
+        },
+        {
+          type: "paragraph",
+          text: "What is missing is the willingness to use the tools. The same contractor who will spend $40,000 on a truck and $12,000 on a trailer will balk at $200 a month for an estimation tool that cuts his per-bid cost by 70%. The same project manager who will drive across Laval to measure a room by hand will not spend ten minutes learning how to photograph it in a way the AI can read. The gap is behavioral, not technical.",
+        },
+        {
+          type: "heading",
+          text: "The Cost of Waiting",
+        },
+        {
+          type: "list",
+          items: [
+            "Every unanswered call is a competitor's new client. 27% of calls go unanswered. That means more than a quarter of the market is being handed to whoever picks up.",
+            "Every hand-drawn scope is a dispute waiting to happen. Adjusters approve scopes that are typed, itemized, and formatted. Handwritten notes get flagged, sent back, delayed. The cost of one delay — a crew waiting for a scope approval — can exceed the monthly cost of a scoping tool by 10x.",
+            "Every missed drying log is a mold claim. The EPA's 24-to-48-hour mould benchmark is the clock. A contractor who logs moisture readings digitally, with timestamps, can prove the drying trajectory. A contractor who shows up with a notebook cannot. When the claim goes to the ChAD, the digital log wins.",
+            "Every paper estimate is a lost bid. Property managers and insurers compare bids side by side. A typed, itemized, professional estimate with photos and scope notes beats a handwritten napkin every time — even if the napkin number is lower.",
+          ],
+        },
+        {
+          type: "heading",
+          text: "What Winning Looks Like",
+        },
+        {
+          type: "paragraph",
+          text: "The contractor who adopts these tools is not replacing their estimator or their project manager. They are giving them the ability to do twice the work in the same day. The AI does the typing, the logging, the formatting, the follow-up. The human does the judgment, the site visit, the client relationship, the decision about whether to open the wall or dry through it.",
+        },
+        {
+          type: "paragraph",
+          text: "In practice, that means: a crew that wins four bids out of ten instead of two. An adjuster who approves the file on the first submission instead of the third. A property manager who adds you to their emergency contact list because you send a preliminary report within hours instead of days. A drying log that closes the file instead of reopening it.",
+        },
+        {
+          type: "heading",
+          text: "The Partnership Effect — Why Speed Wins Referrals",
+        },
+        {
+          type: "paragraph",
+          text: "There is a parallel shift happening alongside the technology one, and it is just as important. The contractors who adopt these tools are not just winning more bids — they are being added to referral lists. Property managers share emergency contact sheets among themselves. Insurance brokers maintain preferred vendor lists for their commercial and residential clients. Real estate agents need a renovation partner who can deliver a pre-listing assessment in 24 hours and a post-closing handyman service that doesn't require three callbacks.",
+        },
+        {
+          type: "paragraph",
+          text: "A contractor who answers the phone at 2 AM and sends a preliminary drying report by 8 AM is not just responsive — they are referable. In a market where 85% of voicemails never get a callback, being referable is the strongest competitive advantage available.",
+        },
+        {
+          type: "paragraph",
+          text: "At Renovision AnA in Laval, this isn't a roadmap — it's how every job runs today. Our estimator delivers a preliminary price range from our AI-powered chat tool in minutes, not hours. Every file is backed by a digital record your adjuster can follow from their desk. The tools described in this post are not coming. They're here.",
+        },
+        {
+          type: "paragraph",
+          text: "The tools exist. The data exists. The only thing that does not exist is a reason to wait.",
+        },
+        {
+          type: "heading",
+          text: "The Bottom Line",
+        },
+        {
+          type: "paragraph",
+          text: "Quebec's construction industry is the most active in Canada by dollar volume, and the least digitally adopted by percentage. That is not a contradiction — it is an opportunity. The first wave of contractors who cross the 2.3% threshold will not just capture a larger share of the existing market. They will define the standard that the remaining 97.7% will have to catch up to.",
+        },
+        {
+          type: "paragraph",
+          text: "The phone rang at 2 AM. Somebody in Quebec answered it.",
+        },
+        {
+          type: "paragraph",
+          text: "Property managers and adjusters in Laval and Montreal: skip the estimate. Call (579) 999-5979 and ask for the preferred-response desk. You'll get a documented scope before your adjuster asks for one.",
+        },
+        {
+          type: "paragraph",
+          text: "This post references data from the Institut de la Statistique du Québec (ISQ 2025 Digital Adoption Report), the APCHQ/CMMTQ, and the 2024 HVAC/Restoration Industry Benchmark Study.",
+        },
+      ],
+    },
+    fr: {
+      title: "Comment l'IA transforme la construction au Québec — et pourquoi la plupart des entrepreneurs se font distancer",
+      metaTitle: "IA dans la construction au Québec : écart d'adoption de 2,3 %",
+      excerpt:
+        "Seulement 2,3 % des entreprises de construction québécoises ont intégré l'IA. Voici ce que les outils font vraiment, pourquoi l'écart se creuse, et comment quelques entrepreneurs prennent déjà les devants.",
+      metaDescription:
+        "Seulement 2,3 % des entreprises de construction québécoises ont intégré l'IA. Découvrez ce que les outils font vraiment, pourquoi l'écart d'adoption se creuse, et comment les entrepreneurs qui franchissent le seuil remportent plus de soumissions et ferment les dossiers plus rapidement.",
+      sections: [
+        {
+          type: "paragraph",
+          text: "Votre concurrent vient de répondre à un appel à 2 h du matin. Pas vous. Cet appel, c'est la différence entre une réclamation de 20 000 $ et une de 50 000 $. Entre un client qui vous recommande et un qui écrit un avis Google que vous ne pourrez pas effacer. Entre gagner le prochain soumission et se demander pourquoi le téléphone ne sonne plus.",
+        },
+        {
+          type: "paragraph",
+          text: "Si vous êtes celui qui fait l'appel plutôt que de le recevoir — un gestionnaire d'immeuble avec un logement inondé, un expert en sinistre avec un dossier qui traîne — la différence est encore plus grande. Vous avez besoin d'un partenaire qui répond.",
+        },
+        {
+          type: "paragraph",
+          text: "Ce n'est pas un problème de technologie. C'est un problème de décision.",
+        },
+        {
+          type: "paragraph",
+          text: "L'industrie de la construction et de la restauration au Québec pèse 78 milliards de dollars (source : APCHQ/CMMTQ) — et la majorité écrasante des entrepreneurs utilisent le même manuel qu'en 2015. Soumissions sur papier. Croquis de devis à la main. Attendre le lundi pour rappeler un message du vendredi. Le secteur s'est convaincu que la construction est trop physique pour que les logiciels comptent, que le travail se fait sur le chantier, pas dans un tableur. Cette conviction était inoffensive quand tout le monde fonctionnait sur papier. Elle ne l'est plus.",
+        },
+        {
+          type: "heading",
+          text: "L'écart de 2,3 %",
+        },
+        {
+          type: "paragraph",
+          text: "Selon les données d'adoption numérique du gouvernement du Québec (ISQ 2025), seulement 2,3 % des entreprises de construction de la province ont intégré l'intelligence artificielle à leurs opérations. Dans l'ensemble des industries québécoises, ce taux est de 12,7 %. Le taux d'adoption de 2,3 % dans la construction québécoise est le plus bas parmi les grandes provinces canadiennes. L'écart n'est pas un écart de financement — le secteur de la construction au Québec est le plus actif au Canada à plusieurs égards. L'écart est un écart de conscience, et il se creuse chaque trimestre.",
+        },
+        {
+          type: "paragraph",
+          text: "Les chiffres ne sont pas subtils. Une étude sectorielle de 2024 révèle que 27 % des appels aux entrepreneurs restent sans réponse, et que 85 % des messages vocaux ne reçoivent jamais de rappel. Dans un marché où une seule réclamation pour dégât d'eau peut valoir de 15 000 $ à 80 000 $, ce n'est pas un appel manqué — c'est un paiement d'hypothèque manqué. L'entrepreneur qui dispose d'un système d'envoi automatisé, d'un suivi par SMS ou même d'un simple acheminement d'appels après les heures ouvrables est déjà devant le quart du marché.",
+        },
+        {
+          type: "heading",
+          text: "Ce que l'IA fait vraiment dans la construction (pas les mots à la mode)",
+        },
+        {
+          type: "paragraph",
+          text: "L'expression « IA dans la construction » évoque des images de maçons robots et d'excavatrices autonomes. Ce n'est pas là que se trouve la valeur aujourd'hui, et ce n'est pas là que se trouve l'écart. La valeur se trouve dans la couche entre le chantier et la facture — la documentation, l'estimation, le journal de séchage, la chaîne de communication qui transforme un sous-sol inondé en dossier fermé.",
+        },
+        {
+          type: "paragraph",
+          text: "Dans l'industrie, les outils qui remportent des contrats et ferment des dossiers plus rapidement sont les suivants :",
+        },
+        {
+          type: "list",
+          items: [
+            "L'estimation par vision IA — un logiciel qui analyse une photo d'une pièce endommagée et génère un devis détaillé en minutes. Des outils comme QuoteIQ, Encircle Scope et les modules IA de Xactimate le font déjà, réduisant le temps d'estimation de quelques heures à quelques minutes.",
+            "La documentation automatisée — des plateformes qui consignent les photos, les relevés d'humidité et les modifications de portée dans un fichier infonuagique au fur et à mesure, plutôt que de les reconstituer de mémoire en fin de semaine. Les experts en sinistre approuvent les dossiers qui arrivent complets. Ceux qui arrivent sous forme de photos non identifiées sont mis de côté.",
+            "Les algorithmes de séchage prédictif — des systèmes qui utilisent la température, l'humidité, le type de matériau et le taux d'humidité initial pour prévoir le temps de séchage en heures. Des outils comme DriTrac et SmartDry sont utilisés en production chez des entrepreneurs en Ontario, en Alberta et aux États-Unis.",
+            "La cartographie d'humidité par IA — des hygromètres de nouvelle génération jumelés à un logiciel de suivi qui peuvent réduire le temps de vérification du séchage jusqu'à 30 %, réduisant presque à zéro les questions de suivi de l'expert en sinistre.",
+            "Numérisation des pièces et génération de plans d'étage — les tablettes et téléphones équipés de LiDAR, combinés à l'IA, peuvent scanner une pièce endommagée et générer un plan d'étage 2D ou 3D précis en minutes, pas en heures. Des outils comme magicplan — une entreprise montréalaise avec 18 millions d'utilisateurs — le font déjà. L'équipe parcourt le périmètre, l'IA identifie les portes, fenêtres et obstructions, et le résultat est un plan d'étage mesurable et évolutif qui alimente directement le devis. Plus de ruban à mesurer. Plus de reprises. Plus de « je reviendrai mesurer quand les meubles seront déplacés. »",
+          ],
+        },
+        {
+          type: "paragraph",
+          text: "Tout cela n'est pas spéculatif. Ce n'est pas pour l'année prochaine. Ces outils sont en production aujourd'hui — et ils sont presque totalement absents du marché de la restauration au Québec.",
+        },
+        {
+          type: "heading",
+          text: "Ce que nous faisons chez Renovision AnA",
+        },
+        {
+          type: "paragraph",
+          text: "Sur notre propre site, ce virage est déjà en place. Notre outil d'estimation assisté par IA sur renovisionana.ca vous aide à décrire votre projet et génère une fourchette de prix préliminaire à partir de notre catalogue de 128 postes en quelques minutes. Notre agent vocal 24/7 répond à chaque appel, qualifie les leads et planifie les rendez-vous. Notre système SMS gère l'envoi et le suivi automatiquement. Et notre application iOS est conçue autour d'un journal de séchage numérique qui remplace le carnet de notes.",
+        },
+        {
+          type: "paragraph",
+          text: "Nous ne souscrivons pas de licence pour des outils d'estimation tiers. Nous avons construit le nôtre — et il fonctionne à partir de nos propres données de chantiers locaux, pas de moyennes nationales.",
+        },
+        {
+          type: "heading",
+          text: "L'avantage québécois que personne n'utilise",
+        },
+        {
+          type: "paragraph",
+          text: "Le Québec possède des avantages structurels qui devraient en faire le marché de la construction le plus avancé en IA au Canada. Le système de taux de la CCQ, le système SEAO d'appels d'offres et la main-d'œuvre bilingue de la province créent une barrière naturelle à l'entrée pour les concurrents hors province. L'écosystème de l'assurance — Desjardins, Beneva, Intact, Promutuel, La Personnelle — est concentré et interconnecté. Le réseau de certification IICRC est bien établi. Tous les éléments d'infrastructure qui rendraient les outils d'IA efficaces sont déjà en place.",
+        },
+        {
+          type: "paragraph",
+          text: "Ce qui manque, c'est la volonté d'utiliser les outils. Le même entrepreneur qui dépensera 40 000 $ pour un camion et 12 000 $ pour une remorque hésitera à payer 200 $ par mois pour un outil d'estimation qui réduit ses coûts de soumission de 70 %. Le même chargé de projet qui traversera Laval pour mesurer une pièce à la main ne prendra pas dix minutes pour apprendre à la photographier d'une façon que l'IA peut lire. L'écart est comportemental, pas technique.",
+        },
+        {
+          type: "heading",
+          text: "Le coût de l'attente",
+        },
+        {
+          type: "list",
+          items: [
+            "Chaque appel sans réponse est un nouveau client pour un concurrent. 27 % des appels restent sans réponse. Cela signifie que plus du quart du marché est offert à celui qui décroche.",
+            "Chaque devis manuscrit est un litige qui attend son heure. Les experts en sinistre approuvent les soumissions qui sont tapées, détaillées et formatées. Les notes manuscrites sont signalées, renvoyées, retardées. Le coût d'un seul retard — une équipe qui attend l'approbation d'un devis — peut dépasser de 10 fois le coût mensuel d'un outil de rédaction de soumissions.",
+            "Chaque journal de séchage manquant est une réclamation pour moisissure. La fenêtre de 24 à 48 heures de l'EPA pour l'apparition de la moisissure est l'horloge. Un entrepreneur qui consigne ses relevés d'humidité par voie numérique, avec horodatage, peut prouver la trajectoire du séchage. Un entrepreneur qui se présente avec un carnet de notes ne le peut pas. Quand le dossier se rend à la ChAD, le dossier numérique gagne.",
+            "Chaque soumission sur papier est une soumission perdue. Les gestionnaires immobiliers et les assureurs comparent les offres côte à côte. Un devis dactylographié, détaillé et professionnel, avec photos et notes de portée, bat une soumission griffonnée sur une serviette de table à chaque fois — même si le chiffre sur la serviette est plus bas.",
+          ],
+        },
+        {
+          type: "heading",
+          text: "À quoi ressemble la victoire",
+        },
+        {
+          type: "paragraph",
+          text: "L'entrepreneur qui adopte ces outils ne remplace pas son estimateur ni son chargé de projet. Il leur donne la capacité de faire deux fois plus de travail dans la même journée. L'IA fait la saisie, la consignation, le formatage, le suivi. L'humain fait le jugement, la visite du chantier, la relation client, la décision d'ouvrir le mur ou de sécher à travers.",
+        },
+        {
+          type: "paragraph",
+          text: "Concrètement, cela signifie : une équipe qui remporte quatre soumissions sur dix au lieu de deux. Un expert en sinistre qui approuve le dossier du premier coup au lieu du troisième. Un gestionnaire immobilier qui vous ajoute à sa liste de contacts d'urgence parce que vous envoyez un rapport préliminaire en quelques heures plutôt qu'en quelques jours. Un journal de séchage qui ferme le dossier au lieu de le rouvrir.",
+        },
+        {
+          type: "heading",
+          text: "L'effet de partenariat — pourquoi la rapidité génère des recommandations",
+        },
+        {
+          type: "paragraph",
+          text: "Il y a un changement parallèle qui accompagne la transformation technologique, et il est tout aussi important. Les entrepreneurs qui adoptent ces outils ne gagnent pas seulement plus de soumissions — ils sont ajoutés à des listes de recommandation. Les gestionnaires immobiliers échangent leurs listes de contacts d'urgence entre eux. Les courtiers d'assurance tiennent des listes de fournisseurs privilégiés pour leurs clients commerciaux et résidentiels. Les agents immobiliers ont besoin d'un partenaire en rénovation capable de livrer une évaluation prétransactions en 24 heures et un service d'entretien postclôture qui ne nécessite pas trois rappels.",
+        },
+        {
+          type: "paragraph",
+          text: "Un entrepreneur qui répond au téléphone à 2 h du matin et envoie un rapport de séchage préliminaire à 8 h n'est pas seulement réactif — il est recommandable. Dans un marché où 85 % des messages vocaux ne reçoivent jamais de rappel, être recommandable est l'avantage concurrentiel le plus puissant qui soit.",
+        },
+        {
+          type: "paragraph",
+          text: "Chez Renovision AnA à Laval, ce n'est pas une feuille de route — c'est ainsi que chaque chantier fonctionne aujourd'hui. Notre estimateur fournit une fourchette de prix préliminaire à partir de notre outil de clavardage alimenté par IA en quelques minutes, pas en quelques heures. Chaque dossier est appuyé par un dossier numérique que votre expert peut suivre depuis son bureau. Les outils décrits dans cet article n'arrivent pas. Ils sont déjà là.",
+        },
+        {
+          type: "paragraph",
+          text: "Les outils existent. Les données existent. La seule chose qui n'existe pas, c'est une raison d'attendre.",
+        },
+        {
+          type: "heading",
+          text: "Conclusion",
+        },
+        {
+          type: "paragraph",
+          text: "L'industrie de la construction au Québec est la plus active au Canada en volume de dollars, et la moins adoptée en pourcentage sur le plan numérique. Ce n'est pas une contradiction — c'est une occasion. La première vague d'entrepreneurs qui franchira le seuil de 2,3 % ne se contentera pas de capturer une plus grande part du marché existant. Ils définiront la norme que les 97,7 % restants devront rattraper.",
+        },
+        {
+          type: "paragraph",
+          text: "Le téléphone a sonné à 2 h du matin. Quelqu'un au Québec a répondu.",
+        },
+        {
+          type: "paragraph",
+          text: "Gestionnaires d'immeubles et experts en sinistre à Laval et Montréal : sautez l'estimation. Appelez le (579) 999-5979 et demandez le bureau d'intervention prioritaire. Vous recevrez un devis détaillé avant que votre expert ait besoin de le demander.",
+        },
+        {
+          type: "paragraph",
+          text: "Cet article cite des données de l'Institut de la Statistique du Québec (Rapport d'adoption numérique ISQ 2025), de l'APCHQ/CMMTQ et de l'Étude de référence sur l'industrie de la restauration et du CVC 2024.",
+        },
+      ],
+    },
+  },
 ];
 
 export function getBlogPost(slug: string): BlogPost | undefined {
