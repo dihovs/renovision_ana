@@ -47,6 +47,7 @@ export const blogPosts: BlogPost[] = [
     categoryTag: { en: "Winter water damage · Emergency response", fr: "Dégâts d'eau d'hiver · Intervention d'urgence" },
     publishedAt: "2026-08-31",
     readTimeMinutes: 5,
+    heroImage: "/images/blog/frozen-pipe-header.jpg",
     heroStat: {
       value: "10 °C",
       label: { en: "The minimum indoor temperature CAA-Québec recommends holding in a home left empty in winter", fr: "La température intérieure minimale que CAA-Québec recommande de maintenir dans une maison inoccupée l'hiver" },
@@ -141,6 +142,7 @@ export const blogPosts: BlogPost[] = [
     categoryTag: { en: "Water damage · Insurance claims", fr: "Dégât d'eau · Réclamation d'assurance" },
     publishedAt: "2026-08-30",
     readTimeMinutes: 5,
+    heroImage: "/images/blog/insurance-claim-header.jpg",
     heroStat: {
       value: "Art. 10",
       label: { en: "The code of ethics article requiring a claims adjuster to act with integrity, promptly, honestly and fairly — ChAD", fr: "L'article du code de déontologie qui oblige l'expert en sinistre à agir avec intégrité, avec diligence, honnêteté et équité — ChAD" },
@@ -238,6 +240,7 @@ export const blogPosts: BlogPost[] = [
     categoryTag: { en: "Co-ownership · Water damage liability", fr: "Copropriété · Responsabilité en cas de dégât d'eau" },
     publishedAt: "2026-08-30",
     readTimeMinutes: 5,
+    heroImage: "/images/blog/condo-water-damage-header.jpg",
     heroStat: {
       value: "500 000 $",
       label: { en: "What the deductible on a syndicate's policy can reach in some downtown Montreal towers — Radio-Canada", fr: "Ce que peut atteindre la franchise de la police du syndicat dans certaines tours du centre-ville de Montréal — Radio-Canada" },
