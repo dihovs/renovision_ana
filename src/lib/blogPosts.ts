@@ -1288,6 +1288,7 @@ export const blogPosts: BlogPost[] = [
     },
     publishedAt: "2026-09-04",
     readTimeMinutes: 8,
+    heroImage: "/images/blog/ai-construction-header.jpg",
     heroStat: {
       value: "2.3%",
       label: {
