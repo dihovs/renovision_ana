@@ -154,6 +154,17 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     color: var(--color-brand-blue);
+    /* Stop headings breaking to a single orphaned word. "Renovation Tips &
+       Market Insights" wrapped to "Insights" alone on line two; the French
+       title on the same page happened to break evenly, which is why this
+       only ever showed up in English. `balance` evens the line lengths
+       instead of filling line one greedily.
+       Base layer, not per component: seventeen headings across the marketing
+       pages share this exact size pair, so every one of them can produce the
+       same orphan on some viewport or in one of the two languages. Capped by
+       browsers at a few lines, which is precisely the heading case, and
+       silently ignored where unsupported. */
+    text-wrap: balance;
   }
 
   /* Tailwind v4 preflight defaults buttons to cursor:default */
