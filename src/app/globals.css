@@ -42,6 +42,27 @@
   --font-body: var(--font-jakarta);
 }
 
+/* Leading for the display sizes.
+   Tailwind ships text-5xl and above with line-height exactly 1, so the line
+   box IS the em box and a descender has nowhere to go. On the blog title the
+   "p" of "Tips" ran into the "k" and "M" of "& Market Insights" below it.
+   Measured rather than guessed, which mattered: in Poppins Extrabold the ink
+   spans 1.104em (0.833 ascent + 0.271 descent), so ANY leading below ~1.11
+   collides no matter the font-size. A first pass at 1.1 still overlapped by
+   0.2px -- visually still touching. The values below clear that ink box with
+   room left over:
+     text-4xl  1.111 -> 1.2   (shipped default cleared by only 0.25px)
+     text-5xl  1     -> 1.25  (~7px of daylight at 48px)
+     text-7xl  1     -> 1.15
+   Set on the theme, not as `leading-*` per heading, so the fix travels with
+   the size wherever it is used now or later. 1.2-1.25 is still display
+   leading -- body copy here runs 1.5+. */
+@theme {
+  --text-4xl--line-height: 1.2;
+  --text-5xl--line-height: 1.25;
+  --text-7xl--line-height: 1.15;
+}
+
 /* Intentionally no dark-mode override: brand calls for a bright, light
    site regardless of OS color-scheme preference. */
 
