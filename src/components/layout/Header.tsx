@@ -152,7 +152,6 @@ export default function Header() {
     { href: "/case-studies", label: t.nav.caseStudies },
     { href: "/safety", label: t.nav.safety },
     { href: "/careers", label: t.nav.careers },
-    { href: "/game", label: t.miniGame.navLabel },
   ];
 
   // The mobile panel is a white sheet, so the bar must go solid with it.
