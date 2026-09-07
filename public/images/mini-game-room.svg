@@ -1,0 +1,21 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="miniGameRoomTitle">
+  <title id="miniGameRoomTitle">Illustration: a room with a rising water level, pipes and a window, used as the backdrop for the 60 Seconds to Dry game</title>
+
+  <!-- room shell, same construction as the site's other isometric room illustrations -->
+  <polygon points="0,0 100,42 100,430 0,430" fill="#dce8f9"/>
+  <rect x="100" y="0" width="700" height="430" fill="#eaf1fb"/>
+  <polygon points="0,430 100,430 750,430 800,600 0,600" fill="#f5f7fa"/>
+  <polygon points="750,430 800,430 800,600 750,600" fill="#e3ecf7"/>
+
+  <!-- window -->
+  <rect x="580" y="60" width="140" height="130" fill="#ffffff" stroke="#2b5c9e" stroke-width="5"/>
+  <line x1="650" y1="60" x2="650" y2="190" stroke="#2b5c9e" stroke-width="3"/>
+  <line x1="580" y1="125" x2="720" y2="125" stroke="#2b5c9e" stroke-width="3"/>
+
+  <!-- exposed pipe along the back wall -->
+  <line x1="140" y1="90" x2="420" y2="90" stroke="#8a7a66" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="280" cy="90" r="9" fill="#6f6151"/>
+
+  <!-- baseboard -->
+  <line x1="100" y1="428" x2="800" y2="428" stroke="#c7d5e8" stroke-width="4"/>
+</svg>

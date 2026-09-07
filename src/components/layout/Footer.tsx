@@ -56,6 +56,7 @@ export default function Footer({ year, areaLinks }: { year: number; areaLinks: F
     { href: "/safety", label: t.nav.safety },
     { href: "/careers", label: t.nav.careers },
     { href: "/contact", label: t.nav.contact },
+    { href: "/game", label: t.miniGame.navLabel },
   ];
 
   const mapQuery = encodeURIComponent(
