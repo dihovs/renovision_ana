@@ -121,34 +121,6 @@ const en: Record<string, unknown> & {
       string
     >;
   };
-  miniGame: {
-    navLabel: string;
-    metaTitle: string;
-    metaDescription: string;
-    title: string;
-    subtitle: string;
-    startButton: string;
-    restartButton: string;
-    instructions: string;
-    waterLabel: string;
-    timeLabel: string;
-    scoreLabel: string;
-    bestLabel: string;
-    winTitle: string;
-    winSubtitle: string;
-    loseTitle: string;
-    loseSubtitle: string;
-    scoreResult: string;
-    ctaEstimate: string;
-    ctaCall: string;
-    shareButton: string;
-    shareCopied: string;
-    shareText: string;
-    hazardTypes: Record<
-      "pipe" | "crack" | "overflow" | "window" | "valve" | "puddle" | "stain",
-      string
-    >;
-  };
 } = {
   nav: {
     services: "Services",
@@ -466,40 +438,6 @@ const en: Record<string, unknown> & {
       failed: `Sorry — we couldn't record your details just now, so please don't wait on a callback. Call us directly at ${SITE_PHONE} and we'll pick this up right away.`,
     },
   },
-  miniGame: {
-    navLabel: "Play: 60 Seconds to Dry",
-    metaTitle: "60 Seconds to Dry — Can You Beat the Water?",
-    metaDescription:
-      "Seal the leaks before the water wins. A quick arcade game from the water-damage crew who does this for real — then get a free estimate.",
-    title: "60 Seconds to Dry",
-    subtitle: "Tap every leak before the water level tops out. Score climbs the longer you last.",
-    startButton: "Start the clock",
-    restartButton: "Play again",
-    instructions: "Tap each leak the instant it appears. Miss too many and the room floods.",
-    waterLabel: "Water level",
-    timeLabel: "Time left",
-    scoreLabel: "Score",
-    bestLabel: "Best",
-    winTitle: "Dry & documented",
-    winSubtitle: "You kept it under control the whole way through — that's the job, every time.",
-    loseTitle: "The room flooded",
-    loseSubtitle: "That's exactly why real leaks don't wait for a good time. Our crew answers 24/7.",
-    scoreResult: "You sealed {count} leaks for a score of {score}.",
-    ctaEstimate: "Get your free estimate",
-    ctaCall: `Call ${SITE_PHONE}`,
-    shareButton: "Share your score",
-    shareCopied: "Score copied to clipboard!",
-    shareText: "I scored {score} in 60 Seconds to Dry — can you keep a room drier than me?",
-    hazardTypes: {
-      pipe: "Dripping pipe",
-      crack: "Cracked wall",
-      overflow: "Overflowing sink",
-      window: "Leaking window",
-      valve: "Burst valve",
-      puddle: "Rising puddle",
-      stain: "Ceiling stain",
-    },
-  },
 };
 
 const fr: typeof en = {
@@ -809,40 +747,6 @@ const fr: typeof en = {
       reference:
         "Votre numéro de référence est le {ref}. Gardez-le à portée de main — si vous nous appelez au 579-999-5979 pour un suivi de votre estimation, donnez simplement ce numéro et nous le retrouverons.",
       failed: `Désolé — nous n'avons pas pu enregistrer vos coordonnées, alors n'attendez pas notre appel. Téléphonez-nous directement au ${SITE_PHONE} et nous nous en occupons tout de suite.`,
-    },
-  },
-  miniGame: {
-    navLabel: "Jouer : 60 secondes pour rester au sec",
-    metaTitle: "60 secondes pour rester au sec — pouvez-vous battre l'eau?",
-    metaDescription:
-      "Colmatez les fuites avant que l'eau gagne. Un jeu d'arcade rapide signé l'équipe qui répare les dégâts d'eau pour vrai — puis obtenez une estimation gratuite.",
-    title: "60 secondes pour rester au sec",
-    subtitle: "Touchez chaque fuite dès qu'elle apparaît avant que le niveau d'eau déborde. Le pointage grimpe plus vous tenez.",
-    startButton: "Lancer le chrono",
-    restartButton: "Rejouer",
-    instructions: "Touchez chaque fuite dès son apparition. Trop en manquer et la pièce inonde.",
-    waterLabel: "Niveau d'eau",
-    timeLabel: "Temps restant",
-    scoreLabel: "Pointage",
-    bestLabel: "Meilleur",
-    winTitle: "Sec et documenté",
-    winSubtitle: "Vous avez gardé le contrôle du début à la fin — c'est exactement le travail, à chaque fois.",
-    loseTitle: "La pièce a inondé",
-    loseSubtitle: "Voilà pourquoi une vraie fuite n'attend jamais le bon moment. Notre équipe répond 24 h/24, 7 j/7.",
-    scoreResult: "Vous avez colmaté {count} fuites pour un pointage de {score}.",
-    ctaEstimate: "Obtenez votre estimation gratuite",
-    ctaCall: `Appelez au ${SITE_PHONE}`,
-    shareButton: "Partager votre pointage",
-    shareCopied: "Pointage copié!",
-    shareText: "J'ai obtenu {score} points à 60 secondes pour rester au sec — pouvez-vous garder une pièce plus sèche que moi?",
-    hazardTypes: {
-      pipe: "Tuyau qui coule",
-      crack: "Mur fissuré",
-      overflow: "Évier débordant",
-      window: "Fenêtre qui fuit",
-      valve: "Valve éclatée",
-      puddle: "Flaque montante",
-      stain: "Tache au plafond",
     },
   },
 };
