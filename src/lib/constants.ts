@@ -25,6 +25,7 @@ export const SITE_ADDRESS = {
 export const SOCIAL_LINKS = {
   facebook: "https://www.facebook.com/nettoyageana/",
   instagram: "https://www.instagram.com/renovisionana/",
+  linkedin: "https://www.linkedin.com/company/renovision-ana/",
 };
 
 export const GOOGLE_REVIEWS_URL = "https://www.google.com/search?q=Renovision+AnA+Reviews";

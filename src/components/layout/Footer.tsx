@@ -89,6 +89,9 @@ export default function Footer({ year, areaLinks }: { year: number; areaLinks: F
             <SocialLink href={SOCIAL_LINKS.instagram} label="Instagram" brand="hover:bg-gradient-to-br hover:from-[#833AB4] hover:via-[#E1306C] hover:to-[#F77737]">
               <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm0 6.27a2.47 2.47 0 1 1 0-4.94 2.47 2.47 0 0 1 0 4.94ZM17.5 4h-11A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 17.5 4Zm1.17 13.5a1.17 1.17 0 0 1-1.17 1.17h-11a1.17 1.17 0 0 1-1.17-1.17v-11A1.17 1.17 0 0 1 6.5 5.33h11a1.17 1.17 0 0 1 1.17 1.17v11ZM16.9 7.1a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8Z" />
             </SocialLink>
+            <SocialLink href={SOCIAL_LINKS.linkedin} label="LinkedIn" brand="hover:bg-[#0A66C2]">
+              <path d="M6.94 8.5H3.56V20h3.38V8.5ZM5.25 3.5a1.97 1.97 0 1 0 0 3.94 1.97 1.97 0 0 0 0-3.94ZM20.44 20h-3.37v-5.6c0-1.34-.03-3.06-1.87-3.06-1.87 0-2.16 1.46-2.16 2.96V20H9.68V8.5h3.24v1.57h.05c.45-.86 1.56-1.76 3.21-1.76 3.43 0 4.26 2.26 4.26 5.2V20Z" />
+            </SocialLink>
           </div>
         </div>
 
