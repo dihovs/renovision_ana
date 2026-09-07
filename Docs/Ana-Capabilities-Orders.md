@@ -687,6 +687,32 @@ only meant to ask about.
 
 ---
 
+## ANA-23 — Text the estimate link, don't say it  ✅
+
+Asked for on 31 Aug/1 Sept: Ana should send the caller a link when they need an
+estimate, not just talk about one. The gap was real — the customer prompt already
+told Ana to recite `${localeUrl(locale, "/estimation")}` aloud when someone pushed for
+a price, and a spoken URL is not actionable from a moving car.
+
+**Shipped.** `sendEstimateLink()` in `src/lib/voice/agent.ts` texts the caller — at
+the number they're already calling from, no destination argument — the moment
+pricing comes up, instead of reciting the address. One tool (`send_estimate_link`),
+given only to the inbound customer path (`callerPhone` is what turns it on; the
+outbound dialer forces that null, so it never sees the tool). `replyToStream` gained
+a capped one-round tool loop — not the owner path's multi-round budget, because this
+line has exactly one tool and a confused model retrying it three times means three
+texts to one caller. Deduplicated per `callSid`: pushing twice gets the answer
+repeated in words, never a second text. Marked `automated: true` so it carries CASL's
+identification/unsubscribe footer, same as every other machine-composed message this
+codebase sends. 8 tests, mutation-checked on the dedup guard.
+
+**Not done — flagged rather than silently skipped:** the older Twilio `<Gather>` path
+(`/api/voice/turn`, `replyTo()`) did not get this. It's a separate, simpler code path
+from the live ElevenLabs line this order touches; extending it is the same shape of
+change if the owner wants Ana capable of it there too.
+
+---
+
 # Part 5 — Blocked
 
 ## ANA-20 — QuickBooks  🚫 owner-only, not scheduled

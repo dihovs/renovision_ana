@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { CallTurn } from "@/lib/crm/calls";
 import { SITE_EMAIL, SITE_PHONE } from "@/lib/constants";
 import { localeUrl } from "@/lib/seo";
+import { sendSms } from "@/lib/sms/send";
 
 /**
  * The voice agent's brain.
@@ -109,7 +110,7 @@ ACCEPT "I DON'T KNOW" THE FIRST TIME. If they don't know a size, a measurement o
 
 DON'T RE-ASK WHAT THEY ALREADY TOLD YOU. If they said Laval, you know the city; ask for the street address, not the city again. Do not read a summary of the whole conversation back to them unless something genuinely sounded ambiguous.
 
-YOU DO NOT QUOTE PRICES. Not a number, not a range, not a "usually around". You genuinely do not have the price list — it is not available to you, so do not guess at one. If they push for a number, say the honest thing: prices depend on what the work turns out to involve, and there is a tool on the website at ${localeUrl(locale, "/estimation")} that gives a real itemized range in a couple of minutes, or our estimator can give them a firm figure after seeing it. Then move on.
+YOU DO NOT QUOTE PRICES. Not a number, not a range, not a "usually around". You genuinely do not have the price list — it is not available to you, so do not guess at one. If they push for a number, call send_estimate_link and say you're texting them the link right now — it gives a real itemized range in a couple of minutes, or our estimator can give them a firm figure after seeing it. Say this even if they gave no number yet: you already have it, it's the number they're calling from. Then move on.
 
 IF THEY ASK FOR THE OWNER OR A SPECIFIC PERSON: take their name, number and what it is about, and say someone will call them back. Do not pretend to transfer.
 
@@ -258,30 +259,130 @@ export async function replyTo(
  */
 export async function replyToStream(
   turns: CallTurn[],
-  options: { locale: "fr" | "en"; escalated: boolean },
+  options: {
+    locale: "fr" | "en";
+    escalated: boolean;
+    /**
+     * Present only on a genuine inbound call — never on the outbound dialer
+     * (see the caller in el/chat/route.ts, which forces this null there).
+     * Its presence is what turns on send_estimate_link: a call with no
+     * number to text has no use for a tool that only texts that number.
+     */
+    callerPhone?: string | null;
+    callSid?: string | null;
+  },
   onDelta: (delta: string) => void,
 ): Promise<AgentReply> {
   const client = new Anthropic();
   const model = options.escalated ? ESCALATED_MODEL : FAST_MODEL;
+  const tools = options.callerPhone ? CUSTOMER_TOOLS : undefined;
+  const messages: Anthropic.MessageParam[] = toMessages(turns);
 
-  const stream = client.messages
-    .stream({
-      model,
-      max_tokens: MAX_TOKENS,
-      system: systemBlock(options.locale),
-      messages: toMessages(turns),
-    })
-    .on("text", onDelta);
+  // At most one tool round. This is not the owner path's loop: the customer
+  // line has exactly one tool, it either fires once or not at all, and
+  // giving an ordinary call the owner's multi-round budget would let a
+  // confused model retry a text three times for one hesitant caller.
+  for (let round = 0; round < 2; round++) {
+    const stream = client.messages
+      .stream({
+        model,
+        max_tokens: MAX_TOKENS,
+        system: systemBlock(options.locale),
+        messages,
+        ...(tools ? { tools } : {}),
+      })
+      .on("text", onDelta);
 
-  const message = await stream.finalMessage();
-  const text = message.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join(" ")
-    .trim();
+    const message = await stream.finalMessage();
+    const text = message.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join(" ")
+      .trim();
 
-  return { text, model };
+    if (message.stop_reason !== "tool_use" || round === 1) return { text, model };
+
+    const toolUse = message.content.find(
+      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
+    );
+    if (!toolUse) return { text, model };
+
+    // Never throws: a caller mid-call cannot be handed a dropped connection
+    // because a text failed to send, so the model gets a plain sentence back
+    // either way and decides what to say from there.
+    const result = await sendEstimateLink(options.callerPhone ?? null, options.locale, options.callSid ?? null);
+    const outcome = result.sent
+      ? "Sent."
+      : result.reason === "already_sent"
+        ? "Already sent earlier this call — do not say you are sending it again."
+        : "That did not send. Tell the caller you could not text it and to check the website instead.";
+
+    messages.push(
+      { role: "assistant", content: message.content },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: toolUse.id, content: outcome }] },
+    );
+  }
+
+  // Unreachable — the loop always returns by round 1 — but keeps the
+  // function's return type honest without a non-null assertion.
+  return { text: "", model };
 }
+
+/**
+ * Send the estimation page to the caller, in their own language. (ANA-23)
+ *
+ * REPLACES A SPOKEN URL, WHICH NOBODY CAN TYPE FROM HEARING IT. The prompt
+ * used to have Ana read the address aloud when a caller pushed for a price —
+ * "there's a tool at renovisionana.ca slash estimation" — which is not
+ * actionable from a moving car. Texting the same link the moment pricing
+ * comes up is the fix, and it is the one thing this tool does: no destination
+ * argument, no free-text body Ana composes herself, just this caller's own
+ * number and this one link.
+ *
+ * ONE PER CALL. A caller who keeps pushing for a price after already getting
+ * the link needs the answer repeated in words, not three copies of the same
+ * text — callSid is the natural key since it is already threaded through
+ * every tool call on this path.
+ */
+const linkSentThisCall = new Set<string>();
+
+export type SendEstimateLinkResult =
+  | { sent: true }
+  | { sent: false; reason: "already_sent" | "no_number" | "failed" };
+
+export async function sendEstimateLink(
+  callerPhone: string | null,
+  locale: "fr" | "en",
+  callSid: string | null,
+): Promise<SendEstimateLinkResult> {
+  if (callSid && linkSentThisCall.has(callSid)) return { sent: false, reason: "already_sent" };
+  if (!callerPhone) return { sent: false, reason: "no_number" };
+
+  const url = localeUrl(locale, "/estimation");
+  const body =
+    locale === "fr"
+      ? `Voici le lien pour votre estimation en ligne : ${url}`
+      : `Here's the link for your online estimate: ${url}`;
+
+  // A message a person reads before it sends would set automated:false; this
+  // one is composed by Ana with no human in the loop, so it gets the CASL
+  // identification-and-unsubscribe footer sendSms adds for exactly that case.
+  const result = await sendSms({ to: callerPhone, body, locale, automated: true });
+  if (!result.sent) return { sent: false, reason: "failed" };
+
+  if (callSid) linkSentThisCall.add(callSid);
+  return { sent: true };
+}
+
+/** The one tool the customer-facing call is ever given. */
+const CUSTOMER_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "send_estimate_link",
+    description:
+      "Text the caller a link to the online estimator, at the number they are calling from. Call this the moment pricing comes up — when they ask what something costs, push for a number, or ask about the estimator tool — instead of reading a web address aloud. Say you're texting it as you call this, e.g. 'I'll text you that link right now.'",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
+  },
+];
 
 /**
  * One turn of an authenticated owner call — the same streaming shape as
