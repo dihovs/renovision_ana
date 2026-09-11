@@ -96,7 +96,8 @@ Fallback: `deepseek/deepseek-v4-flash:free` (OpenRouter, free tier)
 
 ## 3. Model block in each profile's `config.yaml`
 
-Both talk to OrcaRouter. The key is the same one the Windows box uses — from Artus.
+Both talk to OrcaRouter. The key is in `Docs/orca-api-key.txt` in this repo
+(delete it after both profiles verify).
 
 `profiles/tamanyan/config.yaml`:
 
