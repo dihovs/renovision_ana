@@ -53,3 +53,6 @@ exports/
 # Reference material quarantined from the repo:
 # real business contact details, and raw unnamed capture dumps.
 Docs/reference/_excluded/
+
+# local secrets — synced via OneDrive, never pushed
+Docs/orca-api-key.txt
