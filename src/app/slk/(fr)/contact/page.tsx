@@ -32,7 +32,7 @@ export default function SlkContactFr() {
                 {t.phoneLabel}
               </dt>
               <dd className="mt-1">
-                <a href={business.phoneHref} className="text-[var(--slk-rose-dark)] hover:underline">
+                <a href={business.phoneHref} className="text-[var(--slk-terracotta-dark)] hover:underline">
                   {business.phone}
                 </a>
               </dd>
@@ -44,7 +44,7 @@ export default function SlkContactFr() {
               <dd className="mt-1">
                 <a
                   href={`mailto:${business.email}`}
-                  className="text-[var(--slk-rose-dark)] hover:underline"
+                  className="text-[var(--slk-terracotta-dark)] hover:underline"
                 >
                   {business.email}
                 </a>
@@ -65,7 +65,7 @@ export default function SlkContactFr() {
             href={business.bookingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-10 inline-block rounded-full bg-[var(--slk-rose)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--slk-rose-dark)]"
+            className="mt-10 inline-block rounded-full bg-[var(--slk-terracotta)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--slk-terracotta-dark)]"
           >
             {t.bookCta}
           </a>

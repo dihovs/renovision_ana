@@ -1,15 +1,16 @@
-import { Playfair_Display, Inter } from "next/font/google";
+import { Fraunces, Work_Sans } from "next/font/google";
 
-export const playfair = Playfair_Display({
+export const serif = Fraunces({
   variable: "--font-slk-serif",
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
   display: "optional",
 });
 
-export const inter = Inter({
+export const sans = Work_Sans({
   variable: "--font-slk-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["300", "400", "500", "600"],
   display: "optional",
 });

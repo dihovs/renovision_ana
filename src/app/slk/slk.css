@@ -2,20 +2,42 @@
  * Scoped design tokens for Clinique Esthétique SLK.
  *
  * Deliberately NOT added to the main `@theme` in ../globals.css: this is a
- * different business sharing the repo, and its palette (warm rose/cream spa
- * tones) must never bleed into or collide with Renovision's brand-blue/green
- * tokens. Imported only from src/app/slk/layout.tsx.
+ * different business sharing the repo, and its palette (warm ivory/terracotta
+ * editorial tones) must never bleed into or collide with Renovision's
+ * brand-blue/green tokens. Imported from src/app/slk/(fr)/layout.tsx and
+ * src/app/slk/en/layout.tsx.
+ *
+ * Matches the approved design (Claude Artifact canvas, "SLK — Homepage
+ * Design"): Fraunces display serif over Work Sans body, ivory ground, one
+ * terracotta accent, a dark charcoal band for the services/contact sections.
  */
 
 :root {
-  --slk-rose: #b8697f;
-  --slk-rose-dark: #94495b;
-  --slk-rose-light: #f7e9ec;
-  --slk-cream: #faf6f1;
-  --slk-charcoal: #362f30;
-  --slk-gold: #c8a15c;
+  --slk-terracotta: #b5583a;
+  --slk-terracotta-dark: #8f4128;
+  --slk-terracotta-light: #f3e3d9;
+  --slk-ivory: #fbf7f1;
+  --slk-charcoal: #2b2420;
+  --slk-charcoal-dark: #201a17;
+  --slk-gold: #b5583a;
 }
 
 .font-slk-serif {
   font-family: var(--font-slk-serif), Georgia, serif;
+}
+
+/*
+ * ../globals.css's `@layer base` sets every h1–h6 to Renovision's brand
+ * blue and heading font — a shared Tailwind reset file, so importing it
+ * for base/preflight also imports that rule onto SLK's pages. Undo it
+ * scoped to the SLK body so each component's own color/font classes win
+ * again, without touching the shared file (still used by Renovision).
+ *
+ * Only `color` is reset here, at the SAME specificity as globals.css's
+ * `h1, h2, …` rule (element selectors, not `.slk-site h1`): a compound
+ * selector would outrank the `.font-slk-serif` utility class and silently
+ * cancel it back to the inherited body font.
+ */
+.slk-site :is(h1, h2, h3, h4, h5, h6) {
+  color: inherit;
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "../../globals.css";
 import "../slk.css";
-import { playfair, inter } from "../fonts";
+import { serif, sans } from "../fonts";
 
 export const metadata: Metadata = {
   title: {
@@ -14,9 +14,9 @@ export const metadata: Metadata = {
 /** English root layout. See src/app/slk/(fr)/layout.tsx for why this is split in two. */
 export default function SlkEnLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${serif.variable} ${sans.variable} h-full antialiased`}>
       <body
-        className="min-h-full flex flex-col bg-[var(--slk-cream)] text-[var(--slk-charcoal)]"
+        className="slk-site min-h-full flex flex-col bg-[var(--slk-ivory)] text-[var(--slk-charcoal)]"
         style={{ fontFamily: "var(--font-slk-sans)" }}
       >
         {children}

@@ -2,30 +2,63 @@ import Link from "next/link";
 import { business, copy, type Locale } from "@/content/slk/copy";
 import { slkPath } from "@/content/slk/paths";
 
+// One gradient swatch per service row, standing in for real treatment
+// photography until SLK supplies it (see src/content/slk/copy.ts).
+const SWATCHES = [
+  "linear-gradient(135deg, #D9B48F, #A9694A)",
+  "linear-gradient(135deg, #C9A98A, #8A9A7E)",
+  "linear-gradient(135deg, #B5583A, #5B3A30)",
+  "linear-gradient(135deg, #8A9A7E, #4A5744)",
+  "linear-gradient(135deg, #D9B48F, #B5583A)",
+  "linear-gradient(135deg, #C88B67, #96604A)",
+  "linear-gradient(135deg, #A9694A, #5B3A30)",
+  "linear-gradient(135deg, #8A9A7E, #8F4128)",
+];
+
 export function Hero({ locale }: { locale: Locale }) {
   const t = copy[locale].hero;
   return (
-    <section className="bg-[var(--slk-cream)]">
-      <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-6 sm:py-28">
-        <p className="text-sm font-semibold uppercase tracking-widest text-[var(--slk-gold)]">
-          {t.eyebrow}
-        </p>
-        <h1 className="max-w-2xl font-slk-serif text-4xl font-semibold leading-tight text-[var(--slk-charcoal)] sm:text-5xl">
+    <section className="relative flex min-h-[92vh] items-end overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(160deg, #E4C9AE 0%, #C88B67 42%, #96604A 78%, #5B3A30 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{ background: "radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.22), transparent 55%)" }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(0deg, rgba(20,14,11,0.55) 0%, rgba(20,14,11,0.05) 45%, rgba(20,14,11,0.15) 100%)",
+        }}
+      />
+      <span className="absolute right-6 top-7 rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-widest text-white/55 sm:right-10">
+        {locale === "fr" ? "Photo signature — à remplacer" : "Signature photo — placeholder"}
+      </span>
+
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 text-[var(--slk-ivory)] sm:px-6 sm:pb-24">
+        <p className="text-sm uppercase tracking-widest text-[var(--slk-ivory)]/85">{t.eyebrow}</p>
+        <h1 className="font-slk-serif max-w-3xl text-5xl font-normal leading-[1.04] tracking-tight sm:text-7xl">
           {t.title}
         </h1>
-        <p className="max-w-xl text-lg text-[var(--slk-charcoal)]/75">{t.subtitle}</p>
-        <div className="flex flex-wrap gap-4 pt-2">
+        <p className="max-w-md text-lg font-light leading-relaxed text-[var(--slk-ivory)]/90">{t.subtitle}</p>
+        <div className="flex flex-wrap gap-4 pt-3">
           <a
             href={business.bookingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-[var(--slk-rose)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--slk-rose-dark)]"
+            className="rounded-full bg-[var(--slk-ivory)] px-7 py-4 text-sm font-medium text-[var(--slk-charcoal)] transition hover:opacity-90"
           >
             {t.cta}
           </a>
           <Link
             href={slkPath(locale, "/services")}
-            className="rounded-full border border-[var(--slk-rose)] px-6 py-3 text-sm font-semibold text-[var(--slk-rose-dark)] transition hover:bg-[var(--slk-rose-light)]"
+            className="rounded-full border border-white/50 px-7 py-4 text-sm font-medium text-[var(--slk-ivory)] transition hover:bg-white/10"
           >
             {t.ctaSecondary}
           </Link>
@@ -38,26 +71,44 @@ export function Hero({ locale }: { locale: Locale }) {
 export function ServicesGrid({ locale }: { locale: Locale }) {
   const t = copy[locale];
   return (
-    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-      <p className="text-sm font-semibold uppercase tracking-widest text-[var(--slk-gold)]">
-        {t.servicesIntro.eyebrow}
-      </p>
-      <h2 className="mt-2 font-slk-serif text-3xl font-semibold text-[var(--slk-charcoal)] sm:text-4xl">
-        {t.servicesIntro.title}
-      </h2>
-      <p className="mt-3 max-w-xl text-[var(--slk-charcoal)]/70">{t.servicesIntro.subtitle}</p>
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {t.services.map((s) => (
-          <div
-            key={s.title}
-            className="rounded-2xl border border-[var(--slk-rose-light)] bg-white p-6 shadow-sm"
-          >
-            <h3 className="font-slk-serif text-lg font-semibold text-[var(--slk-rose-dark)]">
-              {s.title}
-            </h3>
-            <p className="mt-2 text-sm text-[var(--slk-charcoal)]/75">{s.blurb}</p>
+    <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
+      <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32">
+        <div className="mb-16 flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">
+              {t.servicesIntro.eyebrow}
+            </p>
+            <h2 className="font-slk-serif text-4xl font-normal sm:text-5xl">{t.servicesIntro.title}</h2>
           </div>
-        ))}
+          <Link
+            href={slkPath(locale, "/services")}
+            className="whitespace-nowrap rounded-full border border-white/25 px-6 py-3 text-sm hover:bg-white/5"
+          >
+            {locale === "fr" ? "Tous les soins →" : "All treatments →"}
+          </Link>
+        </div>
+        <p className="mb-12 max-w-xl font-light text-[var(--slk-ivory)]/70">{t.servicesIntro.subtitle}</p>
+
+        <div className="flex flex-col">
+          {t.services.map((s, i) => (
+            <div
+              key={s.title}
+              className="grid grid-cols-[36px_1fr] items-center gap-4 border-t border-white/10 py-7 last:border-b sm:grid-cols-[60px_1fr_180px]"
+            >
+              <div className="font-slk-serif text-sm text-[var(--slk-ivory)]/35">
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <div>
+                <div className="font-slk-serif mb-1 text-xl font-normal sm:text-2xl">{s.title}</div>
+                <p className="max-w-md text-sm font-light text-[var(--slk-ivory)]/55">{s.blurb}</p>
+              </div>
+              <div
+                className="hidden h-16 rounded-lg opacity-85 sm:block"
+                style={{ background: SWATCHES[i % SWATCHES.length] }}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -66,13 +117,13 @@ export function ServicesGrid({ locale }: { locale: Locale }) {
 export function AboutTeaser({ locale }: { locale: Locale }) {
   const t = copy[locale].aboutTeaser;
   return (
-    <section className="bg-[var(--slk-rose-light)]">
-      <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-        <h2 className="font-slk-serif text-3xl font-semibold text-[var(--slk-charcoal)]">{t.title}</h2>
-        <p className="mt-4 text-[var(--slk-charcoal)]/75">{t.body}</p>
+    <section className="bg-[var(--slk-terracotta-light)]">
+      <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
+        <h2 className="font-slk-serif text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">{t.title}</h2>
+        <p className="mt-4 font-light text-[var(--slk-charcoal)]/70">{t.body}</p>
         <Link
           href={slkPath(locale, locale === "fr" ? "/a-propos" : "/about")}
-          className="mt-6 inline-block rounded-full border border-[var(--slk-rose)] px-6 py-3 text-sm font-semibold text-[var(--slk-rose-dark)] transition hover:bg-white"
+          className="mt-8 inline-block rounded-full border border-[var(--slk-terracotta)] px-7 py-3 text-sm font-medium text-[var(--slk-terracotta-dark)] transition hover:bg-white"
         >
           {t.cta}
         </Link>
@@ -84,24 +135,26 @@ export function AboutTeaser({ locale }: { locale: Locale }) {
 export function ContactTeaser({ locale }: { locale: Locale }) {
   const t = copy[locale].contactTeaser;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6">
-      <h2 className="font-slk-serif text-3xl font-semibold text-[var(--slk-charcoal)]">{t.title}</h2>
-      <p className="mx-auto mt-4 max-w-lg text-[var(--slk-charcoal)]/75">{t.body}</p>
-      <div className="mt-6 flex flex-wrap justify-center gap-4">
-        <a
-          href={business.bookingUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-full bg-[var(--slk-rose)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--slk-rose-dark)]"
-        >
-          {copy[locale].contactPage.bookCta}
-        </a>
-        <Link
-          href={slkPath(locale, "/contact")}
-          className="rounded-full border border-[var(--slk-rose)] px-6 py-3 text-sm font-semibold text-[var(--slk-rose-dark)] transition hover:bg-[var(--slk-rose-light)]"
-        >
-          {copy[locale].nav.contact}
-        </Link>
+    <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
+      <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6">
+        <h2 className="font-slk-serif text-3xl font-normal sm:text-4xl">{t.title}</h2>
+        <p className="mx-auto mt-4 max-w-lg font-light text-[var(--slk-ivory)]/65">{t.body}</p>
+        <div className="mt-8 flex flex-wrap justify-center gap-4">
+          <a
+            href={business.bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
+          >
+            {copy[locale].contactPage.bookCta}
+          </a>
+          <Link
+            href={slkPath(locale, "/contact")}
+            className="rounded-full border border-white/25 px-7 py-4 text-sm font-medium text-[var(--slk-ivory)] transition hover:bg-white/5"
+          >
+            {copy[locale].nav.contact}
+          </Link>
+        </div>
       </div>
     </section>
   );
