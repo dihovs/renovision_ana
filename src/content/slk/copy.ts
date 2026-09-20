@@ -48,7 +48,9 @@ export function bookingLink(): { href: string; external: boolean } {
     : { href: business.phoneHref, external: false };
 }
 
-type Service = { title: string; blurb: string };
+type Service = { title: string; blurb: string; image?: string };
+
+export type GalleryItem = { src: string; alt: string; tag: string };
 
 type Copy = {
   meta: { title: string; description: string };
@@ -56,6 +58,8 @@ type Copy = {
   hero: { eyebrow: string; title: string; subtitle: string; cta: string; ctaSecondary: string };
   servicesIntro: { eyebrow: string; title: string; subtitle: string };
   services: Service[];
+  spotlight: { eyebrow: string; title: string; body: string; cta: string; image: string };
+  results: { eyebrow: string; title: string; subtitle: string; disclaimer: string; items: GalleryItem[] };
   aboutTeaser: { title: string; body: string; cta: string };
   aboutPage: { title: string; intro: string; paragraphs: string[] };
   contactTeaser: { title: string; body: string };
@@ -106,6 +110,7 @@ export const copy: Record<Locale, Copy> = {
         title: "Soin du visage classique",
         blurb:
           "Nettoyage en profondeur, exfoliation et hydratation pour une peau nette et lumineuse.",
+        image: "/slk/instagram/03-facial-treatment-closeup.jpg",
       },
       {
         title: "Soin anti-âge",
@@ -116,6 +121,7 @@ export const copy: Record<Locale, Copy> = {
         title: "Peeling chimique",
         blurb:
           "Exfoliation en profondeur pour uniformiser le teint et atténuer les imperfections.",
+        image: "/slk/instagram/05-peeling-before-after-texture.jpg",
       },
       {
         title: "Microdermabrasion",
@@ -133,12 +139,59 @@ export const copy: Record<Locale, Copy> = {
         title: "Remodelage corporel",
         blurb:
           "Traitements ciblés pour le contour du corps : drainage lymphatique, pressothérapie et plus.",
+        image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
       },
       {
         title: "Consultation personnalisée",
         blurb: "Analyse de votre peau et recommandation d'un parcours de soins adapté.",
       },
     ],
+    spotlight: {
+      eyebrow: "Soin signature",
+      title: "Remodelage corporel — technologie Beauty Pot 4-en-1",
+      body: "Quatre technologies combinées en une seule séance — lipocavitation, radiofréquence, lipo laser et lumière LED — pour le contour du corps, la fermeté de la peau et le drainage lymphatique. Consultation gratuite pour évaluer vos objectifs.",
+      cta: "Réserver une consultation gratuite",
+      image: "/slk/instagram/01-remodelage-before-after.jpg",
+    },
+    results: {
+      eyebrow: "Résultats",
+      title: "Des résultats visibles, sur peau et sur corps",
+      subtitle: "Une sélection de résultats clients partagés publiquement par SLK.",
+      disclaimer:
+        "Résultats de clientes, partagés avec leur consentement sur le compte Instagram de la clinique. Les résultats varient d'une personne à l'autre.",
+      items: [
+        {
+          src: "/slk/instagram/04-peeling-before-after-acne.jpg",
+          alt: "Avant / après peeling chimique — peau avec acné",
+          tag: "Peeling chimique",
+        },
+        {
+          src: "/slk/instagram/05-peeling-before-after-texture.jpg",
+          alt: "Avant / après peeling chimique — texture de peau",
+          tag: "Peeling chimique",
+        },
+        {
+          src: "/slk/instagram/06-peeling-before-after-eyes.jpg",
+          alt: "Avant / après peeling chimique — contour des yeux",
+          tag: "Peeling chimique",
+        },
+        {
+          src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
+          alt: "Avant / après remodelage corporel — cuisses",
+          tag: "Remodelage corporel",
+        },
+        {
+          src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg",
+          alt: "Avant / après remodelage corporel — abdomen",
+          tag: "Remodelage corporel",
+        },
+        {
+          src: "/slk/instagram/11-body-contouring-back-before-after.jpg",
+          alt: "Avant / après remodelage corporel — dos",
+          tag: "Remodelage corporel",
+        },
+      ],
+    },
     aboutTeaser: {
       title: "Une esthétique pensée pour vous",
       body:
@@ -199,6 +252,7 @@ export const copy: Record<Locale, Copy> = {
       {
         title: "Classic facial",
         blurb: "Deep cleansing, exfoliation and hydration for clear, radiant skin.",
+        image: "/slk/instagram/03-facial-treatment-closeup.jpg",
       },
       {
         title: "Anti-aging facial",
@@ -207,6 +261,7 @@ export const copy: Record<Locale, Copy> = {
       {
         title: "Chemical peel",
         blurb: "Deep exfoliation to even out skin tone and soften imperfections.",
+        image: "/slk/instagram/05-peeling-before-after-texture.jpg",
       },
       {
         title: "Microdermabrasion",
@@ -223,12 +278,59 @@ export const copy: Record<Locale, Copy> = {
       {
         title: "Body contouring",
         blurb: "Targeted body treatments: lymphatic drainage, pressotherapy and more.",
+        image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
       },
       {
         title: "Personalized consultation",
         blurb: "A skin assessment and a treatment plan built around your goals.",
       },
     ],
+    spotlight: {
+      eyebrow: "Signature treatment",
+      title: "Body contouring — Beauty Pot 4-in-1 technology",
+      body: "Four technologies combined in a single session — lipocavitation, radiofrequency, lipo laser and LED light — for body contouring, skin firmness and lymphatic drainage. Free consultation to assess your goals.",
+      cta: "Book a free consultation",
+      image: "/slk/instagram/01-remodelage-before-after.jpg",
+    },
+    results: {
+      eyebrow: "Results",
+      title: "Visible results, on skin and on body",
+      subtitle: "A selection of client results shared publicly by SLK.",
+      disclaimer:
+        "Client results, shared with consent on the clinic's Instagram account. Results vary by individual.",
+      items: [
+        {
+          src: "/slk/instagram/04-peeling-before-after-acne.jpg",
+          alt: "Chemical peel before/after — acne-prone skin",
+          tag: "Chemical peel",
+        },
+        {
+          src: "/slk/instagram/05-peeling-before-after-texture.jpg",
+          alt: "Chemical peel before/after — skin texture",
+          tag: "Chemical peel",
+        },
+        {
+          src: "/slk/instagram/06-peeling-before-after-eyes.jpg",
+          alt: "Chemical peel before/after — eye area",
+          tag: "Chemical peel",
+        },
+        {
+          src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
+          alt: "Body contouring before/after — thighs",
+          tag: "Body contouring",
+        },
+        {
+          src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg",
+          alt: "Body contouring before/after — abdomen",
+          tag: "Body contouring",
+        },
+        {
+          src: "/slk/instagram/11-body-contouring-back-before-after.jpg",
+          alt: "Body contouring before/after — back",
+          tag: "Body contouring",
+        },
+      ],
+    },
     aboutTeaser: {
       title: "Esthetics, built around you",
       body: "Every treatment is adapted to your needs by experienced staff, in a calm, professional setting.",

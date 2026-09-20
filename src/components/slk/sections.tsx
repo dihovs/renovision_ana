@@ -1,10 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import { bookingLink, copy, type Locale } from "@/content/slk/copy";
 import { slkPath } from "@/content/slk/paths";
 
-// One gradient swatch per service row, standing in for real treatment
-// photography until SLK supplies it (see src/content/slk/copy.ts).
-const SWATCHES = [
+// Gradient swatch for service rows that have no real photo yet (see
+// `image` on each entry in src/content/slk/copy.ts).
+const FALLBACK_SWATCHES = [
   "linear-gradient(135deg, #D9B48F, #A9694A)",
   "linear-gradient(135deg, #C9A98A, #8A9A7E)",
   "linear-gradient(135deg, #B5583A, #5B3A30)",
@@ -20,26 +21,27 @@ export function Hero({ locale }: { locale: Locale }) {
   const book = bookingLink();
   return (
     <section className="relative flex min-h-[92vh] items-end overflow-hidden">
+      <Image
+        src="/slk/instagram/03-facial-treatment-closeup.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="scale-110 object-cover blur-md"
+      />
+      <div
+        className="absolute inset-0"
+        style={{ background: "linear-gradient(160deg, rgba(228,201,174,0.35) 0%, rgba(91,58,48,0.55) 100%)" }}
+      />
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(160deg, #E4C9AE 0%, #C88B67 42%, #96604A 78%, #5B3A30 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{ background: "radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.22), transparent 55%)" }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(0deg, rgba(20,14,11,0.55) 0%, rgba(20,14,11,0.05) 45%, rgba(20,14,11,0.15) 100%)",
+            "linear-gradient(0deg, rgba(20,14,11,0.68) 0%, rgba(20,14,11,0.15) 45%, rgba(20,14,11,0.25) 100%)",
         }}
       />
       <span className="absolute right-6 top-7 rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-widest text-white/55 sm:right-10">
-        {locale === "fr" ? "Photo signature — à remplacer" : "Signature photo — placeholder"}
+        {locale === "fr" ? "Photo Instagram, traitée — à remplacer par un vrai portrait" : "Treated Instagram photo — replace with a real portrait"}
       </span>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 text-[var(--slk-ivory)] sm:px-6 sm:pb-24">
@@ -103,13 +105,80 @@ export function ServicesGrid({ locale }: { locale: Locale }) {
                 <div className="font-slk-serif mb-1 text-xl font-normal sm:text-2xl">{s.title}</div>
                 <p className="max-w-md text-sm font-light text-[var(--slk-ivory)]/55">{s.blurb}</p>
               </div>
-              <div
-                className="hidden h-16 rounded-lg opacity-85 sm:block"
-                style={{ background: SWATCHES[i % SWATCHES.length] }}
-              />
+              {s.image ? (
+                <div className="relative hidden h-16 overflow-hidden rounded-lg sm:block">
+                  <Image src={s.image} alt="" fill sizes="180px" className="object-cover" />
+                </div>
+              ) : (
+                <div
+                  className="hidden h-16 rounded-lg opacity-85 sm:block"
+                  style={{ background: FALLBACK_SWATCHES[i % FALLBACK_SWATCHES.length] }}
+                />
+              )}
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+export function SignatureSpotlight({ locale }: { locale: Locale }) {
+  const t = copy[locale].spotlight;
+  return (
+    <section className="bg-[var(--slk-ivory)]">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 py-24 sm:px-6 md:grid-cols-2 md:gap-14">
+        <div className="relative aspect-square overflow-hidden rounded-2xl">
+          {/* Source image is a square 640x640 Instagram still with baked-in
+              French promo text — aspect-square matches it exactly so
+              object-cover shows the whole graphic instead of cropping text. */}
+          <Image src={t.image} alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+        </div>
+        <div>
+          <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">{t.eyebrow}</p>
+          <h2 className="font-slk-serif mb-6 text-3xl font-normal sm:text-4xl">{t.title}</h2>
+          <p className="mb-8 font-light text-[var(--slk-charcoal)]/70">{t.body}</p>
+          <a
+            href={bookingLink().href}
+            target={bookingLink().external ? "_blank" : undefined}
+            rel={bookingLink().external ? "noopener noreferrer" : undefined}
+            className="inline-block rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
+          >
+            {t.cta}
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function ResultsGallery({ locale }: { locale: Locale }) {
+  const t = copy[locale].results;
+  return (
+    <section className="bg-[var(--slk-terracotta-light)]">
+      <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+        <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta-dark)]">{t.eyebrow}</p>
+        <h2 className="font-slk-serif mb-3 text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">
+          {t.title}
+        </h2>
+        <p className="mb-10 max-w-xl font-light text-[var(--slk-charcoal)]/70">{t.subtitle}</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {t.items.map((item) => (
+            <div key={item.src} className="group relative aspect-square overflow-hidden rounded-xl">
+              <Image
+                src={item.src}
+                alt={item.alt}
+                fill
+                sizes="(min-width: 640px) 33vw, 50vw"
+                className="object-cover transition duration-300 group-hover:scale-105"
+              />
+              <span className="absolute bottom-2 left-2 rounded-full bg-[var(--slk-charcoal)]/70 px-3 py-1 text-[11px] text-[var(--slk-ivory)]">
+                {item.tag}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-8 max-w-2xl text-xs text-[var(--slk-charcoal)]/55">{t.disclaimer}</p>
       </div>
     </section>
   );
