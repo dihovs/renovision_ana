@@ -102,7 +102,12 @@ export function ServicesGrid({ locale }: { locale: Locale }) {
                 {String(i + 1).padStart(2, "0")}
               </div>
               <div>
-                <div className="font-slk-serif mb-1 text-xl font-normal sm:text-2xl">{s.title}</div>
+                <Link
+                  href={slkPath(locale, `/services/${s.slug}`)}
+                  className="font-slk-serif mb-1 block text-xl font-normal hover:text-[var(--slk-terracotta)] sm:text-2xl"
+                >
+                  {s.title}
+                </Link>
                 <p className="max-w-md text-sm font-light text-[var(--slk-ivory)]/55">{s.blurb}</p>
               </div>
               {s.image ? (
@@ -228,5 +233,98 @@ export function ContactTeaser({ locale }: { locale: Locale }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/** A single service's own page: what it is, what to expect, and links to the rest of the menu. */
+export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }) {
+  const t = copy[locale];
+  const service = t.services.find((s) => s.slug === slug);
+  if (!service) return null;
+  const book = bookingLink();
+  const others = t.services.filter((s) => s.slug !== slug);
+
+  return (
+    <>
+      <section className="relative flex min-h-[46vh] items-end overflow-hidden bg-[var(--slk-charcoal)]">
+        {service.image && (
+          <>
+            <Image src={service.image} alt="" fill sizes="100vw" className="object-cover opacity-40" />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(0deg, rgba(20,14,11,0.85) 0%, rgba(20,14,11,0.3) 60%, rgba(20,14,11,0.4) 100%)",
+              }}
+            />
+          </>
+        )}
+        <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-14 text-[var(--slk-ivory)] sm:px-6">
+          <Link
+            href={slkPath(locale, "/services")}
+            className="mb-6 inline-block text-sm text-[var(--slk-ivory)]/70 hover:text-[var(--slk-ivory)]"
+          >
+            ← {t.nav.services}
+          </Link>
+          <h1 className="font-slk-serif text-4xl font-normal sm:text-5xl">{service.title}</h1>
+        </div>
+      </section>
+
+      <section className="bg-[var(--slk-ivory)]">
+        <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
+          <p className="mb-8 text-lg font-light leading-relaxed text-[var(--slk-charcoal)]/80">
+            {service.detail.intro}
+          </p>
+          <ul className="mb-10 flex flex-col gap-4">
+            {service.detail.points.map((point) => (
+              <li key={point} className="flex gap-3 text-[var(--slk-charcoal)]/80">
+                <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--slk-terracotta)]" />
+                <span className="font-light">{point}</span>
+              </li>
+            ))}
+          </ul>
+          {service.detail.note && (
+            <p className="mb-10 rounded-xl bg-[var(--slk-terracotta-light)] px-5 py-4 text-sm text-[var(--slk-charcoal)]/70">
+              {service.detail.note}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-4">
+            <a
+              href={book.href}
+              target={book.external ? "_blank" : undefined}
+              rel={book.external ? "noopener noreferrer" : undefined}
+              className="rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
+            >
+              {t.contactPage.bookCta}
+            </a>
+            <Link
+              href={slkPath(locale, "/contact")}
+              className="rounded-full border border-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-[var(--slk-terracotta-dark)] transition hover:bg-white"
+            >
+              {t.nav.contact}
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
+        <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
+          <p className="mb-6 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">
+            {locale === "fr" ? "Autres soins" : "Other treatments"}
+          </p>
+          <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+            {others.map((s) => (
+              <Link
+                key={s.slug}
+                href={slkPath(locale, `/services/${s.slug}`)}
+                className="border-b border-white/10 py-3 font-light hover:text-[var(--slk-terracotta)]"
+              >
+                {s.title}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

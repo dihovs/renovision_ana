@@ -48,7 +48,8 @@ export function bookingLink(): { href: string; external: boolean } {
     : { href: business.phoneHref, external: false };
 }
 
-type Service = { title: string; blurb: string; image?: string };
+type ServiceDetail = { intro: string; points: string[]; note?: string };
+type Service = { slug: string; title: string; blurb: string; image?: string; detail: ServiceDetail };
 
 export type GalleryItem = { src: string; alt: string; tag: string };
 
@@ -107,43 +108,122 @@ export const copy: Record<Locale, Copy> = {
     },
     services: [
       {
+        slug: "soin-du-visage-classique",
         title: "Soin du visage classique",
         blurb:
           "Nettoyage en profondeur, exfoliation et hydratation pour une peau nette et lumineuse.",
         image: "/slk/instagram/03-facial-treatment-closeup.jpg",
+        detail: {
+          intro:
+            "Un nettoyage en profondeur du visage et du cou, avec extraction manuelle, pensé pour désengorger les pores et relancer l'éclat naturel de la peau.",
+          points: [
+            "Nettoyage, extraction manuelle et hydratation du visage et du cou.",
+            "Séance d'environ 1 h 30.",
+            "Une légère rougeur, de petits bleus ou un gonflement peuvent apparaître et persister 3 à 5 jours après une extraction en profondeur — c'est normal.",
+            "Souvent combiné à une microdermabrasion dans la même séance.",
+          ],
+        },
       },
       {
+        slug: "soin-anti-age",
         title: "Soin anti-âge",
         blurb:
           "Techniques ciblées pour raffermir, lisser et redonner de l'éclat aux peaux matures.",
+        detail: {
+          intro:
+            "Les bénéfices anti-âge (fermeté, lissage, éclat) reviennent régulièrement dans les soins d'extraction et de peeling de la clinique.",
+          points: [
+            "Vise le raffermissement, le lissage et l'uniformisation du teint.",
+            "Construit à partir des mêmes techniques que le soin classique et le peeling chimique, adaptées aux peaux matures.",
+          ],
+          note: "Le menu exact de ce soin (durée, prix, protocole précis) n'est pas confirmé publiquement — à valider avec la clinique avant réservation.",
+        },
       },
       {
+        slug: "peeling-chimique",
         title: "Peeling chimique",
         blurb:
           "Exfoliation en profondeur pour uniformiser le teint et atténuer les imperfections.",
         image: "/slk/instagram/05-peeling-before-after-texture.jpg",
+        detail: {
+          intro:
+            "Une exfoliation chimique utilisée pour l'acné, les cicatrices d'acné, l'hyperpigmentation, la rosacée et les signes de l'âge.",
+          points: [
+            "Cible l'acné, les cicatrices, les taches, la rosacée et les autres imperfections visibles.",
+            "Phase de pelage et de guérison d'environ 7 jours, avec des soins post-traitement à suivre.",
+            "Consultation gratuite offerte pour évaluer si ce soin convient à votre peau.",
+          ],
+          note: "Les résultats et le temps de récupération varient d'une personne à l'autre.",
+        },
       },
       {
+        slug: "microdermabrasion",
         title: "Microdermabrasion",
         blurb: "Exfoliation mécanique douce qui affine le grain de peau et le teint.",
+        detail: {
+          intro:
+            "Une exfoliation mécanique douce, généralement combinée à l'extraction, pour retirer les cellules mortes et raviver l'éclat de la peau.",
+          points: [
+            "Affine le grain de peau et uniformise le teint.",
+            "Souvent proposée dans la même séance qu'un soin du visage classique.",
+          ],
+        },
       },
       {
+        slug: "epilation",
         title: "Épilation",
         blurb: "Épilation à la cire, visage et corps, dans un environnement propre et confortable.",
+        detail: {
+          intro: "Épilation à la cire pour le visage et le corps.",
+          points: [
+            "Zones courantes : visage et corps, incluant les aisselles.",
+            "Environnement propre, à usage unique où applicable.",
+          ],
+          note: "La liste complète des zones offertes n'est pas confirmée publiquement — confirmez la zone souhaitée au moment de la réservation.",
+        },
       },
       {
+        slug: "extensions-de-cils",
         title: "Extensions de cils",
         blurb: "Cils classiques, hybrides ou volume, posés sur mesure selon le résultat souhaité.",
+        detail: {
+          intro: "Mise en valeur du regard par pose de cils ou lash lift.",
+          points: [
+            "Lash lift confirmé comme service distinct offert par la clinique.",
+            "Options d'extensions (classique, hybride, volume) à confirmer selon le menu en vigueur.",
+          ],
+          note: "Le menu de cils actuel n'a pas pu être confirmé publiquement dans son ensemble — demandez le détail des options disponibles au moment de la réservation.",
+        },
       },
       {
+        slug: "remodelage-corporel",
         title: "Remodelage corporel",
         blurb:
           "Traitements ciblés pour le contour du corps : drainage lymphatique, pressothérapie et plus.",
         image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
+        detail: {
+          intro:
+            "Le soin signature de la clinique : quatre technologies combinées en une seule séance avec l'appareil Beauty Pot.",
+          points: [
+            "Lipocavitation, radiofréquence, lipo laser et lumière LED, dans une même séance.",
+            "Objectifs visés : réduction du contour, fermeté de la peau, drainage lymphatique, traitement de la cellulite et des vergetures.",
+            "Consultation gratuite pour évaluer vos objectifs avant de commencer.",
+          ],
+          note: "Les résultats varient d'une personne à l'autre; ce sont les objectifs promus par la clinique, non des garanties médicales.",
+        },
       },
       {
+        slug: "consultation",
         title: "Consultation personnalisée",
         blurb: "Analyse de votre peau et recommandation d'un parcours de soins adapté.",
+        detail: {
+          intro:
+            "Une évaluation de votre peau ou de vos objectifs corporels pour bâtir un parcours de soins adapté — sans engagement.",
+          points: [
+            "Gratuite pour les soins de peeling chimique et de remodelage corporel.",
+            "Point de départ recommandé si vous hésitez entre plusieurs soins.",
+          ],
+        },
       },
     ],
     spotlight: {
@@ -250,39 +330,118 @@ export const copy: Record<Locale, Copy> = {
     },
     services: [
       {
+        slug: "classic-facial",
         title: "Classic facial",
         blurb: "Deep cleansing, exfoliation and hydration for clear, radiant skin.",
         image: "/slk/instagram/03-facial-treatment-closeup.jpg",
+        detail: {
+          intro:
+            "A deep cleansing treatment for face and neck, with manual extraction, built to clear congested pores and bring back the skin's natural glow.",
+          points: [
+            "Cleansing, manual extraction and hydration for face and neck.",
+            "Roughly a 1.5-hour session.",
+            "Mild redness, light bruising or swelling can show up and last 3–5 days after a deep extraction — that's normal.",
+            "Often paired with microdermabrasion in the same visit.",
+          ],
+        },
       },
       {
+        slug: "anti-aging-facial",
         title: "Anti-aging facial",
         blurb: "Targeted techniques to firm, smooth and restore glow to mature skin.",
+        detail: {
+          intro:
+            "Anti-aging benefits — firmness, smoothing, glow — come up consistently across the clinic's extraction and peel treatments.",
+          points: [
+            "Aims to firm, smooth and even out tone.",
+            "Built on the same techniques as the classic facial and chemical peel, adapted for mature skin.",
+          ],
+          note: "The exact menu for this treatment (duration, price, precise protocol) isn't publicly confirmed — check with the clinic before booking.",
+        },
       },
       {
+        slug: "chemical-peel",
         title: "Chemical peel",
         blurb: "Deep exfoliation to even out skin tone and soften imperfections.",
         image: "/slk/instagram/05-peeling-before-after-texture.jpg",
+        detail: {
+          intro:
+            "A chemical exfoliation used for acne, acne scarring, hyperpigmentation, rosacea and signs of aging.",
+          points: [
+            "Targets acne, scarring, dark spots, rosacea and other visible imperfections.",
+            "About a 7-day peeling and healing phase, with aftercare to follow.",
+            "Free consultation offered to check whether this treatment fits your skin.",
+          ],
+          note: "Results and recovery time vary by individual.",
+        },
       },
       {
+        slug: "microdermabrasion",
         title: "Microdermabrasion",
         blurb: "Gentle mechanical exfoliation that refines texture and tone.",
+        detail: {
+          intro:
+            "A gentle mechanical exfoliation, usually paired with extraction, to clear away dead skin cells and bring back radiance.",
+          points: [
+            "Refines skin texture and evens out tone.",
+            "Often offered in the same session as a classic facial.",
+          ],
+        },
       },
       {
+        slug: "waxing",
         title: "Waxing",
         blurb: "Face and body waxing in a clean, comfortable setting.",
+        detail: {
+          intro: "Waxing for face and body.",
+          points: [
+            "Common areas include face, body and underarms.",
+            "Clean setting, single-use materials where applicable.",
+          ],
+          note: "The full list of areas offered isn't publicly confirmed — confirm the area you want when booking.",
+        },
       },
       {
+        slug: "lash-extensions",
         title: "Lash extensions",
         blurb: "Classic, hybrid or volume sets, applied to match the look you want.",
+        detail: {
+          intro: "Eye-enhancing lash services, from lash lift to extensions.",
+          points: [
+            "Lash lift is confirmed as a distinct service the clinic offers.",
+            "Extension options (classic, hybrid, volume) should be confirmed against the current menu.",
+          ],
+          note: "The full current lash menu couldn't be confirmed publicly — ask for the available options when booking.",
+        },
       },
       {
+        slug: "body-contouring",
         title: "Body contouring",
         blurb: "Targeted body treatments: lymphatic drainage, pressotherapy and more.",
         image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
+        detail: {
+          intro:
+            "The clinic's signature treatment: four technologies combined in a single session with the Beauty Pot device.",
+          points: [
+            "Lipocavitation, radiofrequency, lipo laser and LED light, in one session.",
+            "Stated goals: reduced contour, firmer skin, lymphatic drainage, and treatment of cellulite and stretch marks.",
+            "Free consultation to assess your goals before starting.",
+          ],
+          note: "Results vary by individual; these are the clinic's stated goals, not medical guarantees.",
+        },
       },
       {
+        slug: "consultation",
         title: "Personalized consultation",
         blurb: "A skin assessment and a treatment plan built around your goals.",
+        detail: {
+          intro:
+            "An assessment of your skin or body goals to build a treatment plan that fits — no commitment required.",
+          points: [
+            "Free for chemical peel and body contouring treatments.",
+            "A good starting point if you're deciding between treatments.",
+          ],
+        },
       },
     ],
     spotlight: {
