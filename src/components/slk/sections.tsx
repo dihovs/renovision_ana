@@ -156,10 +156,11 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
   return (
     <section className="bg-[var(--slk-ivory)]">
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 py-24 sm:px-6 md:grid-cols-2 md:gap-14">
-        <div className="relative aspect-square overflow-hidden rounded-2xl">
-          {/* Source image is a square 640x640 Instagram still with baked-in
-              French promo text — aspect-square matches it exactly so
-              object-cover shows the whole graphic instead of cropping text. */}
+        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
+          {/* Pre-cropped locally (see public/slk/instagram/*-crop.jpg) to cut
+              off the "Clinique Esthétique SLK · Transformation" neon-sign
+              banner baked into the original Instagram stills — the client
+              didn't want any text-bearing photos used, cropped or not. */}
           <Image src={t.image} alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
         </div>
         <div>
