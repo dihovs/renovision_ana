@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { business, copy, type Locale } from "@/content/slk/copy";
+import { bookingLink, copy, type Locale } from "@/content/slk/copy";
 import { slkPath } from "@/content/slk/paths";
 
 // One gradient swatch per service row, standing in for real treatment
@@ -17,6 +17,7 @@ const SWATCHES = [
 
 export function Hero({ locale }: { locale: Locale }) {
   const t = copy[locale].hero;
+  const book = bookingLink();
   return (
     <section className="relative flex min-h-[92vh] items-end overflow-hidden">
       <div
@@ -49,9 +50,9 @@ export function Hero({ locale }: { locale: Locale }) {
         <p className="max-w-md text-lg font-light leading-relaxed text-[var(--slk-ivory)]/90">{t.subtitle}</p>
         <div className="flex flex-wrap gap-4 pt-3">
           <a
-            href={business.bookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={book.href}
+            target={book.external ? "_blank" : undefined}
+            rel={book.external ? "noopener noreferrer" : undefined}
             className="rounded-full bg-[var(--slk-ivory)] px-7 py-4 text-sm font-medium text-[var(--slk-charcoal)] transition hover:opacity-90"
           >
             {t.cta}
@@ -134,6 +135,7 @@ export function AboutTeaser({ locale }: { locale: Locale }) {
 
 export function ContactTeaser({ locale }: { locale: Locale }) {
   const t = copy[locale].contactTeaser;
+  const book = bookingLink();
   return (
     <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
       <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6">
@@ -141,9 +143,9 @@ export function ContactTeaser({ locale }: { locale: Locale }) {
         <p className="mx-auto mt-4 max-w-lg font-light text-[var(--slk-ivory)]/65">{t.body}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <a
-            href={business.bookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={book.href}
+            target={book.external ? "_blank" : undefined}
+            rel={book.external ? "noopener noreferrer" : undefined}
             className="rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
           >
             {copy[locale].contactPage.bookCta}

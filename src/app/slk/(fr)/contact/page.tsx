@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import SlkHeader from "@/components/slk/Header";
 import SlkFooter from "@/components/slk/Footer";
-import { business, copy } from "@/content/slk/copy";
+import { business, bookingLink, copy } from "@/content/slk/copy";
 
 export const metadata: Metadata = { title: copy.fr.contactPage.title };
 
 export default function SlkContactFr() {
   const t = copy.fr.contactPage;
+  const book = bookingLink();
   return (
     <>
       <SlkHeader locale="fr" path="/slk/contact" />
@@ -62,9 +63,9 @@ export default function SlkContactFr() {
             </div>
           </dl>
           <a
-            href={business.bookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={book.href}
+            target={book.external ? "_blank" : undefined}
+            rel={book.external ? "noopener noreferrer" : undefined}
             className="mt-10 inline-block rounded-full bg-[var(--slk-terracotta)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[var(--slk-terracotta-dark)]"
           >
             {t.bookCta}

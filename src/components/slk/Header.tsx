@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { business, copy, type Locale } from "@/content/slk/copy";
+import { bookingLink, copy, type Locale } from "@/content/slk/copy";
 import { slkPath, slkCounterpart } from "@/content/slk/paths";
 
 export default function SlkHeader({ locale, path }: { locale: Locale; path: string }) {
   const t = copy[locale].nav;
+  const book = bookingLink();
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--slk-terracotta-light)] bg-[var(--slk-ivory)]/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
@@ -38,9 +39,9 @@ export default function SlkHeader({ locale, path }: { locale: Locale; path: stri
             {locale === "fr" ? "EN" : "FR"}
           </Link>
           <a
-            href={business.bookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={book.href}
+            target={book.external ? "_blank" : undefined}
+            rel={book.external ? "noopener noreferrer" : undefined}
             className="rounded-full bg-[var(--slk-terracotta)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--slk-terracotta-dark)]"
           >
             {t.book}

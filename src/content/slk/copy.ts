@@ -28,11 +28,25 @@ export const business = {
   // Not independently confirmed — carried over from a listing for a
   // different SLK location. Replace with the real inbox before launch.
   email: "info@esthetiqueslk.com",
-  bookingUrl:
-    "https://www.fresha.com/a/sl-esthetique-laval-laval-333-rue-saint-martin-ouest-pyz2cxe2",
+  // The Fresha URL that was here was a guess from search results and
+  // pointed to the wrong business — confirmed wrong by the client. Until
+  // the real booking link is provided, every "book" CTA falls back to
+  // `phoneHref` instead of linking out anywhere unverified.
+  bookingUrl: null as string | null,
   instagram: "https://www.instagram.com/esthetiqueslk",
   facebook: "https://www.facebook.com/slesthetique/",
 } as const;
+
+/**
+ * Every "book" CTA goes through this rather than reading `bookingUrl`
+ * directly, so there is exactly one place that falls back to the phone
+ * number when no (verified) booking link exists.
+ */
+export function bookingLink(): { href: string; external: boolean } {
+  return business.bookingUrl
+    ? { href: business.bookingUrl, external: true }
+    : { href: business.phoneHref, external: false };
+}
 
 type Service = { title: string; blurb: string };
 
@@ -151,8 +165,8 @@ export const copy: Record<Locale, Copy> = {
       phoneLabel: "Téléphone",
       emailLabel: "Courriel",
       hoursLabel: "Heures d'ouverture",
-      hours: ["Sur rendez-vous — appelez ou réservez en ligne pour connaître les disponibilités."],
-      bookCta: "Réserver en ligne",
+      hours: ["Sur rendez-vous — appelez pour connaître les disponibilités."],
+      bookCta: "Réserver",
       confirmNote:
         "Coordonnées à confirmer avec la clinique — assemblées à partir de sources publiques, non vérifiées directement auprès de SLK.",
     },
@@ -240,8 +254,8 @@ export const copy: Record<Locale, Copy> = {
       phoneLabel: "Phone",
       emailLabel: "Email",
       hoursLabel: "Hours",
-      hours: ["By appointment — call or book online for current availability."],
-      bookCta: "Book online",
+      hours: ["By appointment — call for current availability."],
+      bookCta: "Book now",
       confirmNote:
         "Contact details need confirmation from the clinic — assembled from public sources, not verified directly with SLK.",
     },
