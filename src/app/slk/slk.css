@@ -1,0 +1,21 @@
+/*
+ * Scoped design tokens for Clinique Esthétique SLK.
+ *
+ * Deliberately NOT added to the main `@theme` in ../globals.css: this is a
+ * different business sharing the repo, and its palette (warm rose/cream spa
+ * tones) must never bleed into or collide with Renovision's brand-blue/green
+ * tokens. Imported only from src/app/slk/layout.tsx.
+ */
+
+:root {
+  --slk-rose: #b8697f;
+  --slk-rose-dark: #94495b;
+  --slk-rose-light: #f7e9ec;
+  --slk-cream: #faf6f1;
+  --slk-charcoal: #362f30;
+  --slk-gold: #c8a15c;
+}
+
+.font-slk-serif {
+  font-family: var(--font-slk-serif), Georgia, serif;
+}

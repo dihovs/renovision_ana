@@ -52,6 +52,10 @@ export const UNLOCALIZED_PREFIXES = [
   // route — the page itself is bilingual from the token's own locale.
   "/crew",
   "/opengraph-image",
+  // Clinique Esthétique SLK: a separate business's site living in this repo.
+  // It carries its own root layout, styling and FR/en subpaths and must
+  // never be rewritten onto `/fr/slk`.
+  "/slk",
 ] as const;
 
 export function isLocale(value: string | undefined): value is Locale {

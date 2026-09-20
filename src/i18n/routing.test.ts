@@ -87,6 +87,8 @@ describe("isUnlocalizedPath", () => {
       "/q/abc",
       "/i/abc",
       "/opengraph-image",
+      "/slk",
+      "/slk/en",
     ]) {
       expect(isUnlocalizedPath(path)).toBe(true);
     }
