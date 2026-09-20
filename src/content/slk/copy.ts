@@ -1,15 +1,20 @@
 /**
- * Content for Clinique Esthétique SLK (esthetiqueslk.com), Laval, QC.
+ * Content for Clinique Esthétique SLK / Esthétique SLK (esthetiqueslk.com), Laval, QC.
  *
- * SLK's own site and Instagram (@esthetiqueslk) were unreachable from this
- * environment (network egress blocks both domains), so this was assembled
- * from public search results (Fresha listings, Facebook page "SL
- * Esthétique") rather than the source directly. Two address/phone pairs
- * turned up for what looks like the same business at different times; the
- * one used below is the Saint-Martin location, which is the one with the
- * live 5.0-star Fresha review count. CONFIRM every fact in this file
- * against the real business before this goes live — none of it should be
- * treated as verified.
+ * Sourcing policy (per the client's brief, 2026-09-20): services on this
+ * site are limited to what's evidenced on Instagram `@esthetiqueslk` —
+ * grid posts, captions, and highlight *labels*. Fresha (menu, prices,
+ * hours, team, booking) is explicitly out of scope for this build, even
+ * though `docs/esthetiqueslk/RESEARCH.md` documents it — that doc's Fresha
+ * sections are kept for reference only and are not a source for this file.
+ * Anything not evidenced on Instagram carries a `note` on its detail entry
+ * saying so, rather than being invented.
+ *
+ * Contact NAP (address/phone/email) is founder-supplied, not Fresha- or
+ * directory-derived, and is kept as secondary contact info — not the
+ * primary CTA. The primary booking CTA is Instagram DM, per the account's
+ * own repeated "réservation via messagerie" / "sur rendez-vous seulement"
+ * captions.
  */
 
 export type Locale = "fr" | "en";
@@ -25,42 +30,61 @@ export const business = {
   },
   phone: "+1 450-969-8222",
   phoneHref: "tel:+14509698222",
-  // Not independently confirmed — carried over from a listing for a
-  // different SLK location. Replace with the real inbox before launch.
+  // Founder-supplied, not independently confirmed. Secondary contact only —
+  // never the primary "book" CTA (see bookingLink()).
   email: "info@esthetiqueslk.com",
-  // The Fresha URL that was here was a guess from search results and
-  // pointed to the wrong business — confirmed wrong by the client. Until
-  // the real booking link is provided, every "book" CTA falls back to
-  // `phoneHref` instead of linking out anywhere unverified.
+  // No verified direct booking link exists (a guessed Fresha URL was tried
+  // here once and turned out to point to the wrong business). Instagram DM
+  // is what the account itself repeatedly names as the booking channel, so
+  // it's the real primary CTA, not a placeholder.
   bookingUrl: null as string | null,
   instagram: "https://www.instagram.com/esthetiqueslk",
   facebook: "https://www.facebook.com/slesthetique/",
 } as const;
 
 /**
- * Every "book" CTA goes through this rather than reading `bookingUrl`
- * directly, so there is exactly one place that falls back to the phone
- * number when no (verified) booking link exists.
+ * Every "book" CTA goes through this. Preference order: a confirmed direct
+ * booking URL (none exists yet) → Instagram DM (the account's own stated
+ * channel) → phone, as a last resort only.
  */
 export function bookingLink(): { href: string; external: boolean } {
-  return business.bookingUrl
-    ? { href: business.bookingUrl, external: true }
-    : { href: business.phoneHref, external: false };
+  if (business.bookingUrl) return { href: business.bookingUrl, external: true };
+  if (business.instagram) return { href: business.instagram, external: true };
+  return { href: business.phoneHref, external: false };
 }
 
+type ServiceCategory = "visage" | "remodelage" | "regard";
 type ServiceDetail = { intro: string; points: string[]; note?: string };
-type Service = { slug: string; title: string; blurb: string; image?: string; detail: ServiceDetail };
+type Service = {
+  slug: string;
+  category: ServiceCategory;
+  title: string;
+  blurb: string;
+  image?: string;
+  detail: ServiceDetail;
+};
 
-export type GalleryItem = { src: string; alt: string; tag: string };
+export type GalleryItem = { src: string; alt: string };
 
 type Copy = {
   meta: { title: string; description: string };
   nav: { home: string; services: string; about: string; contact: string; book: string };
   hero: { eyebrow: string; title: string; subtitle: string; cta: string; ctaSecondary: string };
   servicesIntro: { eyebrow: string; title: string; subtitle: string };
+  serviceCategories: Record<ServiceCategory, string>;
   services: Service[];
   spotlight: { eyebrow: string; title: string; body: string; cta: string; image: string };
-  results: { eyebrow: string; title: string; subtitle: string; disclaimer: string; items: GalleryItem[] };
+  results: {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    disclaimer: string;
+    peauLabel: string;
+    corpsLabel: string;
+    peau: GalleryItem[];
+    corps: GalleryItem[];
+  };
+  noWalkIns: string;
   aboutTeaser: { title: string; body: string; cta: string };
   aboutPage: { title: string; intro: string; paragraphs: string[] };
   contactTeaser: { title: string; body: string };
@@ -83,7 +107,7 @@ export const copy: Record<Locale, Copy> = {
     meta: {
       title: "Clinique Esthétique SLK | Soins du visage & esthétique à Laval",
       description:
-        "Clinique Esthétique SLK à Laval : soins du visage, soins de la peau et traitements esthétiques adaptés à vos besoins.",
+        "Clinique Esthétique SLK à Laval : soins du visage, remodelage corporel et regard — sur rendez-vous, réservation via Instagram.",
     },
     nav: {
       home: "Accueil",
@@ -96,22 +120,26 @@ export const copy: Record<Locale, Copy> = {
       eyebrow: "Clinique Esthétique SLK — Laval",
       title: "Révélez l'éclat de votre peau",
       subtitle:
-        "Soins du visage et traitements esthétiques personnalisés, pensés pour votre type de peau et vos objectifs — dans une clinique à Laval.",
-      cta: "Réserver un rendez-vous",
-      ctaSecondary: "Voir nos services",
+        "Soins du visage et remodelage corporel personnalisés, pensés pour votre peau et vos objectifs — dans une clinique à Laval.",
+      cta: "Réserver sur Instagram",
+      ctaSecondary: "Voir nos soins",
     },
     servicesIntro: {
       eyebrow: "Nos soins",
       title: "Soins du visage & esthétique",
-      subtitle:
-        "Chaque traitement est adapté à votre peau par une esthéticienne d'expérience.",
+      subtitle: "Ce que la clinique montre elle-même sur Instagram — rien d'inventé, rien d'un menu tiers.",
+    },
+    serviceCategories: {
+      visage: "Soins du visage & peau",
+      remodelage: "Remodelage corporel",
+      regard: "Regard & épilation",
     },
     services: [
       {
-        slug: "soin-du-visage-classique",
-        title: "Soin du visage classique",
-        blurb:
-          "Nettoyage en profondeur, exfoliation et hydratation pour une peau nette et lumineuse.",
+        slug: "nettoyage-extraction",
+        category: "visage",
+        title: "Nettoyage en profondeur & extraction",
+        blurb: "Nettoyage et extraction manuelle du visage et du cou, pour désengorger les pores.",
         image: "/slk/instagram/03-facial-treatment-closeup.jpg",
         detail: {
           intro:
@@ -125,25 +153,24 @@ export const copy: Record<Locale, Copy> = {
         },
       },
       {
-        slug: "soin-anti-age",
-        title: "Soin anti-âge",
-        blurb:
-          "Techniques ciblées pour raffermir, lisser et redonner de l'éclat aux peaux matures.",
+        slug: "microdermabrasion",
+        category: "visage",
+        title: "Microdermabrasion",
+        blurb: "Exfoliation mécanique douce qui affine le grain de peau et le teint.",
         detail: {
           intro:
-            "Les bénéfices anti-âge (fermeté, lissage, éclat) reviennent régulièrement dans les soins d'extraction et de peeling de la clinique.",
+            "Une exfoliation mécanique douce, généralement combinée à l'extraction, pour retirer les cellules mortes et raviver l'éclat de la peau.",
           points: [
-            "Vise le raffermissement, le lissage et l'uniformisation du teint.",
-            "Construit à partir des mêmes techniques que le soin classique et le peeling chimique, adaptées aux peaux matures.",
+            "Affine le grain de peau et uniformise le teint.",
+            "Nommée aux côtés de l'extraction dans les publications de la clinique.",
           ],
-          note: "Le menu exact de ce soin (durée, prix, protocole précis) n'est pas confirmé publiquement — à valider avec la clinique avant réservation.",
         },
       },
       {
         slug: "peeling-chimique",
+        category: "visage",
         title: "Peeling chimique",
-        blurb:
-          "Exfoliation en profondeur pour uniformiser le teint et atténuer les imperfections.",
+        blurb: "Exfoliation en profondeur pour uniformiser le teint et atténuer les imperfections.",
         image: "/slk/instagram/05-peeling-before-after-texture.jpg",
         detail: {
           intro:
@@ -157,125 +184,136 @@ export const copy: Record<Locale, Copy> = {
         },
       },
       {
-        slug: "microdermabrasion",
-        title: "Microdermabrasion",
-        blurb: "Exfoliation mécanique douce qui affine le grain de peau et le teint.",
+        slug: "soin-du-visage",
+        category: "visage",
+        title: "Soin du visage",
+        blurb: "Le soin signature — nettoyage et éclat, pensé comme une vraie pause.",
+        image: "/slk/instagram/02-signature-facial-portrait.jpg",
         detail: {
           intro:
-            "Une exfoliation mécanique douce, généralement combinée à l'extraction, pour retirer les cellules mortes et raviver l'éclat de la peau.",
+            "Le soin du visage de la clinique, décrit par la propriétaire elle-même comme « sa passion » dans ses publications.",
           points: [
-            "Affine le grain de peau et uniformise le teint.",
-            "Souvent proposée dans la même séance qu'un soin du visage classique.",
+            "Nettoyage et mise en valeur du teint.",
+            "Souvent combiné à l'extraction et à la microdermabrasion dans la même séance.",
           ],
         },
       },
       {
-        slug: "epilation",
-        title: "Épilation",
-        blurb: "Épilation à la cire, visage et corps, dans un environnement propre et confortable.",
+        slug: "anti-age",
+        category: "visage",
+        title: "Anti-âge",
+        blurb: "Un bénéfice recherché à travers l'extraction et le peeling, plus qu'un soin à part.",
         detail: {
-          intro: "Épilation à la cire pour le visage et le corps.",
+          intro:
+            "Les bénéfices anti-âge (fermeté, lissage, éclat) reviennent régulièrement dans les publications d'extraction et de peeling de la clinique.",
           points: [
-            "Zones courantes : visage et corps, incluant les aisselles.",
-            "Environnement propre, à usage unique où applicable.",
+            "Vise le raffermissement, le lissage et l'uniformisation du teint.",
+            "Construit à partir des mêmes techniques que le nettoyage en profondeur et le peeling chimique.",
           ],
-          note: "La liste complète des zones offertes n'est pas confirmée publiquement — confirmez la zone souhaitée au moment de la réservation.",
+          note: "Ce n'est pas un protocole distinct au menu — à valider avec la clinique selon vos objectifs.",
         },
       },
       {
-        slug: "extensions-de-cils",
-        title: "Extensions de cils",
-        blurb: "Cils classiques, hybrides ou volume, posés sur mesure selon le résultat souhaité.",
-        detail: {
-          intro: "Mise en valeur du regard par pose de cils ou lash lift.",
-          points: [
-            "Lash lift confirmé comme service distinct offert par la clinique.",
-            "Options d'extensions (classique, hybride, volume) à confirmer selon le menu en vigueur.",
-          ],
-          note: "Le menu de cils actuel n'a pas pu être confirmé publiquement dans son ensemble — demandez le détail des options disponibles au moment de la réservation.",
-        },
-      },
-      {
-        slug: "remodelage-corporel",
-        title: "Remodelage corporel",
-        blurb:
-          "Traitements ciblés pour le contour du corps : drainage lymphatique, pressothérapie et plus.",
+        slug: "remodelage-beauty-pot",
+        category: "remodelage",
+        title: "Remodelage corporel — Beauty Pot 4-en-1",
+        blurb: "Lipocavitation, radiofréquence, lipo laser et lumière LED, en une seule séance.",
         image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
         detail: {
           intro:
             "Le soin signature de la clinique : quatre technologies combinées en une seule séance avec l'appareil Beauty Pot.",
           points: [
             "Lipocavitation, radiofréquence, lipo laser et lumière LED, dans une même séance.",
-            "Objectifs visés : réduction du contour, fermeté de la peau, drainage lymphatique, traitement de la cellulite et des vergetures.",
+            "Objectifs visés : réduction du contour et fermeté de la peau.",
             "Consultation gratuite pour évaluer vos objectifs avant de commencer.",
           ],
           note: "Les résultats varient d'une personne à l'autre; ce sont les objectifs promus par la clinique, non des garanties médicales.",
         },
       },
       {
-        slug: "consultation",
-        title: "Consultation personnalisée",
-        blurb: "Analyse de votre peau et recommandation d'un parcours de soins adapté.",
+        slug: "cellulite-fermete-drainage",
+        category: "remodelage",
+        title: "Cellulite, fermeté & drainage lymphatique",
+        blurb: "Les objectifs du remodelage corporel : peau plus ferme, cellulite, vergetures, drainage.",
+        image: "/slk/instagram/11-body-contouring-back-before-after.jpg",
         detail: {
           intro:
-            "Une évaluation de votre peau ou de vos objectifs corporels pour bâtir un parcours de soins adapté — sans engagement.",
+            "Ce sont les objectifs visés par le remodelage corporel avec le Beauty Pot, dans la même séance — pas des traitements séparés.",
           points: [
-            "Gratuite pour les soins de peeling chimique et de remodelage corporel.",
-            "Point de départ recommandé si vous hésitez entre plusieurs soins.",
+            "Traitement de la cellulite et des vergetures.",
+            "Drainage lymphatique, mentionné directement dans les publications de la clinique.",
           ],
+          note: "Objectifs promus par la clinique sur Instagram — les résultats varient d'une personne à l'autre.",
+        },
+      },
+      {
+        slug: "consultation-remodelage",
+        category: "remodelage",
+        title: "Consultation remodelage (gratuite)",
+        blurb: "Une évaluation gratuite de vos objectifs avant de commencer un parcours de remodelage.",
+        detail: {
+          intro:
+            "Consultation gratuite offerte pour le remodelage corporel, mentionnée directement dans les publications de la clinique.",
+          points: ["Aucun engagement.", "Bon point de départ si vous hésitez à commencer."],
+        },
+      },
+      {
+        slug: "lash-lift",
+        category: "regard",
+        title: "Lash Lift",
+        blurb: "Rehaussement de cils — confirmé comme service distinct de la clinique.",
+        detail: {
+          intro:
+            "Un rehaussement de cils, mis en évidence comme catégorie distincte (« Lash Lift ») sur le compte Instagram de la clinique.",
+          points: ["Service confirmé, distinct des extensions de cils."],
+        },
+      },
+      {
+        slug: "epilation",
+        category: "regard",
+        title: "Épilation",
+        blurb: "Épilation à la cire — portée exacte à confirmer.",
+        detail: {
+          intro: "Une catégorie « Aisselles » apparaît dans les mises en avant du compte Instagram de la clinique.",
+          points: ["Sous-entend une offre d'épilation, au moins pour les aisselles."],
+          note: "La portée complète (zones, méthode) n'est pas confirmée publiquement — demandez le détail au moment de la réservation.",
         },
       },
     ],
     spotlight: {
       eyebrow: "Soin signature",
       title: "Remodelage corporel — technologie Beauty Pot 4-en-1",
-      body: "Quatre technologies combinées en une seule séance — lipocavitation, radiofréquence, lipo laser et lumière LED — pour le contour du corps, la fermeté de la peau et le drainage lymphatique. Consultation gratuite pour évaluer vos objectifs.",
+      body: "Quatre technologies combinées en une seule séance — lipocavitation, radiofréquence, lipo laser et lumière LED — pour le contour du corps et la fermeté de la peau. Consultation gratuite pour évaluer vos objectifs.",
       cta: "Réserver une consultation gratuite",
       image: "/slk/instagram/01-remodelage-before-after.jpg",
     },
     results: {
       eyebrow: "Résultats",
       title: "Des résultats visibles, sur peau et sur corps",
-      subtitle: "Une sélection de résultats clients partagés publiquement par SLK.",
+      subtitle: "Une sélection de résultats clients partagés publiquement par SLK sur Instagram.",
       disclaimer:
-        "Résultats de clientes, partagés avec leur consentement sur le compte Instagram de la clinique. Les résultats varient d'une personne à l'autre.",
-      items: [
-        {
-          src: "/slk/instagram/04-peeling-before-after-acne.jpg",
-          alt: "Avant / après peeling chimique — peau avec acné",
-          tag: "Peeling chimique",
-        },
-        {
-          src: "/slk/instagram/05-peeling-before-after-texture.jpg",
-          alt: "Avant / après peeling chimique — texture de peau",
-          tag: "Peeling chimique",
-        },
-        {
-          src: "/slk/instagram/06-peeling-before-after-eyes.jpg",
-          alt: "Avant / après peeling chimique — contour des yeux",
-          tag: "Peeling chimique",
-        },
-        {
-          src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
-          alt: "Avant / après remodelage corporel — cuisses",
-          tag: "Remodelage corporel",
-        },
-        {
-          src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg",
-          alt: "Avant / après remodelage corporel — abdomen",
-          tag: "Remodelage corporel",
-        },
-        {
-          src: "/slk/instagram/11-body-contouring-back-before-after.jpg",
-          alt: "Avant / après remodelage corporel — dos",
-          tag: "Remodelage corporel",
-        },
+        "Exemples clients, partagés avec leur consentement sur le compte Instagram de la clinique. Les résultats varient d'une personne à l'autre.",
+      peauLabel: "Peau",
+      corpsLabel: "Corps",
+      peau: [
+        { src: "/slk/instagram/04-peeling-before-after-acne.jpg", alt: "Avant / après peeling chimique — peau avec acné" },
+        { src: "/slk/instagram/05-peeling-before-after-texture.jpg", alt: "Avant / après peeling chimique — texture de peau" },
+        { src: "/slk/instagram/06-peeling-before-after-eyes.jpg", alt: "Avant / après peeling chimique — contour des yeux" },
+      ],
+      corps: [
+        { src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg", alt: "Avant / après remodelage corporel — cuisses" },
+        { src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg", alt: "Avant / après remodelage corporel — abdomen" },
+        { src: "/slk/instagram/09-cellulite-before-after-legs.jpg", alt: "Avant / après traitement de la cellulite — jambes" },
+        { src: "/slk/instagram/10-body-contouring-waist-before-after.jpg", alt: "Avant / après remodelage corporel — taille" },
+        { src: "/slk/instagram/11-body-contouring-back-before-after.jpg", alt: "Avant / après remodelage corporel — dos" },
+        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2.jpg", alt: "Avant / après remodelage corporel — abdomen" },
+        { src: "/slk/instagram/13-body-contouring-midsection-before-after.jpg", alt: "Avant / après remodelage corporel — mi-corps" },
       ],
     },
+    noWalkIns: "Sur rendez-vous seulement — pas de visites sans rendez-vous.",
     aboutTeaser: {
       title: "Une esthétique pensée pour vous",
-      body:
-        "Chaque soin est adapté à vos besoins par du personnel expérimenté, dans une ambiance calme et professionnelle.",
+      body: "Chaque soin est adapté à vos besoins par du personnel expérimenté, dans une ambiance calme et professionnelle.",
       cta: "En savoir plus",
     },
     aboutPage: {
@@ -289,7 +327,7 @@ export const copy: Record<Locale, Copy> = {
     },
     contactTeaser: {
       title: "Prendre rendez-vous",
-      body: "Une question ou envie de réserver? Contactez-nous ou réservez directement en ligne.",
+      body: "Une question ou envie de réserver? Écrivez-nous directement sur Instagram.",
     },
     contactPage: {
       title: "Contact",
@@ -297,9 +335,12 @@ export const copy: Record<Locale, Copy> = {
       addressLabel: "Adresse",
       phoneLabel: "Téléphone",
       emailLabel: "Courriel",
-      hoursLabel: "Heures d'ouverture",
-      hours: ["Sur rendez-vous — appelez pour connaître les disponibilités."],
-      bookCta: "Réserver",
+      hoursLabel: "Rendez-vous",
+      hours: [
+        "Sur rendez-vous seulement — pas de visites sans rendez-vous.",
+        "Réservation par message sur Instagram, ou par téléphone.",
+      ],
+      bookCta: "Réserver via Instagram",
       confirmNote:
         "Coordonnées à confirmer avec la clinique — assemblées à partir de sources publiques, non vérifiées directement auprès de SLK.",
     },
@@ -312,27 +353,33 @@ export const copy: Record<Locale, Copy> = {
     meta: {
       title: "Clinique Esthétique SLK | Facials & Skincare in Laval",
       description:
-        "Clinique Esthétique SLK in Laval: facials, skincare and esthetic treatments tailored to your skin and goals.",
+        "Clinique Esthétique SLK in Laval: facials, body contouring and lash care — by appointment, book via Instagram.",
     },
     nav: { home: "Home", services: "Services", about: "About", contact: "Contact", book: "Book now" },
     hero: {
       eyebrow: "Clinique Esthétique SLK — Laval",
       title: "Reveal your skin's natural glow",
       subtitle:
-        "Personalized facials and esthetic treatments, tailored to your skin type and goals — at our clinic in Laval.",
-      cta: "Book an appointment",
-      ctaSecondary: "See our services",
+        "Personalized facials and body contouring, tailored to your skin and goals — at our clinic in Laval.",
+      cta: "Book on Instagram",
+      ctaSecondary: "See our treatments",
     },
     servicesIntro: {
       eyebrow: "Our treatments",
       title: "Facials & Esthetics",
-      subtitle: "Every treatment is tailored to your skin by an experienced esthetician.",
+      subtitle: "What the clinic itself shows on Instagram — nothing invented, nothing from a third-party menu.",
+    },
+    serviceCategories: {
+      visage: "Face & Skin",
+      remodelage: "Body Contouring",
+      regard: "Eyes & Hair Removal",
     },
     services: [
       {
-        slug: "classic-facial",
-        title: "Classic facial",
-        blurb: "Deep cleansing, exfoliation and hydration for clear, radiant skin.",
+        slug: "deep-cleansing-extraction",
+        category: "visage",
+        title: "Deep Cleansing & Extraction",
+        blurb: "Cleansing and manual extraction for face and neck, to clear congested pores.",
         image: "/slk/instagram/03-facial-treatment-closeup.jpg",
         detail: {
           intro:
@@ -346,22 +393,23 @@ export const copy: Record<Locale, Copy> = {
         },
       },
       {
-        slug: "anti-aging-facial",
-        title: "Anti-aging facial",
-        blurb: "Targeted techniques to firm, smooth and restore glow to mature skin.",
+        slug: "microdermabrasion",
+        category: "visage",
+        title: "Microdermabrasion",
+        blurb: "Gentle mechanical exfoliation that refines texture and tone.",
         detail: {
           intro:
-            "Anti-aging benefits — firmness, smoothing, glow — come up consistently across the clinic's extraction and peel treatments.",
+            "A gentle mechanical exfoliation, usually paired with extraction, to clear away dead skin cells and bring back radiance.",
           points: [
-            "Aims to firm, smooth and even out tone.",
-            "Built on the same techniques as the classic facial and chemical peel, adapted for mature skin.",
+            "Refines skin texture and evens out tone.",
+            "Named alongside extraction in the clinic's own posts.",
           ],
-          note: "The exact menu for this treatment (duration, price, precise protocol) isn't publicly confirmed — check with the clinic before booking.",
         },
       },
       {
         slug: "chemical-peel",
-        title: "Chemical peel",
+        category: "visage",
+        title: "Chemical Peel",
         blurb: "Deep exfoliation to even out skin tone and soften imperfections.",
         image: "/slk/instagram/05-peeling-before-after-texture.jpg",
         detail: {
@@ -376,120 +424,130 @@ export const copy: Record<Locale, Copy> = {
         },
       },
       {
-        slug: "microdermabrasion",
-        title: "Microdermabrasion",
-        blurb: "Gentle mechanical exfoliation that refines texture and tone.",
+        slug: "facial",
+        category: "visage",
+        title: "Facial",
+        blurb: "The signature treatment — cleansing and glow, built as a real pause.",
+        image: "/slk/instagram/02-signature-facial-portrait.jpg",
+        detail: {
+          intro: "The clinic's facial, described by the owner herself as \"her passion\" in the account's posts.",
+          points: [
+            "Cleansing and a visible glow.",
+            "Often combined with extraction and microdermabrasion in the same session.",
+          ],
+        },
+      },
+      {
+        slug: "anti-aging",
+        category: "visage",
+        title: "Anti-Aging",
+        blurb: "A benefit pursued through extraction and peeling, more than a stand-alone treatment.",
         detail: {
           intro:
-            "A gentle mechanical exfoliation, usually paired with extraction, to clear away dead skin cells and bring back radiance.",
+            "Anti-aging benefits — firmness, smoothing, glow — come up consistently across the clinic's extraction and peel posts.",
           points: [
-            "Refines skin texture and evens out tone.",
-            "Often offered in the same session as a classic facial.",
+            "Aims to firm, smooth and even out tone.",
+            "Built on the same techniques as deep cleansing and the chemical peel.",
           ],
+          note: "Not a separate named item on the menu — confirm with the clinic based on your goals.",
         },
       },
       {
-        slug: "waxing",
-        title: "Waxing",
-        blurb: "Face and body waxing in a clean, comfortable setting.",
-        detail: {
-          intro: "Waxing for face and body.",
-          points: [
-            "Common areas include face, body and underarms.",
-            "Clean setting, single-use materials where applicable.",
-          ],
-          note: "The full list of areas offered isn't publicly confirmed — confirm the area you want when booking.",
-        },
-      },
-      {
-        slug: "lash-extensions",
-        title: "Lash extensions",
-        blurb: "Classic, hybrid or volume sets, applied to match the look you want.",
-        detail: {
-          intro: "Eye-enhancing lash services, from lash lift to extensions.",
-          points: [
-            "Lash lift is confirmed as a distinct service the clinic offers.",
-            "Extension options (classic, hybrid, volume) should be confirmed against the current menu.",
-          ],
-          note: "The full current lash menu couldn't be confirmed publicly — ask for the available options when booking.",
-        },
-      },
-      {
-        slug: "body-contouring",
-        title: "Body contouring",
-        blurb: "Targeted body treatments: lymphatic drainage, pressotherapy and more.",
+        slug: "body-contouring-beauty-pot",
+        category: "remodelage",
+        title: "Body Contouring — Beauty Pot 4-in-1",
+        blurb: "Lipocavitation, radiofrequency, lipo laser and LED light, in a single session.",
         image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
         detail: {
           intro:
             "The clinic's signature treatment: four technologies combined in a single session with the Beauty Pot device.",
           points: [
             "Lipocavitation, radiofrequency, lipo laser and LED light, in one session.",
-            "Stated goals: reduced contour, firmer skin, lymphatic drainage, and treatment of cellulite and stretch marks.",
+            "Stated goals: reduced contour and firmer skin.",
             "Free consultation to assess your goals before starting.",
           ],
           note: "Results vary by individual; these are the clinic's stated goals, not medical guarantees.",
         },
       },
       {
-        slug: "consultation",
-        title: "Personalized consultation",
-        blurb: "A skin assessment and a treatment plan built around your goals.",
+        slug: "cellulite-firmness-drainage",
+        category: "remodelage",
+        title: "Cellulite, Firmness & Lymphatic Drainage",
+        blurb: "The stated goals of body contouring: firmer skin, cellulite, stretch marks, drainage.",
+        image: "/slk/instagram/11-body-contouring-back-before-after.jpg",
         detail: {
           intro:
-            "An assessment of your skin or body goals to build a treatment plan that fits — no commitment required.",
+            "These are the stated goals of body contouring with the Beauty Pot, within the same session — not separate treatments.",
           points: [
-            "Free for chemical peel and body contouring treatments.",
-            "A good starting point if you're deciding between treatments.",
+            "Treatment of cellulite and stretch marks.",
+            "Lymphatic drainage, named directly in the clinic's posts.",
           ],
+          note: "Goals as promoted by the clinic on Instagram — results vary by individual.",
+        },
+      },
+      {
+        slug: "free-consultation-contouring",
+        category: "remodelage",
+        title: "Free Body Contouring Consultation",
+        blurb: "A free assessment of your goals before starting a contouring plan.",
+        detail: {
+          intro: "Free consultation offered for body contouring, named directly in the clinic's own posts.",
+          points: ["No commitment required.", "A good starting point if you're not sure where to begin."],
+        },
+      },
+      {
+        slug: "lash-lift",
+        category: "regard",
+        title: "Lash Lift",
+        blurb: "Confirmed as a distinct service the clinic offers.",
+        detail: {
+          intro: "A lash lift, highlighted as its own distinct category (\"Lash Lift\") on the clinic's Instagram.",
+          points: ["Confirmed service, distinct from lash extensions."],
+        },
+      },
+      {
+        slug: "waxing",
+        category: "regard",
+        title: "Waxing",
+        blurb: "Waxing — exact scope to be confirmed.",
+        detail: {
+          intro: "An \"Underarms\" category appears among the clinic's Instagram highlights.",
+          points: ["Suggests a waxing offer, at least for underarms."],
+          note: "Full scope (areas, method) isn't publicly confirmed — ask when booking.",
         },
       },
     ],
     spotlight: {
       eyebrow: "Signature treatment",
       title: "Body contouring — Beauty Pot 4-in-1 technology",
-      body: "Four technologies combined in a single session — lipocavitation, radiofrequency, lipo laser and LED light — for body contouring, skin firmness and lymphatic drainage. Free consultation to assess your goals.",
+      body: "Four technologies combined in a single session — lipocavitation, radiofrequency, lipo laser and LED light — for body contouring and skin firmness. Free consultation to assess your goals.",
       cta: "Book a free consultation",
       image: "/slk/instagram/01-remodelage-before-after.jpg",
     },
     results: {
       eyebrow: "Results",
       title: "Visible results, on skin and on body",
-      subtitle: "A selection of client results shared publicly by SLK.",
+      subtitle: "A selection of client results shared publicly by SLK on Instagram.",
       disclaimer:
-        "Client results, shared with consent on the clinic's Instagram account. Results vary by individual.",
-      items: [
-        {
-          src: "/slk/instagram/04-peeling-before-after-acne.jpg",
-          alt: "Chemical peel before/after — acne-prone skin",
-          tag: "Chemical peel",
-        },
-        {
-          src: "/slk/instagram/05-peeling-before-after-texture.jpg",
-          alt: "Chemical peel before/after — skin texture",
-          tag: "Chemical peel",
-        },
-        {
-          src: "/slk/instagram/06-peeling-before-after-eyes.jpg",
-          alt: "Chemical peel before/after — eye area",
-          tag: "Chemical peel",
-        },
-        {
-          src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
-          alt: "Body contouring before/after — thighs",
-          tag: "Body contouring",
-        },
-        {
-          src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg",
-          alt: "Body contouring before/after — abdomen",
-          tag: "Body contouring",
-        },
-        {
-          src: "/slk/instagram/11-body-contouring-back-before-after.jpg",
-          alt: "Body contouring before/after — back",
-          tag: "Body contouring",
-        },
+        "Client examples, shared with consent on the clinic's Instagram account. Results vary by individual.",
+      peauLabel: "Skin",
+      corpsLabel: "Body",
+      peau: [
+        { src: "/slk/instagram/04-peeling-before-after-acne.jpg", alt: "Chemical peel before/after — acne-prone skin" },
+        { src: "/slk/instagram/05-peeling-before-after-texture.jpg", alt: "Chemical peel before/after — skin texture" },
+        { src: "/slk/instagram/06-peeling-before-after-eyes.jpg", alt: "Chemical peel before/after — eye area" },
+      ],
+      corps: [
+        { src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg", alt: "Body contouring before/after — thighs" },
+        { src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg", alt: "Body contouring before/after — abdomen" },
+        { src: "/slk/instagram/09-cellulite-before-after-legs.jpg", alt: "Cellulite treatment before/after — legs" },
+        { src: "/slk/instagram/10-body-contouring-waist-before-after.jpg", alt: "Body contouring before/after — waist" },
+        { src: "/slk/instagram/11-body-contouring-back-before-after.jpg", alt: "Body contouring before/after — back" },
+        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2.jpg", alt: "Body contouring before/after — abdomen" },
+        { src: "/slk/instagram/13-body-contouring-midsection-before-after.jpg", alt: "Body contouring before/after — midsection" },
       ],
     },
+    noWalkIns: "By appointment only — no walk-ins.",
     aboutTeaser: {
       title: "Esthetics, built around you",
       body: "Every treatment is adapted to your needs by experienced staff, in a calm, professional setting.",
@@ -506,7 +564,7 @@ export const copy: Record<Locale, Copy> = {
     },
     contactTeaser: {
       title: "Book an appointment",
-      body: "Have a question, or ready to book? Reach out, or book directly online.",
+      body: "Have a question, or ready to book? Message us directly on Instagram.",
     },
     contactPage: {
       title: "Contact",
@@ -514,9 +572,12 @@ export const copy: Record<Locale, Copy> = {
       addressLabel: "Address",
       phoneLabel: "Phone",
       emailLabel: "Email",
-      hoursLabel: "Hours",
-      hours: ["By appointment — call for current availability."],
-      bookCta: "Book now",
+      hoursLabel: "Appointments",
+      hours: [
+        "By appointment only — no walk-ins.",
+        "Book by Instagram message, or by phone.",
+      ],
+      bookCta: "Book via Instagram",
       confirmNote:
         "Contact details need confirmation from the clinic — assembled from public sources, not verified directly with SLK.",
     },

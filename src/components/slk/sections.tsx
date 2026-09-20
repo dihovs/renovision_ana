@@ -22,12 +22,12 @@ export function Hero({ locale }: { locale: Locale }) {
   return (
     <section className="relative flex min-h-[92vh] items-end overflow-hidden">
       <Image
-        src="/slk/instagram/03-facial-treatment-closeup.jpg"
+        src="/slk/instagram/02-signature-facial-portrait.jpg"
         alt=""
         fill
         priority
         sizes="100vw"
-        className="scale-110 object-cover blur-md"
+        className="scale-125 object-cover object-top blur-md"
       />
       <div
         className="absolute inset-0"
@@ -41,7 +41,9 @@ export function Hero({ locale }: { locale: Locale }) {
         }}
       />
       <span className="absolute right-6 top-7 rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-widest text-white/55 sm:right-10">
-        {locale === "fr" ? "Photo Instagram, traitée — à remplacer par un vrai portrait" : "Treated Instagram photo — replace with a real portrait"}
+        {locale === "fr"
+          ? "Photo Instagram, traitée — à remplacer par un vrai portrait"
+          : "Treated Instagram photo — replace with a real portrait"}
       </span>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 text-[var(--slk-ivory)] sm:px-6 sm:pb-24">
@@ -71,6 +73,54 @@ export function Hero({ locale }: { locale: Locale }) {
   );
 }
 
+/** One category's rows within the services section — same markup used on the homepage teaser and the full /services page. */
+function ServiceCategoryBlock({
+  locale,
+  category,
+  label,
+}: {
+  locale: Locale;
+  category: "visage" | "remodelage" | "regard";
+  label: string;
+}) {
+  const t = copy[locale];
+  const rows = t.services.filter((s) => s.category === category);
+  return (
+    <div className="mb-14 last:mb-0">
+      <h3 className="font-slk-serif mb-2 text-xl font-normal text-[var(--slk-terracotta)] sm:text-2xl">{label}</h3>
+      <div className="flex flex-col">
+        {rows.map((s, i) => (
+          <div
+            key={s.slug}
+            className="grid grid-cols-[36px_1fr] items-center gap-4 border-t border-white/10 py-7 last:border-b sm:grid-cols-[60px_1fr_180px]"
+          >
+            <div className="font-slk-serif text-sm text-[var(--slk-ivory)]/35">{String(i + 1).padStart(2, "0")}</div>
+            <div>
+              <Link
+                href={slkPath(locale, `/services/${s.slug}`)}
+                className="font-slk-serif mb-1 block text-xl font-normal hover:text-[var(--slk-terracotta)] sm:text-2xl"
+              >
+                {s.title}
+              </Link>
+              <p className="max-w-md text-sm font-light text-[var(--slk-ivory)]/55">{s.blurb}</p>
+            </div>
+            {s.image ? (
+              <div className="relative hidden h-16 overflow-hidden rounded-lg sm:block">
+                <Image src={s.image} alt="" fill sizes="180px" className="object-cover" />
+              </div>
+            ) : (
+              <div
+                className="hidden h-16 rounded-lg opacity-85 sm:block"
+                style={{ background: FALLBACK_SWATCHES[i % FALLBACK_SWATCHES.length] }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ServicesGrid({ locale }: { locale: Locale }) {
   const t = copy[locale];
   return (
@@ -92,37 +142,9 @@ export function ServicesGrid({ locale }: { locale: Locale }) {
         </div>
         <p className="mb-12 max-w-xl font-light text-[var(--slk-ivory)]/70">{t.servicesIntro.subtitle}</p>
 
-        <div className="flex flex-col">
-          {t.services.map((s, i) => (
-            <div
-              key={s.title}
-              className="grid grid-cols-[36px_1fr] items-center gap-4 border-t border-white/10 py-7 last:border-b sm:grid-cols-[60px_1fr_180px]"
-            >
-              <div className="font-slk-serif text-sm text-[var(--slk-ivory)]/35">
-                {String(i + 1).padStart(2, "0")}
-              </div>
-              <div>
-                <Link
-                  href={slkPath(locale, `/services/${s.slug}`)}
-                  className="font-slk-serif mb-1 block text-xl font-normal hover:text-[var(--slk-terracotta)] sm:text-2xl"
-                >
-                  {s.title}
-                </Link>
-                <p className="max-w-md text-sm font-light text-[var(--slk-ivory)]/55">{s.blurb}</p>
-              </div>
-              {s.image ? (
-                <div className="relative hidden h-16 overflow-hidden rounded-lg sm:block">
-                  <Image src={s.image} alt="" fill sizes="180px" className="object-cover" />
-                </div>
-              ) : (
-                <div
-                  className="hidden h-16 rounded-lg opacity-85 sm:block"
-                  style={{ background: FALLBACK_SWATCHES[i % FALLBACK_SWATCHES.length] }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+        <ServiceCategoryBlock locale={locale} category="visage" label={t.serviceCategories.visage} />
+        <ServiceCategoryBlock locale={locale} category="remodelage" label={t.serviceCategories.remodelage} />
+        <ServiceCategoryBlock locale={locale} category="regard" label={t.serviceCategories.regard} />
       </div>
     </section>
   );
@@ -130,6 +152,7 @@ export function ServicesGrid({ locale }: { locale: Locale }) {
 
 export function SignatureSpotlight({ locale }: { locale: Locale }) {
   const t = copy[locale].spotlight;
+  const book = bookingLink();
   return (
     <section className="bg-[var(--slk-ivory)]">
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 py-24 sm:px-6 md:grid-cols-2 md:gap-14">
@@ -144,9 +167,9 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
           <h2 className="font-slk-serif mb-6 text-3xl font-normal sm:text-4xl">{t.title}</h2>
           <p className="mb-8 font-light text-[var(--slk-charcoal)]/70">{t.body}</p>
           <a
-            href={bookingLink().href}
-            target={bookingLink().external ? "_blank" : undefined}
-            rel={bookingLink().external ? "noopener noreferrer" : undefined}
+            href={book.href}
+            target={book.external ? "_blank" : undefined}
+            rel={book.external ? "noopener noreferrer" : undefined}
             className="inline-block rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
           >
             {t.cta}
@@ -154,6 +177,27 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function GalleryRow({ label, items }: { label: string; items: { src: string; alt: string }[] }) {
+  return (
+    <div className="mb-10 last:mb-0">
+      <p className="mb-4 text-sm font-medium uppercase tracking-widest text-[var(--slk-terracotta-dark)]">{label}</p>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        {items.map((item) => (
+          <div key={item.src} className="group relative aspect-square overflow-hidden rounded-xl">
+            <Image
+              src={item.src}
+              alt={item.alt}
+              fill
+              sizes="(min-width: 640px) 33vw, 50vw"
+              className="object-cover transition duration-300 group-hover:scale-105"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -167,22 +211,10 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
           {t.title}
         </h2>
         <p className="mb-10 max-w-xl font-light text-[var(--slk-charcoal)]/70">{t.subtitle}</p>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {t.items.map((item) => (
-            <div key={item.src} className="group relative aspect-square overflow-hidden rounded-xl">
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                sizes="(min-width: 640px) 33vw, 50vw"
-                className="object-cover transition duration-300 group-hover:scale-105"
-              />
-              <span className="absolute bottom-2 left-2 rounded-full bg-[var(--slk-charcoal)]/70 px-3 py-1 text-[11px] text-[var(--slk-ivory)]">
-                {item.tag}
-              </span>
-            </div>
-          ))}
-        </div>
+
+        <GalleryRow label={t.peauLabel} items={t.peau} />
+        <GalleryRow label={t.corpsLabel} items={t.corps} />
+
         <p className="mt-8 max-w-2xl text-xs text-[var(--slk-charcoal)]/55">{t.disclaimer}</p>
       </div>
     </section>
@@ -208,13 +240,14 @@ export function AboutTeaser({ locale }: { locale: Locale }) {
 }
 
 export function ContactTeaser({ locale }: { locale: Locale }) {
-  const t = copy[locale].contactTeaser;
+  const t = copy[locale];
   const book = bookingLink();
   return (
     <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
       <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6">
-        <h2 className="font-slk-serif text-3xl font-normal sm:text-4xl">{t.title}</h2>
-        <p className="mx-auto mt-4 max-w-lg font-light text-[var(--slk-ivory)]/65">{t.body}</p>
+        <h2 className="font-slk-serif text-3xl font-normal sm:text-4xl">{t.contactTeaser.title}</h2>
+        <p className="mx-auto mt-4 max-w-lg font-light text-[var(--slk-ivory)]/65">{t.contactTeaser.body}</p>
+        <p className="mx-auto mt-2 max-w-lg text-sm text-[var(--slk-ivory)]/45">{t.noWalkIns}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <a
             href={book.href}
@@ -222,13 +255,13 @@ export function ContactTeaser({ locale }: { locale: Locale }) {
             rel={book.external ? "noopener noreferrer" : undefined}
             className="rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
           >
-            {copy[locale].contactPage.bookCta}
+            {t.contactPage.bookCta}
           </a>
           <Link
             href={slkPath(locale, "/contact")}
             className="rounded-full border border-white/25 px-7 py-4 text-sm font-medium text-[var(--slk-ivory)] transition hover:bg-white/5"
           >
-            {copy[locale].nav.contact}
+            {t.nav.contact}
           </Link>
         </div>
       </div>
@@ -266,6 +299,9 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
           >
             ← {t.nav.services}
           </Link>
+          <p className="mb-2 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">
+            {t.serviceCategories[service.category]}
+          </p>
           <h1 className="font-slk-serif text-4xl font-normal sm:text-5xl">{service.title}</h1>
         </div>
       </section>
