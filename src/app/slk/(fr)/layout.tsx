@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "../../globals.css";
 import "../slk.css";
 import { serif, sans } from "../fonts";
+import ScrollRestore from "@/components/slk/ScrollRestore";
 
 export const metadata: Metadata = {
   title: {
@@ -24,6 +25,7 @@ export default function SlkFrLayout({ children }: { children: React.ReactNode })
         className="slk-site min-h-full flex flex-col bg-[var(--slk-ivory)] text-[var(--slk-charcoal)]"
         style={{ fontFamily: "var(--font-slk-sans)" }}
       >
+        <ScrollRestore />
         {children}
       </body>
     </html>
