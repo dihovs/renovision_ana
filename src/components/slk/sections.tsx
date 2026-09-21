@@ -80,7 +80,7 @@ function ServiceCategoryBlock({
   label,
 }: {
   locale: Locale;
-  category: "visage" | "remodelage" | "regard";
+  category: "visage" | "remodelage";
   label: string;
 }) {
   const t = copy[locale];
@@ -144,7 +144,6 @@ export function ServicesGrid({ locale }: { locale: Locale }) {
 
         <ServiceCategoryBlock locale={locale} category="visage" label={t.serviceCategories.visage} />
         <ServiceCategoryBlock locale={locale} category="remodelage" label={t.serviceCategories.remodelage} />
-        <ServiceCategoryBlock locale={locale} category="regard" label={t.serviceCategories.regard} />
       </div>
     </section>
   );

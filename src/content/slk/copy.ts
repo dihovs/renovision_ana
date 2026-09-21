@@ -53,7 +53,7 @@ export function bookingLink(): { href: string; external: boolean } {
   return { href: business.phoneHref, external: false };
 }
 
-type ServiceCategory = "visage" | "remodelage" | "regard";
+type ServiceCategory = "visage" | "remodelage";
 type ServiceDetail = { intro: string; points: string[]; note?: string };
 type Service = {
   slug: string;
@@ -107,7 +107,7 @@ export const copy: Record<Locale, Copy> = {
     meta: {
       title: "Clinique Esthétique SLK | Soins du visage & esthétique à Laval",
       description:
-        "Clinique Esthétique SLK à Laval : soins du visage, remodelage corporel et regard — sur rendez-vous, réservation via Instagram.",
+        "Clinique Esthétique SLK à Laval : soins du visage et remodelage corporel — sur rendez-vous, réservation via Instagram.",
     },
     nav: {
       home: "Accueil",
@@ -132,7 +132,6 @@ export const copy: Record<Locale, Copy> = {
     serviceCategories: {
       visage: "Soins du visage & peau",
       remodelage: "Remodelage corporel",
-      regard: "Regard & épilation",
     },
     services: [
       {
@@ -257,28 +256,6 @@ export const copy: Record<Locale, Copy> = {
           points: ["Aucun engagement.", "Bon point de départ si vous hésitez à commencer."],
         },
       },
-      {
-        slug: "lash-lift",
-        category: "regard",
-        title: "Lash Lift",
-        blurb: "Rehaussement de cils — confirmé comme service distinct de la clinique.",
-        detail: {
-          intro:
-            "Un rehaussement de cils, mis en évidence comme catégorie distincte (« Lash Lift ») sur le compte Instagram de la clinique.",
-          points: ["Service confirmé, distinct des extensions de cils."],
-        },
-      },
-      {
-        slug: "epilation",
-        category: "regard",
-        title: "Épilation",
-        blurb: "Épilation à la cire — portée exacte à confirmer.",
-        detail: {
-          intro: "Une catégorie « Aisselles » apparaît dans les mises en avant du compte Instagram de la clinique.",
-          points: ["Sous-entend une offre d'épilation, au moins pour les aisselles."],
-          note: "La portée complète (zones, méthode) n'est pas confirmée publiquement — demandez le détail au moment de la réservation.",
-        },
-      },
     ],
     spotlight: {
       eyebrow: "Soin signature",
@@ -353,7 +330,7 @@ export const copy: Record<Locale, Copy> = {
     meta: {
       title: "Clinique Esthétique SLK | Facials & Skincare in Laval",
       description:
-        "Clinique Esthétique SLK in Laval: facials, body contouring and lash care — by appointment, book via Instagram.",
+        "Clinique Esthétique SLK in Laval: facials and body contouring — by appointment, book via Instagram.",
     },
     nav: { home: "Home", services: "Services", about: "About", contact: "Contact", book: "Book now" },
     hero: {
@@ -372,7 +349,6 @@ export const copy: Record<Locale, Copy> = {
     serviceCategories: {
       visage: "Face & Skin",
       remodelage: "Body Contouring",
-      regard: "Eyes & Hair Removal",
     },
     services: [
       {
@@ -493,27 +469,6 @@ export const copy: Record<Locale, Copy> = {
         detail: {
           intro: "Free consultation offered for body contouring, named directly in the clinic's own posts.",
           points: ["No commitment required.", "A good starting point if you're not sure where to begin."],
-        },
-      },
-      {
-        slug: "lash-lift",
-        category: "regard",
-        title: "Lash Lift",
-        blurb: "Confirmed as a distinct service the clinic offers.",
-        detail: {
-          intro: "A lash lift, highlighted as its own distinct category (\"Lash Lift\") on the clinic's Instagram.",
-          points: ["Confirmed service, distinct from lash extensions."],
-        },
-      },
-      {
-        slug: "waxing",
-        category: "regard",
-        title: "Waxing",
-        blurb: "Waxing — exact scope to be confirmed.",
-        detail: {
-          intro: "An \"Underarms\" category appears among the clinic's Instagram highlights.",
-          points: ["Suggests a waxing offer, at least for underarms."],
-          note: "Full scope (areas, method) isn't publicly confirmed — ask when booking.",
         },
       },
     ],
