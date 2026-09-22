@@ -65,6 +65,7 @@ type Service = {
 };
 
 export type GalleryItem = { src: string; alt: string };
+export type FaqItem = { q: string; a: string };
 
 type Copy = {
   meta: { title: string; description: string };
@@ -85,6 +86,8 @@ type Copy = {
     corps: GalleryItem[];
   };
   noWalkIns: string;
+  reviews: { eyebrow: string; title: string; placeholder: string; items: { quote: string; author: string }[] };
+  faq: { eyebrow: string; title: string; items: FaqItem[] };
   aboutTeaser: { title: string; body: string; cta: string };
   aboutPage: { title: string; intro: string; paragraphs: string[] };
   contactTeaser: { title: string; body: string };
@@ -92,12 +95,14 @@ type Copy = {
     title: string;
     intro: string;
     addressLabel: string;
+    addressConfirmNote: string;
     phoneLabel: string;
     emailLabel: string;
     hoursLabel: string;
     hours: string[];
     bookCta: string;
     confirmNote: string;
+    mapQuery: string;
   };
   footer: { rights: string; confirmNote: string };
 };
@@ -126,7 +131,7 @@ export const copy: Record<Locale, Copy> = {
     },
     servicesIntro: {
       eyebrow: "Nos soins",
-      title: "Soins du visage & esthétique",
+      title: "Soins du visage & esthétique à Laval",
       subtitle: "Ce que la clinique montre elle-même sur Instagram — rien d'inventé, rien d'un menu tiers.",
     },
     serviceCategories: {
@@ -288,6 +293,36 @@ export const copy: Record<Locale, Copy> = {
       ],
     },
     noWalkIns: "Sur rendez-vous seulement — pas de visites sans rendez-vous.",
+    reviews: {
+      eyebrow: "Avis",
+      title: "Ce que disent les clientes",
+      // No real quotes are wired in here — pulling them off Instagram
+      // requires opening the "Avis Clientes" highlight, which is gated to
+      // guests and unreachable from this environment. Inventing quotes
+      // would be worse than showing none, so this stays empty until SLK
+      // supplies real, consented reviews (screenshot or text is enough).
+      placeholder:
+        "Les avis clientes de SLK sont visibles dans son répertoire « Avis Clientes » sur Instagram. Envoyez-nous 2 ou 3 avis (avec autorisation) et on les affiche ici.",
+      items: [],
+    },
+    faq: {
+      eyebrow: "Questions fréquentes",
+      title: "Avant de réserver",
+      items: [
+        {
+          q: "Comment prendre rendez-vous?",
+          a: "Par message sur Instagram (@esthetiqueslk) ou par téléphone. Il n'y a pas de réservation en ligne pour le moment — c'est la clinique qui confirme votre créneau directement.",
+        },
+        {
+          q: "Puis-je me présenter sans rendez-vous?",
+          a: "Non — la clinique reçoit sur rendez-vous seulement, pas de visites sans rendez-vous.",
+        },
+        {
+          q: "Y a-t-il un dépôt à la réservation?",
+          a: "À confirmer avec la clinique au moment de la prise de rendez-vous.",
+        },
+      ],
+    },
     aboutTeaser: {
       title: "Une esthétique pensée pour vous",
       body: "Chaque soin est adapté à vos besoins par du personnel expérimenté, dans une ambiance calme et professionnelle.",
@@ -310,6 +345,8 @@ export const copy: Record<Locale, Copy> = {
       title: "Contact",
       intro: "Nous serions ravis de vous accueillir à la clinique.",
       addressLabel: "Adresse",
+      addressConfirmNote:
+        "Des publications Instagram de la clinique (fin juin) mentionnaient une autre adresse (3774A boul. Lévesque O., Laval). Adresse à confirmer avec SLK avant publication.",
       phoneLabel: "Téléphone",
       emailLabel: "Courriel",
       hoursLabel: "Rendez-vous",
@@ -320,6 +357,7 @@ export const copy: Record<Locale, Copy> = {
       bookCta: "Réserver via Instagram",
       confirmNote:
         "Coordonnées à confirmer avec la clinique — assemblées à partir de sources publiques, non vérifiées directement auprès de SLK.",
+      mapQuery: "333 rue Saint-Martin Ouest, Laval, QC H7M 1Y7",
     },
     footer: {
       rights: "Tous droits réservés.",
@@ -343,7 +381,7 @@ export const copy: Record<Locale, Copy> = {
     },
     servicesIntro: {
       eyebrow: "Our treatments",
-      title: "Facials & Esthetics",
+      title: "Facials & Esthetics in Laval",
       subtitle: "What the clinic itself shows on Instagram — nothing invented, nothing from a third-party menu.",
     },
     serviceCategories: {
@@ -503,6 +541,32 @@ export const copy: Record<Locale, Copy> = {
       ],
     },
     noWalkIns: "By appointment only — no walk-ins.",
+    reviews: {
+      eyebrow: "Reviews",
+      title: "What clients say",
+      // No real quotes wired in — see the fr block's comment for why.
+      placeholder:
+        "SLK's client reviews live in its \"Avis Clientes\" highlight on Instagram. Send us 2-3 (with permission) and we'll show them here.",
+      items: [],
+    },
+    faq: {
+      eyebrow: "FAQ",
+      title: "Before you book",
+      items: [
+        {
+          q: "How do I book an appointment?",
+          a: "By Instagram message (@esthetiqueslk) or by phone. There's no online booking yet — the clinic confirms your slot directly.",
+        },
+        {
+          q: "Can I just walk in?",
+          a: "No — by appointment only, no walk-ins.",
+        },
+        {
+          q: "Is there a deposit to book?",
+          a: "Confirm with the clinic when you book.",
+        },
+      ],
+    },
     aboutTeaser: {
       title: "Esthetics, built around you",
       body: "Every treatment is adapted to your needs by experienced staff, in a calm, professional setting.",
@@ -525,6 +589,8 @@ export const copy: Record<Locale, Copy> = {
       title: "Contact",
       intro: "We'd love to welcome you at the clinic.",
       addressLabel: "Address",
+      addressConfirmNote:
+        "Some of the clinic's own Instagram posts (late June) listed a different address (3774A boul. Lévesque O., Laval). Address needs confirming with SLK before publishing.",
       phoneLabel: "Phone",
       emailLabel: "Email",
       hoursLabel: "Appointments",
@@ -535,6 +601,7 @@ export const copy: Record<Locale, Copy> = {
       bookCta: "Book via Instagram",
       confirmNote:
         "Contact details need confirmation from the clinic — assembled from public sources, not verified directly with SLK.",
+      mapQuery: "333 rue Saint-Martin Ouest, Laval, QC H7M 1Y7",
     },
     footer: {
       rights: "All rights reserved.",

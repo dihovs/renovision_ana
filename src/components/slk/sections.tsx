@@ -239,6 +239,72 @@ export function AboutTeaser({ locale }: { locale: Locale }) {
   );
 }
 
+export function ReviewsStrip({ locale }: { locale: Locale }) {
+  const t = copy[locale].reviews;
+  return (
+    <section className="bg-[var(--slk-ivory)]">
+      <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6">
+        <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">{t.eyebrow}</p>
+        <h2 className="font-slk-serif mb-8 text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">
+          {t.title}
+        </h2>
+        {t.items.length > 0 ? (
+          <div className="grid gap-8 sm:grid-cols-3">
+            {t.items.map((r) => (
+              <div key={r.quote}>
+                <p className="font-slk-serif text-lg italic text-[var(--slk-charcoal)]">“{r.quote}”</p>
+                <p className="mt-3 text-xs uppercase tracking-widest text-[var(--slk-charcoal)]/50">{r.author}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mx-auto max-w-lg rounded-xl bg-[var(--slk-terracotta-light)] px-6 py-5 text-sm text-[var(--slk-charcoal)]/70">
+            {t.placeholder}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function FaqSection({ locale }: { locale: Locale }) {
+  const t = copy[locale].faq;
+  return (
+    <section className="bg-[var(--slk-terracotta-light)]">
+      <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+        <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta-dark)]">{t.eyebrow}</p>
+        <h2 className="font-slk-serif mb-10 text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">
+          {t.title}
+        </h2>
+        <div className="flex flex-col">
+          {t.items.map((item) => (
+            <div key={item.q} className="border-t border-[var(--slk-terracotta)]/20 py-6 last:border-b">
+              <p className="font-slk-serif mb-2 text-lg font-normal text-[var(--slk-charcoal)]">{item.q}</p>
+              <p className="font-light text-[var(--slk-charcoal)]/70">{item.a}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Plain Google Maps embed — no API key needed, just a text query. */
+export function MapBlock({ locale }: { locale: Locale }) {
+  const query = copy[locale].contactPage.mapQuery;
+  return (
+    <div className="aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[var(--slk-terracotta-light)]">
+      <iframe
+        title={locale === "fr" ? "Carte — Clinique Esthétique SLK" : "Map — Clinique Esthétique SLK"}
+        src={`https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`}
+        className="h-full w-full border-0"
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+    </div>
+  );
+}
+
 export function ContactTeaser({ locale }: { locale: Locale }) {
   const t = copy[locale];
   const book = bookingLink();

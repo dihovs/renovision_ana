@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import SlkHeader from "@/components/slk/Header";
 import SlkFooter from "@/components/slk/Footer";
 import { business, bookingLink, copy } from "@/content/slk/copy";
+import { FaqSection, MapBlock } from "@/components/slk/sections";
 
 export const metadata: Metadata = { title: copy.en.contactPage.title };
 
@@ -27,6 +28,7 @@ export default function SlkContactEn() {
                 <br />
                 {business.address.city}, {business.address.region} {business.address.postal}
               </dd>
+              <p className="mt-2 text-xs text-[var(--slk-terracotta-dark)]">{t.addressConfirmNote}</p>
             </div>
             <div>
               <dt className="text-sm font-semibold uppercase tracking-wide text-[var(--slk-gold)]">
@@ -71,8 +73,12 @@ export default function SlkContactEn() {
             {t.bookCta}
           </a>
           <p className="mt-6 text-xs text-[var(--slk-charcoal)]/50">{t.confirmNote}</p>
+          <div className="mt-10">
+            <MapBlock locale="en" />
+          </div>
         </section>
       </main>
+      <FaqSection locale="en" />
       <SlkFooter locale="en" />
     </>
   );

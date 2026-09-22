@@ -6,6 +6,7 @@ import {
   ServicesGrid,
   SignatureSpotlight,
   ResultsGallery,
+  ReviewsStrip,
   AboutTeaser,
   ContactTeaser,
 } from "@/components/slk/sections";
@@ -25,6 +26,7 @@ export default function SlkHomeEn() {
         <ServicesGrid locale="en" />
         <SignatureSpotlight locale="en" />
         <ResultsGallery locale="en" />
+        <ReviewsStrip locale="en" />
         <AboutTeaser locale="en" />
         <ContactTeaser locale="en" />
       </main>
