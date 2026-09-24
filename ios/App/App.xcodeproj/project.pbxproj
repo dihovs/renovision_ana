@@ -90,6 +90,7 @@
 		5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734DBBF88B12469631DCC185 /* DollhouseView.swift */; };
 		5398DAFE54003D2579471BAA /* DollhouseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734DBBF88B12469631DCCBBB /* DollhouseModel.swift */; };
 		1D09A59E4ADF9AAFE6087D2D /* DollhouseStorey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06FAF517866C5240F884C39 /* DollhouseStorey.swift */; };
+		5F27D95F7494B4B4E9B6284D /* DXFImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68F1FF8555BF4D6C5DFCA80 /* DXFImporter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -177,6 +178,7 @@
 		734DBBF88B12469631DCC185 /* DollhouseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseView.swift; sourceTree = "<group>"; };
 		734DBBF88B12469631DCCBBB /* DollhouseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseModel.swift; sourceTree = "<group>"; };
 		C06FAF517866C5240F884C39 /* DollhouseStorey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DollhouseStorey.swift; sourceTree = "<group>"; };
+		D68F1FF8555BF4D6C5DFCA80 /* DXFImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DXFImporter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -220,6 +222,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				D68F1FF8555BF4D6C5DFCA80 /* DXFImporter.swift */,
 				C06FAF517866C5240F884C39 /* DollhouseStorey.swift */,
 				734DBBF88B12469631DCC185 /* DollhouseView.swift */,
 				734DBBF88B12469631DCCBBB /* DollhouseModel.swift */,
@@ -381,6 +384,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5F27D95F7494B4B4E9B6284D /* DXFImporter.swift in Sources */,
 				1D09A59E4ADF9AAFE6087D2D /* DollhouseStorey.swift in Sources */,
 				5398DAFE54003D2579471B02 /* DollhouseView.swift in Sources */,
 				5398DAFE54003D2579471BAA /* DollhouseModel.swift in Sources */,

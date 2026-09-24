@@ -7,7 +7,8 @@ import { getCompany } from "@/lib/crm/settings";
 import { listRoomScans } from "@/lib/crm/roomScans";
 import { listProjectAffectedAreas } from "@/lib/crm/affectedAreas";
 import { listProjectObjects } from "@/lib/crm/roomObjects";
-import { areaColor, planAreas } from "@/lib/crm/areaShapes";
+import { planAreas } from "@/lib/crm/areaShapes";
+import { AFFECTED_AREA_FILL } from "@/components/admin/planPalette";
 import type { ScanGeometry } from "@/lib/roomScan";
 import {
   savedFloorAreaSquareMeters,
@@ -110,7 +111,9 @@ export default async function EstimatePrintPage({
   const planAreasFor = (scanId: string) =>
     planAreas(allAreas)
       .filter((area) => area.room_scan_id === scanId && area.polygon.length >= 3)
-      .map((area) => ({ id: area.id, polygon: area.polygon, color: areaColor(area) }));
+      // One colour for every patch, matching the restoration report — the
+      // damage cause is not stated on a printed document any more.
+      .map((area) => ({ id: area.id, polygon: area.polygon, color: AFFECTED_AREA_FILL }));
 
   const scanById = new Map(scans.map((scan) => [scan.id, scan]));
 

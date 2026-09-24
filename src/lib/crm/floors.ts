@@ -111,6 +111,54 @@ export const FLOOR_LEVELS: readonly FloorLevel[] = [
 export const FLOOR_ORDER: readonly string[] = FLOOR_LEVELS.map((level) => level.id);
 
 /**
+ * **The storey, in the language of the DOCUMENT.**
+ *
+ * `label` above is the operator's — the app runs in English. A printed
+ * report goes to a Québec client and an adjuster, and `▼ 2nd Floor` on an
+ * otherwise French page is the single most-repeated English string in the
+ * file: it heads a storey page, a room page, and every room's line on the
+ * contents.
+ *
+ * Only the NAMED storeys need a table. The fifty numbered ones are a rule —
+ * `2nd` → `2e étage`, `21st` → `21e étage` — and fifty hand-written rows
+ * would be fifty chances to type `21ème`, which is not how Québec writes it.
+ * `1er` is the one irregular form.
+ *
+ * Accepts an id (`2nd`) or the English label the id prints as (`2nd Floor`),
+ * because a level reaches the report as free text: `room_scans.level` stores
+ * ids, but a document assembled by hand — a render harness, an import —
+ * carries whatever the source printed.
+ */
+const FLOOR_LABEL_FR: Record<string, string> = {
+  "Land survey": "Relevé d'arpentage",
+  "Basement 3": "Sous-sol • Niveau 3",
+  "Basement 2": "Sous-sol • Niveau 2",
+  Basement: "Sous-sol",
+  "Semi-Basement": "Demi-sous-sol",
+  Ground: "Rez-de-chaussée",
+  "Higher Ground": "Rez-de-chaussée surélevé",
+  Attic: "Comble",
+  Roof: "Toiture",
+};
+
+/** `2nd` / `2nd Floor` / `21st Floor` → the storey number, or null. */
+function storeyNumber(level: string): number | null {
+  const match = /^(\d+)(?:st|nd|rd|th)(?:\s+floor)?$/i.exec(level.trim());
+  return match ? Number(match[1]) : null;
+}
+
+export function floorLabelFr(level: string): string {
+  const byId = FLOOR_LABEL_FR[level];
+  if (byId) return byId;
+  const byLabel = FLOOR_LEVELS.find((entry) => entry.label === level);
+  if (byLabel && FLOOR_LABEL_FR[byLabel.id]) return FLOOR_LABEL_FR[byLabel.id];
+  const n = storeyNumber(level);
+  // `1er`, then `2e`, `3e` — never `1st étage`, and never `2ème`.
+  if (n !== null) return `${n}${n === 1 ? "er" : "e"} étage`;
+  return level;
+}
+
+/**
  * The storeys nearly every job is on, most-common-first — the short list a
  * floor picker leads with, the rest one tap behind "See more". Ground first
  * because most water starts there; Basement second because this trade lives

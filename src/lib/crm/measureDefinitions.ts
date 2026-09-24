@@ -163,3 +163,131 @@ export const MEASURE_DEFINITIONS = {
   footprintInterior: FOOTPRINT_INTERIOR_DEFINITION,
   footprintGross: FOOTPRINT_GROSS_DEFINITION,
 } as const;
+
+/**
+ * **The same definitions, in the language the report is printed in.**
+ *
+ * These are not a nicety on this page: the definitions appendix is the whole
+ * argument when the carrier's own figure differs from ours, and an argument
+ * a francophone adjuster has to translate before they can weigh it is an
+ * argument that gets skipped. Under Bill 96 it is also the version that has
+ * to exist.
+ *
+ * A parallel table rather than a `definitionFr` field on each object, because
+ * the English ones above are shipped verbatim in API responses and mirrored
+ * in `ios/App/App/Native/Theme.swift`; widening that shape would push a
+ * report-only concern into both. `measureDefinitions(locale)` is the one door
+ * a caller uses.
+ *
+ * Translated by trade meaning, not by dictionary: `superficie` for an area a
+ * surface has, `aire` never (that is a mathematical area); `plinthe` for
+ * baseboard, which is what a Québec finisher calls it; `emprise au sol` for
+ * footprint, the term used on a plan; `sous-estimation` stated as plainly as
+ * the English states UNDER-estimate, because the caveat is the point.
+ */
+const MEASURE_DEFINITIONS_FR: Record<
+  keyof typeof MEASURE_DEFINITIONS,
+  MeasureDefinition
+> = {
+  floorArea: {
+    id: "floor",
+    title: "Superficie de plancher",
+    definition:
+      "La superficie délimitée par les murs de la pièce, mesurée jusqu'aux faces " +
+      "de mur relevées par le balayage — le plancher dégagé sur lequel un " +
+      "revêtement pourrait être posé. Les cloisons intérieures à la pièce, s'il y " +
+      "en a, ne sont pas déduites. Lorsque le contour a été corrigé à la main, " +
+      "c'est le contour corrigé qui est mesuré.",
+  },
+  perimeter: {
+    id: "perimeter",
+    title: "Périmètre",
+    definition:
+      "Le développement total des murs — le périmètre intérieur, mesuré au niveau " +
+      "du plancher, les baies de porte comprises dans le parcours. C'est la base " +
+      "de la superficie des murs. Pour les boiseries, utiliser plutôt la longueur " +
+      "de plinthe : c'est cette même mesure, baies de porte déduites.",
+  },
+  baseboard: {
+    id: "baseboard",
+    title: "Longueur de plinthe",
+    definition:
+      "Le périmètre dont chaque baie de porte a été retirée — le parcours que la " +
+      "boiserie couvre réellement, puisque la plinthe et le quart-de-rond ne " +
+      "traversent ni une porte ni une ouverture encadrée. Les fenêtres ne sont pas " +
+      "déduites; la boiserie passe dessous. C'est la mesure à laquelle chiffrer " +
+      "les boiseries au pied linéaire, et dans une pièce à deux portes elle est " +
+      "inférieure au périmètre de près d'un mètre.",
+  },
+  wallAreaGross: {
+    id: "walls-gross",
+    title: "Superficie des murs (brute)",
+    definition:
+      "Le périmètre intérieur, au niveau du plancher, multiplié par la hauteur " +
+      "sous plafond — chaque pied carré de mur existant, compté sur toute la " +
+      "hauteur, sans aucune déduction. C'est la mesure à partir de laquelle la " +
+      "charpente et l'isolation sont estimées.",
+  },
+  wallAreaNet: {
+    id: "walls-net",
+    title: "Superficie des murs (nette)",
+    definition:
+      "La superficie brute des murs dont les portes et les fenêtres relevées par " +
+      "le balayage ont été retirées — la mesure à laquelle la peinture et le " +
+      "placoplâtre sont chiffrés : personne ne peint une baie de porte. Une pièce " +
+      "mesurée sans balayage n'a aucune ouverture détectée; sa superficie nette " +
+      "égale alors sa superficie brute.",
+  },
+  ceilingHeight: {
+    id: "ceiling",
+    title: "Hauteur sous plafond",
+    definition:
+      "Le mur le plus haut relevé par le balayage, du plancher au plafond. Une " +
+      "pièce dont le plafond est incliné ou surbaissé a plus d'une hauteur; c'est " +
+      "la plus grande qui est rapportée ici, de sorte que tout ce qui en découle " +
+      "constitue une borne supérieure.",
+  },
+  volume: {
+    id: "volume",
+    title: "Volume",
+    definition:
+      "La superficie de plancher multipliée par la hauteur sous plafond — l'air " +
+      "que contient la pièce, soit ce à partir de quoi la déshumidification est " +
+      "dimensionnée. Comme la hauteur sous plafond est celle du mur le plus haut " +
+      "relevé, une pièce au plafond incliné ou surbaissé contient moins d'air que " +
+      "ce chiffre ne l'indique : c'est une borne supérieure, et l'équipement " +
+      "dimensionné à partir d'elle pèche par excès de séchage plutôt que " +
+      "l'inverse.",
+  },
+  footprintInterior: {
+    id: "footprint-interior",
+    title: "Emprise au sol avec les cloisons intérieures",
+    definition:
+      "La superficie de plancher augmentée des cloisons entre les pièces, selon " +
+      "l'épaisseur de mur retenue pour cet étage. Chaque pièce est agrandie de la " +
+      "moitié de cette épaisseur, de sorte qu'un mur partagé par deux pièces n'est " +
+      "compté qu'une fois. À un étage ne comptant qu'une seule pièce, il n'y a " +
+      "aucune cloison et cette mesure égale la superficie de plancher.",
+  },
+  footprintGross: {
+    id: "footprint-gross",
+    title: "Emprise au sol avec tous les murs",
+    definition:
+      "La superficie de plancher augmentée de tous les murs, selon les épaisseurs " +
+      "retenues pour cet étage — la mesure la plus proche d'une emprise au sol " +
+      "brute du bâtiment. Il s'agit d'une SOUS-ESTIMATION : comme les pièces sont " +
+      "balayées séparément, un mur extérieur ne peut être distingué d'un mur " +
+      "mitoyen, et chaque pièce n'apporte donc que la moitié intérieure de ses " +
+      "murs extérieurs. Attendez-vous à ce qu'elle se situe légèrement sous une " +
+      "mesure prise à la face extérieure du bâtiment.",
+  },
+};
+
+/** The definitions in the document's own language — the one door a report or
+    an API response uses. English stays the default: it is the shape the API
+    has always returned and the one the Swift twin mirrors. */
+export function measureDefinitions(
+  locale: "en" | "fr",
+): Record<keyof typeof MEASURE_DEFINITIONS, MeasureDefinition> {
+  return locale === "fr" ? MEASURE_DEFINITIONS_FR : MEASURE_DEFINITIONS;
+}

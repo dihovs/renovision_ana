@@ -130,6 +130,17 @@ export type AffectedArea = {
       the note above, which is the whole of the difference. */
   polygon: AreaPoint[];
   notes: string | null;
+  /** The AI's rewrite of `notes` for the printed report/estimate — see
+      `src/lib/notesPolish.ts`. Absent until the first export runs the pass,
+      same convention as `roomScan.ts`'s `SavedScan` for a column a later
+      migration added: optional rather than required-but-null, so the many
+      `AffectedArea` fixtures written before this column existed keep
+      compiling. */
+  notes_polished?: string | null;
+  /** `notes` as it stood the moment `notes_polished` was made. Unequal to
+      the current `notes` means the operator has edited the note since, and
+      the polish is stale and must be redone before it prints again. */
+  notes_polished_source?: string | null;
   /** Whether this area's width/height print on the wall elevation. Off by
       default — most areas mark WHERE damage is, not what it measures;
       turning this on is a deliberate choice for the ones that matter to

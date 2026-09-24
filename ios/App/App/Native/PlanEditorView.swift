@@ -2675,6 +2675,22 @@ struct RoomEditorCore: View {
         }
     }
 
+    /// Was `_ = try? await API.shared.deleteArea(id:)` — a failure (session
+    /// expired mid-use, most likely) was silently swallowed, `selection`
+    /// still cleared, and the reload then correctly showed the area STILL
+    /// THERE, because it never left the server. Nothing on screen said the
+    /// delete had failed, so it read as "deleting does nothing." Same fix as
+    /// `removeObject` just above, which already had this right.
+    private func removeArea(_ id: String) async {
+        do {
+            try await API.shared.deleteArea(id: id)
+            selection = .none
+            await loadObjects()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     /// §4's room-depth Insert: their five nouns, in their order, with the
     /// four that are not built greyed and saying why — the same treatment
     /// `LevelCanvas` already gives the floor-depth copy of this menu.
@@ -2808,11 +2824,7 @@ struct RoomEditorCore: View {
             editingAreaShape = areas.first(where: { $0.id == id })
 
         case (.delete, .area(let id)):
-            Task {
-                _ = try? await API.shared.deleteArea(id: id)
-                selection = .none
-                await loadObjects()
-            }
+            Task { await removeArea(id) }
 
         case (.rotate, .object(let id)):
             // A quarter turn, which is what rotating a cabinet against a

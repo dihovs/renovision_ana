@@ -5,7 +5,7 @@ import ReportDocument, { type ReportRoom } from "@/components/admin/ReportDocume
 import { isConfigured } from "@/lib/crm/db";
 import { getProject, listRoomFiles, signProjectFileUrls } from "@/lib/crm/projects";
 import { listRoomScans } from "@/lib/crm/roomScans";
-import { listAffectedAreas } from "@/lib/crm/affectedAreas";
+import { listAffectedAreas, ensurePolishedNotes } from "@/lib/crm/affectedAreas";
 import { listRoomWalls } from "@/lib/crm/roomWalls";
 import { listProjectObjects } from "@/lib/crm/roomObjects";
 import { listEquipment, listMoistureReadings } from "@/lib/crm/dryingLog";
@@ -15,6 +15,25 @@ import { reportLocale } from "@/lib/report/strings";
 import "./report.css";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * The report's own query string, built rather than concatenated.
+ *
+ * The links below used to glue `?` and `&` on by hand with a ternary per
+ * option — readable with two options, wrong with three, and the kind of
+ * wrong that produces a URL the page silently ignores. One place decides
+ * where the `?` goes.
+ */
+function reportQuery(options: {
+  dimensions: boolean;
+  /** `floors`, `noplans`, or nothing for the full document. */
+  layout: string | null;
+}): string {
+  const parts: string[] = [];
+  if (options.dimensions) parts.push("dimensions=locked");
+  if (options.layout) parts.push(`layout=${options.layout}`);
+  return parts.length === 0 ? "" : `?${parts.join("&")}`;
+}
 
 /**
  * The restoration report for one project.
@@ -46,6 +65,10 @@ export default async function ReportPage({
   const onlyLockedDimensions = query.dimensions === "locked";
   // The reference's third export layout, which had never been generated.
   const floorsOnly = query.layout === "floors";
+  // Its mirror image: every drawing removed, everything else kept. See the
+  // `layout` doc on `ReportData` for why a report sometimes has to carry
+  // only the photographs and the priced lines.
+  const noPlans = query.layout === "noplans";
   // The document alone, no app chrome — so any way of turning this into a
   // PDF produces the same clean pages.
   const bare = query.bare === "1";
@@ -89,12 +112,17 @@ export default async function ReportPage({
 
   const rooms: ReportRoom[] = await Promise.all(
     scans.map(async (scan) => {
-      const [areas, readings, files, walls] = await Promise.all([
+      const [rawAreas, readings, files, walls] = await Promise.all([
         listAffectedAreas(scan.id).catch(() => []),
         listMoistureReadings(scan.id).catch(() => []),
         listRoomFiles(scan.id).catch(() => []),
         listRoomWalls(scan.id).catch(() => []),
       ]);
+      // The owner's ask: his own on-site wording gets an AI pass before it
+      // reaches an adjuster. Cached on the row after the first export — see
+      // `ensurePolishedNotes` — so this costs a model call only the first
+      // time a note is printed, or after it is edited.
+      const areas = await ensurePolishedNotes(rawAreas).catch(() => rawAreas);
       const thumbnailPaths = files
         .map((file) => file.thumbnail_path)
         .filter((path): path is string => Boolean(path));
@@ -185,9 +213,10 @@ export default async function ReportPage({
             lib/report/pdf.ts for why that had to stop depending on which
             export route the reader happened to use. */}
         <a
-          href={`/admin/projects/${project.id}/report/pdf${
-            onlyLockedDimensions ? "?dimensions=locked" : ""
-          }${floorsOnly ? (onlyLockedDimensions ? "&" : "?") + "layout=floors" : ""}`}
+          href={`/admin/projects/${project.id}/report/pdf${reportQuery({
+            dimensions: onlyLockedDimensions,
+            layout: floorsOnly ? "floors" : noPlans ? "noplans" : null,
+          })}`}
           className="rounded-xl bg-brand-blue px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-blue/90"
         >
           Download PDF
@@ -233,15 +262,10 @@ export default async function ReportPage({
             want hand-set dimensions on a floors-only sheet. */}
         <div className="mt-2">
           <Link
-            href={
-              floorsOnly
-                ? `/admin/projects/${project.id}/report${
-                    onlyLockedDimensions ? "?dimensions=locked" : ""
-                  }`
-                : `/admin/projects/${project.id}/report?layout=floors${
-                    onlyLockedDimensions ? "&dimensions=locked" : ""
-                  }`
-            }
+            href={`/admin/projects/${project.id}/report${reportQuery({
+              dimensions: onlyLockedDimensions,
+              layout: floorsOnly ? null : "floors",
+            })}`}
             className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-charcoal transition-colors hover:border-brand-blue/40"
           >
             <span
@@ -267,6 +291,42 @@ export default async function ReportPage({
             </p>
           )}
         </div>
+
+        {/* The opposite trim, and the two are mutually exclusive by
+            construction — one `layout`, three values — because a report
+            cannot be both all drawings and none. */}
+        <div className="mt-2">
+          <Link
+            href={`/admin/projects/${project.id}/report${reportQuery({
+              dimensions: onlyLockedDimensions,
+              layout: noPlans ? null : "noplans",
+            })}`}
+            className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-charcoal transition-colors hover:border-brand-blue/40"
+          >
+            <span
+              aria-hidden
+              className={`flex h-4 w-4 items-center justify-center rounded border ${
+                noPlans
+                  ? "border-brand-blue bg-brand-blue text-white"
+                  : "border-black/20 bg-white"
+              }`}
+            >
+              {noPlans && (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+            No floor plans
+          </Link>
+          {noPlans && (
+            <p className="mt-1.5 text-xs leading-snug text-charcoal/50">
+              Photographs, figures and the priced lines. No storey plans, no
+              room drawings, no wall elevations — for a file where every
+              figure has to be one somebody measured rather than traced.
+            </p>
+          )}
+        </div>
       </div>
 
       <ReportDocument
@@ -286,7 +346,11 @@ export default async function ReportPage({
           equipment,
           generatedAt: new Date().toISOString(),
           onlyLockedDimensions,
-          layout: floorsOnly ? ("onlyFloors" as const) : ("full" as const),
+          layout: floorsOnly
+            ? ("onlyFloors" as const)
+            : noPlans
+              ? ("noPlans" as const)
+              : ("full" as const),
           locale,
         }}
       />

@@ -32,6 +32,24 @@ export type LineItem = {
   category: string;
   subcategory: string;
   name: string;
+  /**
+   * **The same item, as a Québec estimator writes it on a devis.**
+   *
+   * The name is the only part of a priced line a client or an adjuster
+   * actually reads — the code beside it is an internal handle — so a French
+   * document that prints `Install 1/2 inch drywall` is an English document
+   * with French headings. Under Bill 96 the French wording is the one that
+   * has to exist, and register matters as much as accuracy: the reference
+   * Xactimate output (`Docs/Estimator-Xactimate-Conventions.md` §2) writes
+   * `E&R 1/2" placoplâtre résist. à l'eau, finition brute`, so these follow
+   * the same trade vocabulary rather than a dictionary's.
+   *
+   * Beside `name`, never instead of it: the owner runs the app in English
+   * and the catalog prompt in `catalog.ts` is written against these English
+   * names. `lineItemName(code, locale)` is the one door a printed document
+   * uses.
+   */
+  nameFr: string;
   unit: string;
   /** Customer-facing installed sell rate per unit, in CAD. */
   salesRate: number;

@@ -804,7 +804,19 @@ struct ElevationView: View {
                 let now = face.clampedFace(value.location)
 
                 if drawing {
-                    draft = FaceRect(a: start, b: now)
+                    // Square by default: a free-drag rectangle rarely comes
+                    // out the shape the operator meant, and the corners this
+                    // makes are still draggable afterward for anything that
+                    // needs to be a real rectangle.
+                    let dx = now.x - start.x
+                    let dy = now.y - start.y
+                    let side = max(abs(dx), abs(dy))
+                    let sx: CGFloat = dx < 0 ? -1 : 1
+                    let sy: CGFloat = dy < 0 ? -1 : 1
+                    let squared = CGPoint(
+                        x: min(max(start.x + sx * side, 0), CGFloat(face.length)),
+                        y: min(max(start.y + sy * side, 0), CGFloat(face.height)))
+                    draft = FaceRect(a: start, b: squared)
                     return
                 }
                 // Objects before openings: an object standing against the

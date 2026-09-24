@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { CauseTag, PlanLegend } from "./ReportSymbols";
+import { PlanLegend } from "./ReportSymbols";
 import {
   REPORT_STRINGS,
   formatArea,
@@ -17,22 +17,26 @@ import {
   toFloorPlan,
   type ScanGeometry,
 } from "@/lib/roomScan";
-import { MEASURE_DEFINITIONS } from "@/lib/crm/measureDefinitions";
-import { FLOOR_LEVELS } from "@/lib/crm/floors";
+import { measureDefinitions } from "@/lib/crm/measureDefinitions";
+import { FLOOR_LEVELS, floorLabelFr } from "@/lib/crm/floors";
 import {
-  areaColor,
+  bySurface,
   ceilingAreas,
-  damageLabel,
   floorAreas,
   planAreas,
-  totalsBySurface,
   wallAreas,
   type AffectedArea,
-  type DamageType,
 } from "@/lib/crm/areaShapes";
+import { AFFECTED_AREA_FILL } from "./planPalette";
 import { unitDays, type EquipmentPlacement, type MoistureReading } from "@/lib/crm/dryingLog";
 import type { CompanySetting, CustomFieldDef } from "@/lib/crm/settings";
 import { isFieldVisible } from "@/lib/crm/settings";
+import ReportEstimateTable, { groupLinesByApartment } from "./ReportEstimateTable";
+import type {
+  AllocatedLine,
+  EstimateTotals,
+  TrailerSettings,
+} from "@/lib/estimator/insurance/types";
 
 /**
  * The restoration report, as a printable document.
@@ -66,6 +70,28 @@ export type ReportRoom = {
   /** Bedroom, bathroom, garage… The cover counts bathrooms separately, so
       the type has to reach the report. */
   roomType?: string | null;
+  /**
+   * **Which apartment of a multi-unit building this room is in — `"103"`.**
+   *
+   * A triplex is one claim, one roof and three households, and a report that
+   * runs the three units together makes the reader work out for themselves
+   * which page priced which door. Set it on the rooms and the document
+   * divides into sections: each unit's storey plan, room pages, photographs
+   * and priced lines together, with its own sous-total, before the next unit
+   * starts.
+   *
+   * **Undefined or blank means ungrouped, and ungrouped is the default.** A
+   * single-family job — which is most of them — sets this nowhere and prints
+   * exactly the document it printed yesterday, page for page: no headings, no
+   * sous-totaux, storey plans and rooms and the one estimate block in their
+   * existing order. The sectioning only appears once at least one room says
+   * which unit it belongs to.
+   *
+   * The value is the identifier as it is written on the door — `103`, `4B`,
+   * `RC`. The word in front of it (`Appartement`) belongs to the document's
+   * language and lives in `report/strings.ts`.
+   */
+  apartment?: string | null;
   notes: string | null;
   /** Where the operator dragged this room on the storey canvas. Null means
       never placed — see `ReportStoreyPlan` for why that changes what the
@@ -121,8 +147,39 @@ export type ReportData = {
    * asking for the floor plans wants the drawings, and sending forty pages
    * of photographs when they asked for four pages of plans is how a claim
    * file gets set aside unread.
+   *
+   * `noPlans` is the mirror image of `onlyFloors`, and it exists for the
+   * same reason in reverse: **every drawing removed, nothing else.** The
+   * cover, the claim summary, the contents, the room pages with their
+   * figures and their affected-area listings, the photographs, the priced
+   * estimate, the signature and the definitions all print exactly as they
+   * do in `full` — only the storey plans, the room floor plans and the wall
+   * elevations are gone.
+   *
+   * His ask, 7 Sep 2026: *"lets try without the floorplan, only photos and
+   * line items."* The reason is worth writing down, because it is a good
+   * one and it will come up again. A drawing traced from a sketch rather
+   * than measured on site carries a few percent of area error and cannot
+   * resolve where along a wall a patch of damage sits. Every figure in the
+   * listings, every photograph and every priced line is a fact; a plan
+   * drawn to within 5% is an argument. On a document going to an adjuster
+   * whose job is to find the soft number, an honest approximation is still
+   * the softest thing on the page — so there is a layout that carries only
+   * what cannot be disputed.
    */
-  layout?: "full" | "onlyFloors";
+  layout?: "full" | "onlyFloors" | "noPlans";
+  /**
+   * Templates H/I from `Docs/Report-Estimate-Blueprint.md` — the priced
+   * takeoff/scope table and its sommaire. Optional and additive: a report
+   * with no estimate attached prints exactly as it always has. See
+   * `ReportEstimateTable` for why this is a real section of the document
+   * rather than a script that dumps a devis beside it.
+   */
+  estimate?: {
+    lines: AllocatedLine[];
+    totals: EstimateTotals;
+    trailer: TrailerSettings;
+  };
   /**
    * **The language of the DOCUMENT, not of the app.**
    *
@@ -207,7 +264,14 @@ const PHOTOS_PER_PAGE = 6;
  * The report printed the id, so a page headed "▼ 2nd" read as a fragment.
  * One vocabulary, `floors.ts`, decides both.
  */
-function floorLabel(level: string, t: ReportStrings): string {
+function floorLabel(level: string, t: ReportStrings, locale: Locale): string {
+  // The document's language wins over the operator's. `floors.ts` owns both
+  // spellings so a storey cannot be named one way on the contents page and
+  // another on the page it points at.
+  if (locale === "fr") {
+    const fr = floorLabelFr(level);
+    if (fr !== level) return fr;
+  }
   const known = FLOOR_LEVELS.find((entry) => entry.id === level)?.label;
   if (known) return known;
   // A bare number is a storey, not a name. Without this a page headed `2`
@@ -227,6 +291,31 @@ function floorLabel(level: string, t: ReportStrings): string {
 /** The rooms sharing a storey, in the order the report prints them. */
 function roomsOnLevel(rooms: ReportRoom[], level: string): ReportRoom[] {
   return rooms.filter((room) => room.level === level);
+}
+
+/**
+ * A storey page's slot in the page plan, keyed by the SECTION it prints in.
+ *
+ * Two apartments can sit on one floor — a duplex over a shop, a divided
+ * storey — and each gets its own storey page inside its own section. Keyed
+ * by the level alone, the second would overwrite the first's page number and
+ * the footer of one would point at the other. Costs nothing on the ordinary
+ * job, where the unit is null and this is the level id with a prefix.
+ */
+function levelKey(unit: string | null, level: string): string {
+  return `${unit ?? ""} ${level}`;
+}
+
+/**
+ * The band that opens an apartment's section.
+ *
+ * Not a page of its own: a divider page would be a page added to a document
+ * whose instruction was that nothing be added or taken away. It is a heading
+ * on the first sheet of the section, set heavier than the page's own title
+ * so the eye catches the boundary while flipping.
+ */
+function UnitBand({ label }: { label: string }) {
+  return <p className="unit-band">{label}</p>;
 }
 
 function planExtent(geometry: ScanGeometry): { width: number; height: number } {
@@ -336,6 +425,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     onlyLockedDimensions = false,
     layout = "full",
     locale = "fr",
+    estimate,
   } = data;
   const t = REPORT_STRINGS[locale];
   // Every figure in the document goes through these, so a French report
@@ -345,6 +435,20 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   const m = (metres: number) => formatLength(locale, metres);
   const date = (iso: string | null | undefined) => formatDate(locale, iso);
   const floorsOnly = layout === "onlyFloors";
+  /**
+   * Whether this document draws anything at all.
+   *
+   * One flag rather than a guard per drawing, because "no plans" has to mean
+   * NO plans: the cover's key plan, the storey pages, the room locator, the
+   * room floor plan with its scale bar and numbered key, the elevations
+   * under the room page and the small elevation figure beside each wall
+   * area are six separate pieces of markup that all draw the same traced
+   * geometry. Any one of them left behind makes the document a lie about
+   * itself. Read from `layout` so the two document-shape decisions cannot
+   * contradict each other — `onlyFloors` is all plans, `noPlans` is none,
+   * and a boolean beside the union would have allowed both at once.
+   */
+  const showPlans = layout !== "noPlans";
 
   const floorAreaSqm = rooms.reduce((sum, room) => sum + room.floorAreaSqm, 0);
   // Living area is on every page of the reference's header, so it has to
@@ -357,15 +461,26 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   );
   const wallAreaSqm = rooms.reduce((sum, room) => sum + wallAreaGross(room), 0);
 
-  // By cause, never one grand total: causes do not share a trade or a rate,
-  // and areas may overlap, so a single sum would double-count the square
-  // footage that is both wet and smoke-stained.
+  // By SURFACE, and never one grand total. Floor square footage and wall
+  // square footage are different trades at different rates; added together
+  // they price neither, and floor and ceiling cover the same footprint so a
+  // sum of the two double-counts every square foot. An adjuster reading one
+  // merged figure cannot check it against anything.
   //
-  // And by surface, for the same reason one step out. Floor square footage
-  // and wall square footage are different trades at different rates; added
-  // together they price neither. An adjuster reading one merged figure
-  // cannot check it against anything.
-  const damage = totalsBySurface(rooms.flatMap((room) => room.areas));
+  // These used to be split by damage cause as well. The cause is no longer
+  // stated anywhere in this document, so the split has gone with it and each
+  // surface carries one figure — which is also the figure the priced estimate
+  // works from: the CALC line under a drywall item sums a wall's patches
+  // whatever caused them, so a per-surface total is the number an adjuster
+  // can actually check the estimate against.
+  const damageAreas = bySurface(rooms.flatMap((room) => room.areas));
+  const sumSqm = (list: AffectedArea[]) =>
+    list.reduce((total, area) => total + Number(area.area_sqm), 0);
+  const damage = {
+    floor: { count: damageAreas.floor.length, sqm: sumSqm(damageAreas.floor) },
+    wall: { count: damageAreas.wall.length, sqm: sumSqm(damageAreas.wall) },
+    ceiling: { count: damageAreas.ceiling.length, sqm: sumSqm(damageAreas.ceiling) },
+  };
 
   const now = new Date(generatedAt);
   const shownClaim = claimFields.filter(
@@ -376,9 +491,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
   // reviewing a thirty-page PDF flips pages out of order; a page that cannot
   // say which claim it belongs to is a page that gets set aside.
   const identity = [
-    claim.claim_number && `CLAIM ${claim.claim_number}`,
+    claim.claim_number && `${t.claimTag} ${claim.claim_number}`,
     client?.name,
-    claim.loss_date && `LOSS ${date(claim.loss_date)}`,
+    claim.loss_date && `${t.lossTag} ${date(claim.loss_date)}`,
     claim.water_category,
     claim.water_class,
   ]
@@ -400,26 +515,83 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     .map((part) => part.trim())
     .filter(Boolean);
 
-  // Only the causes this job actually has. A legend listing five kinds of
-  // damage on a job with one is a legend nobody reads twice.
-  const causesInUse = Array.from(
-    new Set(rooms.flatMap((room) => room.areas.map((area) => area.damage_type))),
-  );
-
   // The rooms the cover's key plan draws: the first storey, and only the
   // ones whose walls actually closed into an outline. A scan that stopped
   // short has no shape to show and would print as a stray line.
-  const coverPlanRooms = rooms
-    .filter((room) => room.level === levels[0])
-    .filter((room) => toFloorPlan(room.geometry).polygon.length >= 3)
-    .slice(0, 6);
+  // A `noPlans` cover keeps its figures and its map and simply has no key
+  // plan — the block below already prints nothing when this list is empty.
+  const coverPlanRooms = !showPlans
+    ? []
+    : rooms
+        .filter((room) => room.level === levels[0])
+        .filter((room) => toFloorPlan(room.geometry).polygon.length >= 3)
+        .slice(0, 6);
+
+  /**
+   * ------------------------------------------------ apartment sectioning
+   *
+   * **The document divided by unit, when the rooms say which unit they are
+   * in.** His instruction, 8 Sep 2026, looking at the Tansley triplex:
+   * *"give them pricing apartment per apartment. Let's say 103, and then it
+   * describes everything, and then gives the line items. And then goes 102,
+   * same thing… so like this, when they read, they understand this is for
+   * this apartment, this is for that, and this is for the other."* And,
+   * first: *"I wanted you to keep the previous structure with the photos and
+   * everything. Just section them apartment by apartment."*
+   *
+   * So nothing is removed and nothing is summarised away. Every page this
+   * document had it still has; they are dealt into sections.
+   *
+   * **The ORDER of the sections is the order of the rooms.** Not sorted —
+   * `103` before `102` before `101` is what he asked for on this file, and
+   * any rule that produced it (descending? by floor?) would be a rule
+   * invented here rather than a decision the caller made. The caller already
+   * decides the order rooms print in; the units follow it.
+   */
+  const unitOf = (room: ReportRoom): string | null => room.apartment?.trim() || null;
+  const unitOrder: string[] = [];
+  for (const room of rooms) {
+    const unit = unitOf(room);
+    if (unit !== null && !unitOrder.includes(unit)) unitOrder.push(unit);
+  }
+  /** **The switch, and it is off unless a room turned it on.** No room
+      carrying an apartment means one section carrying everything, in exactly
+      the order the document has always printed it — see `ReportRoom.apartment`. */
+  const grouped = unitOrder.length > 0;
+
+  /** The document's page order, as sections. Ungrouped is the single section
+      that contains the whole job, which is how the single-unit document stays
+      byte-for-byte the one it was. */
+  const sections: { unit: string | null; rooms: ReportRoom[]; levels: string[] }[] = (
+    grouped ? [...unitOrder, ...(rooms.some((r) => unitOf(r) === null) ? [null] : [])] : [null]
+  ).map((unit) => {
+    const inUnit = grouped ? rooms.filter((room) => unitOf(room) === unit) : rooms;
+    return {
+      unit,
+      rooms: inUnit,
+      // Storeys in the caller's own order, narrowed to the ones this unit
+      // actually occupies. A storey page with no rooms on it was never
+      // slotted and still is not.
+      levels: levels.filter((level) => inUnit.some((room) => room.level === level)),
+    };
+  });
+
+  /** The devis, cut the same way — see `groupLinesByApartment` for why the
+      cut lives beside the table that prints it. The `#` column keeps running
+      1..n across every section, so the 43 lines of a triplex are still 43
+      numbered lines and not three estimates that each start at one. */
+  const estimateGroups = estimate
+    ? groupLinesByApartment(estimate.lines, grouped ? unitOrder : [], (roomScanId) =>
+        rooms.find((room) => room.id === roomScanId)?.apartment ?? null,
+      )
+    : null;
 
   // Everything that used to crowd the cover now has a page of its own, and
   // that page only exists when it has something on it.
   const hasSummary =
     shownClaim.length > 0 ||
     client !== null ||
-    damage.floor.length + damage.wall.length > 0 ||
+    damage.floor.count + damage.wall.count > 0 ||
     Boolean(project.description);
 
   /**
@@ -435,36 +607,77 @@ export default function ReportDocument({ data }: { data: ReportData }) {
    * Laying the pages out first fixes both. The footers read from this, the
    * contents page reads from this, and the total is the length of it.
    */
-  const plan: { kind: string; label: string; sub?: string; page: number }[] = [];
-  const push = (kind: string, label: string, sub?: string) => {
-    plan.push({ kind, label, sub, page: plan.length + 1 });
+  const plan: {
+    kind: string;
+    label: string;
+    sub?: string;
+    page: number;
+    /** The apartment this page belongs to, where the document is sectioned.
+        Carried on the plan rather than recomputed for the contents page, so
+        the heading a reader sees in the table of contents and the section a
+        page actually sits in cannot disagree. */
+    unit?: string | null;
+  }[] = [];
+  const push = (kind: string, label: string, sub?: string, unit?: string | null) => {
+    plan.push({ kind, label, sub, page: plan.length + 1, unit: unit ?? null });
     return plan.length;
   };
 
   const coverPage = push("cover", project.name);
-  const summaryPage = !floorsOnly && hasSummary ? push("summary", "Summary") : null;
-  const contentsPage = !floorsOnly && rooms.length > 1 ? push("contents", "Contents") : null;
+  const summaryPage = !floorsOnly && hasSummary ? push("summary", t.summary) : null;
+  const contentsPage = !floorsOnly && rooms.length > 1 ? push("contents", t.contents) : null;
 
+  // The storey pages are ONLY a drawing — a title, the assembled floor, the
+  // legend. With no drawing there is nothing left to put on them, so they
+  // are not slotted at all rather than slotted and left blank; the page
+  // numbers below and the contents page are both counted off this list, so
+  // dropping the slot is what keeps `Page n/N` right.
   const levelPages = new Map<string, number>();
-  for (const level of levels) {
-    if (!rooms.some((room) => room.level === level)) continue;
-    levelPages.set(level, push("level", floorLabel(level, t)));
-  }
-
   const roomPages = new Map<string, { page: number; photos: number[] }>();
-  if (!floorsOnly) {
-    for (const room of rooms) {
-      const page = push("room", room.name, floorLabel(room.level, t));
-      const photos = photoPages(room).map((_, index) =>
-        push("photos", `Photos — ${room.name}`, `${index + 1}`),
-      );
-      roomPages.set(room.id, { page, photos });
+  /** Where each apartment's own slice of the devis prints — immediately
+      behind that apartment's own pages, which is the whole point of the
+      exercise: *"it describes everything, and then gives the line items.
+      And then goes 102, same thing."* */
+  const unitEstimatePages = new Map<string, number>();
+
+  // **One loop over the sections, where there used to be two over the whole
+  // job.** With no apartments set there is exactly one section holding every
+  // storey and every room in the caller's order, so this walks the same
+  // pages in the same order and slots the same numbers.
+  for (const section of sections) {
+    if (showPlans) {
+      for (const level of section.levels) {
+        levelPages.set(
+          levelKey(section.unit, level),
+          push("level", floorLabel(level, t, locale), undefined, section.unit),
+        );
+      }
+    }
+    if (!floorsOnly) {
+      for (const room of section.rooms) {
+        const page = push("room", room.name, floorLabel(room.level, t, locale), section.unit);
+        const photos = photoPages(room).map((_, index) =>
+          push("photos", t.photosEntry(room.name), `${index + 1}`, section.unit),
+        );
+        roomPages.set(room.id, { page, photos });
+      }
+      const unitLines = section.unit
+        ? estimateGroups?.units.get(section.unit)?.lines ?? []
+        : [];
+      if (section.unit && unitLines.length > 0) {
+        unitEstimatePages.set(
+          section.unit,
+          push("estimate", t.estimate, t.unit(section.unit), section.unit),
+        );
+      }
     }
   }
 
   const equipmentPage =
-    !floorsOnly && equipment.length > 0 ? push("equipment", "Drying record") : null;
-  const signaturePage = push("signature", "Signature");
+    !floorsOnly && equipment.length > 0 ? push("equipment", t.drying) : null;
+  const estimatePage =
+    !floorsOnly && estimate && estimate.lines.length > 0 ? push("estimate", t.estimate) : null;
+  const signaturePage = push("signature", t.signature);
   const definitionsPage =
     !floorsOnly && rooms.length > 0 ? push("definitions", t.howMeasured) : null;
 
@@ -608,8 +821,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               }))}
             />
             <p className="cover-plan-caption">
-              {floorLabel(levels[0], t)} — {coverPlanRooms.length} room
-              {coverPlanRooms.length === 1 ? "" : "s"}
+              {floorLabel(levels[0], t, locale)} — {t.roomCount(coverPlanRooms.length)}
             </p>
           </div>
         )}
@@ -694,13 +906,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               cover the same footprint and would look like one figure
               double-counted if they were ever added. Each prints nothing
               at all when that surface has nothing on it. */}
-          <DamageTotals locale={locale} title={t.affectedFloorByCause} totals={damage.floor} />
-          <DamageTotals locale={locale} title={t.affectedWallByCause} totals={damage.wall} />
-          <DamageTotals
-            locale={locale}
-            title={t.affectedCeilingByCause}
-            totals={damage.ceiling}
-          />
+          <DamageTotals locale={locale} title={t.affectedFloorArea} total={damage.floor} />
+          <DamageTotals locale={locale} title={t.affectedWallArea} total={damage.wall} />
+          <DamageTotals locale={locale} title={t.affectedCeilingArea} total={damage.ceiling} />
           {project.description && <p className="desc">{project.description}</p>}
           <PageFoot n={summaryPage ?? 0} of={totalPages} company={company} t={t} />
         </section>
@@ -721,43 +929,84 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
           <p className="marker">{t.contents}</p>
           <ul className="contents">
-            {plan
-              .filter((entry) => entry.kind !== "cover" && entry.kind !== "contents")
-              .map((entry) => (
-                <li
-                  key={`${entry.kind}-${entry.page}`}
-                  className={`contents-${entry.kind}`}
-                >
-                  <span className="contents-label">
-                    {entry.label}
-                    {entry.sub && entry.kind === "room" && (
-                      <span className="contents-sub"> · {entry.sub}</span>
-                    )}
-                  </span>
-                  <span className="lead" />
-                  <span className="contents-page">{entry.page}</span>
-                </li>
-              ))}
+            {/* **The apartments show up here first.** A reader opening a
+                sectioned report looks at this page to find out how the
+                document is arranged, so the arrangement has to be on it —
+                a heading over each unit's own run of pages. Emitted from
+                the same `plan` the footers are numbered from, so a heading
+                cannot sit over a page that is in a different section. With
+                no apartments set, `entry.unit` is null throughout and this
+                list is exactly the list it has always been. */}
+            {(() => {
+              let openedUnit: string | null = null;
+              return plan
+                .filter((entry) => entry.kind !== "cover" && entry.kind !== "contents")
+                .map((entry) => {
+                  const opening =
+                    entry.unit && entry.unit !== openedUnit ? entry.unit : null;
+                  if (entry.unit) openedUnit = entry.unit;
+                  return (
+                    <Fragment key={`${entry.kind}-${entry.page}`}>
+                      {opening && (
+                        <li className="contents-unit">
+                          <span className="contents-label">{t.unit(opening)}</span>
+                          <span className="lead" />
+                          <span className="contents-page">{entry.page}</span>
+                        </li>
+                      )}
+                      <li className={`contents-${entry.kind}`}>
+                        <span className="contents-label">
+                          {entry.label}
+                          {entry.sub &&
+                            (entry.kind === "room" || entry.kind === "estimate") && (
+                              <span className="contents-sub"> · {entry.sub}</span>
+                            )}
+                        </span>
+                        <span className="lead" />
+                        <span className="contents-page">{entry.page}</span>
+                      </li>
+                    </Fragment>
+                  );
+                });
+            })()}
           </ul>
           <PageFoot n={contentsPage} of={totalPages} company={company} t={t} />
         </section>
       )}
 
+      {/* ------------------------------------------------ the sections
+          One apartment's storey plan, its rooms, their photographs and its
+          priced lines, then the next apartment's. With no apartment set
+          anywhere this is a single section holding the whole job in the
+          order it has always printed — see the sectioning block above. */}
+      {sections.map((section) => {
+        const bandOnLevel = showPlans && section.levels.length > 0;
+        const unitLabel = section.unit ? t.unit(section.unit) : null;
+        return (
+        <Fragment key={section.unit ?? "__ungrouped__"}>
+
       {/* ------------------------------------------- one page per floor */}
-      {levels.map((level) => {
-        const onLevel = rooms.filter((room) => room.level === level);
+      {showPlans && section.levels.map((level, levelIndex) => {
+        const onLevel = section.rooms.filter((room) => room.level === level);
         if (onLevel.length === 0) return null;
         const levelArea = onLevel.reduce((sum, room) => sum + room.floorAreaSqm, 0);
 
         return (
           <section className="page" key={level}>
             <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
+            {/* **The band that opens an apartment's section.** Printed once,
+                on the section's first page, rather than on all of them: a
+                reader needs to be told where a section begins, and a line
+                repeated on thirty pages is a line nobody reads by the third.
+                The pages inside carry the unit quietly, on the sub-line
+                under their own title, at no cost in height. */}
+            {unitLabel && levelIndex === 0 && <UnitBand label={unitLabel} />}
             <div className="section-head">
-              <p className="marker">{floorLabel(level, t)}</p>
+              <p className="marker">{floorLabel(level, t, locale)}</p>
               <Figures
                 pairs={[
-                  ["TOTAL AREA", m2(levelArea)],
-                  ["ROOMS", String(onLevel.length)],
+                  [t.totalArea.toUpperCase(), m2(levelArea)],
+                  [t.rooms.toUpperCase(), String(onLevel.length)],
                 ]}
               />
             </div>
@@ -784,21 +1033,28 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   .map((area) => ({
                     id: area.id,
                     polygon: area.polygon,
-                    color: areaColor(area),
+                    // One colour for every patch — see AFFECTED_AREA_FILL.
+                    color: AFFECTED_AREA_FILL,
                   })),
               }))}
             />
-            <PlanLegend causes={causesInUse} locale={locale} t={t} />
-            <PageFoot n={levelPages.get(level) ?? 0} of={totalPages} company={company} t={t} />
+            <PlanLegend t={t} />
+            <PageFoot
+              n={levelPages.get(levelKey(section.unit, level)) ?? 0}
+              of={totalPages}
+              company={company}
+              t={t}
+            />
           </section>
         );
       })}
 
       {/* --------------------------------------------- one page per room */}
-      {!floorsOnly && rooms.map((room) => (
+      {!floorsOnly && section.rooms.map((room, roomIndex) => (
         <Fragment key={room.id}>
         <section className="page">
           <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
+          {unitLabel && !bandOnLevel && roomIndex === 0 && <UnitBand label={unitLabel} />}
 
           {/* The reference's own two lines above the drawing, in its own
               order and wording: the room and its storey, then the figures
@@ -808,7 +1064,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <div className="section-head">
             <div>
               <p className="marker">{room.name}</p>
-              <p className="marker-sub">{floorLabel(room.level, t)}</p>
+              {/* The storey, and — where the document is sectioned — the
+                  apartment beside it. On the sub-line the page already has,
+                  so a reader who flips into the middle of a triplex knows
+                  whose kitchen this is without a millimetre added to the
+                  sheet. */}
+              <p className="marker-sub">
+                {floorLabel(room.level, t, locale)}
+                {unitLabel && ` · ${unitLabel}`}
+              </p>
             </div>
             <Figures
               align="right"
@@ -822,7 +1086,11 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             />
           </div>
 
-          <div className="room-body">
+          {/* The grid exists to stand the locator beside the drawing. With
+              neither of them there is one column of ordinary blocks, and
+              leaving the class on would size that column to `auto` — the
+              staircase row set in a narrow strip against a page of white. */}
+          <div className={showPlans ? "room-body" : undefined}>
             {/* **The locator, and it is the best thing on their page.** His
                 words looking at it, 21 Aug: *"do you see how it shows the
                 room separate but at the same time showing what part of the
@@ -838,12 +1106,18 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 Ours used to be a ROW of separate room outlines with one
                 shaded, because the report had no assembled floor to draw
                 from. It has one now. */}
-            {roomsOnLevel(rooms, room.level).length > 1 && (
+            {/* Scoped to the SECTION's rooms, not the whole job: on a
+                sectioned document the locator has to show the apartment this
+                room is in, and greying out a neighbour's kitchen because it
+                happens to share a storey number would be worse than no
+                locator. Identical on an ungrouped job, where the section is
+                the whole job. */}
+            {showPlans && roomsOnLevel(section.rooms, room.level).length > 1 && (
               <div className="locator">
                 <ReportStoreyPlan
                   locale={locale}
                   highlight={room.id}
-                  rooms={roomsOnLevel(rooms, room.level).map((other) => ({
+                  rooms={roomsOnLevel(section.rooms, room.level).map((other) => ({
                     id: other.id,
                     name: other.name,
                     geometry: other.geometry,
@@ -858,6 +1132,16 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 
             {/* Wrapped so the plan and its note share one grid cell. */}
             <div>
+              {/* The drawing, its note, its scale and its numbered key —
+                  one block, because the last three exist only to explain the
+                  first. A scale ratio with nothing drawn under it, or badges
+                  numbering patches on a plan that is not there, would be
+                  worse than the drawing's absence. The areas themselves are
+                  not lost with it: every one of them prints again in full,
+                  with its measurement and its notes, in the affected-area
+                  listings at the foot of this page. */}
+              {showPlans && (
+                <>
               <div className="plan large">
                 <FloorPlan
                   result={room.geometry}
@@ -873,7 +1157,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                     .map((area) => ({
                       id: area.id,
                       polygon: area.polygon,
-                      color: areaColor(area),
+                      color: AFFECTED_AREA_FILL,
                     }))}
                 />
               </div>
@@ -914,7 +1198,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                       <th>
                         <span
                           className="badge"
-                          style={{ background: areaColor(area) }}
+                          style={{ background: AFFECTED_AREA_FILL }}
                         >
                           {index + 1}
                         </span>
@@ -922,14 +1206,18 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                       </th>
                       <td className="num">
                         {m2(Number(area.area_sqm))}
-                        <span className="cause">
+                        {/* The surface, and nothing else. This carried the
+                            damage cause in front of it — `6,62 m² Autre ·
+                            plancher` — and dropped the cause word AND the
+                            separator with it rather than leaving a leading
+                            middot in front of the surface. */}
+                        <span className="surface">
                           {" "}
-                          {damageLabel(area.damage_type, locale)}
                           {area.surface === "wall"
-                            ? " · wall"
+                            ? t.wall.toLowerCase()
                             : area.surface === "ceiling"
-                              ? " · ceiling"
-                              : " · floor"}
+                              ? t.ceiling.toLowerCase()
+                              : t.floor.toLowerCase()}
                         </span>
                       </td>
                     </tr>
@@ -937,6 +1225,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 </tbody>
               </table>
             )}
+                </>
+              )}
 
             {/* **What the two lines above do NOT already say.**
                 This table used to repeat Floor, Perimeter and Ceiling height
@@ -969,6 +1259,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               print here as well as inside its own affected-area block below
               — the same wall twice on one page, and 34mm of a sheet that
               did not have it. */}
+          {showPlans && (
           <RoomElevations
             onlyFlagged
             locale={locale}
@@ -979,6 +1270,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             areas={wallAreas(room.areas)}
             wallFlags={room.wallDisplayElevation}
           />
+          )}
 
           {room.readings.length > 0 && (
             <table className="listing">
@@ -987,9 +1279,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   <th>{t.reading}</th>
                   <th>{t.location}</th>
                   <th>{t.material}</th>
-                  <th className="num">MC</th>
-                  <th className="num">RH</th>
-                  <th className="num">Temp</th>
+                  <th className="num">{t.moistureContent}</th>
+                  <th className="num">{t.relativeHumidity}</th>
+                  <th className="num">{t.temperature}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1032,14 +1324,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               And each area is label-and-value rows, not a table column, so
               a sentence of notes prints as a sentence.
 
-              One row is ours: `Cause`. Theirs has no equivalent because
-              magicplan is not a restoration tool — but water, fire and mould
-              are different trades at different rates, and an area whose
-              cause is not stated cannot be priced. It is one more row in
-              their own idiom, not a structure they do not have. */}
+              A `Cause` row used to sit under `Name`, naming the peril —
+              `Dégât d'eau`, `Moisissure` — which is a row the reference has
+              no equivalent for. It came out on the owner's instruction of
+              8 Sep 2026: the classification is still recorded against every
+              area and the estimator still prices from it, it is simply not
+              printed. The rows left are the reference's own. */}
           {(room.photos.length > 0 || room.areas.length > 0) && (
             <>
-              <p className="marker marker-2">{room.name} / {floorLabel(room.level, t)}</p>
+              <p className="marker marker-2">{room.name} / {floorLabel(room.level, t, locale)}</p>
               {room.photos.length > 0 && (
                 <dl className="area-block">
                   <dt>{t.photos}</dt>
@@ -1066,10 +1359,6 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                         <dd>{m2(Number(area.area_sqm))}</dd>
                         <dt>{t.name}</dt>
                         <dd>{area.name}</dd>
-                        <dt>{t.cause}</dt>
-                        <dd>
-                          <CauseTag cause={area.damage_type} locale={locale} />
-                        </dd>
                         {area.surface === "wall" && (
                           <>
                             <dt>{t.wall}</dt>
@@ -1079,7 +1368,15 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                         {area.notes && (
                           <>
                             <dt>{t.notes}</dt>
-                            <dd>{area.notes}</dd>
+                            {/* The AI pass over damage notes (`ensurePolishedNotes`
+                                in `lib/crm/affectedAreas.ts`) runs before this
+                                component ever renders, so a printed note is
+                                already the polished text where one exists —
+                                falling back to the operator's own words is
+                                what happens on the very first export of a
+                                note, before the pass has had anything to
+                                cache, and if the pass ever fails outright. */}
+                            <dd>{area.notes_polished || area.notes}</dd>
                           </>
                         )}
                       </dl>
@@ -1091,7 +1388,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                           the window, which is the line a drywall price is
                           built on. Beside the block rather than in a section
                           of its own, so it costs the page nothing. */}
-                      {area.surface === "wall" && area.wall_index !== null && (
+                      {showPlans && area.surface === "wall" && area.wall_index !== null && (
                         <div className="area-figure">
                           <WallElevation
                             locale={locale}
@@ -1141,7 +1438,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
             {/* Their section marker, without the glyph — see `.marker` in
                 report.css for what replaced it. */}
-            <p className="marker">{t.photosOf(room.name)}</p>
+            <p className="marker">
+              {t.photosOf(room.name)}
+              {unitLabel && ` · ${unitLabel}`}
+            </p>
             <div className="photo-grid">
               {batch.map((photo) => {
                 const video = isVideo(photo);
@@ -1192,6 +1492,36 @@ export default function ReportDocument({ data }: { data: ReportData }) {
         </Fragment>
       ))}
 
+      {/* ------------------------------- this apartment's priced lines
+          The end of the unit's section, and the reason for the section:
+          having read this unit's rooms and looked at this unit's
+          photographs, the reader is handed this unit's money before
+          anything about the next one appears. The grand sommaire is NOT
+          here — it belongs to the document and prints once, after the last
+          unit and the project-level lines. */}
+      {section.unit && unitEstimatePages.has(section.unit) && estimate && (
+        <section className="page">
+          <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
+          <p className="marker">{t.estimate} — {unitLabel}</p>
+          <ReportEstimateTable
+            lines={estimateGroups?.units.get(section.unit)?.lines ?? []}
+            startIndex={estimateGroups?.units.get(section.unit)?.startIndex ?? 0}
+            subtotalUnit={section.unit}
+            trailer={estimate.trailer}
+            locale={locale}
+          />
+          <PageFoot
+            n={unitEstimatePages.get(section.unit) ?? 0}
+            of={totalPages}
+            company={company}
+            t={t}
+          />
+        </section>
+      )}
+        </Fragment>
+        );
+      })}
+
       {/* ------------------------------------------------ drying record */}
       {!floorsOnly && equipment.length > 0 && (
         <section className="page">
@@ -1200,7 +1530,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <thead>
               <tr>
                 <th>{t.equipment}</th>
-                <th className="num">Qty</th>
+                <th className="num">{t.quantity}</th>
                 <th>{t.inService}</th>
                 <th>{t.outOfService}</th>
                 <th className="num">{t.unitDays}</th>
@@ -1231,6 +1561,31 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               no disclaimer, no page number — which made them read as
               something stapled on rather than as part of the document. */}
           <PageFoot n={equipmentPage ?? 0} of={totalPages} company={company} t={t} />
+        </section>
+      )}
+
+      {/* ------------------------------------------------ takeoff & estimate
+          Templates H/I (`Docs/Report-Estimate-Blueprint.md`) — the priced
+          scope, printed as part of the document instead of handed over as a
+          separate file. See `ReportEstimateTable`. */}
+      {estimatePage !== null && estimate && (
+        <section className="page">
+          <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
+          <p className="marker">{t.estimate}</p>
+          {/* **What is left, and the sommaire.** Ungrouped, "what is left"
+              is the whole devis and this is the page it has always been.
+              Sectioned, the apartments have already printed their own lines
+              and their own sous-totaux, so what remains here is the work
+              that belongs to no single door — débris, nettoyage final,
+              frais généraux — and then the document's one grand total. */}
+          <ReportEstimateTable
+            lines={estimateGroups?.project.lines ?? []}
+            startIndex={estimateGroups?.project.startIndex ?? 0}
+            totals={estimate.totals}
+            trailer={estimate.trailer}
+            locale={locale}
+          />
+          <PageFoot n={estimatePage} of={totalPages} company={company} t={t} />
         </section>
       )}
 
@@ -1265,7 +1620,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
           <table className="measure definitions">
             <tbody>
-              {Object.values(MEASURE_DEFINITIONS).map((meaning) => (
+              {Object.values(measureDefinitions(locale)).map((meaning) => (
                 <tr key={meaning.id}>
                   <th>{meaning.title}</th>
                   <td>{meaning.definition}</td>
@@ -1284,46 +1639,47 @@ export default function ReportDocument({ data }: { data: ReportData }) {
 }
 
 /**
- * One surface's damage, totalled by cause.
+ * One surface's affected area, totalled.
  *
  * Nothing recorded on that surface prints nothing at all — an empty table
  * headed "affected wall area" reads as a wall that was checked and found
- * dry, which is a claim this report has no basis to make.
+ * dry, which is a claim this report has no basis to make. `count` is what
+ * decides that, not the square metres: a recorded patch measuring nothing is
+ * still a recorded patch, and printing no table for it would say the surface
+ * was never marked.
+ *
+ * One row, because there is no longer anything to break it down BY. It was a
+ * row per damage cause until the cause came out of this document; the header
+ * and the figure are what survived, and they read as the same one-column
+ * `stats` table the gross wall area above it is set in.
  */
 function DamageTotals({
   locale,
   title,
-  totals,
+  total,
 }: {
   locale: Locale;
   title: string;
-  totals: { type: DamageType; sqm: number }[];
+  total: { count: number; sqm: number };
 }) {
-  if (totals.length === 0) return null;
+  if (total.count === 0) return null;
   return (
     <table className="stats damage">
       <thead>
         <tr>
-          <th colSpan={2}>{title}</th>
+          <th>{title}</th>
         </tr>
       </thead>
       <tbody>
-        {totals.map(({ type, sqm }) => (
-          <tr key={type}>
-            <td>
-              <span className="swatch" style={{ background: areaColor({ color: null, damage_type: type }) }} />
-              {damageLabel(type, locale)}
-            </td>
-            {/* METRIC, like every other figure in this document. This
-                table was still printing square feet while the running
-                header above it said m² — the same "two places, two rules"
-                fault the room table had, and missed when that one was
-                fixed. An adjuster reading 29 next to 113.12 m² has to work
-                out which unit is which, and on a claim that is not a
-                cosmetic problem. */}
-            <td className="num">{formatArea(locale, sqm)}</td>
-          </tr>
-        ))}
+        <tr>
+          {/* METRIC, like every other figure in this document. This table
+              was still printing square feet while the running header above
+              it said m² — the same "two places, two rules" fault the room
+              table had, and missed when that one was fixed. An adjuster
+              reading 29 next to 113.12 m² has to work out which unit is
+              which, and on a claim that is not a cosmetic problem. */}
+          <td>{formatArea(locale, total.sqm)}</td>
+        </tr>
       </tbody>
     </table>
   );

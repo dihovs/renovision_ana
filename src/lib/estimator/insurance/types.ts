@@ -54,6 +54,19 @@ export type EstimateLine = {
   /** Null for project-level lines — the "Frais généraux" pseudo-room. */
   roomScanId: string | null;
   roomName: string;
+  /**
+   * Which apartment/unit of a multi-unit building this line prices — `"103"`.
+   *
+   * Copied off the room the line derived from, so the devis can be grouped
+   * and sub-totalled per unit without the printer having to hold the room
+   * list beside it. Undefined/null means the job is one unit, which is what
+   * every single-family job is: the estimate then prints exactly as it
+   * always has, one block with one sommaire.
+   *
+   * Deliberately NOT called `unit` — that name is taken, three fields down,
+   * by the unit of MEASURE.
+   */
+  apartment?: string | null;
   tradeSection: TradeSection;
   activity: Activity;
   /** The install/replace-side price book code, or null when no item exists
@@ -111,6 +124,9 @@ export type FloorFinish = "laminate" | "lvp" | "engineered" | "hardwood" | "carp
 export type EstimateRoom = {
   roomScanId: string;
   name: string;
+  /** The apartment/unit this room is in — see `EstimateLine.apartment`.
+      Every line derived from this room inherits it. */
+  apartment?: string | null;
   stats: StatisticsRoom;
   /** Wall length per wall index, plan metres — pairs with a wall area's
       wall_index for baseboard and per-wall quantities. */
@@ -148,6 +164,18 @@ export const POLYGON_TRAILER: TrailerSettings = {
   generalsPct: 0.1,
   profitPct: 0.05,
   profitBasis: "items_plus_generals",
+  gstPct: 0.05,
+  qstPct: 0.09975,
+};
+
+/** Restauration CT's convention: profit on the items alone, so généraux and
+    profit together come to exactly 15,0% of the line items rather than
+    Polygon's 15,5%. The owner's call for the Tansley file, 7 Sep 2026 — he
+    asked for "15%" and this is the trailer that actually prints it. */
+export const RESTAURATION_CT_TRAILER: TrailerSettings = {
+  generalsPct: 0.1,
+  profitPct: 0.05,
+  profitBasis: "items",
   gstPct: 0.05,
   qstPct: 0.09975,
 };

@@ -55,3 +55,19 @@ export const LOCATOR_INK_FILL = "#e9eaec";
  */
 export const DAMAGE_MARK_FILL = "#e2a13a";
 export const DAMAGE_MARK_LABEL = "#1b1c1f";
+
+/**
+ * The one colour every affected area is drawn in.
+ *
+ * The report used to tint each patch by its damage cause — blue for water,
+ * orange for fire, green for mould. The cause is no longer stated anywhere in
+ * the document, and a shape drawn in a colour whose key has been removed is
+ * worse than a shape drawn in one colour: the reader sees a distinction being
+ * made and has nothing to decode it with.
+ *
+ * This is the value the plan legend has always printed beside `Zone de
+ * plancher sinistrée` and `Zone de mur sinistrée`, so the legend and the
+ * drawing now agree for the first time — before, the legend swatch was this
+ * blue while the patch under it could be any of five colours.
+ */
+export const AFFECTED_AREA_FILL = "#6fb0e8";

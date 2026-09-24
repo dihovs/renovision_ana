@@ -32,10 +32,17 @@ struct DollhouseScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showContents = true
+    @State private var showingLayers = false
+    /// Bridges taps in this SwiftUI screen to the `Coordinator` living
+    /// inside `DollhouseSceneView`'s `UIViewRepresentable` — the only door
+    /// between the two, since the coordinator is otherwise private to the
+    /// `UIViewRepresentable` machinery.
+    @State private var controller = DollhouseController()
+    @State private var shareImage: ShareImage?
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
+            ZStack(alignment: .topLeading) {
                 if rooms.isEmpty {
                     ContentUnavailableView(
                         roomsOnFloor == 0 ? "No rooms on this floor" : "No usable geometry",
@@ -46,21 +53,34 @@ struct DollhouseScreen: View {
                                 : "\(roomsOnFloor) room(s) are on this floor, but none carry the wall geometry this needs."
                         ))
                 } else {
-                    DollhouseSceneView(rooms: rooms, displayAngleRadians: displayAngleRadians)
-                        .ignoresSafeArea(edges: .bottom)
+                    DollhouseSceneView(
+                        rooms: rooms, displayAngleRadians: displayAngleRadians,
+                        controller: controller
+                    )
+                    .ignoresSafeArea(edges: .bottom)
 
-                    // `.allowsHitTesting(false)` on the spacer-filled stack:
-                    // a `VStack` with a `Spacer` in a `ZStack` takes the FULL
-                    // height of the screen even though only the button is
-                    // drawn, and anything laid over the scene is something the
-                    // scene never gets to be orbited or tapped through. Same
-                    // family as HANDOFF §4 — check what a control is SIZED as
-                    // before reading its handler.
+                    // Polycam's own dollhouse chrome, in this app's own
+                    // controls: a `Layers` pill top-left and a stacked rail
+                    // of round icon buttons top-right — the owner's ask
+                    // after seeing it was the LOOK, not a literal clone, so
+                    // both sides are wired to real, working things this
+                    // screen already does rather than decorative buttons
+                    // that only resemble the reference.
+                    layersPill
+                        .padding(.top, Brand.Space.small)
+                        .padding(.leading, Brand.Space.small)
+
                     VStack(spacing: Brand.Space.small) {
-                        Spacer().allowsHitTesting(false)
-                        controls
+                        railButton("gyroscope") { controller.reset() }
+                        railButton("camera.fill") {
+                            if let image = controller.screenshot() {
+                                shareImage = ShareImage(image: image)
+                            }
+                        }
                     }
-                    .padding(.bottom, 44)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.top, Brand.Space.small)
+                    .padding(.trailing, Brand.Space.small)
                 }
 
                 // **Always on screen, both states.** The first version put the
@@ -68,9 +88,13 @@ struct DollhouseScreen: View {
                 // except the case it exists to diagnose. The screen came back
                 // empty twice and the one line that would have said why was
                 // the line that had been switched off.
-                tally
-                    .padding(.bottom, Brand.Space.base)
-                    .allowsHitTesting(false)
+                VStack {
+                    Spacer().allowsHitTesting(false)
+                    tally
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, Brand.Space.base)
+                .allowsHitTesting(false)
             }
             .task { ScanLens.appendToDiagnostics(diagnosis) }
             .navigationTitle(title)
@@ -81,7 +105,65 @@ struct DollhouseScreen: View {
                         .font(.system(size: 16, weight: .semibold))
                 }
             }
+            .sheet(item: $shareImage) { wrapped in
+                ShareSheet(items: [wrapped.image])
+            }
         }
+    }
+
+    private var layersPill: some View {
+        Button {
+            showingLayers = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "square.3.layers.3d")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Layers")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(Brand.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showingLayers) {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    showContents.toggle()
+                    Dollhouse.setContentsVisible(
+                        showContents, in: Dollhouse.Registry.shared.scene)
+                } label: {
+                    HStack {
+                        Text("Furniture & fixtures")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Brand.ink)
+                        Spacer()
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Brand.blue)
+                            .opacity(showContents ? 1 : 0)
+                    }
+                    .padding(.horizontal, Brand.Space.base)
+                    .padding(.vertical, Brand.Space.small)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(width: 240)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    private func railButton(_ systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Brand.ink)
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// What was actually put in the scene.
@@ -116,22 +198,39 @@ struct DollhouseScreen: View {
             .background(.ultraThinMaterial, in: Capsule())
     }
 
-    private var controls: some View {
-        HStack(spacing: Brand.Space.small) {
-            Button {
-                showContents.toggle()
-                Dollhouse.setContentsVisible(showContents, in: Dollhouse.Registry.shared.scene)
-            } label: {
-                Label(
-                    showContents ? "Hide contents" : "Show contents",
-                    systemImage: showContents ? "shippingbox.fill" : "shippingbox")
-            }
-            .font(.system(size: 15, weight: .semibold))
-            .padding(.horizontal, Brand.Space.base)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: Capsule())
-        }
+}
+
+/// One `UIImage`, wrapped only so `.sheet(item:)` has the `Identifiable` it
+/// needs — a plain `UIImage?` has no identity `.sheet(isPresented:)`
+/// wouldn't already give it, but the map-to-wrapper reads clearer here than
+/// a second boolean kept in step with it by hand.
+private struct ShareImage: Identifiable {
+    let image: UIImage
+    var id: ObjectIdentifier { ObjectIdentifier(image) }
+}
+
+/// The plain system share sheet, for the one screen in this app that hands
+/// out an image rather than a link — everything else shares a project or a
+/// report by URL, which `ShareLink` already covers without this.
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// The one door between this SwiftUI screen and the `Coordinator` living
+/// inside `DollhouseSceneView`'s `UIViewRepresentable` — the coordinator
+/// itself is a type nested in that view and unreachable from here directly.
+/// Plain closures rather than a protocol: there is nothing to mock, and two
+/// buttons do not need an interface.
+@available(iOS 17.0, *)
+final class DollhouseController {
+    var onReset: (() -> Void)?
+    var onScreenshot: (() -> UIImage?)?
+    func reset() { onReset?() }
+    func screenshot() -> UIImage? { onScreenshot?() }
 }
 
 /// The `SCNView` itself.
@@ -144,6 +243,7 @@ struct DollhouseScreen: View {
 struct DollhouseSceneView: UIViewRepresentable {
     let rooms: [Dollhouse.Room]
     var displayAngleRadians: Double = 0
+    var controller: DollhouseController?
 
     func makeUIView(context: Context) -> SCNView {
         // Leaves register themselves as the tree is built, so the registry is
@@ -187,6 +287,11 @@ struct DollhouseSceneView: UIViewRepresentable {
         // straight down.
         context.coordinator.configure(
             zoom: Float(max(4.0, Dollhouse.bounds(of: rooms).span * 0.62)))
+
+        controller?.onReset = { [weak coordinator = context.coordinator] in
+            coordinator?.resetView()
+        }
+        controller?.onScreenshot = { [weak view] in view?.snapshot() }
 
         // **One finger moves the model, two fingers turn it.** The owner,
         // 24 Aug: *"we should be able to turn it with two fingers only, and
@@ -245,6 +350,12 @@ struct DollhouseSceneView: UIViewRepresentable {
         /// moves toward the model, the frustum just widens.
         private var zoom: Float = 12
         private var startZoom: Float = 12
+        /// The pose the screen opened on — straight down, centred, at
+        /// whatever zoom fit the storey. `resetView()` returns here rather
+        /// than to some fixed default, so a small room and a large one both
+        /// reset to "the whole floor on screen" instead of one of them
+        /// resetting to a stranger's framing.
+        private var initialZoom: Float = 12
         private var lastPan: CGPoint = .zero
         /// The finger's last position, in view points — the pan works from
         /// where the finger WAS rather than from a running translation, so
@@ -347,6 +458,18 @@ struct DollhouseSceneView: UIViewRepresentable {
 
         func configure(zoom: Float) {
             self.zoom = zoom
+            self.initialZoom = zoom
+            apply()
+        }
+
+        /// The `gyroscope` rail button — back to the opening pose: straight
+        /// down, centred on the storey, at the zoom that first fit it.
+        func resetView() {
+            stopInertia()
+            yaw = 0
+            pitch = maxPitch
+            zoom = initialZoom
+            target = SCNVector3Zero
             apply()
         }
 

@@ -77,6 +77,32 @@ export type ScanGeometry = RoomScanResult & {
       edge index — edge i runs from point i to point i+1, wrapping. */
   lockedEdges?: number[];
   editedAt?: string;
+  /**
+   * Door/window openings for a HAND-TRACED outline, in the SAME frame as
+   * `editedPolygon` (before the plan is shifted to its own origin).
+   *
+   * The edited-polygon path has always drawn no openings at all — the
+   * comment on `toFloorPlan` explains why: the sensor's own doors are
+   * positioned against the SCAN's walls, and a corrected outline can move
+   * or drop a wall that door was cut from, so replaying the old position
+   * would put a door on a wall that no longer exists. That reasoning does
+   * not apply here: an opening the OPERATOR placed while tracing the
+   * outline is already in the traced outline's own frame, by construction,
+   * and there is nothing left to disagree with.
+   *
+   * A traced outline with no doors drawn on it reads as a floor plan of a
+   * sealed room, which is a worse approximation than a rectangle that at
+   * least admits it is schematic — so a caller tracing a polygon from a
+   * source sketch by hand (no sensor, no scan) can supply the door/window
+   * positions it read off the same sketch, and the plan draws them.
+   */
+  editedOpenings?: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    kind: "door" | "window" | "opening";
+  }[];
 };
 
 type RoomScanBridge = {
@@ -711,7 +737,18 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
       // are positioned in the scan's own frame and would land in the wrong
       // walls on a corrected outline, so — like the native renderer — they
       // are not drawn. They still deduct from net wall area.
-      openings: [],
+      //
+      // Unless the caller traced the openings itself, in the outline's own
+      // frame (`editedOpenings`) — see that field's comment. Shifted by the
+      // same minX/minY as the outline, so a door stays on the wall it was
+      // traced against.
+      openings: (result.editedOpenings ?? []).map((o) => ({
+        x1: o.x1 - minX,
+        y1: o.y1 - minY,
+        x2: o.x2 - minX,
+        y2: o.y2 - minY,
+        kind: o.kind,
+      })),
       polygon: points,
       width: Math.max(...xs) - minX,
       height: Math.max(...ys) - minY,

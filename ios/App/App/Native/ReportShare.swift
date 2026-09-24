@@ -14,6 +14,26 @@ struct ReportShareView: View {
     let projectId: String
     let projectName: String
 
+    /// **The other thing a finished job needs sent, not just the report.**
+    /// The owner's ask: the estimator (`Docs/HANDOFF.md` §9b) already has
+    /// every price-book line, its own room-by-room table and its own
+    /// `/estimate/print` page — the report screen just never offered it
+    /// next to the report it already knew how to send. Same render path,
+    /// same share sheet, one more document.
+    enum DocumentKind: String, CaseIterable {
+        case report
+        case estimate
+
+        var label: String {
+            switch self {
+            case .report: return "Report"
+            case .estimate: return "Estimate"
+            }
+        }
+    }
+
+    @State private var document: DocumentKind = .report
+
     /// **The language of the DOCUMENT, remembered between exports.**
     ///
     /// His ask, 21 Aug 2026: *"our reports need to be in French. But me,
@@ -47,7 +67,7 @@ struct ReportShareView: View {
                 // button and two option checkboxes — inside a screen whose
                 // own button says `Make the PDF`. Two buttons that do nearly
                 // the same thing is how he pressed the wrong one last time.
-                path: "/admin/projects/\(projectId)/report?bare=1",
+                path: previewPath,
                 onReady: { view in
                     webView = view
                     pageLoaded = true
@@ -57,16 +77,31 @@ struct ReportShareView: View {
             .ignoresSafeArea(edges: .bottom)
 
             VStack(spacing: Brand.Space.tight) {
+                Picker("Document", selection: $document) {
+                    ForEach(DocumentKind.allCases, id: \.self) { kind in
+                        Text(kind.label).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(rendering)
+
                 // The choice sits with the button that acts on it, which is
                 // the whole of what he asked for: the language is decided at
                 // the moment the document is made, not in a settings screen
                 // somebody has to remember to visit.
-                Picker("Language", selection: $language) {
-                    Text("Français").tag("fr")
-                    Text("English").tag("en")
+                //
+                // The estimate has no language toggle: `/estimate/print`
+                // takes no `lang` query at all, unlike the report, so
+                // showing a picker that does nothing for this document would
+                // be worse than no picker.
+                if document == .report {
+                    Picker("Language", selection: $language) {
+                        Text("Français").tag("fr")
+                        Text("English").tag("en")
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(rendering)
                 }
-                .pickerStyle(.segmented)
-                .disabled(rendering)
 
                 if let error {
                     Text(error)
@@ -77,11 +112,8 @@ struct ReportShareView: View {
 
                 if let pdf {
                     ShareLink(
-                        item: PDFFile(
-                            data: pdf,
-                            name: "\(projectName) — \(language == "fr" ? "rapport" : "report").pdf"),
-                        preview: SharePreview(
-                            "\(projectName) — \(language == "fr" ? "rapport" : "report")")
+                        item: PDFFile(data: pdf, name: "\(projectName) — \(fileWord).pdf"),
+                        preview: SharePreview("\(projectName) — \(fileWord)")
                     ) {
                         Label("Send the PDF", systemImage: "square.and.arrow.up")
                             .font(.system(size: 16, weight: .bold))
@@ -105,17 +137,42 @@ struct ReportShareView: View {
             .padding(Brand.Space.base)
             .background(.thinMaterial)
         }
-        .onChange(of: language) { _, _ in
-            // A PDF already made is a PDF in the OTHER language. Throwing it
-            // away is the only honest thing to do — leaving the share button
-            // live would send a French client an English report, which is
-            // the exact failure this feature exists to prevent.
-            pdf = nil
-            pageLoaded = false
-            reloadToken += 1
-        }
+        .onChange(of: language) { _, _ in discardRenderedPDF() }
+        .onChange(of: document) { _, _ in discardRenderedPDF() }
         .navigationTitle("Report")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// The filename word for whichever document and language are current —
+    /// `rapport`/`report` for the report, `estimation` either way since the
+    /// estimate itself has no English/French split to name.
+    private var fileWord: String {
+        switch document {
+        case .report: return language == "fr" ? "rapport" : "report"
+        case .estimate: return "estimation"
+        }
+    }
+
+    /// The bare preview this screen's webview loads — the report's own
+    /// `bare=1` strips the CRM chrome from a page that has both; the
+    /// estimate's `/estimate/print` never had that chrome to begin with, so
+    /// there is nothing to strip.
+    private var previewPath: String {
+        switch document {
+        case .report: return "/admin/projects/\(projectId)/report?bare=1"
+        case .estimate: return "/admin/projects/\(projectId)/estimate/print"
+        }
+    }
+
+    /// A PDF already made is a PDF of the OTHER document, or the other
+    /// language. Throwing it away is the only honest thing to do — leaving
+    /// the share button live would send yesterday's report when the operator
+    /// switched to the estimate, which is the exact failure this exists to
+    /// prevent.
+    private func discardRenderedPDF() {
+        pdf = nil
+        pageLoaded = false
+        reloadToken += 1
     }
 
     /// **The PDF comes from the server, not from this webview.**
@@ -140,11 +197,18 @@ struct ReportShareView: View {
         // file came back in the default language whatever the toggle said. The
         // preview and the file disagreeing about language is worse than having
         // no picker, because the operator has already checked the preview.
-        guard let url = URL(
-            string: "/admin/projects/\(projectId)/report/pdf?lang=\(language)",
-            relativeTo: API.baseURL)
-        else {
-            error = "Could not build the report address."
+        //
+        // `/estimate/pdf` takes no `lang` — the devis has no French/English
+        // split — so it is asked for plain.
+        let path: String
+        switch document {
+        case .report:
+            path = "/admin/projects/\(projectId)/report/pdf?lang=\(language)"
+        case .estimate:
+            path = "/admin/projects/\(projectId)/estimate/pdf"
+        }
+        guard let url = URL(string: path, relativeTo: API.baseURL) else {
+            error = "Could not build the \(document.label.lowercased())'s address."
             return
         }
         do {

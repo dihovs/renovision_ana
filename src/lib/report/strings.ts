@@ -45,9 +45,9 @@ export type ReportStrings = {
   claimDetails: string;
   notRecorded: string;
   wallAreaGross: string;
-  affectedFloorByCause: string;
-  affectedWallByCause: string;
-  affectedCeilingByCause: string;
+  affectedFloorArea: string;
+  affectedWallArea: string;
+  affectedCeilingArea: string;
   width: string;
   length: string;
   ceilingHeight: string;
@@ -55,8 +55,8 @@ export type ReportStrings = {
   perimeter: string;
   wall: string;
   floor: string;
+  ceiling: string;
   name: string;
-  cause: string;
   notes: string;
   photo: string;
   photos: string;
@@ -95,6 +95,12 @@ export type ReportStrings = {
   equipmentNote: (asOf: string) => string;
   reading: string;
   material: string;
+  /** The two moisture-log column heads. Abbreviations, but they are
+      LANGUAGE abbreviations, not codes: `MC`/`RH` on a French page are as
+      English as `Wall area` is. Québec restoration logs print `TH` (teneur
+      en humidité) and `HR` (humidité relative). */
+  moistureContent: string;
+  relativeHumidity: string;
   temperature: string;
   howMeasured: string;
   measurementNote: string;
@@ -115,6 +121,35 @@ export type ReportStrings = {
   groundFloor: string;
   basement: string;
   nthFloor: (n: number) => string;
+  /** The priced-scope section — its page marker and its contents entry. */
+  estimate: string;
+  /**
+   * **The heading an apartment's section carries — « Appartement 103 ».**
+   *
+   * A multi-unit building is ordinary work here (a triplex is three
+   * addresses under one roof and one claim), and a report that runs the
+   * three units together makes the reader work out which page priced which
+   * door. His instruction, 8 Sep 2026: *"give them pricing apartment per
+   * apartment… so like this, when they read, they understand this is for
+   * this apartment, this is for that, and this is for the other."*
+   *
+   * The value is the unit's own identifier as the operator wrote it —
+   * `103`, `4B`, `RC` — never a sentence, so the word in front of it is the
+   * document's and translates with it.
+   */
+  unit: (id: string) => string;
+  /** « Sous-total — Appartement 103 »: that unit's own money, before the
+      project-level lines and the grand sommaire at the end. */
+  unitSubtotal: (id: string) => string;
+  /** `Photos — Cuisine`, the contents entry for a room's photo page. */
+  photosEntry: (room: string) => string;
+  /** `3 pièces`, under the cover's key plan. */
+  roomCount: (n: number) => string;
+  /** The running identity strip. `CLAIM 12345` reads as an English document
+      even when every other word on the page is French, and it is printed on
+      every page after the cover — the most-repeated string in the file. */
+  claimTag: string;
+  lossTag: string;
 };
 
 const en: ReportStrings = {
@@ -133,9 +168,9 @@ const en: ReportStrings = {
   claimDetails: "Claim details",
   notRecorded: "Not recorded",
   wallAreaGross: "Wall area (gross)",
-  affectedFloorByCause: "Affected floor area by cause",
-  affectedWallByCause: "Affected wall area by cause",
-  affectedCeilingByCause: "Affected ceiling area by cause",
+  affectedFloorArea: "Affected floor area",
+  affectedWallArea: "Affected wall area",
+  affectedCeilingArea: "Affected ceiling area",
   width: "WIDTH",
   length: "LENGTH",
   ceilingHeight: "CEILING HEIGHT",
@@ -143,8 +178,8 @@ const en: ReportStrings = {
   perimeter: "PERIMETER",
   wall: "Wall",
   floor: "Floor",
+  ceiling: "Ceiling",
   name: "Name",
-  cause: "Cause",
   notes: "Notes",
   photo: "Photo",
   photos: "Photos",
@@ -186,6 +221,8 @@ const en: ReportStrings = {
     `Equipment is billed per unit per day on site. The day of delivery and the day of collection are both counted. Units shown as still on site are counted to ${asOf}.`,
   reading: "Reading",
   material: "Material",
+  moistureContent: "MC",
+  relativeHumidity: "RH",
   temperature: "Temp",
   howMeasured: "How each figure is measured",
   measurementNote:
@@ -216,6 +253,13 @@ const en: ReportStrings = {
       : "th";
     return `${n}${suffix} floor`;
   },
+  estimate: "Estimate",
+  unit: (id) => `Apartment ${id}`,
+  unitSubtotal: (id) => `Subtotal — Apartment ${id}`,
+  photosEntry: (room) => `Photos — ${room}`,
+  roomCount: (n) => `${n} room${n === 1 ? "" : "s"}`,
+  claimTag: "CLAIM",
+  lossTag: "LOSS",
 };
 
 const fr: ReportStrings = {
@@ -239,9 +283,9 @@ const fr: ReportStrings = {
   // `Sinistre` is what an insurer calls a loss, so a damaged region is a
   // `zone sinistrée`. `Zone affectée` would be an anglicism an adjuster
   // notices immediately.
-  affectedFloorByCause: "Superficie de plancher sinistrée par cause",
-  affectedWallByCause: "Superficie de mur sinistrée par cause",
-  affectedCeilingByCause: "Superficie de plafond sinistrée par cause",
+  affectedFloorArea: "Superficie de plancher sinistrée",
+  affectedWallArea: "Superficie de mur sinistrée",
+  affectedCeilingArea: "Superficie de plafond sinistrée",
   width: "LARGEUR",
   length: "LONGUEUR",
   ceilingHeight: "HAUTEUR SOUS PLAFOND",
@@ -249,8 +293,8 @@ const fr: ReportStrings = {
   perimeter: "PÉRIMÈTRE",
   wall: "Mur",
   floor: "Plancher",
+  ceiling: "Plafond",
   name: "Nom",
-  cause: "Cause",
   notes: "Notes",
   photo: "Photo",
   photos: "Photos",
@@ -292,6 +336,8 @@ const fr: ReportStrings = {
     `L'équipement est facturé par appareil et par jour sur place. Le jour de la livraison et celui de la récupération sont tous deux comptés. Les appareils indiqués comme toujours sur place sont comptés jusqu'au ${asOf}.`,
   reading: "Relevé",
   material: "Matériau",
+  moistureContent: "TH",
+  relativeHumidity: "HR",
   temperature: "Temp.",
   howMeasured: "Comment chaque mesure est prise",
   measurementNote:
@@ -317,6 +363,23 @@ const fr: ReportStrings = {
   // `1er étage`, then `2e`, `3e` — French ordinals, and the one place a
   // dictionary swap would have produced `1st étage`.
   nthFloor: (n) => `${n}${n === 1 ? "er" : "e"} étage`,
+  // `Devis` is the word a Québec client and an adjuster both use for a priced
+  // scope; `Estimation` is the act of estimating, not the document. The
+  // reference Xactimate output is headed `Type de devis` on its own cover.
+  estimate: "Devis",
+  // `Appartement`, spelled out — `App. 103` is how an address line is
+  // abbreviated, not how a section of a document is headed, and this word
+  // is the one thing on the page that tells the reader where they are.
+  unit: (id) => `Appartement ${id}`,
+  // `Sous-total` is the term the reference devis print above `Total`; the
+  // em dash and the unit name match `Total — <pièce>` in the same table.
+  unitSubtotal: (id) => `Sous-total — Appartement ${id}`,
+  photosEntry: (room) => `Photos — ${room}`,
+  roomCount: (n) => `${n} pièce${n === 1 ? "" : "s"}`,
+  // `Sinistre` for the loss itself, `Réclamation` for the file — the same
+  // pair the summary page already uses.
+  claimTag: "RÉCLAMATION",
+  lossTag: "SINISTRE",
 };
 
 export const REPORT_STRINGS: Record<Locale, ReportStrings> = { en, fr };

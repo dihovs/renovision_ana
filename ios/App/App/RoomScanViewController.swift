@@ -585,7 +585,7 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
                 consider(
                     ScanTypeCard.Subject(
                         id: surface.identifier,
-                        glyph: isWindow ? "windshield.front.and.wiper" : "door.left.hand.closed",
+                        glyph: isWindow ? "blinds.horizontal.closed" : "door.left.hand.closed",
                         label: kind.label, answered: answered != nil),
                     surface.transform)
             }

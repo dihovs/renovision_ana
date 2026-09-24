@@ -236,20 +236,71 @@
 .report .measure td { padding: 1.5mm 2mm; font-size: 9pt; font-weight: 600; }
 
 /* The definitions appendix: the term is the emphatic column and the prose is
-   ordinary text — the reverse of a measurement row, where the number leads. */
+   ordinary text — the reverse of a measurement row, where the number leads.
+
+   **Set to fit NINE definitions on ONE sheet, in the longest language.**
+   `.page` clips what overflows (`overflow: hidden`), and this section is a
+   single page in a document whose `Page n/N` is counted from a list built
+   before anything renders — so a table that runs long does not spill onto a
+   tenth page, it silently loses its last definitions. At 11px/1.5 the
+   English set already ran a few words past the sheet; French runs 15-20%
+   longer, which cost the last two and a half definitions outright — and the
+   definitions page is where a disputed figure gets settled, so losing the
+   footprint definitions is losing the argument they exist for. 10px/1.42
+   with tighter rows fits the French set with room to spare, and the English
+   set comfortably.
+
+   The term column stops wrapping at this width: `Emprise au sol avec les
+   cloisons intérieures` is five words where `Footprint with interior walls`
+   is three, and `nowrap` on it would push the prose column off the sheet. */
 .report .measure.definitions th {
   font-weight: 700; color: var(--ink); vertical-align: top;
-  white-space: nowrap; padding: 6px 14px 6px 6px;
+  padding: 4px 12px 4px 6px; font-size: 10px; line-height: 1.35;
+  width: 30%;
 }
 .report .measure.definitions td {
-  font-weight: 400; font-size: 11px; line-height: 1.5; padding: 6px;
+  font-weight: 400; font-size: 10px; line-height: 1.42; padding: 4px 6px;
   border-bottom: 1px solid #eee;
 }
 
-.report .swatch {
-  display: inline-block; width: 8px; height: 8px; border-radius: 2px;
-  margin-right: 6px; vertical-align: middle;
+/* ------------------------------------------------------------- estimate */
+/* Templates H/I (`Docs/Report-Estimate-Blueprint.md`), via
+   `ReportEstimateTable` — the priced takeoff, in the report's own idiom
+   rather than a new one: `.listing` is the table style every other page
+   already uses, and this only adds what that table doesn't have yet. */
+.report .estimate-room { margin-top: 6mm; }
+.report .estimate-table th:nth-child(1),
+.report .estimate-table td:nth-child(1) { width: 6%; }
+.report .estimate-table th:nth-child(2),
+.report .estimate-table td:nth-child(2) { width: 14%; }
+.report .estimate-table th:nth-child(4),
+.report .estimate-table td:nth-child(4) { width: 12%; }
+.report .estimate-section-row td {
+  padding-top: 2.5mm; font-size: 7pt; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--ink-4); border-bottom: none;
 }
+/* The CALC/NOTE citation, under the description in the same cell — printed
+   the way Xactimate prints it (Conventions §2): the arithmetic beside the
+   figure it produced, not a separate column a reader has to cross-reference. */
+.report .estimate-calc {
+  margin-top: 0.6mm; font-size: 7.5pt; font-weight: 400; color: var(--ink-3);
+}
+.report .estimate-note { font-style: italic; }
+/* One apartment's bottom line, at the foot of its own block. Wears the
+   summary table's own geometry — right-aligned, 90mm — so the sous-total of
+   a unit and the grand total of the document line up down the page and can
+   be read as the same kind of figure. */
+.report .estimate-subtotal { margin-top: 5mm; }
+.report .estimate-summary { margin-top: 6mm; }
+.report .estimate-summary-table { max-width: 90mm; margin-left: auto; }
+.report .estimate-summary-table td { padding: 1.2mm 2mm; font-size: 9.5pt; }
+.report .estimate-summary-table td:last-child { text-align: right; font-weight: 600; }
+.report .estimate-summary-table .total td {
+  font-weight: 700; font-size: 11pt; border-top: 0.75pt solid var(--rule-strong);
+  padding-top: 2.5mm;
+}
+.report .estimate-labor { text-align: right; }
+
 .report .totals { margin: 0; font-size: 10px; color: var(--muted); }
 .report .fineprint { margin-top: 4mm; font-size: 7.5pt; line-height: 1.55; color: var(--ink-3); }
 .report .notes { margin-top: 12px; white-space: pre-wrap; }
@@ -420,10 +471,25 @@
   .report figure,
   .report .listing { break-inside: avoid; }
 
+  /* **…except the devis, which is meant to run.** It is the one `.listing`
+     in the document that is routinely taller than a sheet, and asking a
+     four-page table not to break does not keep it whole — nothing can — it
+     shunts the entire table past the heading that introduces it and leaves
+     a sheet carrying two words and nine inches of white. Sectioning the
+     devis apartment by apartment turned that one stray sheet into four.
+     So: let the table break, repeat its column heads on the sheet after,
+     and hold the unbreakable promise at the level where it can actually be
+     kept — the ROW, so a line's CALC never lands on a different page from
+     the money it explains. */
+  .report .estimate-table { break-inside: auto; }
+  .report .estimate-table thead { display: table-header-group; }
+  .report .estimate-table tr { break-inside: avoid; }
+
   .report .running { position: running(header); }
 
   /* Photographs are the evidence; printers default to dropping backgrounds
-     and flattening colour, which would grey out the damage swatches too. */
+     and flattening colour, which would grey out the affected-area fills on
+     the plans and elevations too. */
   .report, .report * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -642,6 +708,24 @@
      children, which is how an indent ends up applying on some pages and not
      others. */
   padding-left: 4.7mm;
+}
+
+/* **The apartment band that opens a unit's section.**
+   A multi-unit report is really three reports stapled together, and the one
+   thing a reader must not have to work out is which one they are in. Set
+   above the page's own title and heavier than it, on a rule in the firm's
+   green: the same device the `.marker` uses to say "a section starts here",
+   one level up, because a unit contains storeys and storeys contain rooms.
+   Printed once per section — the pages inside carry the unit on their own
+   sub-line, at no cost in height. */
+.report .unit-band {
+  font-size: 15pt;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--accent);
+  margin: 0 0 3mm;
+  padding-bottom: 1.6mm;
+  border-bottom: 1.2pt solid var(--accent);
 }
 
 /* A floor's name on the left, its own totals right — their arrangement. */
@@ -959,10 +1043,25 @@
   .report figure,
   .report .listing { break-inside: avoid; }
 
+  /* **…except the devis, which is meant to run.** It is the one `.listing`
+     in the document that is routinely taller than a sheet, and asking a
+     four-page table not to break does not keep it whole — nothing can — it
+     shunts the entire table past the heading that introduces it and leaves
+     a sheet carrying two words and nine inches of white. Sectioning the
+     devis apartment by apartment turned that one stray sheet into four.
+     So: let the table break, repeat its column heads on the sheet after,
+     and hold the unbreakable promise at the level where it can actually be
+     kept — the ROW, so a line's CALC never lands on a different page from
+     the money it explains. */
+  .report .estimate-table { break-inside: auto; }
+  .report .estimate-table thead { display: table-header-group; }
+  .report .estimate-table tr { break-inside: avoid; }
+
   .report .running { position: running(header); }
 
   /* Photographs are the evidence; printers default to dropping backgrounds
-     and flattening colour, which would grey out the damage swatches too. */
+     and flattening colour, which would grey out the affected-area fills on
+     the plans and elevations too. */
   .report, .report * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -1044,7 +1143,7 @@
   font-weight: 700;
   vertical-align: middle;
 }
-.report .measure.key .cause {
+.report .measure.key .surface {
   color: #62666d;
   font-size: 8pt;
 }
@@ -1098,34 +1197,7 @@ html:has(.report-bare) main > div {
 }
 
 
-/* ================================================================ signage */
-
-/* The document's own glyphs — see components/admin/ReportSymbols.tsx. */
-.report .glyph {
-  display: inline-block;
-  vertical-align: -0.12em;
-  flex: none;
-}
-.report .cause-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 1.6mm;
-  white-space: nowrap;
-}
-.report .cause-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 4.6mm;
-  height: 4.6mm;
-  flex: none;
-  border-radius: 50%;
-  /* The cause's own colour at a tenth, so the glyph sits on a tint of
-     itself and reads as a chip rather than as a loose drawing. */
-  background: color-mix(in srgb, currentColor 14%, white);
-}
-
-/* -------------------------------------------------- key to the drawing */
+/* ==================================================== key to the drawing */
 .report .plan-legend {
   margin-top: 6mm;
   padding-top: 3mm;
@@ -1152,7 +1224,6 @@ html:has(.report-bare) main > div {
   font-size: 7.5pt;
   color: var(--ink-2);
 }
-.report .legend-causes { gap: 2mm 7mm; font-size: 7.5pt; color: var(--ink-2); }
 .report .legend-note {
   margin: 2.5mm 0 0;
   font-size: 6.5pt;
@@ -1217,4 +1288,26 @@ html:has(.report-bare) main > div {
 .report .contents-definitions,
 .report .contents-signature {
   color: var(--ink-2);
+}
+
+/* **The apartment, one level above the storey.** In a multi-unit building
+   the unit is the outermost thing the document is organised by — above the
+   floor, above the room — so it is set heaviest, in the firm's green, with
+   air over it. Everything under it keeps the indentation it already had,
+   which is what makes the nesting readable without a second list. */
+.report .contents-unit {
+  font-weight: 700;
+  font-size: 10.5pt;
+  color: var(--accent);
+  margin-top: 5mm;
+  border-top: 0.75pt solid var(--rule-strong);
+  padding-top: 3mm;
+}
+.report .contents-unit .contents-page { color: var(--accent); }
+/* A unit heading owns the storey heading under it, so the storey stops
+   drawing its own rule when it is the first thing inside a section. */
+.report .contents-unit + .contents-level {
+  border-top: none;
+  margin-top: 1.5mm;
+  padding-top: 0;
 }
