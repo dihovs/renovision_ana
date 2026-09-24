@@ -163,8 +163,57 @@ enum FloorPlanGeometry {
                         width: (xs.max() ?? 0) - minX, height: (ys.max() ?? 0) - minY)))
         }
 
-        // Each wall's endpoints are its centre ± half its length along its own
-        return rawPlan(from: geometry)
+        let chained = rawPlan(from: geometry)
+
+        // The floor's own boundary, traced from the mesh independent of
+        // RoomPlan's wall list — see `FloorMeshRefinement`. Trusted only
+        // when it does not disagree sharply with the wall-chained area (30%:
+        // looser than a single wall's own 15% tolerance, because the whole
+        // point of tracing the floor separately is that it is SOMETIMES
+        // right where the wall chain is wrong — too tight a gate would
+        // refuse exactly the corrections this exists to make) OR when the
+        // wall chain never closed at all, in which case there is nothing to
+        // disagree with and an independently measured floor is worth more
+        // than none.
+        if let traced = geometry.meshFloorPolygon, traced.count >= 3 {
+            let tracedArea = FloorPlanGeometry.polygonArea(traced.map { CGPoint(x: $0.x, y: $0.y) })
+            let chainedArea = FloorPlanGeometry.polygonArea(Array(chained.polygon.dropLast()))
+            let chainClosed = chained.polygon.count >= 4 && chainedArea > 0.5
+            let agrees = chainClosed && abs(tracedArea - chainedArea) / max(chainedArea, 0.01) < 0.30
+            if tracedArea > 0.5, !chainClosed || agrees {
+                // No openings drawn on this outline, same rule and same
+                // reason as the `editedPolygon` branch above: `chained`'s
+                // own openings are in ITS rotated, normalised frame
+                // (`squareToPage` runs before that plan is shifted to its
+                // origin), while this traced polygon is still in raw,
+                // unrotated world metres — offsetting by a constant would
+                // reconcile the shift but not the rotation, and silently
+                // draw every door and window in the wrong place on the
+                // wall. They still deduct from net wall area regardless;
+                // only the drawing is affected.
+                let xs = traced.map(\.x)
+                let ys = traced.map(\.y)
+                let minX = xs.min() ?? 0
+                let minY = ys.min() ?? 0
+                var loop = traced.map { CGPoint(x: $0.x - minX, y: $0.y - minY) }
+                if let first = loop.first { loop.append(first) }
+                return Plan(
+                    segments: loop.dropLast().enumerated().map { i, a in
+                        let b = loop[(i + 1) % (loop.count - 1)]
+                        return Segment(x1: a.x, y1: a.y, x2: b.x, y2: b.y)
+                    },
+                    openings: [],
+                    polygon: loop,
+                    width: (xs.max() ?? 0) - minX,
+                    height: (ys.max() ?? 0) - minY,
+                    // Same frame mismatch as the openings above — `rawPlan`
+                    // places objects in ITS OWN rotated frame too — so
+                    // dropped for the same reason, not reused.
+                    objects: [])
+            }
+        }
+
+        return chained
     }
 
     /// **The scanner's fixtures, carried into a corrected outline.**

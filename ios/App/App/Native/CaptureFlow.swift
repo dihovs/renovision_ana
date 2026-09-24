@@ -233,14 +233,16 @@ struct CaptureFlow: View {
                 previousRooms: session.capturedRoomsSoFar
             ) { outcome in
                 switch outcome {
-                case .success(let room):
+                case .success(let result):
+                    let room = result.room
                     if #available(iOS 17.0, *) {
                         // Held for the merge as well as reviewed: every room
                         // of the visit has to stay in hand until
                         // StructureBuilder can register them against each
                         // other.
                         session.add(room)
-                        let captured = ScanGeometry(room: room)
+                        let captured = ScanGeometry(
+                            room: room, meshPoints: result.meshPoints, tracedFloor: result.tracedFloor)
                         geometry = captured
                         // The name and type are already set — each room is
                         // typed on its own BEFORE its camera opens (ORD-17),
@@ -1107,7 +1109,7 @@ struct RoomCaptureScreen: UIViewControllerRepresentable {
     /// frame means the room being walked draws in true position against
     /// them.
     var previousRooms: [CapturedRoom] = []
-    let onFinish: (Result<CapturedRoom, Error>) -> Void
+    let onFinish: (Result<(room: CapturedRoom, meshPoints: [SIMD3<Float>], tracedFloor: FloorMeshRefinement.TracedFloor?), Error>) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
         guard #available(iOS 17.0, *) else { return UIViewController() }

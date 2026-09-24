@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase CLI's local link state — machine-specific, not the migrations
+supabase/.temp/
+
 # local lead capture (contains PII, dev-only fallback)
 /data/
 

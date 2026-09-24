@@ -283,6 +283,60 @@ describe("a hand-corrected outline (editedPolygon)", () => {
   });
 });
 
+describe("a mesh-traced floor (meshFloorPolygon)", () => {
+  /**
+   * Mirrors `FloorPlanGeometry.plan(from:)`'s own gate on the phone — the
+   * two must agree, or a report built on the web disagrees with the number
+   * the operator saw on the device that measured it.
+   */
+  const bedroomArea = W * H; // 17.1765
+
+  it("is used when its area agrees with the wall-chained one", () => {
+    // A hair over the true rectangle — well inside the 30% gate.
+    const traced = [
+      { x: 0, y: 0 },
+      { x: W, y: 0 },
+      { x: W, y: H + 0.05 },
+      { x: 0, y: H + 0.05 },
+    ];
+    const plan = toFloorPlan({ ...bedroom(), meshFloorPolygon: traced });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(W * (H + 0.05), 6);
+    // No openings drawn — see the field's own doc comment for why.
+    expect(plan.openings).toEqual([]);
+  });
+
+  it("is ignored when it disagrees sharply with the wall chain", () => {
+    // Half the real room — the signature of a bad trace (a stray patch of
+    // mesh picked up through a doorway), not a correction.
+    const traced = [
+      { x: 0, y: 0 },
+      { x: W / 2, y: 0 },
+      { x: W / 2, y: H },
+      { x: 0, y: H },
+    ];
+    const plan = toFloorPlan({ ...bedroom(), meshFloorPolygon: traced });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(bedroomArea, 6);
+  });
+
+  it("is used when the wall chain never closed, since there is nothing to disagree with", () => {
+    const traced = [
+      { x: 0, y: 0 },
+      { x: 3, y: 0 },
+      { x: 3, y: 2 },
+      { x: 0, y: 2 },
+    ];
+    // Two walls cannot close into an outline on their own.
+    const open: RoomScanResult = { ...bedroom(), walls: bedroom().walls.slice(0, 2) };
+    const plan = toFloorPlan({ ...open, meshFloorPolygon: traced });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(6, 6);
+  });
+
+  it("is ignored outright when it has fewer than three points", () => {
+    const plan = toFloorPlan({ ...bedroom(), meshFloorPolygon: [{ x: 0, y: 0 }] });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(bedroomArea, 6);
+  });
+});
+
 describe("planCorners", () => {
   /**
    * The corner list a wall index counts against — and the reason it cannot

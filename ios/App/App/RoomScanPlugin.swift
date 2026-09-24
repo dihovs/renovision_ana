@@ -70,14 +70,16 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             let scanVC = RoomScanViewController()
             scanVC.onFinish = { [weak self] result in
                 switch result {
-                case .success(let room):
+                case .success(let captured):
+                    let room = captured.room
                     // Kept for the merge. Every room on a floor has to be
                     // held until StructureBuilder can register them against
                     // each other — a room discarded here is a room that can
                     // never be placed on the plan.
                     Self.capturedRooms.append(room)
 
-                    var payload = Self.serialize(room)
+                    var payload = Self.serialize(
+                        room, meshPoints: captured.meshPoints, tracedFloor: captured.tracedFloor)
                     // Export the dollhouse now, while the CapturedRoom is in
                     // hand — it is the only moment it exists. The id goes back
                     // with the measurements so `showModel` can find the file
@@ -238,6 +240,14 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
     /// label "Kitchen" is worth more than an unlabelled outline.
     @available(iOS 17.0, *)
     private static func serializeStructure(_ structure: CapturedStructure) -> [String: Any] {
+        // No mesh refinement for a merged structure: `StructureBuilder`
+        // re-registers each room's walls into one shared coordinate frame,
+        // and the mesh points captured per room never get carried through
+        // that re-registration — refining against them here would be
+        // comparing corrected geometry to the wrong frame. Each room's OWN
+        // walls were already offered refinement when it was scanned
+        // individually; the merge is a placement problem, not a
+        // measurement one.
         var payload = geometryPayload(
             walls: structure.walls,
             floors: structure.floors,
@@ -245,6 +255,7 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
             windows: structure.windows,
             openings: structure.openings,
             objects: structure.objects,
+            meshPoints: [],
         )
         payload["sections"] = structure.sections.map { section -> [String: Any] in
             let centre = section.center
@@ -277,15 +288,30 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
     /// see, reduced to what an estimate actually needs: how much flooring,
     /// how much baseboard, how much wall to paint or drywall.
     @available(iOS 17.0, *)
-    private static func serialize(_ room: CapturedRoom) -> [String: Any] {
-        geometryPayload(
+    private static func serialize(
+        _ room: CapturedRoom, meshPoints: [SIMD3<Float>],
+        tracedFloor: FloorMeshRefinement.TracedFloor?
+    ) -> [String: Any] {
+        var payload = geometryPayload(
             walls: room.walls,
             floors: room.floors,
             doors: room.doors,
             windows: room.windows,
             openings: room.openings,
             objects: room.objects,
+            meshPoints: meshPoints,
         )
+        // Handed over UNCONDITIONALLY, not gated here — `toFloorPlan` in
+        // roomScan.ts (and `FloorPlanGeometry.plan` on this side) is where
+        // "which outline wins" already lives, comparing this against its own
+        // wall-chain area before ever drawing or measuring from it. Gating
+        // twice, in two languages, is how the two answers drift.
+        if let tracedFloor {
+            payload["meshFloorPolygon"] = tracedFloor.polygon.map {
+                ["x": Double($0.x), "y": Double($0.y)]
+            }
+        }
+        return payload
     }
 
     /**
@@ -307,36 +333,71 @@ public class RoomScanPlugin: CAPPlugin, CAPBridgedPlugin {
         windows: [CapturedRoom.Surface],
         openings: [CapturedRoom.Surface],
         objects: [CapturedRoom.Object],
+        meshPoints: [SIMD3<Float>],
     ) -> [String: Any] {
-        func surfaces(_ list: [CapturedRoom.Surface]) -> [[String: Any]] {
+        var refinedCount = 0
+        // Openings are deliberately NOT refined: the mesh shows a gap where
+        // a door or window sits, not a surface, so there is nothing for
+        // `WallMeshRefinement` to fit a line to — its slab-and-percentile
+        // method is built to read a wall's own face, not the absence of one.
+        func surfaces(_ list: [CapturedRoom.Surface], refine: Bool) -> [[String: Any]] {
             list.map { surface in
                 let centre = surface.transform.columns.3
                 let axis = surface.transform.columns.0
+                var lengthMeters = Double(surface.dimensions.x)
+                var centerX = Double(centre.x)
+                var centerZ = Double(centre.z)
+                var meshRefined = false
+
+                if refine, !meshPoints.isEmpty,
+                    let refined = WallMeshRefinement.refine(
+                        wallTransform: surface.transform,
+                        lengthMeters: surface.dimensions.x,
+                        heightMeters: surface.dimensions.y,
+                        points: meshPoints)
+                {
+                    lengthMeters = refined.lengthMeters
+                    centerX = refined.centerX
+                    centerZ = refined.centerZ
+                    meshRefined = true
+                    refinedCount += 1
+                }
+
                 return [
-                    "lengthMeters": Double(surface.dimensions.x),
-                    "widthMeters": Double(surface.dimensions.x),
+                    "lengthMeters": lengthMeters,
+                    "widthMeters": lengthMeters,
                     "heightMeters": Double(surface.dimensions.y),
-                    "centerX": Double(centre.x),
-                    "centerZ": Double(centre.z),
+                    "centerX": centerX,
+                    "centerZ": centerZ,
                     "axisX": Double(axis.x),
                     "axisZ": Double(axis.z),
+                    // Which of this room's walls actually got corrected —
+                    // not every wall has enough mesh behind it (a wall the
+                    // operator barely walked past, or one seen only from a
+                    // sharp angle), and this is how a scan can be audited
+                    // for whether the correction fired at all.
+                    "meshRefined": meshRefined,
                 ]
             }
         }
 
+        let refinedWalls = surfaces(walls, refine: true)
+        ScanLens.appendToDiagnostics(
+            "mesh refinement: \(meshPoints.count) points, \(refinedCount)/\(walls.count) walls corrected")
+
         return [
-            "walls": surfaces(walls),
+            "walls": refinedWalls,
             // x TIMES Y, not x times z. Every RoomPlan surface is a PLANE in
             // its own local X-Y, laid flat by the node transform — so a
             // floor's depth is y, and its z is ~0. Multiplying by z gave
             // every room a floor area of zero.
             "floors": floors.map { ["areaSquareMeters": Double($0.dimensions.x * $0.dimensions.y)] },
-            "doors": surfaces(doors),
-            "windows": surfaces(windows),
+            "doors": surfaces(doors, refine: false),
+            "windows": surfaces(windows, refine: false),
             // Cased openings — doorless passages — with full geometry, so a
             // plan can cut the gap that CONNECTS two rooms. A count alone
             // draws sealed boxes.
-            "openings": surfaces(openings),
+            "openings": surfaces(openings, refine: false),
             "doorCount": doors.count,
             "windowCount": windows.count,
             "openingCount": openings.count,

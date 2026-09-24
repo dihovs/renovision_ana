@@ -20,6 +20,14 @@ export type RoomScanWall = {
   centerZ: number;
   axisX: number;
   axisZ: number;
+  /** True when `lengthMeters`/`centerX`/`centerZ` were corrected against the
+      LiDAR mesh rather than left as RoomPlan's own simplified fit — see
+      `WallMeshRefinement.swift`. Absent on a scan saved before this field
+      existed, and on a wall the mesh did not support a confident correction
+      for (not every wall gets enough mesh coverage), which is why this is
+      an audit flag rather than something arithmetic depends on: every wall
+      always has a `lengthMeters`, refined or not. */
+  meshRefined?: boolean;
 };
 export type RoomScanFloor = { areaSquareMeters: number };
 
@@ -73,6 +81,15 @@ export type ScanGeometry = RoomScanResult & {
       Replaces the walls for drawing purposes — but only for drawing; the
       sensor's own record stays underneath, untouched. */
   editedPolygon?: { x: number; y: number }[];
+  /** The floor's own boundary, traced from the LiDAR mesh directly rather
+      than derived from RoomPlan's wall list — see
+      `WallMeshRefinement.swift`'s sibling `FloorMeshRefinement.swift`. In
+      raw world metres, the same frame the walls' own `centerX`/`centerZ`
+      already live in. Handed over unconditionally by the phone; `toFloorPlan`
+      below is what decides whether to trust it, by comparing its area
+      against the wall-chained one — the Swift twin is
+      `FloorPlanGeometry.plan(from:)`, and the two gates must agree. */
+  meshFloorPolygon?: { x: number; y: number }[];
   /** Which edge lengths were TYPED rather than measured, by editedPolygon
       edge index — edge i runs from point i to point i+1, wrapping. */
   lockedEdges?: number[];
@@ -807,7 +824,7 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
 
   const segments = raw.map(shift);
 
-  return {
+  const chained: FloorPlan = {
     segments,
     openings: rawOpenings.map(shift),
     polygon: chainIntoPolygon(segments),
@@ -816,6 +833,52 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
     offsetX: minX,
     offsetY: minY,
   };
+
+  // The floor's own boundary, traced from the mesh independent of RoomPlan's
+  // wall list. Mirrors `FloorPlanGeometry.plan(from:)` on the phone — the
+  // two gates must agree, or a report generated on the web disagrees with
+  // the number the operator saw on the phone that measured it.
+  //
+  // Trusted only when it does not disagree sharply with the wall-chained
+  // area (30%: looser than a single wall's own 15% refinement tolerance,
+  // because the whole point of tracing the floor separately is that it is
+  // SOMETIMES right where the wall chain is wrong) OR when the wall chain
+  // never closed at all, in which case there is nothing to disagree with.
+  const traced = result.meshFloorPolygon;
+  if (traced && traced.length >= 3) {
+    const tracedArea = polygonAreaSquareMeters(traced);
+    const chainClosed = chained.polygon.length >= 4;
+    const chainedArea = chainClosed ? polygonAreaSquareMeters(chained.polygon.slice(0, -1)) : 0;
+    const agrees =
+      chainClosed && chainedArea > 0.5 && Math.abs(tracedArea - chainedArea) / Math.max(chainedArea, 0.01) < 0.3;
+    if (tracedArea > 0.5 && (!chainClosed || chainedArea <= 0.5 || agrees)) {
+      const txs = traced.map((p) => p.x);
+      const tys = traced.map((p) => p.y);
+      const tMinX = Math.min(...txs);
+      const tMinY = Math.min(...tys);
+      const points = traced.map((p) => ({ x: p.x - tMinX, y: p.y - tMinY }));
+      return {
+        segments: points.map((a, i) => {
+          const b = points[(i + 1) % points.length];
+          return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+        }),
+        // No openings: `chained`'s own openings are in ITS rotated,
+        // normalised frame (`squareToPage` ran before that plan was shifted
+        // to its origin) while this traced polygon is still in raw,
+        // unrotated world metres — the same reason the edited-polygon
+        // branch above draws none either. They still deduct from net wall
+        // area regardless; only the drawing is affected.
+        openings: [],
+        polygon: [...points, points[0]],
+        width: Math.max(...txs) - tMinX,
+        height: Math.max(...tys) - tMinY,
+        offsetX: tMinX,
+        offsetY: tMinY,
+      };
+    }
+  }
+
+  return chained;
 }
 
 /**

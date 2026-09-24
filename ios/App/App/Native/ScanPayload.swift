@@ -40,6 +40,13 @@ struct ScanGeometry: Codable {
         let centerZ: Double
         let axisX: Double
         let axisZ: Double
+        /// True when `lengthMeters`/`centerX`/`centerZ` were corrected
+        /// against the LiDAR mesh — see `WallMeshRefinement`. Optional both
+        /// because a scan saved before this field existed has none, and
+        /// because a door/window/opening is never refined (there is no
+        /// surface there for the mesh to fit a line to), so leaving it out
+        /// entirely on those is a true statement, not a missing one.
+        var meshRefined: Bool? = nil
     }
 
     struct Floor: Codable {
@@ -118,6 +125,14 @@ struct ScanGeometry: Codable {
     /// the first visit and the invoice. Optional, because every scan taken
     /// before the editor existed has none.
     var editedPolygon: [EditedPoint]?
+
+    /// The floor's own boundary, traced from the LiDAR mesh directly —
+    /// independent of RoomPlan's wall list, and able to disagree with it.
+    /// See `FloorMeshRefinement`. Handed over unconditionally by `init`;
+    /// `FloorPlanGeometry.plan(from:)` is what decides whether to trust it,
+    /// by comparing its area against the wall-chained one, the same way
+    /// `toFloorPlan` in roomScan.ts does for the twin field there.
+    var meshFloorPolygon: [EditedPoint]?
 
     /// Which wall lengths were TYPED rather than measured, by edge index.
     ///
@@ -393,8 +408,18 @@ struct ScanGeometry: Codable {
             polygon: polygon, ceilingHeight: ceilingHeight)
     }
 
-    init(room: CapturedRoom) {
-        func map(_ list: [CapturedRoom.Surface]) -> [Surface] {
+    /// `meshPoints` is every LiDAR mesh vertex ARKit accumulated during this
+    /// room, in world space — `RoomScanViewController` snapshots them at the
+    /// moment the operator taps Done and hands them through
+    /// `RoomCaptureScreen`'s `onFinish`. Empty on a scan whose caller has
+    /// none to offer, in which case every wall keeps RoomPlan's own figure
+    /// unchanged, same as `RoomScanPlugin.geometryPayload` does for the
+    /// WebView path this mirrors.
+    init(
+        room: CapturedRoom, meshPoints: [SIMD3<Float>] = [],
+        tracedFloor: FloorMeshRefinement.TracedFloor? = nil
+    ) {
+        func map(_ list: [CapturedRoom.Surface], refine: Bool) -> [Surface] {
             list.map { surface in
                 // `dimensions` is the surface's own width × height in metres:
                 // a wall's length is x, its height is y. The transform's 4th
@@ -404,15 +429,34 @@ struct ScanGeometry: Codable {
                 // in RoomPlan's world, so the plan lives in x/z.
                 let centre = surface.transform.columns.3
                 let axis = surface.transform.columns.0
+                var lengthMeters = Double(surface.dimensions.x)
+                var centerX = Double(centre.x)
+                var centerZ = Double(centre.z)
+                var meshRefined: Bool? = nil
+
+                if refine, !meshPoints.isEmpty,
+                    let refined = WallMeshRefinement.refine(
+                        wallTransform: surface.transform,
+                        lengthMeters: surface.dimensions.x,
+                        heightMeters: surface.dimensions.y,
+                        points: meshPoints)
+                {
+                    lengthMeters = refined.lengthMeters
+                    centerX = refined.centerX
+                    centerZ = refined.centerZ
+                    meshRefined = true
+                }
+
                 return Surface(
                     detectionId: surface.identifier.uuidString,
-                    lengthMeters: Double(surface.dimensions.x),
-                    widthMeters: Double(surface.dimensions.x),
+                    lengthMeters: lengthMeters,
+                    widthMeters: lengthMeters,
                     heightMeters: Double(surface.dimensions.y),
-                    centerX: Double(centre.x),
-                    centerZ: Double(centre.z),
+                    centerX: centerX,
+                    centerZ: centerZ,
                     axisX: Double(axis.x),
-                    axisZ: Double(axis.z))
+                    axisZ: Double(axis.z),
+                    meshRefined: meshRefined)
             }
         }
 
@@ -436,21 +480,24 @@ struct ScanGeometry: Codable {
                 heightMeters: Double(object.dimensions.y))
         }
 
-        walls = map(room.walls)
+        walls = map(room.walls, refine: true)
         // x TIMES Y, not x times z. Every RoomPlan surface is a plane in its
         // own local X-Y, laid flat by the node transform — so a floor's depth
         // is y and its z is ~0. Multiplying by z gave every room a floor area
         // of zero, which shipped once and must not ship again.
         floors = room.floors.map { Floor(areaSquareMeters: Double($0.dimensions.x * $0.dimensions.y)) }
-        doors = map(room.doors)
-        windows = map(room.windows)
-        openings = map(room.openings)
+        doors = map(room.doors, refine: false)
+        windows = map(room.windows, refine: false)
+        openings = map(room.openings, refine: false)
         doorCount = room.doors.count
         windowCount = room.windows.count
         openingCount = room.openings.count
         // Stairs matter for pricing rather than for a picture: a staircase
         // changes the scope, and RoomPlan's floor area ignores its run.
         stairCount = room.objects.filter { $0.category == .stairs }.count
+        // Handed over unconditionally — see the field's own doc comment for
+        // why the gate belongs to the reader, not the writer.
+        meshFloorPolygon = tracedFloor?.polygon.map { EditedPoint(x: $0.x, y: $0.y) }
     }
 
     // MARK: - Derived figures

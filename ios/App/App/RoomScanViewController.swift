@@ -18,7 +18,14 @@ import UIKit
  */
 @available(iOS 17.0, *)
 final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate, RoomCaptureViewDelegate {
-    var onFinish: ((Result<CapturedRoom, Error>) -> Void)?
+    /// `meshPoints` is every LiDAR mesh vertex ARKit accumulated during this
+    /// room, in world space — snapshotted in `doneTapped()` while the
+    /// session is still live, empty on a device with no mesh data for
+    /// whatever reason. See `WallMeshRefinement`. `tracedFloor` is the
+    /// floor's own boundary, traced independently from the mesh rather than
+    /// derived from RoomPlan's walls — see `FloorMeshRefinement` — or nil
+    /// when the mesh did not support a confident trace.
+    var onFinish: ((Result<(room: CapturedRoom, meshPoints: [SIMD3<Float>], tracedFloor: FloorMeshRefinement.TracedFloor?), Error>) -> Void)?
 
     /// Rooms already captured this visit, drawn dim on the mini-map. They
     /// share the visit's AR world frame (see `sharedARSession`), so the
@@ -691,12 +698,31 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         }
     }
 
+    /// Snapshotted in `doneTapped()`, read again in `captureView(didPresent:)`
+    /// once RoomPlan hands back the final room — the two fire seconds apart
+    /// and only this property bridges them.
+    private var meshWorldPoints: [SIMD3<Float>] = []
+    private var tracedFloor: FloorMeshRefinement.TracedFloor?
+
     @objc private func doneTapped() {
         // The last streamed room is the best read on wall confidence we get
         // before RoomPlan's own processing; record it while it is still here.
         if let room = liveRoom { quality.record(room: room) }
         Self.log.notice("\(self.quality.summary, privacy: .public)")
         ScanLens.appendToDiagnostics(quality.summary)
+        // The dense mesh, snapshotted NOW while the session is still live —
+        // `stopCapture()` below may pause it. RoomPlan's own `CapturedRoom`
+        // is a simplified fit to this same geometry; this is the measured
+        // geometry itself, which `WallMeshRefinement` uses to correct that
+        // fit's wall lengths and `FloorMeshRefinement` uses to trace the
+        // floor's own boundary independent of RoomPlan's wall list.
+        let anchors = captureView.captureSession.arSession.currentFrame?.anchors
+            .compactMap { $0 as? ARMeshAnchor } ?? []
+        meshWorldPoints = WallMeshRefinement.worldVertices(from: anchors)
+        tracedFloor = FloorMeshRefinement.trace(anchors: anchors)
+        ScanLens.appendToDiagnostics(
+            tracedFloor.map { "floor trace: \(String(format: "%.1f", $0.areaSquareMeters))m², \($0.polygon.count) corners" }
+                ?? "floor trace: not enough mesh support")
         // Stopping hands the final, processed CapturedRoom to
         // captureView(didPresent:error:) below — not to a completion here.
         stopCapture()
@@ -720,11 +746,13 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         // double-fire cannot resolve the same plugin call twice.
         guard let finish = onFinish else { return }
         onFinish = nil
+        let meshPoints = meshWorldPoints
+        let floor = tracedFloor
         dismiss(animated: true) {
             if let error {
                 finish(.failure(error))
             } else {
-                finish(.success(processedResult))
+                finish(.success((room: processedResult, meshPoints: meshPoints, tracedFloor: floor)))
             }
         }
     }
