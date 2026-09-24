@@ -70,11 +70,31 @@ export type FaqItem = { q: string; a: string };
 type Copy = {
   meta: { title: string; description: string };
   nav: { home: string; services: string; about: string; contact: string; book: string };
-  hero: { eyebrow: string; title: string; subtitle: string; cta: string; ctaSecondary: string };
+  hero: {
+    eyebrow: string;
+    title: string;
+    /** Substring of `title` set in italic clay — must appear verbatim in it. */
+    accent: string;
+    subtitle: string;
+    cta: string;
+    ctaSecondary: string;
+    meta: string[];
+  };
+  marquee: string[];
+  expect: { eyebrow: string; title: string; items: { label: string; value: string; text: string }[] };
+  ui: {
+    allTreatments: string;
+    discover: string;
+    otherTreatments: string;
+    menuLabel: string;
+    modalitiesLabel: string;
+    findUs: string;
+    instagramHandle: string;
+  };
   servicesIntro: { eyebrow: string; title: string; subtitle: string };
   serviceCategories: Record<ServiceCategory, string>;
   services: Service[];
-  spotlight: { eyebrow: string; title: string; body: string; cta: string; image: string };
+  spotlight: { eyebrow: string; title: string; body: string; cta: string; image: string; modalities: string[] };
   results: {
     eyebrow: string;
     title: string;
@@ -89,7 +109,7 @@ type Copy = {
   reviews: { eyebrow: string; title: string; placeholder: string; items: { quote: string; author: string }[] };
   faq: { eyebrow: string; title: string; items: FaqItem[] };
   aboutTeaser: { title: string; body: string; cta: string };
-  aboutPage: { title: string; intro: string; paragraphs: string[] };
+  aboutPage: { eyebrow: string; title: string; intro: string; quote: string; paragraphs: string[] };
   contactTeaser: { title: string; body: string };
   contactPage: {
     title: string;
@@ -124,10 +144,51 @@ export const copy: Record<Locale, Copy> = {
     hero: {
       eyebrow: "Clinique Esthétique SLK — Laval",
       title: "Révélez l'éclat de votre peau",
+      accent: "l'éclat",
       subtitle:
         "Soins du visage et remodelage corporel personnalisés, pensés pour votre peau et vos objectifs — dans une clinique à Laval.",
       cta: "Réserver sur Instagram",
       ctaSecondary: "Voir nos soins",
+      meta: ["Laval, QC", "Sur rendez-vous", "Réservation par Instagram"],
+    },
+    marquee: [
+      "Extraction",
+      "Microdermabrasion",
+      "Peeling chimique",
+      "Lipocavitation",
+      "Radiofréquence",
+      "Lipo laser",
+      "Lumière LED",
+    ],
+    expect: {
+      eyebrow: "À quoi s'attendre",
+      title: "Honnêtement, avant de réserver",
+      items: [
+        {
+          label: "Nettoyage & extraction",
+          value: "≈ 1 h 30",
+          text: "Rougeurs, petits bleus ou gonflement possibles pendant 3 à 5 jours après une extraction en profondeur — c'est normal.",
+        },
+        {
+          label: "Peeling chimique",
+          value: "≈ 7 jours",
+          text: "Phase de pelage et de guérison, avec des soins post-traitement à suivre à la maison.",
+        },
+        {
+          label: "Remodelage corporel",
+          value: "Consultation gratuite",
+          text: "On évalue vos objectifs avant la première séance, sans engagement.",
+        },
+      ],
+    },
+    ui: {
+      allTreatments: "Tous les soins",
+      discover: "Découvrir",
+      otherTreatments: "Autres soins",
+      menuLabel: "Menu",
+      modalitiesLabel: "Quatre technologies, une séance",
+      findUs: "Nous trouver",
+      instagramHandle: "@esthetiqueslk",
     },
     servicesIntro: {
       eyebrow: "Nos soins",
@@ -175,7 +236,7 @@ export const copy: Record<Locale, Copy> = {
         category: "visage",
         title: "Peeling chimique",
         blurb: "Exfoliation en profondeur pour uniformiser le teint et atténuer les imperfections.",
-        image: "/slk/instagram/05-peeling-before-after-texture-crop.jpg",
+        image: "/slk/instagram/05-peeling-before-after-texture-clean.jpg",
         detail: {
           intro:
             "Une exfoliation chimique utilisée pour l'acné, les cicatrices d'acné, l'hyperpigmentation, la rosacée et les signes de l'âge.",
@@ -192,7 +253,6 @@ export const copy: Record<Locale, Copy> = {
         category: "visage",
         title: "Soin du visage",
         blurb: "Le soin signature — nettoyage et éclat, pensé comme une vraie pause.",
-        image: "/slk/instagram/02-signature-facial-portrait.jpg",
         detail: {
           intro:
             "Le soin du visage de la clinique, décrit par la propriétaire elle-même comme « sa passion » dans ses publications.",
@@ -222,7 +282,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Remodelage corporel — Beauty Pot 4-en-1",
         blurb: "Lipocavitation, radiofréquence, lipo laser et lumière LED, en une seule séance.",
-        image: "/slk/instagram/07-body-contouring-thighs-before-after-crop.jpg",
+        image: "/slk/instagram/07-body-contouring-thighs-before-after-clean.jpg",
         detail: {
           intro:
             "Le soin signature de la clinique : quatre technologies combinées en une seule séance avec l'appareil Beauty Pot.",
@@ -239,7 +299,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Cellulite, fermeté & drainage lymphatique",
         blurb: "Les objectifs du remodelage corporel : peau plus ferme, cellulite, vergetures, drainage.",
-        image: "/slk/instagram/11-body-contouring-back-before-after-crop.jpg",
+        image: "/slk/instagram/11-body-contouring-back-before-after-clean.jpg",
         detail: {
           intro:
             "Ce sont les objectifs visés par le remodelage corporel avec le Beauty Pot, dans la même séance — pas des traitements séparés.",
@@ -267,7 +327,8 @@ export const copy: Record<Locale, Copy> = {
       title: "Remodelage corporel — technologie Beauty Pot 4-en-1",
       body: "Quatre technologies combinées en une seule séance — lipocavitation, radiofréquence, lipo laser et lumière LED — pour le contour du corps et la fermeté de la peau. Consultation gratuite pour évaluer vos objectifs.",
       cta: "Réserver une consultation gratuite",
-      image: "/slk/instagram/08-body-contouring-abdomen-before-after-crop.jpg",
+      image: "/slk/instagram/08-body-contouring-abdomen-before-after-clean.jpg",
+      modalities: ["Lipocavitation", "Radiofréquence", "Lipo laser", "Lumière LED"],
     },
     results: {
       eyebrow: "Résultats",
@@ -278,18 +339,18 @@ export const copy: Record<Locale, Copy> = {
       peauLabel: "Peau",
       corpsLabel: "Corps",
       peau: [
-        { src: "/slk/instagram/04-peeling-before-after-acne-crop.jpg", alt: "Avant / après peeling chimique — peau avec acné" },
-        { src: "/slk/instagram/05-peeling-before-after-texture-crop.jpg", alt: "Avant / après peeling chimique — texture de peau" },
-        { src: "/slk/instagram/06-peeling-before-after-eyes-crop.jpg", alt: "Avant / après peeling chimique — contour des yeux" },
+        { src: "/slk/instagram/04-peeling-before-after-acne-clean.jpg", alt: "Avant / après peeling chimique — peau avec acné" },
+        { src: "/slk/instagram/05-peeling-before-after-texture-clean.jpg", alt: "Avant / après peeling chimique — texture de peau" },
+        { src: "/slk/instagram/06-peeling-before-after-eyes-clean.jpg", alt: "Avant / après peeling chimique — contour des yeux" },
       ],
       corps: [
-        { src: "/slk/instagram/07-body-contouring-thighs-before-after-crop.jpg", alt: "Avant / après remodelage corporel — cuisses" },
-        { src: "/slk/instagram/08-body-contouring-abdomen-before-after-crop.jpg", alt: "Avant / après remodelage corporel — abdomen" },
-        { src: "/slk/instagram/09-cellulite-before-after-legs-crop.jpg", alt: "Avant / après traitement de la cellulite — jambes" },
-        { src: "/slk/instagram/10-body-contouring-waist-before-after-crop.jpg", alt: "Avant / après remodelage corporel — taille" },
-        { src: "/slk/instagram/11-body-contouring-back-before-after-crop.jpg", alt: "Avant / après remodelage corporel — dos" },
-        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2-crop.jpg", alt: "Avant / après remodelage corporel — abdomen" },
-        { src: "/slk/instagram/13-body-contouring-midsection-before-after-crop.jpg", alt: "Avant / après remodelage corporel — mi-corps" },
+        { src: "/slk/instagram/07-body-contouring-thighs-before-after-clean.jpg", alt: "Avant / après remodelage corporel — cuisses" },
+        { src: "/slk/instagram/08-body-contouring-abdomen-before-after-clean.jpg", alt: "Avant / après remodelage corporel — abdomen" },
+        { src: "/slk/instagram/09-cellulite-before-after-legs-clean.jpg", alt: "Avant / après traitement de la cellulite — jambes" },
+        { src: "/slk/instagram/10-body-contouring-waist-before-after-clean.jpg", alt: "Avant / après remodelage corporel — taille" },
+        { src: "/slk/instagram/11-body-contouring-back-before-after-clean.jpg", alt: "Avant / après remodelage corporel — dos" },
+        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2-clean.jpg", alt: "Avant / après remodelage corporel — abdomen" },
+        { src: "/slk/instagram/13-body-contouring-midsection-before-after-clean.jpg", alt: "Avant / après remodelage corporel — mi-corps" },
       ],
     },
     noWalkIns: "Sur rendez-vous seulement — pas de visites sans rendez-vous.",
@@ -329,11 +390,13 @@ export const copy: Record<Locale, Copy> = {
       cta: "En savoir plus",
     },
     aboutPage: {
+      eyebrow: "À propos",
       title: "À propos de SLK",
       intro: "Une clinique d'esthétique à Laval, centrée sur des soins sur mesure.",
+      quote: "Écouter d'abord, recommander ensuite — jamais l'inverse.",
       paragraphs: [
-        "Clinique Esthétique SLK accompagne sa clientèle avec des soins du visage et du corps de qualité, adaptés à chaque type de peau et à chaque objectif.",
-        "Notre approche : écouter d'abord, puis recommander les traitements les mieux adaptés — jamais l'inverse.",
+        "Clinique Esthétique SLK accompagne sa clientèle avec des soins du visage et du corps, adaptés à chaque type de peau et à chaque objectif.",
+        "Chaque rendez-vous commence par comprendre votre peau et ce que vous cherchez, avant de proposer un soin.",
         "Nous recevons sur rendez-vous à Laval, dans un environnement propre, calme et professionnel.",
       ],
     },
@@ -374,10 +437,51 @@ export const copy: Record<Locale, Copy> = {
     hero: {
       eyebrow: "Clinique Esthétique SLK — Laval",
       title: "Reveal your skin's natural glow",
+      accent: "natural glow",
       subtitle:
         "Personalized facials and body contouring, tailored to your skin and goals — at our clinic in Laval.",
       cta: "Book on Instagram",
       ctaSecondary: "See our treatments",
+      meta: ["Laval, QC", "By appointment", "Book via Instagram"],
+    },
+    marquee: [
+      "Extraction",
+      "Microdermabrasion",
+      "Chemical peel",
+      "Lipocavitation",
+      "Radiofrequency",
+      "Lipo laser",
+      "LED light",
+    ],
+    expect: {
+      eyebrow: "What to expect",
+      title: "Honestly, before you book",
+      items: [
+        {
+          label: "Deep cleansing & extraction",
+          value: "≈ 1.5 h",
+          text: "Redness, light bruising or swelling can show up for 3–5 days after a deep extraction — that's normal.",
+        },
+        {
+          label: "Chemical peel",
+          value: "≈ 7 days",
+          text: "A peeling and healing phase, with aftercare to follow at home.",
+        },
+        {
+          label: "Body contouring",
+          value: "Free consultation",
+          text: "We go over your goals before the first session, no commitment.",
+        },
+      ],
+    },
+    ui: {
+      allTreatments: "All treatments",
+      discover: "Discover",
+      otherTreatments: "Other treatments",
+      menuLabel: "Menu",
+      modalitiesLabel: "Four technologies, one session",
+      findUs: "Find us",
+      instagramHandle: "@esthetiqueslk",
     },
     servicesIntro: {
       eyebrow: "Our treatments",
@@ -425,7 +529,7 @@ export const copy: Record<Locale, Copy> = {
         category: "visage",
         title: "Chemical Peel",
         blurb: "Deep exfoliation to even out skin tone and soften imperfections.",
-        image: "/slk/instagram/05-peeling-before-after-texture-crop.jpg",
+        image: "/slk/instagram/05-peeling-before-after-texture-clean.jpg",
         detail: {
           intro:
             "A chemical exfoliation used for acne, acne scarring, hyperpigmentation, rosacea and signs of aging.",
@@ -442,7 +546,6 @@ export const copy: Record<Locale, Copy> = {
         category: "visage",
         title: "Facial",
         blurb: "The signature treatment — cleansing and glow, built as a real pause.",
-        image: "/slk/instagram/02-signature-facial-portrait.jpg",
         detail: {
           intro: "The clinic's facial, described by the owner herself as \"her passion\" in the account's posts.",
           points: [
@@ -471,7 +574,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Body Contouring — Beauty Pot 4-in-1",
         blurb: "Lipocavitation, radiofrequency, lipo laser and LED light, in a single session.",
-        image: "/slk/instagram/07-body-contouring-thighs-before-after-crop.jpg",
+        image: "/slk/instagram/07-body-contouring-thighs-before-after-clean.jpg",
         detail: {
           intro:
             "The clinic's signature treatment: four technologies combined in a single session with the Beauty Pot device.",
@@ -488,7 +591,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Cellulite, Firmness & Lymphatic Drainage",
         blurb: "The stated goals of body contouring: firmer skin, cellulite, stretch marks, drainage.",
-        image: "/slk/instagram/11-body-contouring-back-before-after-crop.jpg",
+        image: "/slk/instagram/11-body-contouring-back-before-after-clean.jpg",
         detail: {
           intro:
             "These are the stated goals of body contouring with the Beauty Pot, within the same session — not separate treatments.",
@@ -515,7 +618,8 @@ export const copy: Record<Locale, Copy> = {
       title: "Body contouring — Beauty Pot 4-in-1 technology",
       body: "Four technologies combined in a single session — lipocavitation, radiofrequency, lipo laser and LED light — for body contouring and skin firmness. Free consultation to assess your goals.",
       cta: "Book a free consultation",
-      image: "/slk/instagram/08-body-contouring-abdomen-before-after-crop.jpg",
+      image: "/slk/instagram/08-body-contouring-abdomen-before-after-clean.jpg",
+      modalities: ["Lipocavitation", "Radiofrequency", "Lipo laser", "LED light"],
     },
     results: {
       eyebrow: "Results",
@@ -526,18 +630,18 @@ export const copy: Record<Locale, Copy> = {
       peauLabel: "Skin",
       corpsLabel: "Body",
       peau: [
-        { src: "/slk/instagram/04-peeling-before-after-acne-crop.jpg", alt: "Chemical peel before/after — acne-prone skin" },
-        { src: "/slk/instagram/05-peeling-before-after-texture-crop.jpg", alt: "Chemical peel before/after — skin texture" },
-        { src: "/slk/instagram/06-peeling-before-after-eyes-crop.jpg", alt: "Chemical peel before/after — eye area" },
+        { src: "/slk/instagram/04-peeling-before-after-acne-clean.jpg", alt: "Chemical peel before/after — acne-prone skin" },
+        { src: "/slk/instagram/05-peeling-before-after-texture-clean.jpg", alt: "Chemical peel before/after — skin texture" },
+        { src: "/slk/instagram/06-peeling-before-after-eyes-clean.jpg", alt: "Chemical peel before/after — eye area" },
       ],
       corps: [
-        { src: "/slk/instagram/07-body-contouring-thighs-before-after-crop.jpg", alt: "Body contouring before/after — thighs" },
-        { src: "/slk/instagram/08-body-contouring-abdomen-before-after-crop.jpg", alt: "Body contouring before/after — abdomen" },
-        { src: "/slk/instagram/09-cellulite-before-after-legs-crop.jpg", alt: "Cellulite treatment before/after — legs" },
-        { src: "/slk/instagram/10-body-contouring-waist-before-after-crop.jpg", alt: "Body contouring before/after — waist" },
-        { src: "/slk/instagram/11-body-contouring-back-before-after-crop.jpg", alt: "Body contouring before/after — back" },
-        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2-crop.jpg", alt: "Body contouring before/after — abdomen" },
-        { src: "/slk/instagram/13-body-contouring-midsection-before-after-crop.jpg", alt: "Body contouring before/after — midsection" },
+        { src: "/slk/instagram/07-body-contouring-thighs-before-after-clean.jpg", alt: "Body contouring before/after — thighs" },
+        { src: "/slk/instagram/08-body-contouring-abdomen-before-after-clean.jpg", alt: "Body contouring before/after — abdomen" },
+        { src: "/slk/instagram/09-cellulite-before-after-legs-clean.jpg", alt: "Cellulite treatment before/after — legs" },
+        { src: "/slk/instagram/10-body-contouring-waist-before-after-clean.jpg", alt: "Body contouring before/after — waist" },
+        { src: "/slk/instagram/11-body-contouring-back-before-after-clean.jpg", alt: "Body contouring before/after — back" },
+        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2-clean.jpg", alt: "Body contouring before/after — abdomen" },
+        { src: "/slk/instagram/13-body-contouring-midsection-before-after-clean.jpg", alt: "Body contouring before/after — midsection" },
       ],
     },
     noWalkIns: "By appointment only — no walk-ins.",
@@ -573,11 +677,13 @@ export const copy: Record<Locale, Copy> = {
       cta: "Learn more",
     },
     aboutPage: {
+      eyebrow: "About",
       title: "About SLK",
       intro: "An esthetics clinic in Laval, built around personalized care.",
+      quote: "Listen first, recommend second — never the other way around.",
       paragraphs: [
         "Clinique Esthétique SLK offers facial and body treatments tailored to every skin type and goal.",
-        "Our approach: listen first, then recommend the treatments that actually fit — never the other way around.",
+        "Every appointment starts with understanding your skin and what you're after, before suggesting a treatment.",
         "We see clients by appointment in Laval, in a clean, calm, professional setting.",
       ],
     },

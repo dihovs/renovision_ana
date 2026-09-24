@@ -2,28 +2,65 @@
  * Scoped design tokens for Clinique Esthétique SLK.
  *
  * Deliberately NOT added to the main `@theme` in ../globals.css: this is a
- * different business sharing the repo, and its palette (warm ivory/terracotta
- * editorial tones) must never bleed into or collide with Renovision's
- * brand-blue/green tokens. Imported from src/app/slk/(fr)/layout.tsx and
- * src/app/slk/en/layout.tsx.
+ * different business sharing the repo, and its palette must never bleed into
+ * or collide with Renovision's brand-blue/green tokens. Imported from
+ * src/app/slk/(fr)/layout.tsx and src/app/slk/en/layout.tsx.
  *
- * Matches the approved design (Claude Artifact canvas, "SLK — Homepage
- * Design"): Fraunces display serif over Work Sans body, ivory ground, one
- * terracotta accent, a dark charcoal band for the services/contact sections.
+ * "Atelier" system: bone ground, espresso ink, one clay accent. Clay-soft is
+ * the accent's on-dark variant — plain clay on espresso fails contrast for
+ * small text (~3.2:1); clay-soft clears 4.5:1.
  */
 
 :root {
-  --slk-terracotta: #b5583a;
-  --slk-terracotta-dark: #8f4128;
-  --slk-terracotta-light: #f3e3d9;
-  --slk-ivory: #fbf7f1;
-  --slk-charcoal: #2b2420;
-  --slk-charcoal-dark: #201a17;
-  --slk-gold: #b5583a;
+  --slk-bone: #f4efe8;
+  --slk-paper: #faf7f2;
+  --slk-sand: #e9e0d4;
+  --slk-ink: #1e1915;
+  --slk-ink-deep: #15110e;
+  --slk-clay: #a4492e;
+  --slk-clay-deep: #7f3620;
+  --slk-clay-soft: #d98a6c;
+  --slk-line: rgba(30, 25, 21, 0.14);
+  --slk-line-dark: rgba(250, 247, 242, 0.14);
 }
 
 .font-slk-serif {
   font-family: var(--font-slk-serif), Georgia, serif;
+}
+
+/* Arch frame — the one recurring shape in the system. */
+.slk-arch {
+  border-radius: 999px 999px 1.25rem 1.25rem;
+}
+
+@keyframes slk-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.slk-marquee-track {
+  animation: slk-marquee 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slk-marquee-track {
+    animation: none;
+  }
+}
+
+/* Native <details> accordion: hide the default marker, rotate our own. */
+.slk-faq summary {
+  list-style: none;
+}
+.slk-faq summary::-webkit-details-marker {
+  display: none;
+}
+.slk-faq[open] .slk-faq-icon {
+  transform: rotate(45deg);
 }
 
 /*
@@ -33,10 +70,8 @@
  * scoped to the SLK body so each component's own color/font classes win
  * again, without touching the shared file (still used by Renovision).
  *
- * Only `color` is reset here, at the SAME specificity as globals.css's
- * `h1, h2, …` rule (element selectors, not `.slk-site h1`): a compound
- * selector would outrank the `.font-slk-serif` utility class and silently
- * cancel it back to the inherited body font.
+ * Only `color` is reset here: a compound selector resetting font-family too
+ * would outrank the `.font-slk-serif` utility and silently cancel it.
  */
 .slk-site :is(h1, h2, h3, h4, h5, h6) {
   color: inherit;

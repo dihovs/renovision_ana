@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import SlkHeader from "@/components/slk/Header";
 import SlkFooter from "@/components/slk/Footer";
-import { ContactTeaser } from "@/components/slk/sections";
+import { PageIntro, ExpectStrip, ContactTeaser } from "@/components/slk/sections";
 import { copy } from "@/content/slk/copy";
 
 export const metadata: Metadata = { title: copy.en.aboutPage.title };
@@ -12,17 +12,18 @@ export default function SlkAboutEn() {
     <>
       <SlkHeader locale="en" path="/slk/en/about" />
       <main className="flex-1">
-        <section className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
-          <h1 className="font-slk-serif text-4xl font-semibold text-[var(--slk-charcoal)]">
-            {t.title}
-          </h1>
-          <p className="mt-3 text-lg text-[var(--slk-charcoal)]/70">{t.intro}</p>
-          <div className="mt-8 space-y-4 text-[var(--slk-charcoal)]/80">
+        <PageIntro eyebrow={t.eyebrow} title={t.title} intro={t.intro} />
+        <section className="mx-auto grid w-full max-w-7xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[1.3fr_1fr] lg:gap-20 lg:py-32">
+          <p className="font-slk-serif text-[clamp(2rem,4.5vw,3.5rem)] font-light italic leading-[1.1] tracking-[-0.015em]">
+            “{t.quote}”
+          </p>
+          <div className="space-y-6 font-light leading-relaxed text-[var(--slk-ink)]/80">
             {t.paragraphs.map((p) => (
               <p key={p}>{p}</p>
             ))}
           </div>
         </section>
+        <ExpectStrip locale="en" />
         <ContactTeaser locale="en" />
       </main>
       <SlkFooter locale="en" />

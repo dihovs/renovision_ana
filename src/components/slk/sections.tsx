@@ -1,149 +1,234 @@
 import Image from "next/image";
 import Link from "next/link";
-import { bookingLink, copy, type Locale } from "@/content/slk/copy";
+import type { ReactNode } from "react";
+import { bookingLink, copy, type GalleryItem, type Locale } from "@/content/slk/copy";
 import { slkPath } from "@/content/slk/paths";
 
-// Gradient swatch for service rows that have no real photo yet (see
-// `image` on each entry in src/content/slk/copy.ts).
-const FALLBACK_SWATCHES = [
-  "linear-gradient(135deg, #D9B48F, #A9694A)",
-  "linear-gradient(135deg, #C9A98A, #8A9A7E)",
-  "linear-gradient(135deg, #B5583A, #5B3A30)",
-  "linear-gradient(135deg, #8A9A7E, #4A5744)",
-  "linear-gradient(135deg, #D9B48F, #B5583A)",
-  "linear-gradient(135deg, #C88B67, #96604A)",
-  "linear-gradient(135deg, #A9694A, #5B3A30)",
-  "linear-gradient(135deg, #8A9A7E, #8F4128)",
-];
+// The "after" half of a real peeling result (text and "before" panel cropped
+// out) — even, glowing skin, which is what the hero headline promises.
+const HERO_IMAGE = "/slk/instagram/04-peeling-after.jpg";
+
+const CONTAINER = "mx-auto w-full max-w-7xl px-5 sm:px-8";
+
+type Service = (typeof copy)["fr"]["services"][number];
+
+function Eyebrow({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
+  return (
+    <p
+      className={`flex items-center gap-3 text-[11px] uppercase tracking-[0.24em] ${
+        dark ? "text-[var(--slk-clay-soft)]" : "text-[var(--slk-clay)]"
+      }`}
+    >
+      <span aria-hidden="true" className="h-px w-8 bg-current" />
+      {children}
+    </p>
+  );
+}
+
+function Arrow({ className = "" }: { className?: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" className={className}>
+      <path d="M3 9h12m0 0-5-5m5 5-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Every "book" button: primary ink pill on light grounds, paper pill on dark/clay grounds. */
+function BookButton({ label, onDark = false }: { label: string; onDark?: boolean }) {
+  const book = bookingLink();
+  return (
+    <a
+      href={book.href}
+      target={book.external ? "_blank" : undefined}
+      rel={book.external ? "noopener noreferrer" : undefined}
+      className={`inline-flex items-center gap-3 rounded-full px-7 py-4 text-sm transition ${
+        onDark
+          ? "bg-[var(--slk-paper)] text-[var(--slk-ink)] hover:bg-[var(--slk-sand)]"
+          : "bg-[var(--slk-ink)] text-[var(--slk-paper)] hover:bg-[var(--slk-clay)]"
+      }`}
+    >
+      {label}
+      <Arrow />
+    </a>
+  );
+}
+
+function TextLink({ href, children, onDark = false }: { href: string; children: ReactNode; onDark?: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`group inline-flex items-center gap-2 border-b pb-1 text-sm transition ${
+        onDark
+          ? "border-[var(--slk-paper)]/40 text-[var(--slk-paper)] hover:border-[var(--slk-paper)]"
+          : "border-[var(--slk-ink)]/30 text-[var(--slk-ink)] hover:border-[var(--slk-clay)] hover:text-[var(--slk-clay)]"
+      }`}
+    >
+      {children}
+      <Arrow className="transition group-hover:translate-x-0.5" />
+    </Link>
+  );
+}
+
+/** Title with one phrase set in italic clay, e.g. "Révélez *l'éclat* de votre peau". */
+function AccentTitle({ title, accent }: { title: string; accent: string }) {
+  const i = title.indexOf(accent);
+  if (i < 0) return <>{title}</>;
+  return (
+    <>
+      {title.slice(0, i)}
+      <em className="font-light italic text-[var(--slk-clay)]">{accent}</em>
+      {title.slice(i + accent.length)}
+    </>
+  );
+}
+
+export function PageIntro({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {
+  return (
+    <section className="border-b border-[var(--slk-line)]">
+      <div className={`${CONTAINER} pb-14 pt-16 lg:pb-20 lg:pt-24`}>
+        <Eyebrow>{eyebrow}</Eyebrow>
+        <h1 className="font-slk-serif mt-8 max-w-4xl text-[clamp(2.75rem,6.5vw,5.75rem)] font-light leading-[0.98] tracking-[-0.02em]">
+          {title}
+        </h1>
+        {intro && <p className="mt-8 max-w-xl text-lg font-light leading-relaxed text-[var(--slk-ink)]/75">{intro}</p>}
+      </div>
+    </section>
+  );
+}
 
 export function Hero({ locale }: { locale: Locale }) {
   const t = copy[locale].hero;
-  const book = bookingLink();
+  // Peeling recovery — the same treatment the hero image is a result of.
+  const heroStat = copy[locale].expect.items[1];
   return (
-    <section className="relative flex min-h-[92vh] items-end overflow-hidden">
-      <Image
-        src="/slk/instagram/02-signature-facial-portrait.jpg"
-        alt=""
-        fill
-        priority
-        sizes="100vw"
-        className="scale-125 object-cover object-top blur-md"
-      />
-      <div
-        className="absolute inset-0"
-        style={{ background: "linear-gradient(160deg, rgba(228,201,174,0.35) 0%, rgba(91,58,48,0.55) 100%)" }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(0deg, rgba(20,14,11,0.68) 0%, rgba(20,14,11,0.15) 45%, rgba(20,14,11,0.25) 100%)",
-        }}
-      />
-      <span className="absolute right-6 top-7 rounded-full border border-white/30 px-3 py-1 text-[10px] uppercase tracking-widest text-white/55 sm:right-10">
-        {locale === "fr"
-          ? "Photo Instagram, traitée — à remplacer par un vrai portrait"
-          : "Treated Instagram photo — replace with a real portrait"}
-      </span>
+    <section className="relative overflow-hidden">
+      <div className={`${CONTAINER} grid items-end gap-14 pb-20 pt-12 lg:grid-cols-[1.3fr_1fr] lg:gap-20 lg:pb-28 lg:pt-20`}>
+        <div>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
+          <h1 className="font-slk-serif mt-8 text-[clamp(3.25rem,8.5vw,7.75rem)] font-light leading-[0.94] tracking-[-0.025em]">
+            <AccentTitle title={t.title} accent={t.accent} />
+          </h1>
+          <p className="mt-8 max-w-md text-lg font-light leading-relaxed text-[var(--slk-ink)]/75">{t.subtitle}</p>
+          <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-5">
+            <BookButton label={t.cta} />
+            <TextLink href={slkPath(locale, "/services")}>{t.ctaSecondary}</TextLink>
+          </div>
+          <ul className="mt-12 flex flex-wrap gap-x-8 gap-y-2 border-t lg:mt-16 border-[var(--slk-line)] pt-6 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65">
+            {t.meta.map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+        </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 text-[var(--slk-ivory)] sm:px-6 sm:pb-24">
-        <p className="text-sm uppercase tracking-widest text-[var(--slk-ivory)]/85">{t.eyebrow}</p>
-        <h1 className="font-slk-serif max-w-3xl text-5xl font-normal leading-[1.04] tracking-tight sm:text-7xl">
-          {t.title}
-        </h1>
-        <p className="max-w-md text-lg font-light leading-relaxed text-[var(--slk-ivory)]/90">{t.subtitle}</p>
-        <div className="flex flex-wrap gap-4 pt-3">
-          <a
-            href={book.href}
-            target={book.external ? "_blank" : undefined}
-            rel={book.external ? "noopener noreferrer" : undefined}
-            className="rounded-full bg-[var(--slk-ivory)] px-7 py-4 text-sm font-medium text-[var(--slk-charcoal)] transition hover:opacity-90"
-          >
-            {t.cta}
-          </a>
-          <Link
-            href={slkPath(locale, "/services")}
-            className="rounded-full border border-white/50 px-7 py-4 text-sm font-medium text-[var(--slk-ivory)] transition hover:bg-white/10"
-          >
-            {t.ctaSecondary}
-          </Link>
+        {/* Capped width: the source still is only ~280px wide. */}
+        <div className="relative mx-auto w-full max-w-xs sm:max-w-sm lg:mr-0 lg:max-w-[26rem]">
+          <div className="slk-arch relative aspect-[284/412] overflow-hidden bg-[var(--slk-sand)]">
+            <Image src={HERO_IMAGE} alt="" fill priority sizes="(min-width: 1024px) 26rem, 90vw" className="object-cover" />
+          </div>
+          <div className="absolute -bottom-6 -left-4 max-w-[15rem] rounded-2xl bg-[var(--slk-paper)] p-5 shadow-[0_20px_50px_-20px_rgba(30,25,21,0.35)] sm:-left-10">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{heroStat.label}</p>
+            <p className="font-slk-serif mt-2 text-3xl font-light text-[var(--slk-clay)]">{heroStat.value}</p>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-/** One category's rows within the services section — same markup used on the homepage teaser and the full /services page. */
-function ServiceCategoryBlock({
-  locale,
-  category,
-  label,
-}: {
-  locale: Locale;
-  category: "visage" | "remodelage";
-  label: string;
-}) {
-  const t = copy[locale];
-  const rows = t.services.filter((s) => s.category === category);
+export function Marquee({ locale }: { locale: Locale }) {
+  const items = copy[locale].marquee;
   return (
-    <div className="mb-14 last:mb-0">
-      <h3 className="font-slk-serif mb-2 text-xl font-normal text-[var(--slk-terracotta)] sm:text-2xl">{label}</h3>
-      <div className="flex flex-col">
-        {rows.map((s, i) => (
-          <div
-            key={s.slug}
-            className="grid grid-cols-[36px_1fr] items-center gap-4 border-t border-white/10 py-7 last:border-b sm:grid-cols-[60px_1fr_180px]"
-          >
-            <div className="font-slk-serif text-sm text-[var(--slk-ivory)]/35">{String(i + 1).padStart(2, "0")}</div>
-            <div>
-              <Link
-                href={slkPath(locale, `/services/${s.slug}`)}
-                className="font-slk-serif mb-1 block text-xl font-normal hover:text-[var(--slk-terracotta)] sm:text-2xl"
-              >
-                {s.title}
-              </Link>
-              <p className="max-w-md text-sm font-light text-[var(--slk-ivory)]/55">{s.blurb}</p>
-            </div>
-            {s.image ? (
-              <div className="relative hidden h-16 overflow-hidden rounded-lg sm:block">
-                <Image src={s.image} alt="" fill sizes="180px" className="object-cover" />
-              </div>
-            ) : (
-              <div
-                className="hidden h-16 rounded-lg opacity-85 sm:block"
-                style={{ background: FALLBACK_SWATCHES[i % FALLBACK_SWATCHES.length] }}
-              />
-            )}
-          </div>
+    <div aria-hidden="true" className="overflow-hidden border-y border-[var(--slk-line)] bg-[var(--slk-paper)] py-6">
+      <div className="slk-marquee-track flex w-max items-center">
+        {[...items, ...items].map((m, i) => (
+          <span key={i} className="flex items-center">
+            <span className="font-slk-serif px-8 text-2xl font-light italic text-[var(--slk-ink)]/80 sm:text-3xl">{m}</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--slk-clay)]" />
+          </span>
         ))}
       </div>
     </div>
   );
 }
 
-export function ServicesGrid({ locale }: { locale: Locale }) {
-  const t = copy[locale];
+function ServiceRow({ locale, s }: { locale: Locale; s: Service }) {
   return (
-    <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
-      <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32">
-        <div className="mb-16 flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">
-              {t.servicesIntro.eyebrow}
-            </p>
-            <h2 className="font-slk-serif text-4xl font-normal sm:text-5xl">{t.servicesIntro.title}</h2>
+    <Link
+      href={slkPath(locale, `/services/${s.slug}`)}
+      className="group grid grid-cols-[1fr_auto] items-center gap-6 border-b border-[var(--slk-line)] py-7"
+    >
+      <div>
+        <p className="font-slk-serif text-2xl font-light leading-tight transition group-hover:text-[var(--slk-clay)] sm:text-3xl">
+          {s.title}
+        </p>
+        <p className="mt-2 max-w-lg text-sm font-light leading-relaxed text-[var(--slk-ink)]/70">{s.blurb}</p>
+      </div>
+      <div className="flex items-center gap-5">
+        {s.image && (
+          <div className="relative hidden h-20 w-28 overflow-hidden rounded-lg sm:block">
+            <Image
+              src={s.image}
+              alt=""
+              fill
+              sizes="112px"
+              className="object-cover transition duration-500 group-hover:scale-105"
+            />
           </div>
-          <Link
-            href={slkPath(locale, "/services")}
-            className="whitespace-nowrap rounded-full border border-white/25 px-6 py-3 text-sm hover:bg-white/5"
-          >
-            {locale === "fr" ? "Tous les soins →" : "All treatments →"}
-          </Link>
-        </div>
-        <p className="mb-12 max-w-xl font-light text-[var(--slk-ivory)]/70">{t.servicesIntro.subtitle}</p>
+        )}
+        <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--slk-line)] text-[var(--slk-ink)] transition group-hover:border-[var(--slk-clay)] group-hover:bg-[var(--slk-clay)] group-hover:text-[var(--slk-paper)]">
+          <Arrow />
+        </span>
+      </div>
+    </Link>
+  );
+}
 
-        <ServiceCategoryBlock locale={locale} category="visage" label={t.serviceCategories.visage} />
-        <ServiceCategoryBlock locale={locale} category="remodelage" label={t.serviceCategories.remodelage} />
+/** The treatment index — used on the homepage (with its own intro) and on /services (under PageIntro). */
+export function ServicesGrid({ locale, showIntro = true }: { locale: Locale; showIntro?: boolean }) {
+  const t = copy[locale];
+  const categories = (Object.keys(t.serviceCategories) as (keyof typeof t.serviceCategories)[]).filter((c) =>
+    t.services.some((s) => s.category === c),
+  );
+  return (
+    <section className="bg-[var(--slk-bone)]">
+      <div className={`${CONTAINER} py-24 lg:py-32`}>
+        {showIntro && (
+          <div className="mb-16 grid gap-8 lg:grid-cols-2 lg:items-end">
+            <div>
+              <Eyebrow>{t.servicesIntro.eyebrow}</Eyebrow>
+              <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,5vw,4rem)] font-light leading-[1.02] tracking-[-0.02em]">
+                {t.servicesIntro.title}
+              </h2>
+            </div>
+            <div className="lg:justify-self-end lg:text-right">
+              <p className="max-w-md font-light leading-relaxed text-[var(--slk-ink)]/75 lg:ml-auto">
+                {t.servicesIntro.subtitle}
+              </p>
+              <div className="mt-6">
+                <TextLink href={slkPath(locale, "/services")}>{t.ui.allTreatments}</TextLink>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {categories.map((cat, ci) => (
+          <div
+            key={cat}
+            className="grid gap-6 border-t border-[var(--slk-ink)]/80 pt-8 [&:not(:last-child)]:mb-20 lg:grid-cols-[18rem_1fr] lg:gap-16"
+          >
+            <div>
+              <p className="font-slk-serif text-5xl font-light italic text-[var(--slk-clay)]">{ci === 0 ? "I" : "II"}</p>
+              <h3 className="font-slk-serif mt-3 text-2xl font-light">{t.serviceCategories[cat]}</h3>
+            </div>
+            <div className="-mt-7">
+              {t.services
+                .filter((s) => s.category === cat)
+                .map((s) => (
+                  <ServiceRow key={s.slug} locale={locale} s={s} />
+                ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -151,89 +236,118 @@ export function ServicesGrid({ locale }: { locale: Locale }) {
 
 export function SignatureSpotlight({ locale }: { locale: Locale }) {
   const t = copy[locale].spotlight;
-  const book = bookingLink();
+  const ui = copy[locale].ui;
   return (
-    <section className="bg-[var(--slk-ivory)]">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 py-24 sm:px-6 md:grid-cols-2 md:gap-14">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
-          {/* Pre-cropped locally (see public/slk/instagram/*-crop.jpg) to cut
-              off the "Clinique Esthétique SLK · Transformation" neon-sign
-              banner baked into the original Instagram stills — the client
-              didn't want any text-bearing photos used, cropped or not. */}
-          <Image src={t.image} alt="" fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+    <section className="bg-[var(--slk-ink)] text-[var(--slk-paper)]">
+      <div className={`${CONTAINER} grid items-center gap-14 py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
+        <div className="relative aspect-[640/420] overflow-hidden rounded-2xl">
+          <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
         </div>
         <div>
-          <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">{t.eyebrow}</p>
-          <h2 className="font-slk-serif mb-6 text-3xl font-normal sm:text-4xl">{t.title}</h2>
-          <p className="mb-8 font-light text-[var(--slk-charcoal)]/70">{t.body}</p>
-          <a
-            href={book.href}
-            target={book.external ? "_blank" : undefined}
-            rel={book.external ? "noopener noreferrer" : undefined}
-            className="inline-block rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
-          >
-            {t.cta}
-          </a>
+          <Eyebrow dark>{t.eyebrow}</Eyebrow>
+          <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,4.5vw,3.75rem)] font-light leading-[1.04] tracking-[-0.02em]">
+            {t.title}
+          </h2>
+          <p className="mt-6 max-w-lg font-light leading-relaxed text-[var(--slk-paper)]/75">{t.body}</p>
+          <p className="mt-10 text-[11px] uppercase tracking-[0.22em] text-[var(--slk-paper)]/60">{ui.modalitiesLabel}</p>
+          <ol className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--slk-line-dark)] bg-[var(--slk-line-dark)]">
+            {t.modalities.map((m, i) => (
+              <li key={m} className="bg-[var(--slk-ink)] p-5">
+                <span className="text-xs text-[var(--slk-clay-soft)]">{String(i + 1).padStart(2, "0")}</span>
+                <p className="font-slk-serif mt-2 text-xl font-light">{m}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-10">
+            <BookButton label={t.cta} onDark />
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function GalleryRow({ label, items }: { label: string; items: { src: string; alt: string }[] }) {
+export function ExpectStrip({ locale }: { locale: Locale }) {
+  const t = copy[locale].expect;
   return (
-    <div className="mb-10 last:mb-0">
-      <p className="mb-4 text-sm font-medium uppercase tracking-widest text-[var(--slk-terracotta-dark)]">{label}</p>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {items.map((item) => (
-          <div key={item.src} className="group relative aspect-square overflow-hidden rounded-xl">
-            <Image
-              src={item.src}
-              alt={item.alt}
-              fill
-              sizes="(min-width: 640px) 33vw, 50vw"
-              className="object-cover transition duration-300 group-hover:scale-105"
-            />
-          </div>
-        ))}
+    <section className="border-b border-[var(--slk-line)] bg-[var(--slk-paper)]">
+      <div className={`${CONTAINER} py-24 lg:py-28`}>
+        <Eyebrow>{t.eyebrow}</Eyebrow>
+        <h2 className="font-slk-serif mt-6 max-w-2xl text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
+          {t.title}
+        </h2>
+        <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-[var(--slk-line)] bg-[var(--slk-line)] md:grid-cols-3">
+          {t.items.map((item) => (
+            <div key={item.label} className="bg-[var(--slk-paper)] p-8 lg:p-10">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65">{item.label}</p>
+              <p className="font-slk-serif mt-5 text-4xl font-light text-[var(--slk-clay)]">{item.value}</p>
+              <p className="mt-5 text-sm font-light leading-relaxed text-[var(--slk-ink)]/75">{item.text}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function ResultFigure({ item, className = "" }: { item: GalleryItem; className?: string }) {
+  return (
+    <figure className={className}>
+      <div className="relative aspect-[640/420] overflow-hidden rounded-xl bg-[var(--slk-sand)]">
+        <Image src={item.src} alt={item.alt} fill sizes="(min-width: 1024px) 33vw, 80vw" className="object-cover" />
+      </div>
+      <figcaption className="mt-3 text-xs text-[var(--slk-ink)]/65">{item.alt}</figcaption>
+    </figure>
   );
 }
 
 export function ResultsGallery({ locale }: { locale: Locale }) {
   const t = copy[locale].results;
-  return (
-    <section className="bg-[var(--slk-terracotta-light)]">
-      <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
-        <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta-dark)]">{t.eyebrow}</p>
-        <h2 className="font-slk-serif mb-3 text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">
-          {t.title}
-        </h2>
-        <p className="mb-10 max-w-xl font-light text-[var(--slk-charcoal)]/70">{t.subtitle}</p>
-
-        <GalleryRow label={t.peauLabel} items={t.peau} />
-        <GalleryRow label={t.corpsLabel} items={t.corps} />
-
-        <p className="mt-8 max-w-2xl text-xs text-[var(--slk-charcoal)]/55">{t.disclaimer}</p>
-      </div>
-    </section>
+  const groupHead = (label: string, count: number) => (
+    <div className="mb-6 flex items-baseline justify-between border-b border-[var(--slk-line)] pb-3">
+      <p className="font-slk-serif text-2xl font-light">{label}</p>
+      <p className="text-xs text-[var(--slk-ink)]/60">{String(count).padStart(2, "0")}</p>
+    </div>
   );
-}
-
-export function AboutTeaser({ locale }: { locale: Locale }) {
-  const t = copy[locale].aboutTeaser;
   return (
-    <section className="bg-[var(--slk-terracotta-light)]">
-      <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
-        <h2 className="font-slk-serif text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">{t.title}</h2>
-        <p className="mt-4 font-light text-[var(--slk-charcoal)]/70">{t.body}</p>
-        <Link
-          href={slkPath(locale, locale === "fr" ? "/a-propos" : "/about")}
-          className="mt-8 inline-block rounded-full border border-[var(--slk-terracotta)] px-7 py-3 text-sm font-medium text-[var(--slk-terracotta-dark)] transition hover:bg-white"
-        >
-          {t.cta}
-        </Link>
+    <section className="bg-[var(--slk-bone)]">
+      <div className={`${CONTAINER} py-24 lg:py-32`}>
+        <div className="grid gap-8 lg:grid-cols-2 lg:items-end">
+          <div>
+            <Eyebrow>{t.eyebrow}</Eyebrow>
+            <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,5vw,4rem)] font-light leading-[1.02] tracking-[-0.02em]">
+              {t.title}
+            </h2>
+          </div>
+          <p className="max-w-md font-light leading-relaxed text-[var(--slk-ink)]/75 lg:justify-self-end">{t.subtitle}</p>
+        </div>
+
+        <div className="mt-16">
+          {groupHead(t.peauLabel, t.peau.length)}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {t.peau.map((item) => (
+              <ResultFigure key={item.src} item={item} />
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-16">
+          {groupHead(t.corpsLabel, t.corps.length)}
+          {/* Seven items don't sit well on a 3-col grid; a snap-scrolling row
+              handles any count and reads as a proper gallery. */}
+          <div
+            role="region"
+            aria-label={t.corpsLabel}
+            tabIndex={0}
+            className="-mx-5 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8"
+          >
+            {t.corps.map((item) => (
+              <ResultFigure key={item.src} item={item} className="w-[80%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]" />
+            ))}
+          </div>
+        </div>
+
+        <p className="mt-10 max-w-2xl text-xs leading-relaxed text-[var(--slk-ink)]/65">{t.disclaimer}</p>
       </div>
     </section>
   );
@@ -242,23 +356,23 @@ export function AboutTeaser({ locale }: { locale: Locale }) {
 export function ReviewsStrip({ locale }: { locale: Locale }) {
   const t = copy[locale].reviews;
   return (
-    <section className="bg-[var(--slk-ivory)]">
-      <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6">
-        <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">{t.eyebrow}</p>
-        <h2 className="font-slk-serif mb-8 text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">
-          {t.title}
-        </h2>
+    <section className="border-y border-[var(--slk-line)] bg-[var(--slk-paper)]">
+      <div className={`${CONTAINER} py-24 text-center`}>
+        <div className="flex justify-center">
+          <Eyebrow>{t.eyebrow}</Eyebrow>
+        </div>
+        <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light tracking-[-0.02em]">{t.title}</h2>
         {t.items.length > 0 ? (
-          <div className="grid gap-8 sm:grid-cols-3">
+          <div className="mt-14 grid gap-10 text-left md:grid-cols-3">
             {t.items.map((r) => (
-              <div key={r.quote}>
-                <p className="font-slk-serif text-lg italic text-[var(--slk-charcoal)]">“{r.quote}”</p>
-                <p className="mt-3 text-xs uppercase tracking-widest text-[var(--slk-charcoal)]/50">{r.author}</p>
-              </div>
+              <figure key={r.quote} className="border-t border-[var(--slk-line)] pt-6">
+                <blockquote className="font-slk-serif text-xl font-light italic leading-snug">“{r.quote}”</blockquote>
+                <figcaption className="mt-4 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{r.author}</figcaption>
+              </figure>
             ))}
           </div>
         ) : (
-          <p className="mx-auto max-w-lg rounded-xl bg-[var(--slk-terracotta-light)] px-6 py-5 text-sm text-[var(--slk-charcoal)]/70">
+          <p className="mx-auto mt-10 max-w-lg rounded-2xl border border-dashed border-[var(--slk-ink)]/25 px-8 py-6 text-sm font-light leading-relaxed text-[var(--slk-ink)]/70">
             {t.placeholder}
           </p>
         )}
@@ -267,21 +381,53 @@ export function ReviewsStrip({ locale }: { locale: Locale }) {
   );
 }
 
+export function AboutTeaser({ locale }: { locale: Locale }) {
+  const t = copy[locale];
+  return (
+    <section className="bg-[var(--slk-sand)]">
+      <div className={`${CONTAINER} grid gap-12 py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-20 lg:py-32`}>
+        <div>
+          <Eyebrow>{t.aboutPage.eyebrow}</Eyebrow>
+          <p className="font-slk-serif mt-8 text-[clamp(2rem,4.5vw,3.75rem)] font-light italic leading-[1.08] tracking-[-0.015em]">
+            {locale === "fr" ? <>«&nbsp;{t.aboutPage.quote}&nbsp;»</> : <>“{t.aboutPage.quote}”</>}
+          </p>
+        </div>
+        <div>
+          <p className="font-light leading-relaxed text-[var(--slk-ink)]/80">{t.aboutTeaser.body}</p>
+          <div className="mt-8">
+            <TextLink href={slkPath(locale, locale === "fr" ? "/a-propos" : "/about")}>{t.aboutTeaser.cta}</TextLink>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function FaqSection({ locale }: { locale: Locale }) {
   const t = copy[locale].faq;
   return (
-    <section className="bg-[var(--slk-terracotta-light)]">
-      <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
-        <p className="mb-4 text-sm uppercase tracking-widest text-[var(--slk-terracotta-dark)]">{t.eyebrow}</p>
-        <h2 className="font-slk-serif mb-10 text-3xl font-normal text-[var(--slk-charcoal)] sm:text-4xl">
-          {t.title}
-        </h2>
-        <div className="flex flex-col">
+    <section className="bg-[var(--slk-bone)]">
+      <div className={`${CONTAINER} grid gap-12 py-24 lg:grid-cols-[1fr_1.6fr] lg:gap-20 lg:py-32`}>
+        <div>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
+          <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
+            {t.title}
+          </h2>
+        </div>
+        <div className="border-t border-[var(--slk-ink)]/80">
           {t.items.map((item) => (
-            <div key={item.q} className="border-t border-[var(--slk-terracotta)]/20 py-6 last:border-b">
-              <p className="font-slk-serif mb-2 text-lg font-normal text-[var(--slk-charcoal)]">{item.q}</p>
-              <p className="font-light text-[var(--slk-charcoal)]/70">{item.a}</p>
-            </div>
+            <details key={item.q} className="slk-faq border-b border-[var(--slk-line)]">
+              <summary className="flex cursor-pointer items-center justify-between gap-6 py-6">
+                <span className="font-slk-serif text-xl font-light sm:text-2xl">{item.q}</span>
+                <span
+                  aria-hidden="true"
+                  className="slk-faq-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--slk-line)] text-lg text-[var(--slk-clay)] transition"
+                >
+                  +
+                </span>
+              </summary>
+              <p className="max-w-2xl pb-7 font-light leading-relaxed text-[var(--slk-ink)]/75">{item.a}</p>
+            </details>
           ))}
         </div>
       </div>
@@ -293,11 +439,11 @@ export function FaqSection({ locale }: { locale: Locale }) {
 export function MapBlock({ locale }: { locale: Locale }) {
   const query = copy[locale].contactPage.mapQuery;
   return (
-    <div className="aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[var(--slk-terracotta-light)]">
+    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-[var(--slk-line)] bg-[var(--slk-sand)] lg:aspect-auto lg:h-full lg:min-h-[28rem]">
       <iframe
         title={locale === "fr" ? "Carte — Clinique Esthétique SLK" : "Map — Clinique Esthétique SLK"}
         src={`https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`}
-        className="h-full w-full border-0"
+        className="absolute inset-0 h-full w-full border-0 grayscale-[35%]"
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
       />
@@ -305,30 +451,26 @@ export function MapBlock({ locale }: { locale: Locale }) {
   );
 }
 
+/** Closing booking band — clay ground so it reads distinct from the espresso footer below it. */
 export function ContactTeaser({ locale }: { locale: Locale }) {
   const t = copy[locale];
-  const book = bookingLink();
   return (
-    <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
-      <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6">
-        <h2 className="font-slk-serif text-3xl font-normal sm:text-4xl">{t.contactTeaser.title}</h2>
-        <p className="mx-auto mt-4 max-w-lg font-light text-[var(--slk-ivory)]/65">{t.contactTeaser.body}</p>
-        <p className="mx-auto mt-2 max-w-lg text-sm text-[var(--slk-ivory)]/45">{t.noWalkIns}</p>
-        <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <a
-            href={book.href}
-            target={book.external ? "_blank" : undefined}
-            rel={book.external ? "noopener noreferrer" : undefined}
-            className="rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
-          >
-            {t.contactPage.bookCta}
-          </a>
-          <Link
-            href={slkPath(locale, "/contact")}
-            className="rounded-full border border-white/25 px-7 py-4 text-sm font-medium text-[var(--slk-ivory)] transition hover:bg-white/5"
-          >
-            {t.nav.contact}
-          </Link>
+    <section className="bg-[var(--slk-clay)] text-[var(--slk-paper)]">
+      <div className={`${CONTAINER} grid gap-10 py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:py-28`}>
+        <div>
+          <h2 className="font-slk-serif text-[clamp(2.5rem,6vw,5rem)] font-light leading-[0.98] tracking-[-0.02em]">
+            {t.contactTeaser.title}
+          </h2>
+          <p className="mt-6 max-w-md font-light leading-relaxed text-[var(--slk-paper)]/90">{t.contactTeaser.body}</p>
+        </div>
+        <div className="lg:justify-self-end">
+          <p className="mb-6 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-paper)]/85">{t.noWalkIns}</p>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
+            <BookButton label={t.contactPage.bookCta} onDark />
+            <TextLink href={slkPath(locale, "/contact")} onDark>
+              {t.nav.contact}
+            </TextLink>
+          </div>
         </div>
       </div>
     </section>
@@ -340,88 +482,85 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
   const t = copy[locale];
   const service = t.services.find((s) => s.slug === slug);
   if (!service) return null;
-  const book = bookingLink();
   const others = t.services.filter((s) => s.slug !== slug);
 
   return (
     <>
-      <section className="relative flex min-h-[46vh] items-end overflow-hidden bg-[var(--slk-charcoal)]">
-        {service.image && (
-          <>
-            <Image src={service.image} alt="" fill sizes="100vw" className="object-cover opacity-40" />
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(0deg, rgba(20,14,11,0.85) 0%, rgba(20,14,11,0.3) 60%, rgba(20,14,11,0.4) 100%)",
-              }}
-            />
-          </>
-        )}
-        <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-14 text-[var(--slk-ivory)] sm:px-6">
-          <Link
-            href={slkPath(locale, "/services")}
-            className="mb-6 inline-block text-sm text-[var(--slk-ivory)]/70 hover:text-[var(--slk-ivory)]"
-          >
-            ← {t.nav.services}
-          </Link>
-          <p className="mb-2 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">
-            {t.serviceCategories[service.category]}
-          </p>
-          <h1 className="font-slk-serif text-4xl font-normal sm:text-5xl">{service.title}</h1>
-        </div>
-      </section>
-
-      <section className="bg-[var(--slk-ivory)]">
-        <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
-          <p className="mb-8 text-lg font-light leading-relaxed text-[var(--slk-charcoal)]/80">
-            {service.detail.intro}
-          </p>
-          <ul className="mb-10 flex flex-col gap-4">
-            {service.detail.points.map((point) => (
-              <li key={point} className="flex gap-3 text-[var(--slk-charcoal)]/80">
-                <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--slk-terracotta)]" />
-                <span className="font-light">{point}</span>
-              </li>
-            ))}
-          </ul>
-          {service.detail.note && (
-            <p className="mb-10 rounded-xl bg-[var(--slk-terracotta-light)] px-5 py-4 text-sm text-[var(--slk-charcoal)]/70">
-              {service.detail.note}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-4">
-            <a
-              href={book.href}
-              target={book.external ? "_blank" : undefined}
-              rel={book.external ? "noopener noreferrer" : undefined}
-              className="rounded-full bg-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-white transition hover:bg-[var(--slk-terracotta-dark)]"
-            >
-              {t.contactPage.bookCta}
-            </a>
+      <section>
+        <div className={`${CONTAINER} grid gap-14 pb-24 pt-12 lg:grid-cols-[1.25fr_1fr] lg:gap-20 lg:pt-16`}>
+          <div>
             <Link
-              href={slkPath(locale, "/contact")}
-              className="rounded-full border border-[var(--slk-terracotta)] px-7 py-4 text-sm font-medium text-[var(--slk-terracotta-dark)] transition hover:bg-white"
+              href={slkPath(locale, "/services")}
+              className="inline-flex items-center gap-2 text-sm text-[var(--slk-ink)]/70 transition hover:text-[var(--slk-clay)]"
             >
-              {t.nav.contact}
+              <Arrow className="rotate-180" />
+              {t.ui.allTreatments}
             </Link>
+            <div className="mt-12">
+              <Eyebrow>{t.serviceCategories[service.category]}</Eyebrow>
+            </div>
+            <h1 className="font-slk-serif mt-6 text-[clamp(2.5rem,5.5vw,4.75rem)] font-light leading-[1] tracking-[-0.02em]">
+              {service.title}
+            </h1>
+            <p className="mt-8 max-w-xl text-lg font-light leading-relaxed text-[var(--slk-ink)]/80">
+              {service.detail.intro}
+            </p>
+
+            <ol className="mt-12 border-t border-[var(--slk-ink)]/80">
+              {service.detail.points.map((point, i) => (
+                <li key={point} className="grid grid-cols-[3rem_1fr] gap-4 border-b border-[var(--slk-line)] py-5">
+                  <span className="font-slk-serif text-lg italic text-[var(--slk-clay)]">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="font-light leading-relaxed text-[var(--slk-ink)]/85">{point}</span>
+                </li>
+              ))}
+            </ol>
+
+            {service.detail.note && (
+              <p className="mt-8 rounded-2xl bg-[var(--slk-sand)] px-6 py-5 text-sm font-light leading-relaxed text-[var(--slk-ink)]/80">
+                {service.detail.note}
+              </p>
+            )}
           </div>
+
+          <aside className="flex flex-col gap-6 lg:sticky lg:top-28 lg:self-start">
+            {service.image && (
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[var(--slk-sand)]">
+                <Image src={service.image} alt="" fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+              </div>
+            )}
+            <div className="rounded-2xl bg-[var(--slk-ink)] p-8 text-[var(--slk-paper)]">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--slk-clay-soft)]">{t.noWalkIns}</p>
+              <p className="font-slk-serif mt-4 text-2xl font-light">{t.contactTeaser.title}</p>
+              <p className="mt-2 text-sm font-light text-[var(--slk-paper)]/75">{t.ui.instagramHandle}</p>
+              <div className="mt-8">
+                <BookButton label={t.contactPage.bookCta} onDark />
+              </div>
+            </div>
+          </aside>
         </div>
       </section>
 
-      <section className="bg-[var(--slk-charcoal)] text-[var(--slk-ivory)]">
-        <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
-          <p className="mb-6 text-sm uppercase tracking-widest text-[var(--slk-terracotta)]">
-            {locale === "fr" ? "Autres soins" : "Other treatments"}
-          </p>
-          <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+      <section className="border-t border-[var(--slk-line)] bg-[var(--slk-paper)]">
+        <div className={`${CONTAINER} py-20`}>
+          <Eyebrow>{t.ui.otherTreatments}</Eyebrow>
+          {/* Separate cards, not a hairline-gap grid: the count varies per page
+              and a gap grid shows its background through any empty last-row cell. */}
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {others.map((s) => (
               <Link
                 key={s.slug}
                 href={slkPath(locale, `/services/${s.slug}`)}
-                className="border-b border-white/10 py-3 font-light hover:text-[var(--slk-terracotta)]"
+                className="group flex items-end justify-between gap-6 rounded-2xl border border-[var(--slk-line)] bg-[var(--slk-paper)] p-7 transition hover:border-[var(--slk-clay)]/40 hover:bg-[var(--slk-bone)]"
               >
-                {s.title}
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">
+                    {t.serviceCategories[s.category]}
+                  </p>
+                  <p className="font-slk-serif mt-3 text-xl font-light leading-snug transition group-hover:text-[var(--slk-clay)]">
+                    {s.title}
+                  </p>
+                </div>
+                <Arrow className="shrink-0 text-[var(--slk-ink)]/50 transition group-hover:translate-x-0.5 group-hover:text-[var(--slk-clay)]" />
               </Link>
             ))}
           </div>

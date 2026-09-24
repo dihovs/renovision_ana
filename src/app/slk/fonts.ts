@@ -3,7 +3,7 @@ import { Fraunces, Work_Sans } from "next/font/google";
 export const serif = Fraunces({
   variable: "--font-slk-serif",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["300", "400", "500"],
   style: ["normal", "italic"],
   display: "optional",
 });

@@ -17,7 +17,7 @@ export default function SlkEnLayout({ children }: { children: React.ReactNode })
   return (
     <html lang="en" className={`${serif.variable} ${sans.variable} h-full antialiased`}>
       <body
-        className="slk-site min-h-full flex flex-col bg-[var(--slk-ivory)] text-[var(--slk-charcoal)]"
+        className="slk-site min-h-full flex flex-col bg-[var(--slk-bone)] text-[var(--slk-ink)]"
         style={{ fontFamily: "var(--font-slk-sans)" }}
       >
         <ScrollRestore />
