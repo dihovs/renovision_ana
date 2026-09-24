@@ -155,6 +155,20 @@ struct RoomEditorCore: View {
 
     @State private var selection: Selection = .none
     @State private var dragStart: Snapshot?
+    /// INT-E22 — the same chrome a room gets: a move cross, a rotate pin,
+    /// draggable corners, all in place on this canvas rather than behind a
+    /// separate "Edit Shape" screen. `areaDragMode` is decided once, from
+    /// where the finger went down, and held for the rest of that drag so a
+    /// finger that wanders off a handle mid-drag does not switch what it is
+    /// doing. `areaDragStartPolygon` is the shape's own state at the moment
+    /// the drag began — everything else in this frame is computed as an
+    /// offset from it, the same discipline `dragStart` uses for the room.
+    /// `liveAreaPolygon` is what the canvas actually draws while a drag is
+    /// live; nil means "draw the area's own stored shape".
+    private enum AreaDragMode { case corner(Int), move, rotate }
+    @State private var areaDragMode: AreaDragMode?
+    @State private var areaDragStartPolygon: [CGPoint]?
+    @State private var liveAreaPolygon: [CGPoint]?
     /// Cumulative-to-incremental bookkeeping for the one-finger pan —
     /// `DragGesture` reports the total since the gesture began, this holds
     /// the last total so each frame applies only its own delta.
@@ -878,9 +892,38 @@ struct RoomEditorCore: View {
                     // does not swallow the band it runs up to.
                     for area in areas where area.surface != "wall" {
                         EditorChrome.drawArea(
-                            polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                            polygon: currentAreaPolygon(area),
                             tone: area.displayColor, context: context, toScreen: pt,
                             selected: selection == .area(area.id), handleSize: handleDot)
+                    }
+
+                    // INT-E22's move cross and rotate pin, on the one area
+                    // under adjustment — the same disc-and-glyph manipulator
+                    // a lifted room already draws, so the two never become
+                    // two different affordances for the same idea.
+                    if case .area(let id) = selection,
+                        let area = areas.first(where: { $0.id == id }),
+                        let handles = Self.areaHandlePositions(
+                            polygon: currentAreaPolygon(area), scale: scale)
+                    {
+                        for (point, symbol) in [
+                            (handles.move, "arrow.up.and.down.and.arrow.left.and.right")
+                        ] {
+                            StoreyBaseLayer.drawManipulator(
+                                context, at: pt(point), symbol: symbol,
+                                background: Brand.Plan.sheet)
+                        }
+                        // Amber, per the reference frame — the one manipulator
+                        // that is not the plain blue-on-white disc, because
+                        // rotate is the one action this canvas does not
+                        // otherwise offer anywhere else on an area.
+                        let rotatePoint = pt(handles.rotate)
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: rotatePoint.x - 9, y: rotatePoint.y - 9, width: 18, height: 18)),
+                            with: .color(Color(red: 0.96, green: 0.65, blue: 0.14)))
+                        context.stroke(
+                            Path(ellipseIn: CGRect(x: rotatePoint.x - 9, y: rotatePoint.y - 9, width: 18, height: 18)),
+                            with: .color(.white), lineWidth: 2)
                     }
 
                     for object in objects {
@@ -1072,6 +1115,7 @@ struct RoomEditorCore: View {
                             measuring?.baseline = corners
                             measuring?.typed = Array(repeating: nil, count: corners.count)
                         }
+                        commitAreaDragIfNeeded()
                         dragStart = nil
                         liveLabel = nil
                         snapEngaged = false
@@ -1260,6 +1304,77 @@ struct RoomEditorCore: View {
             j = i
         }
         return inside
+    }
+
+    /// The polygon this canvas is actually drawing for a selected area right
+    /// now — the live, in-progress shape while a drag holds one, the stored
+    /// shape otherwise. Every area-adjustment function reads through this
+    /// one place so the handles, the fill and the hit-testing can never
+    /// draw three different shapes for the same drag.
+    private func currentAreaPolygon(_ area: AffectedArea) -> [CGPoint] {
+        liveAreaPolygon ?? area.polygon.map { CGPoint(x: $0.x, y: $0.y) }
+    }
+
+    private static func centroid(of polygon: [CGPoint]) -> CGPoint {
+        guard !polygon.isEmpty else { return .zero }
+        let sum = polygon.reduce(CGPoint.zero) { CGPoint(x: $0.x + $1.x, y: $0.y + $1.y) }
+        return CGPoint(x: sum.x / CGFloat(polygon.count), y: sum.y / CGFloat(polygon.count))
+    }
+
+    /// Where the move cross and the rotate pin sit, in room metres — the
+    /// ONE place both the drawing code and the hit-test agree on their
+    /// position, so a handle drawn here is a handle grabbable there.
+    ///
+    /// **Move**, per the reference frame (`INT-E22`): "one large blue 4-way
+    /// cross, beside the shape rather than on its label" — placed off the
+    /// shape's right edge, a fixed 40 SCREEN points out (`/ scale` turns
+    /// that into the model distance that draws as 40pt at the canvas's
+    /// current zoom).
+    ///
+    /// **Rotate**, per the same frame: "small amber pin at a corner" —
+    /// placed just beyond the polygon's own first corner, extrapolated
+    /// outward from the centroid, so it reads as attached to that corner
+    /// without sitting exactly on the corner's own drag handle.
+    private static func areaHandlePositions(
+        polygon: [CGPoint], scale: CGFloat
+    ) -> (move: CGPoint, rotate: CGPoint)? {
+        guard polygon.count >= 3 else { return nil }
+        let xs = polygon.map(\.x)
+        let ys = polygon.map(\.y)
+        let maxX = xs.max() ?? 0
+        let midY = ((ys.min() ?? 0) + (ys.max() ?? 0)) / 2
+        let move = CGPoint(x: maxX + 40 / scale, y: midY)
+
+        let centre = centroid(of: polygon)
+        let corner = polygon[0]
+        let toCorner = CGPoint(x: corner.x - centre.x, y: corner.y - centre.y)
+        let length = max(hypot(toCorner.x, toCorner.y), 0.01)
+        let extend = 22 / scale
+        let rotate = CGPoint(
+            x: corner.x + toCorner.x / length * extend,
+            y: corner.y + toCorner.y / length * extend)
+
+        return (move, rotate)
+    }
+
+    /// Which handle a drag STARTING at `touch` grabbed, decided once per
+    /// drag and held for the rest of it. Corners first (the smallest, most
+    /// specific targets), then the move cross and rotate pin, then the
+    /// shape's own body — which drags too, the same rule the room's own
+    /// lifted-body drag already established: the handle is the affordance,
+    /// not the only way in.
+    private func detectAreaDragMode(startingAt touch: CGPoint, polygon: [CGPoint], scale: CGFloat)
+        -> AreaDragMode
+    {
+        let tolerance = handleHit / 2 / scale
+        for i in polygon.indices where hypot(polygon[i].x - touch.x, polygon[i].y - touch.y) < tolerance {
+            return .corner(i)
+        }
+        if let handles = Self.areaHandlePositions(polygon: polygon, scale: scale) {
+            if hypot(handles.move.x - touch.x, handles.move.y - touch.y) < tolerance { return .move }
+            if hypot(handles.rotate.x - touch.x, handles.rotate.y - touch.y) < tolerance { return .rotate }
+        }
+        return .move
     }
 
     /// **Adjusting a damaged area is an ISOLATED mode.**
@@ -1568,11 +1683,53 @@ struct RoomEditorCore: View {
         guard let start = dragStart?.corners else { return }
 
         switch selection {
-        // An area is selected and shape-edited, not dragged bodily: moving
-        // a wet patch across a floor would be moving the measurement, and
-        // nobody has asked for that.
-        case .area:
-            break
+        // INT-E22, the owner's own words: *"for adjustment I need this for
+        // walls and for affected areas."* A room gets a move cross and a
+        // rotate pin already; an area only had corner dots to look at and
+        // a separate "Edit Shape" screen to actually use them in. This is
+        // that same chrome, on this same canvas.
+        case .area(let id):
+            guard let area = areas.first(where: { $0.id == id }) else { break }
+            let base = areaDragStartPolygon ?? area.polygon.map { CGPoint(x: $0.x, y: $0.y) }
+            if areaDragStartPolygon == nil { areaDragStartPolygon = base }
+            let touch = dragStartModel ?? Self.centroid(of: base)
+            let mode = areaDragMode ?? detectAreaDragMode(startingAt: touch, polygon: base, scale: scale)
+            areaDragMode = mode
+
+            let translation = CGPoint(
+                x: value.translation.width / scale, y: value.translation.height / scale)
+
+            switch mode {
+            case .corner(let index):
+                guard base.indices.contains(index) else { break }
+                var updated = base
+                updated[index] = CGPoint(
+                    x: base[index].x + translation.x, y: base[index].y + translation.y)
+                liveAreaPolygon = updated
+
+            case .move:
+                liveAreaPolygon = base.map {
+                    CGPoint(x: $0.x + translation.x, y: $0.y + translation.y)
+                }
+
+            case .rotate:
+                // The angle swept from where the finger went down to where
+                // it is now, both measured from the shape's own centroid —
+                // the same construction the storey turn uses, at room scale
+                // instead of floor scale.
+                let centre = Self.centroid(of: base)
+                let current = CGPoint(x: touch.x + translation.x, y: touch.y + translation.y)
+                let startAngle = atan2(touch.y - centre.y, touch.x - centre.x)
+                let currentAngle = atan2(current.y - centre.y, current.x - centre.x)
+                let delta = currentAngle - startAngle
+                let c = cos(delta)
+                let s = sin(delta)
+                liveAreaPolygon = base.map { p in
+                    let dx = p.x - centre.x
+                    let dy = p.y - centre.y
+                    return CGPoint(x: centre.x + dx * c - dy * s, y: centre.y + dx * s + dy * c)
+                }
+            }
         case .wall(let index):
             // Dragging a wall changes its NEIGHBOURS' lengths, not its own —
             // so a locked neighbour is what has to be defended here.
@@ -2688,6 +2845,36 @@ struct RoomEditorCore: View {
             await loadObjects()
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Save a move, rotate or corner-drag on an area's shape — called on
+    /// lift, once per drag, the same point `dragStart` commits the room's
+    /// own edits from.
+    ///
+    /// `liveAreaPolygon` is kept set through the save rather than cleared
+    /// immediately: clearing it first would make the canvas fall back to
+    /// `areas`' OLD polygon for the moment before the reload lands, which
+    /// reads as the shape snapping back before snapping forward again.
+    private func commitAreaDragIfNeeded() {
+        guard case .area(let id) = selection, let updated = liveAreaPolygon,
+            areaDragMode != nil
+        else {
+            areaDragMode = nil
+            areaDragStartPolygon = nil
+            liveAreaPolygon = nil
+            return
+        }
+        areaDragMode = nil
+        areaDragStartPolygon = nil
+        Task {
+            do {
+                try await API.shared.updateArea(id: id, polygon: updated)
+                await loadObjects()
+            } catch {
+                self.error = error.localizedDescription
+            }
+            liveAreaPolygon = nil
         }
     }
 
