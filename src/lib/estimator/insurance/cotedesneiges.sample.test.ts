@@ -38,23 +38,23 @@ import {
  * door-width label, so this uses a standard 0.9 m interior door. Flagged
  * here rather than silently baked in.
  *
- * TWO things this report cannot answer, and the derivation below shows
- * both honestly rather than guessing:
+ * ONE thing this report could not answer on its own, and did not get
+ * guessed: floor finish. The photos showed a wide-plank wood-look floor,
+ * but "looks like" is exactly the plausible invention Estimator-Spec.md
+ * §3.2 exists to refuse — laminate, LVP, engineered and hardwood are four
+ * different removal-scope/install codes at four different rates. The
+ * owner confirmed it directly, 23 Sep 2026: bois franc — solid hardwood,
+ * `floorFinish: "hardwood"` below. Before that answer, floor.replace fired
+ * its unknown-finish branch and printed one unpriced line rather than a
+ * guessed one; this file's git history has that version.
  *
- *   1. Floor finish is not recorded. The photos show a wide-plank
- *      wood-look floor, but "looks like" is exactly the plausible
- *      invention Estimator-Spec.md §3.2 exists to refuse — laminate, LVP
- *      and engineered are three different removal-scope/install codes at
- *      three different rates. floor.replace fires its unknown-finish
- *      branch and prints one unpriced line rather than a guessed one.
- *   2. The area's own note asks for subfloor work ("subfloor only in this
- *      damaged area") that NO rule derives. FLR-SUB-34 ("Replace 3/4 inch
- *      subfloor") exists in the price book — it has simply never been
- *      wired to a rule, because no room in this codebase's tests or
- *      samples had asked for it before this one. Added below as a manual
- *      line citing the report's own words, exactly the gap §5b's door 3
- *      exists for — and a real rule-engine gap worth fixing, not a fact
- *      about this room.
+ * ANOTHER gap the report's own note surfaces, and this one is not a fact
+ * about this room: the area's note asks for subfloor work ("subfloor only
+ * in this damaged area") that NO rule derives. FLR-SUB-34 ("Replace 3/4
+ * inch subfloor") exists in the price book — it has simply never been
+ * wired to a rule, because no room in this codebase's tests or samples had
+ * asked for it before this one. Added below as a manual line citing the
+ * report's own words, exactly the gap §5b's door 3 exists for.
  *
  * Asserts nothing; prints the devis. Run: npx vitest run cotedesneiges.sample
  */
@@ -108,7 +108,7 @@ describe("worked sample — Living room, Côte-des-Neiges", () => {
       // needs individual lengths here since nothing is keyed to a wall_index.
       wallLengthsM: [],
       baseboardLengthM: perimeterM - DOOR_WIDTH_M,
-      floorFinish: null, // not recorded — see note above
+      floorFinish: "hardwood", // bois franc, confirmed by the owner 23 Sep 2026
       affectedAreas: [affectedArea],
       objects,
     };
