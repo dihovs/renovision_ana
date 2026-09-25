@@ -297,7 +297,7 @@ export const copy: Record<Locale, Copy> = {
         category: "visage",
         title: "Peeling chimique",
         blurb: "Exfoliation en profondeur pour uniformiser le teint et atténuer les imperfections.",
-        image: "/slk/instagram/05-peeling-before-after-texture.jpg",
+        image: "/slk/instagram/05-peeling-before-after-texture-full.jpg",
         detail: {
           intro:
             "Une exfoliation chimique utilisée pour l'acné, les cicatrices d'acné, l'hyperpigmentation, la rosacée et les signes de l'âge.",
@@ -343,7 +343,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Remodelage corporel — Beauty Pot 4-en-1",
         blurb: "Lipocavitation, radiofréquence, lipo laser et lumière LED, en une seule séance.",
-        image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
+        image: "/slk/instagram/07-body-contouring-thighs-before-after-full.jpg",
         detail: {
           intro:
             "Le soin signature de la clinique : quatre technologies combinées en une seule séance avec l'appareil Beauty Pot.",
@@ -388,7 +388,7 @@ export const copy: Record<Locale, Copy> = {
       title: "Remodelage corporel — technologie Beauty Pot 4-en-1",
       body: "Quatre technologies combinées en une seule séance — lipocavitation, radiofréquence, lipo laser et lumière LED — pour le contour du corps et la fermeté de la peau. Consultation gratuite pour évaluer vos objectifs.",
       cta: "Réserver une consultation gratuite",
-      image: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg",
+      image: "/slk/instagram/08-body-contouring-abdomen-before-after-full.jpg",
       modalities: ["Lipocavitation", "Radiofréquence", "Lipo laser", "Lumière LED"],
       ringCenter: "1 séance",
     },
@@ -401,13 +401,14 @@ export const copy: Record<Locale, Copy> = {
       peauLabel: "Peau",
       corpsLabel: "Corps",
       peau: [
+        { src: "/slk/instagram/05-peeling-before-after-texture-full.jpg", alt: "Avant / après peeling chimique — texture de peau" },
         { src: "/slk/instagram/04-peeling-before-after-acne.jpg", alt: "Avant / après peeling chimique — peau avec acné" },
-        { src: "/slk/instagram/05-peeling-before-after-texture.jpg", alt: "Avant / après peeling chimique — texture de peau" },
         { src: "/slk/instagram/06-peeling-before-after-eyes.jpg", alt: "Avant / après peeling chimique — contour des yeux" },
       ],
       corps: [
-        { src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg", alt: "Avant / après remodelage corporel — cuisses" },
-        { src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg", alt: "Avant / après remodelage corporel — abdomen" },
+        { src: "/slk/instagram/07-body-contouring-thighs-before-after-full.jpg", alt: "Avant / après remodelage corporel — cuisses" },
+        { src: "/slk/instagram/08-body-contouring-abdomen-before-after-full.jpg", alt: "Avant / après remodelage corporel — abdomen" },
+        { src: "/slk/instagram/14-body-contouring-abdomen-side-before-after-full.jpg", alt: "Avant / après remodelage corporel — abdomen, de profil" },
         { src: "/slk/instagram/09-cellulite-before-after-legs.jpg", alt: "Avant / après traitement de la cellulite — jambes" },
         { src: "/slk/instagram/10-body-contouring-waist-before-after.jpg", alt: "Avant / après remodelage corporel — taille" },
         { src: "/slk/instagram/11-body-contouring-back-before-after.jpg", alt: "Avant / après remodelage corporel — dos" },
@@ -622,7 +623,7 @@ export const copy: Record<Locale, Copy> = {
         category: "visage",
         title: "Chemical Peel",
         blurb: "Deep exfoliation to even out skin tone and soften imperfections.",
-        image: "/slk/instagram/05-peeling-before-after-texture.jpg",
+        image: "/slk/instagram/05-peeling-before-after-texture-full.jpg",
         detail: {
           intro:
             "A chemical exfoliation used for acne, acne scarring, hyperpigmentation, rosacea and signs of aging.",
@@ -667,7 +668,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Body Contouring — Beauty Pot 4-in-1",
         blurb: "Lipocavitation, radiofrequency, lipo laser and LED light, in a single session.",
-        image: "/slk/instagram/07-body-contouring-thighs-before-after.jpg",
+        image: "/slk/instagram/07-body-contouring-thighs-before-after-full.jpg",
         detail: {
           intro:
             "The clinic's signature treatment: four technologies combined in a single session with the Beauty Pot device.",
@@ -711,7 +712,7 @@ export const copy: Record<Locale, Copy> = {
       title: "Body contouring — Beauty Pot 4-in-1 technology",
       body: "Four technologies combined in a single session — lipocavitation, radiofrequency, lipo laser and LED light — for body contouring and skin firmness. Free consultation to assess your goals.",
       cta: "Book a free consultation",
-      image: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg",
+      image: "/slk/instagram/08-body-contouring-abdomen-before-after-full.jpg",
       modalities: ["Lipocavitation", "Radiofrequency", "Lipo laser", "LED light"],
       ringCenter: "1 session",
     },
@@ -724,13 +725,14 @@ export const copy: Record<Locale, Copy> = {
       peauLabel: "Skin",
       corpsLabel: "Body",
       peau: [
+        { src: "/slk/instagram/05-peeling-before-after-texture-full.jpg", alt: "Chemical peel before/after — skin texture" },
         { src: "/slk/instagram/04-peeling-before-after-acne.jpg", alt: "Chemical peel before/after — acne-prone skin" },
-        { src: "/slk/instagram/05-peeling-before-after-texture.jpg", alt: "Chemical peel before/after — skin texture" },
         { src: "/slk/instagram/06-peeling-before-after-eyes.jpg", alt: "Chemical peel before/after — eye area" },
       ],
       corps: [
-        { src: "/slk/instagram/07-body-contouring-thighs-before-after.jpg", alt: "Body contouring before/after — thighs" },
-        { src: "/slk/instagram/08-body-contouring-abdomen-before-after.jpg", alt: "Body contouring before/after — abdomen" },
+        { src: "/slk/instagram/07-body-contouring-thighs-before-after-full.jpg", alt: "Body contouring before/after — thighs" },
+        { src: "/slk/instagram/08-body-contouring-abdomen-before-after-full.jpg", alt: "Body contouring before/after — abdomen" },
+        { src: "/slk/instagram/14-body-contouring-abdomen-side-before-after-full.jpg", alt: "Body contouring before/after — abdomen, side view" },
         { src: "/slk/instagram/09-cellulite-before-after-legs.jpg", alt: "Cellulite treatment before/after — legs" },
         { src: "/slk/instagram/10-body-contouring-waist-before-after.jpg", alt: "Body contouring before/after — waist" },
         { src: "/slk/instagram/11-body-contouring-back-before-after.jpg", alt: "Body contouring before/after — back" },

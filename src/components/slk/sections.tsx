@@ -177,7 +177,7 @@ function ServiceRow({ locale, s }: { locale: Locale; s: Service }) {
               alt=""
               fill
               sizes="112px"
-              className="object-cover transition duration-500 group-hover:scale-105"
+              className="object-cover"
             />
           </div>
         )}
@@ -249,9 +249,8 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
     <section className="bg-[var(--slk-ink)] text-[var(--slk-paper)]">
       <div className={`${CONTAINER} grid items-start gap-10 sm:gap-14 py-16 sm:py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
         <Reveal className="relative aspect-square overflow-hidden rounded-2xl lg:sticky lg:top-28">
-          <Parallax amount={4}>
-            <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
-          </Parallax>
+          {/* No parallax/zoom here: before/after posts must show edge to edge. */}
+          <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
         </Reveal>
         <Reveal delay={0.1}>
           <Eyebrow dark>{t.eyebrow}</Eyebrow>
@@ -348,7 +347,7 @@ function ResultFigure({ item, className = "", delay = 0 }: { item: GalleryItem; 
           alt={item.alt}
           fill
           sizes="(min-width: 1024px) 33vw, 80vw"
-          className="object-cover transition duration-700 ease-out group-hover:scale-[1.04]"
+          className="object-cover"
         />
       </ClipReveal>
       <figcaption className="mt-3 text-xs text-[var(--slk-ink)]/65">{item.alt}</figcaption>
@@ -583,9 +582,7 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
             {/* Phones: the result photo right after the intro, not below all the text. */}
             {service.image && (
               <div className="relative mt-10 aspect-square overflow-hidden rounded-2xl bg-[var(--slk-sand)] lg:hidden">
-                <Parallax amount={4}>
-                  <Image src={service.image} alt="" fill sizes="100vw" className="object-cover" />
-                </Parallax>
+                <Image src={service.image} alt="" fill sizes="100vw" className="object-cover" />
               </div>
             )}
 
@@ -610,9 +607,7 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
           <aside className="flex flex-col gap-6 lg:sticky lg:top-28 lg:self-start">
             {service.image && (
               <div className="relative hidden aspect-square overflow-hidden rounded-2xl bg-[var(--slk-sand)] lg:block">
-                <Parallax amount={4}>
-                  <Image src={service.image} alt="" fill sizes="40vw" className="object-cover" />
-                </Parallax>
+                <Image src={service.image} alt="" fill sizes="40vw" className="object-cover" />
               </div>
             )}
             <div className="rounded-2xl bg-[var(--slk-ink)] p-8 text-[var(--slk-paper)]">
