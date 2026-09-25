@@ -613,6 +613,29 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
               ))}
             </ol>
 
+            {service.detail.pricing && (
+              <div className="mt-10 rounded-2xl border border-[var(--slk-line)] bg-[var(--slk-paper)] p-6 sm:p-8">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--slk-ink)]/60">{service.detail.pricing.title}</p>
+                <dl className="mt-4">
+                  {service.detail.pricing.rows.map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-baseline justify-between gap-4 border-b border-[var(--slk-line)] py-4 last:border-b-0"
+                    >
+                      <dt className="font-light text-[var(--slk-ink)]/85">{row.label}</dt>
+                      <dd className="text-right">
+                        <span className="font-slk-serif block text-3xl font-light text-[var(--slk-clay)]">{row.price}</span>
+                        {row.perSession && (
+                          <span className="block text-xs text-[var(--slk-ink)]/55">{row.perSession}</span>
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-4 text-xs text-[var(--slk-ink)]/60">{service.detail.pricing.note}</p>
+              </div>
+            )}
+
             {service.recovery && <DayTimeline locale={locale} recovery={service.recovery} />}
 
             {service.detail.note && (

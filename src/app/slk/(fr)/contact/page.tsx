@@ -31,6 +31,17 @@ export default function SlkContactFr() {
               </span>
               <span aria-hidden="true" className="font-slk-serif text-3xl transition group-hover:translate-x-1">→</span>
             </a>
+            <p className="mt-4 text-sm text-[var(--slk-ink)]/65">
+              {ui.alsoOn}{" "}
+              <a
+                href={business.instagramAlt}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border-b border-[var(--slk-ink)]/30 text-[var(--slk-ink)] transition hover:border-[var(--slk-clay)] hover:text-[var(--slk-clay)]"
+              >
+                {ui.instagramHandleAlt}
+              </a>
+            </p>
 
             <dl className="mt-10 border-t border-[var(--slk-ink)]/80">
               <div className={row}>

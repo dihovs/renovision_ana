@@ -34,6 +34,9 @@ export default function SlkFooter({ locale }: { locale: Locale }) {
               <a href={business.instagram} target="_blank" rel="noopener noreferrer" className={link}>
                 Instagram · {t.ui.instagramHandle}
               </a>
+              <a href={business.instagramAlt} target="_blank" rel="noopener noreferrer" className={link}>
+                Instagram · {t.ui.instagramHandleAlt}
+              </a>
               <a href={business.phoneHref} className={link}>
                 {business.phone}
               </a>

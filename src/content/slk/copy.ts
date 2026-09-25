@@ -40,6 +40,8 @@ export const business = {
   // it's the real primary CTA, not a placeholder.
   bookingUrl: null as string | null,
   instagram: "https://www.instagram.com/esthetiqueslk",
+  // The clinic's second account (same logo, same name; both handles are on its before/after posts).
+  instagramAlt: "https://www.instagram.com/beauty.by.slk",
   facebook: "https://www.facebook.com/slesthetique/",
   // The clinic's Google Business listing — the one its 34 reviews are on.
   googleMaps: "https://maps.app.goo.gl/XLqCb85TwBgwqmsp8",
@@ -96,7 +98,8 @@ export function bookingLink(): { href: string; external: boolean } {
 }
 
 type ServiceCategory = "visage" | "remodelage";
-type ServiceDetail = { intro: string; points: string[]; note?: string };
+type Pricing = { title: string; rows: { label: string; price: string; perSession?: string }[]; note: string };
+type ServiceDetail = { intro: string; points: string[]; note?: string; pricing?: Pricing };
 type Service = {
   slug: string;
   category: ServiceCategory;
@@ -152,6 +155,8 @@ type Copy = {
     modalitiesLabel: string;
     findUs: string;
     instagramHandle: string;
+    instagramHandleAlt: string;
+    alsoOn: string;
     swipe: string;
     directions: string;
   };
@@ -301,6 +306,8 @@ export const copy: Record<Locale, Copy> = {
       modalitiesLabel: "Quatre technologies, une séance",
       findUs: "Nous trouver",
       instagramHandle: "@esthetiqueslk",
+      instagramHandleAlt: "@beauty.by.slk",
+      alsoOn: "Aussi sur",
       swipe: "Glissez",
       directions: "Itinéraire",
     },
@@ -408,6 +415,16 @@ export const copy: Record<Locale, Copy> = {
             "Consultation gratuite pour évaluer vos objectifs avant de commencer.",
           ],
           note: "Les résultats varient d'une personne à l'autre; ce sont les objectifs promus par la clinique, non des garanties médicales.",
+          // Prices from the clinic's pinned Instagram post (@beauty.by.slk), taxes included.
+          pricing: {
+            title: "Tarifs",
+            rows: [
+              { label: "Séance", price: "140 $" },
+              { label: "Forfait 5 séances", price: "500 $", perSession: "soit 100 $ / séance" },
+              { label: "Forfait 10 séances", price: "900 $", perSession: "soit 90 $ / séance" },
+            ],
+            note: "Taxes incluses. Tarifs affichés par la clinique sur Instagram.",
+          },
         },
       },
       {
@@ -497,7 +514,7 @@ export const copy: Record<Locale, Copy> = {
         },
         {
           q: "Y a-t-il un dépôt à la réservation?",
-          a: "À confirmer avec la clinique au moment de la prise de rendez-vous.",
+          a: "Oui — un dépôt est requis pour réserver. Le montant vous est indiqué au moment de la prise de rendez-vous sur Instagram.",
         },
       ],
     },
@@ -625,6 +642,8 @@ export const copy: Record<Locale, Copy> = {
       modalitiesLabel: "Four technologies, one session",
       findUs: "Find us",
       instagramHandle: "@esthetiqueslk",
+      instagramHandleAlt: "@beauty.by.slk",
+      alsoOn: "Also on",
       swipe: "Swipe",
       directions: "Directions",
     },
@@ -731,6 +750,16 @@ export const copy: Record<Locale, Copy> = {
             "Free consultation to assess your goals before starting.",
           ],
           note: "Results vary by individual; these are the clinic's stated goals, not medical guarantees.",
+          // Prices from the clinic's pinned Instagram post (@beauty.by.slk), taxes included.
+          pricing: {
+            title: "Pricing",
+            rows: [
+              { label: "Single session", price: "$140" },
+              { label: "5-session package", price: "$500", perSession: "$100 per session" },
+              { label: "10-session package", price: "$900", perSession: "$90 per session" },
+            ],
+            note: "Taxes included. Prices as posted by the clinic on Instagram.",
+          },
         },
       },
       {
@@ -818,7 +847,7 @@ export const copy: Record<Locale, Copy> = {
         },
         {
           q: "Is there a deposit to book?",
-          a: "Confirm with the clinic when you book.",
+          a: "Yes — a deposit is required to book. The amount is given when you book with us on Instagram.",
         },
       ],
     },
