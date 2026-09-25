@@ -160,7 +160,7 @@ function ServiceRow({ locale, s }: { locale: Locale; s: Service }) {
       </div>
       <div className="flex items-center gap-5">
         {s.image && (
-          <div className="relative hidden h-20 w-28 overflow-hidden rounded-lg sm:block">
+          <div className="relative hidden h-20 w-20 overflow-hidden rounded-lg sm:block">
             <Image
               src={s.image}
               alt=""
@@ -235,7 +235,7 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
   return (
     <section className="bg-[var(--slk-ink)] text-[var(--slk-paper)]">
       <div className={`${CONTAINER} grid items-start gap-14 py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
-        <Reveal className="relative aspect-[640/420] overflow-hidden rounded-2xl lg:sticky lg:top-28">
+        <Reveal className="relative aspect-square overflow-hidden rounded-2xl lg:sticky lg:top-28">
           <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
         </Reveal>
         <Reveal delay={0.1}>
@@ -327,7 +327,7 @@ export function Journey({ locale }: { locale: Locale }) {
 function ResultFigure({ item, className = "" }: { item: GalleryItem; className?: string }) {
   return (
     <figure className={className}>
-      <div className="relative aspect-[640/420] overflow-hidden rounded-xl bg-[var(--slk-sand)]">
+      <div className="relative aspect-square overflow-hidden rounded-xl bg-[var(--slk-sand)]">
         <Image src={item.src} alt={item.alt} fill sizes="(min-width: 1024px) 33vw, 80vw" className="object-cover" />
       </div>
       <figcaption className="mt-3 text-xs text-[var(--slk-ink)]/65">{item.alt}</figcaption>
@@ -562,7 +562,7 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
 
           <aside className="flex flex-col gap-6 lg:sticky lg:top-28 lg:self-start">
             {service.image && (
-              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[var(--slk-sand)]">
+              <div className="relative aspect-square overflow-hidden rounded-2xl bg-[var(--slk-sand)]">
                 <Image src={service.image} alt="" fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
               </div>
             )}
