@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useInView, useReducedMotion } from "motion/react";
 import { business, copy, type Locale, type Review } from "@/content/slk/copy";
 
@@ -69,12 +70,22 @@ function ReviewCard({ review, locale }: { review: Review; locale: Locale }) {
         </button>
       )}
       <figcaption className="mt-auto flex items-center gap-3 pt-7">
-        <span
-          aria-hidden="true"
-          className="font-slk-serif flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--slk-sand)] text-lg text-[var(--slk-clay-deep)]"
-        >
-          {review.author.trim().charAt(0).toUpperCase()}
-        </span>
+        {review.avatar ? (
+          <Image
+            src={review.avatar}
+            alt=""
+            width={40}
+            height={40}
+            className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-[var(--slk-paper)]"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="font-slk-serif flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--slk-sand)] text-lg text-[var(--slk-clay-deep)]"
+          >
+            {review.author.trim().charAt(0).toUpperCase()}
+          </span>
+        )}
         <span className="text-sm text-[var(--slk-ink)]">{review.author}</span>
       </figcaption>
     </figure>
@@ -224,12 +235,9 @@ export function ReviewsCarousel({ locale, reviews }: { locale: Locale; reviews: 
                   {i === active && (
                     <span
                       key={`${active}-${running}`}
-                      className="slk-review-timer absolute inset-y-0 left-0 bg-[var(--slk-clay)]"
-                      style={{
-                        animationDuration: `${AUTOPLAY_MS}ms`,
-                        animationPlayState: running ? "running" : "paused",
-                        width: running ? undefined : "100%",
-                      }}
+                      // Running: fills over the autoplay delay. Paused: shown solid.
+                      className={`absolute inset-y-0 left-0 bg-[var(--slk-clay)] ${running ? "slk-review-timer" : "w-full"}`}
+                      style={running ? { animationDuration: `${AUTOPLAY_MS}ms` } : undefined}
                     />
                   )}
                 </span>
