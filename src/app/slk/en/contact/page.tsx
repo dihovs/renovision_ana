@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import SlkHeader from "@/components/slk/Header";
 import SlkFooter from "@/components/slk/Footer";
-import { PageIntro, MapBlock, FaqSection } from "@/components/slk/sections";
+import { PageIntro, MapBlock, Journey, FaqSection } from "@/components/slk/sections";
 import { business, bookingLink, copy } from "@/content/slk/copy";
 
 export const metadata: Metadata = { title: copy.en.contactPage.title };
@@ -71,6 +71,7 @@ export default function SlkContactEn() {
           </div>
           <MapBlock locale="en" />
         </section>
+        <Journey locale="en" />
         <FaqSection locale="en" />
       </main>
       <SlkFooter locale="en" />

@@ -3,6 +3,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { bookingLink, copy, type GalleryItem, type Locale } from "@/content/slk/copy";
 import { slkPath } from "@/content/slk/paths";
+import { CountUp, CurtainReveal, HeroTitle, Reveal } from "./motion";
+import { DayTimeline, JourneySteps, ModalitiesRing, RecoveryChart } from "./infographics";
 
 // The "after" half of a real peeling result (text and "before" panel cropped
 // out) — even, glowing skin, which is what the hero headline promises.
@@ -69,29 +71,16 @@ function TextLink({ href, children, onDark = false }: { href: string; children: 
   );
 }
 
-/** Title with one phrase set in italic clay, e.g. "Révélez *l'éclat* de votre peau". */
-function AccentTitle({ title, accent }: { title: string; accent: string }) {
-  const i = title.indexOf(accent);
-  if (i < 0) return <>{title}</>;
-  return (
-    <>
-      {title.slice(0, i)}
-      <em className="font-light italic text-[var(--slk-clay)]">{accent}</em>
-      {title.slice(i + accent.length)}
-    </>
-  );
-}
-
 export function PageIntro({ eyebrow, title, intro }: { eyebrow: string; title: string; intro?: string }) {
   return (
     <section className="border-b border-[var(--slk-line)]">
-      <div className={`${CONTAINER} pb-14 pt-16 lg:pb-20 lg:pt-24`}>
+      <Reveal className={`${CONTAINER} pb-14 pt-16 lg:pb-20 lg:pt-24`}>
         <Eyebrow>{eyebrow}</Eyebrow>
         <h1 className="font-slk-serif mt-8 max-w-4xl text-[clamp(2.75rem,6.5vw,5.75rem)] font-light leading-[0.98] tracking-[-0.02em]">
           {title}
         </h1>
         {intro && <p className="mt-8 max-w-xl text-lg font-light leading-relaxed text-[var(--slk-ink)]/75">{intro}</p>}
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -106,29 +95,35 @@ export function Hero({ locale }: { locale: Locale }) {
         <div>
           <Eyebrow>{t.eyebrow}</Eyebrow>
           <h1 className="font-slk-serif mt-8 text-[clamp(3.25rem,8.5vw,7.75rem)] font-light leading-[0.94] tracking-[-0.025em]">
-            <AccentTitle title={t.title} accent={t.accent} />
+            <HeroTitle title={t.title} accent={t.accent} />
           </h1>
-          <p className="mt-8 max-w-md text-lg font-light leading-relaxed text-[var(--slk-ink)]/75">{t.subtitle}</p>
-          <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-5">
-            <BookButton label={t.cta} />
-            <TextLink href={slkPath(locale, "/services")}>{t.ctaSecondary}</TextLink>
-          </div>
-          <ul className="mt-12 flex flex-wrap gap-x-8 gap-y-2 border-t lg:mt-16 border-[var(--slk-line)] pt-6 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65">
-            {t.meta.map((m) => (
-              <li key={m}>{m}</li>
-            ))}
-          </ul>
+          <Reveal delay={0.7}>
+            <p className="mt-8 max-w-md text-lg font-light leading-relaxed text-[var(--slk-ink)]/75">{t.subtitle}</p>
+            <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-5">
+              <BookButton label={t.cta} />
+              <TextLink href={slkPath(locale, "/services")}>{t.ctaSecondary}</TextLink>
+            </div>
+          </Reveal>
+          <Reveal delay={0.9}>
+            <ul className="mt-12 flex flex-wrap gap-x-8 gap-y-2 border-t border-[var(--slk-line)] pt-6 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65 lg:mt-16">
+              {t.meta.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+          </Reveal>
         </div>
 
         {/* Full-width on phones; capped on desktop, where the ~280px source would otherwise be blown up too far. */}
         <div className="relative mx-auto w-full lg:mr-0 lg:max-w-[26rem]">
           <div className="slk-arch relative aspect-[284/412] overflow-hidden bg-[var(--slk-sand)]">
-            <Image src={HERO_IMAGE} alt="" fill priority sizes="(min-width: 1024px) 26rem, 90vw" className="object-cover" />
+            <CurtainReveal>
+              <Image src={HERO_IMAGE} alt="" fill priority sizes="(min-width: 1024px) 26rem, 90vw" className="object-cover" />
+            </CurtainReveal>
           </div>
-          <div className="absolute -bottom-6 left-4 max-w-[15rem] rounded-2xl bg-[var(--slk-paper)] p-5 shadow-[0_20px_50px_-20px_rgba(30,25,21,0.35)] sm:-left-10">
+          <Reveal delay={1.3} y={16} className="absolute -bottom-6 left-4 z-20 max-w-[15rem] rounded-2xl bg-[var(--slk-paper)] p-5 shadow-[0_20px_50px_-20px_rgba(30,25,21,0.35)] sm:-left-10">
             <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{heroStat.label}</p>
             <p className="font-slk-serif mt-2 text-3xl font-light text-[var(--slk-clay)]">{heroStat.value}</p>
-          </div>
+          </Reveal>
         </div>
       </div>
     </section>
@@ -193,7 +188,7 @@ export function ServicesGrid({ locale, showIntro = true }: { locale: Locale; sho
     <section className="bg-[var(--slk-bone)]">
       <div className={`${CONTAINER} py-24 lg:py-32`}>
         {showIntro && (
-          <div className="mb-16 grid gap-8 lg:grid-cols-2 lg:items-end">
+          <Reveal className="mb-16 grid gap-8 lg:grid-cols-2 lg:items-end">
             <div>
               <Eyebrow>{t.servicesIntro.eyebrow}</Eyebrow>
               <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,5vw,4rem)] font-light leading-[1.02] tracking-[-0.02em]">
@@ -208,11 +203,11 @@ export function ServicesGrid({ locale, showIntro = true }: { locale: Locale; sho
                 <TextLink href={slkPath(locale, "/services")}>{t.ui.allTreatments}</TextLink>
               </div>
             </div>
-          </div>
+          </Reveal>
         )}
 
         {categories.map((cat, ci) => (
-          <div
+          <Reveal
             key={cat}
             className="grid gap-6 border-t border-[var(--slk-ink)]/80 pt-8 [&:not(:last-child)]:mb-20 lg:grid-cols-[18rem_1fr] lg:gap-16"
           >
@@ -227,7 +222,7 @@ export function ServicesGrid({ locale, showIntro = true }: { locale: Locale; sho
                   <ServiceRow key={s.slug} locale={locale} s={s} />
                 ))}
             </div>
-          </div>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -239,29 +234,24 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
   const ui = copy[locale].ui;
   return (
     <section className="bg-[var(--slk-ink)] text-[var(--slk-paper)]">
-      <div className={`${CONTAINER} grid items-center gap-14 py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
-        <div className="relative aspect-[640/420] overflow-hidden rounded-2xl">
+      <div className={`${CONTAINER} grid items-start gap-14 py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
+        <Reveal className="relative aspect-[640/420] overflow-hidden rounded-2xl lg:sticky lg:top-28">
           <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
-        </div>
-        <div>
+        </Reveal>
+        <Reveal delay={0.1}>
           <Eyebrow dark>{t.eyebrow}</Eyebrow>
           <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,4.5vw,3.75rem)] font-light leading-[1.04] tracking-[-0.02em]">
             {t.title}
           </h2>
           <p className="mt-6 max-w-lg font-light leading-relaxed text-[var(--slk-paper)]/75">{t.body}</p>
           <p className="mt-10 text-[11px] uppercase tracking-[0.22em] text-[var(--slk-paper)]/60">{ui.modalitiesLabel}</p>
-          <ol className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--slk-line-dark)] bg-[var(--slk-line-dark)]">
-            {t.modalities.map((m, i) => (
-              <li key={m} className="bg-[var(--slk-ink)] p-5">
-                <span className="text-xs text-[var(--slk-clay-soft)]">{String(i + 1).padStart(2, "0")}</span>
-                <p className="font-slk-serif mt-2 text-xl font-light">{m}</p>
-              </li>
-            ))}
-          </ol>
+          <div className="mt-8">
+            <ModalitiesRing modalities={t.modalities} center={t.ringCenter} />
+          </div>
           <div className="mt-10">
             <BookButton label={t.cta} onDark />
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -269,21 +259,65 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
 
 export function ExpectStrip({ locale }: { locale: Locale }) {
   const t = copy[locale].expect;
+  const ui = copy[locale].ui;
   return (
     <section className="border-b border-[var(--slk-line)] bg-[var(--slk-paper)]">
-      <div className={`${CONTAINER} py-24 lg:py-28`}>
-        <Eyebrow>{t.eyebrow}</Eyebrow>
-        <h2 className="font-slk-serif mt-6 max-w-2xl text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
-          {t.title}
-        </h2>
-        <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-[var(--slk-line)] bg-[var(--slk-line)] md:grid-cols-3">
-          {t.items.map((item) => (
-            <div key={item.label} className="bg-[var(--slk-paper)] p-8 lg:p-10">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65">{item.label}</p>
-              <p className="font-slk-serif mt-5 text-4xl font-light text-[var(--slk-clay)]">{item.value}</p>
-              <p className="mt-5 text-sm font-light leading-relaxed text-[var(--slk-ink)]/75">{item.text}</p>
-            </div>
-          ))}
+      <div className={`${CONTAINER} grid gap-14 py-24 lg:grid-cols-[1fr_1.05fr] lg:gap-20 lg:py-32`}>
+        <div>
+          <Reveal>
+            <Eyebrow>{t.eyebrow}</Eyebrow>
+            <h2 className="font-slk-serif mt-6 max-w-xl text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
+              {t.title}
+            </h2>
+          </Reveal>
+          <div className="mt-12 border-t border-[var(--slk-ink)]/80">
+            {t.items.map((item, i) => (
+              <Reveal
+                key={item.label}
+                delay={i * 0.12}
+                className="grid gap-3 border-b border-[var(--slk-line)] py-7 sm:grid-cols-[12rem_1fr] sm:gap-8"
+              >
+                <p
+                  className={`font-slk-serif font-light leading-[1.05] text-[var(--slk-clay)] ${
+                    item.count ? "whitespace-nowrap text-4xl" : "text-3xl"
+                  }`}
+                >
+                  {item.count ? (
+                    <CountUp to={item.count.to} kind={item.count.kind} locale={locale} dayUnit={ui.dayUnit} />
+                  ) : (
+                    item.value
+                  )}
+                </p>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65">{item.label}</p>
+                  <p className="mt-2 text-sm font-light leading-relaxed text-[var(--slk-ink)]/75">{item.text}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+        <Reveal delay={0.15} className="lg:self-center">
+          <RecoveryChart locale={locale} />
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/** The booking path as four steps on a self-drawing line. */
+export function Journey({ locale }: { locale: Locale }) {
+  const t = copy[locale].journey;
+  return (
+    <section className="border-y border-[var(--slk-line)] bg-[var(--slk-paper)]">
+      <div className={`${CONTAINER} py-24 lg:py-32`}>
+        <Reveal>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
+          <h2 className="font-slk-serif mt-6 max-w-2xl text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
+            {t.title}
+          </h2>
+        </Reveal>
+        <div className="mt-16">
+          <JourneySteps locale={locale} />
         </div>
       </div>
     </section>
@@ -312,7 +346,7 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
   return (
     <section className="bg-[var(--slk-bone)]">
       <div className={`${CONTAINER} py-24 lg:py-32`}>
-        <div className="grid gap-8 lg:grid-cols-2 lg:items-end">
+        <Reveal className="grid gap-8 lg:grid-cols-2 lg:items-end">
           <div>
             <Eyebrow>{t.eyebrow}</Eyebrow>
             <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,5vw,4rem)] font-light leading-[1.02] tracking-[-0.02em]">
@@ -320,18 +354,20 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
             </h2>
           </div>
           <p className="max-w-md font-light leading-relaxed text-[var(--slk-ink)]/75 lg:justify-self-end">{t.subtitle}</p>
-        </div>
+        </Reveal>
 
         <div className="mt-16">
           {groupHead(t.peauLabel, t.peau.length)}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {t.peau.map((item) => (
-              <ResultFigure key={item.src} item={item} />
+            {t.peau.map((item, i) => (
+              <Reveal key={item.src} delay={i * 0.12}>
+                <ResultFigure item={item} />
+              </Reveal>
             ))}
           </div>
         </div>
 
-        <div className="mt-16">
+        <Reveal className="mt-16">
           {groupHead(t.corpsLabel, t.corps.length)}
           {/* Seven items don't sit well on a 3-col grid; a snap-scrolling row
               handles any count and reads as a proper gallery. */}
@@ -345,7 +381,7 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
               <ResultFigure key={item.src} item={item} className="w-[80%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]" />
             ))}
           </div>
-        </div>
+        </Reveal>
 
         <p className="mt-10 max-w-2xl text-xs leading-relaxed text-[var(--slk-ink)]/65">{t.disclaimer}</p>
       </div>
@@ -357,7 +393,7 @@ export function ReviewsStrip({ locale }: { locale: Locale }) {
   const t = copy[locale].reviews;
   return (
     <section className="border-y border-[var(--slk-line)] bg-[var(--slk-paper)]">
-      <div className={`${CONTAINER} py-24 text-center`}>
+      <Reveal className={`${CONTAINER} py-24 text-center`}>
         <div className="flex justify-center">
           <Eyebrow>{t.eyebrow}</Eyebrow>
         </div>
@@ -376,7 +412,7 @@ export function ReviewsStrip({ locale }: { locale: Locale }) {
             {t.placeholder}
           </p>
         )}
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -386,18 +422,18 @@ export function AboutTeaser({ locale }: { locale: Locale }) {
   return (
     <section className="bg-[var(--slk-sand)]">
       <div className={`${CONTAINER} grid gap-12 py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-20 lg:py-32`}>
-        <div>
+        <Reveal>
           <Eyebrow>{t.aboutPage.eyebrow}</Eyebrow>
           <p className="font-slk-serif mt-8 text-[clamp(2rem,4.5vw,3.75rem)] font-light italic leading-[1.08] tracking-[-0.015em]">
             {locale === "fr" ? <>«&nbsp;{t.aboutPage.quote}&nbsp;»</> : <>“{t.aboutPage.quote}”</>}
           </p>
-        </div>
-        <div>
+        </Reveal>
+        <Reveal delay={0.15}>
           <p className="font-light leading-relaxed text-[var(--slk-ink)]/80">{t.aboutTeaser.body}</p>
           <div className="mt-8">
             <TextLink href={slkPath(locale, locale === "fr" ? "/a-propos" : "/about")}>{t.aboutTeaser.cta}</TextLink>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -408,13 +444,13 @@ export function FaqSection({ locale }: { locale: Locale }) {
   return (
     <section className="bg-[var(--slk-bone)]">
       <div className={`${CONTAINER} grid gap-12 py-24 lg:grid-cols-[1fr_1.6fr] lg:gap-20 lg:py-32`}>
-        <div>
+        <Reveal>
           <Eyebrow>{t.eyebrow}</Eyebrow>
           <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
             {t.title}
           </h2>
-        </div>
-        <div className="border-t border-[var(--slk-ink)]/80">
+        </Reveal>
+        <Reveal delay={0.12} className="border-t border-[var(--slk-ink)]/80">
           {t.items.map((item) => (
             <details key={item.q} className="slk-faq border-b border-[var(--slk-line)]">
               <summary className="flex cursor-pointer items-center justify-between gap-6 py-6">
@@ -429,7 +465,7 @@ export function FaqSection({ locale }: { locale: Locale }) {
               <p className="max-w-2xl pb-7 font-light leading-relaxed text-[var(--slk-ink)]/75">{item.a}</p>
             </details>
           ))}
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -457,13 +493,13 @@ export function ContactTeaser({ locale }: { locale: Locale }) {
   return (
     <section className="bg-[var(--slk-clay)] text-[var(--slk-paper)]">
       <div className={`${CONTAINER} grid gap-10 py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:py-28`}>
-        <div>
+        <Reveal>
           <h2 className="font-slk-serif text-[clamp(2.5rem,6vw,5rem)] font-light leading-[0.98] tracking-[-0.02em]">
             {t.contactTeaser.title}
           </h2>
           <p className="mt-6 max-w-md font-light leading-relaxed text-[var(--slk-paper)]/90">{t.contactTeaser.body}</p>
-        </div>
-        <div className="lg:justify-self-end">
+        </Reveal>
+        <Reveal delay={0.15} className="lg:justify-self-end">
           <p className="mb-6 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-paper)]/85">{t.noWalkIns}</p>
           <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
             <BookButton label={t.contactPage.bookCta} onDark />
@@ -471,7 +507,7 @@ export function ContactTeaser({ locale }: { locale: Locale }) {
               {t.nav.contact}
             </TextLink>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -514,6 +550,8 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
                 </li>
               ))}
             </ol>
+
+            {service.recovery && <DayTimeline locale={locale} recovery={service.recovery} />}
 
             {service.detail.note && (
               <p className="mt-8 rounded-2xl bg-[var(--slk-sand)] px-6 py-5 text-sm font-light leading-relaxed text-[var(--slk-ink)]/80">

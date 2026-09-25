@@ -10,6 +10,7 @@ import {
   ResultsGallery,
   ReviewsStrip,
   AboutTeaser,
+  Journey,
   FaqSection,
   ContactTeaser,
 } from "@/components/slk/sections";
@@ -33,6 +34,7 @@ export default function SlkHomeFr() {
         <ResultsGallery locale="fr" />
         <ReviewsStrip locale="fr" />
         <AboutTeaser locale="fr" />
+        <Journey locale="fr" />
         <FaqSection locale="fr" />
         <ContactTeaser locale="fr" />
       </main>

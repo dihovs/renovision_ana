@@ -62,6 +62,8 @@ type Service = {
   blurb: string;
   image?: string;
   detail: ServiceDetail;
+  /** Sourced recovery window in days — drives the day-by-day timeline on the detail page. */
+  recovery?: { min: number; max: number; label: string };
 };
 
 export type GalleryItem = { src: string; alt: string };
@@ -81,8 +83,26 @@ type Copy = {
     meta: string[];
   };
   marquee: string[];
-  expect: { eyebrow: string; title: string; items: { label: string; value: string; text: string }[] };
+  expect: {
+    eyebrow: string;
+    title: string;
+    /** `count` animates the figure up from 0; `value` is the static/fallback text. */
+    items: { label: string; value: string; text: string; count?: { to: number; kind: "minutes" | "days" } }[];
+    chart: {
+      title: string;
+      caption: string;
+      baseNote: string;
+      rangeNote: string;
+      rows: { label: string; min: number; max: number; approx?: boolean }[];
+    };
+  };
+  journey: { eyebrow: string; title: string; steps: { title: string; text: string }[] };
   ui: {
+    dayUnit: string;
+    dayShort: string;
+    sessionLabel: string;
+    recoveryTitle: string;
+    approx: string;
     allTreatments: string;
     discover: string;
     otherTreatments: string;
@@ -94,7 +114,15 @@ type Copy = {
   servicesIntro: { eyebrow: string; title: string; subtitle: string };
   serviceCategories: Record<ServiceCategory, string>;
   services: Service[];
-  spotlight: { eyebrow: string; title: string; body: string; cta: string; image: string; modalities: string[] };
+  spotlight: {
+    eyebrow: string;
+    title: string;
+    body: string;
+    cta: string;
+    image: string;
+    modalities: string[];
+    ringCenter: string;
+  };
   results: {
     eyebrow: string;
     title: string;
@@ -168,11 +196,13 @@ export const copy: Record<Locale, Copy> = {
           label: "Nettoyage & extraction",
           value: "≈ 1 h 30",
           text: "Rougeurs, petits bleus ou gonflement possibles pendant 3 à 5 jours après une extraction en profondeur — c'est normal.",
+          count: { to: 90, kind: "minutes" },
         },
         {
           label: "Peeling chimique",
           value: "≈ 7 jours",
           text: "Phase de pelage et de guérison, avec des soins post-traitement à suivre à la maison.",
+          count: { to: 7, kind: "days" },
         },
         {
           label: "Remodelage corporel",
@@ -180,8 +210,33 @@ export const copy: Record<Locale, Copy> = {
           text: "On évalue vos objectifs avant la première séance, sans engagement.",
         },
       ],
+      chart: {
+        title: "Récupération typique, en jours",
+        caption: "Durées indiquées par la clinique; elles varient d'une personne à l'autre.",
+        baseNote: "Typique",
+        rangeNote: "Selon la personne",
+        rows: [
+          { label: "Nettoyage & extraction", min: 3, max: 5 },
+          { label: "Peeling chimique", min: 7, max: 7, approx: true },
+        ],
+      },
+    },
+    journey: {
+      eyebrow: "Votre parcours",
+      title: "Du premier message au suivi",
+      steps: [
+        { title: "Un message sur Instagram", text: "Écrivez à @esthetiqueslk pour décrire ce que vous cherchez." },
+        { title: "La consultation", text: "On évalue votre peau ou vos objectifs — gratuite pour le peeling et le remodelage." },
+        { title: "Votre séance", text: "Sur rendez-vous seulement, dans un environnement calme et propre." },
+        { title: "Après le soin", text: "Des consignes post-traitement à suivre à la maison, selon le soin." },
+      ],
     },
     ui: {
+      dayUnit: "jours",
+      dayShort: "J",
+      sessionLabel: "Séance",
+      recoveryTitle: "Récupération, jour par jour",
+      approx: "environ",
       allTreatments: "Tous les soins",
       discover: "Découvrir",
       otherTreatments: "Autres soins",
@@ -202,6 +257,7 @@ export const copy: Record<Locale, Copy> = {
     services: [
       {
         slug: "nettoyage-extraction",
+        recovery: { min: 3, max: 5, label: "Rougeurs possibles" },
         category: "visage",
         title: "Nettoyage en profondeur & extraction",
         blurb: "Nettoyage et extraction manuelle du visage et du cou, pour désengorger les pores.",
@@ -233,6 +289,7 @@ export const copy: Record<Locale, Copy> = {
       },
       {
         slug: "peeling-chimique",
+        recovery: { min: 7, max: 7, label: "Pelage & guérison" },
         category: "visage",
         title: "Peeling chimique",
         blurb: "Exfoliation en profondeur pour uniformiser le teint et atténuer les imperfections.",
@@ -329,6 +386,7 @@ export const copy: Record<Locale, Copy> = {
       cta: "Réserver une consultation gratuite",
       image: "/slk/instagram/08-body-contouring-abdomen-before-after-clean.jpg",
       modalities: ["Lipocavitation", "Radiofréquence", "Lipo laser", "Lumière LED"],
+      ringCenter: "1 séance",
     },
     results: {
       eyebrow: "Résultats",
@@ -461,11 +519,13 @@ export const copy: Record<Locale, Copy> = {
           label: "Deep cleansing & extraction",
           value: "≈ 1.5 h",
           text: "Redness, light bruising or swelling can show up for 3–5 days after a deep extraction — that's normal.",
+          count: { to: 90, kind: "minutes" },
         },
         {
           label: "Chemical peel",
           value: "≈ 7 days",
           text: "A peeling and healing phase, with aftercare to follow at home.",
+          count: { to: 7, kind: "days" },
         },
         {
           label: "Body contouring",
@@ -473,8 +533,33 @@ export const copy: Record<Locale, Copy> = {
           text: "We go over your goals before the first session, no commitment.",
         },
       ],
+      chart: {
+        title: "Typical recovery, in days",
+        caption: "Durations stated by the clinic; they vary from person to person.",
+        baseNote: "Typical",
+        rangeNote: "Varies by person",
+        rows: [
+          { label: "Deep cleansing & extraction", min: 3, max: 5 },
+          { label: "Chemical peel", min: 7, max: 7, approx: true },
+        ],
+      },
+    },
+    journey: {
+      eyebrow: "Your journey",
+      title: "From first message to aftercare",
+      steps: [
+        { title: "A message on Instagram", text: "Write to @esthetiqueslk and tell us what you're looking for." },
+        { title: "The consultation", text: "We assess your skin or goals — free for chemical peels and body contouring." },
+        { title: "Your session", text: "By appointment only, in a calm, clean setting." },
+        { title: "After the treatment", text: "Aftercare instructions to follow at home, depending on the treatment." },
+      ],
     },
     ui: {
+      dayUnit: "days",
+      dayShort: "D",
+      sessionLabel: "Session",
+      recoveryTitle: "Recovery, day by day",
+      approx: "about",
       allTreatments: "All treatments",
       discover: "Discover",
       otherTreatments: "Other treatments",
@@ -495,6 +580,7 @@ export const copy: Record<Locale, Copy> = {
     services: [
       {
         slug: "deep-cleansing-extraction",
+        recovery: { min: 3, max: 5, label: "Possible redness" },
         category: "visage",
         title: "Deep Cleansing & Extraction",
         blurb: "Cleansing and manual extraction for face and neck, to clear congested pores.",
@@ -526,6 +612,7 @@ export const copy: Record<Locale, Copy> = {
       },
       {
         slug: "chemical-peel",
+        recovery: { min: 7, max: 7, label: "Peeling & healing" },
         category: "visage",
         title: "Chemical Peel",
         blurb: "Deep exfoliation to even out skin tone and soften imperfections.",
@@ -620,6 +707,7 @@ export const copy: Record<Locale, Copy> = {
       cta: "Book a free consultation",
       image: "/slk/instagram/08-body-contouring-abdomen-before-after-clean.jpg",
       modalities: ["Lipocavitation", "Radiofrequency", "Lipo laser", "LED light"],
+      ringCenter: "1 session",
     },
     results: {
       eyebrow: "Results",
