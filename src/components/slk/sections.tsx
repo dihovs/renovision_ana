@@ -416,7 +416,9 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
 
 export function ReviewsStrip({ locale }: { locale: Locale }) {
   const t = copy[locale].reviews;
-  const { items, rating, count } = googleReviews;
+  const { rating, count } = googleReviews;
+  // Same-language reviews first, curated order kept within each group. Nothing is translated.
+  const items = [...googleReviews.items].sort((a, b) => Number(b.lang === locale) - Number(a.lang === locale));
   const googleLink = (
     <a
       href={business.googleMaps}

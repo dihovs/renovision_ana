@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useInView, useReducedMotion } from "motion/react";
-import { copy, type Locale, type Review } from "@/content/slk/copy";
+import { business, copy, type Locale, type Review } from "@/content/slk/copy";
 
 const AUTOPLAY_MS = 6500;
 /** Reviews longer than this get clamped with a "read more" toggle. */
@@ -34,16 +34,19 @@ function ReviewCard({ review, locale }: { review: Review; locale: Locale }) {
   const t = copy[locale].reviews;
   const [open, setOpen] = useState(false);
   const long = review.text.length > CLAMP_AT;
-  const [y, m] = review.date.split("-").map(Number);
-  const when = new Intl.DateTimeFormat(locale === "fr" ? "fr-CA" : "en-CA", { month: "long", year: "numeric" }).format(
-    new Date(y, (m || 1) - 1, 1),
-  );
 
   return (
     <figure className="flex h-full flex-col rounded-2xl border border-[var(--slk-line)] bg-[var(--slk-paper)] p-7 sm:p-8">
       <div className="flex items-center justify-between">
         <Stars rating={review.rating} label={fill(t.starsLabel, { n: review.rating })} />
-        <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/50">Google</span>
+        <a
+          href={business.googleMaps}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-full border border-[var(--slk-line)] px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/55 transition hover:border-[var(--slk-clay)] hover:text-[var(--slk-clay)]"
+        >
+          {t.badge}
+        </a>
       </div>
       <span aria-hidden="true" className="font-slk-serif mt-5 block h-8 text-6xl leading-none text-[var(--slk-clay)]/70">
         “
@@ -72,10 +75,7 @@ function ReviewCard({ review, locale }: { review: Review; locale: Locale }) {
         >
           {review.author.trim().charAt(0).toUpperCase()}
         </span>
-        <span>
-          <span className="block text-sm text-[var(--slk-ink)]">{review.author}</span>
-          <span className="block text-xs capitalize text-[var(--slk-ink)]/55">{when}</span>
-        </span>
+        <span className="text-sm text-[var(--slk-ink)]">{review.author}</span>
       </figcaption>
     </figure>
   );
@@ -192,7 +192,7 @@ export function ReviewsCarousel({ locale, reviews }: { locale: Locale; reviews: 
       >
         {reviews.map((r, i) => (
           <li
-            key={`${r.author}-${r.date}`}
+            key={r.author}
             role="group"
             aria-roledescription="slide"
             aria-label={fill(t.slideLabel, { n: i + 1, total })}

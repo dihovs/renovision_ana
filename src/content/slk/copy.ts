@@ -40,33 +40,46 @@ export const business = {
   bookingUrl: null as string | null,
   instagram: "https://www.instagram.com/esthetiqueslk",
   facebook: "https://www.facebook.com/slesthetique/",
-  // The clinic's Google Business listing (link supplied by the owner).
-  googleMaps: "https://maps.app.goo.gl/NT4R89No72tAt7od7",
+  // The clinic's Google Business listing — the one its 34 reviews are on.
+  googleMaps: "https://maps.app.goo.gl/XLqCb85TwBgwqmsp8",
 } as const;
 
 export type Review = {
+  /** Google display name, first name + last initial only (privacy). */
   author: string;
   /** 1–5, exactly as shown on Google. */
   rating: number;
-  /** "YYYY-MM" — shown as month + year. */
-  date: string;
-  /** Verbatim, in whatever language the client wrote it. Never edited. */
+  /** Language the client wrote in — used to put same-language reviews first. */
+  lang: "fr" | "en" | "mixed";
+  /** Verbatim, typos and emoji included. Never edited or translated. */
   text: string;
 };
 
 /**
- * Google reviews, copied verbatim from the clinic's Google Business listing.
- * Shared by both locales: a review is shown in the language it was written in.
+ * Google reviews, verbatim from the clinic's Google Business listing
+ * (pulled 2026-09-24): 34 reviews, all 5 stars. Shared by both locales — a
+ * review is shown in the language it was written in, never translated.
  *
- * EMPTY ON PURPOSE until real reviews are pasted in. Google Maps is blocked
- * from the build environment, and reviews must never be invented or
- * paraphrased. `rating`/`count` are the listing's own totals — fill them from
- * the listing, never compute them from the subset shown here.
+ * `rating`/`count` are the listing's own totals, not computed from the
+ * subset below. `items` is a curated 10 of the 31 reviews with text
+ * (3 are rating-only). No dates: Google only gives relative ones ("a year
+ * ago"), which can't be pinned to a month and would go stale.
  */
 export const googleReviews: { rating: number | null; count: number | null; items: Review[] } = {
-  rating: null,
-  count: null,
-  items: [],
+  rating: 5,
+  count: 34,
+  items: [
+    { author: "Demetra K.", rating: 5, lang: "en", text: "Such a great experience with Armine! The deep cleansing and microneedling were done with so much care and attention to detail. My skin already looks brighter, smoother, and feels amazing. Highly recommend for anyone looking to give their skin a refresh!" },
+    { author: "Boutaina T.", rating: 5, lang: "fr", text: "WOW! J’ai adoré mes séances de LIPOCAVITATION avec ARMIN. C’est vraiment la meilleur. Elle connaît très bien son métier et se donne à fond pour te donner les résultats que tu cherches. J’étais très sceptique au début mais j’ai vu mes avant après et j’étais vraiment sous le choc. Merci à Armin j’adore mes sessions avec elle !!!!!" },
+    { author: "Yael A.", rating: 5, lang: "en", text: "Came back to see Armine after a couple years. Still an amazing experience with results that show. She’s very knowledgeable and professional and knows what she’s doing. And you don’t need to spend 10k like in luxury spas. Her methods deliver results for reasonable pricing and personalized experience. 🩷" },
+    { author: "Josianne B.", rating: 5, lang: "fr", text: "Armine est la meilleure ❤️ j'ai de très beau résultat après seulement 3 séances. Mon ventre est beaucoup plus plat. Elle se soucit réellement de notre bien-être. Je la recommande sans hésiter. 💫" },
+    { author: "Marie-Pier L.G.", rating: 5, lang: "en", text: "My skin DRASTICALLY improved after seeing Armine. Like most people, I had grown up being told the wrong way to take care of skin and had so much accumulated dead skin, which caused dark circles and a skin tone that required makeup daily to look 'healthy'. Since the first treatment, my skin tone has improved so much that I have not worn concealer nor foundation! I have returned for yearly dead skin removal (since I don't drink enough water to stop accumulating dead skin 🙈) and I will always recommend Armine's services to all!" },
+    { author: "Samantha C.", rating: 5, lang: "en", text: "I had an amazing experience with Armine for my facial. She was so informative and kept reassuring my concerns even after me continuously repeating them. She also answered all my questions the days after my facial: My skin has fully healed and it feels/looks amazing. The texture has improved, fine lines have diminished, hyperpigmentation reduced and I feel much more confident in my skin. I highly recommend her for your facial needs. She is amazing. Thank you X a million." },
+    { author: "Siham C.", rating: 5, lang: "fr", text: "Super expérience ! Le soin du visage était très agréable et parfaitement adapté à ma peau. L’esthéticienne est professionnelle, et de très bon conseil. Ma peau est éclatante et reposée. Je recommande vivement !" },
+    { author: "Shannon C.", rating: 5, lang: "en", text: "Great place for body treatments and real results. Not the cheap machines. Also qualified for advanced facial treatments ! Recommend 💯" },
+    { author: "Farida E.", rating: 5, lang: "en", text: "This is the place to go if you want to GLOW. From transformative facials to helping you lose inches off your body, this is your woman. Arminé is not only talented in what she does but she is so passionate about her work. Her goal is to make you feel and look better than when you walked in. She has so much knowledge in the services she offers and she always shows up for her clients and their concerns. She is honest and hardworking and I’m so happy I stumbled upon her Instagram page 3 years ago. This is safe space to go, a judgement free salon and always good and uplifting atmosphere. I couldn’t recommend her more to all the ladies who want a treatment that actually works and that won’t cost you a kidney!" },
+    { author: "Karolann", rating: 5, lang: "fr", text: "Super service , on se sent à l’aise immédiatement , endroit propre et professionnel ." },
+  ],
 };
 
 /**
@@ -175,6 +188,7 @@ type Copy = {
     readLess: string;
     slideLabel: string;
     starsLabel: string;
+    badge: string;
   };
   faq: { eyebrow: string; title: string; items: FaqItem[] };
   aboutTeaser: { title: string; body: string; cta: string };
@@ -465,6 +479,7 @@ export const copy: Record<Locale, Copy> = {
       readLess: "Réduire",
       slideLabel: "Avis {n} sur {total}",
       starsLabel: "{n} étoiles sur 5",
+      badge: "Avis Google",
     },
     faq: {
       eyebrow: "Questions fréquentes",
@@ -786,6 +801,7 @@ export const copy: Record<Locale, Copy> = {
       readLess: "Show less",
       slideLabel: "Review {n} of {total}",
       starsLabel: "{n} out of 5 stars",
+      badge: "Google review",
     },
     faq: {
       eyebrow: "FAQ",
