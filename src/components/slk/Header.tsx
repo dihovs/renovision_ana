@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  AnimatePresence,
   motion,
   useMotionValueEvent,
   useReducedMotion,
@@ -36,6 +37,21 @@ export default function SlkHeader({
     else if (Math.abs(delta) > 6) setHidden(delta > 0);
   });
   const tucked = hidden && !open && !reduce;
+  // Phones: a booking bar docks at the bottom whenever the hero's own book
+  // button is off-screen — so there is always one within thumb reach.
+  // Only the home pages have a hero; everywhere else the bar is docked from the start.
+  const isHome = path === "/slk" || path === "/slk/en";
+  const [docked, setDocked] = useState(!isHome);
+  useEffect(() => {
+    const heroCta = isHome ? document.querySelector("[data-slk-hero-cta]") : null;
+    if (!heroCta) return;
+    const io = new IntersectionObserver(([entry]) => setDocked(!entry.isIntersecting));
+    io.observe(heroCta);
+    return () => io.disconnect();
+  }, [isHome]);
+  const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+    copy[locale].contactPage.mapQuery,
+  )}`;
 
   const navLinks = [
     { href: slkPath(locale, "/services"), label: t.services },
@@ -84,7 +100,7 @@ export default function SlkHeader({
             <Link
               href={slkCounterpart(locale, path)}
               onClick={stashScrollPosition}
-              className="text-xs uppercase tracking-[0.18em] text-[var(--slk-ink)]/60 transition hover:text-[var(--slk-clay)]"
+              className="flex h-11 min-w-11 items-center justify-center text-xs uppercase tracking-[0.18em] text-[var(--slk-ink)]/60 transition hover:text-[var(--slk-clay)]"
             >
               {locale === "fr" ? "EN" : "FR"}
             </Link>
@@ -109,7 +125,7 @@ export default function SlkHeader({
                     ? "Ouvrir le menu"
                     : "Open menu"
               }
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--slk-line)] text-[var(--slk-ink)] md:hidden"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--slk-line)] text-[var(--slk-ink)] md:hidden"
             >
               {open ? (
                 <svg
@@ -171,6 +187,49 @@ export default function SlkHeader({
           </nav>
         )}
       </motion.header>
+
+      <AnimatePresence>
+        {docked && !open && (
+          <motion.div
+            className="fixed inset-x-0 bottom-0 z-40 flex gap-3 border-t border-[var(--slk-line)] bg-[var(--slk-bone)]/95 px-4 pt-3 backdrop-blur-md md:hidden"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+            initial={reduce ? false : { y: "110%" }}
+            animate={{ y: "0%" }}
+            exit={reduce ? undefined : { y: "110%" }}
+            transition={{ duration: 0.45, ease: EASE }}
+          >
+            <a
+              href={book.href}
+              target={book.external ? "_blank" : undefined}
+              rel={book.external ? "noopener noreferrer" : undefined}
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--slk-ink)] text-sm text-[var(--slk-paper)] active:bg-[var(--slk-clay)]"
+            >
+              {copy[locale].hero.cta}
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path
+                  d="M3 9h12m0 0-5-5m5 5-5 5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+            <a
+              href={directionsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--slk-ink)]/25 px-4 text-sm text-[var(--slk-ink)] active:bg-[var(--slk-sand)]"
+            >
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="M9 16s5-4.6 5-8.5A5 5 0 0 0 4 7.5C4 11.4 9 16 9 16Z" stroke="currentColor" strokeWidth="1.3" />
+                <circle cx="9" cy="7.5" r="1.8" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
+              {copy[locale].ui.directions}
+            </a>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

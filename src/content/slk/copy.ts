@@ -110,6 +110,8 @@ type Copy = {
     modalitiesLabel: string;
     findUs: string;
     instagramHandle: string;
+    swipe: string;
+    directions: string;
   };
   servicesIntro: { eyebrow: string; title: string; subtitle: string };
   serviceCategories: Record<ServiceCategory, string>;
@@ -244,6 +246,8 @@ export const copy: Record<Locale, Copy> = {
       modalitiesLabel: "Quatre technologies, une séance",
       findUs: "Nous trouver",
       instagramHandle: "@esthetiqueslk",
+      swipe: "Glissez",
+      directions: "Itinéraire",
     },
     servicesIntro: {
       eyebrow: "Nos soins",
@@ -567,6 +571,8 @@ export const copy: Record<Locale, Copy> = {
       modalitiesLabel: "Four technologies, one session",
       findUs: "Find us",
       instagramHandle: "@esthetiqueslk",
+      swipe: "Swipe",
+      directions: "Directions",
     },
     servicesIntro: {
       eyebrow: "Our treatments",

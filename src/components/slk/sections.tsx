@@ -91,32 +91,21 @@ export function Hero({ locale }: { locale: Locale }) {
   const heroStat = copy[locale].expect.items[1];
   return (
     <section className="relative overflow-hidden">
-      <div className={`${CONTAINER} grid items-end gap-14 pb-20 pt-12 lg:grid-cols-[1.3fr_1fr] lg:gap-20 lg:pb-28 lg:pt-20`}>
-        <div>
+      {/* Phones read headline → photo → copy, so the photo lands on the first screen.
+          Desktop puts the photo in its own column spanning both rows. */}
+      <div
+        className={`${CONTAINER} grid gap-10 pb-16 pt-8 sm:gap-14 sm:pb-20 sm:pt-12 lg:grid-cols-[1.3fr_1fr] lg:gap-x-20 lg:gap-y-0 lg:pb-28 lg:pt-20`}
+      >
+        <div className="lg:self-end">
           <Eyebrow>{t.eyebrow}</Eyebrow>
-          <h1 className="font-slk-serif mt-8 text-[clamp(3.25rem,8.5vw,7.75rem)] font-light leading-[0.94] tracking-[-0.025em]">
+          <h1 className="font-slk-serif mt-6 text-[clamp(3.25rem,8.5vw,7.75rem)] font-light leading-[0.94] tracking-[-0.025em] sm:mt-8">
             <HeroTitle title={t.title} accent={t.accent} />
           </h1>
-          <Reveal delay={0.7}>
-            <p className="mt-8 max-w-md text-lg font-light leading-relaxed text-[var(--slk-ink)]/75">{t.subtitle}</p>
-            <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-5">
-              <BookButton label={t.cta} />
-              <TextLink href={slkPath(locale, "/services")}>{t.ctaSecondary}</TextLink>
-            </div>
-          </Reveal>
-          <Reveal delay={0.9}>
-            <ul className="mt-12 flex flex-wrap gap-x-8 gap-y-2 border-t border-[var(--slk-line)] pt-6 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65 lg:mt-16">
-              {t.meta.map((m) => (
-                <li key={m}>{m}</li>
-              ))}
-            </ul>
-          </Reveal>
         </div>
 
-        {/* Full-width on phones; capped on desktop, where the ~280px source would otherwise be blown up too far. */}
-        <div className="relative mx-auto w-full lg:mr-0 lg:max-w-[26rem]">
+        <div className="relative mx-auto w-full lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mr-0 lg:max-w-[26rem] lg:self-end">
           <div aria-hidden="true" className="slk-glow pointer-events-none absolute -inset-16 rounded-full sm:-inset-24" />
-          <div className="slk-arch relative aspect-[284/412] overflow-hidden bg-[var(--slk-sand)]">
+          <div className="slk-arch relative aspect-[4/5] overflow-hidden bg-[var(--slk-sand)] sm:aspect-[284/412]">
             <CurtainReveal>
               <Parallax amount={5}>
                 <Image src={HERO_IMAGE} alt="" fill priority sizes="(min-width: 1024px) 26rem, 90vw" className="object-cover" />
@@ -128,6 +117,23 @@ export function Hero({ locale }: { locale: Locale }) {
               <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{heroStat.label}</p>
               <p className="font-slk-serif mt-2 text-3xl font-light text-[var(--slk-clay)]">{heroStat.value}</p>
             </div>
+          </Reveal>
+        </div>
+
+        <div className="pt-4 lg:self-start lg:pt-0">
+          <Reveal delay={0.7}>
+            <p className="max-w-md text-lg font-light leading-relaxed text-[var(--slk-ink)]/75 lg:mt-8">{t.subtitle}</p>
+            <div data-slk-hero-cta className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-5 sm:mt-10">
+              <BookButton label={t.cta} />
+              <TextLink href={slkPath(locale, "/services")}>{t.ctaSecondary}</TextLink>
+            </div>
+          </Reveal>
+          <Reveal delay={0.9}>
+            <ul className="mt-12 flex flex-wrap gap-x-8 gap-y-2 border-t border-[var(--slk-line)] pt-6 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/65 lg:mt-16">
+              {t.meta.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
           </Reveal>
         </div>
       </div>
@@ -191,7 +197,7 @@ export function ServicesGrid({ locale, showIntro = true }: { locale: Locale; sho
   );
   return (
     <section className="bg-[var(--slk-bone)]">
-      <div className={`${CONTAINER} py-24 lg:py-32`}>
+      <div className={`${CONTAINER} py-16 sm:py-24 lg:py-32`}>
         {showIntro && (
           <Reveal className="mb-16 grid gap-8 lg:grid-cols-2 lg:items-end">
             <div>
@@ -241,7 +247,7 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
   const ui = copy[locale].ui;
   return (
     <section className="bg-[var(--slk-ink)] text-[var(--slk-paper)]">
-      <div className={`${CONTAINER} grid items-start gap-14 py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
+      <div className={`${CONTAINER} grid items-start gap-10 sm:gap-14 py-16 sm:py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
         <Reveal className="relative aspect-square overflow-hidden rounded-2xl lg:sticky lg:top-28">
           <Parallax amount={4}>
             <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
@@ -271,7 +277,7 @@ export function ExpectStrip({ locale }: { locale: Locale }) {
   const ui = copy[locale].ui;
   return (
     <section className="border-b border-[var(--slk-line)] bg-[var(--slk-paper)]">
-      <div className={`${CONTAINER} grid gap-14 py-24 lg:grid-cols-[1fr_1.05fr] lg:gap-20 lg:py-32`}>
+      <div className={`${CONTAINER} grid gap-10 sm:gap-14 py-16 sm:py-24 lg:grid-cols-[1fr_1.05fr] lg:gap-20 lg:py-32`}>
         <div>
           <Reveal>
             <Eyebrow>{t.eyebrow}</Eyebrow>
@@ -318,7 +324,7 @@ export function Journey({ locale }: { locale: Locale }) {
   const t = copy[locale].journey;
   return (
     <section className="border-y border-[var(--slk-line)] bg-[var(--slk-paper)]">
-      <div className={`${CONTAINER} py-24 lg:py-32`}>
+      <div className={`${CONTAINER} py-16 sm:py-24 lg:py-32`}>
         <Reveal>
           <Eyebrow>{t.eyebrow}</Eyebrow>
           <h2 className="font-slk-serif mt-6 max-w-2xl text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
@@ -352,15 +358,26 @@ function ResultFigure({ item, className = "", delay = 0 }: { item: GalleryItem; 
 
 export function ResultsGallery({ locale }: { locale: Locale }) {
   const t = copy[locale].results;
-  const groupHead = (label: string, count: number) => (
+  const ui = copy[locale].ui;
+  const groupHead = (label: string, count: number, phoneOnlySwipe: boolean) => (
     <div className="mb-6 flex items-baseline justify-between border-b border-[var(--slk-line)] pb-3">
       <p className="font-slk-serif text-2xl font-light">{label}</p>
-      <p className="text-xs text-[var(--slk-ink)]/60">{String(count).padStart(2, "0")}</p>
+      <p className="flex items-center gap-3 text-xs text-[var(--slk-ink)]/60">
+        {/* Swipe hint only where the row actually scrolls sideways. */}
+        <span className={`flex items-center gap-1.5 text-[var(--slk-clay)] ${phoneOnlySwipe ? "sm:hidden" : ""}`}>
+          {ui.swipe}
+          <Arrow className="slk-nudge h-3.5 w-3.5" />
+        </span>
+        {String(count).padStart(2, "0")}
+      </p>
     </div>
   );
+  // Edge-to-edge swipe row; scroll-padding keeps snapped cards off the screen edge.
+  const swipeRow =
+    "-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:scroll-px-8 sm:gap-6 sm:px-8";
   return (
     <section className="bg-[var(--slk-bone)]">
-      <div className={`${CONTAINER} py-24 lg:py-32`}>
+      <div className={`${CONTAINER} py-16 sm:py-24 lg:py-32`}>
         <Reveal className="grid gap-8 lg:grid-cols-2 lg:items-end">
           <div>
             <Eyebrow>{t.eyebrow}</Eyebrow>
@@ -372,30 +389,31 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
         </Reveal>
 
         <div className="mt-16">
-          {groupHead(t.peauLabel, t.peau.length)}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {groupHead(t.peauLabel, t.peau.length, true)}
+          {/* Swipes on phones like the body row; a plain grid from sm up. */}
+          <div className={`${swipeRow} sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3`}>
             {t.peau.map((item, i) => (
-              <ResultFigure key={item.src} item={item} delay={i * 0.15} />
+              <ResultFigure key={item.src} item={item} delay={i * 0.15} className="w-[84%] shrink-0 snap-start sm:w-auto" />
             ))}
           </div>
         </div>
 
         <Reveal className="mt-16">
-          {groupHead(t.corpsLabel, t.corps.length)}
+          {groupHead(t.corpsLabel, t.corps.length, false)}
           {/* Seven items don't sit well on a 3-col grid; a snap-scrolling row
               handles any count and reads as a proper gallery. */}
           <div
             role="region"
             aria-label={t.corpsLabel}
             tabIndex={0}
-            className="-mx-5 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8"
+            className={swipeRow}
           >
             {t.corps.map((item, i) => (
               <ResultFigure
                 key={item.src}
                 item={item}
                 delay={Math.min(i, 3) * 0.15}
-                className="w-[80%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]"
+                className="w-[84%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]"
               />
             ))}
           </div>
@@ -411,7 +429,7 @@ export function ReviewsStrip({ locale }: { locale: Locale }) {
   const t = copy[locale].reviews;
   return (
     <section className="border-y border-[var(--slk-line)] bg-[var(--slk-paper)]">
-      <Reveal className={`${CONTAINER} py-24 text-center`}>
+      <Reveal className={`${CONTAINER} py-16 sm:py-24 text-center`}>
         <div className="flex justify-center">
           <Eyebrow>{t.eyebrow}</Eyebrow>
         </div>
@@ -441,7 +459,7 @@ export function AboutTeaser({ locale }: { locale: Locale }) {
   const t = copy[locale];
   return (
     <section className="bg-[var(--slk-sand)]">
-      <div className={`${CONTAINER} grid gap-12 py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-20 lg:py-32`}>
+      <div className={`${CONTAINER} grid gap-12 py-16 sm:py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:gap-20 lg:py-32`}>
         <Reveal>
           <Eyebrow>{t.aboutPage.eyebrow}</Eyebrow>
           <p className="font-slk-serif mt-8 text-[clamp(2rem,4.5vw,3.75rem)] font-light italic leading-[1.08] tracking-[-0.015em]">
@@ -463,7 +481,7 @@ export function FaqSection({ locale }: { locale: Locale }) {
   const t = copy[locale].faq;
   return (
     <section className="bg-[var(--slk-bone)]">
-      <div className={`${CONTAINER} grid gap-12 py-24 lg:grid-cols-[1fr_1.6fr] lg:gap-20 lg:py-32`}>
+      <div className={`${CONTAINER} grid gap-12 py-16 sm:py-24 lg:grid-cols-[1fr_1.6fr] lg:gap-20 lg:py-32`}>
         <Reveal>
           <Eyebrow>{t.eyebrow}</Eyebrow>
           <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
@@ -512,7 +530,7 @@ export function ContactTeaser({ locale }: { locale: Locale }) {
   const t = copy[locale];
   return (
     <section className="bg-[var(--slk-clay)] text-[var(--slk-paper)]">
-      <div className={`${CONTAINER} grid gap-10 py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:py-28`}>
+      <div className={`${CONTAINER} grid gap-10 py-16 sm:py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:py-28`}>
         <Reveal>
           <h2 className="font-slk-serif text-[clamp(2.5rem,6vw,5rem)] font-light leading-[0.98] tracking-[-0.02em]">
             <SplitHeading text={t.contactTeaser.title} />
@@ -543,7 +561,7 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
   return (
     <>
       <section>
-        <div className={`${CONTAINER} grid gap-14 pb-24 pt-12 lg:grid-cols-[1.25fr_1fr] lg:gap-20 lg:pt-16`}>
+        <div className={`${CONTAINER} grid gap-10 pb-16 pt-8 sm:gap-14 sm:pb-24 sm:pt-12 lg:grid-cols-[1.25fr_1fr] lg:gap-20 lg:pt-16`}>
           <div>
             <Link
               href={slkPath(locale, "/services")}
@@ -552,7 +570,7 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
               <Arrow className="rotate-180" />
               {t.ui.allTreatments}
             </Link>
-            <div className="mt-12">
+            <div className="mt-8 sm:mt-12">
               <Eyebrow>{t.serviceCategories[service.category]}</Eyebrow>
             </div>
             <h1 className="font-slk-serif mt-6 text-[clamp(2.5rem,5.5vw,4.75rem)] font-light leading-[1] tracking-[-0.02em]">
@@ -561,6 +579,15 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
             <p className="mt-8 max-w-xl text-lg font-light leading-relaxed text-[var(--slk-ink)]/80">
               {service.detail.intro}
             </p>
+
+            {/* Phones: the result photo right after the intro, not below all the text. */}
+            {service.image && (
+              <div className="relative mt-10 aspect-square overflow-hidden rounded-2xl bg-[var(--slk-sand)] lg:hidden">
+                <Parallax amount={4}>
+                  <Image src={service.image} alt="" fill sizes="100vw" className="object-cover" />
+                </Parallax>
+              </div>
+            )}
 
             <ol className="mt-12 border-t border-[var(--slk-ink)]/80">
               {service.detail.points.map((point, i) => (
@@ -582,9 +609,9 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
 
           <aside className="flex flex-col gap-6 lg:sticky lg:top-28 lg:self-start">
             {service.image && (
-              <div className="relative aspect-square overflow-hidden rounded-2xl bg-[var(--slk-sand)]">
+              <div className="relative hidden aspect-square overflow-hidden rounded-2xl bg-[var(--slk-sand)] lg:block">
                 <Parallax amount={4}>
-                  <Image src={service.image} alt="" fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+                  <Image src={service.image} alt="" fill sizes="40vw" className="object-cover" />
                 </Parallax>
               </div>
             )}
@@ -601,7 +628,7 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
       </section>
 
       <section className="border-t border-[var(--slk-line)] bg-[var(--slk-paper)]">
-        <div className={`${CONTAINER} py-20`}>
+        <div className={`${CONTAINER} py-14 sm:py-20`}>
           <Eyebrow>{t.ui.otherTreatments}</Eyebrow>
           {/* Separate cards, not a hairline-gap grid: the count varies per page
               and a gap grid shows its background through any empty last-row cell. */}

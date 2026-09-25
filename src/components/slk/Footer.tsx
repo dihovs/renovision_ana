@@ -10,7 +10,8 @@ export default function SlkFooter({ locale }: { locale: Locale }) {
 
   return (
     <footer className="bg-[var(--slk-ink-deep)] text-[var(--slk-paper)]">
-      <div className="mx-auto max-w-7xl px-5 pb-10 pt-20 sm:px-8">
+      {/* Extra bottom room on phones so the docked booking bar never covers the last lines. */}
+      <div className="mx-auto max-w-7xl px-5 pb-28 pt-16 sm:px-8 sm:pt-20 md:pb-10">
         <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <p className="font-slk-serif text-6xl font-light leading-none tracking-tight">SLK</p>

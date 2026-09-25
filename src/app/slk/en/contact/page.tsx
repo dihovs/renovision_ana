@@ -17,7 +17,7 @@ export default function SlkContactEn() {
       <SlkHeader locale="en" path="/slk/en/contact" />
       <main className="flex-1">
         <PageIntro eyebrow={ui.findUs} title={t.title} intro={t.intro} />
-        <section className="mx-auto grid w-full max-w-7xl gap-14 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:gap-20 lg:py-24">
+        <section className="mx-auto grid w-full max-w-7xl gap-10 sm:gap-14 px-5 py-14 sm:py-20 sm:px-8 lg:grid-cols-2 lg:gap-20 lg:py-24">
           <div>
             <a
               href={book.href}

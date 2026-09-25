@@ -83,10 +83,34 @@
   animation: slk-float 6s ease-in-out infinite;
 }
 
+/* Swipe hint arrow: a small repeated nudge to the right. */
+@keyframes slk-nudge {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(4px);
+  }
+}
+.slk-nudge {
+  animation: slk-nudge 1.8s ease-in-out infinite;
+}
+
+/* Horizontal galleries: no visible scrollbar on touch, momentum kept. */
+.slk-site [class*="snap-x"] {
+  scrollbar-width: none;
+}
+.slk-site [class*="snap-x"]::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .slk-marquee-track,
   .slk-glow,
-  .slk-float {
+  .slk-float,
+  .slk-nudge {
     animation: none;
   }
 }

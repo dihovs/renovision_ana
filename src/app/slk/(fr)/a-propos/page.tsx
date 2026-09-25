@@ -13,7 +13,7 @@ export default function SlkAboutFr() {
       <SlkHeader locale="fr" path="/slk/a-propos" />
       <main className="flex-1">
         <PageIntro eyebrow={t.eyebrow} title={t.title} intro={t.intro} />
-        <section className="mx-auto grid w-full max-w-7xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[1.3fr_1fr] lg:gap-20 lg:py-32">
+        <section className="mx-auto grid w-full max-w-7xl gap-12 px-5 py-16 sm:py-24 sm:px-8 lg:grid-cols-[1.3fr_1fr] lg:gap-20 lg:py-32">
           <p className="font-slk-serif text-[clamp(2rem,4.5vw,3.5rem)] font-light italic leading-[1.1] tracking-[-0.015em]">
             «&nbsp;{t.quote}&nbsp;»
           </p>
