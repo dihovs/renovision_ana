@@ -120,12 +120,12 @@ export function Hero({ locale }: { locale: Locale }) {
           </ul>
         </div>
 
-        {/* Capped width: the source still is only ~280px wide. */}
-        <div className="relative mx-auto w-full max-w-xs sm:max-w-sm lg:mr-0 lg:max-w-[26rem]">
+        {/* Full-width on phones; capped on desktop, where the ~280px source would otherwise be blown up too far. */}
+        <div className="relative mx-auto w-full lg:mr-0 lg:max-w-[26rem]">
           <div className="slk-arch relative aspect-[284/412] overflow-hidden bg-[var(--slk-sand)]">
             <Image src={HERO_IMAGE} alt="" fill priority sizes="(min-width: 1024px) 26rem, 90vw" className="object-cover" />
           </div>
-          <div className="absolute -bottom-6 -left-4 max-w-[15rem] rounded-2xl bg-[var(--slk-paper)] p-5 shadow-[0_20px_50px_-20px_rgba(30,25,21,0.35)] sm:-left-10">
+          <div className="absolute -bottom-6 left-4 max-w-[15rem] rounded-2xl bg-[var(--slk-paper)] p-5 shadow-[0_20px_50px_-20px_rgba(30,25,21,0.35)] sm:-left-10">
             <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{heroStat.label}</p>
             <p className="font-slk-serif mt-2 text-3xl font-light text-[var(--slk-clay)]">{heroStat.value}</p>
           </div>

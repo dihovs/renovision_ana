@@ -1,9 +1,11 @@
-import { Fraunces, Work_Sans } from "next/font/google";
+import { Cormorant_Garamond, Work_Sans } from "next/font/google";
 
-export const serif = Fraunces({
+// Cormorant's 300 is too hairline for body-adjacent sizes, so it isn't
+// loaded: `font-light` on serif text resolves to the nearest loaded weight (400).
+export const serif = Cormorant_Garamond({
   variable: "--font-slk-serif",
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
+  weight: ["400", "500", "600"],
   style: ["normal", "italic"],
   display: "optional",
 });
