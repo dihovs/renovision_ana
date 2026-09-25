@@ -1,10 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { bookingLink, copy, type GalleryItem, type Locale } from "@/content/slk/copy";
+import { bookingLink, business, copy, googleReviews, type GalleryItem, type Locale } from "@/content/slk/copy";
 import { slkPath } from "@/content/slk/paths";
 import { ClipReveal, CountUp, CurtainReveal, GrowLine, HeroTitle, Parallax, Reveal, SplitHeading } from "./motion";
 import { DayTimeline, JourneySteps, ModalitiesRing, RecoveryChart } from "./infographics";
+import { ReviewsCarousel, Stars } from "./reviews";
 
 // The "après" photo of a real peeling result (from the clinic's full-resolution post; frame and "avant"
 // panel cropped out) — even, glowing skin, which is what the hero headline promises.
@@ -415,30 +416,56 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
 
 export function ReviewsStrip({ locale }: { locale: Locale }) {
   const t = copy[locale].reviews;
+  const { items, rating, count } = googleReviews;
+  const googleLink = (
+    <a
+      href={business.googleMaps}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex items-center gap-2 border-b border-[var(--slk-ink)]/30 pb-1 text-sm transition hover:border-[var(--slk-clay)] hover:text-[var(--slk-clay)]"
+    >
+      {t.seeAll}
+      <Arrow className="transition duration-300 group-hover:translate-x-1" />
+    </a>
+  );
   return (
-    <section className="border-y border-[var(--slk-line)] bg-[var(--slk-paper)]">
-      <Reveal className={`${CONTAINER} py-16 sm:py-24 text-center`}>
-        <div className="flex justify-center">
-          <Eyebrow>{t.eyebrow}</Eyebrow>
-        </div>
-        <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light tracking-[-0.02em]">
-            <SplitHeading text={t.title} />
-          </h2>
-        {t.items.length > 0 ? (
-          <div className="mt-14 grid gap-10 text-left md:grid-cols-3">
-            {t.items.map((r) => (
-              <figure key={r.quote} className="border-t border-[var(--slk-line)] pt-6">
-                <blockquote className="font-slk-serif text-xl font-light italic leading-snug">“{r.quote}”</blockquote>
-                <figcaption className="mt-4 text-[11px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{r.author}</figcaption>
-              </figure>
-            ))}
+    <section className="overflow-hidden border-y border-[var(--slk-line)] bg-[var(--slk-bone)]">
+      <div className={`${CONTAINER} py-16 sm:py-24 lg:py-28`}>
+        <Reveal className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <Eyebrow>{t.eyebrow}</Eyebrow>
+            <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
+              <SplitHeading text={t.title} />
+            </h2>
           </div>
+          {/* The listing's own totals only — never an average of the few quoted below. */}
+          {rating !== null && count !== null && (
+            <div className="flex items-center gap-5">
+              <p className="font-slk-serif text-6xl font-light leading-none text-[var(--slk-clay)]">
+                {rating.toLocaleString(locale === "fr" ? "fr-CA" : "en-CA", { minimumFractionDigits: 1 })}
+              </p>
+              <div>
+                <Stars rating={rating} size={16} label={t.starsLabel.replace("{n}", String(rating))} />
+                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--slk-ink)]/60">
+                  {count} {t.countLabel}
+                </p>
+              </div>
+            </div>
+          )}
+        </Reveal>
+
+        {items.length > 0 ? (
+          <Reveal delay={0.15} className="mt-12">
+            <ReviewsCarousel locale={locale} reviews={items} />
+            <div className="mt-6">{googleLink}</div>
+          </Reveal>
         ) : (
-          <p className="mx-auto mt-10 max-w-lg rounded-2xl border border-dashed border-[var(--slk-ink)]/25 px-8 py-6 text-sm font-light leading-relaxed text-[var(--slk-ink)]/70">
-            {t.placeholder}
-          </p>
+          <Reveal delay={0.15} className="mt-10 flex flex-col items-start gap-5">
+            <p className="max-w-md font-light leading-relaxed text-[var(--slk-ink)]/75">{t.placeholder}</p>
+            {googleLink}
+          </Reveal>
         )}
-      </Reveal>
+      </div>
     </section>
   );
 }

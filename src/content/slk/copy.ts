@@ -40,7 +40,34 @@ export const business = {
   bookingUrl: null as string | null,
   instagram: "https://www.instagram.com/esthetiqueslk",
   facebook: "https://www.facebook.com/slesthetique/",
+  // The clinic's Google Business listing (link supplied by the owner).
+  googleMaps: "https://maps.app.goo.gl/NT4R89No72tAt7od7",
 } as const;
+
+export type Review = {
+  author: string;
+  /** 1–5, exactly as shown on Google. */
+  rating: number;
+  /** "YYYY-MM" — shown as month + year. */
+  date: string;
+  /** Verbatim, in whatever language the client wrote it. Never edited. */
+  text: string;
+};
+
+/**
+ * Google reviews, copied verbatim from the clinic's Google Business listing.
+ * Shared by both locales: a review is shown in the language it was written in.
+ *
+ * EMPTY ON PURPOSE until real reviews are pasted in. Google Maps is blocked
+ * from the build environment, and reviews must never be invented or
+ * paraphrased. `rating`/`count` are the listing's own totals — fill them from
+ * the listing, never compute them from the subset shown here.
+ */
+export const googleReviews: { rating: number | null; count: number | null; items: Review[] } = {
+  rating: null,
+  count: null,
+  items: [],
+};
 
 /**
  * Every "book" CTA goes through this. Preference order: a confirmed direct
@@ -136,7 +163,19 @@ type Copy = {
     corps: GalleryItem[];
   };
   noWalkIns: string;
-  reviews: { eyebrow: string; title: string; placeholder: string; items: { quote: string; author: string }[] };
+  reviews: {
+    eyebrow: string;
+    title: string;
+    placeholder: string;
+    countLabel: string;
+    seeAll: string;
+    prev: string;
+    next: string;
+    readMore: string;
+    readLess: string;
+    slideLabel: string;
+    starsLabel: string;
+  };
   faq: { eyebrow: string; title: string; items: FaqItem[] };
   aboutTeaser: { title: string; body: string; cta: string };
   aboutPage: { eyebrow: string; title: string; intro: string; quote: string; paragraphs: string[] };
@@ -416,14 +455,16 @@ export const copy: Record<Locale, Copy> = {
     reviews: {
       eyebrow: "Avis",
       title: "Ce que disent les clientes",
-      // No real quotes are wired in here — pulling them off Instagram
-      // requires opening the "Avis Clientes" highlight, which is gated to
-      // guests and unreachable from this environment. Inventing quotes
-      // would be worse than showing none, so this stays empty until SLK
-      // supplies real, consented reviews (screenshot or text is enough).
-      placeholder:
-        "Les avis clientes de SLK sont visibles dans son répertoire « Avis Clientes » sur Instagram. Envoyez-nous 2 ou 3 avis (avec autorisation) et on les affiche ici.",
-      items: [],
+      // Shown only while googleReviews.items is empty.
+      placeholder: "Les avis de nos clientes sont publiés sur notre fiche Google.",
+      countLabel: "avis Google",
+      seeAll: "Voir tous les avis sur Google",
+      prev: "Avis précédent",
+      next: "Avis suivant",
+      readMore: "Lire la suite",
+      readLess: "Réduire",
+      slideLabel: "Avis {n} sur {total}",
+      starsLabel: "{n} étoiles sur 5",
     },
     faq: {
       eyebrow: "Questions fréquentes",
@@ -736,10 +777,15 @@ export const copy: Record<Locale, Copy> = {
     reviews: {
       eyebrow: "Reviews",
       title: "What clients say",
-      // No real quotes wired in — see the fr block's comment for why.
-      placeholder:
-        "SLK's client reviews live in its \"Avis Clientes\" highlight on Instagram. Send us 2-3 (with permission) and we'll show them here.",
-      items: [],
+      placeholder: "Our clients' reviews are published on our Google listing.",
+      countLabel: "Google reviews",
+      seeAll: "See all reviews on Google",
+      prev: "Previous review",
+      next: "Next review",
+      readMore: "Read more",
+      readLess: "Show less",
+      slideLabel: "Review {n} of {total}",
+      starsLabel: "{n} out of 5 stars",
     },
     faq: {
       eyebrow: "FAQ",

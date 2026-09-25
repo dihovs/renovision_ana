@@ -98,6 +98,21 @@
   animation: slk-nudge 1.8s ease-in-out infinite;
 }
 
+/* Review carousel: the active dot fills while autoplay waits. */
+@keyframes slk-review-timer {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.slk-review-timer {
+  animation-name: slk-review-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 /* Horizontal galleries: no visible scrollbar on touch, momentum kept. */
 .slk-site [class*="snap-x"] {
   scrollbar-width: none;
