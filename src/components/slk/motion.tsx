@@ -1,7 +1,15 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { animate, motion, useInView, useReducedMotion } from "motion/react";
+import {
+  animate,
+  motion,
+  useInView,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from "motion/react";
 import type { Locale } from "@/content/slk/copy";
 
 /** The one easing curve the whole site moves on — a soft, decelerating settle. */
@@ -142,5 +150,97 @@ export function CurtainReveal({ children }: { children: ReactNode }) {
         />
       )}
     </>
+  );
+}
+
+/** Thin clay line across the top of the viewport tracking how far down the page you are. */
+export function ScrollProgress() {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 140, damping: 30, restDelta: 0.001 });
+  return (
+    <motion.div
+      aria-hidden="true"
+      className="fixed inset-x-0 top-0 z-50 h-[2px] origin-left bg-[var(--slk-clay)]"
+      style={{ scaleX }}
+    />
+  );
+}
+
+/**
+ * Lets a photo drift inside its frame as the frame scrolls past. The child is
+ * over-scaled slightly so the drift never exposes an edge. Wrap a `fill` Image.
+ */
+export function Parallax({ children, amount = 6 }: { children: ReactNode; amount?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const y = useTransform(scrollYProgress, [0, 1], [`-${amount}%`, `${amount}%`]);
+  return (
+    <div ref={ref} className="absolute inset-0 overflow-hidden">
+      <motion.div className="absolute inset-0" style={reduce ? undefined : { y, scale: 1 + (amount * 2.2) / 100 }}>
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+/** Section heading whose words rise into place when it scrolls into view. */
+export function SplitHeading({ text }: { text: string }) {
+  const reduce = useReducedMotion();
+  const words = text.split(" ").filter(Boolean);
+  return (
+    <motion.span
+      className="block"
+      initial={reduce ? false : "hidden"}
+      whileInView="shown"
+      viewport={{ once: true, margin: "0px 0px -10% 0px" }}
+      transition={{ staggerChildren: 0.06 }}
+    >
+      {words.map((w, n) => (
+        <Fragment key={n}>
+          {n > 0 && " "}
+          <span className="inline-block overflow-hidden pb-[0.12em] align-bottom">
+            <motion.span
+              className="inline-block"
+              variants={{ hidden: { y: "110%" }, shown: { y: "0%" } }}
+              transition={{ duration: 0.95, ease: EASE }}
+            >
+              {w}
+            </motion.span>
+          </span>
+        </Fragment>
+      ))}
+    </motion.span>
+  );
+}
+
+/** The short rule before every eyebrow label, drawn in from the left. */
+export function GrowLine() {
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      aria-hidden="true"
+      className="h-px w-8 origin-left bg-current"
+      initial={reduce ? false : { scaleX: 0 }}
+      whileInView={{ scaleX: 1 }}
+      viewport={{ once: true }}
+      transition={{ duration: 1.1, ease: EASE, delay: 0.1 }}
+    />
+  );
+}
+
+/** Before/after photo reveal: the frame opens from the centre outward, like a curtain. */
+export function ClipReveal({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={reduce ? false : { clipPath: "inset(0 50% 0 50% round 0.75rem)" }}
+      whileInView={{ clipPath: "inset(0 0% 0 0% round 0.75rem)" }}
+      viewport={{ once: true, margin: "0px 0px -10% 0px" }}
+      transition={{ duration: 1.2, ease: EASE, delay }}
+    >
+      {children}
+    </motion.div>
   );
 }

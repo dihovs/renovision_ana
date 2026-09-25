@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { bookingLink, copy, type GalleryItem, type Locale } from "@/content/slk/copy";
 import { slkPath } from "@/content/slk/paths";
-import { CountUp, CurtainReveal, HeroTitle, Reveal } from "./motion";
+import { ClipReveal, CountUp, CurtainReveal, GrowLine, HeroTitle, Parallax, Reveal, SplitHeading } from "./motion";
 import { DayTimeline, JourneySteps, ModalitiesRing, RecoveryChart } from "./infographics";
 
 // The "after" half of a real peeling result (text and "before" panel cropped
@@ -21,7 +21,7 @@ function Eyebrow({ children, dark = false }: { children: ReactNode; dark?: boole
         dark ? "text-[var(--slk-clay-soft)]" : "text-[var(--slk-clay)]"
       }`}
     >
-      <span aria-hidden="true" className="h-px w-8 bg-current" />
+      <GrowLine />
       {children}
     </p>
   );
@@ -43,14 +43,14 @@ function BookButton({ label, onDark = false }: { label: string; onDark?: boolean
       href={book.href}
       target={book.external ? "_blank" : undefined}
       rel={book.external ? "noopener noreferrer" : undefined}
-      className={`inline-flex items-center gap-3 rounded-full px-7 py-4 text-sm transition ${
+      className={`group inline-flex items-center gap-3 rounded-full px-7 py-4 text-sm transition duration-300 hover:-translate-y-0.5 ${
         onDark
           ? "bg-[var(--slk-paper)] text-[var(--slk-ink)] hover:bg-[var(--slk-sand)]"
           : "bg-[var(--slk-ink)] text-[var(--slk-paper)] hover:bg-[var(--slk-clay)]"
       }`}
     >
       {label}
-      <Arrow />
+      <Arrow className="transition duration-300 group-hover:translate-x-1" />
     </a>
   );
 }
@@ -66,7 +66,7 @@ function TextLink({ href, children, onDark = false }: { href: string; children: 
       }`}
     >
       {children}
-      <Arrow className="transition group-hover:translate-x-0.5" />
+      <Arrow className="transition duration-300 group-hover:translate-x-1" />
     </Link>
   );
 }
@@ -77,8 +77,8 @@ export function PageIntro({ eyebrow, title, intro }: { eyebrow: string; title: s
       <Reveal className={`${CONTAINER} pb-14 pt-16 lg:pb-20 lg:pt-24`}>
         <Eyebrow>{eyebrow}</Eyebrow>
         <h1 className="font-slk-serif mt-8 max-w-4xl text-[clamp(2.75rem,6.5vw,5.75rem)] font-light leading-[0.98] tracking-[-0.02em]">
-          {title}
-        </h1>
+            <SplitHeading text={title} />
+          </h1>
         {intro && <p className="mt-8 max-w-xl text-lg font-light leading-relaxed text-[var(--slk-ink)]/75">{intro}</p>}
       </Reveal>
     </section>
@@ -115,14 +115,19 @@ export function Hero({ locale }: { locale: Locale }) {
 
         {/* Full-width on phones; capped on desktop, where the ~280px source would otherwise be blown up too far. */}
         <div className="relative mx-auto w-full lg:mr-0 lg:max-w-[26rem]">
+          <div aria-hidden="true" className="slk-glow pointer-events-none absolute -inset-16 rounded-full sm:-inset-24" />
           <div className="slk-arch relative aspect-[284/412] overflow-hidden bg-[var(--slk-sand)]">
             <CurtainReveal>
-              <Image src={HERO_IMAGE} alt="" fill priority sizes="(min-width: 1024px) 26rem, 90vw" className="object-cover" />
+              <Parallax amount={5}>
+                <Image src={HERO_IMAGE} alt="" fill priority sizes="(min-width: 1024px) 26rem, 90vw" className="object-cover" />
+              </Parallax>
             </CurtainReveal>
           </div>
           <Reveal delay={1.3} y={16} className="absolute -bottom-6 left-4 z-20 max-w-[15rem] rounded-2xl bg-[var(--slk-paper)] p-5 shadow-[0_20px_50px_-20px_rgba(30,25,21,0.35)] sm:-left-10">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{heroStat.label}</p>
-            <p className="font-slk-serif mt-2 text-3xl font-light text-[var(--slk-clay)]">{heroStat.value}</p>
+            <div className="slk-float">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--slk-ink)]/60">{heroStat.label}</p>
+              <p className="font-slk-serif mt-2 text-3xl font-light text-[var(--slk-clay)]">{heroStat.value}</p>
+            </div>
           </Reveal>
         </div>
       </div>
@@ -153,7 +158,7 @@ function ServiceRow({ locale, s }: { locale: Locale; s: Service }) {
       className="group grid grid-cols-[1fr_auto] items-center gap-6 border-b border-[var(--slk-line)] py-7"
     >
       <div>
-        <p className="font-slk-serif text-2xl font-light leading-tight transition group-hover:text-[var(--slk-clay)] sm:text-3xl">
+        <p className="font-slk-serif text-2xl font-light leading-tight transition duration-500 group-hover:translate-x-2 group-hover:text-[var(--slk-clay)] sm:text-3xl">
           {s.title}
         </p>
         <p className="mt-2 max-w-lg text-sm font-light leading-relaxed text-[var(--slk-ink)]/70">{s.blurb}</p>
@@ -192,8 +197,8 @@ export function ServicesGrid({ locale, showIntro = true }: { locale: Locale; sho
             <div>
               <Eyebrow>{t.servicesIntro.eyebrow}</Eyebrow>
               <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,5vw,4rem)] font-light leading-[1.02] tracking-[-0.02em]">
-                {t.servicesIntro.title}
-              </h2>
+            <SplitHeading text={t.servicesIntro.title} />
+          </h2>
             </div>
             <div className="lg:justify-self-end lg:text-right">
               <p className="max-w-md font-light leading-relaxed text-[var(--slk-ink)]/75 lg:ml-auto">
@@ -218,8 +223,10 @@ export function ServicesGrid({ locale, showIntro = true }: { locale: Locale; sho
             <div className="-mt-7">
               {t.services
                 .filter((s) => s.category === cat)
-                .map((s) => (
-                  <ServiceRow key={s.slug} locale={locale} s={s} />
+                .map((s, i) => (
+                  <Reveal key={s.slug} delay={0.1 + i * 0.08} y={18}>
+                    <ServiceRow locale={locale} s={s} />
+                  </Reveal>
                 ))}
             </div>
           </Reveal>
@@ -236,12 +243,14 @@ export function SignatureSpotlight({ locale }: { locale: Locale }) {
     <section className="bg-[var(--slk-ink)] text-[var(--slk-paper)]">
       <div className={`${CONTAINER} grid items-start gap-14 py-24 lg:grid-cols-2 lg:gap-20 lg:py-32`}>
         <Reveal className="relative aspect-square overflow-hidden rounded-2xl lg:sticky lg:top-28">
-          <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
+          <Parallax amount={4}>
+            <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
+          </Parallax>
         </Reveal>
         <Reveal delay={0.1}>
           <Eyebrow dark>{t.eyebrow}</Eyebrow>
           <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,4.5vw,3.75rem)] font-light leading-[1.04] tracking-[-0.02em]">
-            {t.title}
+            <SplitHeading text={t.title} />
           </h2>
           <p className="mt-6 max-w-lg font-light leading-relaxed text-[var(--slk-paper)]/75">{t.body}</p>
           <p className="mt-10 text-[11px] uppercase tracking-[0.22em] text-[var(--slk-paper)]/60">{ui.modalitiesLabel}</p>
@@ -267,8 +276,8 @@ export function ExpectStrip({ locale }: { locale: Locale }) {
           <Reveal>
             <Eyebrow>{t.eyebrow}</Eyebrow>
             <h2 className="font-slk-serif mt-6 max-w-xl text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
-              {t.title}
-            </h2>
+            <SplitHeading text={t.title} />
+          </h2>
           </Reveal>
           <div className="mt-12 border-t border-[var(--slk-ink)]/80">
             {t.items.map((item, i) => (
@@ -313,7 +322,7 @@ export function Journey({ locale }: { locale: Locale }) {
         <Reveal>
           <Eyebrow>{t.eyebrow}</Eyebrow>
           <h2 className="font-slk-serif mt-6 max-w-2xl text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
-            {t.title}
+            <SplitHeading text={t.title} />
           </h2>
         </Reveal>
         <div className="mt-16">
@@ -324,12 +333,18 @@ export function Journey({ locale }: { locale: Locale }) {
   );
 }
 
-function ResultFigure({ item, className = "" }: { item: GalleryItem; className?: string }) {
+function ResultFigure({ item, className = "", delay = 0 }: { item: GalleryItem; className?: string; delay?: number }) {
   return (
-    <figure className={className}>
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-[var(--slk-sand)]">
-        <Image src={item.src} alt={item.alt} fill sizes="(min-width: 1024px) 33vw, 80vw" className="object-cover" />
-      </div>
+    <figure className={`group ${className}`}>
+      <ClipReveal delay={delay} className="relative aspect-square overflow-hidden rounded-xl bg-[var(--slk-sand)]">
+        <Image
+          src={item.src}
+          alt={item.alt}
+          fill
+          sizes="(min-width: 1024px) 33vw, 80vw"
+          className="object-cover transition duration-700 ease-out group-hover:scale-[1.04]"
+        />
+      </ClipReveal>
       <figcaption className="mt-3 text-xs text-[var(--slk-ink)]/65">{item.alt}</figcaption>
     </figure>
   );
@@ -350,8 +365,8 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
           <div>
             <Eyebrow>{t.eyebrow}</Eyebrow>
             <h2 className="font-slk-serif mt-6 text-[clamp(2.25rem,5vw,4rem)] font-light leading-[1.02] tracking-[-0.02em]">
-              {t.title}
-            </h2>
+            <SplitHeading text={t.title} />
+          </h2>
           </div>
           <p className="max-w-md font-light leading-relaxed text-[var(--slk-ink)]/75 lg:justify-self-end">{t.subtitle}</p>
         </Reveal>
@@ -360,9 +375,7 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
           {groupHead(t.peauLabel, t.peau.length)}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {t.peau.map((item, i) => (
-              <Reveal key={item.src} delay={i * 0.12}>
-                <ResultFigure item={item} />
-              </Reveal>
+              <ResultFigure key={item.src} item={item} delay={i * 0.15} />
             ))}
           </div>
         </div>
@@ -377,8 +390,13 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
             tabIndex={0}
             className="-mx-5 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:px-8"
           >
-            {t.corps.map((item) => (
-              <ResultFigure key={item.src} item={item} className="w-[80%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]" />
+            {t.corps.map((item, i) => (
+              <ResultFigure
+                key={item.src}
+                item={item}
+                delay={Math.min(i, 3) * 0.15}
+                className="w-[80%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]"
+              />
             ))}
           </div>
         </Reveal>
@@ -397,7 +415,9 @@ export function ReviewsStrip({ locale }: { locale: Locale }) {
         <div className="flex justify-center">
           <Eyebrow>{t.eyebrow}</Eyebrow>
         </div>
-        <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light tracking-[-0.02em]">{t.title}</h2>
+        <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light tracking-[-0.02em]">
+            <SplitHeading text={t.title} />
+          </h2>
         {t.items.length > 0 ? (
           <div className="mt-14 grid gap-10 text-left md:grid-cols-3">
             {t.items.map((r) => (
@@ -447,7 +467,7 @@ export function FaqSection({ locale }: { locale: Locale }) {
         <Reveal>
           <Eyebrow>{t.eyebrow}</Eyebrow>
           <h2 className="font-slk-serif mt-6 text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.05] tracking-[-0.02em]">
-            {t.title}
+            <SplitHeading text={t.title} />
           </h2>
         </Reveal>
         <Reveal delay={0.12} className="border-t border-[var(--slk-ink)]/80">
@@ -495,7 +515,7 @@ export function ContactTeaser({ locale }: { locale: Locale }) {
       <div className={`${CONTAINER} grid gap-10 py-24 lg:grid-cols-[1.4fr_1fr] lg:items-end lg:py-28`}>
         <Reveal>
           <h2 className="font-slk-serif text-[clamp(2.5rem,6vw,5rem)] font-light leading-[0.98] tracking-[-0.02em]">
-            {t.contactTeaser.title}
+            <SplitHeading text={t.contactTeaser.title} />
           </h2>
           <p className="mt-6 max-w-md font-light leading-relaxed text-[var(--slk-paper)]/90">{t.contactTeaser.body}</p>
         </Reveal>
@@ -563,7 +583,9 @@ export function ServiceDetail({ locale, slug }: { locale: Locale; slug: string }
           <aside className="flex flex-col gap-6 lg:sticky lg:top-28 lg:self-start">
             {service.image && (
               <div className="relative aspect-square overflow-hidden rounded-2xl bg-[var(--slk-sand)]">
-                <Image src={service.image} alt="" fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+                <Parallax amount={4}>
+                  <Image src={service.image} alt="" fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+                </Parallax>
               </div>
             )}
             <div className="rounded-2xl bg-[var(--slk-ink)] p-8 text-[var(--slk-paper)]">

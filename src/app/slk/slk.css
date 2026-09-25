@@ -46,8 +46,47 @@
   animation: slk-marquee 40s linear infinite;
 }
 
+/* Pause the ribbon while someone is reading it. */
+.slk-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* Soft clay light drifting behind the hero arch. */
+@keyframes slk-glow-drift {
+  0%,
+  100% {
+    transform: translate3d(-4%, 2%, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(5%, -4%, 0) scale(1.08);
+    opacity: 0.8;
+  }
+}
+.slk-glow {
+  background: radial-gradient(closest-side, rgba(217, 138, 108, 0.7), rgba(217, 138, 108, 0) 72%);
+  filter: blur(24px);
+  animation: slk-glow-drift 14s ease-in-out infinite;
+}
+
+/* A gentle bob for small floating cards. */
+@keyframes slk-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.slk-float {
+  animation: slk-float 6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .slk-marquee-track {
+  .slk-marquee-track,
+  .slk-glow,
+  .slk-float {
     animation: none;
   }
 }

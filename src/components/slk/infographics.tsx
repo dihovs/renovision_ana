@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "motion/react";
 import { copy, type Locale } from "@/content/slk/copy";
 import { EASE } from "./motion";
@@ -127,7 +127,21 @@ export function RecoveryChart({ locale }: { locale: Locale }) {
  * square frame has the most room outside the circle.
  */
 export function ModalitiesRing({ modalities, center }: { modalities: string[]; center: string }) {
-  const { ref, shown } = useShown<HTMLDivElement>();
+  const { ref, shown, reduce } = useShown<HTMLDivElement>();
+  // After the draw-in, spotlight each technology in turn — four working as one.
+  const [active, setActive] = useState<number | null>(null);
+  useEffect(() => {
+    if (!shown || reduce) return;
+    let id: ReturnType<typeof setInterval> | undefined;
+    const start = setTimeout(() => {
+      setActive(0);
+      id = setInterval(() => setActive((a) => ((a ?? 0) + 1) % modalities.length), 2200);
+    }, 2600);
+    return () => {
+      clearTimeout(start);
+      if (id) clearInterval(id);
+    };
+  }, [shown, reduce, modalities.length]);
   const C = 150;
   const R = 96;
   const GAP = 8;
@@ -144,17 +158,38 @@ export function ModalitiesRing({ modalities, center }: { modalities: string[]; c
       <svg viewBox="0 0 300 300" className="absolute inset-0 h-full w-full" aria-hidden="true">
         <circle cx={C} cy={C} r={R} fill="none" stroke="var(--slk-line-dark)" strokeWidth={1} />
         <circle cx={C} cy={C} r={R - 26} fill="none" stroke="var(--slk-line-dark)" strokeWidth={1} />
+        {/* A small light orbiting the inner track once the ring is complete. */}
+        {shown && !reduce && (
+          <motion.g
+            initial={{ rotate: 0, opacity: 0 }}
+            animate={{ rotate: 360, opacity: 1 }}
+            transition={{
+              rotate: { duration: 8.8, ease: "linear", repeat: Infinity, delay: 2.6 },
+              opacity: { duration: 0.6, delay: 2.6 },
+            }}
+          >
+            {/* Invisible full-track circle: gives the group a centred bounding box to rotate around. */}
+            <circle cx={C} cy={C} r={R - 26} fill="none" stroke="none" />
+            <circle cx={C} cy={C - (R - 26)} r={4} fill="var(--slk-clay-soft)" />
+          </motion.g>
+        )}
         {modalities.map((m, i) => (
           <motion.path
             key={m}
             d={arc(-135 + i * 90)}
             fill="none"
             stroke="var(--slk-clay-soft)"
-            strokeWidth={6}
             strokeLinecap="round"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: shown ? 1 : 0 }}
-            transition={{ duration: 0.9, ease: EASE, delay: 0.2 + i * 0.35 }}
+            initial={{ pathLength: 0, strokeWidth: 6, opacity: 1 }}
+            animate={{
+              pathLength: shown ? 1 : 0,
+              strokeWidth: active === i ? 10 : 6,
+              opacity: active === null || active === i ? 1 : 0.45,
+            }}
+            transition={{
+              pathLength: { duration: 0.9, ease: EASE, delay: 0.2 + i * 0.35 },
+              default: { duration: 0.6, ease: EASE },
+            }}
           />
         ))}
       </svg>
@@ -177,8 +212,8 @@ export function ModalitiesRing({ modalities, center }: { modalities: string[]; c
             key={m}
             className={`absolute ${corners[i]}`}
             initial={{ opacity: 0, y: 8 }}
-            animate={shown ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-            transition={{ duration: 0.7, ease: EASE, delay: 0.55 + i * 0.35 }}
+            animate={shown ? { opacity: active === null || active === i ? 1 : 0.45, y: 0 } : { opacity: 0, y: 8 }}
+            transition={{ duration: 0.7, ease: EASE, delay: active === null ? 0.55 + i * 0.35 : 0 }}
           >
             <span className="text-xs text-[var(--slk-clay-soft)]">{String(i + 1).padStart(2, "0")}</span>
             <p className="font-slk-serif text-lg font-light leading-tight sm:text-xl">{m}</p>
