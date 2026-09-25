@@ -358,12 +358,12 @@ function ResultFigure({ item, className = "", delay = 0 }: { item: GalleryItem; 
 export function ResultsGallery({ locale }: { locale: Locale }) {
   const t = copy[locale].results;
   const ui = copy[locale].ui;
-  const groupHead = (label: string, count: number, phoneOnlySwipe: boolean) => (
+  const groupHead = (label: string, count: number) => (
     <div className="mb-6 flex items-baseline justify-between border-b border-[var(--slk-line)] pb-3">
       <p className="font-slk-serif text-2xl font-light">{label}</p>
       <p className="flex items-center gap-3 text-xs text-[var(--slk-ink)]/60">
-        {/* Swipe hint only where the row actually scrolls sideways. */}
-        <span className={`flex items-center gap-1.5 text-[var(--slk-clay)] ${phoneOnlySwipe ? "sm:hidden" : ""}`}>
+        {/* Swipe hint on phones only — from sm up the rows are plain grids. */}
+        <span className="flex items-center gap-1.5 text-[var(--slk-clay)] sm:hidden">
           {ui.swipe}
           <Arrow className="slk-nudge h-3.5 w-3.5" />
         </span>
@@ -371,9 +371,11 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
       </p>
     </div>
   );
-  // Edge-to-edge swipe row; scroll-padding keeps snapped cards off the screen edge.
-  const swipeRow =
-    "-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-4 sm:-mx-8 sm:scroll-px-8 sm:gap-6 sm:px-8";
+  // Phones: edge-to-edge swipe row (scroll-padding keeps snapped cards off the
+  // screen edge). From sm up: a plain grid, so every photo shows at once.
+  const galleryRow =
+    "-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:p-0";
+  const galleryCard = "w-[84%] shrink-0 snap-start sm:w-auto";
   return (
     <section className="bg-[var(--slk-bone)]">
       <div className={`${CONTAINER} py-16 sm:py-24 lg:py-32`}>
@@ -388,32 +390,19 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
         </Reveal>
 
         <div className="mt-16">
-          {groupHead(t.peauLabel, t.peau.length, true)}
-          {/* Swipes on phones like the body row; a plain grid from sm up. */}
-          <div className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:p-0 lg:grid-cols-3">
+          {groupHead(t.peauLabel, t.peau.length)}
+          <div className={`${galleryRow} lg:grid-cols-3`}>
             {t.peau.map((item, i) => (
-              <ResultFigure key={item.src} item={item} delay={i * 0.15} className="w-[84%] shrink-0 snap-start sm:w-auto" />
+              <ResultFigure key={item.src} item={item} delay={i * 0.15} className={galleryCard} />
             ))}
           </div>
         </div>
 
         <Reveal className="mt-16">
-          {groupHead(t.corpsLabel, t.corps.length, false)}
-          {/* Seven items don't sit well on a 3-col grid; a snap-scrolling row
-              handles any count and reads as a proper gallery. */}
-          <div
-            role="region"
-            aria-label={t.corpsLabel}
-            tabIndex={0}
-            className={swipeRow}
-          >
+          {groupHead(t.corpsLabel, t.corps.length)}
+          <div className={`${galleryRow} lg:grid-cols-4`}>
             {t.corps.map((item, i) => (
-              <ResultFigure
-                key={item.src}
-                item={item}
-                delay={Math.min(i, 3) * 0.15}
-                className="w-[84%] shrink-0 snap-start sm:w-[45%] lg:w-[31%]"
-              />
+              <ResultFigure key={item.src} item={item} delay={i * 0.15} className={galleryCard} />
             ))}
           </div>
         </Reveal>

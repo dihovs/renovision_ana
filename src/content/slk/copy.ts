@@ -360,7 +360,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Cellulite, fermeté & drainage lymphatique",
         blurb: "Les objectifs du remodelage corporel : peau plus ferme, cellulite, vergetures, drainage.",
-        image: "/slk/instagram/11-body-contouring-back-before-after.jpg",
+        image: "/slk/instagram/09-cellulite-before-after-legs-full.jpg",
         detail: {
           intro:
             "Ce sont les objectifs visés par le remodelage corporel avec le Beauty Pot, dans la même séance — pas des traitements séparés.",
@@ -410,10 +410,6 @@ export const copy: Record<Locale, Copy> = {
         { src: "/slk/instagram/08-body-contouring-abdomen-before-after-full.jpg", alt: "Avant / après remodelage corporel — abdomen" },
         { src: "/slk/instagram/14-body-contouring-abdomen-side-before-after-full.jpg", alt: "Avant / après remodelage corporel — abdomen, de profil" },
         { src: "/slk/instagram/09-cellulite-before-after-legs-full.jpg", alt: "Avant / après traitement de la cellulite — jambes" },
-        { src: "/slk/instagram/10-body-contouring-waist-before-after.jpg", alt: "Avant / après remodelage corporel — taille" },
-        { src: "/slk/instagram/11-body-contouring-back-before-after.jpg", alt: "Avant / après remodelage corporel — dos" },
-        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2.jpg", alt: "Avant / après remodelage corporel — abdomen" },
-        { src: "/slk/instagram/13-body-contouring-midsection-before-after.jpg", alt: "Avant / après remodelage corporel — mi-corps" },
       ],
     },
     noWalkIns: "Sur rendez-vous seulement — pas de visites sans rendez-vous.",
@@ -685,7 +681,7 @@ export const copy: Record<Locale, Copy> = {
         category: "remodelage",
         title: "Cellulite, Firmness & Lymphatic Drainage",
         blurb: "The stated goals of body contouring: firmer skin, cellulite, stretch marks, drainage.",
-        image: "/slk/instagram/11-body-contouring-back-before-after.jpg",
+        image: "/slk/instagram/09-cellulite-before-after-legs-full.jpg",
         detail: {
           intro:
             "These are the stated goals of body contouring with the Beauty Pot, within the same session — not separate treatments.",
@@ -734,10 +730,6 @@ export const copy: Record<Locale, Copy> = {
         { src: "/slk/instagram/08-body-contouring-abdomen-before-after-full.jpg", alt: "Body contouring before/after — abdomen" },
         { src: "/slk/instagram/14-body-contouring-abdomen-side-before-after-full.jpg", alt: "Body contouring before/after — abdomen, side view" },
         { src: "/slk/instagram/09-cellulite-before-after-legs-full.jpg", alt: "Cellulite treatment before/after — legs" },
-        { src: "/slk/instagram/10-body-contouring-waist-before-after.jpg", alt: "Body contouring before/after — waist" },
-        { src: "/slk/instagram/11-body-contouring-back-before-after.jpg", alt: "Body contouring before/after — back" },
-        { src: "/slk/instagram/12-body-contouring-abdomen-before-after-2.jpg", alt: "Body contouring before/after — abdomen" },
-        { src: "/slk/instagram/13-body-contouring-midsection-before-after.jpg", alt: "Body contouring before/after — midsection" },
       ],
     },
     noWalkIns: "By appointment only — no walk-ins.",

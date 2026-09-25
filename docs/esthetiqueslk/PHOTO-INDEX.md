@@ -20,6 +20,26 @@ Source: public guest-accessible Instagram profile `https://www.instagram.com/est
 | `public/slk/instagram/12-body-contouring-abdomen-before-after-2.jpg` | [DY0IAWppubI](https://www.instagram.com/esthetiqueslk/p/DY0IAWppubI/) | Abdomen/body-contouring before/after. | Remodelage results gallery. |
 | `public/slk/instagram/13-body-contouring-midsection-before-after.jpg` | [DTYr6MDjrG5](https://www.instagram.com/esthetiqueslk/p/DTYr6MDjrG5/) | Midsection transformation tied to the Beauty Pot 4-in-1 treatment. | Remodelage service / gallery. |
 
+## Client originals (current site set)
+
+On 2026-09-25 the clinic sent its full-resolution 1080×1080 Canva originals. The
+Instagram renditions above were cut off at the bottom (AVANT / APRÈS labels missing),
+so the site now uses only these `*-full.jpg` files, shown uncropped:
+
+| File | Replaces | What it shows |
+|---|---|---|
+| `04-peeling-before-after-acne-full.jpg` | `04` | Peeling chimique — acne-prone skin |
+| `04-peeling-after-full.jpg` | `04-peeling-after.jpg` | Hero: the "après" panel of the acne peel, frame cropped out |
+| `05-peeling-before-after-texture-full.jpg` | `05` | Peeling chimique — skin texture |
+| `06-peeling-before-after-eyes-full.jpg` | `06` | Peeling chimique — eye area |
+| `07-body-contouring-thighs-before-after-full.jpg` | `07` | Remodelage — back of thigh |
+| `08-body-contouring-abdomen-before-after-full.jpg` | `08` | Remodelage — abdomen, front (also the Beauty Pot image) |
+| `09-cellulite-before-after-legs-full.jpg` | `09` | Cellulite — legs (also the cellulite service image) |
+| `14-body-contouring-abdomen-side-before-after-full.jpg` | new | Abdomen, side view — treatment label to confirm with the clinic |
+
+`10`–`13` were removed from the site at the owner's request: no full-resolution
+original was supplied for them.
+
 ## Captured references
 
 - `docs/esthetiqueslk/reference/profile-header.png` — profile header, bio, follower count, highlights.
