@@ -6,9 +6,9 @@ import { slkPath } from "@/content/slk/paths";
 import { ClipReveal, CountUp, CurtainReveal, GrowLine, HeroTitle, Parallax, Reveal, SplitHeading } from "./motion";
 import { DayTimeline, JourneySteps, ModalitiesRing, RecoveryChart } from "./infographics";
 
-// The "after" half of a real peeling result (text and "before" panel cropped
-// out) — even, glowing skin, which is what the hero headline promises.
-const HERO_IMAGE = "/slk/instagram/04-peeling-after.jpg";
+// The "après" photo of a real peeling result (from the clinic's full-resolution post; frame and "avant"
+// panel cropped out) — even, glowing skin, which is what the hero headline promises.
+const HERO_IMAGE = "/slk/instagram/04-peeling-after-full.jpg";
 
 const CONTAINER = "mx-auto w-full max-w-7xl px-5 sm:px-8";
 
@@ -390,7 +390,7 @@ export function ResultsGallery({ locale }: { locale: Locale }) {
         <div className="mt-16">
           {groupHead(t.peauLabel, t.peau.length, true)}
           {/* Swipes on phones like the body row; a plain grid from sm up. */}
-          <div className={`${swipeRow} sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3`}>
+          <div className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-6 sm:overflow-visible sm:p-0 lg:grid-cols-3">
             {t.peau.map((item, i) => (
               <ResultFigure key={item.src} item={item} delay={i * 0.15} className="w-[84%] shrink-0 snap-start sm:w-auto" />
             ))}
