@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useInView, useReducedMotion } from "motion/react";
 import { business, copy, type Locale, type Review } from "@/content/slk/copy";
 
-const AUTOPLAY_MS = 6500;
+const AUTOPLAY_MS = 3250;
 /** Reviews longer than this get clamped with a "read more" toggle. */
 const CLAMP_AT = 240;
 
