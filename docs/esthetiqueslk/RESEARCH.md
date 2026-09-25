@@ -1,5 +1,7 @@
 # Clinique Esthétique SLK / @esthetiqueslk — website content brief research
 
+> **Address resolved (2026-09-25):** the owner confirmed **3774 boulevard Lévesque Ouest, Laval, QC H7V 1E8**, inside the B.U beauty lounge (parking and entrance at the back, per the Google listing). The 333 Saint-Martin address below came from Fresha and is no longer used on the site.
+
 **Research date:** 20 September 2026 (ET)  
 **Scope:** public web results, public Fresha listing, public Instagram profile/posts, and the supplied `/slk` preview.  
 **Important:** “Verified” below means visible on the cited public source; it does not mean the owner has reconfirmed that the information is current. Do not publish any conflicting NAP or unpriced service until SLK confirms it.

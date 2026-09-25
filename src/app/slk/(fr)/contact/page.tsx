@@ -39,7 +39,7 @@ export default function SlkContactFr() {
                   {business.address.line1}
                   <br />
                   {business.address.city}, {business.address.region} {business.address.postal}
-                  <span className="mt-3 block text-xs text-[var(--slk-clay-deep)]">{t.addressConfirmNote}</span>
+                  <span className="mt-3 block text-sm text-[var(--slk-ink)]/65">{t.addressNote}</span>
                 </dd>
               </div>
               <div className={row}>

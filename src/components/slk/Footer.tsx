@@ -24,6 +24,9 @@ export default function SlkFooter({ locale }: { locale: Locale }) {
               <br />
               {business.address.city}, {business.address.region} {business.address.postal}
             </p>
+            <p className="mt-2 max-w-xs text-xs font-light leading-relaxed text-[var(--slk-paper)]/60">
+              {t.contactPage.addressNote}
+            </p>
           </div>
           <div>
             <p className={colHead}>{t.nav.contact}</p>

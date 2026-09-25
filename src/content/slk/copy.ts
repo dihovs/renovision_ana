@@ -23,10 +23,11 @@ export const business = {
   name: "Clinique Esthétique SLK",
   domain: "esthetiqueslk.com",
   address: {
-    line1: "333, rue Saint-Martin Ouest, local 206",
+    // Confirmed by the owner (2026-09-25); matches the Google Business listing.
+    line1: "3774, boulevard Lévesque Ouest",
     city: "Laval",
     region: "QC",
-    postal: "H7M 1Y7",
+    postal: "H7V 1E8",
   },
   phone: "+1 450-969-8222",
   phoneHref: "tel:+14509698222",
@@ -199,7 +200,7 @@ type Copy = {
     title: string;
     intro: string;
     addressLabel: string;
-    addressConfirmNote: string;
+    addressNote: string;
     phoneLabel: string;
     emailLabel: string;
     hoursLabel: string;
@@ -524,8 +525,7 @@ export const copy: Record<Locale, Copy> = {
       title: "Contact",
       intro: "Nous serions ravis de vous accueillir à la clinique.",
       addressLabel: "Adresse",
-      addressConfirmNote:
-        "Des publications Instagram de la clinique (fin juin) mentionnaient une autre adresse (3774A boul. Lévesque O., Laval). Adresse à confirmer avec SLK avant publication.",
+      addressNote: "À l'intérieur du salon B.U beauty lounge — stationnement à l'arrière, entrée par la porte arrière.",
       phoneLabel: "Téléphone",
       emailLabel: "Courriel",
       hoursLabel: "Rendez-vous",
@@ -535,12 +535,12 @@ export const copy: Record<Locale, Copy> = {
       ],
       bookCta: "Réserver via Instagram",
       confirmNote:
-        "Coordonnées à confirmer avec la clinique — assemblées à partir de sources publiques, non vérifiées directement auprès de SLK.",
-      mapQuery: "333 rue Saint-Martin Ouest, Laval, QC H7M 1Y7",
+        "Téléphone et courriel à confirmer avec la clinique — tirés de sources publiques, non vérifiés directement auprès de SLK.",
+      mapQuery: "3774 Boulevard Lévesque Ouest, Laval, QC H7V 1E8",
     },
     footer: {
       rights: "Tous droits réservés.",
-      confirmNote: "Site de démonstration — coordonnées à confirmer avant publication.",
+      confirmNote: "Site de démonstration — téléphone et courriel à confirmer avant publication.",
     },
   },
   en: {
@@ -846,8 +846,7 @@ export const copy: Record<Locale, Copy> = {
       title: "Contact",
       intro: "We'd love to welcome you at the clinic.",
       addressLabel: "Address",
-      addressConfirmNote:
-        "Some of the clinic's own Instagram posts (late June) listed a different address (3774A boul. Lévesque O., Laval). Address needs confirming with SLK before publishing.",
+      addressNote: "Inside the B.U beauty lounge — parking at the back, enter through the back door.",
       phoneLabel: "Phone",
       emailLabel: "Email",
       hoursLabel: "Appointments",
@@ -857,12 +856,12 @@ export const copy: Record<Locale, Copy> = {
       ],
       bookCta: "Book via Instagram",
       confirmNote:
-        "Contact details need confirmation from the clinic — assembled from public sources, not verified directly with SLK.",
-      mapQuery: "333 rue Saint-Martin Ouest, Laval, QC H7M 1Y7",
+        "Phone and email still to be confirmed with the clinic — taken from public sources, not verified directly with SLK.",
+      mapQuery: "3774 Boulevard Lévesque Ouest, Laval, QC H7V 1E8",
     },
     footer: {
       rights: "All rights reserved.",
-      confirmNote: "Demo site — confirm contact details before publishing.",
+      confirmNote: "Demo site — confirm phone and email before publishing.",
     },
   },
 };
