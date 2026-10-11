@@ -2,6 +2,7 @@ import { db, isMissingTable, MigrationPendingError } from "./db";
 import { listOpenWalls } from "./roomWalls";
 import { openWallLengthMeters, perimeterWithOpenWallsMeters } from "../openWalls";
 import type { ScanGeometry } from "../roomScan";
+import type { AuthoredOpening } from "../authoredOpening";
 
 /**
  * Room scans, stored against the project they measured.
@@ -269,7 +270,7 @@ export type OpeningSurface = {
     rather than detected — its absence means "this save says nothing about
     openings", which is not the same statement as an empty list. */
 export type AuthoredOpenings = {
-  authored: { edge: number; offset: number; width: number; kind: string }[];
+  authored: AuthoredOpening[];
   doors: OpeningSurface[];
   windows: OpeningSurface[];
   passages: OpeningSurface[];

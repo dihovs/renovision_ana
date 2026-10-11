@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guarded } from "../../guard";
 import { deleteRoomScan, saveEditedPolygon, updateRoomScan } from "@/lib/crm/roomScans";
 import type { AuthoredOpenings, OpeningSurface } from "@/lib/crm/roomScans";
+import { readAuthoredOpening } from "@/lib/authoredOpening";
 
 /** One synthesized opening surface, or nothing — a single bad number drops
     the record rather than storing a NaN that will later render as a door. */
@@ -31,15 +32,9 @@ function readSurface(value: unknown): OpeningSurface | null {
 function readOpenings(body: Record<string, unknown>): AuthoredOpenings | undefined {
   if (!Array.isArray(body.authoredOpenings)) return undefined;
 
-  const authored = (body.authoredOpenings as unknown[]).flatMap((value) => {
-    const record = value as { edge?: unknown; offset?: unknown; width?: unknown; kind?: unknown };
-    const edge = Number(record?.edge);
-    const offset = Number(record?.offset);
-    const width = Number(record?.width);
-    return Number.isInteger(edge) && edge >= 0 && Number.isFinite(offset) && Number.isFinite(width) && typeof record?.kind === "string"
-      ? [{ edge, offset, width, kind: record.kind }]
-      : [];
-  });
+  const authored = (body.authoredOpenings as unknown[]).flatMap(
+    (value) => readAuthoredOpening(value) ?? [],
+  );
 
   const surfaces = (value: unknown): OpeningSurface[] =>
     Array.isArray(value) ? value.flatMap((v) => readSurface(v) ?? []) : [];
