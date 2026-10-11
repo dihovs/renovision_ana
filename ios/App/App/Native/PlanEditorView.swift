@@ -3612,10 +3612,16 @@ struct OpeningDetailView: View {
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         .onAppear { showPlacement() }
-        .onChange(of: typing) { previous, _ in
+        .onChange(of: typing) { previous, current in
             // Leaving a field commits it, the way Return does.
             if previous == .width { commitTyped(.width) }
             if previous == .offset { commitTyped(.offset) }
+            // Arriving empties it, the value it held left showing as the
+            // placeholder: a tap put the cursor in FRONT of "3'", so the
+            // first attempt at typing a width (the owner's reference plan,
+            // 11 Oct 2026) produced "0.97m3'" and was thrown away.
+            if current == .width { widthText = "" }
+            if current == .offset { offsetText = "" }
         }
         .confirmationDialog(
             "Delete this \(kind.label.lowercased())?",
@@ -3642,7 +3648,9 @@ struct OpeningDetailView: View {
         HStack {
             Text(label).foregroundStyle(Brand.ink)
             Spacer()
-            TextField("", text: text)
+            TextField(
+                UnitSettings.shared.format.format(field == .width ? width : offset), text: text
+            )
                 .multilineTextAlignment(.trailing)
                 .keyboardType(.numbersAndPunctuation)
                 .submitLabel(.done)
