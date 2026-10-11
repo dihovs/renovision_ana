@@ -111,7 +111,7 @@ struct PlanImportSheet: View {
                 }
                 .buttonStyle(PrimaryButtonStyle(enabled: true))
 
-                Text("Works best with the room sizes printed on the plan — they set the scale. Nothing is added until you have seen the result.")
+                Text("Works best with the room sizes or areas printed on the plan — they set the scale. Read on this phone; nothing is sent anywhere, and nothing is added until you have seen the result.")
                     .font(.system(size: 12))
                     .foregroundStyle(Brand.inkFaint)
             }

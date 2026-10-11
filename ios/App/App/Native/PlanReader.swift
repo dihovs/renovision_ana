@@ -64,113 +64,45 @@ enum PlanReader {
         // Labels are erased before the walls are looked for: text inside a
         // room would otherwise split it, and a label's strokes read as wall.
         var ink = sheet.ink
-        for label in labels.all { ink.clear(label.box.insetBy(dx: -2, dy: -2)) }
-
-        let thickness = ink.wallThickness()
-        // Walls without the thin lines: fixtures, counters, glazing, door
-        // arcs, dashes. Used to find wall FACES.
-        let walls = ink.eroded(max(1, thickness / 3)).dilated(max(1, thickness / 3))
-        // What seals a room: the walls, plus long thin lines — glazing and
-        // door arcs close their gaps — but not short ones. A dashed tray
-        // ceiling or a dashed garage-door track is a row of short lines,
-        // and sealing on it boxed the master bedroom into its own ceiling.
-        let sealInk = walls.union(ink.subtracting(walls).keepingComponents(longerThan: thickness * 4))
-        let reach = max(4, Int(Double(thickness) * 4.2))
-
-        let found = Rooms.find(labels: labels.rooms, sealInk: sealInk, reach: reach)
-        var rooms: [FoundRoom] = []
-        var placedBySize: [String] = []
-        var dropped: [String] = []
-
-        // A first scale from the rooms that are plainly themselves: one
-        // label, walls all round.
-        let plain = found.candidates.compactMap { c -> ([CGPoint], String?)? in
-            guard case .enclosed(let outline) = c.shape else { return nil }
-            return (outline, labels.rooms[c.label].printedSize)
+        var faint = sheet.faint
+        for label in labels.all {
+            ink.clear(label.box.insetBy(dx: -2, dy: -2))
+            faint.clear(label.box.insetBy(dx: -2, dy: -2))
         }
-        let plainAreas = found.candidates.compactMap { c -> ([CGPoint], Double)? in
-            guard case .enclosed(let outline) = c.shape, let area = labels.rooms[c.label].printedArea else { return nil }
-            return (outline, area.squareMetres)
-        }
-        guard let rough = Geometry.estimateScale(plain, imperial: labels.imperial) ?? Geometry.estimateScale(areas: plainAreas)
-        else { throw Failure.noScale }
+        let paper = Paper(ink: ink, faint: faint)
 
-        for candidate in found.candidates {
-            let label = labels.rooms[candidate.label]
-            let size = label.printedSize.flatMap { Lengths.printedSize($0, imperial: labels.imperial) }
-            var polygon: [CGPoint]?
-            switch candidate.shape {
-            case .enclosed(let outline):
-                // The drawing, unless it plainly is not the room the label
-                // describes — a tub's outline or shelving cut it short.
-                let box = Geometry.bounds(outline)
-                if let (a, b) = size, !Geometry.fits(box, a * rough, b * rough, tolerance: 0.2) {
-                    polygon = Geometry.rectangle(around: label.centre, size: (a, b), scale: rough, within: candidate.regionBox)
-                    placedBySize.append(label.name)
-                } else {
-                    polygon = outline
-                }
-            case .open, .unbounded:
-                // Open to its neighbours, or to the outside: placed by its
-                // printed size, centred on its label, then snapped.
-                if let (a, b) = size {
-                    let within = { if case .open = candidate.shape { return candidate.regionBox } else { return nil } }()
-                    polygon = Geometry.rectangle(around: label.centre, size: (a, b), scale: rough, within: within)
-                    placedBySize.append(label.name)
-                }
-            }
-            guard let polygon else { dropped.append(label.name); continue }
-            let type = Rooms.type(for: label.name)
-            rooms.append(FoundRoom(
-                name: label.name, roomType: type, printedSize: label.printedSize, printedArea: label.printedArea,
-                ceiling: label.ceiling,
-                polygon: polygon, bySize: placedBySize.last == label.name))
+        let found = Rooms.find(labels: labels.rooms, sealInk: paper.sealInk, reach: paper.reach)
+        guard let rough = firstScale(found.candidates, labels: labels) else { throw Failure.noScale }
+
+        var candidates = found.candidates
+        secondLook(&candidates, labels: labels, paper: paper, rough: rough)
+        let shares = shareOut(candidates, labels: labels, paper: paper)
+        let placed = place(candidates, labels: labels, shares: shares, rough: rough)
+        var rooms = placed.rooms
+        if !placed.bySize.isEmpty {
+            notes.append("Placed by their printed size (open to a neighbour, or the drawing was unclear): \(placed.bySize.joined(separator: ", ")).")
         }
-        if !placedBySize.isEmpty {
-            notes.append("Placed by their printed size (open to a neighbour, or the drawing was unclear): \(placedBySize.joined(separator: ", ")).")
-        }
-        if !dropped.isEmpty {
-            notes.append("Not drawn — no walls round \(dropped.count == 1 ? "it" : "them") and no size printed: \(dropped.joined(separator: ", ")).")
+        if !placed.dropped.isEmpty {
+            notes.append("Not drawn — no walls round \(placed.dropped.count == 1 ? "it" : "them") and no size printed: \(placed.dropped.joined(separator: ", ")).")
         }
         guard !rooms.isEmpty else { throw Failure.noRooms }
 
         let extra = Rooms.unlabelled(
-            region: found.region, sealed: found.sealed, reach: reach, scale: rough, cell: found.cell)
+            region: found.region, sealed: found.sealed, reach: paper.reach, scale: rough, cell: found.cell)
         if !extra.isEmpty {
             rooms += extra
             notes.append("\(extra.count) unlabelled space\(extra.count == 1 ? "" : "s") (\(extra.map(\.name).joined(separator: ", "))) named by shape — check \(extra.count == 1 ? "it" : "them").")
         }
 
-        // Snap, then line loose edges up with walls other rooms found. The
-        // search reaches 0.7 m: a kitchen's counters run along its walls and
-        // the room's rough outline stops at the counter, not the wall.
-        let longEdge = Double(max(sheet.size.width, sheet.size.height))
-        let snapReach = max(6, Int(max(longEdge * 0.02, 0.7 * rough)))
-        for i in rooms.indices {
-            let snapped = Geometry.snap(rooms[i].polygon, walls: walls, ink: ink, reach: snapReach)
-            if rooms[i].bySize {
-                let moved = Geometry.translated(rooms[i].polygon, toward: snapped.polygon, flags: snapped.edgeSnapped, tolerance: 0.15 * rough)
-                rooms[i].polygon = moved.polygon
-                rooms[i].edgeSnapped = moved.edgeSnapped
-            } else {
-                rooms[i].polygon = snapped.polygon
-                rooms[i].edgeSnapped = snapped.edgeSnapped
-            }
-        }
-        Geometry.pushClear(&rooms, gap: Double(thickness))
-        // A room placed by its size keeps that size: none of its sides is
-        // loose for this purpose.
-        let lined = Geometry.alignLooseEdges(
-            rooms.map { ($0.polygon, $0.bySize ? $0.edgeSnapped.map { _ in true } : $0.edgeSnapped) },
-            reach: snapReach, alongLimit: longEdge * 0.25)
-        for i in rooms.indices { rooms[i].polygon = lined[i] }
+        settle(&rooms, paper: paper, rough: rough, longEdge: Double(max(sheet.size.width, sheet.size.height)))
 
         let scale =
             Geometry.estimateScale(rooms.map { ($0.polygon, $0.printedSize) }, imperial: labels.imperial)
             ?? Geometry.estimateScale(areas: rooms.compactMap { r in r.printedArea.map { (r.polygon, $0.squareMetres) } })
             ?? rough
 
-        let openings = Openings.find(rooms: rooms, walls: walls, ink: ink, thickness: thickness, scale: scale)
+        let openings = Openings.find(
+            rooms: rooms, walls: paper.walls, lines: paper.faint, thickness: paper.thickness, scale: scale)
         let assembled = Geometry.assemble(rooms, openings: openings, scale: scale, imperial: labels.imperial)
         let unsized = rooms.filter { $0.printedSize == nil }.count
         if unsized > 0 {
@@ -179,6 +111,183 @@ enum PlanReader {
         return Reading(
             rooms: assembled.rooms, notes: notes, scale: scale, origin: assembled.origin,
             workingSize: sheet.size)
+    }
+
+    // `read` is kept to a list of steps on purpose: as one long function
+    // the optimiser took fifteen minutes over it — a release build that
+    // never finishes.
+
+    /// The plan's ink in the forms the steps need.
+    private struct Paper {
+        let ink: InkMask
+        let faint: InkMask
+        let thickness: Int
+        /// Walls without the thin lines: fixtures, counters, glazing, door
+        /// arcs, dashes. Used to find wall FACES.
+        let walls: InkMask
+        /// What seals a room: the walls, plus long thin lines — glazing and
+        /// door arcs close their gaps — but not short ones. A dashed tray
+        /// ceiling or a dashed garage-door track is a row of short lines,
+        /// and sealing on it boxed the master bedroom into its own ceiling.
+        let sealInk: InkMask
+        let reach: Int
+
+        init(ink: InkMask, faint: InkMask) {
+            self.ink = ink
+            self.faint = faint
+            thickness = ink.wallThickness()
+            walls = ink.eroded(max(1, thickness / 3)).dilated(max(1, thickness / 3))
+            sealInk = walls.union(ink.subtracting(walls).keepingComponents(longerThan: thickness * 4))
+            reach = max(4, Int(Double(thickness) * 4.2))
+        }
+    }
+
+    /// A first scale from the rooms that are plainly themselves: one label,
+    /// walls all round — by their printed sides, else their printed areas.
+    private static func firstScale(_ candidates: [Rooms.Candidate], labels: Labels) -> Double? {
+        let plain = candidates.compactMap { c -> ([CGPoint], String?)? in
+            guard case .enclosed(let outline) = c.shape else { return nil }
+            return (outline, labels.rooms[c.label].printedSize)
+        }
+        let plainAreas = candidates.compactMap { c -> ([CGPoint], Double)? in
+            guard case .enclosed(let outline) = c.shape, let area = labels.rooms[c.label].printedArea else { return nil }
+            return (outline, area.squareMetres)
+        }
+        return Geometry.estimateScale(plain, imperial: labels.imperial) ?? Geometry.estimateScale(areas: plainAreas)
+    }
+
+    /// A second look for the rooms the first could not enclose and has no
+    /// printed sides to place by — a room full of furniture, or a plan that
+    /// prints areas. The first look gave the scale; doors are under a metre
+    /// wide, so gaps are now sealed by 45 cm a side, and thin lines seal
+    /// only where they run wall to wall (glazing): a bed's outline or a
+    /// door's swing no longer cuts a bedroom in two.
+    private static func secondLook(_ candidates: inout [Rooms.Candidate], labels: Labels, paper: Paper, rough: Double) {
+        let lost = candidates.indices.filter { i in
+            if case .enclosed = candidates[i].shape { return false }
+            return labels.rooms[candidates[i].label].printedSize == nil
+        }
+        guard !lost.isEmpty else { return }
+        let glazed = paper.walls.union(
+            paper.ink.subtracting(paper.walls).keepingGlazing(walls: paper.walls, thickness: paper.thickness))
+        let second = Rooms.secondLook(
+            labels: labels.rooms, which: lost.map { candidates[$0].label }, sealInk: glazed,
+            reach: max(3, Int(0.45 * rough)))
+        for i in lost {
+            if let better = second[candidates[i].label] { candidates[i] = better }
+        }
+    }
+
+    /// Open-plan rooms with no printed sides: their share of the open space
+    /// says where they are and their proportions. Rooms already traced are
+    /// taken out of the paper, and nothing past the outermost walls counts —
+    /// a window gap otherwise lets a share run round the outside of the
+    /// house.
+    private static func shareOut(_ candidates: [Rooms.Candidate], labels: Labels, paper: Paper) -> [Int: CGRect] {
+        let wanting = candidates.filter { c in
+            if case .enclosed = c.shape { return false }
+            return labels.rooms[c.label].printedSize == nil
+        }.map(\.label)
+        guard !wanting.isEmpty else { return [:] }
+        var blocked = paper.sealInk.dilated(paper.reach)
+        for candidate in candidates {
+            guard case .enclosed(let outline) = candidate.shape else { continue }
+            blocked.fill(outline)
+        }
+        return Rooms.shares(
+            of: labels.rooms, indices: wanting, sealed: blocked, reach: paper.reach, within: paper.walls.extent)
+    }
+
+    /// Each candidate made a room: its tracing, or a rectangle of its
+    /// printed size (or area) where the drawing cannot say.
+    private static func place(_ candidates: [Rooms.Candidate], labels: Labels, shares: [Int: CGRect], rough: Double)
+        -> (rooms: [FoundRoom], bySize: [String], dropped: [String])
+    {
+        var rooms: [FoundRoom] = []
+        var bySize: [String] = []
+        var dropped: [String] = []
+        for candidate in candidates {
+            let label = labels.rooms[candidate.label]
+            guard let (polygon, sized) = outline(of: candidate, label: label, imperial: labels.imperial, share: shares[candidate.label], rough: rough)
+            else {
+                dropped.append(label.name)
+                continue
+            }
+            if sized { bySize.append(label.name) }
+            rooms.append(FoundRoom(
+                name: label.name, roomType: Rooms.type(for: label.name), printedSize: label.printedSize,
+                printedArea: label.printedArea, ceiling: label.ceiling, polygon: polygon, bySize: sized))
+        }
+        return (rooms, bySize, dropped)
+    }
+
+    private static func outline(
+        of candidate: Rooms.Candidate, label: Labels.RoomLabel, imperial: Bool, share: CGRect?, rough: Double
+    ) -> (polygon: [CGPoint], bySize: Bool)? {
+        var size = label.printedSize.flatMap { Lengths.printedSize($0, imperial: imperial) }
+        if size == nil, let share, let area = label.printedArea, share.width > 0, share.height > 0 {
+            // The share's proportions, the printed area — never wider or
+            // taller than the share itself, so the other side gives.
+            let m2 = area.squareMetres
+            let shareW = Double(share.width) / rough, shareH = Double(share.height) / rough
+            var a = (m2 * shareW / shareH).squareRoot(), b = m2 / a
+            if a > shareW { a = shareW; b = m2 / a }
+            if b > shareH { b = shareH; a = m2 / b }
+            size = (a, b)
+        }
+        switch candidate.shape {
+        case .enclosed(let outline):
+            // The drawing, unless it plainly is not the room the label
+            // describes — a tub's outline or shelving cut it short.
+            if let (a, b) = size, !Geometry.fits(Geometry.bounds(outline), a * rough, b * rough, tolerance: 0.2) {
+                return (Geometry.rectangle(around: label.centre, size: (a, b), scale: rough, within: candidate.regionBox), true)
+            }
+            return (outline, false)
+        case .open, .unbounded:
+            // Open to its neighbours, or to the outside: placed by its
+            // printed size, centred on its label (or its share), then
+            // snapped. With no size or area at all — UTILITIES behind a
+            // storage room's door — its share of the paper, snapped like a
+            // tracing.
+            if size == nil, label.printedArea == nil, let share {
+                let box = [
+                    CGPoint(x: share.minX, y: share.minY), CGPoint(x: share.maxX, y: share.minY),
+                    CGPoint(x: share.maxX, y: share.maxY), CGPoint(x: share.minX, y: share.maxY),
+                ]
+                return (box, false)
+            }
+            guard let (a, b) = size else { return nil }
+            var within: CGRect? = share
+            if within == nil, case .open = candidate.shape { within = candidate.regionBox }
+            let centre = share.map { CGPoint(x: $0.midX, y: $0.midY) } ?? label.centre
+            return (Geometry.rectangle(around: centre, size: (a, b), scale: rough, within: within), true)
+        }
+    }
+
+    /// Snap, then line loose edges up with walls other rooms found. The
+    /// search reaches 0.7 m: a kitchen's counters run along its walls and
+    /// the room's rough outline stops at the counter, not the wall.
+    private static func settle(_ rooms: inout [FoundRoom], paper: Paper, rough: Double, longEdge: Double) {
+        let snapReach = max(6, Int(max(longEdge * 0.02, 0.7 * rough)))
+        for i in rooms.indices {
+            let snapped = Geometry.snap(rooms[i].polygon, walls: paper.walls, ink: paper.ink, reach: snapReach)
+            if rooms[i].bySize {
+                let moved = Geometry.translated(
+                    rooms[i].polygon, toward: snapped.polygon, flags: snapped.edgeSnapped, tolerance: 0.15 * rough)
+                rooms[i].polygon = moved.polygon
+                rooms[i].edgeSnapped = moved.edgeSnapped
+            } else {
+                rooms[i].polygon = snapped.polygon
+                rooms[i].edgeSnapped = snapped.edgeSnapped
+            }
+        }
+        Geometry.pushClear(&rooms, gap: Double(paper.thickness))
+        // A room placed by its size keeps that size: none of its sides is
+        // loose for this purpose.
+        let lined = Geometry.alignLooseEdges(
+            rooms.map { ($0.polygon, $0.bySize ? $0.edgeSnapped.map { _ in true } : $0.edgeSnapped) },
+            reach: snapReach, alongLimit: longEdge * 0.25)
+        for i in rooms.indices { rooms[i].polygon = lined[i] }
     }
 }
 
@@ -229,6 +338,31 @@ struct InkMask {
         x < 0 || y < 0 || x >= width || y >= height ? 0 : bits[y * width + x]
     }
 
+    /// The box round all the ink — the house, outermost walls included.
+    var extent: CGRect {
+        var minX = width, maxX = -1, minY = height, maxY = -1
+        for y in 0..<height {
+            for x in 0..<width where bits[y * width + x] == 1 {
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        return maxX < 0 ? .zero : CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+    }
+
+    /// Ink laid over a polygon's inside — a room already traced, taken out
+    /// of the paper.
+    mutating func fill(_ polygon: [CGPoint]) {
+        let box = Geometry.bounds(polygon)
+        let x0 = max(0, Int(box.minX)), x1 = min(width, Int(box.maxX.rounded(.up)))
+        let y0 = max(0, Int(box.minY)), y1 = min(height, Int(box.maxY.rounded(.up)))
+        guard x0 < x1, y0 < y1 else { return }
+        for y in y0..<y1 {
+            for x in x0..<x1 where Geometry.contains(polygon, CGPoint(x: Double(x) + 0.5, y: Double(y) + 0.5)) {
+                bits[y * width + x] = 1
+            }
+        }
+    }
+
     mutating func clear(_ rect: CGRect) {
         let x0 = max(0, Int(rect.minX)), x1 = min(width, Int(rect.maxX.rounded(.up)))
         let y0 = max(0, Int(rect.minY)), y1 = min(height, Int(rect.maxY.rounded(.up)))
@@ -277,6 +411,27 @@ struct InkMask {
 
     /// Only the connected strokes whose extent reaches `length` pixels.
     func keepingComponents(longerThan length: Int) -> InkMask {
+        keepingComponents { box, _ in max(box.width, box.height) >= CGFloat(length) }
+    }
+
+    /// Straight thin lines that run from wall to wall — the glazing drawn
+    /// across a window — and nothing else thin: not a bed's outline, a
+    /// counter, or a door's leaf and swing, which touch a wall at one end
+    /// at most.
+    func keepingGlazing(walls: InkMask, thickness: Int) -> InkMask {
+        let near = walls.dilated(3)
+        return keepingComponents { box, members in
+            let long = max(box.width, box.height), thin = min(box.width, box.height)
+            guard long >= CGFloat(thickness * 2), thin <= CGFloat(thickness) * 1.5 else { return false }
+            let horizontal = box.width >= box.height
+            let ends = horizontal
+                ? (members.min { $0.x < $1.x }!, members.max { $0.x < $1.x }!)
+                : (members.min { $0.y < $1.y }!, members.max { $0.y < $1.y }!)
+            return near[ends.0.x, ends.0.y] == 1 && near[ends.1.x, ends.1.y] == 1
+        }
+    }
+
+    func keepingComponents(where keep: (CGRect, [(x: Int, y: Int)]) -> Bool) -> InkMask {
         var label = [Int32](repeating: -1, count: bits.count)
         var out = [UInt8](repeating: 0, count: bits.count)
         var next: Int32 = 0
@@ -297,15 +452,21 @@ struct InkMask {
                     }
                 }
             }
-            if max(maxX - minX, maxY - minY) >= length { for p in members { out[p] = 1 } }
+            let box = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+            if keep(box, members.map { (x: $0 % width, y: $0 / width) }) { for p in members { out[p] = 1 } }
             next += 1
         }
         return InkMask(width: width, height: height, bits: out)
     }
     func eroded(_ r: Int) -> InkMask { neighbourhood(r) { sum, area in sum == area } }
 
-    /// How thick the walls are drawn: the commonest run of ink across a line,
+    /// How thick the partitions are drawn: the thinnest run of ink across a
+    /// line that is common — at least a quarter as common as the commonest —
     /// counting runs of 3 px or more so hairlines and text do not vote.
+    /// Not simply the commonest: a plan that draws its outside walls twice
+    /// as thick as its partitions (the owner's first plan, 22 px against 9)
+    /// had every partition erased as "thin line" and every gap sealed at
+    /// twice a door's width.
     func wallThickness() -> Int {
         var votes = [Int](repeating: 0, count: 61)
         func count(_ run: Int) { if run >= 3 && run <= 60 { votes[run] += 1 } }
@@ -323,7 +484,11 @@ struct InkMask {
             }
             count(run)
         }
-        return votes.indices.max { votes[$0] < votes[$1] } ?? 5
+        let most = votes.max() ?? 0
+        guard most > 0 else { return 5 }
+        return (3..<60).first { run in
+            votes[run] * 4 >= most && votes[run] >= votes[run - 1] && votes[run] >= votes[run + 1]
+        } ?? (votes.indices.max { votes[$0] < votes[$1] } ?? 5)
     }
 
     /// Ink along a horizontal or vertical line, as a fraction of its length.
@@ -344,6 +509,10 @@ struct InkMask {
 struct Sheet {
     let size: CGSize
     let ink: InkMask
+    /// Everything visibly darker than the paper — the grey lines a plan
+    /// draws its glazing and door swings in, which the ink threshold
+    /// drops. Never used for walls; only to tell a window from a door.
+    let faint: InkMask
 
     static let targetPixels = 2_000_000.0
 
@@ -367,6 +536,11 @@ struct Sheet {
         size = CGSize(width: w, height: h)
         // With `data` supplied, row 0 of the buffer is the TOP of the image.
         ink = InkMask(width: w, height: h, bits: grey.map { $0 < threshold ? 1 : 0 })
+        // The paper is the commonest light grey (white, or a plan's yellow
+        // fill); faint is anything 35 levels under it.
+        let paper = (Int(threshold)..<256).max { histogram[$0] < histogram[$1] } ?? 255
+        let faintBelow = UInt8(max(Int(threshold), paper - 35))
+        faint = InkMask(width: w, height: h, bits: grey.map { $0 < faintBelow ? 1 : 0 })
     }
 
     static func otsu(_ histogram: [Double]) -> UInt8 {
@@ -449,7 +623,7 @@ struct Labels {
                 guard above.box.width >= above.box.height else { return false }
                 let gap = label.box.minY - above.box.maxY
                 let overlap = min(above.box.maxX, label.box.maxX) - max(above.box.minX, label.box.minX)
-                return gap > -2 && gap < above.box.height * 0.9 && overlap > min(above.box.width, label.box.width) * 0.3
+                return gap > -above.box.height * 0.3 && gap < above.box.height * 0.9 && overlap > min(above.box.width, label.box.width) * 0.3
             }), !merged[i].name.contains(" \(label.name)") {
                 merged[i].name = Labels.titled("\(merged[i].name) \(label.name)")
                 merged[i].box = merged[i].box.union(label.box)
@@ -575,7 +749,7 @@ struct Labels {
         // Mostly Latin letters, at least three of them; Cyrillic or noise
         // from a fixture symbol is dropped.
         guard letters >= 3, Double(letters) >= Double(raw.count) * 0.6 else { return nil }
-        let abbreviations = ["CLOS": "CLOSET", "CL": "CLOSET", "WIC": "WALK-IN CLOSET", "MBR": "MASTER BEDROOM", "BR": "BEDROOM", "BDRM": "BEDROOM", "BEDRM": "BEDROOM", "LIN": "LINEN", "DN": "DOWN", "UP": "UP"]
+        let abbreviations = ["CLOS": "CLOSET", "CL": "CLOSET", "WIC": "WALK-IN CLOSET", "MBR": "MASTER BEDROOM", "BR": "BEDROOM", "BDRM": "BEDROOM", "BEDRM": "BEDROOM", "LIN": "LINEN", "DN": "DOWN", "UP": "UP", "IWO": "TWO", "TW0": "TWO"]
         let mended = words.map { word -> String in
             if let full = abbreviations[word] { return full }
             if word.count >= 4, !vocabulary.contains(word),
@@ -643,7 +817,7 @@ enum Lengths {
 
     /// "137 sq ft", "57 sq. ft.", "12,7 m²", "85 pi²" → square metres.
     static func area(_ raw: String) -> PrintedArea? {
-        let pattern = #"^(\d+(?:[.,]\d+)?)\s*(sq\.?\s*ft\.?|ft2|ft²|sf|pi2|pi²|pc|p\.c\.|sq\.?\s*m\.?|m2|m²)$"#
+        let pattern = #"^(\d+(?:[.,]\d+)?)\s*(sq\.?\s*f[tl]?\.?|ft2|ft²|sf|pi2|pi²|pc|p\.c\.|sq\.?\s*m\.?|m2|m²)$"#
         guard let match = raw.range(of: pattern, options: [.regularExpression, .caseInsensitive]) else { return nil }
         let text = String(raw[match])
         let number = text.prefix { $0.isNumber || $0 == "." || $0 == "," }.replacingOccurrences(of: ",", with: ".")
@@ -705,7 +879,7 @@ enum Rooms {
             ("porch", ["porch"]),
             ("balcony", ["deck", "balcony", "patio"]),
             ("storage", ["storage"]),
-            ("utility", ["utility", "mechanical"]),
+            ("utility", ["utility", "utilities", "mechanical"]),
             ("office", ["office", "study", "bureau"]),
         ]
         return table.first { $0.1.contains(where: n.contains) }?.0 ?? "other"
@@ -784,7 +958,7 @@ enum Rooms {
         for (id, allSeeds) in seedsByRegion {
             // Labels without a size give way to labels with one — a "LINEN"
             // cabinet inside a bathroom must not make the bathroom open plan.
-            let sized = allSeeds.filter { labels[$0].printedSize != nil }
+            let sized = allSeeds.filter { labels[$0].printedSize != nil || labels[$0].printedArea != nil }
             let seeds = allSeeds.count > 1 && !sized.isEmpty ? sized : allSeeds
             swallowed += allSeeds.filter { !seeds.contains($0) }
 
@@ -808,7 +982,7 @@ enum Rooms {
                         // neighbour will not get better with more.
                         if let traced, Geometry.contains(traced, labels[seed].centre),
                             !labels.indices.contains(where: { other in
-                                other != seed && labels[other].printedSize != nil
+                                other != seed && (labels[other].printedSize != nil || labels[other].printedArea != nil)
                                     && Geometry.contains(traced, labels[other].centre)
                             })
                         {
@@ -855,9 +1029,83 @@ enum Rooms {
                 candidates.append(Candidate(label: index, shape: .enclosed(outline), regionBox: Geometry.bounds(outline)))
             } else if unseeded.contains(index) {
                 candidates.append(Candidate(label: index, shape: .unbounded, regionBox: nil))
+            } else {
+                candidates.append(Candidate(label: index, shape: .open, regionBox: nil))
             }
         }
         return (candidates, region, sealed, cell)
+    }
+
+    /// Open-plan paper shared out between its labels: each pixel goes to
+    /// the label it is the fewest steps from, walking round the walls, not
+    /// through them. Each label's share, as a box grown back out by the
+    /// sealing's reach — where in the open space that room is, and its
+    /// proportions. Used for rooms that print an area but not their sides.
+    static func shares(of labels: [Labels.RoomLabel], indices: [Int], sealed: InkMask, reach: Int, within house: CGRect) -> [Int: CGRect] {
+        let w = sealed.width, h = sealed.height
+        var owner = [Int32](repeating: -1, count: w * h)
+        var queue: [Int] = []
+        for index in indices {
+            guard let seed = freePixel(near: labels[index].centre, in: sealed, within: labels[index].searchRadius) else { continue }
+            let p = seed.y * w + seed.x
+            guard owner[p] == -1 else { continue }
+            owner[p] = Int32(index)
+            queue.append(p)
+        }
+        var head = 0
+        while head < queue.count {
+            let p = queue[head]
+            head += 1
+            let x = p % w, y = p / w
+            // Never out past the outermost walls: in from the outside
+            // through a window gap, a porch's share took the bedrooms' sills.
+            let x0 = Int(house.minX), x1 = Int(house.maxX) - 1, y0 = Int(house.minY), y1 = Int(house.maxY) - 1
+            for q in [x + 1 <= x1 ? p + 1 : -1, x > x0 ? p - 1 : -1, y + 1 <= y1 ? p + w : -1, y > y0 ? p - w : -1]
+            where q >= 0 && owner[q] == -1 && sealed.bits[q] == 0 {
+                owner[q] = owner[p]
+                queue.append(q)
+            }
+        }
+        // Each share's box with its outermost 4% trimmed off each way: a
+        // thin tendril — a sill, a passage between a bathroom and a sofa —
+        // must not stretch a room across the plan.
+        var xs: [Int: [Int]] = [:], ys: [Int: [Int]] = [:]
+        for p in owner.indices where owner[p] >= 0 {
+            xs[Int(owner[p]), default: []].append(p % w)
+            ys[Int(owner[p]), default: []].append(p / w)
+        }
+        var out: [Int: CGRect] = [:]
+        for (index, column) in xs {
+            guard let row = ys[index], column.count > 50 else { continue }
+            let sx = column.sorted(), sy = row.sorted()
+            let cut = sx.count / 25
+            let box = CGRect(
+                x: sx[cut], y: sy[cut], width: sx[sx.count - 1 - cut] - sx[cut], height: sy[sy.count - 1 - cut] - sy[cut])
+            out[index] = box.insetBy(dx: -CGFloat(reach), dy: -CGFloat(reach)).intersection(house)
+        }
+        return out
+    }
+
+    /// The second look (see `PlanReader.read`): each lost label's paper with
+    /// gaps sealed by `reach`. Its own outline if the paper holds no other
+    /// label; open plan, with the shared paper's extent, if it does.
+    static func secondLook(labels: [Labels.RoomLabel], which: [Int], sealInk: InkMask, reach: Int) -> [Int: Candidate] {
+        let sealed = sealInk.dilated(reach)
+        let w = sealed.width, h = sealed.height
+        var out: [Int: Candidate] = [:]
+        for index in which {
+            var own = [Int32](repeating: -1, count: w * h)
+            var pixels: [(Int, Int)] = []
+            for p in own.indices where own[p] == 0 { pixels.append((p % w, p / w)) }
+            guard let traced = Outline.trace(pixels, width: w, height: h, cell: max(2, reach / 3))
+                .map({ Outline.offset($0, by: Double(reach)) })
+            else { continue }
+            let others = labels.indices.filter { $0 != index && Geometry.contains(traced, labels[$0].centre) }
+            out[index] = others.isEmpty
+                ? Candidate(label: index, shape: .enclosed(traced), regionBox: Geometry.bounds(traced))
+                : Candidate(label: index, shape: .open, regionBox: Geometry.bounds(traced))
+        }
+        return out
     }
 
     /// Enclosed paper no label claimed: a hall, a linen closet, a powder
@@ -1378,7 +1626,7 @@ enum Openings {
     /// missing for at least 0.5 m there is an opening. Thin glazing lines
     /// across the gap make it a window; a clean gap is a door, a double
     /// door or a cased opening by width — a garage door in a garage.
-    static func find(rooms: [FoundRoom], walls: InkMask, ink: InkMask, thickness: Int, scale: Double) -> [Int: [PlanImportResult.Opening]] {
+    static func find(rooms: [FoundRoom], walls: InkMask, lines ink: InkMask, thickness: Int, scale: Double) -> [Int: [PlanImportResult.Opening]] {
         var result: [Int: [PlanImportResult.Opening]] = [:]
         let band = max(3, Int(Double(thickness) * 2.5))
         for (index, room) in rooms.enumerated() where !["porch", "balcony"].contains(room.roomType) {
@@ -1399,17 +1647,20 @@ enum Openings {
                 for s in 0..<steps {
                     let t = Double(s) / Double(steps)
                     let x = p.x + (q.x - p.x) * t, y = p.y + (q.y - p.y) * t
-                    var wallHits = 0, lineHits = 0
+                    var wallHits = 0, runs = 0, inRun = false
                     for k in 1...band {
                         let sx = Int(horizontal ? x : x + outward * Double(k))
                         let sy = Int(horizontal ? y + outward * Double(k) : y)
                         wallHits += Int(walls[sx, sy])
-                        // Glazing is drawn inside the wall's own thickness;
-                        // beyond it is the next room's door swing.
-                        if k <= thickness + 2 { lineHits += Int(ink[sx, sy]) }
+                        let line = ink[sx, sy] == 1
+                        if line && !inRun { runs += 1 }
+                        inRun = line
                     }
                     solid[s] = wallHits >= max(2, thickness / 2)
-                    glazed[s] = !solid[s] && lineHits >= 2
+                    // Glazing is two or three lines along the wall, side by
+                    // side across its thickness. One line is a threshold —
+                    // the French doors onto a porch have one.
+                    glazed[s] = !solid[s] && runs >= 2
                 }
                 // Runs of missing wall, ignoring the corners where the next
                 // room's wall meets this one.
@@ -1425,16 +1676,34 @@ enum Openings {
                     let bounded = s > margin && e < steps - margin
                     if widthM >= 0.5 && (bounded || widthM >= 1.5) {
                         let glazedShare = Double((s..<e).filter { glazed[$0] }.count) / Double(e - s)
+                        let along = { (step: Int) -> CGPoint in
+                            let t = Double(step) / Double(steps)
+                            return CGPoint(x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t)
+                        }
+                        let a = along(s), b = along(e)
+                        let swings = swingArc(from: a, to: b, horizontal: horizontal, lines: ink, walls: walls) >= 0.3
+                        let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+                        let beyond = horizontal
+                            ? CGPoint(x: mid.x, y: mid.y + outward * Double(band + 3))
+                            : CGPoint(x: mid.x + outward * Double(band + 3), y: mid.y)
+                        let outside = !rooms.enumerated().contains { j, other in
+                            j != index && !["porch", "balcony"].contains(other.roomType)
+                                && Geometry.contains(other.polygon, beyond)
+                        }
                         let kind: String
-                        if glazedShare > 0.6 {
-                            kind = widthM >= 1.5 ? "windowWide" : (widthM <= 0.65 ? "windowSmall" : "windowStandard")
-                        } else if room.roomType == "garage" && widthM >= 2.2 {
+                        if room.roomType == "garage" && widthM >= 2.2 {
                             kind = "doorGarage"
-                        } else if widthM <= 1.1 {
-                            kind = "doorSingle"
-                        } else if widthM <= 1.8 {
-                            kind = "doorDouble"
+                        } else if glazedShare > 0.6 || (outside && !swings) {
+                            // Glazing drawn across it — or an outside wall's
+                            // gap with no door drawn beside it: a window.
+                            // Glazing wins over strokes beside the gap; a
+                            // kitchen's counters run up to its windows.
+                            kind = widthM >= 1.5 ? "windowWide" : (widthM <= 0.65 ? "windowSmall" : "windowStandard")
+                        } else if swings {
+                            kind = widthM <= 1.1 ? "doorSingle" : (widthM <= 1.8 ? "doorDouble" : "doorCased")
                         } else {
+                            // Between two rooms with no swing drawn: an
+                            // open join, not a door.
                             kind = "doorCased"
                         }
                         result[index, default: []].append(PlanImportResult.Opening(
@@ -1446,5 +1715,34 @@ enum Openings {
             }
         }
         return result
+    }
+
+    /// How much of a door is drawn beside a gap: strokes that run away
+    /// from the wall — a leaf standing open, a swing's arc, the V of a pair
+    /// of French doors — on either side, out to six tenths of the gap's
+    /// width. Lines that run along the wall across most of the gap do not
+    /// count: glazing, an outside wall's hatching, a threshold. The share
+    /// of that depth where such strokes are found, the better side.
+    static func swingArc(from a: CGPoint, to b: CGPoint, horizontal: Bool, lines: InkMask, walls: InkMask) -> Double {
+        let width = horizontal ? abs(b.x - a.x) : abs(b.y - a.y)
+        guard width >= 6 else { return 0 }
+        let lo = Int(horizontal ? min(a.x, b.x) : min(a.y, b.y)), hi = lo + Int(width)
+        let face = Int(horizontal ? a.y : a.x)
+        let depth = max(4, Int(width * 0.6))
+        var best = 0.0
+        for side in [-1, 1] {
+            var rows = 0
+            for d in 3...depth {
+                let across = face + side * d
+                var count = 0
+                for along in (lo + 1)..<hi {
+                    let x = horizontal ? along : across, y = horizontal ? across : along
+                    if lines[x, y] == 1 && walls[x, y] == 0 { count += 1 }
+                }
+                if count > 0 && Double(count) < 0.7 * width { rows += 1 }
+            }
+            best = max(best, Double(rows) / Double(depth - 2))
+        }
+        return best
     }
 }
