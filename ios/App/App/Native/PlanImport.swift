@@ -3,43 +3,6 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// What `/api/v1/plan-import` sends back: somebody else's drawn plan, read
-/// into rooms. See `src/lib/planImport` for how — a model reads the labels
-/// and roughly where things are, then code snaps every wall to the ink and
-/// takes the scale from the printed sizes.
-struct PlanImportResult: Decodable {
-    struct Point: Decodable { let x: Double; let y: Double }
-    struct Opening: Decodable {
-        let edge: Int
-        let offset: Double
-        let width: Double
-        let kind: String
-    }
-    struct Room: Decodable, Identifiable {
-        var id: String { "\(name)-\(planX)-\(planY)" }
-        let name: String
-        let roomType: String
-        let outdoor: Bool
-        let ceilingHeightM: Double?
-        /// The room's own metres, its min corner at 0,0.
-        let polygon: [Point]
-        /// Where that corner sits on the floor, metres.
-        let planX: Double
-        let planY: Double
-        let openings: [Opening]
-        let printedSize: String?
-        let note: String?
-
-        var size: (w: Double, h: Double) {
-            (polygon.map(\.x).max() ?? 0, polygon.map(\.y).max() ?? 0)
-        }
-    }
-
-    let rooms: [Room]
-    let notes: [String]
-    let error: String?
-}
-
 /// **A plan somebody else drew, redrawn here as rooms.**
 ///
 /// The owner, 11 Oct 2026, after two reference plans were rebuilt by hand:
@@ -161,7 +124,7 @@ struct PlanImportSheet: View {
             ProgressView().controlSize(.large)
             Text("Reading the plan")
                 .font(.system(size: 17, weight: .semibold))
-            Text("About a minute. The rooms, sizes, doors and windows are read off the drawing, then lined up with its walls.")
+            Text("A few seconds, on this phone. The room names and sizes are read off the drawing, then each room is lined up with its walls.")
                 .font(.system(size: 14))
                 .foregroundStyle(Brand.inkSoft)
                 .multilineTextAlignment(.center)
@@ -249,14 +212,20 @@ struct PlanImportSheet: View {
 
     // MARK: - Work
 
+    /// Read on the phone itself — Vision for the printed names and sizes,
+    /// the image's own ink for the walls (`PlanReader`). Nothing leaves the
+    /// device, and it takes a second or two.
     private func read(_ image: UIImage) async {
         stage = .reading
-        guard let jpeg = Self.prepared(image) else {
+        guard let sheet = Self.flattened(image) else {
             stage = .failed("That image could not be prepared.")
             return
         }
         do {
-            stage = .review(try await API.shared.importPlan(jpeg: jpeg))
+            let reading = try await Task.detached(priority: .userInitiated) {
+                try PlanReader.read(sheet)
+            }.value
+            stage = .review(PlanImportResult(rooms: reading.rooms, notes: reading.notes))
         } catch {
             stage = .failed(error.localizedDescription)
         }
@@ -324,10 +293,9 @@ struct PlanImportSheet: View {
 
     // MARK: - Images
 
-    /// A JPEG the server can take in one request: at most 2200 px on the long
-    /// side (the server resizes to what the model reads anyway) and under
-    /// about 3 MB.
-    static func prepared(_ image: UIImage) -> Data? {
+    /// The image upright on white, at most 2200 px on the long side —
+    /// past that the reader only spends longer on the same walls.
+    static func flattened(_ image: UIImage) -> CGImage? {
         let longEdge = max(image.size.width, image.size.height)
         guard longEdge > 0 else { return nil }
         let scale = min(1, 2200 / longEdge)
@@ -335,17 +303,11 @@ struct PlanImportSheet: View {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         format.opaque = true
-        let flat = UIGraphicsImageRenderer(size: size, format: format).image { context in
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
             UIColor.white.setFill()
             context.fill(CGRect(origin: .zero, size: size))
             image.draw(in: CGRect(origin: .zero, size: size))
-        }
-        for quality in [0.85, 0.7, 0.55] {
-            if let data = flat.jpegData(compressionQuality: quality), data.count < 3_000_000 {
-                return data
-            }
-        }
-        return nil
+        }.cgImage
     }
 
     static func render(firstPageOf document: PDFDocument) -> UIImage? {
