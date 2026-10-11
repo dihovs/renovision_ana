@@ -496,428 +496,445 @@ struct StoreyBaseLayer: View {
             // owner may want it back once the turn itself feels right, and
             // reinstating it is then two lines rather than a rediscovery.
 
-            for storeyRoom in layout.rooms {
-                let isFocused = storeyRoom.id == focusedRoomID
-                // Fully gone once the overlay has fully arrived — not
-                // before, or the two are visibly two different scales for
-                // the first frames of the animation, the exact seam this
-                // whole layer exists to hide.
-                let opacity = isFocused ? Double(1 - focusProgress) : 1
-                guard opacity > 0.003 else { continue }
+            // **Two passes: every room's floor and walls, THEN everything that
+            // sits on a wall.** Drawn room by room, a door in one room was
+            // cut out of its own band and then painted straight over by the
+            // NEXT room's band along the same shared wall — so whether a
+            // doorway between two rooms showed at all depended on which of
+            // the two happened to come later in the list. A door between a
+            // bedroom and its hallway is in both rooms' wall; the walls all
+            // have to be down before any opening is knocked through them.
+            for pass in 0..<2 {
+                for storeyRoom in layout.rooms {
+                    let isFocused = storeyRoom.id == focusedRoomID
+                    // Fully gone once the overlay has fully arrived — not
+                    // before, or the two are visibly two different scales for
+                    // the first frames of the animation, the exact seam this
+                    // whole layer exists to hide.
+                    let opacity = isFocused ? Double(1 - focusProgress) : 1
+                    guard opacity > 0.003 else { continue }
 
-                let plan = storeyRoom.plan
-                let isNew = spotlight.contains(storeyRoom.id)
+                    let plan = storeyRoom.plan
+                    let isNew = spotlight.contains(storeyRoom.id)
 
-                // A room in the air is drawn where the finger has it, not
-                // where it is stored — the move and the turn are previewed
-                // here and written only when the gesture ends. One transform
-                // for the whole room, so its walls, its doors and the toilet
-                // standing in it all travel together; a version that moved
-                // only the outline is a room sliding out from under its own
-                // fixtures.
-                let lift = lifted?.id == storeyRoom.id ? lifted : nil
-                let pivot = StoreyArranging.centroid(plan.polygon)
-                let spin = (cos(lift?.angle ?? 0), sin(lift?.angle ?? 0))
+                    // A room in the air is drawn where the finger has it, not
+                    // where it is stored — the move and the turn are previewed
+                    // here and written only when the gesture ends. One transform
+                    // for the whole room, so its walls, its doors and the toilet
+                    // standing in it all travel together; a version that moved
+                    // only the outline is a room sliding out from under its own
+                    // fixtures.
+                    let lift = lifted?.id == storeyRoom.id ? lifted : nil
+                    let pivot = StoreyArranging.centroid(plan.polygon)
+                    let spin = (cos(lift?.angle ?? 0), sin(lift?.angle ?? 0))
 
-                /// A point in the room's own metres, put on the floor.
-                func floorPoint(_ x: Double, _ y: Double) -> CGPoint {
-                    guard let lift else {
-                        return CGPoint(x: storeyRoom.origin.x + x, y: storeyRoom.origin.y + y)
+                    /// A point in the room's own metres, put on the floor.
+                    func floorPoint(_ x: Double, _ y: Double) -> CGPoint {
+                        guard let lift else {
+                            return CGPoint(x: storeyRoom.origin.x + x, y: storeyRoom.origin.y + y)
+                        }
+                        let dx = x - pivot.x
+                        let dy = y - pivot.y
+                        return CGPoint(
+                            x: storeyRoom.origin.x + pivot.x + dx * spin.0 - dy * spin.1
+                                + lift.offset.width,
+                            y: storeyRoom.origin.y + pivot.y + dx * spin.1 + dy * spin.0
+                                + lift.offset.height)
                     }
-                    let dx = x - pivot.x
-                    let dy = y - pivot.y
-                    return CGPoint(
-                        x: storeyRoom.origin.x + pivot.x + dx * spin.0 - dy * spin.1
-                            + lift.offset.width,
-                        y: storeyRoom.origin.y + pivot.y + dx * spin.1 + dy * spin.0
-                            + lift.offset.height)
-                }
 
-                func pt(_ x: Double, _ y: Double) -> CGPoint {
-                    viewport.point(floorPoint(x, y))
-                }
-
-                if plan.polygon.count >= 3 {
-                    var floor = Path()
-                    floor.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
-                    for p in plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
-                    floor.closeSubpath()
-                    let fill: Color
-                    if isNew {
-                        fill = Brand.Plan.paper
-                    } else if let custom = storeyRoom.room.displayColor {
-                        fill = custom.opacity(0.35)
-                    } else {
-                        fill = Brand.Plan.floorMuted
+                    func pt(_ x: Double, _ y: Double) -> CGPoint {
+                        viewport.point(floorPoint(x, y))
                     }
+
+                    // Real interior wall, 2×4 partition + drywall — the same
+                    // figure `FloorPlanView` uses, so the two never draw a
+                    // different thickness for what is the same wall.
+                    let wallThicknessM = 0.114
+                    let band = max(2, wallThicknessM * viewport.scale)
+
+                    if pass == 0 {
+                        if plan.polygon.count >= 3 {
+                            var floor = Path()
+                            floor.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
+                            for p in plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
+                            floor.closeSubpath()
+                            let fill: Color
+                            if isNew {
+                                fill = Brand.Plan.paper
+                            } else if let custom = storeyRoom.room.displayColor {
+                                fill = custom.opacity(0.35)
+                            } else {
+                                fill = Brand.Plan.floorMuted
+                            }
+                            context.opacity = opacity
+                            context.fill(floor, with: .color(fill))
+                            if isNew {
+                                context.stroke(
+                                    floor, with: .color(Brand.blue.opacity(0.55)),
+                                    style: StrokeStyle(lineWidth: 1.5))
+                            }
+                            context.opacity = 1
+                        }
+
+                        context.opacity = opacity
+
+                        // ONE closed path with a MITRE join, not one subpath per
+                        // wall segment. Two earlier attempts got this wrong in the
+                        // same way, and it is worth naming why: a separate
+                        // `move`/`addLine` per segment means the segments are
+                        // separate SUBPATHS, and a stroke applies `lineJoin` only
+                        // WITHIN a subpath — so between two walls there was never
+                        // any join at all, whatever the caps did. Nudging endpoints
+                        // outward (build 105) and then changing the cap style
+                        // (build 106) were both treating a symptom: two disjoint
+                        // rectangles overlapping near a corner, their own square
+                        // ends poking out past the true mitre at any angle that is
+                        // not 90°. The owner's zoomed screenshot showed exactly
+                        // that — a notch and a spur at the junction.
+                        //
+                        // Stroking the room's own closed outline instead lets the
+                        // renderer mitre each corner properly, by construction, at
+                        // any angle. No endpoint arithmetic, nothing to tune.
+                        if plan.polygon.count >= 3 {
+                            var outline = Path()
+                            outline.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
+                            for p in plan.polygon.dropFirst() { outline.addLine(to: pt(p.x, p.y)) }
+                            outline.closeSubpath()
+                            context.stroke(
+                                outline, with: .color(ink),
+                                style: StrokeStyle(lineWidth: band, lineCap: .butt, lineJoin: .miter))
+                        } else {
+                            // No closed outline — a scan whose walls never chained.
+                            // Falls back to loose segments, which cannot mitre
+                            // because they genuinely do not meet. `.round` keeps
+                            // the loose ends from reading as deliberate square
+                            // corners they are not.
+                            var walls = Path()
+                            for s in plan.segments {
+                                walls.move(to: pt(s.x1, s.y1))
+                                walls.addLine(to: pt(s.x2, s.y2))
+                            }
+                            context.stroke(
+                                walls, with: .color(ink),
+                                style: StrokeStyle(lineWidth: band, lineCap: .round))
+                        }
+                        context.opacity = 1
+                        continue
+                    }
+
                     context.opacity = opacity
-                    context.fill(floor, with: .color(fill))
-                    if isNew {
+
+                    // **The damage.** The owner, on build 214: *"there is an
+                    // affected area that I don't see here. I wanna see it."*
+                    // The thumbnail `LevelCanvas` has drawn these all along and
+                    // this screen never did, which is the worse way round — the
+                    // card is a glance, THIS is where the work is done, and a
+                    // shaded patch is what the estimate's quantities are
+                    // measured from. `EditorChrome.drawArea` is the one renderer
+                    // the owner asked for ("create one and put it in three
+                    // places"); this is the third place, finally using it.
+                    //
+                    // `surface != "wall"` because a wall area belongs on the
+                    // elevation, not lying flat on the floor plan.
+                    //
+                    // Under the furniture, so a vanity standing in a wet patch
+                    // still reads as a vanity.
+                    for area in areas[storeyRoom.id] ?? [] where area.surface != "wall" {
+                        EditorChrome.drawArea(
+                            polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                            tone: area.displayColor, context: context,
+                            toScreen: { viewport.point(floorPoint($0.x, $0.y)) })
+                    }
+
+                    // Objects standing in this room, in the room's OWN metres
+                    // shifted onto the floor by its origin — the same figures
+                    // the room editor draws, so the storey and the room are one
+                    // drawing at two scales rather than two drawings.
+                    //
+                    // Under the openings, so a door's swing arc stays readable
+                    // where it crosses a cabinet run.
+                    for object in objects[storeyRoom.id] ?? [] {
+                        EditorChrome.drawObject(
+                            object
+                                .moved(to: floorPoint(object.x, object.y))
+                                .rotated(to: object.rotation + (lift?.angle ?? 0) * 180 / .pi),
+                            context: context,
+                            toScreen: { viewport.point($0) },
+                            scale: viewport.scale,
+                            selected: false,
+                            // No names at storey scale: a room here is a
+                            // hundred points wide and the room's own name plate
+                            // is already competing for that space. The symbol
+                            // is what carries the meaning; the label belongs
+                            // where there is room for it.
+                            labelled: false,
+                            // The storey's turn, so a sofa turns with the room
+                            // it stands in rather than staying square to the
+                            // screen while the walls go round it.
+                            turn: viewport.angle * 180 / .pi)
+                    }
+
+                    // Openings: knock the band out, then draw the SYMBOL — a
+                    // door's leaf and quarter-swing arc, a window's frame lines.
+                    // This layer used to knock the gap out and stop there, so
+                    // every door and window on the storey read as an identical
+                    // blank notch. The owner, 18 Aug 2026: *"I want to see the
+                    // door and the opening direction and the windows, I would
+                    // like to see window."* Same conventions `FloorPlanView`
+                    // draws at room scale (hinge at the jamb nearer a joint,
+                    // swing toward the room's own middle — conventions, not
+                    // measurements, since the scan records neither), scaled
+                    // down and thinned for a storey sheet.
+                    let joints = FloorPlanGeometry.joints(plan.segments)
+                    var centreX = plan.width / 2
+                    var centreY = plan.height / 2
+                    if plan.polygon.count >= 3 {
+                        centreX = plan.polygon.reduce(0) { $0 + $1.x } / Double(plan.polygon.count)
+                        centreY = plan.polygon.reduce(0) { $0 + $1.y } / Double(plan.polygon.count)
+                    }
+
+                    for opening in plan.openings {
+                        let seg = opening.segment
+                        let w = seg.length
+                        guard w > 0.05 else { continue }
+                        let ux = (seg.x2 - seg.x1) / w
+                        let uy = (seg.y2 - seg.y1) / w
+                        let nx = -uy
+                        let ny = ux
+
+                        var cut = Path()
+                        cut.move(to: pt(seg.x1, seg.y1))
+                        cut.addLine(to: pt(seg.x2, seg.y2))
                         context.stroke(
-                            floor, with: .color(Brand.blue.opacity(0.55)),
-                            style: StrokeStyle(lineWidth: 1.5))
-                    }
-                    context.opacity = 1
-                }
+                            cut, with: .color(bg), style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
 
-                // Real interior wall, 2×4 partition + drywall — the same
-                // figure `FloorPlanView` uses, so the two never draw a
-                // different thickness for what is the same wall.
-                let wallThicknessM = 0.114
-                let band = max(2, wallThicknessM * viewport.scale)
-                context.opacity = opacity
+                        // Below roughly this size the symbol is finer than the
+                        // eye separates and only muddies the gap it sits in —
+                        // the same level-of-detail rule `FloorPlanView` applies
+                        // at its own thumbnail tier.
+                        guard w * viewport.scale >= 14 else { continue }
 
-                // ONE closed path with a MITRE join, not one subpath per
-                // wall segment. Two earlier attempts got this wrong in the
-                // same way, and it is worth naming why: a separate
-                // `move`/`addLine` per segment means the segments are
-                // separate SUBPATHS, and a stroke applies `lineJoin` only
-                // WITHIN a subpath — so between two walls there was never
-                // any join at all, whatever the caps did. Nudging endpoints
-                // outward (build 105) and then changing the cap style
-                // (build 106) were both treating a symptom: two disjoint
-                // rectangles overlapping near a corner, their own square
-                // ends poking out past the true mitre at any angle that is
-                // not 90°. The owner's zoomed screenshot showed exactly
-                // that — a notch and a spur at the junction.
-                //
-                // Stroking the room's own closed outline instead lets the
-                // renderer mitre each corner properly, by construction, at
-                // any angle. No endpoint arithmetic, nothing to tune.
-                if plan.polygon.count >= 3 {
-                    var outline = Path()
-                    outline.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
-                    for p in plan.polygon.dropFirst() { outline.addLine(to: pt(p.x, p.y)) }
-                    outline.closeSubpath()
-                    context.stroke(
-                        outline, with: .color(ink),
-                        style: StrokeStyle(lineWidth: band, lineCap: .butt, lineJoin: .miter))
-                } else {
-                    // No closed outline — a scan whose walls never chained.
-                    // Falls back to loose segments, which cannot mitre
-                    // because they genuinely do not meet. `.round` keeps
-                    // the loose ends from reading as deliberate square
-                    // corners they are not.
-                    var walls = Path()
-                    for s in plan.segments {
-                        walls.move(to: pt(s.x1, s.y1))
-                        walls.addLine(to: pt(s.x2, s.y2))
-                    }
-                    context.stroke(
-                        walls, with: .color(ink),
-                        style: StrokeStyle(lineWidth: band, lineCap: .round))
-                }
-
-                // **The damage.** The owner, on build 214: *"there is an
-                // affected area that I don't see here. I wanna see it."*
-                // The thumbnail `LevelCanvas` has drawn these all along and
-                // this screen never did, which is the worse way round — the
-                // card is a glance, THIS is where the work is done, and a
-                // shaded patch is what the estimate's quantities are
-                // measured from. `EditorChrome.drawArea` is the one renderer
-                // the owner asked for ("create one and put it in three
-                // places"); this is the third place, finally using it.
-                //
-                // `surface != "wall"` because a wall area belongs on the
-                // elevation, not lying flat on the floor plan.
-                //
-                // Under the furniture, so a vanity standing in a wet patch
-                // still reads as a vanity.
-                for area in areas[storeyRoom.id] ?? [] where area.surface != "wall" {
-                    EditorChrome.drawArea(
-                        polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
-                        tone: area.displayColor, context: context,
-                        toScreen: { viewport.point(floorPoint($0.x, $0.y)) })
-                }
-
-                // Objects standing in this room, in the room's OWN metres
-                // shifted onto the floor by its origin — the same figures
-                // the room editor draws, so the storey and the room are one
-                // drawing at two scales rather than two drawings.
-                //
-                // Under the openings, so a door's swing arc stays readable
-                // where it crosses a cabinet run.
-                for object in objects[storeyRoom.id] ?? [] {
-                    EditorChrome.drawObject(
-                        object
-                            .moved(to: floorPoint(object.x, object.y))
-                            .rotated(to: object.rotation + (lift?.angle ?? 0) * 180 / .pi),
-                        context: context,
-                        toScreen: { viewport.point($0) },
-                        scale: viewport.scale,
-                        selected: false,
-                        // No names at storey scale: a room here is a
-                        // hundred points wide and the room's own name plate
-                        // is already competing for that space. The symbol
-                        // is what carries the meaning; the label belongs
-                        // where there is room for it.
-                        labelled: false,
-                        // The storey's turn, so a sofa turns with the room
-                        // it stands in rather than staying square to the
-                        // screen while the walls go round it.
-                        turn: viewport.angle * 180 / .pi)
-                }
-
-                // Openings: knock the band out, then draw the SYMBOL — a
-                // door's leaf and quarter-swing arc, a window's frame lines.
-                // This layer used to knock the gap out and stop there, so
-                // every door and window on the storey read as an identical
-                // blank notch. The owner, 18 Aug 2026: *"I want to see the
-                // door and the opening direction and the windows, I would
-                // like to see window."* Same conventions `FloorPlanView`
-                // draws at room scale (hinge at the jamb nearer a joint,
-                // swing toward the room's own middle — conventions, not
-                // measurements, since the scan records neither), scaled
-                // down and thinned for a storey sheet.
-                let joints = FloorPlanGeometry.joints(plan.segments)
-                var centreX = plan.width / 2
-                var centreY = plan.height / 2
-                if plan.polygon.count >= 3 {
-                    centreX = plan.polygon.reduce(0) { $0 + $1.x } / Double(plan.polygon.count)
-                    centreY = plan.polygon.reduce(0) { $0 + $1.y } / Double(plan.polygon.count)
-                }
-
-                for opening in plan.openings {
-                    let seg = opening.segment
-                    let w = seg.length
-                    guard w > 0.05 else { continue }
-                    let ux = (seg.x2 - seg.x1) / w
-                    let uy = (seg.y2 - seg.y1) / w
-                    let nx = -uy
-                    let ny = ux
-
-                    var cut = Path()
-                    cut.move(to: pt(seg.x1, seg.y1))
-                    cut.addLine(to: pt(seg.x2, seg.y2))
-                    context.stroke(
-                        cut, with: .color(bg), style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
-
-                    // Below roughly this size the symbol is finer than the
-                    // eye separates and only muddies the gap it sits in —
-                    // the same level-of-detail rule `FloorPlanView` applies
-                    // at its own thumbnail tier.
-                    guard w * viewport.scale >= 14 else { continue }
-
-                    // Jamb caps, so the gap reads as a framed opening
-                    // rather than a break in the wall.
-                    let halfT = wallThicknessM / 2
-                    for (jx, jy) in [(seg.x1, seg.y1), (seg.x2, seg.y2)] {
-                        var jamb = Path()
-                        jamb.move(to: pt(jx - nx * halfT, jy - ny * halfT))
-                        jamb.addLine(to: pt(jx + nx * halfT, jy + ny * halfT))
-                        context.stroke(jamb, with: .color(ink), lineWidth: 0.9)
-                    }
-
-                    switch opening.kind {
-                    case .window:
-                        for side in [1.0, -1.0] {
-                            var frame = Path()
-                            frame.move(to: pt(seg.x1 + side * nx * halfT, seg.y1 + side * ny * halfT))
-                            frame.addLine(to: pt(seg.x2 + side * nx * halfT, seg.y2 + side * ny * halfT))
-                            context.stroke(frame, with: .color(ink), lineWidth: 0.8)
+                        // Jamb caps, so the gap reads as a framed opening
+                        // rather than a break in the wall.
+                        let halfT = wallThicknessM / 2
+                        for (jx, jy) in [(seg.x1, seg.y1), (seg.x2, seg.y2)] {
+                            var jamb = Path()
+                            jamb.move(to: pt(jx - nx * halfT, jy - ny * halfT))
+                            jamb.addLine(to: pt(jx + nx * halfT, jy + ny * halfT))
+                            context.stroke(jamb, with: .color(ink), lineWidth: 0.9)
                         }
 
-                    case .door where w >= 0.45:
-                        func jointDistance(_ x: Double, _ y: Double) -> Double {
-                            joints.map { hypot($0.x - x, $0.y - y) }.min() ?? 9
-                        }
-                        let inward: Double =
-                            ((centreX - (seg.x1 + seg.x2) / 2) * nx
-                                + (centreY - (seg.y1 + seg.y2) / 2) * ny) >= 0 ? 1 : -1
-                        // The authored swing wins where there is one. The
-                        // storey has to agree with the room editor about
-                        // which way a door opens, or the same door reads two
-                        // ways at two zoom levels.
-                        let sideSign = (opening.swingInward ?? true) ? inward : -inward
+                        switch opening.kind {
+                        case .window:
+                            for side in [1.0, -1.0] {
+                                var frame = Path()
+                                frame.move(to: pt(seg.x1 + side * nx * halfT, seg.y1 + side * ny * halfT))
+                                frame.addLine(to: pt(seg.x2 + side * nx * halfT, seg.y2 + side * ny * halfT))
+                                context.stroke(frame, with: .color(ink), lineWidth: 0.8)
+                            }
 
-                        /// One leaf hinged at `h`, latching at `l`, swinging
-                        /// into the room. Extracted so a double door can
-                        /// call it twice — drawing one leaf for every door
-                        /// regardless of kind is exactly what made a double
-                        /// read as a single on the storey sheet.
-                        func leafAndArc(hx: Double, hy: Double, lx: Double, ly: Double) {
-                            let span = hypot(lx - hx, ly - hy)
-                            guard span > 0.01 else { return }
-                            let H = pt(hx + sideSign * nx * halfT, hy + sideSign * ny * halfT)
-                            let latch = pt(lx + sideSign * nx * halfT, ly + sideSign * ny * halfT)
-                            let tip = pt(
-                                hx + sideSign * nx * (halfT + span),
-                                hy + sideSign * ny * (halfT + span))
+                        case .door where w >= 0.45:
+                            func jointDistance(_ x: Double, _ y: Double) -> Double {
+                                joints.map { hypot($0.x - x, $0.y - y) }.min() ?? 9
+                            }
+                            let inward: Double =
+                                ((centreX - (seg.x1 + seg.x2) / 2) * nx
+                                    + (centreY - (seg.y1 + seg.y2) / 2) * ny) >= 0 ? 1 : -1
+                            // The authored swing wins where there is one. The
+                            // storey has to agree with the room editor about
+                            // which way a door opens, or the same door reads two
+                            // ways at two zoom levels.
+                            let sideSign = (opening.swingInward ?? true) ? inward : -inward
 
-                            var leaf = Path()
-                            leaf.move(to: H)
-                            leaf.addLine(to: tip)
-                            context.stroke(leaf, with: .color(ink), lineWidth: 0.9)
+                            /// One leaf hinged at `h`, latching at `l`, swinging
+                            /// into the room. Extracted so a double door can
+                            /// call it twice — drawing one leaf for every door
+                            /// regardless of kind is exactly what made a double
+                            /// read as a single on the storey sheet.
+                            func leafAndArc(hx: Double, hy: Double, lx: Double, ly: Double) {
+                                let span = hypot(lx - hx, ly - hy)
+                                guard span > 0.01 else { return }
+                                let H = pt(hx + sideSign * nx * halfT, hy + sideSign * ny * halfT)
+                                let latch = pt(lx + sideSign * nx * halfT, ly + sideSign * ny * halfT)
+                                let tip = pt(
+                                    hx + sideSign * nx * (halfT + span),
+                                    hy + sideSign * ny * (halfT + span))
 
-                            let r = hypot(tip.x - H.x, tip.y - H.y)
-                            let a0 = Angle(radians: atan2(tip.y - H.y, tip.x - H.x))
-                            let a1 = Angle(radians: atan2(latch.y - H.y, latch.x - H.x))
-                            var delta = a1.radians - a0.radians
-                            while delta > .pi { delta -= 2 * .pi }
-                            while delta < -.pi { delta += 2 * .pi }
-                            var arc = Path()
-                            arc.addArc(
-                                center: H, radius: r, startAngle: a0, endAngle: a1,
-                                clockwise: delta < 0)
-                            context.stroke(arc, with: .color(ink.opacity(0.75)), lineWidth: 0.6)
-                        }
+                                var leaf = Path()
+                                leaf.move(to: H)
+                                leaf.addLine(to: tip)
+                                context.stroke(leaf, with: .color(ink), lineWidth: 0.9)
 
-                        // The SPECIFIC kind decides the symbol. Nil means a
-                        // RoomPlan detection, which cannot know — falls back
-                        // to the single-leaf convention, which is what this
-                        // drew for every door before `detail` existed.
-                        switch opening.detail {
-                        case .doorDouble:
-                            // Two leaves, each hinged at its own jamb,
-                            // meeting in the middle — so the pair of arcs
-                            // reads as a double at a glance.
-                            let mx = (seg.x1 + seg.x2) / 2
-                            let my = (seg.y1 + seg.y2) / 2
-                            leafAndArc(hx: seg.x1, hy: seg.y1, lx: mx, ly: my)
-                            leafAndArc(hx: seg.x2, hy: seg.y2, lx: mx, ly: my)
+                                let r = hypot(tip.x - H.x, tip.y - H.y)
+                                let a0 = Angle(radians: atan2(tip.y - H.y, tip.x - H.x))
+                                let a1 = Angle(radians: atan2(latch.y - H.y, latch.x - H.x))
+                                var delta = a1.radians - a0.radians
+                                while delta > .pi { delta -= 2 * .pi }
+                                while delta < -.pi { delta += 2 * .pi }
+                                var arc = Path()
+                                arc.addArc(
+                                    center: H, radius: r, startAngle: a0, endAngle: a1,
+                                    clockwise: delta < 0)
+                                context.stroke(arc, with: .color(ink.opacity(0.75)), lineWidth: 0.6)
+                            }
 
-                        case .doorSliding:
-                            // Bypass panels, no swing: two bars just over
-                            // half the width, offset either side of the
-                            // centreline so their overlap reads.
-                            let panel = 0.55
-                            let off = halfT * 0.5
-                            for (fromX, fromY, sign) in [
-                                (seg.x1, seg.y1, 1.0), (seg.x2, seg.y2, -1.0),
-                            ] {
-                                let sx = fromX - sign * nx * off
-                                let sy = fromY - sign * ny * off
-                                var track = Path()
-                                track.move(to: pt(sx, sy))
-                                track.addLine(
-                                    to: pt(sx + sign * ux * w * panel, sy + sign * uy * w * panel))
-                                context.stroke(track, with: .color(ink), lineWidth: 1)
+                            // The SPECIFIC kind decides the symbol. Nil means a
+                            // RoomPlan detection, which cannot know — falls back
+                            // to the single-leaf convention, which is what this
+                            // drew for every door before `detail` existed.
+                            switch opening.detail {
+                            case .doorDouble:
+                                // Two leaves, each hinged at its own jamb,
+                                // meeting in the middle — so the pair of arcs
+                                // reads as a double at a glance.
+                                let mx = (seg.x1 + seg.x2) / 2
+                                let my = (seg.y1 + seg.y2) / 2
+                                leafAndArc(hx: seg.x1, hy: seg.y1, lx: mx, ly: my)
+                                leafAndArc(hx: seg.x2, hy: seg.y2, lx: mx, ly: my)
+
+                            case .doorSliding:
+                                // Bypass panels, no swing: two bars just over
+                                // half the width, offset either side of the
+                                // centreline so their overlap reads.
+                                let panel = 0.55
+                                let off = halfT * 0.5
+                                for (fromX, fromY, sign) in [
+                                    (seg.x1, seg.y1, 1.0), (seg.x2, seg.y2, -1.0),
+                                ] {
+                                    let sx = fromX - sign * nx * off
+                                    let sy = fromY - sign * ny * off
+                                    var track = Path()
+                                    track.move(to: pt(sx, sy))
+                                    track.addLine(
+                                        to: pt(sx + sign * ux * w * panel, sy + sign * uy * w * panel))
+                                    context.stroke(track, with: .color(ink), lineWidth: 1)
+                                }
+
+                            default:
+                                let hingeAtStart =
+                                    opening.hingeAtStart
+                                    ?? (jointDistance(seg.x1, seg.y1)
+                                        <= jointDistance(seg.x2, seg.y2))
+                                let (hx, hy, lx, ly) =
+                                    hingeAtStart
+                                    ? (seg.x1, seg.y1, seg.x2, seg.y2)
+                                    : (seg.x2, seg.y2, seg.x1, seg.y1)
+                                leafAndArc(hx: hx, hy: hy, lx: lx, ly: ly)
                             }
 
                         default:
-                            let hingeAtStart =
-                                opening.hingeAtStart
-                                ?? (jointDistance(seg.x1, seg.y1)
-                                    <= jointDistance(seg.x2, seg.y2))
-                            let (hx, hy, lx, ly) =
-                                hingeAtStart
-                                ? (seg.x1, seg.y1, seg.x2, seg.y2)
-                                : (seg.x2, seg.y2, seg.x1, seg.y1)
-                            leafAndArc(hx: hx, hy: hy, lx: lx, ly: ly)
+                            break
                         }
-
-                    default:
-                        break
                     }
-                }
 
-                if flagged.contains(storeyRoom.id), plan.width * viewport.scale >= 40 {
-                    let mark = context.resolve(
-                        Text(Image(systemName: "exclamationmark.triangle.fill"))
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.orange))
-                    let corner = pt(0, 0)
-                    context.draw(mark, at: CGPoint(x: corner.x + 10, y: corner.y + 10), anchor: .center)
-                }
-
-                if plan.width * viewport.scale >= 64 {
-                    let anchor = FloorPlanGeometry.labelAnchor(
-                        plan.polygon, width: plan.width, height: plan.height)
-                    let centre = pt(anchor.x, anchor.y)
-                    let name = context.resolve(
-                        Text(storeyRoom.room.name)
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Brand.Plan.label))
-                    let sqft = context.resolve(
-                        Text(Measure.sqftLabel(storeyRoom.room.floorAreaSqm))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Brand.Plan.labelSoft))
-                    let box = name.measure(in: canvasSize)
-                    let sqftBox = sqft.measure(in: canvasSize)
-                    let plateWidth = max(box.width, sqftBox.width) + 10
-                    context.fill(
-                        Path(
-                            roundedRect: CGRect(
-                                x: centre.x - plateWidth / 2, y: centre.y - 18, width: plateWidth,
-                                height: 36),
-                            cornerRadius: 4),
-                        with: .color(bg.opacity(0.8)))
-                    // **The writing stays upright while the plan turns.**
-                    // The reference does this and it is invisible until it
-                    // is missing: at 40° a rotated label is a thing you
-                    // tilt your head at, and at 180° it is upside down.
-                    // The plate turns with the room — it is part of the
-                    // drawing — and only the type is counter-rotated.
-                    // **`nil`, and that is the fix, not an omission.** This
-                    // counter-rotates the type so a label stays readable
-                    // while the plan turns — correct only while something
-                    // was rotating the whole layer. The turn goes through
-                    // `StoreyViewport` now, which moves where a point LANDS
-                    // and never spins the canvas, so drawn text is already
-                    // upright. Counter-rotating it here would be the only
-                    // thing on the sheet that tilted.
-                    Self.drawRoomLabel(
-                        context: context, name: name, sqft: sqft, at: centre, turn: nil)
-                }
-                // **The turn's own affordances** — see `drawTurnHandle`.
-                // Extracted rather than written inline: this Canvas closure
-                // is already large enough that adding it defeated the type
-                // checker outright, which is its own argument for the split.
-                if turn != nil {
-                    // The storey's own centre. Taken as the centre POINT put
-                    // through the viewport, not as a box built from two
-                    // corners — two corners stop describing a rectangle the
-                    // moment the viewport carries an angle.
-                    // `drawnBounds`, the same rectangle the camera frames
-                    // and the storey turns about — so the handle sits on the
-                    // point the drawing actually pivots on rather than near
-                    // it.
-                    let floor = layout.drawnBounds
-                    Self.drawTurnHandle(
-                        context: context,
-                        pivot: viewport.point(CGPoint(x: floor.midX, y: floor.midY)),
-                        // The pin rides the top-right corner, as the
-                        // reference's does, so it travels the same arc the
-                        // drawing travels.
-                        pin: viewport.point(CGPoint(x: floor.maxX, y: floor.minY)),
-                        background: bg)
-                }
-
-                // The room in the air, ringed. A lifted room that looks
-                // exactly like a resting one leaves no way to tell whether
-                // the next drag will move the room or the sheet.
-                if lift != nil, plan.polygon.count >= 3 {
-                    var halo = Path()
-                    halo.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
-                    for p in plan.polygon.dropFirst() { halo.addLine(to: pt(p.x, p.y)) }
-                    halo.closeSubpath()
-                    context.fill(halo, with: .color(Brand.blue.opacity(0.10)))
-                    context.stroke(
-                        halo, with: .color(Brand.blue),
-                        style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
-
-                    // The two handles the reference draws on a room in this
-                    // mode, seen on the owner's own phone 19 Aug 2026: a
-                    // four-way move cross, and a curved turn arrow beside
-                    // it. Ours to draw, per the standing rule — same idea,
-                    // our own symbols.
-                    //
-                    // The room BODY drags too, which the reference does not
-                    // allow. Kept: the handle is the affordance, not the
-                    // restriction, and taking the body away would make a
-                    // room that is plainly picked up refuse to move.
-                    let handles = Self.handlePoints(
-                        centre: pt(pivot.x, pivot.y))
-                    for (point, symbol) in [
-                        (handles.move, "arrow.up.and.down.and.arrow.left.and.right"),
-                        (handles.turn, "arrow.clockwise"),
-                    ] {
-                        Self.drawManipulator(
-                            context, at: point, symbol: symbol, background: bg)
+                    if flagged.contains(storeyRoom.id), plan.width * viewport.scale >= 40 {
+                        let mark = context.resolve(
+                            Text(Image(systemName: "exclamationmark.triangle.fill"))
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.orange))
+                        let corner = pt(0, 0)
+                        context.draw(mark, at: CGPoint(x: corner.x + 10, y: corner.y + 10), anchor: .center)
                     }
-                }
 
-                context.opacity = 1
+                    if plan.width * viewport.scale >= 64 {
+                        let anchor = FloorPlanGeometry.labelAnchor(
+                            plan.polygon, width: plan.width, height: plan.height)
+                        let centre = pt(anchor.x, anchor.y)
+                        let name = context.resolve(
+                            Text(storeyRoom.room.name)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Brand.Plan.label))
+                        let sqft = context.resolve(
+                            Text(Measure.sqftLabel(storeyRoom.room.floorAreaSqm))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Brand.Plan.labelSoft))
+                        let box = name.measure(in: canvasSize)
+                        let sqftBox = sqft.measure(in: canvasSize)
+                        let plateWidth = max(box.width, sqftBox.width) + 10
+                        context.fill(
+                            Path(
+                                roundedRect: CGRect(
+                                    x: centre.x - plateWidth / 2, y: centre.y - 18, width: plateWidth,
+                                    height: 36),
+                                cornerRadius: 4),
+                            with: .color(bg.opacity(0.8)))
+                        // **The writing stays upright while the plan turns.**
+                        // The reference does this and it is invisible until it
+                        // is missing: at 40° a rotated label is a thing you
+                        // tilt your head at, and at 180° it is upside down.
+                        // The plate turns with the room — it is part of the
+                        // drawing — and only the type is counter-rotated.
+                        // **`nil`, and that is the fix, not an omission.** This
+                        // counter-rotates the type so a label stays readable
+                        // while the plan turns — correct only while something
+                        // was rotating the whole layer. The turn goes through
+                        // `StoreyViewport` now, which moves where a point LANDS
+                        // and never spins the canvas, so drawn text is already
+                        // upright. Counter-rotating it here would be the only
+                        // thing on the sheet that tilted.
+                        Self.drawRoomLabel(
+                            context: context, name: name, sqft: sqft, at: centre, turn: nil)
+                    }
+                    // **The turn's own affordances** — see `drawTurnHandle`.
+                    // Extracted rather than written inline: this Canvas closure
+                    // is already large enough that adding it defeated the type
+                    // checker outright, which is its own argument for the split.
+                    if turn != nil {
+                        // The storey's own centre. Taken as the centre POINT put
+                        // through the viewport, not as a box built from two
+                        // corners — two corners stop describing a rectangle the
+                        // moment the viewport carries an angle.
+                        // `drawnBounds`, the same rectangle the camera frames
+                        // and the storey turns about — so the handle sits on the
+                        // point the drawing actually pivots on rather than near
+                        // it.
+                        let floor = layout.drawnBounds
+                        Self.drawTurnHandle(
+                            context: context,
+                            pivot: viewport.point(CGPoint(x: floor.midX, y: floor.midY)),
+                            // The pin rides the top-right corner, as the
+                            // reference's does, so it travels the same arc the
+                            // drawing travels.
+                            pin: viewport.point(CGPoint(x: floor.maxX, y: floor.minY)),
+                            background: bg)
+                    }
+
+                    // The room in the air, ringed. A lifted room that looks
+                    // exactly like a resting one leaves no way to tell whether
+                    // the next drag will move the room or the sheet.
+                    if lift != nil, plan.polygon.count >= 3 {
+                        var halo = Path()
+                        halo.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
+                        for p in plan.polygon.dropFirst() { halo.addLine(to: pt(p.x, p.y)) }
+                        halo.closeSubpath()
+                        context.fill(halo, with: .color(Brand.blue.opacity(0.10)))
+                        context.stroke(
+                            halo, with: .color(Brand.blue),
+                            style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+
+                        // The two handles the reference draws on a room in this
+                        // mode, seen on the owner's own phone 19 Aug 2026: a
+                        // four-way move cross, and a curved turn arrow beside
+                        // it. Ours to draw, per the standing rule — same idea,
+                        // our own symbols.
+                        //
+                        // The room BODY drags too, which the reference does not
+                        // allow. Kept: the handle is the affordance, not the
+                        // restriction, and taking the body away would make a
+                        // room that is plainly picked up refuse to move.
+                        let handles = Self.handlePoints(
+                            centre: pt(pivot.x, pivot.y))
+                        for (point, symbol) in [
+                            (handles.move, "arrow.up.and.down.and.arrow.left.and.right"),
+                            (handles.turn, "arrow.clockwise"),
+                        ] {
+                            Self.drawManipulator(
+                                context, at: point, symbol: symbol, background: bg)
+                        }
+                    }
+
+                    context.opacity = 1
+                }
             }
 
             // The merge target and its arrows, over everything — they are

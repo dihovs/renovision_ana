@@ -268,170 +268,179 @@ struct LevelCanvas: View {
                             pitch: 15, dotRadius: 0.6, arm: 2.6)
                     }
 
-                    for slot in layout.slots {
-                        let isNew = spotlight.contains(slot.piece.id)
-                        func pt(_ px: Double, _ py: Double) -> CGPoint {
-                            CGPoint(
-                                x: (slot.x + px) * scale + ox,
-                                y: (slot.y + py) * scale + oy)
-                        }
-
-                        if slot.plan.polygon.count >= 3 {
-                            var floor = Path()
-                            floor.move(to: pt(slot.plan.polygon[0].x, slot.plan.polygon[0].y))
-                            for p in slot.plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
-                            floor.closeSubpath()
-                            // The room just measured is white, the way the room
-                            // you are inside is white in the editor
-                            // (`editor-chrome-design.md` §2) — the others stay
-                            // grey, UNLESS the operator gave this one its own
-                            // colour (ORD-37), which then wins: a colour
-                            // chosen on purpose says more than "not the one
-                            // just scanned".
-                            let fill: Color
-                            if isNew {
-                                fill = Brand.Plan.paper
-                            } else if let custom = slot.piece.room?.displayColor {
-                                fill = custom.opacity(0.35)
-                            } else {
-                                fill = Brand.Plan.floorMuted
+                    // Two passes, every floor and wall first: drawn room by room, the next
+                    // room's band along a shared wall painted straight over a door the
+                    // previous room had just cut through it. See `StoreyBaseLayer`.
+                    for pass in 0..<2 {
+                        for slot in layout.slots {
+                            let isNew = spotlight.contains(slot.piece.id)
+                            func pt(_ px: Double, _ py: Double) -> CGPoint {
+                                CGPoint(
+                                    x: (slot.x + px) * scale + ox,
+                                    y: (slot.y + py) * scale + oy)
                             }
-                            context.fill(floor, with: .color(fill))
-                            if isNew {
+                            // Sheet level-of-detail: solid bands and honest gaps —
+                            // the spec's thumbnail tier, because six rooms on a
+                            // phone width leave no room for symbols.
+                            let band = max(2, 0.114 * scale)
+
+                            if pass == 0 {
+                                if slot.plan.polygon.count >= 3 {
+                                    var floor = Path()
+                                    floor.move(to: pt(slot.plan.polygon[0].x, slot.plan.polygon[0].y))
+                                    for p in slot.plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
+                                    floor.closeSubpath()
+                                    // The room just measured is white, the way the room
+                                    // you are inside is white in the editor
+                                    // (`editor-chrome-design.md` §2) — the others stay
+                                    // grey, UNLESS the operator gave this one its own
+                                    // colour (ORD-37), which then wins: a colour
+                                    // chosen on purpose says more than "not the one
+                                    // just scanned".
+                                    let fill: Color
+                                    if isNew {
+                                        fill = Brand.Plan.paper
+                                    } else if let custom = slot.piece.room?.displayColor {
+                                        fill = custom.opacity(0.35)
+                                    } else {
+                                        fill = Brand.Plan.floorMuted
+                                    }
+                                    context.fill(floor, with: .color(fill))
+                                    if isNew {
+                                        context.stroke(
+                                            floor, with: .color(Brand.blue.opacity(0.55)),
+                                            style: StrokeStyle(lineWidth: 1.5))
+                                    }
+                                }
+
+                                var walls = Path()
+                                for s in slot.plan.segments {
+                                    walls.move(to: pt(s.x1, s.y1))
+                                    walls.addLine(to: pt(s.x2, s.y2))
+                                }
                                 context.stroke(
-                                    floor, with: .color(Brand.blue.opacity(0.55)),
-                                    style: StrokeStyle(lineWidth: 1.5))
+                                    walls, with: .color(ink),
+                                    style: StrokeStyle(lineWidth: band, lineCap: .square))
+
+                                continue
                             }
-                        }
 
-                        // Sheet level-of-detail: solid bands and honest gaps —
-                        // the spec's thumbnail tier, because six rooms on a
-                        // phone width leave no room for symbols.
-                        let band = max(2, 0.114 * scale)
-                        var walls = Path()
-                        for s in slot.plan.segments {
-                            walls.move(to: pt(s.x1, s.y1))
-                            walls.addLine(to: pt(s.x2, s.y2))
-                        }
-                        context.stroke(
-                            walls, with: .color(ink),
-                            style: StrokeStyle(lineWidth: band, lineCap: .square))
-
-                        for opening in slot.plan.openings {
-                            var cut = Path()
-                            cut.move(to: pt(opening.segment.x1, opening.segment.y1))
-                            cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
-                            context.stroke(
-                                cut, with: .color(bg),
-                                style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
-                        }
-
-                        // **The damage, under the furniture.** A shaded patch
-                        // is what the estimate's quantities are measured
-                        // from, and a drawing that omits it leaves a figure
-                        // an adjuster cannot point at. Drawn before the
-                        // objects so a vanity standing in a wet patch still
-                        // reads as a vanity.
-                        for area in areas[slot.piece.id] ?? [] where area.surface != "wall" {
-                            EditorChrome.drawArea(
-                                polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
-                                tone: area.displayColor, context: context,
-                                toScreen: { pt($0.x, $0.y) })
-                        }
-
-                        // **The furniture, at storey scale.** Unlabelled —
-                        // the room's own name plate owns that space and a
-                        // hundred-point room cannot carry both, which is
-                        // exactly what `drawObject`'s own comment says.
-                        for object in objects[slot.piece.id] ?? [] where object.included {
-                            EditorChrome.drawObject(
-                                object, context: context,
-                                toScreen: { pt($0.x, $0.y) },
-                                scale: scale, selected: false, labelled: false)
-                        }
-
-                        // Name + area, when the room plots big enough to hold
-                        // them.
-                        let plotWidth = slot.plan.width * scale
-
-                        // A warning belongs on the room it is about (ORD-16).
-                        // Drawn inside the room's own top-left corner, so it
-                        // travels with the shape however the sheet is packed.
-                        if flagged.contains(slot.piece.id), plotWidth >= 40 {
-                            let mark = context.resolve(
-                                Text(Image(systemName: "exclamationmark.triangle.fill"))
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(Color.orange))
-                            let corner = pt(0, 0)
-                            context.draw(
-                                mark, at: CGPoint(x: corner.x + 10, y: corner.y + 10),
-                                anchor: .center)
-                        }
-
-                        // 40, not 64: the label scales now, so a room that
-                        // was too narrow for 14pt type is wide enough for
-                        // the 8pt version of it.
-                        if plotWidth >= 40 {
-                            // The point deepest inside the room's own shape,
-                            // not the bounding box's midpoint. The two agree
-                            // on a plain rectangle, which is why this bug sat
-                            // unnoticed — but an L-shaped room's bounding-box
-                            // centre can land outside the room entirely,
-                            // which reads as "the label isn't in the middle"
-                            // because it genuinely is not.
-                            let anchor = FloorPlanGeometry.labelAnchor(
-                                slot.plan.polygon, width: slot.plan.width, height: slot.plan.height)
-                            let centre = pt(anchor.x, anchor.y)
-                            // **The type is sized to the DRAWING, not fixed.**
-                            // Sized up on the owner's word on 18 Aug — 11/9
-                            // was legible on a desk and not on a job site —
-                            // but a fixed 14/11 then swallowed the tile on
-                            // the project page's Floor Plans rail, where the
-                            // whole storey is 60 points across: *"on this
-                            // card the plan is too small and the writing is
-                            // big, make it like magicplan."* Right, and the
-                            // fault was fixing a size that has to work at
-                            // 60pt and at 320. It is a fraction of the
-                            // room's own drawn width now, clamped at both
-                            // ends: 14 on the full sheet exactly as before,
-                            // small enough on a thumbnail that the plan is
-                            // what the card shows.
-                            let nameSize = min(14, max(7, plotWidth * 0.13))
-                            let areaSize = nameSize * 0.78
-                            let name = context.resolve(
-                                Text(slot.piece.name)
-                                    .font(.system(size: nameSize, weight: .bold))
-                                    .foregroundStyle(Brand.Plan.label))
-                            let sqft = context.resolve(
-                                Text(Measure.sqftLabel(slot.piece.areaSqm))
-                                    .font(.system(size: areaSize, weight: .medium))
-                                    .foregroundStyle(Brand.Plan.labelSoft))
-                            let box = name.measure(in: proxy.size)
-                            let sqftBox = sqft.measure(in: proxy.size)
-                            let plateWidth = max(box.width, sqftBox.width) + nameSize * 0.7
-                            let plateHeight = nameSize + areaSize + nameSize * 0.8
-                            // The knock-out plate only where the label would
-                            // otherwise sit on the walls. On a thumbnail the
-                            // type is small enough to read against the floor
-                            // fill, and a plate there is a grey slab over
-                            // the drawing — which is what the card was
-                            // showing.
-                            if nameSize >= 11 {
-                                context.fill(
-                                    Path(
-                                        roundedRect: CGRect(
-                                            x: centre.x - plateWidth / 2,
-                                            y: centre.y - plateHeight / 2,
-                                            width: plateWidth, height: plateHeight),
-                                        cornerRadius: 4),
-                                    with: .color(bg.opacity(0.8)))
+                            for opening in slot.plan.openings {
+                                var cut = Path()
+                                cut.move(to: pt(opening.segment.x1, opening.segment.y1))
+                                cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
+                                context.stroke(
+                                    cut, with: .color(bg),
+                                    style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
                             }
-                            context.draw(
-                                name, at: CGPoint(x: centre.x, y: centre.y - areaSize * 0.62),
-                                anchor: .center)
-                            context.draw(
-                                sqft, at: CGPoint(x: centre.x, y: centre.y + nameSize * 0.62),
-                                anchor: .center)
+
+                            // **The damage, under the furniture.** A shaded patch
+                            // is what the estimate's quantities are measured
+                            // from, and a drawing that omits it leaves a figure
+                            // an adjuster cannot point at. Drawn before the
+                            // objects so a vanity standing in a wet patch still
+                            // reads as a vanity.
+                            for area in areas[slot.piece.id] ?? [] where area.surface != "wall" {
+                                EditorChrome.drawArea(
+                                    polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                                    tone: area.displayColor, context: context,
+                                    toScreen: { pt($0.x, $0.y) })
+                            }
+
+                            // **The furniture, at storey scale.** Unlabelled —
+                            // the room's own name plate owns that space and a
+                            // hundred-point room cannot carry both, which is
+                            // exactly what `drawObject`'s own comment says.
+                            for object in objects[slot.piece.id] ?? [] where object.included {
+                                EditorChrome.drawObject(
+                                    object, context: context,
+                                    toScreen: { pt($0.x, $0.y) },
+                                    scale: scale, selected: false, labelled: false)
+                            }
+
+                            // Name + area, when the room plots big enough to hold
+                            // them.
+                            let plotWidth = slot.plan.width * scale
+
+                            // A warning belongs on the room it is about (ORD-16).
+                            // Drawn inside the room's own top-left corner, so it
+                            // travels with the shape however the sheet is packed.
+                            if flagged.contains(slot.piece.id), plotWidth >= 40 {
+                                let mark = context.resolve(
+                                    Text(Image(systemName: "exclamationmark.triangle.fill"))
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color.orange))
+                                let corner = pt(0, 0)
+                                context.draw(
+                                    mark, at: CGPoint(x: corner.x + 10, y: corner.y + 10),
+                                    anchor: .center)
+                            }
+
+                            // 40, not 64: the label scales now, so a room that
+                            // was too narrow for 14pt type is wide enough for
+                            // the 8pt version of it.
+                            if plotWidth >= 40 {
+                                // The point deepest inside the room's own shape,
+                                // not the bounding box's midpoint. The two agree
+                                // on a plain rectangle, which is why this bug sat
+                                // unnoticed — but an L-shaped room's bounding-box
+                                // centre can land outside the room entirely,
+                                // which reads as "the label isn't in the middle"
+                                // because it genuinely is not.
+                                let anchor = FloorPlanGeometry.labelAnchor(
+                                    slot.plan.polygon, width: slot.plan.width, height: slot.plan.height)
+                                let centre = pt(anchor.x, anchor.y)
+                                // **The type is sized to the DRAWING, not fixed.**
+                                // Sized up on the owner's word on 18 Aug — 11/9
+                                // was legible on a desk and not on a job site —
+                                // but a fixed 14/11 then swallowed the tile on
+                                // the project page's Floor Plans rail, where the
+                                // whole storey is 60 points across: *"on this
+                                // card the plan is too small and the writing is
+                                // big, make it like magicplan."* Right, and the
+                                // fault was fixing a size that has to work at
+                                // 60pt and at 320. It is a fraction of the
+                                // room's own drawn width now, clamped at both
+                                // ends: 14 on the full sheet exactly as before,
+                                // small enough on a thumbnail that the plan is
+                                // what the card shows.
+                                let nameSize = min(14, max(7, plotWidth * 0.13))
+                                let areaSize = nameSize * 0.78
+                                let name = context.resolve(
+                                    Text(slot.piece.name)
+                                        .font(.system(size: nameSize, weight: .bold))
+                                        .foregroundStyle(Brand.Plan.label))
+                                let sqft = context.resolve(
+                                    Text(Measure.sqftLabel(slot.piece.areaSqm))
+                                        .font(.system(size: areaSize, weight: .medium))
+                                        .foregroundStyle(Brand.Plan.labelSoft))
+                                let box = name.measure(in: proxy.size)
+                                let sqftBox = sqft.measure(in: proxy.size)
+                                let plateWidth = max(box.width, sqftBox.width) + nameSize * 0.7
+                                let plateHeight = nameSize + areaSize + nameSize * 0.8
+                                // The knock-out plate only where the label would
+                                // otherwise sit on the walls. On a thumbnail the
+                                // type is small enough to read against the floor
+                                // fill, and a plate there is a grey slab over
+                                // the drawing — which is what the card was
+                                // showing.
+                                if nameSize >= 11 {
+                                    context.fill(
+                                        Path(
+                                            roundedRect: CGRect(
+                                                x: centre.x - plateWidth / 2,
+                                                y: centre.y - plateHeight / 2,
+                                                width: plateWidth, height: plateHeight),
+                                            cornerRadius: 4),
+                                        with: .color(bg.opacity(0.8)))
+                                }
+                                context.draw(
+                                    name, at: CGPoint(x: centre.x, y: centre.y - areaSize * 0.62),
+                                    anchor: .center)
+                                context.draw(
+                                    sqft, at: CGPoint(x: centre.x, y: centre.y + nameSize * 0.62),
+                                    anchor: .center)
+                            }
                         }
                     }
                 }
@@ -1460,6 +1469,27 @@ struct FloorCanvasView: View {
         cachedLayout = StoreyLayout(rooms)
     }
 
+    /// This floor as `DrawRoomView` needs it: every room's outline in the
+    /// same floor metres this canvas draws in, so a room drawn against them
+    /// is filed exactly where it was drawn.
+    private var drawingContext: [CaptureFlow.FloorContextRoom] {
+        cachedLayout.rooms.map { room in
+            var outline = room.plan.polygon
+            if outline.count >= 4, let first = outline.first, let last = outline.last,
+                hypot(first.x - last.x, first.y - last.y) < 1e-6
+            {
+                outline.removeLast()
+            }
+            return CaptureFlow.FloorContextRoom(
+                id: room.id, name: room.room.name, level: room.room.level,
+                polygon: outline.map {
+                    CGPoint(x: $0.x + room.origin.x, y: $0.y + room.origin.y)
+                },
+                origin: room.origin, planX: room.room.planX, planY: room.room.planY,
+                roomType: room.room.roomType)
+        }
+    }
+
     private var focusedRoom: RoomScan? {
         guard let focusedRoomID else { return nil }
         return rooms.first { $0.id == focusedRoomID }
@@ -2294,7 +2324,7 @@ struct FloorCanvasView: View {
         .alert("Floor plan", isPresented: $showingHelp) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("This is the floor itself. Insert adds a room to it — start from a rectangle and pull it into shape. Tap a room once it is drawn to open its details.")
+            Text("This is the floor itself. Insert adds a room to it — draw it corner by corner against the rooms already here, pull a rectangle into shape, or scan it. Tap a room to edit it; press and hold to move it.")
         }
         .sheet(
             isPresented: $choosingMethod,
@@ -2327,12 +2357,17 @@ struct FloorCanvasView: View {
                 projectName: projectName,
                 existingCount: (scans ?? []).count,
                 existingNames: (scans ?? []).map(\.name),
-                initialLevel: level,
+                // The floor on screen, not the one this screen was opened
+                // on: after the floors stepper switched storeys, Insert used
+                // to file the new room on the original floor.
+                initialLevel: showing,
                 // Insert IS the mode choice on this screen, so the chooser
                 // has nothing left to ask.
                 initialMode: method,
                 onSaved: { Task { await load() } },
-                onFinished: { _, _ in })
+                onFinished: { _, _ in },
+                floorContext: drawingContext,
+                drawsInPlace: true)
         }
         .task { await load() }
     }

@@ -55,6 +55,36 @@ struct CaptureFlow: View {
     /// Nil leaves the old behaviour (close, and go back to whatever presented
     /// this) for any caller that has nowhere to land.
     var onFinished: ((String, [FiledRoom]) -> Void)? = nil
+    /// The storey this flow was opened ON, as the floor canvas draws it —
+    /// empty when the flow was opened from somewhere with no floor in hand.
+    ///
+    /// With it, `DrawRoomView` draws the new room against the rooms already
+    /// there and the room is filed WHERE it was drawn. Without it a drawn
+    /// room is shelf-packed into the next free gap, which is how a sixteen-
+    /// room house came out as sixteen boxes in a grid (11 Oct 2026).
+    var floorContext: [FloorContextRoom] = []
+    /// File drawn rooms where they were drawn. Set by the floor canvas —
+    /// even on an EMPTY floor, where `floorContext` has nothing in it, so
+    /// the first room is placed and the second has something to be drawn
+    /// against.
+    var drawsInPlace = false
+
+    /// A room already on the storey, in the floor canvas's own metres.
+    struct FloorContextRoom {
+        let id: String
+        let name: String
+        let level: String
+        /// The outline in floor metres, without the repeated closing point.
+        let polygon: [CGPoint]
+        /// Where the floor canvas draws the room's own corner.
+        let origin: CGPoint
+        /// Where the room's position is SAVED — nil for a room the packer
+        /// placed, which is the one that moves the moment anything changes.
+        let planX: Double?
+        let planY: Double?
+        /// The living-area type id, which says whether the room is outdoors.
+        var roomType: String? = nil
+    }
 
     @Environment(\.dismiss) private var dismiss
 
@@ -115,6 +145,30 @@ struct CaptureFlow: View {
     /// operator lands on. A scan held offline has no row to come back from the
     /// API, and "where is my scan" must still have an answer on that sheet.
     @State private var filedThisVisit: [FiledRoom] = []
+    /// Rooms drawn in place this visit, in the same floor metres as
+    /// `floorContext` — so the next room is drawn against them too, before
+    /// the floor behind this sheet has reloaded.
+    @State private var drawnHere: [FloorContextRoom] = []
+    /// The corners of the drawn room under review, in floor metres — what
+    /// its position is taken from once it has a row to write it against.
+    @State private var drawnCorners: [CGPoint]?
+    /// Whether the storey's other rooms have had their positions written
+    /// this visit. See `placeDrawnRoom`.
+    @State private var floorFrozen = false
+    /// `floorContext` as it was when the sheet opened. Held, because the
+    /// floor behind reloads after every save and RE-BASES its coordinates
+    /// whenever a room lands left of or above the rest — and every position
+    /// this visit writes has to be in one frame.
+    @State private var contextAtOpen: [FloorContextRoom]?
+
+    /// What the next room is drawn against: the storey as it was, plus
+    /// whatever has been drawn into it since.
+    private var drawingContext: [FloorContextRoom] {
+        guard drawsInPlace else { return [] }
+        let here = Set(drawnHere.map(\.id))
+        return (contextAtOpen ?? floorContext).filter { $0.level == level && !here.contains($0.id) }
+            + drawnHere.filter { $0.level == level }
+    }
 
     enum CaptureMode {
         case scan
@@ -201,9 +255,16 @@ struct CaptureFlow: View {
             isPresented: .init(get: { stage == .drawingCorners }, set: { _ in })
         ) {
             DrawRoomView(
+                neighbours: drawingContext.map {
+                    DrawRoomView.Neighbour(
+                        id: $0.id, name: $0.name, polygon: $0.polygon,
+                        outdoor: DrawRoomView.outdoorTypes.contains($0.roomType ?? ""))
+                },
+                outdoor: DrawRoomView.outdoorTypes.contains(roomType ?? ""),
                 onCancel: { stage = .briefing },
                 onDone: { polygon, ceiling, openings in
                     finishDrawn(polygon: polygon, ceiling: ceiling, openings: openings)
+                    drawnCorners = drawsInPlace ? polygon : nil
                 })
         }
         .fullScreenCover(isPresented: .init(get: { stage == .drawing }, set: { _ in })) {
@@ -269,6 +330,7 @@ struct CaptureFlow: View {
             .ignoresSafeArea()
         }
         .onAppear {
+            if contextAtOpen == nil { contextAtOpen = floorContext }
             // Entered from a storey's own plan: that storey is already the
             // answer, so the chooser opens on it rather than on Ground.
             if let initialLevel, FloorVocabulary.ids.contains(initialLevel) {
@@ -324,6 +386,7 @@ struct CaptureFlow: View {
         roomType = nil
         name = ""
         geometry = nil
+        drawnCorners = nil
         analysis = nil
         error = nil
         stage = .chooseType
@@ -699,14 +762,28 @@ struct CaptureFlow: View {
                 ("camera",
                  "The white shutter takes a photo mid-scan and files it against this room, so nothing has to be photographed twice."),
             ]
-            : [
-                ("rectangle.dashed",
-                 "Start from a rectangle and pull the corners into the shape of the room."),
-                ("ruler",
-                 "Type a wall's length to set it exactly — a typed length is marked as hand-set, and stays that way."),
-                ("door.left.hand.open",
-                 "Doors and windows go on afterwards, so the wall area is net of them."),
-            ]
+            : mode == .drawCorners
+                ? [
+                    // This card used to describe the rectangle tool for BOTH
+                    // drawing modes, so the corner tool opened under
+                    // instructions for a different one.
+                    ("hand.tap",
+                     "Tap each corner where the walls turn, and tap the first one again to close the room."),
+                    ("square.on.square.dashed",
+                     "The rooms already on this floor are drawn behind. Tap beside one of their walls and the corner lands against it, a partition's thickness away. Tap on the room itself to join them with no wall between — open plan."),
+                    ("arrow.up.left.and.arrow.down.right",
+                     "Pinch to zoom and drag to move the sheet — a house is bigger than a phone."),
+                    ("door.left.hand.open",
+                     "Doors and windows go on afterwards, so the wall area is net of them."),
+                ]
+                : [
+                    ("rectangle.dashed",
+                     "Start from a rectangle and pull the corners into the shape of the room."),
+                    ("ruler",
+                     "Type a wall's length to set it exactly — a typed length is marked as hand-set, and stays that way."),
+                    ("door.left.hand.open",
+                     "Doors and windows go on afterwards, so the wall area is net of them."),
+                ]
     }
 
     // MARK: - Review — the shape, and two ways out (ORD-16)
@@ -794,12 +871,15 @@ struct CaptureFlow: View {
                 // reason to reject a capture is to walk it again — so the
                 // longer label is not a promise, it is a description of what
                 // the code already does.
-                Button("Discard & rescan") {
+                // A drawn room is redrawn, not rescanned — the old label sent
+                // somebody with no camera open looking for one.
+                Button(lastWasScan ? "Discard & rescan" : "Discard & redraw") {
                     // A rejected capture must leave the merge set, or the
                     // builder would register a room the operator threw away.
                     if lastWasScan { session.discardLastUnsaved() }
                     geometry = nil
                     analysis = nil
+                    drawnCorners = nil
                     // Back to the briefing for this same room: its name and
                     // its type are still good, and the usual reason to discard
                     // is to walk it again. Never out of the flow entirely —
@@ -833,7 +913,11 @@ struct CaptureFlow: View {
                         Text(
                             savedThisVisit >= 2
                                 ? "\(savedThisVisit) rooms this visit."
-                                : "Keep going while the phone is still tracking: rooms scanned in one visit are placed on the plan the way they actually sit. Close this, and the next room starts from scratch."
+                                : (lastWasScan
+                                    ? "Keep going while the phone is still tracking: rooms scanned in one visit are placed on the plan the way they actually sit. Close this, and the next room starts from scratch."
+                                    : (drawsInPlace
+                                        ? "It is on the floor where you drew it. The next room is drawn against it — tap beside its wall and the two are one partition apart."
+                                        : "Saved. Drag it into place on the floor plan."))
                         )
                         .font(.system(size: 13))
                         .foregroundStyle(Brand.inkSoft)
@@ -975,7 +1059,12 @@ struct CaptureFlow: View {
                     affectedAreaId: nil, wallIndex: nil, note: nil)
             }
             await placeDetectedObjects(roomId: id, geometry: geometry)
+            let unplaced = await placeDrawnRoom(id: id)
             await finishSave(id: id, geometry: geometry, held: false)
+            if let unplaced {
+                placementFailed = true
+                placementNote = unplaced
+            }
         case .held:
             // Kept, not lost. The measurement is safe and the project
             // screen says how many are waiting — and the plan the operator
@@ -986,6 +1075,46 @@ struct CaptureFlow: View {
             error = reason
         }
         saving = false
+    }
+
+    /// File a room drawn in place where it was drawn. Returns what to tell
+    /// the operator when that could not be done, nil when it was (or when
+    /// there was nothing to place).
+    ///
+    /// The storey's other rooms are written first, once per visit, at the
+    /// positions the floor canvas showed them in. A room the packer placed
+    /// has no saved position and is re-packed the moment anything on the
+    /// floor changes — so without this the new room would arrive sharing a
+    /// wall with a neighbour that has just moved somewhere else. It is the
+    /// same write `FloorCanvasView.commitPlacement` makes after a drag.
+    private func placeDrawnRoom(id: String) async -> String? {
+        guard drawsInPlace, mode == .drawCorners, let corners = drawnCorners, corners.count >= 3
+        else { return nil }
+        if !floorFrozen {
+            for room in (contextAtOpen ?? floorContext) where room.level == level {
+                let saved =
+                    room.planX.map { abs($0 - room.origin.x) < 0.005 } == true
+                    && room.planY.map { abs($0 - room.origin.y) < 0.005 } == true
+                guard !saved else { continue }
+                try? await API.shared.placeRoom(roomId: room.id, x: room.origin.x, y: room.origin.y)
+            }
+            floorFrozen = true
+        }
+        // A drawn outline is re-based to its own corner when it is read back
+        // (`FloorPlanGeometry.plan`), so that corner is the room's position.
+        let x = corners.map(\.x).min() ?? 0
+        let y = corners.map(\.y).min() ?? 0
+        do {
+            try await API.shared.placeRoom(roomId: id, x: x, y: y)
+        } catch {
+            return "Saved, but its place on the floor could not be written — it will sit beside the plan until it is dragged into position."
+        }
+        drawnHere.append(
+            FloorContextRoom(
+                id: id, name: name.trimmed, level: level, polygon: corners,
+                origin: CGPoint(x: x, y: y), planX: x, planY: y, roomType: roomType))
+        drawnCorners = nil
+        return nil
     }
 
     /// Put what the scanner recognised onto the plan.
