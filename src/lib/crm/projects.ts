@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { db, isEmbedFailure, isMissingTable, MigrationPendingError } from "./db";
 import { clientDisplayName } from "./types";
 import { listRoomScans } from "./roomScans";
+import { cardRooms } from "../cardRooms";
 
 /**
  * Projects and their file library.
@@ -358,11 +359,10 @@ export async function listProjects(
       last_activity: last,
       room_count: scans.length,
       largest_room: largest ? { name: largest.name, geometry: largest.geometry } : null,
-      // Capped: a thumbnail is ~130pt across and a room past the first dozen
-      // is a few pixels, but every geometry blob travels over a job-site
-      // connection for EVERY card in the list. Twelve is the point past
-      // which payload costs more than the picture is worth.
-      floor_rooms: busiest.slice(0, 12).map((scan) => ({
+      // Capped: a thumbnail is ~130pt across, but every geometry blob
+      // travels over a job-site connection for EVERY card in the list. See
+      // `cardRooms` for why the cap is 24 and which rooms it keeps.
+      floor_rooms: cardRooms(busiest).map((scan) => ({
         geometry: scan.geometry,
         plan_x: scan.plan_x,
         plan_y: scan.plan_y,
