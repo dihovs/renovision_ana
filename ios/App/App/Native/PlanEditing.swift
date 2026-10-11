@@ -628,6 +628,65 @@ enum PlanEditing {
         return (result, a + 1)
     }
 
+    /// **A bump-out (or a recess) on one wall, from three typed numbers.**
+    ///
+    /// Four new corners on edge `index`: `offset` metres from its start
+    /// corner, `width` along it, `depth` out of the room (negative to push
+    /// in). Found drawing the owner's second reference plan: its garage front
+    /// steps out 2 ft over 13 ft 8 in, and the only tool was Add Corner — one
+    /// midpoint at a time, each dragged by eye. Nil when the bump does not
+    /// fit inside the wall with a little left at both ends.
+    static func bumpOut(
+        _ polygon: [CGPoint], edge index: Int, offset: Double, width: Double, depth: Double
+    ) -> [CGPoint]? {
+        let n = polygon.count
+        guard n >= 3, index >= 0, index < n, width > 0.1, abs(depth) > 0.02 else { return nil }
+        let (ai, bi) = edgeCorners(index, count: n)
+        let a = polygon[ai], b = polygon[bi]
+        let length = hypot(b.x - a.x, b.y - a.y)
+        guard offset > 0.01, offset + width < length - 0.01 else { return nil }
+        let ux = (b.x - a.x) / length, uy = (b.y - a.y) / length
+        // Outward is the side away from the interior; the winding says which.
+        var twiceArea = 0.0
+        for i in 0..<n {
+            let p = polygon[i], q = polygon[(i + 1) % n]
+            twiceArea += p.x * q.y - q.x * p.y
+        }
+        let s: Double = twiceArea > 0 ? -1 : 1
+        let nx = -uy * s, ny = ux * s
+        let p1 = CGPoint(x: a.x + ux * offset, y: a.y + uy * offset)
+        let p4 = CGPoint(x: a.x + ux * (offset + width), y: a.y + uy * (offset + width))
+        let p2 = CGPoint(x: p1.x + nx * depth, y: p1.y + ny * depth)
+        let p3 = CGPoint(x: p4.x + nx * depth, y: p4.y + ny * depth)
+        var result = polygon
+        result.insert(contentsOf: [p1, p2, p3, p4].map(quantise), at: ai + 1)
+        return result
+    }
+
+    /// Where the openings go after `bumpOut` replaced edge `index` with five:
+    /// before the bump they stay, within it they move to its far wall, past
+    /// it they move to the stretch after it. Later edges shift up four.
+    static func openingsAfterBumpOut(
+        _ openings: [WallOpening], edge index: Int, offset: Double, width: Double
+    ) -> [WallOpening] {
+        openings.map { opening in
+            var moved = opening
+            if opening.edge > index {
+                moved.edge += 4
+            } else if opening.edge == index {
+                let centre = opening.offset + opening.width / 2
+                if centre > offset + width {
+                    moved.edge += 4
+                    moved.offset = opening.offset - offset - width
+                } else if centre > offset {
+                    moved.edge += 2
+                    moved.offset = max(0, opening.offset - offset)
+                }
+            }
+            return moved
+        }
+    }
+
     /// Remove a corner, merging its two walls into one.
     ///
     /// Refused below four corners: three is the fewest that encloses

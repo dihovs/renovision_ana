@@ -1430,6 +1430,8 @@ enum EditorAction: Hashable {
     case editLayout
     case duplicate
     case addCorner
+    /// Step one wall out (or in) over a typed width — see `PlanEditing.bumpOut`.
+    case bumpOut
     case addWall
     case splitRoom
     case mergeRooms
@@ -1447,6 +1449,7 @@ enum EditorAction: Hashable {
         case .editLayout: return "Edit Layout"
         case .duplicate: return "Duplicate"
         case .addCorner: return "Add Corner"
+        case .bumpOut: return "Bump Out"
         case .addWall: return "Add Wall"
         case .splitRoom: return "Split Room"
         case .mergeRooms: return "Merge Rooms"
@@ -1468,6 +1471,7 @@ enum EditorAction: Hashable {
         case .editLayout: return "square.and.pencil"
         case .duplicate: return "square.on.square"
         case .addCorner: return "plus.circle"
+        case .bumpOut: return "square.split.bottomrightquarter"
         case .addWall: return "plus.rectangle"
         case .splitRoom: return "scissors"
         // Two shapes becoming one, which is the whole verb.
@@ -1510,7 +1514,7 @@ enum EditorAction: Hashable {
         case .wall(let dragging):
             return dragging
                 ? [.insert, .delete]
-                : [.insert, .addCorner, .addWall, .splitRoom, .delete]
+                : [.insert, .addCorner, .bumpOut, .addWall, .splitRoom, .delete]
         case .corner:
             return [.insert, .delete]
         case .object:

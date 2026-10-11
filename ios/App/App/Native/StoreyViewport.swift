@@ -1055,7 +1055,36 @@ struct StoreyBaseLayer: View {
                                 leafAndArc(hx: seg.x1, hy: seg.y1, lx: midX, ly: midY)
                                 leafAndArc(hx: seg.x2, hy: seg.y2, lx: midX, ly: midY)
 
-                            case .doorSliding:
+                            case .doorGarage:
+                                // **An overhead door goes up, not round.** It
+                                // fell through to the single-leaf default, so
+                                // a 16 ft garage door drew a 16 ft swing arc
+                                // across the whole garage. The plan convention
+                                // instead — the owner's reference draws it so:
+                                // the door line across the opening, and the
+                                // door's open position as a dashed panel
+                                // inside, as deep as the door is tall.
+                                let middle = (near + far) / 2
+                                var door = Path()
+                                door.move(to: pt(seg.x1 + ox * middle, seg.y1 + oy * middle))
+                                door.addLine(to: pt(seg.x2 + ox * middle, seg.y2 + oy * middle))
+                                context.stroke(door, with: .color(ink), lineWidth: 1.2)
+                                // A standard 7 ft overhead door rolls back
+                                // about its own height.
+                                let depth = 2.13
+                                let inset = min(0.15, w * 0.05)
+                                let a = (x: seg.x1 + ux * inset, y: seg.y1 + uy * inset)
+                                let b = (x: seg.x2 - ux * inset, y: seg.y2 - uy * inset)
+                                var panel = Path()
+                                panel.move(to: pt(a.x, a.y))
+                                panel.addLine(to: pt(a.x - ox * depth, a.y - oy * depth))
+                                panel.addLine(to: pt(b.x - ox * depth, b.y - oy * depth))
+                                panel.addLine(to: pt(b.x, b.y))
+                                context.stroke(
+                                    panel, with: .color(ink.opacity(0.6)),
+                                    style: StrokeStyle(lineWidth: 0.7, dash: [4, 3]))
+
+                            case .doorSliding, .doorBypass, .doorPatio:
                                 // Bypass panels, no swing: two bars just over
                                 // half the width, either side of the wall's
                                 // middle so their overlap reads.
@@ -1293,13 +1322,19 @@ extension StoreyBaseLayer {
     ) {
         let room = plotWidth - 4
         guard room > 12 else { return }
-        let preferred = min(14, max(8, plotWidth * 0.13))
-        let areaRatio = 0.79
+        // **Small, because the drawing is the point.** 14 pt bold on an 80%
+        // plate made every label a white tile that covered most of its room
+        // — the owner, 11 Oct 2026: "it kind of covers the entire room...
+        // they need to be small because they're dominant." The reference
+        // labels its rooms in small type straight on the plan. 7–10 pt now,
+        // semibold, on a faint plate that only keeps the type off the grid.
+        let preferred = min(10, max(7, plotWidth * 0.08))
+        let areaRatio = 0.82
 
         func resolved(_ text: String, size: Double, soft: Bool) -> GraphicsContext.ResolvedText {
             context.resolve(
                 Text(text)
-                    .font(.system(size: size, weight: soft ? .medium : .bold))
+                    .font(.system(size: size, weight: soft ? .regular : .semibold))
                     .foregroundStyle(soft ? Brand.Plan.labelSoft : Brand.Plan.label))
         }
         func width(_ text: String, size: Double, soft: Bool = false) -> Double {
@@ -1341,7 +1376,7 @@ extension StoreyBaseLayer {
             let widest = max(
                 lines.map { width($0, size: preferred) }.max() ?? 0,
                 width(area, size: preferred * areaRatio, soft: true))
-            let size = widest > room ? max(6.5, preferred * room / widest) : preferred
+            let size = widest > room ? max(6, preferred * room / widest) : preferred
             return widest * size / preferred <= room + 6 ? size : nil
         }
 
@@ -1365,15 +1400,15 @@ extension StoreyBaseLayer {
         let plateWidth =
             max(
                 names.map { $0.measure(in: bound).width }.max() ?? 0,
-                areaText.measure(in: bound).width) + size * 0.7
-        let plateHeight = block + size * 0.5
+                areaText.measure(in: bound).width) + size * 0.4
+        let plateHeight = block + size * 0.2
         context.fill(
             Path(
                 roundedRect: CGRect(
                     x: centre.x - plateWidth / 2, y: centre.y - plateHeight / 2,
                     width: plateWidth, height: plateHeight),
-                cornerRadius: 4),
-            with: .color(plate.opacity(0.8)))
+                cornerRadius: 2),
+            with: .color(plate.opacity(0.45)))
 
         let top = centre.y - block / 2
         for (index, line) in names.enumerated() {

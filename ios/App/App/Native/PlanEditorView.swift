@@ -321,6 +321,8 @@ struct RoomEditorCore: View {
     /// callback has no geometry proxy. Not simply half the canvas: inside the
     /// floor the drawing centres on the shared viewport instead.
     @State private var centreBase: CGPoint = .zero
+    /// The wall a Bump Out sheet is open for.
+    @State private var bumpingOut: BumpTarget?
 
     enum Selection: Equatable {
         case none
@@ -624,6 +626,30 @@ struct RoomEditorCore: View {
             }
             Button("Leave it alone", role: .cancel) { lockedWarning = nil }
         }
+        .sheet(item: $bumpingOut) { target in
+            BumpOutSheet(
+                wallLength: PlanEditing.edgeLength(corners, target.id),
+                apply: { offset, width, depth in
+                    applyBumpOut(on: target.id, offset: offset, width: width, depth: depth)
+                })
+            .presentationDetents([.medium])
+        }
+    }
+
+    struct BumpTarget: Identifiable { let id: Int }
+
+    /// False when the numbers do not fit the wall; the sheet says so.
+    private func applyBumpOut(on index: Int, offset: Double, width: Double, depth: Double) -> Bool {
+        guard let next = PlanEditing.bumpOut(
+            corners, edge: index, offset: offset, width: width, depth: depth)
+        else { return false }
+        push()
+        openings = PlanEditing.openingsAfterBumpOut(
+            openings, edge: index, offset: offset, width: width)
+        locked = Set(locked.compactMap { $0 == index ? nil : ($0 > index ? $0 + 4 : $0) })
+        corners = next
+        select(.wall(index + 2))
+        return true
     }
 
     // MARK: - Canvas
@@ -2538,7 +2564,8 @@ struct RoomEditorCore: View {
             // rectangle, and a tap far enough from either end to leave two
             // rooms somebody could stand in. Offering it and then refusing
             // is worse than not offering it.
-            var verbs: Set<EditorAction> = canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
+            var verbs: Set<EditorAction> =
+                canAuthorOpenings ? [.insert, .addCorner, .bumpOut] : [.addCorner, .bumpOut]
             // `Add Wall` only where a stub would actually fit — against a
             // wall with room in front of it. Offering it and then refusing is
             // worse than not offering it, the same rule Split Room follows.
@@ -3012,6 +3039,8 @@ struct RoomEditorCore: View {
             placingObject = true
         case (.addCorner, .wall(let index)):
             addCorner(on: index)
+        case (.bumpOut, .wall(let index)):
+            bumpingOut = BumpTarget(id: index)
         case (.addWall, .wall(let index)):
             addInteriorWall(on: index)
         case (.delete, .interiorWall(let index)):
@@ -3963,3 +3992,69 @@ struct OpeningPicker: View {
     }
 }
 
+
+/// Three typed numbers for `PlanEditing.bumpOut`: where along the wall,
+/// how wide, how far out. In or out is a toggle rather than a minus sign —
+/// nobody types "-2'" on a job site.
+private struct BumpOutSheet: View {
+    let wallLength: Double
+    let apply: (_ offset: Double, _ width: Double, _ depth: Double) -> Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var units = UnitSettings.shared
+    @State private var fromStart = ""
+    @State private var width = ""
+    @State private var depth = ""
+    @State private var inward = false
+    @State private var refused = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    field("From start of wall", $fromStart)
+                    field("Width", $width)
+                    field(inward ? "Depth in" : "Depth out", $depth)
+                    Picker("Direction", selection: $inward) {
+                        Text("Out of the room").tag(false)
+                        Text("Into the room").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                } footer: {
+                    Text(
+                        refused
+                            ? "That does not fit on this \(units.format.format(wallLength)) wall — leave a little wall at both ends."
+                            : "This wall is \(units.format.format(wallLength)). Feet and inches: 2' 1, or metres: 0.63m."
+                    )
+                    .foregroundStyle(refused ? Color.red : Brand.inkSoft)
+                }
+            }
+            .navigationTitle("Bump Out")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Apply") {
+                        guard let o = units.format.parse(fromStart),
+                            let w = units.format.parse(width),
+                            let d = units.format.parse(depth)
+                        else { refused = true; return }
+                        if apply(o, w, inward ? -d : d) { dismiss() } else { refused = true }
+                    }
+                    .bold()
+                }
+            }
+        }
+    }
+
+    private func field(_ label: String, _ text: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField("—", text: text)
+                .keyboardType(.numbersAndPunctuation)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 120)
+        }
+    }
+}
