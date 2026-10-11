@@ -268,11 +268,38 @@ struct LevelCanvas: View {
                             pitch: 15, dotRadius: 0.6, arm: 2.6)
                     }
 
-                    // Two passes, every floor and wall first: drawn room by room, the next
-                    // room's band along a shared wall painted straight over a door the
-                    // previous room had just cut through it. See `StoreyBaseLayer`.
-                    for pass in 0..<2 {
-                        for slot in layout.slots {
+                    // Every floor, then every wall with every opening already a
+                    // hole in it, then the rest — the same `StoreyWalls` model the
+                    // floor canvas draws, so the card and the floor agree about
+                    // where a wall is and how thick. See `StoreyBaseLayer`.
+                    let floorPolygons = layout.slots.map { slot -> [CGPoint] in
+                        var outline = slot.plan.polygon
+                        if outline.count >= 4, let f = outline.first, let l = outline.last,
+                            hypot(f.x - l.x, f.y - l.y) < 1e-9
+                        {
+                            outline.removeLast()
+                        }
+                        return outline.map { CGPoint(x: $0.x + slot.x, y: $0.y + slot.y) }
+                    }
+                    var holes = Path()
+                    for slot in layout.slots {
+                        for opening in slot.plan.openings {
+                            let s = opening.segment
+                            let q = StoreyWalls.hole(
+                                CGPoint(x: s.x1, y: s.y1), CGPoint(x: s.x2, y: s.y2),
+                                reach: StoreyLayout.exteriorWall + 0.03)
+                            guard q.count == 4 else { continue }
+                            func at(_ p: CGPoint) -> CGPoint {
+                                CGPoint(x: (slot.x + p.x) * scale + ox, y: (slot.y + p.y) * scale + oy)
+                            }
+                            holes.move(to: at(q[0]))
+                            for p in q.dropFirst() { holes.addLine(to: at(p)) }
+                            holes.closeSubpath()
+                        }
+                    }
+
+                    for pass in 0..<3 {
+                        for (index, slot) in layout.slots.enumerated() {
                             let isNew = spotlight.contains(slot.piece.id)
                             func pt(_ px: Double, _ py: Double) -> CGPoint {
                                 CGPoint(
@@ -313,25 +340,41 @@ struct LevelCanvas: View {
                                     }
                                 }
 
-                                var walls = Path()
-                                for s in slot.plan.segments {
-                                    walls.move(to: pt(s.x1, s.y1))
-                                    walls.addLine(to: pt(s.x2, s.y2))
-                                }
-                                context.stroke(
-                                    walls, with: .color(ink),
-                                    style: StrokeStyle(lineWidth: band, lineCap: .square))
-
                                 continue
                             }
 
-                            for opening in slot.plan.openings {
-                                var cut = Path()
-                                cut.move(to: pt(opening.segment.x1, opening.segment.y1))
-                                cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
-                                context.stroke(
-                                    cut, with: .color(bg),
-                                    style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
+                            if pass == 1 {
+                                let runs = StoreyWalls.runs(
+                                    of: index, polygons: floorPolygons,
+                                    origin: CGPoint(x: slot.x, y: slot.y),
+                                    interior: StoreyLayout.interiorWall,
+                                    exterior: StoreyLayout.exteriorWall,
+                                    outdoor: DrawRoomView.outdoorTypes.contains(
+                                        slot.piece.room?.roomType ?? ""))
+                                if runs.isEmpty {
+                                    var walls = Path()
+                                    for s in slot.plan.segments {
+                                        walls.move(to: pt(s.x1, s.y1))
+                                        walls.addLine(to: pt(s.x2, s.y2))
+                                    }
+                                    context.stroke(
+                                        walls, with: .color(ink),
+                                        style: StrokeStyle(lineWidth: band, lineCap: .square))
+                                } else {
+                                    context.drawLayer { layer in
+                                        layer.clip(to: holes, options: .inverse)
+                                        for run in runs {
+                                            let q = run.band
+                                            guard q.count == 4 else { continue }
+                                            var quad = Path()
+                                            quad.move(to: pt(q[0].x, q[0].y))
+                                            for p in q.dropFirst() { quad.addLine(to: pt(p.x, p.y)) }
+                                            quad.closeSubpath()
+                                            layer.fill(quad, with: .color(ink))
+                                        }
+                                    }
+                                }
+                                continue
                             }
 
                             // **The damage, under the furniture.** A shaded patch

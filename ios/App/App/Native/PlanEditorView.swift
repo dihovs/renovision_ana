@@ -1283,7 +1283,18 @@ struct RoomEditorCore: View {
                         openings[index].hingeAtStart = hinge
                         openings[index].swingInward = inward
                     },
-                    onDelete: { deleteOpening(index) })
+                    onDelete: { deleteOpening(index) },
+                    wallLength: PlanEditing.edgeLength(corners, openings[index].edge),
+                    onPlacementChanged: { newWidth, newOffset in
+                        guard openings.indices.contains(index),
+                            let reshaped = PlanEditing.reshapeOpening(
+                                openings[index], width: newWidth, offset: newOffset,
+                                along: corners, avoiding: openings)
+                        else { return nil }
+                        push()
+                        openings[index] = reshaped
+                        return reshaped
+                    })
             }
     }
 
@@ -3377,6 +3388,9 @@ struct PlanEditorView: View {
 /// useful and safe to build today, since it is only ever swapping one
 /// catalog entry for another, held in memory like every other edit until
 /// the room's own Save, and routed through the same undo history.
+///
+/// **Width and position are typed too, since 11 Oct 2026** — through the
+/// editor, which owns the wall: see `onPlacementChanged`.
 struct OpeningDetailView: View {
     let opening: PlanEditing.WallOpening
     let onKindChanged: (PlanEditing.OpeningKind) -> Void
@@ -3397,6 +3411,20 @@ struct OpeningDetailView: View {
     /// "nobody has said" and the plan keeps drawing its convention.
     let onSwingChanged: (Bool?, Bool?) -> Void
     let onDelete: () -> Void
+    /// How long this opening's wall is — what "Whole wall" fills.
+    var wallLength: Double = 0
+    /// A typed width and distance from the wall's start corner, handed to the
+    /// editor that owns the wall. The objection above was right: only the
+    /// editor knows the wall's length and what else is on it, so the sheet
+    /// asks and the editor answers — the opening as stored, clamped into the
+    /// wall, or nil when it does not fit (`PlanEditing.reshapeOpening`).
+    ///
+    /// Why it had to exist, 11 Oct 2026: drawing the owner's reference plan,
+    /// a 30" door and a 48" cased opening were the only sizes there were, a
+    /// door could only be dragged to roughly where it goes, and an open-plan
+    /// join — an entry running straight into its hallway — could not be made
+    /// at all.
+    var onPlacementChanged: ((Double, Double) -> PlanEditing.WallOpening?)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var kind: PlanEditing.OpeningKind
@@ -3406,18 +3434,32 @@ struct OpeningDetailView: View {
     @State private var swingInward: Bool?
     @State private var confirmingDelete = false
     @State private var detent: PresentationDetent = .medium
+    @State private var width: Double
+    @State private var offset: Double
+    @State private var widthText = ""
+    @State private var offsetText = ""
+    @State private var placementRefused = false
+    @FocusState private var typing: PlacementField?
+
+    private enum PlacementField { case width, offset }
 
     init(
         opening: PlanEditing.WallOpening, onKindChanged: @escaping (PlanEditing.OpeningKind) -> Void,
         onDimensionsChanged: @escaping (Double, Double) -> Void,
         onSwingChanged: @escaping (Bool?, Bool?) -> Void,
-        onDelete: @escaping () -> Void
+        onDelete: @escaping () -> Void,
+        wallLength: Double = 0,
+        onPlacementChanged: ((Double, Double) -> PlanEditing.WallOpening?)? = nil
     ) {
         self.opening = opening
         self.onKindChanged = onKindChanged
         self.onDimensionsChanged = onDimensionsChanged
         self.onSwingChanged = onSwingChanged
         self.onDelete = onDelete
+        self.wallLength = wallLength
+        self.onPlacementChanged = onPlacementChanged
+        _width = State(initialValue: opening.width)
+        _offset = State(initialValue: opening.offset)
         _kind = State(initialValue: opening.kind)
         _height = State(initialValue: opening.height)
         _sill = State(initialValue: opening.sill)
@@ -3475,10 +3517,24 @@ struct OpeningDetailView: View {
                 }
 
                 Section {
-                    StatisticRowView(
-                        row: .init(
-                            id: "width", label: "Width",
-                            value: UnitSettings.shared.format.format(opening.width), meaning: nil))
+                    if onPlacementChanged != nil {
+                        placementField("Width", text: $widthText, field: .width)
+                        placementField("From start of wall", text: $offsetText, field: .offset)
+                        if kind.category == .passage {
+                            // The open-plan join: the whole edge, no wall
+                            // left either side.
+                            Button("Whole wall — no wall left here") {
+                                commitPlacement(width: wallLength, offset: 0)
+                            }
+                            .disabled(abs(width - wallLength) < 0.01)
+                        }
+                    } else {
+                        StatisticRowView(
+                            row: .init(
+                                id: "width", label: "Width",
+                                value: UnitSettings.shared.format.format(opening.width),
+                                meaning: nil))
+                    }
                     OpeningDimensionStepper(label: "Height", value: $height) {
                         onDimensionsChanged(height, sill)
                     }
@@ -3488,9 +3544,15 @@ struct OpeningDetailView: View {
                 } header: {
                     Text("Dimensions")
                 } footer: {
-                    Text("Width follows the kind above, sized to fit the wall. Height and Distance to Floor are this opening's own — the reference's own third field, for the sill height this app never had anywhere to store until now.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.inkFaint)
+                    Text(
+                        placementRefused
+                            ? "That does not fit — it runs past the end of the wall or over another opening on it."
+                            : (onPlacementChanged != nil
+                                ? "Type a width and how far its near edge is from the start of the wall — 2' 8\", 32 in or 0.81 m all work. Height and Distance to Floor are this opening's own."
+                                : "Width follows the kind above, sized to fit the wall. Height and Distance to Floor are this opening's own — the reference's own third field, for the sill height this app never had anywhere to store until now.")
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(placementRefused ? .orange : Brand.inkFaint)
                 }
 
                 // WHICH WAY IT OPENS. The owner asked for it as part of
@@ -3549,6 +3611,12 @@ struct OpeningDetailView: View {
         .background(Brand.Plan.paper)
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
+        .onAppear { showPlacement() }
+        .onChange(of: typing) { previous, _ in
+            // Leaving a field commits it, the way Return does.
+            if previous == .width { commitTyped(.width) }
+            if previous == .offset { commitTyped(.offset) }
+        }
         .confirmationDialog(
             "Delete this \(kind.label.lowercased())?",
             isPresented: $confirmingDelete, titleVisibility: .visible
@@ -3565,6 +3633,57 @@ struct OpeningDetailView: View {
     private static let windows: [PlanEditing.OpeningKind] = [
         .windowStandard, .windowWide, .windowSmall,
     ]
+
+    // MARK: - Width and place
+
+    private func placementField(
+        _ label: String, text: Binding<String>, field: PlacementField
+    ) -> some View {
+        HStack {
+            Text(label).foregroundStyle(Brand.ink)
+            Spacer()
+            TextField("", text: text)
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.numbersAndPunctuation)
+                .submitLabel(.done)
+                .monospacedDigit()
+                .foregroundStyle(Brand.blue)
+                .frame(maxWidth: 140)
+                .focused($typing, equals: field)
+                .onSubmit { commitTyped(field) }
+        }
+    }
+
+    private func showPlacement() {
+        widthText = UnitSettings.shared.format.format(width)
+        offsetText = UnitSettings.shared.format.format(offset)
+    }
+
+    private func commitTyped(_ field: PlacementField) {
+        let format = UnitSettings.shared.format
+        switch field {
+        case .width:
+            guard let value = format.parse(widthText) else { return showPlacement() }
+            commitPlacement(width: value, offset: offset)
+        case .offset:
+            guard let value = format.parse(offsetText) else { return showPlacement() }
+            commitPlacement(width: width, offset: value)
+        }
+    }
+
+    private func commitPlacement(width newWidth: Double, offset newOffset: Double) {
+        guard abs(newWidth - width) > 0.0005 || abs(newOffset - offset) > 0.0005 else {
+            return showPlacement()
+        }
+        if let stored = onPlacementChanged?(newWidth, newOffset) {
+            width = stored.width
+            offset = stored.offset
+            placementRefused = false
+        } else {
+            placementRefused = true
+        }
+        showPlacement()
+    }
 
     private var header: some View {
         HStack(spacing: Brand.Space.small) {

@@ -1275,6 +1275,43 @@ enum PlanEditing {
         return moved
     }
 
+    /// An opening given a typed width and a typed distance from its wall's
+    /// start corner — or nil when that does not fit: past the wall's end, or
+    /// over another opening on the same wall.
+    ///
+    /// The same arithmetic `slideOpening` does for a drag, done for a number
+    /// somebody typed. A width within two jamb margins of the whole wall IS
+    /// the whole wall — that is an open-plan join, a cased opening with no
+    /// wall left either side of it — and it is only allowed on a wall with
+    /// nothing else in it.
+    static func reshapeOpening(
+        _ opening: WallOpening, width: Double, offset: Double, along polygon: [CGPoint],
+        avoiding others: [WallOpening]
+    ) -> WallOpening? {
+        let length = edgeLength(polygon, opening.edge)
+        guard length > 0.1, width.isFinite, offset.isFinite, width >= 0.1 else { return nil }
+        let neighbours = others.filter { $0.edge == opening.edge && $0 != opening }
+
+        var reshaped = opening
+        if width >= length - 2 * jambMargin {
+            guard neighbours.isEmpty else { return nil }
+            reshaped.width = quantise(length)
+            reshaped.offset = 0
+            return reshaped
+        }
+        let start = min(max(offset, jambMargin), length - width - jambMargin)
+        for other in neighbours {
+            let otherStart = clampedOffset(
+                offset: other.offset, width: other.width, edgeLength: length)
+            if start < otherStart + other.width - 0.001, otherStart < start + width - 0.001 {
+                return nil
+            }
+        }
+        reshaped.width = quantise(width)
+        reshaped.offset = quantise(start)
+        return reshaped
+    }
+
     /// The dimension chain of one wall: the pieces from corner to corner,
     /// alternating gap · opening · gap …, summing to the wall exactly. This
     /// is a PROJECTION of the wall, derived fresh each time — never stored,
