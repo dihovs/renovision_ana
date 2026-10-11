@@ -852,6 +852,39 @@ actor API {
             "/api/v1/scans/\(roomId)", method: "PATCH", body: PlacementPatch(planX: x, planY: y))
     }
 
+    /// Read somebody else's floor plan into rooms (`/api/v1/plan-import`).
+    ///
+    /// Its own session, because the shared one gives up after 20 seconds of
+    /// silence — right for a basement, wrong here: the server says nothing at
+    /// all until a model has read the whole house, which takes a minute or
+    /// two. Same cookie jar, so the same signed-in operator.
+    func importPlan(jpeg: Data) async throws -> PlanImportResult {
+        struct Body: Encodable { let image: String }
+        guard let url = URL(string: "/api/v1/plan-import", relativeTo: Self.baseURL) else {
+            throw APIError.server("Bad path.")
+        }
+        var req = URLRequest(url: url, timeoutInterval: 300)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.httpBody = try JSONEncoder().encode(Body(image: jpeg.base64EncodedString()))
+
+        let config = URLSessionConfiguration.default
+        config.httpCookieStorage = HTTPCookieStorage.shared
+        config.timeoutIntervalForRequest = 300
+        config.timeoutIntervalForResource = 330
+        let (data, response) = try await URLSession(configuration: config).data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw APIError.server("No response.") }
+        if http.statusCode == 401 { throw APIError.notSignedIn }
+        guard (200..<300).contains(http.statusCode) else {
+            let body = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            throw APIError.server(body?.error ?? "The plan could not be read (\(http.statusCode)).")
+        }
+        let result = try decode(PlanImportResult.self, from: data)
+        if let error = result.error { throw APIError.server(error) }
+        return result
+    }
+
     // MARK: - Schedule
 
     func visits() async throws -> [VisitSummary] {

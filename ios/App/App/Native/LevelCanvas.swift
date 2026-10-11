@@ -1707,6 +1707,7 @@ struct FloorCanvasView: View {
     @State private var roomAreas: [String: [AffectedArea]] = [:]
     @State private var pendingLibraryItem: LibraryItem?
     @State private var choosingLibraryItem = false
+    @State private var importingPlan = false
 
     private static let roomTransitionDuration: Double = 0.3
     private static let roomTransitionAnimation: Animation = .easeInOut(duration: roomTransitionDuration)
@@ -2424,6 +2425,12 @@ struct FloorCanvasView: View {
         .sheet(isPresented: $addingPhoto, onDismiss: { Task { await load() } }) {
             ProjectFileUploader(projectId: projectId) { Task { await load() } }
         }
+        .sheet(isPresented: $importingPlan, onDismiss: { Task { await load() } }) {
+            PlanImportSheet(
+                projectId: projectId, level: showing, floorLabel: label,
+                existing: drawingContext, existingCount: (scans ?? []).count,
+                onFiled: { Task { await load() } })
+        }
         .sheet(isPresented: $inserting, onDismiss: { Task { await load() } }) {
             CaptureFlow(
                 projectId: projectId,
@@ -2669,6 +2676,15 @@ struct FloorCanvasView: View {
         VStack(spacing: 0) {
             insertRow("Room", icon: "square.dashed", enabled: true) {
                 choosingMethod = true
+            }
+            Divider()
+            // A whole floor at once, from a plan somebody else drew — see
+            // `PlanImportSheet`.
+            insertRow(
+                "Plan from a drawing", icon: "doc.viewfinder", enabled: true,
+                note: "Photo, screenshot or PDF of a drawn plan"
+            ) {
+                importingPlan = true
             }
             Divider()
             // Live since S8. At floor depth the library opens the same way
