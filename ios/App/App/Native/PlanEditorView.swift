@@ -1427,8 +1427,19 @@ struct RoomEditorCore: View {
             return
         }
 
+        // A corner's handle is generous, and a window set a hand's width
+        // from the corner sits inside it at ordinary zoom: tapping the window
+        // selected the corner, every time (a bedroom's 0.13 m window on the
+        // owner's reference plan, 11 Oct 2026). So the corner takes the tap
+        // only when no opening is nearer to the finger than it is.
         let cornerTolerance = handleHit / 2 / scale
-        for i in corners.indices where PlanEditing.length(PlanEditing.sub(corners[i], point)) < cornerTolerance {
+        let nearestOpening =
+            openings.indices
+            .map { OpeningGlyphs.distance(to: openings[$0], polygon: corners, from: point) }
+            .min() ?? .infinity
+        for i in corners.indices {
+            let d = PlanEditing.length(PlanEditing.sub(corners[i], point))
+            guard d < cornerTolerance, d <= nearestOpening else { continue }
             select(.corner(i))
             return
         }

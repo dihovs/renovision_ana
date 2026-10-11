@@ -374,6 +374,36 @@ struct LevelCanvas: View {
                                         }
                                     }
                                 }
+                                // **A window is glass, not a gap.** Every opening
+                                // is a hole in the band, and at card scale a hole
+                                // with no symbol in it reads as a broken wall — the
+                                // reference house's card looked like a row of
+                                // brackets (11 Oct 2026). A hairline down the
+                                // middle of an outside wall's band is the window
+                                // at this tier; doors and passages stay open.
+                                let polygon = slot.plan.polygon
+                                if !polygon.isEmpty {
+                                    let cx = polygon.map(\.x).reduce(0, +) / Double(polygon.count)
+                                    let cy = polygon.map(\.y).reduce(0, +) / Double(polygon.count)
+                                    for opening in slot.plan.openings where opening.kind == .window {
+                                        let s = opening.segment
+                                        let w = s.length
+                                        guard w > 0.05 else { continue }
+                                        var nx = -(s.y2 - s.y1) / w
+                                        var ny = (s.x2 - s.x1) / w
+                                        // Outward: away from the room's middle.
+                                        if ((s.x1 + s.x2) / 2 - cx) * nx + ((s.y1 + s.y2) / 2 - cy) * ny < 0 {
+                                            nx = -nx
+                                            ny = -ny
+                                        }
+                                        let mid = StoreyLayout.exteriorWall / 2
+                                        var glass = Path()
+                                        glass.move(to: pt(s.x1 + nx * mid, s.y1 + ny * mid))
+                                        glass.addLine(to: pt(s.x2 + nx * mid, s.y2 + ny * mid))
+                                        context.stroke(
+                                            glass, with: .color(ink), lineWidth: max(0.6, band * 0.3))
+                                    }
+                                }
                                 continue
                             }
 
