@@ -125,11 +125,18 @@ struct PlanNavigationGesture: UIViewRepresentable {
             parent.onPan(CGSize(width: translation.x, height: translation.y))
         }
 
+        /// The midpoint is reported in the CANVAS's coordinates — `regionView`,
+        /// which is sized to it — not the full-screen host the recognizer sits
+        /// on. The host's origin is the top of the screen; the canvas starts
+        /// under the navigation bar, so reading the host's coordinates put
+        /// the zoom's pivot that far below the fingers and every pinch slid
+        /// the room up and off the screen (found 11 Oct 2026 zooming into a
+        /// bedroom on the owner's reference plan).
         @objc private func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
             guard let view = recognizer.view, recognizer.numberOfTouches >= 2 else { return }
             let factor = recognizer.scale
             recognizer.scale = 1
-            parent.onZoom(factor, recognizer.location(in: view))
+            parent.onZoom(factor, recognizer.location(in: regionView ?? view))
         }
 
         /// Pinch and pan together, and neither one blocking the canvas's own

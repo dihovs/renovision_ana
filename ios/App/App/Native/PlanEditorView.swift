@@ -315,9 +315,12 @@ struct RoomEditorCore: View {
     /// UIKit because two-finger-only is not something SwiftUI can say.
     @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
-    /// The canvas's own size, needed to zoom about the fingers rather than
-    /// the middle of the screen — the pinch callback has no geometry proxy.
-    @State private var canvasSize: CGSize = .zero
+    /// Where the drawing's middle sits in the canvas with no pan applied —
+    /// `centre` minus `pan`, as the canvas works it out. Needed to zoom about
+    /// the fingers rather than the middle of the screen, since the pinch
+    /// callback has no geometry proxy. Not simply half the canvas: inside the
+    /// floor the drawing centres on the shared viewport instead.
+    @State private var centreBase: CGPoint = .zero
 
     enum Selection: Equatable {
         case none
@@ -651,16 +654,15 @@ struct RoomEditorCore: View {
             // express it in this canvas's local space by subtracting where
             // this canvas starts. `pan` still rides on top, unchanged.
             let storeyFrame = proxy.frame(in: .named(Self.storeySpace))
-            let centre: CGPoint = {
+            let base: CGPoint = {
                 guard let externalViewport else {
-                    return CGPoint(
-                        x: proxy.size.width / 2 + pan.width,
-                        y: proxy.size.height / 2 + pan.height)
+                    return CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
                 }
                 return CGPoint(
-                    x: externalViewport.canvasSize.width / 2 - storeyFrame.minX + pan.width,
-                    y: externalViewport.canvasSize.height / 2 - storeyFrame.minY + pan.height)
+                    x: externalViewport.canvasSize.width / 2 - storeyFrame.minX,
+                    y: externalViewport.canvasSize.height / 2 - storeyFrame.minY)
             }()
+            let centre = CGPoint(x: base.x + pan.width, y: base.y + pan.height)
 
             // `roomOrigin` shifts a LOCAL point (what `corners` always is,
             // save file and all) into FLOOR space before it meets `bounds`,
@@ -1091,8 +1093,8 @@ struct RoomEditorCore: View {
                         pan.height += delta.height
                     })
             )
-            .onAppear { canvasSize = proxy.size }
-            .onChange(of: proxy.size) { canvasSize = $0 }
+            .onAppear { centreBase = base }
+            .onChange(of: base) { _, new in centreBase = new }
             .gesture(
                 // One finger: edit what is selected, else select.
                 DragGesture(minimumDistance: 4)
@@ -1634,20 +1636,22 @@ struct RoomEditorCore: View {
     /// centre instead slides whatever you were looking at off the edge, which
     /// on a long room means chasing the thing you were trying to inspect.
     ///
-    /// The camera is `centre = size/2 + pan`, so holding the point under the
-    /// fingers still means moving `centre` to `focus - (focus - centre) ·
+    /// The camera is `centre = centreBase + pan`, so holding the point under
+    /// the fingers still means moving `centre` to `focus - (focus - centre) ·
     /// factor` — a pan delta of `(focus - centre) · (1 - factor)`. Clamping
     /// zoom first means a pinch past either stop stops panning too, rather
     /// than sliding the plan while the scale refuses to change.
+    ///
+    /// `centreBase`, not half the canvas: inside the floor the drawing is
+    /// centred on the full-screen viewport, half the action bar lower, and
+    /// pivoting about the wrong centre moved the room away on every pinch.
     private func zoomBy(_ factor: CGFloat, about focus: CGPoint) {
         let clamped = min(max(zoom * factor, 0.5), 6)
         let applied = clamped / zoom
         guard applied != 1 else { return }
         zoom = clamped
 
-        let centre = CGPoint(
-            x: canvasSize.width / 2 + pan.width,
-            y: canvasSize.height / 2 + pan.height)
+        let centre = CGPoint(x: centreBase.x + pan.width, y: centreBase.y + pan.height)
         pan.width += (focus.x - centre.x) * (1 - applied)
         pan.height += (focus.y - centre.y) * (1 - applied)
     }

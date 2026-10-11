@@ -487,10 +487,25 @@ struct StoreyLayout {
                 let minY = ys.min(), let maxY = ys.max()
             else { continue }
             // A whole outside wall sits beyond the polygon edge (see
-            // `StoreyWalls`); a swing arc reaches its own opening's width
-            // beyond it.
+            // `StoreyWalls`); a swing arc reaches its leaf's width beyond it.
+            //
+            // Only a door that SWINGS reaches anywhere. This took the widest
+            // opening of any kind, so a room with a 3 m cased opening or a
+            // 2.5 m run of glazing padded the framed floor by 3 m on every
+            // side — on the owner's reference house the plan filled half the
+            // phone and its bedrooms were too small to carry a name. A
+            // double's two leaves each reach half the width; a RoomPlan door
+            // (no detail) is drawn single-leaf, so it reaches all of it.
             let widest = room.plan.openings
-                .map { hypot($0.segment.x2 - $0.segment.x1, $0.segment.y2 - $0.segment.y1) }
+                .map { opening -> Double in
+                    guard opening.kind == .door else { return 0 }
+                    let width = hypot(
+                        opening.segment.x2 - opening.segment.x1,
+                        opening.segment.y2 - opening.segment.y1)
+                    guard let detail = opening.detail else { return width }
+                    guard detail.swings else { return 0 }
+                    return detail.hasOneLeaf ? width : width / 2
+                }
                 .max() ?? 0
             let margin = Self.exteriorWall + widest
             let here = CGRect(
@@ -1089,52 +1104,18 @@ struct StoreyBaseLayer: View {
                     // used to be dropped, so on a whole house the closet, the
                     // bedrooms, the entry and both bathrooms were unnamed
                     // boxes. The type is sized to the room instead — the rule
-                    // the project card's thumbnail already follows — and only
-                    // a room too narrow for 8-point type goes without.
-                    let plotWidth = plan.width * viewport.scale
-                    let nameSize = min(14, max(8, plotWidth * 0.13))
-                    if plotWidth >= 34 {
-                        let areaSize = nameSize * 0.79
-                        let anchor = FloorPlanGeometry.labelAnchor(
-                            plan.polygon, width: plan.width, height: plan.height)
-                        let centre = pt(anchor.x, anchor.y)
-                        let name = context.resolve(
-                            Text(storeyRoom.room.name)
-                                .font(.system(size: nameSize, weight: .bold))
-                                .foregroundStyle(Brand.Plan.label))
-                        let sqft = context.resolve(
-                            Text(Measure.sqftLabel(storeyRoom.room.floorAreaSqm))
-                                .font(.system(size: areaSize, weight: .medium))
-                                .foregroundStyle(Brand.Plan.labelSoft))
-                        let box = name.measure(in: canvasSize)
-                        let sqftBox = sqft.measure(in: canvasSize)
-                        let plateWidth = max(box.width, sqftBox.width) + nameSize * 0.7
-                        let plateHeight = nameSize + areaSize + nameSize * 0.8
-                        context.fill(
-                            Path(
-                                roundedRect: CGRect(
-                                    x: centre.x - plateWidth / 2, y: centre.y - plateHeight / 2,
-                                    width: plateWidth, height: plateHeight),
-                                cornerRadius: 4),
-                            with: .color(bg.opacity(0.8)))
-                        // **The writing stays upright while the plan turns.**
-                        // The reference does this and it is invisible until it
-                        // is missing: at 40° a rotated label is a thing you
-                        // tilt your head at, and at 180° it is upside down.
-                        // The plate turns with the room — it is part of the
-                        // drawing — and only the type is counter-rotated.
-                        // **`nil`, and that is the fix, not an omission.** This
-                        // counter-rotates the type so a label stays readable
-                        // while the plan turns — correct only while something
-                        // was rotating the whole layer. The turn goes through
-                        // `StoreyViewport` now, which moves where a point LANDS
-                        // and never spins the canvas, so drawn text is already
-                        // upright. Counter-rotating it here would be the only
-                        // thing on the sheet that tilted.
-                        Self.drawRoomLabel(
-                            context: context, name: name, sqft: sqft, at: centre, turn: nil,
-                            spacing: nameSize / 14)
-                    }
+                    // the project card's thumbnail already follows — and a
+                    // name too long for the room wraps, the way the reference
+                    // writes "Walk-in / Closet". See `drawRoomLabel`.
+                    let anchor = FloorPlanGeometry.labelAnchor(
+                        plan.polygon, width: plan.width, height: plan.height)
+                    Self.drawRoomLabel(
+                        context: context, name: storeyRoom.room.name,
+                        area: Measure.sqftLabel(storeyRoom.room.floorAreaSqm),
+                        at: pt(anchor.x, anchor.y),
+                        plotWidth: plan.width * viewport.scale,
+                        plotHeight: plan.height * viewport.scale,
+                        plate: bg, measuringIn: canvasSize)
                     // **The turn's own affordances** — see `drawTurnHandle`.
                     // Extracted rather than written inline: this Canvas closure
                     // is already large enough that adding it defeated the type
@@ -1290,30 +1271,120 @@ extension StoreyBaseLayer {
         }
     }
 
-    /// **The writing stays upright while the plan turns.**
+    /// **A room's name and area, fitted to the room.**
     ///
-    /// The reference does this and it is invisible until it is missing: at
-    /// 40° a rotated label is a thing you tilt your head at, and at 180° it
-    /// is upside down. The name plate turns with the room — it is part of
-    /// the drawing — and only the type is counter-rotated.
+    /// The type is sized to the room (8–14 pt). A name wider than the room
+    /// wraps at its spaces — the reference writes "Walk-in / Closet" on two
+    /// lines in a closet that will not take it on one — and only if a line
+    /// is STILL too wide does the type shrink, to no less than 6.5 pt. Below
+    /// that, or where the lines will not stack inside the room's height, the
+    /// room goes unnamed rather than printing across its neighbours.
+    ///
+    /// Until 11 Oct 2026 this was one line or nothing: under 34 points wide
+    /// a room lost its name, so on the owner's reference house the walk-in
+    /// closet and the utilities room were the two unnamed boxes on the sheet.
+    ///
+    /// The writing is upright however the storey is turned, and needs nothing
+    /// here to stay so: the turn goes through `StoreyViewport`, which moves
+    /// where a point LANDS and never spins the canvas.
     static func drawRoomLabel(
-        context: GraphicsContext, name: GraphicsContext.ResolvedText,
-        sqft: GraphicsContext.ResolvedText, at centre: CGPoint, turn: Double?,
-        spacing: Double = 1
+        context: GraphicsContext, name: String, area: String, at centre: CGPoint,
+        plotWidth: Double, plotHeight: Double, plate: Color, measuringIn bound: CGSize
     ) {
-        let above = 7 * spacing
-        let below = 9 * spacing
-        guard let angle = turn, abs(angle) > 0.001 else {
-            context.draw(name, at: CGPoint(x: centre.x, y: centre.y - above), anchor: .center)
-            context.draw(sqft, at: CGPoint(x: centre.x, y: centre.y + below), anchor: .center)
-            return
+        let room = plotWidth - 4
+        guard room > 12 else { return }
+        let preferred = min(14, max(8, plotWidth * 0.13))
+        let areaRatio = 0.79
+
+        func resolved(_ text: String, size: Double, soft: Bool) -> GraphicsContext.ResolvedText {
+            context.resolve(
+                Text(text)
+                    .font(.system(size: size, weight: soft ? .medium : .bold))
+                    .foregroundStyle(soft ? Brand.Plan.labelSoft : Brand.Plan.label))
         }
-        context.drawLayer { layer in
-            layer.translateBy(x: centre.x, y: centre.y)
-            layer.rotate(by: Angle(radians: -angle))
-            layer.draw(name, at: CGPoint(x: 0, y: -above), anchor: .center)
-            layer.draw(sqft, at: CGPoint(x: 0, y: below), anchor: .center)
+        func width(_ text: String, size: Double, soft: Bool = false) -> Double {
+            resolved(text, size: size, soft: soft).measure(in: bound).width
         }
+
+        // Words packed greedily onto lines, each as long as the room allows.
+        // With `glued`, a word of one or two characters stays with the one
+        // before it: "Bedrm / 3" on two lines reads as two labels.
+        func packed(glued: Bool) -> [String] {
+            guard width(name, size: preferred) > room else { return [name] }
+            let words = name.split(separator: " ").map(String.init).reduce(into: [String]()) {
+                if glued, $1.count <= 2, let last = $0.popLast() {
+                    $0.append(last + " " + $1)
+                } else {
+                    $0.append($1)
+                }
+            }
+            guard words.count > 1 else { return [name] }
+            var lines: [String] = []
+            var current = ""
+            for word in words {
+                let candidate = current.isEmpty ? word : current + " " + word
+                if current.isEmpty || width(candidate, size: preferred) <= room {
+                    current = candidate
+                } else {
+                    lines.append(current)
+                    current = word
+                }
+            }
+            lines.append(current)
+            return lines
+        }
+
+        // The type that fits those lines, or nil when even the smallest is
+        // more than a hair over — the hair being the wall band it sits on.
+        // Type width scales with its size, so one proportional step fits it.
+        func fitted(_ lines: [String]) -> Double? {
+            let widest = max(
+                lines.map { width($0, size: preferred) }.max() ?? 0,
+                width(area, size: preferred * areaRatio, soft: true))
+            let size = widest > room ? max(6.5, preferred * room / widest) : preferred
+            return widest * size / preferred <= room + 6 ? size : nil
+        }
+
+        // Keep "Bedrm 3" whole and shrink it; but where "Bathroom 1" will
+        // not go at the smallest type, "Bathroom / 1" beats no name at all.
+        var lines = packed(glued: true)
+        var fit = fitted(lines)
+        if fit == nil {
+            lines = packed(glued: false)
+            fit = fitted(lines)
+        }
+        guard let size = fit else { return }
+
+        let lineHeight = size * 1.15
+        let areaSize = size * areaRatio
+        let block = lineHeight * Double(lines.count) + areaSize * 1.2
+        guard block <= plotHeight + 4 else { return }
+
+        let names = lines.map { resolved($0, size: size, soft: false) }
+        let areaText = resolved(area, size: areaSize, soft: true)
+        let plateWidth =
+            max(
+                names.map { $0.measure(in: bound).width }.max() ?? 0,
+                areaText.measure(in: bound).width) + size * 0.7
+        let plateHeight = block + size * 0.5
+        context.fill(
+            Path(
+                roundedRect: CGRect(
+                    x: centre.x - plateWidth / 2, y: centre.y - plateHeight / 2,
+                    width: plateWidth, height: plateHeight),
+                cornerRadius: 4),
+            with: .color(plate.opacity(0.8)))
+
+        let top = centre.y - block / 2
+        for (index, line) in names.enumerated() {
+            context.draw(
+                line, at: CGPoint(x: centre.x, y: top + lineHeight * (Double(index) + 0.5)),
+                anchor: .center)
+        }
+        context.draw(
+            areaText,
+            at: CGPoint(x: centre.x, y: top + lineHeight * Double(lines.count) + areaSize * 0.6),
+            anchor: .center)
     }
 
     /// **One manipulator, drawn the one way manipulators are drawn here.**
