@@ -194,9 +194,15 @@ struct RoomSketchView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Brand.inkSoft)
 
-                Field(label: "WIDTH", text: $widthText, placeholder: "12' 6")
-                Field(label: "LENGTH", text: $lengthText, placeholder: "10'")
-                Field(label: "CEILING HEIGHT", text: $heightText, placeholder: "8'")
+                Field(
+                    label: "WIDTH", text: $widthText, placeholder: "12' 6",
+                    keyboard: .numbersAndPunctuation, clearsOnFocus: true)
+                Field(
+                    label: "LENGTH", text: $lengthText, placeholder: "10'",
+                    keyboard: .numbersAndPunctuation, clearsOnFocus: true)
+                Field(
+                    label: "CEILING HEIGHT", text: $heightText, placeholder: "8'",
+                    keyboard: .numbersAndPunctuation, clearsOnFocus: true)
 
                 // The live figure is the cheapest error check there is: a
                 // slipped decimal shows up instantly as an absurd area.

@@ -69,7 +69,12 @@ struct DrawRoomView: View {
     /// Corners in PLAN METRES, in the order tapped — floor metres when
     /// there are neighbours, so they can be filed where they were drawn.
     @State private var corners: [CGPoint] = []
-    @State private var heightText = "8"
+    /// Remembered from the last room drawn: a house's ceilings are mostly
+    /// one height, and retyping 10 into twenty rooms of the owner's second
+    /// reference plan was twenty chances to forget it.
+    @AppStorage("drawRoom.ceiling") private var heightText = "8"
+    /// The next wall's length, typed — see `addTypedWall`.
+    @State private var wallText = ""
     /// Where the operator has put the sheet: the floor point at the middle
     /// of the canvas and the metres per point. Nil until the first tap,
     /// pinch or pan — until then the view is FITTED, worked out afresh from
@@ -416,6 +421,67 @@ struct DrawRoomView: View {
         corners.append(landed.point)
     }
 
+    /// **A wall typed, not tapped.** Drawing from a plan or a tape, the
+    /// operator KNOWS the length — 18' 8 — and a fingertip on a zoomed-out
+    /// house lands within a few centimetres of it at best, so every room
+    /// drawn from the owner's second reference plan would have needed Set
+    /// Size afterwards (11 Oct 2026). The magicplan way instead: tap the
+    /// first corner, which snaps against the room next door, then type each
+    /// wall and say which way it runs. Rectangles, L-shapes and bump-outs
+    /// all come out exact, and the outline closes itself when the last wall
+    /// comes back to where it started.
+    private func addTypedWall(dx: Double, dy: Double) {
+        guard !closed, let last = corners.last,
+            let metres = units.format.parse(wallText), metres > 0.05
+        else { return }
+        let next = CGPoint(x: last.x + dx * metres, y: last.y + dy * metres)
+        if corners.count >= 3, let first = corners.first,
+            hypot(first.x - next.x, first.y - next.y) < 0.02
+        {
+            closed = true
+            snapNote = nil
+        } else {
+            corners.append(next)
+            snapNote = "Typed: \(units.format.format(metres)) wall"
+        }
+        // Back to the fitted view, which takes in the outline as well as the
+        // rooms behind it. A tapped corner is always on screen; a typed one
+        // can be fourteen feet past the edge, and the outline then ran off
+        // the sheet where nobody could see it close.
+        manual = nil
+        wallText = ""
+    }
+
+    private var typedWallRow: some View {
+        let ready = !closed && !corners.isEmpty
+        return HStack(spacing: 6) {
+            Text("WALL")
+                .font(.system(size: 10, weight: .heavy))
+                .foregroundStyle(Brand.inkFaint)
+            TextField(corners.isEmpty ? "tap a corner first" : "length", text: $wallText)
+                .keyboardType(.numbersAndPunctuation)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(minWidth: 70)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Brand.surfaceRaised, in: .rect(cornerRadius: 8))
+                .disabled(!ready)
+            ForEach(
+                [("arrow.left", -1.0, 0.0), ("arrow.up", 0, -1), ("arrow.down", 0, 1),
+                 ("arrow.right", 1, 0)], id: \.0
+            ) { symbol, dx, dy in
+                Button { addTypedWall(dx: dx, dy: dy) } label: {
+                    Image(systemName: symbol)
+                        .font(.system(size: 15, weight: .bold))
+                        .frame(width: 38, height: 32)
+                        .background(Brand.surfaceRaised, in: .rect(cornerRadius: 8))
+                }
+                .disabled(!ready || units.format.parse(wallText) == nil)
+                .accessibilityLabel("Wall \(symbol.replacingOccurrences(of: "arrow.", with: ""))")
+            }
+        }
+    }
+
     private func undo() {
         if closed { closed = false } else if !corners.isEmpty { corners.removeLast() }
         snapNote = nil
@@ -453,12 +519,16 @@ struct DrawRoomView: View {
                 }
             }
 
+            typedWallRow
+
             HStack(spacing: Brand.Space.small) {
                 Text("CEILING")
                     .font(.system(size: 10, weight: .heavy))
                     .foregroundStyle(Brand.inkFaint)
                 TextField("8", text: $heightText)
-                    .keyboardType(.decimalPad)
+                    // Feet and inches: a plan says 11'-6" CLG. HT., and a
+                    // decimal pad has no apostrophe to type that with.
+                    .keyboardType(.numbersAndPunctuation)
                     .font(.system(size: 15, weight: .semibold))
                     .frame(width: 90)
                     .padding(.horizontal, 8)

@@ -1558,8 +1558,17 @@ struct SelectRoomTypeView: View {
         let pool = types.filter { $0.isCommercial == commercial }
         // Commercial has no "common six" to lead with — the reference shows
         // its whole list, and so does this.
-        guard !commercial, !expanded else { return pool }
+        guard !commercial else { return pool }
         let lead = Self.common.compactMap { id in pool.first { $0.id == id } }
+        // **See more ADDS to the list; it does not reshuffle it.** Expanded
+        // used to show the server's own order, so Kitchen jumped from first
+        // to third and Dining from second to fifth the moment the list grew:
+        // a thumb going to where Dining had just been picked Living room
+        // (found drawing the owner's second reference plan, 11 Oct 2026).
+        // The six stay where they were and the rest follow underneath.
+        if expanded {
+            return lead + pool.filter { type in !lead.contains { $0.id == type.id } }
+        }
         // A type chosen from behind See more stays visible rather than
         // silently vanishing from the short list that is on screen.
         if let selected, !lead.contains(where: { $0.id == selected }),
@@ -1625,8 +1634,17 @@ struct RoomTypeList: View {
         let pool = types.filter { $0.isCommercial == commercial }
         // Commercial has no "common six" to lead with — the reference shows
         // its whole list, and so does this.
-        guard !commercial, !expanded else { return pool }
+        guard !commercial else { return pool }
         let lead = Self.common.compactMap { id in pool.first { $0.id == id } }
+        // **See more ADDS to the list; it does not reshuffle it.** Expanded
+        // used to show the server's own order, so Kitchen jumped from first
+        // to third and Dining from second to fifth the moment the list grew:
+        // a thumb going to where Dining had just been picked Living room
+        // (found drawing the owner's second reference plan, 11 Oct 2026).
+        // The six stay where they were and the rest follow underneath.
+        if expanded {
+            return lead + pool.filter { type in !lead.contains { $0.id == type.id } }
+        }
         // A type chosen from behind See more stays visible rather than
         // silently vanishing from the short list that is on screen.
         if let selected, !lead.contains(where: { $0.id == selected }),
