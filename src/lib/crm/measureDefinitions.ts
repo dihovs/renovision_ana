@@ -46,8 +46,9 @@ export const PERIMETER_DEFINITION: MeasureDefinition = {
   definition:
     "The total run of the walls — the interior perimeter, measured at floor " +
     "level, with doorways included in the run. It is the basis for wall area. " +
-    "For trim, use baseboard length instead: that is this figure with the " +
-    "doorways taken out.",
+    "A side marked open, where the room runs into the next one with no wall, " +
+    "is not part of it. For trim, use baseboard length instead: that is this " +
+    "figure with the doorways taken out.",
 };
 
 export const BASEBOARD_DEFINITION: MeasureDefinition = {
@@ -205,8 +206,10 @@ const MEASURE_DEFINITIONS_FR: Record<
     definition:
       "Le développement total des murs — le périmètre intérieur, mesuré au niveau " +
       "du plancher, les baies de porte comprises dans le parcours. C'est la base " +
-      "de la superficie des murs. Pour les boiseries, utiliser plutôt la longueur " +
-      "de plinthe : c'est cette même mesure, baies de porte déduites.",
+      "de la superficie des murs. Un côté marqué ouvert, où la pièce se prolonge " +
+      "dans la suivante sans mur, n'en fait pas partie. Pour les boiseries, " +
+      "utiliser plutôt la longueur de plinthe : c'est cette même mesure, baies " +
+      "de porte déduites.",
   },
   baseboard: {
     id: "baseboard",

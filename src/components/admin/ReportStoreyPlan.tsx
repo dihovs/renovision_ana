@@ -1,5 +1,6 @@
 import { resolvePlacements } from "@/lib/floorLayout";
 import { toFloorPlan, type FloorPlan, type ScanGeometry } from "@/lib/roomScan";
+import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
 import { formatArea, formatBare } from "@/lib/report/strings";
 import type { Locale } from "@/i18n/translations";
@@ -57,6 +58,9 @@ type StoreyRoom = {
   /** The bath, the toilet, the counter run — what makes a floor plan a
       drawing of a property rather than of five empty rectangles. */
   objects?: PlanObject[];
+  /** Edges with no wall on them — open into the next room. Drawn dashed
+      instead of as wall (lib/openWalls.ts). */
+  openWalls?: number[];
 };
 
 /** **Set once per drawing, from the document's language.** A French report
@@ -90,7 +94,9 @@ function formatter(locale: Locale): Format {
  * it meets another wall — which is what closes a corner square instead of
  * leaving a notch of white at every junction.
  */
-function wallPath(plan: FloorPlan): string {
+function wallPath(plan: FloorPlan, open: boolean[] = []): string {
+  // Joints from EVERY segment, open or not: a wall that meets an open side
+  // still closes its corner square, it just has no wall continuing past it.
   const joints = plan.segments.flatMap((s) => [
     { x: s.x1, y: s.y1 },
     { x: s.x2, y: s.y2 },
@@ -99,6 +105,7 @@ function wallPath(plan: FloorPlan): string {
     joints.filter((j) => Math.hypot(j.x - x, j.y - y) < 0.06).length > 1;
 
   return plan.segments
+    .filter((_, i) => !open[i])
     .map((s) => {
       const dx = s.x2 - s.x1;
       const dy = s.y2 - s.y1;
@@ -304,6 +311,7 @@ function Room({
   tone?: "full" | "pale" | "ink";
 }) {
   const label = `${fmt.bare(plan.width)} × ${fmt.bare(plan.height)}`;
+  const openFlags = openSegmentFlags(plan, room.openWalls);
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? LOCATOR_PALE_INK : PLAN_INK;
   const fill = tone === "pale" ? LOCATOR_PALE_FILL : tone === "ink" ? LOCATOR_INK_FILL : PLAN_FILL;
@@ -380,8 +388,26 @@ function Room({
 
       {/* Two passes: the body at true thickness over a slightly wider stroke,
           which leaves the heavier cut faces on both sides. */}
-      <path d={wallPath(plan)} stroke={wallInk} strokeWidth={T + 2 * CUT} fill="none" />
-      <path d={wallPath(plan)} stroke={wallInk} strokeWidth={T} fill="none" />
+      <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T + 2 * CUT} fill="none" />
+      <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T} fill="none" />
+
+      {/* Open sides — the room's edge with no wall on it, so an open-plan
+          entry and dining room print as one space with a dashed line where
+          one room's floor area hands over to the next. */}
+      {plan.segments.map((s, i) =>
+        openFlags[i] ? (
+          <line
+            key={`open${i}`}
+            x1={s.x1}
+            y1={s.y1}
+            x2={s.x2}
+            y2={s.y2}
+            stroke={wallInk}
+            strokeWidth={0.022}
+            strokeDasharray="0.14 0.1"
+          />
+        ) : null,
+      )}
 
       {!locator && plan.openings.map((opening, index) => {
         const dx = opening.x2 - opening.x1;

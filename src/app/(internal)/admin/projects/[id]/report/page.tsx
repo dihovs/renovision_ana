@@ -185,6 +185,7 @@ export default async function ReportPage({
           thumbnailUrl: file.thumbnail_path ? (urls[file.thumbnail_path] ?? null) : null,
         })),
         wallDisplayElevation: new Map(walls.map((w) => [w.wall_index, w.display_elevation])),
+        openWalls: walls.filter((w) => w.is_open).map((w) => w.wall_index),
       };
     }),
   );

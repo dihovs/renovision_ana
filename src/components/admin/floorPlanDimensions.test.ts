@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import FloorPlan from "./FloorPlan";
 import { makeRectangularRoom } from "@/lib/manualRoom";
-import type { RoomScanResult } from "@/lib/roomScan";
+import type { RoomScanResult, ScanGeometry } from "@/lib/roomScan";
 
 function labels(result: RoomScanResult): string[] {
   const svg = renderToStaticMarkup(createElement(FloorPlan, { result, name: "Room" }));
@@ -26,7 +26,7 @@ describe("floor plan dimension chains", () => {
   it("still breaks a side into spans where its corners divide it", () => {
     // An L: 4 m across the bottom, a 1.5 m step in on the top right.
     const room = makeRectangularRoom({ widthMeters: 4, lengthMeters: 3, heightMeters: 2.44 });
-    const l: RoomScanResult = {
+    const l: ScanGeometry = {
       ...room,
       editedPolygon: [
         { x: 0, y: 0 },

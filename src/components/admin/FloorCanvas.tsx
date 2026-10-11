@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { tapFeedback } from "@/lib/haptics";
 import { resolvePlacements, zoomTo, type Placed } from "@/lib/floorLayout";
+import { openSegmentFlags } from "@/lib/openWalls";
 import {
   squareMetersToSquareFeet,
   toFloorPlan,
@@ -133,6 +134,7 @@ export default function FloorCanvas({
         >
           {rooms.map((room, index) => {
             const plan = layout.plans[index];
+            const openFlags = openSegmentFlags(plan, room.open_walls);
             const at = layout.placed[index];
             const isSelected = room.id === selectedId;
             const isDragging = dragging?.id === room.id;
@@ -177,6 +179,9 @@ export default function FloorCanvas({
                   />
                 )}
 
+                {/* An open side is the room's edge with no wall on it —
+                    thin and dashed, so an open-plan floor reads as one
+                    space instead of a row of boxes. */}
                 {plan.segments.map((s, i) => (
                   <line
                     key={i}
@@ -185,8 +190,9 @@ export default function FloorCanvas({
                     x2={s.x2}
                     y2={s.y2}
                     stroke={isSelected || isDragging ? "#1f6fd0" : "#141414"}
-                    strokeWidth={0.14}
-                    strokeLinecap="square"
+                    strokeWidth={openFlags[i] ? 0.035 : 0.14}
+                    strokeDasharray={openFlags[i] ? "0.16 0.12" : undefined}
+                    strokeLinecap={openFlags[i] ? "butt" : "square"}
                   />
                 ))}
 

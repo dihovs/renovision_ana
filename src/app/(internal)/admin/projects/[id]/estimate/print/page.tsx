@@ -126,6 +126,7 @@ export default async function EstimatePrintPage({
     planY: scan.plan_y === null ? null : Number(scan.plan_y),
     areas: planAreasFor(scan.id),
     objects: planObjectsFor(scan.id),
+    openWalls: scan.open_walls,
   }));
 
   const settings = trailerSettings(estimate);
@@ -235,6 +236,7 @@ export default async function EstimatePrintPage({
                     locale="fr"
                     objects={planObjectsFor(scan.id)}
                     areas={planAreasFor(scan.id)}
+                    openWalls={scan.open_walls}
                   />
                 </div>
                 <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-0.5 text-[11px] tabular-nums sm:grid-cols-3">

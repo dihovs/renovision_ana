@@ -15,9 +15,12 @@ import {
   floorAreas,
   wallAreas,
   ceilingAreas,
+  wallLengthM,
   DAMAGE_LABEL,
   type AffectedArea,
 } from "@/lib/crm/areaShapes";
+import { outlineCorners, wallSide } from "@/lib/openWalls";
+import { formatFeetInches } from "@/lib/manualRoom";
 import {
   deleteSavedScan,
   metersToFeet,
@@ -25,6 +28,7 @@ import {
   savedFloorAreaSquareMeters,
   savedPerimeterMeters,
   savedWallAreaSquareMeters,
+  setWallOpen,
   showRoomModel,
   squareMetersToSquareFeet,
   updateSavedScan,
@@ -64,8 +68,21 @@ export default function RoomSheet({
   // living-area engine treats an unset room as "other" and somebody should
   // be able to see that nothing was chosen.
   const [roomType, setRoomType] = useState<string | null>(room.room_type ?? null);
+  // Open sides, and the perimeter the server recomputed after the last
+  // toggle. Held here because the `room` prop is the floor's copy and only
+  // refreshes when the sheet is reopened; the figures should move the moment
+  // a side is opened, not on the next visit.
+  const [openWalls, setOpenWalls] = useState<number[]>(room.open_walls ?? []);
+  const [perimeterM, setPerimeterM] = useState<number | null>(null);
+  const [savingWall, setSavingWall] = useState<number | null>(null);
 
   const result = room.geometry;
+  const corners = outlineCorners(result);
+  const shown: SavedScan = {
+    ...room,
+    open_walls: openWalls,
+    wall_length_m: perimeterM ?? room.wall_length_m,
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -86,10 +103,38 @@ export default function RoomSheet({
   // From the stored columns, not recomputed from the raw geometry — the
   // columns carry the hand-corrected figures after a plan edit, and they are
   // what the phone, the report and the estimates already read.
-  const floorSqFt = squareMetersToSquareFeet(savedFloorAreaSquareMeters(room));
-  const wallSqFt = squareMetersToSquareFeet(savedWallAreaSquareMeters(room).net);
-  const perimeterFt = metersToFeet(savedPerimeterMeters(room));
-  const ceilingFt = metersToFeet(savedCeilingHeightMeters(room));
+  const floorSqFt = squareMetersToSquareFeet(savedFloorAreaSquareMeters(shown));
+  const wallSqFt = squareMetersToSquareFeet(savedWallAreaSquareMeters(shown).net);
+  const perimeterFt = metersToFeet(savedPerimeterMeters(shown));
+  const ceilingFt = metersToFeet(savedCeilingHeightMeters(shown));
+
+  // "Top", "Right"… and, where a side has several edges (an L-shaped room
+  // has two tops), numbered so each row names one edge.
+  const sideNames = corners.map((_, i) => wallSide(corners, i));
+  const wallLabel = (i: number) => {
+    const side = sideNames[i];
+    const same = sideNames.filter((name) => name === side).length;
+    if (same === 1) return side;
+    return `${side} ${sideNames.slice(0, i + 1).filter((name) => name === side).length}`;
+  };
+
+  async function toggleWall(index: number) {
+    const open = !openWalls.includes(index);
+    const before = openWalls;
+    setOpenWalls(open ? [...before, index].sort((a, b) => a - b) : before.filter((i) => i !== index));
+    setSavingWall(index);
+    setError(null);
+    tapFeedback();
+    try {
+      setPerimeterM(await setWallOpen(room.id, index, open));
+      onChanged();
+    } catch (err) {
+      setOpenWalls(before);
+      setError(err instanceof Error ? err.message : "Could not save that wall.");
+    } finally {
+      setSavingWall(null);
+    }
+  }
 
   async function saveArea(draft: DraftArea) {
     try {
@@ -158,7 +203,7 @@ export default function RoomSheet({
         ) : (
           <div className="space-y-3 px-4 pt-1">
             <div className="overflow-hidden rounded-2xl border border-black/5 bg-white p-3">
-              <FloorPlan result={result} name={name} />
+              <FloorPlan result={result} name={name} openWalls={openWalls} />
             </div>
 
             <div className="grid grid-cols-4 gap-2">
@@ -260,6 +305,52 @@ export default function RoomSheet({
                 </p>
               )}
             </section>
+
+            {/* Open sides — where this room runs into the next one with no
+                wall between. The outline stays closed (the floor area is the
+                same); the open side just stops being wall. */}
+            {corners.length >= 3 && (
+              <section className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+                <h3 className="font-heading text-sm font-bold text-charcoal">Walls</h3>
+                <p className="text-[11px] leading-snug text-charcoal/45">
+                  Open a side where this room flows into the next one with no
+                  wall. It is drawn dashed and stops counting toward wall area
+                  and baseboard. Open the matching side of the room next door
+                  too.
+                </p>
+                <ul className="mt-2 divide-y divide-black/5">
+                  {corners.map((_, i) => {
+                    const open = openWalls.includes(i);
+                    return (
+                      <li key={i} className="flex items-center justify-between gap-3 py-2">
+                        <span className="min-w-0 text-sm font-semibold text-charcoal">
+                          {wallLabel(i)}
+                          <span className="font-normal text-charcoal/45">
+                            {" "}
+                            · {formatFeetInches(wallLengthM(corners, i))}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={open}
+                          aria-label={`${wallLabel(i)} side open`}
+                          disabled={savingWall !== null}
+                          onClick={() => void toggleWall(i)}
+                          className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                            open
+                              ? "border border-dashed border-brand-blue bg-brand-blue/[0.08] text-brand-blue"
+                              : "border border-black/10 bg-white text-charcoal/70"
+                          }`}
+                        >
+                          {open ? "Open" : "Wall"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
 
             {result.modelId && (
               <button

@@ -1,6 +1,7 @@
 "use client";
 
 import { toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
+import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
 import { formatBare, formatNumber } from "@/lib/report/strings";
 import type { Locale } from "@/i18n/translations";
@@ -99,10 +100,14 @@ export default function FloorPlan({
   dimensions = "all",
   areas,
   objects,
+  openWalls,
   locale = "en",
 }: {
   result: ScanGeometry;
   name: string;
+  /** Edges with no wall on them — open into the next room. Drawn as a thin
+      dashed line instead of the wall band (lib/openWalls.ts). */
+  openWalls?: number[];
   /** The document's language. Dimensions on a drawing are figures, and
       French writes figures with a comma — see `formatBare`. Defaults to
       English because this component is also the app's own screen, and the
@@ -137,6 +142,8 @@ export default function FloorPlan({
 }) {
   const plan = toFloorPlan(result);
   if (plan.segments.length === 0) return null;
+  const openFlags = openSegmentFlags(plan, openWalls);
+  const walled = plan.segments.filter((_, i) => !openFlags[i]);
 
   const thumb = variant === "thumb";
   // A merged floor has dozens of walls; per-wall dimension tiers stack into
@@ -170,7 +177,7 @@ export default function FloorPlan({
   const nearJoint = (x: number, y: number) =>
     joints.some((j) => Math.hypot(j.x - x, j.y - y) < 0.06);
 
-  const wallPath = plan.segments
+  const wallPath = walled
     .map((s) => {
       const dx = s.x2 - s.x1;
       const dy = s.y2 - s.y1;
@@ -272,7 +279,7 @@ export default function FloorPlan({
             and closes every shared corner square — the poché convention. At
             thumbnail size a single band, per the spec's smallest level. */}
         {thumb ? (
-          plan.segments.map((s, i) => (
+          walled.map((s, i) => (
             <line
               key={`w${i}`}
               x1={s.x1}
@@ -289,6 +296,26 @@ export default function FloorPlan({
             <path d={wallPath} stroke={PLAN_INK} strokeWidth={T + 2 * CUT} fill="none" strokeLinecap="butt" />
             <path d={wallPath} stroke={PLAN_INK} strokeWidth={T} fill="none" strokeLinecap="butt" />
           </>
+        )}
+
+        {/* Open sides: the room's edge, with nothing standing on it. A thin
+            dashed line says "the floor stops here" without drawing a wall
+            that is not there — the separator convention. */}
+        {plan.segments.map((s, i) =>
+          openFlags[i] ? (
+            <line
+              key={`open${i}`}
+              data-open-wall=""
+              x1={s.x1}
+              y1={s.y1}
+              x2={s.x2}
+              y2={s.y2}
+              stroke={PLAN_INK}
+              strokeWidth={thumb ? 0.06 : 0.02}
+              strokeDasharray={thumb ? "0.24 0.16" : "0.14 0.1"}
+              strokeLinecap="butt"
+            />
+          ) : null,
         )}
 
         {/* Openings knocked out of the band, then re-drawn as their proper

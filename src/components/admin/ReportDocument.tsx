@@ -118,6 +118,9 @@ export type ReportRoom = {
   /** Wall index → "Display Elevation in Report", for the walls that have it
       set at all. Additive on top of the damaged-walls-only default. */
   wallDisplayElevation?: Map<number, boolean>;
+  /** Edges with no wall on them — open into the next room. Every plan of
+      this room draws them dashed (lib/openWalls.ts). */
+  openWalls?: number[];
 };
 
 export type ReportData = {
@@ -817,6 +820,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 floorAreaSqm: room.floorAreaSqm,
                 planX: room.planX ?? null,
                 planY: room.planY ?? null,
+                openWalls: room.openWalls,
                 areas: [],
               }))}
             />
@@ -1027,6 +1031,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 floorAreaSqm: room.floorAreaSqm,
                 planX: room.planX ?? null,
                 planY: room.planY ?? null,
+                openWalls: room.openWalls,
                 objects: room.objects,
                 areas: planAreas(room.areas)
                   .filter((area) => area.polygon.length >= 3)
@@ -1124,6 +1129,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                     floorAreaSqm: other.floorAreaSqm,
                     planX: other.planX ?? null,
                     planY: other.planY ?? null,
+                    openWalls: other.openWalls,
                     areas: [],
                   }))}
                 />
@@ -1148,6 +1154,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   name={room.name}
                   locale={locale}
                   objects={room.objects}
+                  openWalls={room.openWalls}
                   dimensions={onlyLockedDimensions ? "locked" : "all"}
                   // Plan-space areas only — floor and ceiling, which share
                   // the plan's metres. A wall area's polygon is in its

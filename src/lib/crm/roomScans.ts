@@ -1,4 +1,7 @@
 import { db, isMissingTable, MigrationPendingError } from "./db";
+import { listOpenWalls } from "./roomWalls";
+import { openWallLengthMeters, perimeterWithOpenWallsMeters } from "../openWalls";
+import type { ScanGeometry } from "../roomScan";
 
 /**
  * Room scans, stored against the project they measured.
@@ -41,6 +44,11 @@ export type RoomScan = {
       pick removal and install items without it. NULL means not recorded,
       and the estimate says so rather than guessing (migration 0042). */
   floor_finish: "laminate" | "lvp" | "engineered" | "hardwood" | "carpet" | "tile" | null;
+  /** Not a column: the edges of this room with no wall on them, attached by
+      `listRoomScans` from `room_walls` so every drawing gets them with the
+      room (lib/openWalls.ts). Absent from a loader that doesn't attach them,
+      which draws every edge as a wall — what it was before 0051. */
+  open_walls?: number[];
 };
 
 export type RoomScanInput = {
@@ -81,7 +89,48 @@ export async function listRoomScans(projectId: string): Promise<RoomScan[]> {
     if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not load the scans: ${error.message}`);
   }
-  return (data ?? []) as RoomScan[];
+  const scans = (data ?? []) as RoomScan[];
+  // A room list never fails over the open sides: listOpenWalls already
+  // answers empty without 0051, and anything else it throws is a drawing
+  // detail, not a reason to lose the rooms.
+  const open = await listOpenWalls(scans.map((scan) => scan.id)).catch(
+    () => new Map<string, number[]>(),
+  );
+  return scans.map((scan) => ({ ...scan, open_walls: open.get(scan.id) ?? [] }));
+}
+
+/**
+ * Bring a room's stored perimeter into line with its open sides.
+ *
+ * `wall_length_m` is the run of wall, and wall area and baseboard are both
+ * derived from it everywhere — so it is the one number that has to move when
+ * a side is opened or closed, and it is recomputed from scratch each time
+ * (every wall standing, minus whatever is open now) rather than nudged, so
+ * opening and closing the same side any number of times lands back exactly
+ * where it started. A geometry with no walls to measure leaves the column
+ * alone: a zero there would be a fabricated figure, not a computed one.
+ */
+export async function syncPerimeterToOpenWalls(id: string): Promise<number | null> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("room_scans")
+    .select("geometry")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(`Could not find that room: ${error.message}`);
+
+  const geometry = (data?.geometry ?? {}) as unknown as ScanGeometry;
+  const open = (await listOpenWalls([id])).get(id) ?? [];
+  const closed = perimeterWithOpenWallsMeters(geometry, []);
+  if (!(closed > 0)) return null;
+  const perimeterM = perimeterWithOpenWallsMeters(geometry, open);
+
+  const { error: writeError } = await client
+    .from("room_scans")
+    .update({ wall_length_m: perimeterM, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (writeError) throw new Error(`Could not update the room's walls: ${writeError.message}`);
+  return perimeterM;
 }
 
 export async function createRoomScan(input: RoomScanInput): Promise<string> {
@@ -276,12 +325,20 @@ export async function saveEditedPolygon(
     editedAt: new Date().toISOString(),
   };
 
+  // The corrected outline is the new closed perimeter; any side already
+  // marked open still has no wall on it, so it stays out of the run.
+  const open = (await listOpenWalls([id]).catch(() => new Map<string, number[]>())).get(id) ?? [];
+  const wallRunM = Math.max(
+    0,
+    perimeterM - openWallLengthMeters(geometry as unknown as ScanGeometry, open),
+  );
+
   const { error } = await client
     .from("room_scans")
     .update({
       geometry,
       floor_area_sqm: areaSqm,
-      wall_length_m: perimeterM,
+      wall_length_m: wallRunM,
       // The count columns are what lists and reports cite; they must say
       // what the blob says.
       ...(openings

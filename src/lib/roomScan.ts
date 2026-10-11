@@ -278,6 +278,9 @@ export type SavedScan = {
   room_type?: string | null;
   /** Hand-set 0-100 living-area override, or null for the type's default. */
   living_percent?: number | null;
+  /** Edges with no wall on them — open into the next room (lib/openWalls.ts).
+      Drawn dashed, and already out of `wall_length_m` on the server. */
+  open_walls?: number[];
 };
 
 /** Every room saved on a project, in walking order within each floor. */
@@ -314,6 +317,28 @@ export async function updateSavedScan(
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? "Could not save the change.");
   }
+}
+
+/**
+ * Open or close one side of a room. Returns the room's new stored perimeter
+ * (the run of wall that is left), or null when the room has no walls to
+ * measure. The server recomputes it, so a caller never does this arithmetic.
+ */
+export async function setWallOpen(
+  roomScanId: string,
+  wallIndex: number,
+  open: boolean,
+): Promise<number | null> {
+  const response = await fetch(`/api/v1/scans/${encodeURIComponent(roomScanId)}/walls`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ wallIndex, isOpen: open }),
+  });
+  const body = (await response.json().catch(() => null)) as
+    | { error?: string; perimeterM?: number | null }
+    | null;
+  if (!response.ok) throw new Error(body?.error ?? "Could not save that wall.");
+  return body?.perimeterM ?? null;
 }
 
 export async function deleteSavedScan(id: string): Promise<void> {
@@ -499,9 +524,16 @@ export function savedFloorAreaSquareMeters(scan: SavedScan): number {
   return columnOr(scan.floor_area_sqm, () => totalFloorAreaSquareMeters(scan.geometry));
 }
 
-/** Perimeter of a saved room — the corrected one, when the plan was edited. */
+/** Perimeter of a saved room — the corrected one, when the plan was edited,
+    and the run of wall only: open sides are already out of the column
+    (lib/openWalls.ts). One case the zero-means-absent rule above would get
+    wrong: a room open on EVERY side genuinely has no wall, so its column is
+    a true 0 — and a room carrying open sides with a 0 column is that room,
+    not an old row, so it reads 0 rather than falling back to the outline. */
 export function savedPerimeterMeters(scan: SavedScan): number {
-  return columnOr(scan.wall_length_m, () => totalWallLengthMeters(scan.geometry));
+  return columnOr(scan.wall_length_m, () =>
+    scan.open_walls && scan.open_walls.length > 0 ? 0 : totalWallLengthMeters(scan.geometry),
+  );
 }
 
 export function savedCeilingHeightMeters(scan: SavedScan): number {
