@@ -43,6 +43,32 @@ import { PLAN_FILL, PLAN_INK, PLAN_LABEL, PLAN_LABEL_HALO, PLAN_RULE } from "./p
  * Returns the runs along the wall's own axis, or an empty array when the
  * wall has no openings and there is therefore nothing to split.
  */
+/**
+ * The middle tier of a side's dimension chain: every wall corner projected
+ * onto that side, merged where two land within a few centimetres, and the
+ * spans between them — the "7'2" | 7'8" | 8'0"" row a drafted plan prints.
+ *
+ * Built from corners, never from walls. A side's walls include the ones on
+ * the OPPOSITE face too (top and bottom are both "horizontal"), so drawing
+ * walls put a rectangle's bottom wall on top of its top wall and printed
+ * the overall figure twice. Corners on one axis do not care which face they
+ * came from, which is what a chain is.
+ *
+ * Empty when the corners do not divide the side: one span would only
+ * repeat the overall figure above it.
+ */
+function chainSpans(values: number[], lo: number, hi: number): { lo: number; hi: number }[] {
+  const points = [lo, hi, ...values.map((v) => Math.min(hi, Math.max(lo, v)))].sort(
+    (a, b) => a - b,
+  );
+  const merged: number[] = [];
+  for (const p of points) {
+    if (merged.length === 0 || p - merged[merged.length - 1] > 0.03) merged.push(p);
+  }
+  if (merged.length < 3) return [];
+  return merged.slice(1).map((p, i) => ({ lo: merged[i], hi: p }));
+}
+
 function splitAtOpenings(
   lo: number,
   hi: number,
@@ -344,16 +370,16 @@ export default function FloorPlan({
             makes a project recognisable at a glance. */}
         {!thumb && !lockedOnly && (
           <>
-        {/* Outer tier: the overall span, top and right. Inner tier: each
-            wall on that side, but only when there is more than one — a
-            single wall would just repeat the overall figure. */}
+        {/* Outer tier: the overall span, top and right. Middle tier: the
+            spans between the corners on that side, only when the corners
+            actually divide it — see chainSpans. */}
         <Dimension locale={locale} from={{ x: 0, y: 0 }} to={{ x: width, y: 0 }} offset={-1.6} axis="x" />
-        {!dense && horizontal.length > 1 &&
-          horizontal.map((s, i) => (
+        {!dense &&
+          chainSpans(horizontal.flatMap((s) => [s.x1, s.x2]), 0, width).map((run, i) => (
             <Dimension locale={locale}
               key={`hx${i}`}
-              from={{ x: Math.min(s.x1, s.x2), y: 0 }}
-              to={{ x: Math.max(s.x1, s.x2), y: 0 }}
+              from={{ x: run.lo, y: 0 }}
+              to={{ x: run.hi, y: 0 }}
               offset={-1.05}
               axis="x"
             />
@@ -385,12 +411,12 @@ export default function FloorPlan({
           })}
 
         <Dimension locale={locale} from={{ x: width, y: 0 }} to={{ x: width, y: height }} offset={1.6} axis="y" />
-        {!dense && vertical.length > 1 &&
-          vertical.map((s, i) => (
+        {!dense &&
+          chainSpans(vertical.flatMap((s) => [s.y1, s.y2]), 0, height).map((run, i) => (
             <Dimension locale={locale}
               key={`vy${i}`}
-              from={{ x: width, y: Math.min(s.y1, s.y2) }}
-              to={{ x: width, y: Math.max(s.y1, s.y2) }}
+              from={{ x: width, y: run.lo }}
+              to={{ x: width, y: run.hi }}
               offset={1.05}
               axis="y"
             />
