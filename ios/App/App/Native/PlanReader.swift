@@ -80,7 +80,7 @@ enum PlanReader {
         let placed = place(candidates, labels: labels, shares: shares, rough: rough)
         var rooms = placed.rooms
         if !placed.bySize.isEmpty {
-            notes.append("Placed by their printed size (open to a neighbour, or the drawing was unclear): \(placed.bySize.joined(separator: ", ")).")
+            notes.append("Placed by their printed size or area (open to a neighbour, or the drawing was unclear): \(placed.bySize.joined(separator: ", ")).")
         }
         if !placed.dropped.isEmpty {
             notes.append("Not drawn — no walls round \(placed.dropped.count == 1 ? "it" : "them") and no size printed: \(placed.dropped.joined(separator: ", ")).")
@@ -104,9 +104,9 @@ enum PlanReader {
         let openings = Openings.find(
             rooms: rooms, walls: paper.walls, lines: paper.faint, thickness: paper.thickness, scale: scale)
         let assembled = Geometry.assemble(rooms, openings: openings, scale: scale, imperial: labels.imperial)
-        let unsized = rooms.filter { $0.printedSize == nil }.count
+        let unsized = rooms.filter { $0.printedSize == nil && $0.printedArea == nil }.count
         if unsized > 0 {
-            notes.append("\(unsized) space\(unsized == 1 ? "" : "s") had no size printed; \(unsized == 1 ? "it was" : "they were") measured off the drawing.")
+            notes.append("\(unsized) space\(unsized == 1 ? "" : "s") had no size or area printed; \(unsized == 1 ? "it was" : "they were") measured off the drawing.")
         }
         return Reading(
             rooms: assembled.rooms, notes: notes, scale: scale, origin: assembled.origin,
