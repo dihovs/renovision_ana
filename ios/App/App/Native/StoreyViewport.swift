@@ -1144,6 +1144,7 @@ struct StoreyBaseLayer: View {
                         at: pt(anchor.x, anchor.y),
                         plotWidth: plan.width * viewport.scale,
                         plotHeight: plan.height * viewport.scale,
+                        plotArea: storeyRoom.room.floorAreaSqm * viewport.scale * viewport.scale,
                         plate: bg, measuringIn: canvasSize)
                     // **The turn's own affordances** — see `drawTurnHandle`.
                     // Extracted rather than written inline: this Canvas closure
@@ -1300,14 +1301,22 @@ extension StoreyBaseLayer {
         }
     }
 
-    /// **A room's name and area, fitted to the room.**
+    /// **A room's name and area, sized by the room.**
     ///
-    /// The type is sized to the room (8–14 pt). A name wider than the room
-    /// wraps at its spaces — the reference writes "Walk-in / Closet" on two
-    /// lines in a closet that will not take it on one — and only if a line
-    /// is STILL too wide does the type shrink, to no less than 6.5 pt. Below
-    /// that, or where the lines will not stack inside the room's height, the
-    /// room goes unnamed rather than printing across its neighbours.
+    /// The type scales with the room as drawn — the square root of its
+    /// plotted area, so a room twice as long and twice as wide gets type
+    /// twice the size. The owner, 11 Oct 2026: *"if it's a big living room,
+    /// we can have a big letter there. But if it's a small porch, it needs to
+    /// be small."* A 7–10 pt band made a closet and the great room read the
+    /// same. Clamped 5–18 pt, so it zooms with the plan without filling it.
+    ///
+    /// A name wider than the room wraps at its spaces — the reference writes
+    /// "Walk-in / Closet" on two lines in a closet that will not take it on
+    /// one — and only if a line is STILL too wide does the type shrink, to no
+    /// less than 5 pt. Below that, or where the lines will not stack inside
+    /// the room's height, the room goes unnamed rather than printing across
+    /// its neighbours. Under 6 pt the area line is dropped: at that size it
+    /// is a grey smudge, and the room's own label carries it when zoomed.
     ///
     /// Until 11 Oct 2026 this was one line or nothing: under 34 points wide
     /// a room lost its name, so on the owner's reference house the walk-in
@@ -1318,17 +1327,19 @@ extension StoreyBaseLayer {
     /// where a point LANDS and never spins the canvas.
     static func drawRoomLabel(
         context: GraphicsContext, name: String, area: String, at centre: CGPoint,
-        plotWidth: Double, plotHeight: Double, plate: Color, measuringIn bound: CGSize
+        plotWidth: Double, plotHeight: Double, plotArea: Double, plate: Color,
+        measuringIn bound: CGSize
     ) {
         let room = plotWidth - 4
         guard room > 12 else { return }
-        // **Small, because the drawing is the point.** 14 pt bold on an 80%
-        // plate made every label a white tile that covered most of its room
-        // — the owner, 11 Oct 2026: "it kind of covers the entire room...
-        // they need to be small because they're dominant." The reference
-        // labels its rooms in small type straight on the plan. 7–10 pt now,
-        // semibold, on a faint plate that only keeps the type off the grid.
-        let preferred = min(10, max(7, plotWidth * 0.08))
+        // **Never dominant.** 14 pt bold on an 80% plate made every label a
+        // white tile that covered most of its room — the owner: "it kind of
+        // covers the entire room... they need to be small because they're
+        // dominant." Semibold on a faint plate; the size comes from the room
+        // (see above). 0.13 of the room's linear size puts a 19 ft great room
+        // at about twice the type of a 6 ft closet.
+        let linear = max(plotArea, 0).squareRoot()
+        let preferred = min(18, max(5, linear * 0.13))
         let areaRatio = 0.82
 
         func resolved(_ text: String, size: Double, soft: Bool) -> GraphicsContext.ResolvedText {
@@ -1376,7 +1387,7 @@ extension StoreyBaseLayer {
             let widest = max(
                 lines.map { width($0, size: preferred) }.max() ?? 0,
                 width(area, size: preferred * areaRatio, soft: true))
-            let size = widest > room ? max(6, preferred * room / widest) : preferred
+            let size = widest > room ? max(5, preferred * room / widest) : preferred
             return widest * size / preferred <= room + 6 ? size : nil
         }
 
@@ -1391,8 +1402,9 @@ extension StoreyBaseLayer {
         guard let size = fit else { return }
 
         let lineHeight = size * 1.15
+        let showsArea = size >= 6
         let areaSize = size * areaRatio
-        let block = lineHeight * Double(lines.count) + areaSize * 1.2
+        let block = lineHeight * Double(lines.count) + (showsArea ? areaSize * 1.2 : 0)
         guard block <= plotHeight + 4 else { return }
 
         let names = lines.map { resolved($0, size: size, soft: false) }
@@ -1400,7 +1412,7 @@ extension StoreyBaseLayer {
         let plateWidth =
             max(
                 names.map { $0.measure(in: bound).width }.max() ?? 0,
-                areaText.measure(in: bound).width) + size * 0.4
+                showsArea ? areaText.measure(in: bound).width : 0) + size * 0.4
         let plateHeight = block + size * 0.2
         context.fill(
             Path(
@@ -1416,10 +1428,12 @@ extension StoreyBaseLayer {
                 line, at: CGPoint(x: centre.x, y: top + lineHeight * (Double(index) + 0.5)),
                 anchor: .center)
         }
-        context.draw(
-            areaText,
-            at: CGPoint(x: centre.x, y: top + lineHeight * Double(lines.count) + areaSize * 0.6),
-            anchor: .center)
+        if showsArea {
+            context.draw(
+                areaText,
+                at: CGPoint(x: centre.x, y: top + lineHeight * Double(lines.count) + areaSize * 0.6),
+                anchor: .center)
+        }
     }
 
     /// **One manipulator, drawn the one way manipulators are drawn here.**
