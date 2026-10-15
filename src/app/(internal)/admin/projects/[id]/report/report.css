@@ -90,6 +90,14 @@
 .report .page > .page-foot {
   margin-top: auto;
   margin-bottom: 1.2cm;
+  /* Never a page of its own. A room page whose content comes within a few
+     millimetres of the sheet pushed its foot onto the next sheet, alone —
+     and, filling that sheet's top, left the section's page break to throw
+     a second, wholly blank one (SDC H1 Hymus, 102 laundry and bathroom,
+     14 Oct 2026). Avoiding the break before the foot takes the last block
+     over with it instead. */
+  break-before: avoid;
+  break-inside: avoid;
 }
 
 /* ---------------------------------------------------------------- header */
@@ -1310,4 +1318,13 @@ html:has(.report-bare) main > div {
   border-top: none;
   margin-top: 1.5mm;
   padding-top: 0;
+}
+
+/* On paper the foot keeps no bottom margin either: the @page margin is the
+   inset, and the screen's 1,2 cm left in place hung off the bottom of any
+   page whose content filled the sheet — spilling onto a sheet of its own
+   and printing it blank (SDC H1 Hymus, 102 laundry, 14 Oct 2026). Last in
+   the file so it wins over both print blocks above. */
+@media print {
+  .report .page > .page-foot { margin-bottom: 0; }
 }
