@@ -44,8 +44,18 @@ const sqm = (sqft: number) => sqft * FT * FT;
 
 export type Pt = { x: number; y: number };
 
-/** A door/opening on a room's own outline, in that room's feet. */
-type Opening = { x1: number; y1: number; x2: number; y2: number; kind: "door" | "opening" };
+/** A door/opening on a room's own outline, in that room's feet. `hinge` and
+    `opens` are read off the sketch's door symbols (the leaf is drawn from its
+    hinge, on the side it swings to). */
+type Opening = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  kind: "door" | "opening";
+  hinge?: "start" | "end";
+  opens?: "in" | "out";
+};
 
 export type JobRoomShape = {
   key: "open" | "laundry" | "bath";
@@ -85,9 +95,15 @@ export const ROOM_SHAPES: JobRoomShape[] = [
     roomType: "kitchen",
     polygonFt: OPEN_POLYGON_FT,
     openingsFt: [
+      // Laundry bi-fold: an opening on both rooms' plans.
       { x1: 26.748, y1: 16.583, x2: 21.669, y2: 16.583, kind: "opening" },
-      { x1: 18.669, y1: 16.583, x2: 15.748, y2: 16.583, kind: "door" },
-      { x1: 14.835, y1: 16.583, x2: 12.339, y2: 16.583, kind: "door" },
+      // Bathroom door: the leaf belongs to the bathroom (it swings in there),
+      // so this side shows the gap only — drawn on both rooms, the one door
+      // printed twice, swinging both ways.
+      { x1: 18.669, y1: 16.583, x2: 15.748, y2: 16.583, kind: "opening" },
+      // Entry door: hung on the bathroom-side jamb and drawn swinging OUT to
+      // the corridor, exactly as their sketch draws it.
+      { x1: 14.835, y1: 16.583, x2: 12.339, y2: 16.583, kind: "door", hinge: "start", opens: "out" },
     ],
     atFt: { x: 0, y: 0 },
   },
@@ -120,7 +136,8 @@ export const ROOM_SHAPES: JobRoomShape[] = [
       { x: 5.41, y: 9.087 },
       { x: 0, y: 9.087 },
     ],
-    openingsFt: [{ x1: 0, y1: 0, x2: 2.748, y2: 0, kind: "door" }],
+    // Hung on the laundry-side jamb, swinging into the bathroom (their sketch).
+    openingsFt: [{ x1: 0, y1: 0, x2: 2.748, y2: 0, kind: "door", hinge: "end", opens: "in" }],
     atFt: { x: 15.921, y: 16.913 },
   },
 ];
@@ -196,7 +213,7 @@ export const DAMAGE: Record<string, AreaSpec[]> = {
       surface: "ceiling",
       name: "Ouverture au plafond n° 1",
       sqft: 5,
-      rectFt: [16.0, 12.3, 18.5, 14.3],
+      rectFt: [16.0, 14.2, 18.5, 16.2],
       notes: "Ouverture faite pendant l'urgence (couverte de polyéthylène). Placoplâtre 5/8 po à refermer.",
       alreadyOpen: true,
     },
@@ -204,7 +221,7 @@ export const DAMAGE: Record<string, AreaSpec[]> = {
       surface: "ceiling",
       name: "Ouverture au plafond n° 2",
       sqft: 5,
-      rectFt: [21.0, 12.3, 23.5, 14.3],
+      rectFt: [21.0, 14.2, 23.5, 16.2],
       notes: "Ouverture faite pendant l'urgence (couverte de polyéthylène). Placoplâtre 5/8 po à refermer.",
       alreadyOpen: true,
     },
@@ -225,7 +242,7 @@ export const DAMAGE: Record<string, AreaSpec[]> = {
       surface: "ceiling",
       name: "Ouverture au plafond",
       sqft: 4,
-      rectFt: [16.0, 12.3, 18.0, 14.3],
+      rectFt: [16.0, 14.2, 18.0, 16.2],
       notes: "Ouverture faite pendant l'urgence (couverte de polyéthylène). Placoplâtre 5/8 po à refermer.",
       alreadyOpen: true,
     },
@@ -334,7 +351,9 @@ export function areasFor(id: string): AffectedArea[] {
       color: null,
       area_sqm: sqm(spec.sqft),
       polygon,
-      notes: spec.notes,
+      // Their sketch marks no damage: where each area sits is placed from
+      // their photographs, and the document says so.
+      notes: `${spec.notes} Emplacement approximatif, d'après les photos.`,
       show_dimensions: false,
     };
   });

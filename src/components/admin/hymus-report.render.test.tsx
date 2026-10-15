@@ -88,6 +88,8 @@ function geometry(shape: (typeof ROOM_SHAPES)[number]): ScanGeometry {
       x2: m(o.x2),
       y2: m(o.y2),
       kind: o.kind,
+      hinge: o.hinge,
+      opens: o.opens,
     })),
   };
 }
