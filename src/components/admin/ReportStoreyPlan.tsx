@@ -1,4 +1,5 @@
 import { resolvePlacements } from "@/lib/floorLayout";
+import { bandPath, wallBand, type Pt } from "./wallBand";
 import { toFloorPlan, type FloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
@@ -312,6 +313,17 @@ function Room({
 }) {
   const label = `${fmt.bare(plan.width)} × ${fmt.bare(plan.height)}`;
   const openFlags = openSegmentFlags(plan, room.openWalls);
+  // Walls stand OUTSIDE the outline (wallBand.ts): a shared wall prints once
+  // at its true thickness. Null without a closed outline — the old centred
+  // stroke then.
+  const isOpenEdge = (a: Pt, b: Pt) =>
+    plan.segments.some(
+      (s, i) =>
+        openFlags[i] &&
+        ((Math.hypot(s.x1 - a.x, s.y1 - a.y) < 0.02 && Math.hypot(s.x2 - b.x, s.y2 - b.y) < 0.02) ||
+          (Math.hypot(s.x1 - b.x, s.y1 - b.y) < 0.02 && Math.hypot(s.x2 - a.x, s.y2 - a.y) < 0.02)),
+    );
+  const band = wallBand(plan.polygon, T, plan.openings, isOpenEdge);
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? LOCATOR_PALE_INK : PLAN_INK;
   const fill = tone === "pale" ? LOCATOR_PALE_FILL : tone === "ink" ? LOCATOR_INK_FILL : PLAN_FILL;
@@ -388,8 +400,14 @@ function Room({
 
       {/* Two passes: the body at true thickness over a slightly wider stroke,
           which leaves the heavier cut faces on both sides. */}
-      <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T + 2 * CUT} fill="none" />
-      <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T} fill="none" />
+      {band ? (
+        <path d={bandPath(band)} fill={wallInk} stroke={wallInk} strokeWidth={0.004} strokeLinejoin="miter" />
+      ) : (
+        <>
+          <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T + 2 * CUT} fill="none" />
+          <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T} fill="none" />
+        </>
+      )}
 
       {/* Open sides — the room's edge with no wall on it, so an open-plan
           entry and dining room print as one space with a dashed line where
@@ -419,18 +437,30 @@ function Room({
         const nx = -uy;
         const ny = ux;
 
+        // On the band, an opening is already a gap; its outside normal says
+        // which way the wall runs from the edge. Off the band (no outline,
+        // or a scanned door the outline does not run under), the old way:
+        // knock it out of a centred wall.
+        const out = band?.openingNormals[index] ?? null;
+        const across = (px: number, py: number) =>
+          out
+            ? { x1: px, y1: py, x2: px + out.x * T, y2: py + out.y * T }
+            : { x1: px - (nx * T) / 2, y1: py - (ny * T) / 2, x2: px + (nx * T) / 2, y2: py + (ny * T) / 2 };
+        const mid = out ? T / 2 : 0;
+
         return (
           <g key={`o${index}`}>
-            {/* Knock the opening out of the band. */}
-            <line
-              x1={opening.x1}
-              y1={opening.y1}
-              x2={opening.x2}
-              y2={opening.y2}
-              stroke={PLAN_LABEL_HALO}
-              strokeWidth={T + 2 * CUT + 0.006}
-              strokeLinecap="butt"
-            />
+            {!out && (
+              <line
+                x1={opening.x1}
+                y1={opening.y1}
+                x2={opening.x2}
+                y2={opening.y2}
+                stroke={PLAN_LABEL_HALO}
+                strokeWidth={T + 2 * CUT + 0.006}
+                strokeLinecap="butt"
+              />
+            )}
             {/* The jambs ARE cut by the plan plane, so they keep the cut
                 weight — this is what stops an opening reading as a hole
                 somebody forgot to draw. */}
@@ -438,22 +468,14 @@ function Room({
               [opening.x1, opening.y1],
               [opening.x2, opening.y2],
             ].map(([px, py], k) => (
-              <line
-                key={k}
-                x1={px - (nx * T) / 2}
-                y1={py - (ny * T) / 2}
-                x2={px + (nx * T) / 2}
-                y2={py + (ny * T) / 2}
-                stroke={PLAN_INK}
-                strokeWidth={CUT}
-              />
+              <line key={k} {...across(px, py)} stroke={PLAN_INK} strokeWidth={CUT} />
             ))}
             {opening.kind === "window" && (
               <line
-                x1={opening.x1}
-                y1={opening.y1}
-                x2={opening.x2}
-                y2={opening.y2}
+                x1={opening.x1 + (out ? out.x * mid : 0)}
+                y1={opening.y1 + (out ? out.y * mid : 0)}
+                x2={opening.x2 + (out ? out.x * mid : 0)}
+                y2={opening.y2 + (out ? out.y * mid : 0)}
                 stroke={PLAN_INK}
                 strokeWidth={0.02}
               />
@@ -467,17 +489,24 @@ function Room({
               // which side of the wall "into this room" is.
               const explicit = opening.hinge !== undefined || opening.opens !== undefined;
               const atEnd = opening.hinge === "end";
-              const hx = atEnd ? opening.x2 : opening.x1;
-              const hy = atEnd ? opening.y2 : opening.y1;
-              const lx = atEnd ? opening.x1 : opening.x2;
-              const ly = atEnd ? opening.y1 : opening.y2;
               let side = 1;
               if (explicit && plan.polygon.length >= 3) {
+                const hx0 = atEnd ? opening.x2 : opening.x1;
+                const hy0 = atEnd ? opening.y2 : opening.y1;
                 const cx = plan.polygon.reduce((a, p) => a + p.x, 0) / plan.polygon.length;
                 const cy = plan.polygon.reduce((a, p) => a + p.y, 0) / plan.polygon.length;
-                const inward = Math.sign((cx - hx) * nx + (cy - hy) * ny) || 1;
+                const inward = Math.sign((cx - hx0) * nx + (cy - hy0) * ny) || 1;
                 side = opening.opens === "out" ? -inward : inward;
               }
+              // A door swinging out of the room hangs on the wall's far
+              // face — the room's band lies between it and the room.
+              const shift = out && side * (nx * out.x + ny * out.y) > 0 ? T : 0;
+              const sx = out ? out.x * shift : 0;
+              const sy = out ? out.y * shift : 0;
+              const hx = (atEnd ? opening.x2 : opening.x1) + sx;
+              const hy = (atEnd ? opening.y2 : opening.y1) + sy;
+              const lx = (atEnd ? opening.x1 : opening.x2) + sx;
+              const ly = (atEnd ? opening.y1 : opening.y2) + sy;
               const tipX = hx + side * nx * width;
               const tipY = hy + side * ny * width;
               const sweep = (tipX - hx) * (ly - hy) - (tipY - hy) * (lx - hx) > 0 ? 1 : 0;
@@ -490,7 +519,7 @@ function Room({
                     fill="none"
                   />
                   <path
-                    d={`M ${tipX} ${tipY} A ${width} ${width} 0 0 ${explicit ? sweep : nx * uy - ny * ux > 0 ? 1 : 0} ${lx} ${ly}`}
+                    d={`M ${tipX} ${tipY} A ${width} ${width} 0 0 ${explicit || out ? sweep : nx * uy - ny * ux > 0 ? 1 : 0} ${lx} ${ly}`}
                     stroke={PLAN_INK}
                     strokeWidth={0.016}
                     fill="none"

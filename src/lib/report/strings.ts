@@ -1,3 +1,4 @@
+import { formatLength as formatLengthAs } from "@/lib/units";
 import type { Locale } from "@/i18n/translations";
 
 /**
@@ -226,7 +227,7 @@ const en: ReportStrings = {
   temperature: "Temp",
   howMeasured: "How each figure is measured",
   measurementNote:
-    "All measurements are taken and printed in metres. Lengths are given to the millimetre and areas to the hundredth of a square metre, which is the precision the scan itself carries.",
+    "All measurements are printed in feet and inches, the standard for building work in Québec. Lengths are given to the nearest inch and areas to the hundredth of a square foot.",
   lockedDimensionsNote:
     "Only dimensions that were set by hand are shown on this plan. A room with none shows no dimensions.",
   keyToDrawing: "KEY TO THE DRAWING",
@@ -237,7 +238,7 @@ const en: ReportStrings = {
   legendWallArea: "Affected wall area, shown on its elevation",
   legendKeyed: "Keyed to the list beside the plan",
   legendNote:
-    "Every plan is turned square to the page, so north is not implied. Dimensions are metres; the scale bar under each drawing is the one it was drawn to.",
+    "Every plan is turned square to the page, so north is not implied. Dimensions are in feet and inches, measured to the inside face of the walls; the scale bar under each drawing is the one it was drawn to.",
   northNote: "north is not implied",
   unregisteredStoreyNote:
     "Rooms measured on separate visits carry no true position relative to one another. They are arranged here so that none overlaps; each room is drawn to its own scan, and no dimension is taken across the arrangement.",
@@ -341,7 +342,7 @@ const fr: ReportStrings = {
   temperature: "Temp.",
   howMeasured: "Comment chaque mesure est prise",
   measurementNote:
-    "Toutes les mesures sont prises et présentées en mètres. Les longueurs sont données au millimètre et les superficies au centième de mètre carré, soit la précision que porte le relevé lui-même.",
+    "Toutes les mesures sont présentées en pieds et pouces, la norme des travaux de construction au Québec. Les longueurs sont données au pouce près et les superficies au centième de pied carré.",
   lockedDimensionsNote:
     "Seules les dimensions saisies à la main figurent sur ce plan. Une pièce qui n'en a aucune n'affiche aucune dimension.",
   keyToDrawing: "LÉGENDE DU PLAN",
@@ -352,7 +353,7 @@ const fr: ReportStrings = {
   legendWallArea: "Zone de mur sinistrée, illustrée en élévation",
   legendKeyed: "Renvoi à la liste à côté du plan",
   legendNote:
-    "Chaque plan est aligné sur la page; le nord n'est donc pas indiqué. Les dimensions sont en mètres; l'échelle sous chaque dessin est celle à laquelle il a été tracé.",
+    "Chaque plan est aligné sur la page; le nord n'est donc pas indiqué. Les dimensions sont en pieds et pouces, mesurées à la face intérieure des murs; l'échelle sous chaque dessin est celle à laquelle il a été tracé.",
   northNote: "le nord n'est pas indiqué",
   unregisteredStoreyNote:
     "Les pièces mesurées lors de visites distinctes n'ont pas de position réelle les unes par rapport aux autres. Elles sont disposées ici de façon à ne pas se chevaucher; chaque pièce est tracée d'après son propre relevé, et aucune dimension n'est prise à travers cette disposition.",
@@ -410,19 +411,33 @@ export function formatNumber(locale: Locale, value: number, digits: number): str
   }).format(value);
 }
 
-/** `78,64 m²` / `78.64 m²` */
+// **Feet and inches, everywhere in the document.** The owner, 15 Oct 2026:
+// "Let's use feet everywhere, it is standard practice here." Québec
+// insurance and renovation work is measured and quoted in feet — the other
+// firms' devis print `21' 10"` on their sketches and `363,79 pi²` in their
+// room headers, and our own priced lines were already in pi² and pi lin.
+// The report had been made metric (plans in metres, cover in m²) so it would
+// not mix two systems; it now runs one system, the trade's. Storage stays
+// metres — these are the only places a report length becomes text — and the
+// shapes come from `src/lib/units.ts`, the app's one length formatter,
+// whose default was always feet.
+
+const SQFT_PER_SQM = 10.763910416709722;
+
+/** `363,43 pi²` / `363.43 sq ft` */
 export function formatArea(locale: Locale, sqm: number): string {
-  return `${formatNumber(locale, sqm, 2)} m²`;
+  return `${formatNumber(locale, sqm * SQFT_PER_SQM, 2)} ${locale === "fr" ? "pi²" : "sq ft"}`;
 }
 
-/** `5,205 m` / `5.205 m` */
-export function formatLength(locale: Locale, metres: number): string {
-  return `${formatNumber(locale, metres, 3)} m`;
+/** `21' 10"` — to the nearest inch, as the trade writes it in text. */
+export function formatLength(_locale: Locale, metres: number): string {
+  return formatLengthAs(metres, { system: "feet", denominator: 1, style: "plain" });
 }
 
-/** Bare, for a dimension on a drawing — the unit lives on the scale bar. */
-export function formatBare(locale: Locale, metres: number): string {
-  return formatNumber(locale, metres, 3);
+/** For a dimension on a drawing: `21'-10"`, the drafting form the phone's
+    plans draw too (whole feet keep their `-0"`). */
+export function formatBare(_locale: Locale, metres: number): string {
+  return formatLengthAs(metres, { system: "feet", denominator: 1, style: "drafting" });
 }
 
 /**

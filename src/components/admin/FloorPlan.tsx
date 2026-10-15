@@ -3,6 +3,7 @@
 import { toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
+import { bandPath, wallBand, type Pt } from "./wallBand";
 import { formatBare, formatNumber } from "@/lib/report/strings";
 import type { Locale } from "@/i18n/translations";
 import { PLAN_FILL, PLAN_INK, PLAN_LABEL, PLAN_LABEL_HALO, PLAN_RULE } from "./planPalette";
@@ -177,6 +178,19 @@ export default function FloorPlan({
   const nearJoint = (x: number, y: number) =>
     joints.some((j) => Math.hypot(j.x - x, j.y - y) < 0.06);
 
+  // Walls stand OUTSIDE the outline (wallBand.ts), as a drafted plan draws
+  // them: the room's floor is the size its dimensions say, and the band's
+  // inner edge is the face every figure measures to. Thumbnails keep their
+  // single centred band; no outline keeps the old stroke.
+  const isOpenEdge = (a: Pt, b: Pt) =>
+    plan.segments.some(
+      (s, i) =>
+        openFlags[i] &&
+        ((Math.hypot(s.x1 - a.x, s.y1 - a.y) < 0.02 && Math.hypot(s.x2 - b.x, s.y2 - b.y) < 0.02) ||
+          (Math.hypot(s.x1 - b.x, s.y1 - b.y) < 0.02 && Math.hypot(s.x2 - a.x, s.y2 - a.y) < 0.02)),
+    );
+  const band = thumb ? null : wallBand(plan.polygon, T, plan.openings, isOpenEdge);
+
   const wallPath = walled
     .map((s) => {
       const dx = s.x2 - s.x1;
@@ -292,10 +306,14 @@ export default function FloorPlan({
             />
           ))
         ) : (
-          <>
-            <path d={wallPath} stroke={PLAN_INK} strokeWidth={T + 2 * CUT} fill="none" strokeLinecap="butt" />
-            <path d={wallPath} stroke={PLAN_INK} strokeWidth={T} fill="none" strokeLinecap="butt" />
-          </>
+          band ? (
+            <path d={bandPath(band)} fill={PLAN_INK} stroke={PLAN_INK} strokeWidth={0.004} strokeLinejoin="miter" />
+          ) : (
+            <>
+              <path d={wallPath} stroke={PLAN_INK} strokeWidth={T + 2 * CUT} fill="none" strokeLinecap="butt" />
+              <path d={wallPath} stroke={PLAN_INK} strokeWidth={T} fill="none" strokeLinecap="butt" />
+            </>
+          )
         )}
 
         {/* Open sides: the room's edge, with nothing standing on it. A thin
@@ -331,18 +349,27 @@ export default function FloorPlan({
           const uy = dy / w;
           const nx = -uy;
           const ny = ux;
+          // On the band the opening is already a gap, and `out` says which
+          // way the wall runs from the edge; off it, knock it out as before.
+          const out = band?.openingNormals[i] ?? null;
+          // Offsets across the wall: the band spans [0, T] outward; the old
+          // centred wall spans [-T/2, T/2] along n.
+          const across = (t: number) =>
+            out ? { x: out.x * (t + 0.5) * T, y: out.y * (t + 0.5) * T } : { x: nx * t * T, y: ny * t * T };
 
           return (
             <g key={`o${i}`}>
-              <line
-                x1={o.x1}
-                y1={o.y1}
-                x2={o.x2}
-                y2={o.y2}
-                stroke={PLAN_LABEL_HALO}
-                strokeWidth={thumb ? WALL * 1.25 : T + 2 * CUT + 0.006}
-                strokeLinecap="butt"
-              />
+              {!out && (
+                <line
+                  x1={o.x1}
+                  y1={o.y1}
+                  x2={o.x2}
+                  y2={o.y2}
+                  stroke={PLAN_LABEL_HALO}
+                  strokeWidth={thumb ? WALL * 1.25 : T + 2 * CUT + 0.006}
+                  strokeLinecap="butt"
+                />
+              )}
 
               {!thumb && (
                 <>
@@ -352,10 +379,10 @@ export default function FloorPlan({
                   ].map(({ px, py }, k) => (
                     <line
                       key={`j${k}`}
-                      x1={px - (nx * T) / 2}
-                      y1={py - (ny * T) / 2}
-                      x2={px + (nx * T) / 2}
-                      y2={py + (ny * T) / 2}
+                      x1={px + across(-0.5).x}
+                      y1={py + across(-0.5).y}
+                      x2={px + across(0.5).x}
+                      y2={py + across(0.5).y}
                       stroke={PLAN_INK}
                       strokeWidth={CUT}
                     />
@@ -366,20 +393,27 @@ export default function FloorPlan({
                       {[1, -1].map((side) => (
                         <line
                           key={`f${side}`}
-                          x1={o.x1 + (side * nx * T) / 2}
-                          y1={o.y1 + (side * ny * T) / 2}
-                          x2={o.x2 + (side * nx * T) / 2}
-                          y2={o.y2 + (side * ny * T) / 2}
+                          x1={o.x1 + across(side / 2).x}
+                          y1={o.y1 + across(side / 2).y}
+                          x2={o.x2 + across(side / 2).x}
+                          y2={o.y2 + across(side / 2).y}
                           stroke={PLAN_INK}
                           strokeWidth={0.014}
                         />
                       ))}
-                      <line x1={o.x1} y1={o.y1} x2={o.x2} y2={o.y2} stroke={PLAN_INK} strokeWidth={0.01} />
+                      <line
+                        x1={o.x1 + across(0).x}
+                        y1={o.y1 + across(0).y}
+                        x2={o.x2 + across(0).x}
+                        y2={o.y2 + across(0).y}
+                        stroke={PLAN_INK}
+                        strokeWidth={0.01}
+                      />
                     </>
                   )}
 
                   {o.kind === "door" && w >= 0.45 && (
-                    <Door opening={o} joints={joints} polygon={plan.polygon} T={T} />
+                    <Door opening={o} joints={joints} polygon={plan.polygon} T={T} out={out} />
                   )}
                 </>
               )}
@@ -660,24 +694,18 @@ function Padlock({ x, baseline }: { x: number; baseline: number }) {
 
 /**
  * Alternating black and white blocks, as on a drawing — and THE one place
- * the unit is written.
+ * the scale is stated.
  *
- * Metric, because every dimension on the plan and every figure in the
- * report is. It used to be feet while the cover said m², and the comment
- * here claimed it matched "every other measurement on this screen", which
- * had stopped being true.
- *
- * The bar carries the unit precisely so the dimensions do not have to: a
- * plan repeats a number twenty times, and twenty `m` suffixes crowd the
- * short walls until the figures collide. Stated once, under the drawing,
- * where a reader looks for it.
+ * In FEET, like every dimension on the plan and every figure in the report
+ * (the owner, 15 Oct 2026: "feet everywhere, it is standard practice here").
+ * Blocks of 2, 5 or 10 feet — whichever gives a bar that fits under the plan
+ * and still says something about its scale.
  */
 function ScaleBar({ y, width, locale }: { y: number; width: number; locale: Locale }) {
-  // A round number of METRES that fits comfortably under the plan — the
-  // 0.5 step is what the reference uses on a small room, where whole metres
-  // would give a two-block bar that says nothing about scale.
-  const step = width > 12 ? 3 : width > 6 ? 1 : 0.5;
-  const blockM = step;
+  const FT = 0.3048;
+  const widthFt = width / FT;
+  const stepFt = widthFt > 40 ? 10 : widthFt > 16 ? 5 : 2;
+  const blockM = stepFt * FT;
   // Never draw a scale wider than the plan it measures — a bar running past
   // the room reads as part of the drawing.
   const blocks = Math.max(2, Math.min(4, Math.floor(width / blockM)));
@@ -698,11 +726,11 @@ function ScaleBar({ y, width, locale }: { y: number; width: number; locale: Loca
       ))}
       {Array.from({ length: blocks + 1 }).map((_, i) => (
         <text key={i} x={i * blockM} y={y - 0.12} textAnchor="middle" fontSize={0.22} fill={PLAN_RULE}>
-          {formatNumber(locale, i * step, Number.isInteger(step) ? 0 : 1)}
+          {formatNumber(locale, i * stepFt, 0)}
         </text>
       ))}
       <text x={blocks * blockM + 0.14} y={y + 0.12} fontSize={0.22} fill={PLAN_RULE}>
-        m
+        {locale === "fr" ? "pi" : "ft"}
       </text>
     </g>
   );
@@ -720,11 +748,15 @@ function Door({
   joints,
   polygon,
   T,
+  out = null,
 }: {
   opening: { x1: number; y1: number; x2: number; y2: number; hinge?: "start" | "end"; opens?: "in" | "out" };
   joints: { x: number; y: number }[];
   polygon: { x: number; y: number }[];
   T: number;
+  /** The wall's outward normal when walls stand outside the outline
+      (wallBand.ts); null for the old centred wall. */
+  out?: { x: number; y: number } | null;
 }) {
   const dx = opening.x2 - opening.x1;
   const dy = opening.y2 - opening.y1;
@@ -755,8 +787,16 @@ function Door({
   const inward = Math.sign((cx - hx) * nx + (cy - hy) * ny) || 1;
   const side = opening.opens === "out" ? -inward : inward;
 
-  const H = { x: hx + (side * nx * T) / 2, y: hy + (side * ny * T) / 2 };
-  const L = { x: lx + (side * nx * T) / 2, y: ly + (side * ny * T) / 2 };
+  // The leaf hangs on the wall face it swings from. Centred wall: half a
+  // thickness toward the swing. Wall outside the outline: the outline itself
+  // for a door into the room, the band's far face for one swinging out.
+  const lift = out
+    ? side * (nx * out.x + ny * out.y) > 0
+      ? { x: out.x * T, y: out.y * T }
+      : { x: 0, y: 0 }
+    : { x: (side * nx * T) / 2, y: (side * ny * T) / 2 };
+  const H = { x: hx + lift.x, y: hy + lift.y };
+  const L = { x: lx + lift.x, y: ly + lift.y };
   const tip = { x: H.x + side * nx * w, y: H.y + side * ny * w };
   const sweep = (tip.x - H.x) * (L.y - H.y) - (tip.y - H.y) * (L.x - H.x) > 0 ? 1 : 0;
 
@@ -774,23 +814,13 @@ function Door({
 }
 
 /**
- * A dimension on the plan, in the SAME unit as the document around it.
- *
- * The report prints 113.12 m² on its cover and used to print 18'-1 1/2" on
- * every dimension of every plan inside it. One document, two systems, and a
- * reader left to convert. The reference does not do this: its plans carry
- * bare metric numbers — `4.654`, `1.434` — with the unit stated once, on the
- * scale bar.
- *
- * Bare, deliberately. A drawing repeats a dimension twenty times and the
- * unit does not change between them; printing `m` on each one is noise that
- * crowds short walls until the numbers overlap. The scale bar says which
- * unit, once, which is what a drawing has always done.
+ * A dimension on the plan, in the SAME unit as the document around it —
+ * feet and inches, drafting form (`21'-10"`), the way the phone's plans and
+ * the other firms' sketches write a dimension line. One system across the
+ * document: the cover and room headers print pi², the devis prints pi² and
+ * pi lin., and the plan prints feet.
  */
 function formatPlanLength(meters: number, locale: Locale): string {
-  // Millimetre precision, the reference's own: 4.654, not 4.65. On a claim
-  // the third decimal is the difference between a wall measured and a wall
-  // rounded.
   return formatBare(locale, meters);
 }
 

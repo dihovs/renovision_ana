@@ -61,9 +61,10 @@ describe("an open side on the plan", () => {
   });
 
   it("leaves the open side out of the wall band", () => {
-    // The band is one path of "M x y L x y" runs, one per wall drawn.
+    // The band is one filled path of closed pieces standing outside the
+    // outline (wallBand.ts), one "M … Z" piece per wall drawn.
     const runs = (markup: string) =>
-      (markup.match(/<path d="([^"]*)"[^>]*stroke-width="0.15/)?.[1].match(/M /g) ?? []).length;
+      (markup.match(/<path d="([^"]*)"[^>]*stroke-width="0.004"/)?.[1].match(/M /g) ?? []).length;
     expect(runs(svg([]))).toBe(4);
     expect(runs(svg([right]))).toBe(3);
   });
