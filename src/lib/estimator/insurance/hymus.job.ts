@@ -30,6 +30,12 @@
 //   Salle de lavage          16,1 pi² traced  ·  16,10 printed · 16,5 / 16,50
 //   Salle de bains           49,2 pi² traced  ·  49,20 printed · 29,0 / 29,00
 //
+// Verified 14 Oct 2026 by machine, not by eye: every one of our wall edges
+// lies on one of their drawn lines and every opening on a gap in them, door
+// widths read from the jamb lines (a first pass read the bathroom door as
+// the 2'11" gap to the next wall and missed its 3" return; it is 2'6"), and
+// the three units' sketches are identical line for line (125 + 48 lines).
+//
 // The three units are the same plan stacked (identical printed figures; the
 // 202 and 102 sketches are the 302 sketch turned half round), so one geometry
 // serves all three.
@@ -76,11 +82,11 @@ export type JobRoomShape = {
 const OPEN_POLYGON_FT: Pt[] = [
   { x: 21.835, y: 0 }, //      0 → top of the dining bump (8'5")
   { x: 30.252, y: 0 }, //      1 → right wall (16'7")
-  { x: 30.252, y: 16.583 }, // 2 → wall right of the laundry (3'6")
-  { x: 26.748, y: 16.583 }, // 3 → laundry bi-fold opening (5'1")
-  { x: 21.669, y: 16.583 }, // 4 → wall between laundry and bathroom door (3'0")
-  { x: 18.669, y: 16.583 }, // 5 → bathroom door (2'11")
-  { x: 15.748, y: 16.583 }, // 6 → stub between bathroom door and entry (0'11")
+  { x: 30.252, y: 16.583 }, // 2 → wall right of the laundry, to its door jamb (3'8")
+  { x: 26.583, y: 16.583 }, // 3 → laundry bi-fold, clear opening between jambs (4'9")
+  { x: 21.835, y: 16.583 }, // 4 → wall from the laundry jamb to the bathroom door (3'2")
+  { x: 18.669, y: 16.583 }, // 5 → bathroom door (2'6")
+  { x: 16.165, y: 16.583 }, // 6 → wall between bathroom door and entry (1'4")
   { x: 14.835, y: 16.583 }, // 7 → entry door (2'6")
   { x: 12.339, y: 16.583 }, // 8 → wall left of the entry (12'4")
   { x: 0, y: 16.583 }, //      9 → left end wall (10'3")
@@ -96,11 +102,11 @@ export const ROOM_SHAPES: JobRoomShape[] = [
     polygonFt: OPEN_POLYGON_FT,
     openingsFt: [
       // Laundry bi-fold: an opening on both rooms' plans.
-      { x1: 26.748, y1: 16.583, x2: 21.669, y2: 16.583, kind: "opening" },
+      { x1: 26.583, y1: 16.583, x2: 21.835, y2: 16.583, kind: "opening" },
       // Bathroom door: the leaf belongs to the bathroom (it swings in there),
       // so this side shows the gap only — drawn on both rooms, the one door
       // printed twice, swinging both ways.
-      { x1: 18.669, y1: 16.583, x2: 15.748, y2: 16.583, kind: "opening" },
+      { x1: 18.669, y1: 16.583, x2: 16.165, y2: 16.583, kind: "opening" },
       // Entry door: hung on the bathroom-side jamb and drawn swinging OUT to
       // the corridor, exactly as their sketch draws it.
       { x1: 14.835, y1: 16.583, x2: 12.339, y2: 16.583, kind: "door", hinge: "start", opens: "out" },
@@ -119,8 +125,9 @@ export const ROOM_SHAPES: JobRoomShape[] = [
       { x: 5.079, y: 3.165 },
       { x: 0, y: 3.165 },
     ],
-    // Bi-fold doors: drawn as an opening, not a hinged swing.
-    openingsFt: [{ x1: 0, y1: 0, x2: 5.079, y2: 0, kind: "opening" }],
+    // Bi-fold doors: drawn as an opening, not a hinged swing. The clear
+    // opening is 4'9" between 2" jambs, not the 5'1" wall it sits in.
+    openingsFt: [{ x1: 0.166, y1: 0, x2: 4.914, y2: 0, kind: "opening" }],
     atFt: { x: 21.669, y: 17.0 },
   },
   {
@@ -136,8 +143,10 @@ export const ROOM_SHAPES: JobRoomShape[] = [
       { x: 5.41, y: 9.087 },
       { x: 0, y: 9.087 },
     ],
-    // Hung on the laundry-side jamb, swinging into the bathroom (their sketch).
-    openingsFt: [{ x1: 0, y1: 0, x2: 2.748, y2: 0, kind: "door", hinge: "end", opens: "in" }],
+    // 2'6", hung on the laundry-side jamb, swinging into the bathroom, with a
+    // 3" return between its other jamb and the bathroom's corner (their
+    // sketch: jamb lines at 342,00 and 380,16 pt).
+    openingsFt: [{ x1: 0.244, y1: 0, x2: 2.748, y2: 0, kind: "door", hinge: "end", opens: "in" }],
     atFt: { x: 15.921, y: 16.913 },
   },
 ];
