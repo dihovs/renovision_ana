@@ -12,6 +12,7 @@ real estimates on claims he has access to, all French Québec Xactimate output:
 | `1515767` (Jean-Picard) | Polygon | Catégorie 3 repair | 13 | **Full CAT/SÉL/CALC column set** — the real Xactimate detail |
 | `1558248` (Champs de Mars) | Polygon | Catégorie 3 repair | 53 | Minimum charges, management fee, 43 photo pages |
 | `201-0001` (Jean-Picard TRAS) | Restauration CT | Urgence / dégât d'eau | 9 | **The emergency side**: per-day equipment, minimums |
+| `1641745-SDC-H1` (Hymus, Oct 2026) | Polygon | Catégorie 3 repair | 17 / 89 | Three stacked condo units, **vector sketches**, minimums per unit, 72 captioned photos |
 
 Jean-Picard is a matched pair: CT's emergency mitigation and Polygon's repair
 devis for the same loss — the exact two documents VinSnipe's sibling never has
@@ -281,3 +282,38 @@ From `Estimator-Spec.md` §5, updated:
 New, only the owner can answer: his **O&P convention** (does he bill 10/5 like
 the restorers, and profit on items+generals or items?), his **management fee**
 (Polygon charges 3% on some jobs), and his **per-trade minimums**.
+
+---
+
+## 7. The fifth document — 1641745-SDC-H1 (14 Oct 2026)
+
+Polygon's repair devis for SDC H1 Phase 3 (122 boul. Hymus, Pointe-Claire):
+units 302 → 202 → 102, one loss down a stack, `QCMO8X_OCT26`. Priced our way
+in `src/lib/estimator/insurance/hymus.devis.ts`, printed by
+`src/components/admin/hymus-report.render.test.tsx`; the reusable scope
+lessons went into `scopePatterns.ts` (AI prompt + Xactimate→catalogue map).
+What it adds to the sections above:
+
+- **No text layer.** It went through "Microsoft: Print To PDF": every glyph is
+  a filled path. Reading it means OCR (Apple Vision, on device, reads the
+  captions and line items cleanly), not text extraction.
+- **The sketch pages are vectors.** Walls are pairs of stroked lines 5,04 pt
+  apart; the drawing is 15,24 pt to the foot (one printed dimension fixes it,
+  all the others then check to the inch). Room outlines come off the inner
+  lines exactly — traced areas matched the printed ones to 0,4 pi².
+- **Minimums per unit.** Drywall minimum (`PCP CSMMM`, 489,70) and insulation
+  minimum (`ISO MIN`, 229,40) are charged once in EVERY unit, with the note
+  *« Couvre l'unité »* — three of each on this job, plus finish-carpentry and
+  framing `MN-A` lines. 39 % of the items total was minimums and fees.
+- **Emergency openings at material only.** *« Deux ouvertures effectuer
+  pendant l'urgence »* → the repair bills `Matériel seulement` board with the
+  labour inside the unit's minimum; no removal line.
+- **Photo captions carry the room path**: `Unit 302/Aire ouverte / cuisine -
+  2-IMG_0025  Date prise : 2026-09-15`, so photographs file themselves by unit
+  and room. Each photograph is stored as three stacked image strips.
+- **Rates observed (QCMO8X, OCT26)**: carpenter 83,11/h · cleaning technician
+  54,56/h · supervision 79,18/h · drywall 5/8 R&R 0,72 + 3,29 /pi² · ceiling
+  paint two coats 1,41 /pi² · masking 0,63 /pi² · toilet D&R 262,64 · sink D&R
+  158,92 · debris per pickup 233,19. O&P 10 % + 5 % on items + généraux, plus
+  a 3 % management fee as a line.
+

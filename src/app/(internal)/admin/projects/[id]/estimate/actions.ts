@@ -13,6 +13,7 @@ import {
 } from "@/lib/crm/insuranceEstimates";
 import { buildEstimateContext } from "@/lib/estimator/insurance/context";
 import { applyMinimumCharges, deriveLines, mergeLines } from "@/lib/estimator/insurance/derive";
+import { INSURANCE_SCOPE_PATTERNS } from "@/lib/estimator/insurance/scopePatterns";
 import {
   PROPOSE_TOOL,
   acceptedLine,
@@ -190,7 +191,10 @@ HARD RULES:
 - Every quantity must be justified by a measurement or fact in the project context, cited in the rationale.
 - Do not repeat lines already on the estimate.
 - Prefer remove-and-replace pairs (activity "replace" with removalItemCode + itemCode) where demolition and reinstallation both apply.
-- Call the propose_estimate_lines tool with your proposals. If nothing is worth proposing, call it with an empty list and explain in text.`;
+- Call the propose_estimate_lines tool with your proposals. If nothing is worth proposing, call it with an empty list and explain in text.
+
+SCOPE PATTERNS FROM REAL QUÉBEC REPAIR ESTIMATES (what an experienced estimator would not forget; propose only where the project's facts support it):
+${INSURANCE_SCOPE_PATTERNS.map((pattern) => `- ${pattern}`).join("\n")}`;
 
 export async function suggestLinesAction(
   projectId: string,
