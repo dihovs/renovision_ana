@@ -458,30 +458,46 @@ function Room({
                 strokeWidth={0.02}
               />
             )}
-            {opening.kind === "door" && (
-              <>
-                {/* Leaf from the hinge, quarter arc to the latch. Which jamb
-                    hinges is not in the sensor's data; the leaf is drawn from
-                    the first jamb, which is the same convention the room
-                    plan uses, so the two drawings never disagree. */}
-                <path
-                  d={`M ${opening.x1} ${opening.y1} L ${opening.x1 + nx * width} ${
-                    opening.y1 + ny * width
-                  }`}
-                  stroke={PLAN_INK}
-                  strokeWidth={0.02}
-                  fill="none"
-                />
-                <path
-                  d={`M ${opening.x1 + nx * width} ${opening.y1 + ny * width} A ${width} ${width} 0 0 ${
-                    nx * uy - ny * ux > 0 ? 1 : 0
-                  } ${opening.x2} ${opening.y2}`}
-                  stroke={PLAN_INK}
-                  strokeWidth={0.016}
-                  fill="none"
-                />
-              </>
-            )}
+            {opening.kind === "door" && (() => {
+              // Leaf from the hinge, quarter arc to the latch. Which jamb
+              // hinges is not in the sensor's data; by default the leaf is
+              // drawn from the first jamb toward its left. A traced or
+              // authored door can say which jamb and which way it opens
+              // (`hinge`, `opens`), and then the room's own centroid decides
+              // which side of the wall "into this room" is.
+              const explicit = opening.hinge !== undefined || opening.opens !== undefined;
+              const atEnd = opening.hinge === "end";
+              const hx = atEnd ? opening.x2 : opening.x1;
+              const hy = atEnd ? opening.y2 : opening.y1;
+              const lx = atEnd ? opening.x1 : opening.x2;
+              const ly = atEnd ? opening.y1 : opening.y2;
+              let side = 1;
+              if (explicit && plan.polygon.length >= 3) {
+                const cx = plan.polygon.reduce((a, p) => a + p.x, 0) / plan.polygon.length;
+                const cy = plan.polygon.reduce((a, p) => a + p.y, 0) / plan.polygon.length;
+                const inward = Math.sign((cx - hx) * nx + (cy - hy) * ny) || 1;
+                side = opening.opens === "out" ? -inward : inward;
+              }
+              const tipX = hx + side * nx * width;
+              const tipY = hy + side * ny * width;
+              const sweep = (tipX - hx) * (ly - hy) - (tipY - hy) * (lx - hx) > 0 ? 1 : 0;
+              return (
+                <>
+                  <path
+                    d={`M ${hx} ${hy} L ${tipX} ${tipY}`}
+                    stroke={PLAN_INK}
+                    strokeWidth={0.02}
+                    fill="none"
+                  />
+                  <path
+                    d={`M ${tipX} ${tipY} A ${width} ${width} 0 0 ${explicit ? sweep : nx * uy - ny * ux > 0 ? 1 : 0} ${lx} ${ly}`}
+                    stroke={PLAN_INK}
+                    strokeWidth={0.016}
+                    fill="none"
+                  />
+                </>
+              );
+            })()}
           </g>
         );
       })}

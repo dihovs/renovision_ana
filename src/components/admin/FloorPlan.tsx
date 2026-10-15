@@ -721,7 +721,7 @@ function Door({
   polygon,
   T,
 }: {
-  opening: { x1: number; y1: number; x2: number; y2: number };
+  opening: { x1: number; y1: number; x2: number; y2: number; hinge?: "start" | "end"; opens?: "in" | "out" };
   joints: { x: number; y: number }[];
   polygon: { x: number; y: number }[];
   T: number;
@@ -736,7 +736,11 @@ function Door({
 
   const dist = (x: number, y: number) =>
     joints.length === 0 ? 9 : Math.min(...joints.map((j) => Math.hypot(j.x - x, j.y - y)));
-  const hingeAtStart = dist(opening.x1, opening.y1) <= dist(opening.x2, opening.y2);
+  // A hinge the operator set wins; otherwise the jamb nearer a corner, where
+  // doors usually hang.
+  const hingeAtStart = opening.hinge
+    ? opening.hinge === "start"
+    : dist(opening.x1, opening.y1) <= dist(opening.x2, opening.y2);
   const [hx, hy, lx, ly] = hingeAtStart
     ? [opening.x1, opening.y1, opening.x2, opening.y2]
     : [opening.x2, opening.y2, opening.x1, opening.y1];
@@ -748,7 +752,8 @@ function Door({
     cx = polygon.reduce((a, p) => a + p.x, 0) / polygon.length;
     cy = polygon.reduce((a, p) => a + p.y, 0) / polygon.length;
   }
-  const side = Math.sign((cx - hx) * nx + (cy - hy) * ny) || 1;
+  const inward = Math.sign((cx - hx) * nx + (cy - hy) * ny) || 1;
+  const side = opening.opens === "out" ? -inward : inward;
 
   const H = { x: hx + (side * nx * T) / 2, y: hy + (side * ny * T) / 2 };
   const L = { x: lx + (side * nx * T) / 2, y: ly + (side * ny * T) / 2 };

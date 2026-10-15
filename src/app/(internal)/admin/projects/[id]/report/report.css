@@ -299,6 +299,11 @@
    a unit and the grand total of the document line up down the page and can
    be read as the same kind of figure. */
 .report .estimate-subtotal { margin-top: 5mm; }
+/* The unit's sous-total is the last row of its last room table: held to the
+   room total and the line above it, so a sheet never starts with the
+   sous-total alone (ReportEstimateTable). */
+.report .estimate-table tr.total { break-before: avoid; }
+.report .estimate-table tr.unit-subtotal td { border-top: 2px solid #1f2328; font-weight: 700; }
 .report .estimate-summary { margin-top: 6mm; }
 .report .estimate-summary-table { max-width: 90mm; margin-left: auto; }
 .report .estimate-summary-table td { padding: 1.2mm 2mm; font-size: 9.5pt; }

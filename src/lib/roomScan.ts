@@ -119,6 +119,16 @@ export type ScanGeometry = RoomScanResult & {
     x2: number;
     y2: number;
     kind: "door" | "window" | "opening";
+    /** Which jamb the door hangs on — the same two choices the phone's door
+        editor gives ("Hinge: start / end of wall"). Absent: the renderer's
+        own guess. */
+    hinge?: "start" | "end";
+    /** Whether the leaf swings into this room or out of it ("Opens: into /
+        out of this room"). Absent: into the room. A traced sketch can say
+        both: Polygon's Hymus sketch hangs the bathroom door on the laundry
+        side and swings the entry door out to the corridor, and a plan that
+        cannot draw that disagrees with the drawing it was traced from. */
+    opens?: "in" | "out";
   }[];
 };
 
@@ -550,7 +560,12 @@ export function savedWallAreaSquareMeters(scan: SavedScan): { gross: number; net
 }
 
 export type PlanSegment = { x1: number; y1: number; x2: number; y2: number };
-export type PlanOpening = PlanSegment & { kind: "door" | "window" | "opening" };
+export type PlanOpening = PlanSegment & {
+  kind: "door" | "window" | "opening";
+  /** See `ScanGeometry.editedOpenings` — absent on scanned openings. */
+  hinge?: "start" | "end";
+  opens?: "in" | "out";
+};
 export type PlanPoint = { x: number; y: number };
 export type FloorPlan = {
   segments: PlanSegment[];
@@ -797,6 +812,8 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
         x2: o.x2 - minX,
         y2: o.y2 - minY,
         kind: o.kind,
+        hinge: o.hinge,
+        opens: o.opens,
       })),
       polygon: points,
       width: Math.max(...xs) - minX,

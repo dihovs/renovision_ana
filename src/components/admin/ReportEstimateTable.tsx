@@ -154,11 +154,15 @@ function RoomSection({
   lines,
   locale,
   startIndex,
+  unitSubtotal,
 }: {
   roomName: string;
   lines: AllocatedLine[];
   locale: Locale;
   startIndex: number;
+  /** On the unit's last room: the unit's sous-total, printed as this table's
+      last row — see the caller for why it lives here. */
+  unitSubtotal?: { label: string; cents: number };
 }) {
   const bySection = new Map<TradeSection, AllocatedLine[]>();
   for (const line of lines) {
@@ -231,6 +235,12 @@ function RoomSection({
             <td colSpan={6}>{`Total — ${roomName}`}</td>
             <td className="num">{money(locale, roomTotalCents)}</td>
           </tr>
+          {unitSubtotal && (
+            <tr className="total unit-subtotal">
+              <td colSpan={6}>{unitSubtotal.label}</td>
+              <td className="num">{money(locale, unitSubtotal.cents)}</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -334,10 +344,24 @@ export default function ReportEstimateTable({
 
   return (
     <div className="estimate">
-      {order.map((key) => {
+      {order.map((key, position) => {
         const group = byRoom.get(key)!;
         const startIndex = counter;
         counter += group.lines.length;
+        // **The unit's own bottom line, where the unit's pages end.** His
+        // instruction, 8 Sep 2026: the reader should reach the end of an
+        // apartment's section and know what that apartment costs, without
+        // adding four room totals in their head or waiting for a sommaire
+        // twelve pages later. Σ of this block's own `Total` column — the
+        // same figures printed directly above it, so it is checkable by the
+        // person it is meant to convince.
+        //
+        // Printed as the last row of the unit's last room table rather than
+        // a table of its own: on its own it went over to a fresh sheet
+        // whenever that room ended at the foot of one — a page carrying one
+        // line and a figure (SDC H1 Hymus, unit 202, 14 Oct 2026). As a row
+        // it is held to the rows above it (report.css).
+        const last = subtotalUnit && position === order.length - 1;
         return (
           <RoomSection
             key={key}
@@ -345,31 +369,17 @@ export default function ReportEstimateTable({
             lines={group.lines}
             locale={locale}
             startIndex={startIndex}
+            unitSubtotal={
+              last
+                ? {
+                    label: t.unitSubtotal(subtotalUnit),
+                    cents: visible.reduce((sum, l) => sum + l.totalCents, 0),
+                  }
+                : undefined
+            }
           />
         );
       })}
-
-      {/* **The unit's own bottom line, where the unit's pages end.** His
-          instruction, 8 Sep 2026: the reader should reach the end of an
-          apartment's section and know what that apartment costs, without
-          adding four room totals in their head or waiting for a sommaire
-          twelve pages later. Σ of this block's own `Total` column — the
-          same figures printed directly above it, so it is checkable by the
-          person it is meant to convince. */}
-      {subtotalUnit && (
-        <div className="estimate-subtotal">
-          <table className="listing estimate-summary-table">
-            <tbody>
-              <tr className="total">
-                <td>{t.unitSubtotal(subtotalUnit)}</td>
-                <td className="num">
-                  {money(locale, visible.reduce((sum, l) => sum + l.totalCents, 0))}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {/* The grand sommaire — printed once for the document, after the last
           apartment and the project-level lines. A per-apartment block passes
