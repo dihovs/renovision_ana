@@ -1,5 +1,5 @@
 import { resolvePlacements } from "@/lib/floorLayout";
-import { bandPath, wallBand, type Pt } from "./wallBand";
+import { bandPath, exteriorRuns, wallBand, type Pt } from "./wallBand";
 import { toFloorPlan, type FloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
@@ -43,8 +43,9 @@ import {
  * which case the reader is looking at.
  */
 
-/** Wall thickness on the page, in plan metres. */
-const T = 0.11;
+/** Wall thickness on the page, in plan metres, unless the report says what
+    the job's walls actually are (`ReportData.wallThicknessM`). */
+const DEFAULT_WALL = 0.11;
 /** The heavier cut face on each side of the wall body — the poché convention. */
 const CUT = 0.022;
 
@@ -95,7 +96,7 @@ function formatter(locale: Locale): Format {
  * it meets another wall — which is what closes a corner square instead of
  * leaving a notch of white at every junction.
  */
-function wallPath(plan: FloorPlan, open: boolean[] = []): string {
+function wallPath(plan: FloorPlan, open: boolean[] = [], T = DEFAULT_WALL): string {
   // Joints from EVERY segment, open or not: a wall that meets an open side
   // still closes its corner square, it just has no wall continuing past it.
   const joints = plan.segments.flatMap((s) => [
@@ -158,8 +159,11 @@ function OuterChain({
   rooms: { plan: FloorPlan; at: { x: number; y: number } }[];
   fmt: Format;
 }) {
-  /** How far off the wall the dimension line sits, in plan metres. */
-  const OFFSET = 0.42;
+  /** How far off the wall the dimension line sits, in plan metres — INSIDE
+      the room, along the wall's inside face, the way the reference sketches
+      carry a room's own lengths; outside the building is the outside face's
+      chain (ExteriorChain). Negative: toward the room. */
+  const OFFSET = -0.36;
   /** Below this a segment is a jamb return or a stub, not a wall worth a
       number — and its label would not fit beside it anyway. */
   const SHORTEST = 0.55;
@@ -171,9 +175,13 @@ function OuterChain({
     .filter((room) => room.plan.polygon.length >= 3)
     .map((room) => room.plan.polygon.map((p) => ({ x: p.x + room.at.x, y: p.y + room.at.y })));
 
-  const marks: { x1: number; y1: number; x2: number; y2: number; label: string }[] = [];
+  const marks: { x1: number; y1: number; x2: number; y2: number; label: string; lx: number; ly: number }[] = [];
 
   for (const room of rooms) {
+    // A room's own lengths go inside it only where there is room for them:
+    // in a 5'-1" × 3'-2" laundry the figures sat on its name. A small room's
+    // lengths are on its own page.
+    if (Math.min(room.plan.width, room.plan.height) < 2) continue;
     for (const segment of room.plan.segments) {
       const x1 = segment.x1 + room.at.x;
       const y1 = segment.y1 + room.at.y;
@@ -213,6 +221,9 @@ function OuterChain({
         x2: x2 + out.nx * OFFSET,
         y2: y2 + out.ny * OFFSET,
         label: fmt.bare(length),
+        // The label stands on the room's side of the line.
+        lx: -out.nx,
+        ly: -out.ny,
       });
     }
   }
@@ -273,10 +284,11 @@ function OuterChain({
               );
             })}
             <text
-              x={midX - nx * 0.13}
-              y={midY - ny * 0.13}
-              transform={`rotate(${angle} ${midX - nx * 0.13} ${midY - ny * 0.13})`}
+              x={midX + mark.lx * 0.17}
+              y={midY + mark.ly * 0.17}
+              transform={`rotate(${angle} ${midX + mark.lx * 0.17} ${midY + mark.ly * 0.17})`}
               textAnchor="middle"
+              dominantBaseline="central"
               fontSize={0.21}
               fill={PLAN_LABEL}
               stroke={PLAN_LABEL_HALO}
@@ -293,6 +305,114 @@ function OuterChain({
   );
 }
 
+/**
+ * **The building's outside face, dimensioned.** The reference sketches print
+ * every room's own lengths inside and the building's outside lengths beyond
+ * the walls — Polygon's Hymus sketch: `17' 3"` outside a `16' 7"` room,
+ * `15' 11"` from the corner to the bathroom's outside wall. These are the
+ * runs `exteriorRuns` finds: the rooms grown by their walls, merged, the
+ * boundary kept where it faces outside. Checked against that sketch, all
+ * twelve outside figures agree to the inch.
+ */
+function ExteriorChain({
+  rooms,
+  fmt,
+  wall,
+}: {
+  rooms: { plan: FloorPlan; at: { x: number; y: number } }[];
+  fmt: Format;
+  wall: number;
+}) {
+  const OFFSET = 0.3;
+  const runs = exteriorRuns(
+    rooms
+      .filter((room) => room.plan.polygon.length >= 3)
+      .map((room) => room.plan.polygon.map((p) => ({ x: p.x + room.at.x, y: p.y + room.at.y }))),
+    wall,
+  );
+  if (!runs) return null;
+  // Longest first, and each run steps further out until its label clears the
+  // ones already placed — two short faces meeting at a corner (the laundry's
+  // 3'-7" side and the 3'-6" stretch beside it) printed on top of each other.
+  type Box = { x0: number; y0: number; x1: number; y1: number };
+  const placed: Box[] = [];
+  const overlaps = (a: Box) => placed.some((b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0);
+  const layout = runs
+    .map((run) => ({ run, length: Math.hypot(run.x2 - run.x1, run.y2 - run.y1) }))
+    .filter(({ length }) => length >= 0.3)
+    .sort((a, b) => b.length - a.length)
+    .map(({ run, length }) => {
+      const vertical = Math.abs(run.x1 - run.x2) < 1e-6;
+      const text = fmt.bare(length);
+      const along = text.length * 0.21 * 0.56;
+      let offset = OFFSET;
+      for (let step = 0; step < 4; step += 1) {
+        const mx = (run.x1 + run.x2) / 2 + run.out.x * (offset + 0.17);
+        const my = (run.y1 + run.y2) / 2 + run.out.y * (offset + 0.17);
+        const box = vertical
+          ? { x0: mx - 0.13, y0: my - along / 2, x1: mx + 0.13, y1: my + along / 2 }
+          : { x0: mx - along / 2, y0: my - 0.13, x1: mx + along / 2, y1: my + 0.13 };
+        if (!overlaps(box) || step === 3) {
+          placed.push(box);
+          break;
+        }
+        offset += 0.32;
+      }
+      return { run, length, offset, vertical };
+    });
+  return (
+    <g className="exterior-chain" stroke={PLAN_RULE} fill="none">
+      {layout.map(({ run, length, offset, vertical }, index) => {
+        const x1 = run.x1 + run.out.x * offset;
+        const y1 = run.y1 + run.out.y * offset;
+        const x2 = run.x2 + run.out.x * offset;
+        const y2 = run.y2 + run.out.y * offset;
+        const midX = (x1 + x2) / 2 + run.out.x * 0.17;
+        const midY = (y1 + y2) / 2 + run.out.y * 0.17;
+        // Tick marks across the line at both ends, and extension lines back
+        // to the wall's outside face.
+        const tx = run.out.y === 0 ? 0 : 0.07;
+        const ty = run.out.x === 0 ? 0 : 0.07;
+        return (
+          <g key={index}>
+            <line x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={0.012} />
+            {[
+              [x1, y1, run.x1, run.y1],
+              [x2, y2, run.x2, run.y2],
+            ].map(([ax, ay, wx, wy], k) => (
+              <g key={k}>
+                <line x1={ax} y1={ay} x2={wx + run.out.x * 0.04} y2={wy + run.out.y * 0.04} strokeWidth={0.008} />
+                <line
+                  x1={ax - (vertical ? 0.07 : tx)}
+                  y1={ay - (vertical ? ty : 0.07)}
+                  x2={ax + (vertical ? 0.07 : tx)}
+                  y2={ay + (vertical ? ty : 0.07)}
+                  strokeWidth={0.012}
+                />
+              </g>
+            ))}
+            <text
+              x={midX}
+              y={midY}
+              transform={vertical ? `rotate(-90 ${midX} ${midY})` : undefined}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={0.21}
+              fill={PLAN_LABEL}
+              stroke={PLAN_LABEL_HALO}
+              strokeWidth={0.07}
+              strokeLinejoin="round"
+              paintOrder="stroke"
+            >
+              {fmt.bare(length)}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 /** One room, drawn where it stands. */
 function Room({
   room,
@@ -301,7 +421,10 @@ function Room({
   areaStart,
   fmt,
   tone = "full",
+  wall = DEFAULT_WALL,
 }: {
+  /** The wall's thickness, plan metres. */
+  wall?: number;
   room: StoreyRoom;
   fmt: Format;
   plan: FloorPlan;
@@ -311,6 +434,7 @@ function Room({
       the storey drawn faint with one room in black. */
   tone?: "full" | "pale" | "ink";
 }) {
+  const T = wall;
   const label = `${fmt.bare(plan.width)} × ${fmt.bare(plan.height)}`;
   const openFlags = openSegmentFlags(plan, room.openWalls);
   // Walls stand OUTSIDE the outline (wallBand.ts): a shared wall prints once
@@ -330,34 +454,57 @@ function Room({
   // Sized off the room's SMALLER side: a long thin closet has plenty of
   // length and no width, and it is the width that the text runs out of.
   const short = Math.min(plan.width, plan.height);
-  const nameSize = Math.max(0.16, Math.min(0.3, short * 0.13));
-  // Below this the two lines cannot both fit inside the room at a size
-  // anybody could read — and now that fixtures are drawn, the middle of a
-  // small room is where the bath is.
-  const tiny = short < 1.9;
-  // Smaller still and even the name does not fit: it goes outside, to the
-  // right of the room, where the reference puts the labels it cannot fit
-  // either.
-  const outside = short < 1.15;
-  // The CENTROID, not the middle of the bounding box. An L-shaped kitchen's
-  // bounding-box centre can fall in the notch — outside the room entirely —
-  // which is how a label ends up sitting on somebody else's floor.
-  const centre =
-    plan.polygon.length >= 3
-      ? plan.polygon.reduce(
-          (acc, point, index, all) => {
-            // The ring repeats its first corner; averaging it twice pulls
-            // the label toward that corner.
-            const last = index === all.length - 1 &&
-              Math.hypot(point.x - all[0].x, point.y - all[0].y) < 1e-6;
-            if (last) return acc;
-            acc.x += point.x / (all.length - 1);
-            acc.y += point.y / (all.length - 1);
-            return acc;
-          },
-          { x: 0, y: 0 },
-        )
-      : { x: plan.width / 2, y: plan.height / 2 };
+  // **Inside whenever the name fits.** The label used to go outside, to the
+  // room's right, for any room under 1,15 m on its short side — straight
+  // into the storey's dimension chain, where the 5'-1" × 3'-2" laundry's
+  // name printed under its own figures (SDC H1 Hymus, 15 Oct 2026). Now the
+  // name is measured against the room: shrunk a little if that is what it
+  // takes, and sent outside only when even the smallest size cannot fit.
+  const textWidth = (text: string, size: number) => text.length * size * 0.56;
+  const roomForText = plan.width * 0.9;
+  let nameSize = Math.max(0.16, Math.min(0.3, short * 0.13));
+  while (nameSize > 0.135 && textWidth(room.name, nameSize) > roomForText) nameSize -= 0.01;
+  const outside = textWidth(room.name, nameSize) > roomForText || nameSize * 1.4 > plan.height;
+  // The second line — area and extent — only where it fits too; and now
+  // that fixtures are drawn, the middle of a small room is where the bath is.
+  const areaLine = `${fmt.area(room.floorAreaSqm)} (${label})`;
+  const tiny =
+    short < 1.9 || textWidth(areaLine, nameSize * 0.84) > roomForText || plan.height < nameSize * 3;
+  // Where the label stands: the area centroid, or — for an L whose centroid
+  // falls in its own notch — the average of its corners. Both counted over
+  // the DISTINCT corners: the old average divided by one corner too few on
+  // an outline that does not repeat its first point, which pulled every
+  // label down and to the right (the Hymus open area's name sat on its own
+  // damage markers).
+  const ring =
+    plan.polygon.length > 1 &&
+    Math.hypot(
+      plan.polygon[0].x - plan.polygon[plan.polygon.length - 1].x,
+      plan.polygon[0].y - plan.polygon[plan.polygon.length - 1].y,
+    ) < 1e-6
+      ? plan.polygon.slice(0, -1)
+      : plan.polygon;
+  const centre = (() => {
+    if (ring.length < 3) return { x: plan.width / 2, y: plan.height / 2 };
+    let a = 0;
+    let cx = 0;
+    let cy = 0;
+    ring.forEach((p, i) => {
+      const q = ring[(i + 1) % ring.length];
+      const cross = p.x * q.y - q.x * p.y;
+      a += cross;
+      cx += (p.x + q.x) * cross;
+      cy += (p.y + q.y) * cross;
+    });
+    if (Math.abs(a) > 1e-9) {
+      const centroid = { x: cx / (3 * a), y: cy / (3 * a) };
+      if (inside(centroid, ring)) return centroid;
+    }
+    return {
+      x: ring.reduce((sum, p) => sum + p.x, 0) / ring.length,
+      y: ring.reduce((sum, p) => sum + p.y, 0) / ring.length,
+    };
+  })();
   const labelX = outside ? plan.width + 0.25 : centre.x;
   const labelY = centre.y;
   const anchor = outside ? "start" : "middle";
@@ -404,8 +551,8 @@ function Room({
         <path d={bandPath(band)} fill={wallInk} stroke={wallInk} strokeWidth={0.004} strokeLinejoin="miter" />
       ) : (
         <>
-          <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T + 2 * CUT} fill="none" />
-          <path d={wallPath(plan, openFlags)} stroke={wallInk} strokeWidth={T} fill="none" />
+          <path d={wallPath(plan, openFlags, T)} stroke={wallInk} strokeWidth={T + 2 * CUT} fill="none" />
+          <path d={wallPath(plan, openFlags, T)} stroke={wallInk} strokeWidth={T} fill="none" />
         </>
       )}
 
@@ -593,8 +740,15 @@ export default function ReportStoreyPlan({
   highlight,
   locale = "fr",
   note,
+  north = null,
+  wallThickness = DEFAULT_WALL,
 }: {
   rooms: StoreyRoom[];
+  /** The job's wall thickness, plan metres (`ReportData.wallThicknessM`). */
+  wallThickness?: number;
+  /** Degrees clockwise from the top of the page that north points; null
+      draws no arrow (see `ReportData.northDeg`). */
+  north?: number | null;
   /** The document's language — the dimensions are formatted in it. */
   locale?: Locale;
   /** The line printed under an arrangement that was packed rather than
@@ -673,11 +827,34 @@ export default function ReportStoreyPlan({
             at={layout.placed[index]}
             areaStart={starts[index]}
             fmt={fmt}
+            wall={wallThickness}
             tone={
               !isLocator ? "full" : room.id === highlight ? "ink" : "pale"
             }
           />
         ))}
+
+        {/* The north arrow, top right, as the reference sketches carry it —
+            only where north is actually known. */}
+        {!isLocator && north !== null && (
+          <g
+            transform={`translate(${layout.width + pad - 0.5} ${-pad + 0.75}) rotate(${north})`}
+            fill={PLAN_INK}
+          >
+            <path d="M 0 -0.42 L 0.17 0.2 L 0 0.1 L -0.17 0.2 Z" />
+            <text x={0} y={-0.5} textAnchor="middle" fontSize={0.26} fontWeight={700} fill={PLAN_INK}>
+              N
+            </text>
+          </g>
+        )}
+
+        {registered && !isLocator && (
+          <ExteriorChain
+            rooms={drawable.map((_, index) => ({ plan: plans[index], at: layout.placed[index] }))}
+            fmt={fmt}
+            wall={wallThickness}
+          />
+        )}
 
         {registered && !isLocator && (
           <OuterChain

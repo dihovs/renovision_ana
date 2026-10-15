@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { describe, it } from "vitest";
 import puppeteer from "puppeteer-core";
+import { numberSheets } from "@/lib/report/sheets";
 import { renderToStaticMarkup } from "react-dom/server";
 import ReportDocument, { type ReportData, type ReportRoom } from "./ReportDocument";
 import type { PlanObject } from "./PlanObjects";
@@ -172,6 +173,11 @@ function buildData(): ReportData {
     equipment: [],
     generatedAt: new Date("2026-10-14T12:00:00-04:00").toISOString(),
     locale: "fr",
+    // Their sketch's arrow points up the page once the sketch is turned to
+    // read upright, as our plans draw it.
+    northDeg: 0,
+    // Their sketch draws every wall 4" (5,04 pt at 15,24 pt/ft).
+    wallThicknessM: (4 / 12) * 0.3048,
     estimate: { lines: devis.lines, totals: devis.totals, trailer: HYMUS_TRAILER },
   };
 }
@@ -208,12 +214,15 @@ async function emit(htmlPath: string, pdfPath: string): Promise<void> {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load", timeout: 120_000 });
     await page.evaluateHandle("document.fonts.ready");
-    const pdf = await page.pdf({
-      format: "letter",
+    const options = {
+      format: "letter" as const,
       printBackground: true,
       preferCSSPageSize: false,
       margin: { top: "2cm", right: "2cm", bottom: "2cm", left: "2cm" },
-    });
+    };
+    // Same as production (lib/report/pdf.ts): contents figures as sheets.
+    await numberSheets(page, options);
+    const pdf = await page.pdf(options);
     writeFileSync(pdfPath, pdf);
   } finally {
     await browser.close().catch(() => {});

@@ -114,6 +114,8 @@ export type ReportStrings = {
   legendWallArea: string;
   legendKeyed: string;
   legendNote: string;
+  /** The same note when the plans carry a north arrow. */
+  legendNoteNorth: string;
   northNote: string;
   unregisteredStoreyNote: string;
   shownForContext: string;
@@ -238,7 +240,9 @@ const en: ReportStrings = {
   legendWallArea: "Affected wall area, shown on its elevation",
   legendKeyed: "Keyed to the list beside the plan",
   legendNote:
-    "Every plan is turned square to the page, so north is not implied. Dimensions are in feet and inches, measured to the inside face of the walls; the scale bar under each drawing is the one it was drawn to.",
+    "Every plan is turned square to the page, so north is not implied. Dimensions are in feet and inches: inside the walls to their inside face, outside the building to its outside face; the scale bar under each drawing is the one it was drawn to.",
+  legendNoteNorth:
+    "North is shown by the arrow on each plan. Dimensions are in feet and inches: inside the walls to their inside face, outside the building to its outside face; the scale bar under each drawing is the one it was drawn to.",
   northNote: "north is not implied",
   unregisteredStoreyNote:
     "Rooms measured on separate visits carry no true position relative to one another. They are arranged here so that none overlaps; each room is drawn to its own scan, and no dimension is taken across the arrangement.",
@@ -353,7 +357,9 @@ const fr: ReportStrings = {
   legendWallArea: "Zone de mur sinistrée, illustrée en élévation",
   legendKeyed: "Renvoi à la liste à côté du plan",
   legendNote:
-    "Chaque plan est aligné sur la page; le nord n'est donc pas indiqué. Les dimensions sont en pieds et pouces, mesurées à la face intérieure des murs; l'échelle sous chaque dessin est celle à laquelle il a été tracé.",
+    "Chaque plan est aligné sur la page; le nord n'est donc pas indiqué. Les dimensions sont en pieds et pouces : à l'intérieur, jusqu'à la face intérieure des murs; à l'extérieur du bâtiment, jusqu'à sa face extérieure. L'échelle sous chaque dessin est celle à laquelle il a été tracé.",
+  legendNoteNorth:
+    "Le nord est indiqué par la flèche sur chaque plan. Les dimensions sont en pieds et pouces : à l'intérieur, jusqu'à la face intérieure des murs; à l'extérieur du bâtiment, jusqu'à sa face extérieure. L'échelle sous chaque dessin est celle à laquelle il a été tracé.",
   northNote: "le nord n'est pas indiqué",
   unregisteredStoreyNote:
     "Les pièces mesurées lors de visites distinctes n'ont pas de position réelle les unes par rapport aux autres. Elles sont disposées ici de façon à ne pas se chevaucher; chaque pièce est tracée d'après son propre relevé, et aucune dimension n'est prise à travers cette disposition.",

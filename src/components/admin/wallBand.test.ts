@@ -115,3 +115,46 @@ describe("wall band outside the room", () => {
     expect(wallBand([{ x: 0, y: 0 }, { x: 1, y: 0 }], T)).toBeNull();
   });
 });
+
+describe("the building's outside face", () => {
+  it("measures Polygon's Hymus sketch to the inch: all twelve outside figures", async () => {
+    // Their sketch draws 4" walls and prints every outside face; our rooms
+    // are traced off the same sketch (hymus.job.ts).
+    const { exteriorRuns } = await import("./wallBand");
+    const { ROOM_SHAPES } = await import("@/lib/estimator/insurance/hymus.job");
+    const FT = 0.3048;
+    const rings = ROOM_SHAPES.map((shape) =>
+      shape.polygonFt.map((p) => ({ x: (p.x + shape.atFt.x) * FT, y: (p.y + shape.atFt.y) * FT })),
+    );
+    const runs = exteriorRuns(rings, (4 / 12) * FT)!;
+    const inches = runs
+      .map((r) => Math.round(Math.hypot(r.x2 - r.x1, r.y2 - r.y1) / 0.0254))
+      .sort((a, b) => a - b);
+    // 3'6" 3'7" 5'5" 5'10" 6'1" 6'4" 9'1" 9'5" 10'11" 15'11" 17'3" 21'10"
+    expect(inches).toEqual([42, 43, 65, 70, 73, 76, 109, 113, 131, 191, 207, 262]);
+  });
+
+  it("skips a gap enclosed between rooms: only faces that see the outside count", async () => {
+    const { exteriorRuns } = await import("./wallBand");
+    // Four rooms round a 1 m courtyard-like hole: the hole's edges are not
+    // the building's outside.
+    const box = (x: number, y: number, w: number, h: number) => [
+      { x, y },
+      { x: x + w, y },
+      { x: x + w, y: y + h },
+      { x, y: y + h },
+    ];
+    const runs = exteriorRuns(
+      [box(0, 0, 3, 1), box(0, 2, 3, 1), box(0, 1, 1, 1), box(2, 1, 1, 1)],
+      0.1,
+    )!;
+    // Outside ring only: 4 sides of a 3.2 × 3.2 square.
+    expect(runs).toHaveLength(4);
+    for (const r of runs) expect(Math.hypot(r.x2 - r.x1, r.y2 - r.y1)).toBeCloseTo(3.2, 6);
+  });
+
+  it("gives up on an angled wall rather than guessing", async () => {
+    const { exteriorRuns } = await import("./wallBand");
+    expect(exteriorRuns([[{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 1, y: 1.5 }]], 0.1)).toBeNull();
+  });
+});

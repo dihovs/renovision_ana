@@ -139,6 +139,19 @@ export type ReportData = {
       and nothing inferred. Off by default: the full drawing is the report. */
   onlyLockedDimensions?: boolean;
   /**
+   * Which way north points on the plans, in degrees clockwise from the top
+   * of the page — read off a source sketch's north arrow, or set by hand.
+   * Absent: north is not known, no arrow is drawn, and the legend says so.
+   */
+  northDeg?: number | null;
+  /**
+   * The job's wall thickness in metres, where it is known — a source sketch's
+   * 4" walls. The plans draw walls at this thickness and measure the
+   * building's outside face with it. Absent: the plans' usual drawing
+   * thickness.
+   */
+  wallThicknessM?: number;
+  /**
    * Which of the reference's three export layouts to print.
    *
    * `full` is everything — the document as built. `onlyFloors` is their
@@ -426,6 +439,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     equipment,
     generatedAt,
     onlyLockedDimensions = false,
+    northDeg = null,
+    wallThicknessM,
     layout = "full",
     locale = "fr",
     estimate,
@@ -702,8 +717,47 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     `${t.rooms.toUpperCase()}: ${rooms.length}`,
   ].join(" • ");
 
+  // **The footer on paper, from the printer's own sheet counter.** Every
+  // section used to carry its footer in the flow — `Page n/N` counted in
+  // SECTIONS — so a section running to three sheets printed one footer, on
+  // its last sheet, numbered as if it were one; and a section that ended
+  // within a centimetre of the foot pushed its footer onto a sheet of its
+  // own (SDC H1 Hymus, 15 Oct 2026: a 45-sheet PDF saying "Page 28/35",
+  // one sheet carrying nothing but the footer). On paper the footer is now
+  // the page's margin box, on every sheet but the cover, numbered by the
+  // sheet; the in-flow footer stays for the screen. The contents page's
+  // figures are rewritten to sheets by `numberSheets` (lib/report/sheets.ts)
+  // before the PDF is taken.
+  const cssString = (text: string) =>
+    `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\A ")}"`;
+  const pageSample = t.page(111111, 222222);
+  const [pageBefore, pageRest = ""] = pageSample.split("111111");
+  const [pageMiddle, pageAfter = ""] = pageRest.split("222222");
+  const marginFooter = `@media print {
+  @page {
+    @bottom-left {
+      content: ${cssString(t.disclaimer((company.tradeName || company.legalName || "").toUpperCase()))};
+      font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+      font-size: 6pt; line-height: 1.5; letter-spacing: 0.02em; color: #9aa0a8;
+      vertical-align: top; padding-top: 2.5mm; border-top: 0.75pt solid #e2e5e9; width: 135mm;
+    }
+    @bottom-right {
+      content: ${cssString(pageBefore)} counter(page) ${cssString(pageMiddle)} counter(pages) ${cssString(pageAfter)};
+      font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+      font-size: 7.5pt; font-weight: 600; color: #767c85; white-space: nowrap;
+      vertical-align: top; padding-top: 2.5mm; border-top: 0.75pt solid #e2e5e9;
+    }
+  }
+  @page :first {
+    @bottom-left { content: none; border: none; }
+    @bottom-right { content: none; border: none; }
+  }
+  .report .page > .page-foot { display: none; }
+}`;
+
   return (
     <article className="report">
+      <style>{marginFooter}</style>
       {/* ---------------------------------------------------- cover */}
       <section className="page cover">
         <header className="cover-head">
@@ -813,6 +867,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 property than no drawing at all. */}
             <ReportStoreyPlan
               locale={locale}
+              north={northDeg}
+              wallThickness={wallThicknessM}
               rooms={coverPlanRooms.map((room) => ({
                 id: room.id,
                 name: room.name,
@@ -840,11 +896,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               .filter(Boolean)
               .join(", ")}
           </span>
-          <span>
-            {company.phone}
-            <br />
-            Page 1/{totalPages}
-          </span>
+          {/* No page number on the cover: it is sheet 1 of a count only the
+              printer knows (see the margin footer above). */}
+          <span>{company.phone}</span>
         </footer>
       </section>
 
@@ -1023,6 +1077,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 *here is the property*. */}
             <ReportStoreyPlan
               locale={locale}
+              north={northDeg}
+              wallThickness={wallThicknessM}
               note={t.unregisteredStoreyNote}
               rooms={onLevel.map((room) => ({
                 id: room.id,
@@ -1043,7 +1099,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   })),
               }))}
             />
-            <PlanLegend t={t} />
+            <PlanLegend t={northDeg === null ? t : { ...t, legendNote: t.legendNoteNorth }} />
             <PageFoot
               n={levelPages.get(levelKey(section.unit, level)) ?? 0}
               of={totalPages}

@@ -61,6 +61,161 @@ function signedArea(polygon: Pt[]): number {
   return twice / 2;
 }
 
+type Edge = { p: Pt; q: Pt; L: number; ux: number; uy: number; out: Pt };
+
+function edgesOf(ring: Pt[], area: number): Edge[] {
+  const n = ring.length;
+  return ring.map((p, i) => {
+    const q = ring[(i + 1) % n];
+    const L = Math.hypot(q.x - p.x, q.y - p.y);
+    const ux = (q.x - p.x) / L;
+    const uy = (q.y - p.y) / L;
+    // Positive area: the interior lies to the left of each edge, so the
+    // outside is to its right — whichever way y runs in these coordinates.
+    const out = area > 0 ? { x: uy, y: -ux } : { x: -uy, y: ux };
+    return { p, q, L, ux, uy, out };
+  });
+}
+
+/** Corner i of the outline offset outward by T: where the offset lines of
+    edge i-1 and edge i meet. */
+function outerCorners(ring: Pt[], edges: Edge[], T: number): Pt[] {
+  const n = ring.length;
+  return ring.map((p, i) => {
+    const a = edges[(i - 1 + n) % n];
+    const b = edges[i];
+    const pa = { x: a.p.x + a.out.x * T, y: a.p.y + a.out.y * T };
+    const pb = { x: b.p.x + b.out.x * T, y: b.p.y + b.out.y * T };
+    const cross = a.ux * b.uy - a.uy * b.ux;
+    const fallback = { x: p.x + b.out.x * T, y: p.y + b.out.y * T };
+    // Collinear (a long wall split at a door jamb) or a hairpin: no corner,
+    // just the offset point.
+    if (Math.abs(cross) < 1e-9) return fallback;
+    const t = ((pb.x - pa.x) * b.uy - (pb.y - pa.y) * b.ux) / cross;
+    const hit = { x: pa.x + a.ux * t, y: pa.y + a.uy * t };
+    // A needle-sharp corner mitres off to infinity; cap it.
+    return Math.hypot(hit.x - p.x, hit.y - p.y) > 4 * T ? fallback : hit;
+  });
+}
+
+/** A room's outline grown by its wall: the wall band's outer edge. */
+export function grownOutline(polygon: Pt[], thickness: number): Pt[] | null {
+  const ring = clean(polygon);
+  if (ring.length < 3) return null;
+  const area = signedArea(ring);
+  if (Math.abs(area) < EPS) return null;
+  return outerCorners(ring, edgesOf(ring, area), thickness);
+}
+
+export type ExteriorRun = { x1: number; y1: number; x2: number; y2: number; out: Pt };
+
+/**
+ * **The building's outside face, as runs of wall.** The storey's rooms each
+ * grown by their wall, merged, and the boundary kept where it faces the
+ * outside — not a gap enclosed between rooms. Each run is one straight
+ * stretch of outside face, the length the other firms' sketches print
+ * outside the building (Polygon's `17' 3"`, `15' 11"`). Doors do not break a
+ * run; corners do.
+ *
+ * Square-cornered plans only: the merge works on the grid the rooms' own
+ * corners make. An outline with an angled wall returns null and the plan
+ * simply goes without the outside chain.
+ */
+export function exteriorRuns(polygons: Pt[][], thickness: number): ExteriorRun[] | null {
+  const grown = polygons.map((p) => grownOutline(p, thickness)).filter((p): p is Pt[] => p !== null);
+  if (grown.length === 0) return null;
+  const axisAligned = grown.every((ring) =>
+    ring.every((p, i) => {
+      const q = ring[(i + 1) % ring.length];
+      return Math.abs(p.x - q.x) < 1e-4 || Math.abs(p.y - q.y) < 1e-4;
+    }),
+  );
+  if (!axisAligned) return null;
+
+  const key = (v: number) => Math.round(v * 1e5) / 1e5;
+  const xs = [...new Set(grown.flatMap((ring) => ring.map((p) => key(p.x))))].sort((a, b) => a - b);
+  const ys = [...new Set(grown.flatMap((ring) => ring.map((p) => key(p.y))))].sort((a, b) => a - b);
+  const nx = xs.length - 1;
+  const ny = ys.length - 1;
+  if (nx < 1 || ny < 1) return null;
+
+  const insideRing = (pt: Pt, ring: Pt[]) => {
+    let hit = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i];
+      const b = ring[j];
+      if (a.y > pt.y !== b.y > pt.y && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+  // Cells padded by one empty ring all round, so "outside" is one region.
+  const W = nx + 2;
+  const H = ny + 2;
+  const filled = new Uint8Array(W * H);
+  for (let i = 0; i < nx; i += 1) {
+    for (let j = 0; j < ny; j += 1) {
+      const c = { x: (xs[i] + xs[i + 1]) / 2, y: (ys[j] + ys[j + 1]) / 2 };
+      if (grown.some((ring) => insideRing(c, ring))) filled[(j + 1) * W + (i + 1)] = 1;
+    }
+  }
+  const outside = new Uint8Array(W * H);
+  const stack = [0];
+  outside[0] = 1;
+  while (stack.length) {
+    const k = stack.pop()!;
+    const i = k % W;
+    const j = Math.floor(k / W);
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const a = i + di;
+      const b = j + dj;
+      if (a < 0 || b < 0 || a >= W || b >= H) continue;
+      const m = b * W + a;
+      if (!filled[m] && !outside[m]) {
+        outside[m] = 1;
+        stack.push(m);
+      }
+    }
+  }
+  // Grid line coordinate of padded index: index 1..n+1 ↔ xs[0..n].
+  const gx = (i: number) => xs[i - 1];
+  const gy = (j: number) => ys[j - 1];
+  const raw: ExteriorRun[] = [];
+  for (let j = 1; j <= ny; j += 1) {
+    for (let i = 1; i <= nx; i += 1) {
+      if (!filled[j * W + i]) continue;
+      if (outside[(j - 1) * W + i]) raw.push({ x1: gx(i), y1: gy(j), x2: gx(i + 1), y2: gy(j), out: { x: 0, y: -1 } });
+      if (outside[(j + 1) * W + i]) raw.push({ x1: gx(i), y1: gy(j + 1), x2: gx(i + 1), y2: gy(j + 1), out: { x: 0, y: 1 } });
+      if (outside[j * W + i - 1]) raw.push({ x1: gx(i), y1: gy(j), x2: gx(i), y2: gy(j + 1), out: { x: -1, y: 0 } });
+      if (outside[j * W + i + 1]) raw.push({ x1: gx(i + 1), y1: gy(j), x2: gx(i + 1), y2: gy(j + 1), out: { x: 1, y: 0 } });
+    }
+  }
+  // Merge pieces of one straight face into runs.
+  const groups = new Map<string, ExteriorRun[]>();
+  for (const e of raw) {
+    const horizontal = e.y1 === e.y2;
+    const k = `${horizontal ? "h" : "v"}:${horizontal ? e.y1 : e.x1}:${e.out.x}:${e.out.y}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(e);
+  }
+  const runs: ExteriorRun[] = [];
+  for (const [k, list] of groups) {
+    const horizontal = k.startsWith("h");
+    list.sort((a, b) => (horizontal ? a.x1 - b.x1 : a.y1 - b.y1));
+    let cur = { ...list[0] };
+    for (const e of list.slice(1)) {
+      const touching = horizontal ? Math.abs(e.x1 - cur.x2) < 1e-6 : Math.abs(e.y1 - cur.y2) < 1e-6;
+      if (touching) {
+        cur = { ...cur, x2: e.x2, y2: e.y2 };
+      } else {
+        runs.push(cur);
+        cur = { ...e };
+      }
+    }
+    runs.push(cur);
+  }
+  return runs;
+}
+
 /**
  * The band, or null when there is no outline to build it from (fewer than
  * three distinct corners) — the caller keeps its old drawing then.
@@ -81,33 +236,9 @@ export function wallBand(
   if (Math.abs(area) < EPS) return null;
   const T = thickness;
 
-  const edges = ring.map((p, i) => {
-    const q = ring[(i + 1) % n];
-    const L = Math.hypot(q.x - p.x, q.y - p.y);
-    const ux = (q.x - p.x) / L;
-    const uy = (q.y - p.y) / L;
-    // Positive area: the interior lies to the left of each edge, so the
-    // outside is to its right — whichever way y runs in these coordinates.
-    const out = area > 0 ? { x: uy, y: -ux } : { x: -uy, y: ux };
-    return { p, q, L, ux, uy, out };
-  });
+  const edges = edgesOf(ring, area);
 
-  // Outer corner i: where the offset lines of edge i-1 and edge i meet.
-  const outer = ring.map((p, i) => {
-    const a = edges[(i - 1 + n) % n];
-    const b = edges[i];
-    const pa = { x: a.p.x + a.out.x * T, y: a.p.y + a.out.y * T };
-    const pb = { x: b.p.x + b.out.x * T, y: b.p.y + b.out.y * T };
-    const cross = a.ux * b.uy - a.uy * b.ux;
-    const fallback = { x: p.x + b.out.x * T, y: p.y + b.out.y * T };
-    // Collinear (a long wall split at a door jamb) or a hairpin: no corner,
-    // just the offset point.
-    if (Math.abs(cross) < 1e-9) return fallback;
-    const t = ((pb.x - pa.x) * b.uy - (pb.y - pa.y) * b.ux) / cross;
-    const hit = { x: pa.x + a.ux * t, y: pa.y + a.uy * t };
-    // A needle-sharp corner mitres off to infinity; cap it.
-    return Math.hypot(hit.x - p.x, hit.y - p.y) > 4 * T ? fallback : hit;
-  });
+  const outer = outerCorners(ring, edges, T);
 
   const openingNormals: (Pt | null)[] = openings.map(() => null);
   const pieces: Pt[][] = [];
