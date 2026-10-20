@@ -368,7 +368,9 @@ enum FloorPlanGeometry {
             combined[rawWalls.count..<(rawWalls.count + rawOpenings.count)])
         let rotatedObjects = Array(combined.suffix(rawObjects.count))
 
-        let aligned = alignCollinear(walls: rotatedWalls, openings: rotatedOpenings)
+        // Walls a scan read a few degrees off, set square (19 Oct 2026).
+        let squared = squareNearlySquare(walls: rotatedWalls, openings: rotatedOpenings)
+        let aligned = alignCollinear(walls: squared.walls, openings: squared.openings)
 
         // Normalised against the SAME origin, so openings still sit in their
         // walls after the plan is moved to (0, 0).
@@ -486,6 +488,86 @@ enum FloorPlanGeometry {
         }
     }
 
+    // MARK: - Nearly square
+
+    private static let squareSnap = 5 * Double.pi / 180
+    private static let hostOffset = 0.15
+
+    /// Set a wall the scan read a few degrees out of square exactly square.
+    ///
+    /// RoomPlan measures each wall on its own, so the walls of a square room
+    /// come back a degree or three off one another and the plan reads
+    /// crooked — the owner's complaint of 19 Oct 2026. After `squareToPage`
+    /// has turned the room to the page, a wall within 5° of the page's axes
+    /// is turned, about its own middle, onto the axis it is already nearest.
+    /// Further off than that is a real angle — a bay, a 45° corner — and is
+    /// left exactly as scanned.
+    ///
+    /// NOT the regularisation reverted in August, which collapsed
+    /// perpendicular walls into parallel ones: a wall here can only turn onto
+    /// the axis it is within 5° of, so a perpendicular stays perpendicular.
+    ///
+    /// An opening turns with the wall it is cut into, about that wall's
+    /// middle, so a door stays in its wall; one on no wall is squared on its
+    /// own. Twin: `squareNearlySquare` in roomScan.ts.
+    static func squareNearlySquare(walls: [Segment], openings: [Segment])
+        -> (walls: [Segment], openings: [Segment])
+    {
+        func turnOf(_ s: Segment) -> Double {
+            var angle = atan2(s.y2 - s.y1, s.x2 - s.x1)
+            while angle > .pi / 4 { angle -= .pi / 2 }
+            while angle <= -.pi / 4 { angle += .pi / 2 }
+            return abs(angle) <= squareSnap ? -angle : 0
+        }
+        func turned(_ s: Segment, by: Double, cx: Double, cy: Double) -> Segment {
+            if by == 0 { return s }
+            let c = cos(by)
+            let n = sin(by)
+            func at(_ x: Double, _ y: Double) -> (Double, Double) {
+                (cx + (x - cx) * c - (y - cy) * n, cy + (x - cx) * n + (y - cy) * c)
+            }
+            let a = at(s.x1, s.y1)
+            let b = at(s.x2, s.y2)
+            return Segment(x1: a.0, y1: a.1, x2: b.0, y2: b.1)
+        }
+        func mid(_ s: Segment) -> (x: Double, y: Double) { ((s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2) }
+
+        let turns = walls.map(turnOf)
+        let squaredWalls = walls.enumerated().map { i, w -> Segment in
+            let c = mid(w)
+            return turned(w, by: turns[i], cx: c.x, cy: c.y)
+        }
+
+        let squaredOpenings = openings.map { o -> Segment in
+            // The wall it sits in: near-parallel, within a wall's thickness of
+            // its line, and overlapping it along its length.
+            let oc = mid(o)
+            var host = -1
+            var bestOffset = hostOffset
+            for (i, w) in walls.enumerated() {
+                let len = w.length
+                if len == 0 { continue }
+                let ux = (w.x2 - w.x1) / len
+                let uy = (w.y2 - w.y1) / len
+                let olen = o.length == 0 ? 1 : o.length
+                let parallel = abs(((o.x2 - o.x1) * ux + (o.y2 - o.y1) * uy) / olen)
+                if parallel < cos(10 * Double.pi / 180) { continue }
+                let offset = abs((oc.x - w.x1) * uy - (oc.y - w.y1) * ux)
+                let along = (oc.x - w.x1) * ux + (oc.y - w.y1) * uy
+                if offset > bestOffset || along < -hostOffset || along > len + hostOffset { continue }
+                host = i
+                bestOffset = offset
+            }
+            if host >= 0 {
+                let c = mid(walls[host])
+                return turned(o, by: turns[host], cx: c.x, cy: c.y)
+            }
+            return turned(o, by: turnOf(o), cx: oc.x, cy: oc.y)
+        }
+
+        return (squaredWalls, squaredOpenings)
+    }
+
     // MARK: - Collinear alignment
 
     private static let collinearAngle = 4 * Double.pi / 180
@@ -515,6 +597,22 @@ enum FloorPlanGeometry {
             return (angle, s.x1 * sin(angle) - s.y1 * cos(angle))
         }
 
+        /// The same line, described with a direction within a quarter turn of
+        /// `ref`'s. The fold above can return the two pieces of one level
+        /// wall as 0 and as pi minus a hair — the same line, with offsets of
+        /// OPPOSITE sign — and compared as they were they never grouped.
+        /// Rare on raw scans, constant once `squareNearlySquare` sets walls
+        /// exactly level (the phone/web parity run, 19 Oct 2026). Twin:
+        /// `inFrameOf` in roomScan.ts.
+        func inFrame(_ ref: (angle: Double, offset: Double), _ l: (angle: Double, offset: Double))
+            -> (angle: Double, offset: Double)
+        {
+            let d = l.angle - ref.angle
+            if d > .pi / 2 { return (l.angle - .pi, -l.offset) }
+            if d < -.pi / 2 { return (l.angle + .pi, -l.offset) }
+            return l
+        }
+
         let lines = walls.map(line)
         let lengths = walls.map(\.length)
 
@@ -524,29 +622,26 @@ enum FloorPlanGeometry {
             var group = [i]
             groupOf[i] = groups.count
             for j in (i + 1)..<walls.count where groupOf[j] < 0 {
-                var dAngle = abs(lines[i].angle - lines[j].angle)
-                if dAngle > .pi / 2 { dAngle = .pi - dAngle }
-                guard dAngle <= collinearAngle else { continue }
-                guard abs(lines[i].offset - lines[j].offset) <= collinearOffset else { continue }
+                let other = inFrame(lines[i], lines[j])
+                guard abs(other.angle - lines[i].angle) <= collinearAngle else { continue }
+                guard abs(other.offset - lines[i].offset) <= collinearOffset else { continue }
                 group.append(j)
                 groupOf[j] = groups.count
             }
             groups.append(group)
         }
 
-        // Longer walls were measured over more surface and are trusted
-        // proportionally more.
-        var target = [Double](repeating: 0, count: walls.count)
-        var targetAngle = [Double](repeating: 0, count: walls.count)
+        // The line each group agrees on, in its first wall's frame. Longer
+        // walls were measured over more surface and are trusted more.
+        var target = [(angle: Double, offset: Double)](repeating: (0, 0), count: walls.count)
         for group in groups {
+            let ref = lines[group[0]]
             let total = group.reduce(0.0) { $0 + lengths[$1] }
             let weight = total == 0 ? 1 : total
-            let offset = group.reduce(0.0) { $0 + lines[$1].offset * lengths[$1] } / weight
-            let angle = group.reduce(0.0) { $0 + lines[$1].angle * lengths[$1] } / weight
-            for i in group {
-                target[i] = offset
-                targetAngle[i] = angle
-            }
+            let framed = group.map { inFrame(ref, lines[$0]) }
+            let offset = zip(group, framed).reduce(0.0) { $0 + $1.1.offset * lengths[$1.0] } / weight
+            let angle = zip(group, framed).reduce(0.0) { $0 + $1.1.angle * lengths[$1.0] } / weight
+            for i in group { target[i] = (angle, offset) }
         }
 
         /// Slide a segment along its OWN normal — nothing rotates.
@@ -559,7 +654,9 @@ enum FloorPlanGeometry {
         }
 
         let movedWalls = walls.enumerated().map {
-            slide($0.element, angle: lines[$0.offset].angle, by: target[$0.offset] - lines[$0.offset].offset)
+            slide(
+                $0.element, angle: lines[$0.offset].angle,
+                by: inFrame(lines[$0.offset], target[$0.offset]).offset - lines[$0.offset].offset)
         }
 
         // Openings follow the wall they were cut from. One with no wall near
@@ -570,17 +667,16 @@ enum FloorPlanGeometry {
             var best = -1
             var bestDistance = collinearOffset
             for i in walls.indices {
-                var dAngle = abs(l.angle - targetAngle[i])
-                if dAngle > .pi / 2 { dAngle = .pi - dAngle }
-                guard dAngle <= collinearAngle else { continue }
-                let distance = abs(l.offset - target[i])
+                let wall = inFrame(l, target[i])
+                guard abs(wall.angle - l.angle) <= collinearAngle else { continue }
+                let distance = abs(l.offset - wall.offset)
                 if distance < bestDistance {
                     bestDistance = distance
                     best = i
                 }
             }
             guard best >= 0 else { return opening }
-            return slide(opening, angle: l.angle, by: target[best] - l.offset)
+            return slide(opening, angle: l.angle, by: inFrame(l, target[best]).offset - l.offset)
         }
 
         return (movedWalls, movedOpenings)
@@ -633,6 +729,12 @@ enum FloorPlanGeometry {
     /// Merge two collinear pieces into the one wall they came from, by keeping
     /// the extremes along the longer one's direction. Summing their lengths
     /// instead would price a wall twice as long as the room.
+    ///
+    /// The merged wall lies on ONE line — the longer piece's direction, at
+    /// the pieces' length-weighted offset — with the extremes projected onto
+    /// it. It used to run from one piece's far end to the other's, so halves
+    /// measured 7 cm apart merged into a wall slanted across both (19 Oct
+    /// 2026). Twin: `mergeCollinear` in wallChain.ts.
     private static func mergeCollinear(_ a: Segment, _ b: Segment) -> Segment {
         let base = a.length >= b.length ? a : b
         let dx = base.x2 - base.x1, dy = base.y2 - base.y1
@@ -640,13 +742,77 @@ enum FloorPlanGeometry {
         let ux = dx / len, uy = dy / len
         let points = [(a.x1, a.y1), (a.x2, a.y2), (b.x1, b.y1), (b.x2, b.y2)]
         var lo = Double.infinity, hi = -Double.infinity
-        var loPoint = points[0], hiPoint = points[0]
         for p in points {
             let t = (p.0 - base.x1) * ux + (p.1 - base.y1) * uy
-            if t < lo { lo = t; loPoint = p }
-            if t > hi { hi = t; hiPoint = p }
+            if t < lo { lo = t }
+            if t > hi { hi = t }
         }
-        return Segment(x1: loPoint.0, y1: loPoint.1, x2: hiPoint.0, y2: hiPoint.1)
+        // Signed distance off the base line, along its left normal (-uy, ux).
+        func across(_ x: Double, _ y: Double) -> Double { -(x - base.x1) * uy + (y - base.y1) * ux }
+        let la = a.length, lb = b.length
+        let total = la + lb == 0 ? 1 : la + lb
+        let offset =
+            (across((a.x1 + a.x2) / 2, (a.y1 + a.y2) / 2) * la
+                + across((b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2) * lb) / total
+        func at(_ t: Double) -> (Double, Double) {
+            (base.x1 + ux * t - uy * offset, base.y1 + uy * t + ux * offset)
+        }
+        let p1 = at(lo), p2 = at(hi)
+        return Segment(x1: p1.0, y1: p1.1, x2: p2.0, y2: p2.1)
+    }
+
+    /// Below this angle two walls continue rather than turn a corner.
+    private static let cornerMinDeg = 30.0
+
+    /// Bring each wall's end to the corner it is reaching for: where its line
+    /// crosses the line of the wall it meets.
+    ///
+    /// The weld that used to do this moved an end onto whichever corner point
+    /// was seen FIRST — the other wall's end — so two walls that stopped
+    /// 10 cm apart at a corner were joined by dragging one sideways, and a
+    /// 1 m return dragged 10 cm sits almost 6° out of square: the crooked
+    /// rooms the owner asked about on 19 Oct 2026. Sliding each end along its
+    /// own line keeps every wall exactly the direction it was scanned in.
+    /// Works for a T as well. Computed from the untouched input, so the
+    /// result does not depend on which wall comes first. Twin:
+    /// `meetAtCorners` in wallChain.ts.
+    private static func meetAtCorners(_ segments: [Segment], weld: Double, minLength: Double)
+        -> [Segment]
+    {
+        func crossing(_ a: Segment, _ b: Segment) -> CGPoint? {
+            let adx = a.x2 - a.x1, ady = a.y2 - a.y1
+            let bdx = b.x2 - b.x1, bdy = b.y2 - b.y1
+            let cross = adx * bdy - ady * bdx
+            if abs(cross) < 1e-12 { return nil }
+            let t = ((b.x1 - a.x1) * bdy - (b.y1 - a.y1) * bdx) / cross
+            return CGPoint(x: a.x1 + adx * t, y: a.y1 + ady * t)
+        }
+        func reach(_ index: Int, _ end: CGPoint) -> CGPoint {
+            let s = segments[index]
+            var best = end
+            var bestDistance = weld
+            for (j, other) in segments.enumerated() where j != index {
+                if angleBetween(s, other) < cornerMinDeg { continue }
+                guard let x = crossing(s, other) else { continue }
+                let distance = hypot(x.x - end.x, x.y - end.y)
+                if distance > bestDistance { continue }
+                let len = other.length
+                let along =
+                    ((x.x - other.x1) * (other.x2 - other.x1) + (x.y - other.y1) * (other.y2 - other.y1))
+                    / len
+                if along < -weld || along > len + weld { continue }
+                best = x
+                bestDistance = distance
+            }
+            return best
+        }
+        return segments.indices.map { i in
+            let s = segments[i]
+            let a = reach(i, CGPoint(x: s.x1, y: s.y1))
+            let b = reach(i, CGPoint(x: s.x2, y: s.y2))
+            if hypot(b.x - a.x, b.y - a.y) < minLength { return s }
+            return Segment(x1: a.x, y1: a.y, x2: b.x, y2: b.y)
+        }
     }
 
     /// Drop noise, merge one-wall-in-pieces, weld near corners.
@@ -673,8 +839,14 @@ enum FloorPlanGeometry {
             }
         }
 
+        // Meet at the corner the walls themselves describe — where their lines
+        // cross — so no wall tilts to reach it.
+        work = meetAtCorners(work, weld: weld, minLength: minWallM)
+
         // Weld the endpoints that are the same corner into one point, so the
         // walk matches exactly rather than within a tolerance that can drift.
+        // A real corner's ends already coincide after the step above; this
+        // catches the rest (walls continuing at a slight angle).
         var corners: [CGPoint] = []
         func snap(_ x: Double, _ y: Double) -> CGPoint {
             for c in corners where hypot(c.x - x, c.y - y) <= weld { return c }

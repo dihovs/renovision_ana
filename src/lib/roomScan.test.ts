@@ -436,3 +436,100 @@ describe("floor area comes from the outline, not the patches", () => {
     ).toBeCloseTo(12, 5);
   });
 });
+
+describe("a scan read a few degrees out of square (19 Oct 2026)", () => {
+  /** A wall from its two ends, as RoomPlan's centre/axis/length. */
+  const from = (x1: number, z1: number, x2: number, z2: number) => {
+    const length = Math.hypot(x2 - x1, z2 - z1);
+    return wall((x1 + x2) / 2, (z1 + z2) / 2, (x2 - x1) / length, (z2 - z1) / length, length);
+  };
+  const tilt = (deg: number, x1: number, z1: number, x2: number, z2: number) => {
+    // Turn a wall about its own middle.
+    const a = (deg * Math.PI) / 180;
+    const cx = (x1 + x2) / 2;
+    const cz = (z1 + z2) / 2;
+    const at = (x: number, z: number) => [cx + (x - cx) * Math.cos(a) - (z - cz) * Math.sin(a), cz + (x - cx) * Math.sin(a) + (z - cz) * Math.cos(a)];
+    const [ax, az] = at(x1, z1);
+    const [bx, bz] = at(x2, z2);
+    return from(ax, az, bx, bz);
+  };
+  const worstOffSquare = (points: { x: number; y: number }[]) => {
+    let worst = 0;
+    for (let i = 0; i + 1 < points.length; i += 1) {
+      let a = (Math.atan2(points[i + 1].y - points[i].y, points[i + 1].x - points[i].x) * 180) / Math.PI;
+      a = ((a % 90) + 90) % 90;
+      worst = Math.max(worst, Math.min(a, 90 - a));
+    }
+    return worst;
+  };
+
+  it("draws a room square when its walls came back a couple of degrees off", () => {
+    const geometry: ScanGeometry = {
+      walls: [
+        from(0, 0, 5, 0), // the longest wall sets the page
+        tilt(2.5, 5, 0, 5, 4),
+        tilt(-2, 5, 4, 0, 4),
+        tilt(3, 0, 4, 0, 0),
+      ],
+      floors: [{ areaSquareMeters: 20 }],
+      doors: [],
+      windows: [],
+      doorCount: 0,
+      windowCount: 0,
+      openingCount: 0,
+      stairCount: 0,
+    };
+    const plan = toFloorPlan(geometry);
+    expect(plan.polygon.length).toBe(5);
+    expect(worstOffSquare(plan.polygon)).toBeLessThan(1e-6);
+    expect(polygonAreaSquareMeters(plan.polygon.slice(0, -1))).toBeCloseTo(20, 1);
+  });
+
+  it("leaves a real angled wall as scanned", () => {
+    // A 45° corner cut across a rectangle: far past the 5° snap.
+    const geometry: ScanGeometry = {
+      walls: [
+        from(0, 0, 5, 0),
+        from(5, 0, 5, 3),
+        from(5, 3, 4, 4),
+        from(4, 4, 0, 4),
+        from(0, 4, 0, 0),
+      ],
+      floors: [{ areaSquareMeters: 19.5 }],
+      doors: [],
+      windows: [],
+      doorCount: 0,
+      windowCount: 0,
+      openingCount: 0,
+      stairCount: 0,
+    };
+    const plan = toFloorPlan(geometry);
+    const cut = plan.segments.find((s) => Math.abs(s.x2 - s.x1) > 0.5 && Math.abs(s.y2 - s.y1) > 0.5)!;
+    expect(Math.abs((Math.atan2(cut.y2 - cut.y1, cut.x2 - cut.x1) * 180) / Math.PI) % 90).toBeCloseTo(45, 6);
+  });
+
+  it("keeps a door in the wall it was cut from when that wall is squared", () => {
+    const tilted = tilt(3, 5, 0, 5, 4);
+    const geometry: ScanGeometry = {
+      walls: [from(0, 0, 5.2, 0), tilted, from(5, 4, 0, 4), from(0, 4, 0, 0)],
+      floors: [{ areaSquareMeters: 20 }],
+      // A door near the far end of the tilted wall, on its line.
+      doors: [{ centerX: tilted.centerX + tilted.axisX * 1.5, centerZ: tilted.centerZ + tilted.axisZ * 1.5, axisX: tilted.axisX, axisZ: tilted.axisZ, widthMeters: 0.8, heightMeters: 2 }],
+      windows: [],
+      doorCount: 1,
+      windowCount: 0,
+      openingCount: 0,
+      stairCount: 0,
+    };
+    const plan = toFloorPlan(geometry);
+    const door = plan.openings[0];
+    const host = plan.segments.reduce((best, s) => {
+      const d = Math.abs(((s.x1 + s.x2) / 2) - ((door.x1 + door.x2) / 2));
+      return Math.abs(s.x2 - s.x1) < 1e-6 && d < Math.abs(((best.x1 + best.x2) / 2) - ((door.x1 + door.x2) / 2)) ? s : best;
+    }, plan.segments.find((s) => Math.abs(s.x2 - s.x1) < 1e-6)!);
+    // Vertical, and on the host wall's line to the millimetre.
+    expect(Math.abs(door.x2 - door.x1)).toBeLessThan(1e-6);
+    expect(Math.abs(door.x1 - host.x1)).toBeLessThan(0.001);
+  });
+});
+

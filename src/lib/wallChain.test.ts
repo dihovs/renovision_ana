@@ -184,3 +184,70 @@ describe("chainOutline", () => {
     expect(area(outline.points)).toBeCloseTo(24, 0);
   });
 });
+
+describe("square corners (19 Oct 2026)", () => {
+  const angleOf = (s: ChainSegment) => (Math.atan2(s.y2 - s.y1, s.x2 - s.x1) * 180) / Math.PI;
+
+  it("meets at the corner its walls describe, without tilting either", () => {
+    // One wall stops 10 cm short of the corner, the other overshoots it. The
+    // old weld dragged one end onto the other and tilted a 1 m return ~6°.
+    const corner: ChainSegment[] = [
+      { x1: 0, y1: 0, x2: 3.9, y2: 0 },
+      { x1: 4, y1: -0.08, x2: 4, y2: 1 },
+    ];
+    const [a, b] = cleanedForChaining(corner);
+    expect(angleOf(a)).toBeCloseTo(0, 9);
+    expect(Math.abs(angleOf(b))).toBeCloseTo(90, 9);
+    expect(a.x2).toBeCloseTo(4, 9);
+    expect(b.y1).toBeCloseTo(0, 9);
+  });
+
+  it("lands a partition's end on the wall it butts into", () => {
+    const tee: ChainSegment[] = [
+      { x1: 0, y1: 0, x2: 6, y2: 0 },
+      { x1: 2.5, y1: 0.12, x2: 2.5, y2: 2 },
+    ];
+    const [, partition] = cleanedForChaining(tee);
+    expect(partition.x1).toBeCloseTo(2.5, 9);
+    expect(partition.y1).toBeCloseTo(0, 9);
+  });
+
+  it("merges two halves of one wall onto one straight line", () => {
+    // Halves measured 7 cm apart. Joining far end to far end slanted the
+    // merged wall across both.
+    const halves: ChainSegment[] = [
+      { x1: 0, y1: 0.07, x2: 2.5, y2: 0.07 },
+      { x1: 2.5, y1: 0, x2: 6, y2: 0 },
+    ];
+    const [wall] = cleanedForChaining(halves);
+    expect(angleOf(wall)).toBeCloseTo(0, 9);
+    expect(wall.y1).toBeCloseTo((0.07 * 2.5) / 6, 9);
+    expect(Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)).toBeCloseTo(6, 9);
+  });
+
+  it("keeps a room's outline when its closet's partition is left over", () => {
+    // An office with a closet in one corner and a notch in another, shaped
+    // like the owner's "Private Office" scan. The closet's two partition
+    // walls butt into the middle of the outside walls and are left over by
+    // the walk; that used to throw the whole outline away on the web while
+    // the phone drew it.
+    const office: ChainSegment[] = [
+      { x1: 5.9, y1: 0, x2: 5.9, y2: 4.7 },
+      { x1: 2.4, y1: 0, x2: 5.9, y2: 0 },
+      { x1: 0, y1: 0, x2: 2.4, y2: 0 },
+      { x1: 0.4, y1: 3, x2: 0, y2: 3 },
+      { x1: 0, y1: 1.8, x2: 0, y2: 0 },
+      { x1: 0, y1: 1.8, x2: 2.4, y2: 1.8 },
+      { x1: 5.9, y1: 4.7, x2: 0.4, y2: 4.7 },
+      { x1: 0.4, y1: 4.7, x2: 0.4, y2: 3 },
+      { x1: 2.4, y1: 1.8, x2: 2.4, y2: 0 },
+      { x1: 0, y1: 3, x2: 0, y2: 1.8 },
+    ];
+    const outline = chainOutline(office, { weld: 0.25 })!;
+    expect(outline).not.toBeNull();
+    expect(outline.inferredClosingEdge).toBe(false);
+    expect(outline.points).toHaveLength(6);
+    expect(area(outline.points)).toBeCloseTo(5.9 * 4.7 - 0.4 * 1.7, 6);
+  });
+});
+

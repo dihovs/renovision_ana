@@ -630,6 +630,90 @@ function squareToPage(segments: PlanSegment[]): PlanSegment[] {
 }
 
 /**
+ * Set a wall the scan read a few degrees out of square exactly square.
+ *
+ * RoomPlan measures each wall on its own, so the walls of a square room come
+ * back a degree or three off one another and the plan reads crooked — the
+ * owner's complaint of 19 Oct 2026. After `squareToPage` has turned the room
+ * to the page, a wall within 5° of the page's axes is turned, about its own
+ * middle, onto the axis it is already nearest. A wall further off than that
+ * is a real angle — a bay, a 45° corner — and is left exactly as scanned.
+ *
+ * This is NOT the regularisation reverted in August, which collapsed
+ * perpendicular walls into parallel ones: a wall here can only turn onto the
+ * axis it is within 5° of, so a perpendicular stays perpendicular, and no
+ * wall moves more than 5° or changes length.
+ *
+ * An opening turns with the wall it is cut into, about that wall's middle,
+ * so a door stays in its wall; an opening on no wall is squared on its own.
+ * Twin: `FloorPlanGeometry.squareNearlySquare` on the phone.
+ */
+const SQUARE_SNAP = (5 * Math.PI) / 180;
+const HOST_OFFSET = 0.15;
+
+function squareNearlySquare(walls: PlanSegment[], openings: PlanOpening[]): {
+  walls: PlanSegment[];
+  openings: PlanOpening[];
+} {
+  /** The turn that puts a segment on its nearest axis, or 0 when it is off
+      by more than the snap (or already on it). */
+  const turnOf = (seg: PlanSegment) => {
+    let angle = Math.atan2(seg.y2 - seg.y1, seg.x2 - seg.x1);
+    while (angle > Math.PI / 4) angle -= Math.PI / 2;
+    while (angle <= -Math.PI / 4) angle += Math.PI / 2;
+    return Math.abs(angle) <= SQUARE_SNAP ? -angle : 0;
+  };
+  const turned = <T extends PlanSegment>(seg: T, by: number, cx: number, cy: number): T => {
+    if (by === 0) return seg;
+    const cos = Math.cos(by);
+    const sin = Math.sin(by);
+    const at = (x: number, y: number) => ({
+      x: cx + (x - cx) * cos - (y - cy) * sin,
+      y: cy + (x - cx) * sin + (y - cy) * cos,
+    });
+    const a = at(seg.x1, seg.y1);
+    const b = at(seg.x2, seg.y2);
+    return { ...seg, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+  };
+  const mid = (seg: PlanSegment) => ({ x: (seg.x1 + seg.x2) / 2, y: (seg.y1 + seg.y2) / 2 });
+
+  const turns = walls.map(turnOf);
+  const squaredWalls = walls.map((w, i) => {
+    const c = mid(w);
+    return turned(w, turns[i], c.x, c.y);
+  });
+
+  const squaredOpenings = openings.map((o) => {
+    // The wall it sits in: near-parallel, within a wall's thickness of its
+    // line, and overlapping it along its length.
+    const oc = mid(o);
+    let host = -1;
+    let bestOffset = HOST_OFFSET;
+    walls.forEach((w, i) => {
+      const len = Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
+      if (len === 0) return;
+      const ux = (w.x2 - w.x1) / len;
+      const uy = (w.y2 - w.y1) / len;
+      const olen = Math.hypot(o.x2 - o.x1, o.y2 - o.y1) || 1;
+      const parallel = Math.abs(((o.x2 - o.x1) * ux + (o.y2 - o.y1) * uy) / olen);
+      if (parallel < Math.cos((10 * Math.PI) / 180)) return;
+      const offset = Math.abs((oc.x - w.x1) * uy - (oc.y - w.y1) * ux);
+      const along = (oc.x - w.x1) * ux + (oc.y - w.y1) * uy;
+      if (offset > bestOffset || along < -HOST_OFFSET || along > len + HOST_OFFSET) return;
+      host = i;
+      bestOffset = offset;
+    });
+    if (host >= 0) {
+      const c = mid(walls[host]);
+      return turned(o, turns[host], c.x, c.y);
+    }
+    return turned(o, turnOf(o), oc.x, oc.y);
+  });
+
+  return { walls: squaredWalls, openings: squaredOpenings };
+}
+
+/**
  * Bring walls that are already almost collinear onto one line.
  *
  * RoomPlan reports a wall interrupted by a doorway as TWO separate surfaces,
@@ -671,6 +755,22 @@ function lineOf(s: PlanSegment): Line {
   return { angle, offset: s.x1 * dy - s.y1 * dx };
 }
 
+/**
+ * The same line, described with a direction within a quarter turn of
+ * `ref`'s. `lineOf` folds a direction onto [0, pi), so the two pieces of one
+ * level wall can come back as 0 and as pi minus a hair — the same line, but
+ * with offsets of OPPOSITE sign, since the offset is measured along the
+ * folded direction's normal. Compared as they were, they never grouped. Rare
+ * on raw scans, constant once `squareNearlySquare` sets walls exactly level
+ * (found by the phone/web parity run, 19 Oct 2026).
+ */
+function inFrameOf(ref: Line, line: Line): Line {
+  const d = line.angle - ref.angle;
+  if (d > Math.PI / 2) return { angle: line.angle - Math.PI, offset: -line.offset };
+  if (d < -Math.PI / 2) return { angle: line.angle + Math.PI, offset: -line.offset };
+  return line;
+}
+
 function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
   walls: PlanSegment[];
   openings: PlanOpening[];
@@ -680,8 +780,8 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
   const lines = walls.map(lineOf);
   const lengths = walls.map((s) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1));
 
-  // Group walls that describe the same line. Angles near 0 and near pi are
-  // the same direction, so the comparison wraps.
+  // Group walls that describe the same line, each compared in the frame of
+  // the group's first wall (see inFrameOf).
   const groupOf = new Array<number>(walls.length).fill(-1);
   const groups: number[][] = [];
   for (let i = 0; i < walls.length; i += 1) {
@@ -690,28 +790,25 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
     groupOf[i] = groups.length;
     for (let j = i + 1; j < walls.length; j += 1) {
       if (groupOf[j] >= 0) continue;
-      let dAngle = Math.abs(lines[i].angle - lines[j].angle);
-      if (dAngle > Math.PI / 2) dAngle = Math.PI - dAngle;
-      if (dAngle > COLLINEAR_ANGLE) continue;
-      if (Math.abs(lines[i].offset - lines[j].offset) > COLLINEAR_OFFSET) continue;
+      const other = inFrameOf(lines[i], lines[j]);
+      if (Math.abs(other.angle - lines[i].angle) > COLLINEAR_ANGLE) continue;
+      if (Math.abs(other.offset - lines[i].offset) > COLLINEAR_OFFSET) continue;
       group.push(j);
       groupOf[j] = groups.length;
     }
     groups.push(group);
   }
 
-  // The line each group agrees on: longer walls were measured over more
-  // surface and are trusted proportionally more.
-  const target = new Array<number>(walls.length).fill(0);
-  const targetAngle = new Array<number>(walls.length).fill(0);
+  // The line each group agrees on, in its first wall's frame: longer walls
+  // were measured over more surface and are trusted proportionally more.
+  const target: Line[] = new Array<Line>(walls.length);
   for (const group of groups) {
+    const ref = lines[group[0]];
     const total = group.reduce((sum, i) => sum + lengths[i], 0) || 1;
-    const offset = group.reduce((sum, i) => sum + lines[i].offset * lengths[i], 0) / total;
-    const angle = group.reduce((sum, i) => sum + lines[i].angle * lengths[i], 0) / total;
-    for (const i of group) {
-      target[i] = offset;
-      targetAngle[i] = angle;
-    }
+    const framed = group.map((i) => inFrameOf(ref, lines[i]));
+    const offset = framed.reduce((sum, l, k) => sum + l.offset * lengths[group[k]], 0) / total;
+    const angle = framed.reduce((sum, l, k) => sum + l.angle * lengths[group[k]], 0) / total;
+    for (const i of group) target[i] = { angle, offset };
   }
 
   /** Slide a segment along its own normal by `shift`. */
@@ -721,7 +818,9 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
     return { ...s, x1: s.x1 + nx * shift, y1: s.y1 + ny * shift, x2: s.x2 + nx * shift, y2: s.y2 + ny * shift };
   };
 
-  const movedWalls = walls.map((s, i) => slide(s, lines[i].angle, target[i] - lines[i].offset));
+  const movedWalls = walls.map((s, i) =>
+    slide(s, lines[i].angle, inFrameOf(lines[i], target[i]).offset - lines[i].offset),
+  );
 
   // Openings follow the wall they were cut from — the nearest line among
   // the groups, on the same test. An opening with no wall near enough is
@@ -731,16 +830,15 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
     let best = -1;
     let bestDistance = COLLINEAR_OFFSET;
     for (let i = 0; i < walls.length; i += 1) {
-      let dAngle = Math.abs(line.angle - targetAngle[i]);
-      if (dAngle > Math.PI / 2) dAngle = Math.PI - dAngle;
-      if (dAngle > COLLINEAR_ANGLE) continue;
-      const distance = Math.abs(line.offset - target[i]);
+      const wall = inFrameOf(line, target[i]);
+      if (Math.abs(wall.angle - line.angle) > COLLINEAR_ANGLE) continue;
+      const distance = Math.abs(line.offset - wall.offset);
       if (distance < bestDistance) {
         bestDistance = distance;
         best = i;
       }
     }
-    return best < 0 ? o : slide(o, line.angle, target[best] - line.offset);
+    return best < 0 ? o : slide(o, line.angle, inFrameOf(line, target[best]).offset - line.offset);
   });
 
   return { walls: movedWalls, openings: movedOpenings };
@@ -759,7 +857,10 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
  * that a guessed closing edge is reported instead of assumed.
  */
 function chainIntoPolygon(segments: PlanSegment[]): PlanPoint[] {
-  const outline = chainOutline(segments);
+  // 0,25 m, the phone's own tolerance (`FloorPlanGeometry.chainIntoPolygon`).
+  // This side used the module default, 0,30, so the two could disagree on
+  // whether a room closed at all.
+  const outline = chainOutline(segments, { weld: 0.25 });
   if (!outline || outline.inferredClosingEdge) return [];
   // Repeat the first corner at the end. `chainOutline` returns bare corners,
   // which is the better primitive, but everything downstream of here has
@@ -850,10 +951,11 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
   // Walls and openings are rotated TOGETHER, by the angle the walls imply,
   // so a door stays in the wall it was cut from.
   const rotated = squareToPage([...rawWalls, ...rawOpeningSpans]);
-  const aligned = alignCollinearWalls(
+  const squared = squareNearlySquare(
     rotated.slice(0, rawWalls.length),
     rotated.slice(rawWalls.length) as PlanOpening[],
   );
+  const aligned = alignCollinearWalls(squared.walls, squared.openings);
   const raw = aligned.walls;
   const rawOpenings = aligned.openings;
 

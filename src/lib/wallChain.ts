@@ -69,6 +69,12 @@ function offsetFromLine(s: ChainSegment, p: ChainPoint): number {
  * Both are projected onto the longer one's direction and the extremes kept,
  * so two overlapping observations of one wall become one wall of the right
  * length rather than a wall of their summed lengths.
+ *
+ * The merged wall lies on ONE line — the longer piece's direction, at the
+ * pieces' length-weighted offset — with the extremes projected onto it. It
+ * used to run from one piece's far end to the other's, so two halves of a
+ * wall measured 7 cm apart merged into a wall slanted across both (0,7° on
+ * a 6 m wall, 19 Oct 2026): the commonest crooked edge in a scanned outline.
  */
 function mergeCollinear(a: ChainSegment, b: ChainSegment): ChainSegment {
   const base = length(a) >= length(b) ? a : b;
@@ -78,6 +84,8 @@ function mergeCollinear(a: ChainSegment, b: ChainSegment): ChainSegment {
   const ux = dx / len;
   const uy = dy / len;
   const project = (p: ChainPoint) => (p.x - base.x1) * ux + (p.y - base.y1) * uy;
+  // Signed distance off the base line, along its left normal (-uy, ux).
+  const across = (p: ChainPoint) => -(p.x - base.x1) * uy + (p.y - base.y1) * ux;
 
   const points = [
     { x: a.x1, y: a.y1 },
@@ -87,24 +95,23 @@ function mergeCollinear(a: ChainSegment, b: ChainSegment): ChainSegment {
   ];
   let lo = Infinity;
   let hi = -Infinity;
-  let loPoint = points[0];
-  let hiPoint = points[0];
   for (const p of points) {
     const t = project(p);
-    if (t < lo) {
-      lo = t;
-      loPoint = p;
-    }
-    if (t > hi) {
-      hi = t;
-      hiPoint = p;
-    }
+    if (t < lo) lo = t;
+    if (t > hi) hi = t;
   }
-  return { x1: loPoint.x, y1: loPoint.y, x2: hiPoint.x, y2: hiPoint.y };
+  const la = length(a);
+  const lb = length(b);
+  const mid = (s: ChainSegment) => ({ x: (s.x1 + s.x2) / 2, y: (s.y1 + s.y2) / 2 });
+  const offset = (across(mid(a)) * la + across(mid(b)) * lb) / (la + lb || 1);
+  const at = (t: number) => ({ x: base.x1 + ux * t - uy * offset, y: base.y1 + uy * t + ux * offset });
+  const p1 = at(lo);
+  const p2 = at(hi);
+  return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
 }
 
 /** Are these two pieces the same physical wall, seen twice or cut in two? */
-function sameWall(a: ChainSegment, b: ChainSegment): boolean {
+function sameWall(a: ChainSegment, b: ChainSegment, weld: number): boolean {
   if (angleBetween(a, b) > COLLINEAR_ANGLE_DEG) return false;
   // Both ends of b have to sit on a's line, or they are parallel neighbours —
   // the two sides of a partition, which must never be merged into one.
@@ -124,7 +131,63 @@ function sameWall(a: ChainSegment, b: ChainSegment): boolean {
   const bs = [project({ x: b.x1, y: b.y1 }), project({ x: b.x2, y: b.y2 })];
   const bLo = Math.min(...bs);
   const bHi = Math.max(...bs);
-  return bLo <= aHi + WELD_M && aLo <= bHi + WELD_M;
+  return bLo <= aHi + weld && aLo <= bHi + weld;
+}
+
+/** Below this angle two walls continue rather than turn a corner. */
+const CORNER_MIN_DEG = 30;
+
+/**
+ * Bring each wall's end to the corner it is reaching for: the point where its
+ * line crosses the line of the wall it meets.
+ *
+ * The weld that used to do this moved an end onto whichever corner point was
+ * seen FIRST — the other wall's end. Two walls that stopped 10 cm apart at a
+ * corner were joined by dragging one of them sideways, and a 1 m return
+ * dragged 10 cm sits almost 6° out of square: the crooked rooms the owner
+ * asked about on 19 Oct 2026. Sliding each end along its own line to the
+ * crossing keeps every wall exactly the direction it was scanned in.
+ *
+ * Works for a T as well — a partition's end lands on the wall it butts into.
+ * Computed from the untouched input, so the result does not depend on which
+ * wall comes first. An end moves only when the crossing is within `weld` of
+ * it and on (or within `weld` of) the other wall, and never so far that its
+ * own wall would shrink below a wall's minimum length.
+ */
+function meetAtCorners(segments: ChainSegment[], weld: number, minLength: number): ChainSegment[] {
+  const crossing = (a: ChainSegment, b: ChainSegment): ChainPoint | null => {
+    const adx = a.x2 - a.x1;
+    const ady = a.y2 - a.y1;
+    const bdx = b.x2 - b.x1;
+    const bdy = b.y2 - b.y1;
+    const cross = adx * bdy - ady * bdx;
+    if (Math.abs(cross) < 1e-12) return null;
+    const t = ((b.x1 - a.x1) * bdy - (b.y1 - a.y1) * bdx) / cross;
+    return { x: a.x1 + adx * t, y: a.y1 + ady * t };
+  };
+  const reach = (s: ChainSegment, end: ChainPoint): ChainPoint => {
+    let best: ChainPoint = end;
+    let bestDistance = weld;
+    segments.forEach((other) => {
+      if (other === s || angleBetween(s, other) < CORNER_MIN_DEG) return;
+      const x = crossing(s, other);
+      if (!x) return;
+      const distance = Math.hypot(x.x - end.x, x.y - end.y);
+      if (distance > bestDistance) return;
+      const len = length(other);
+      const along = ((x.x - other.x1) * (other.x2 - other.x1) + (x.y - other.y1) * (other.y2 - other.y1)) / len;
+      if (along < -weld || along > len + weld) return;
+      best = x;
+      bestDistance = distance;
+    });
+    return best;
+  };
+  return segments.map((s) => {
+    const a = reach(s, { x: s.x1, y: s.y1 });
+    const b = reach(s, { x: s.x2, y: s.y2 });
+    if (Math.hypot(b.x - a.x, b.y - a.y) < minLength) return s;
+    return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+  });
 }
 
 /**
@@ -151,7 +214,7 @@ export function cleanedForChaining(
     merged = false;
     outer: for (let i = 0; i < work.length; i += 1) {
       for (let j = i + 1; j < work.length; j += 1) {
-        if (sameWall(work[i], work[j])) {
+        if (sameWall(work[i], work[j], weld)) {
           const combined = mergeCollinear(work[i], work[j]);
           work = work.filter((_, k) => k !== i && k !== j);
           work.push(combined);
@@ -162,8 +225,14 @@ export function cleanedForChaining(
     }
   }
 
-  // 3. Weld endpoints that are the same corner into one point, so the walk
-  //    matches exactly instead of within a tolerance that can drift.
+  // 3. Meet at the corner the walls themselves describe: where their lines
+  //    cross. Each end slides along its OWN wall, so no wall tilts.
+  work = meetAtCorners(work, weld, minLength);
+
+  // 4. Weld endpoints that are the same corner into one point, so the walk
+  //    matches exactly instead of within a tolerance that can drift. After
+  //    step 3 a real corner's ends already coincide; this catches the rest
+  //    (two walls continuing at a slight angle, which have no corner).
   const corners: ChainPoint[] = [];
   const snap = (p: ChainPoint): ChainPoint => {
     for (const c of corners) {
@@ -229,12 +298,24 @@ export function chainOutline(
       }
     });
 
-    // A piece that connects to nothing is a fragment, not a missing edge.
-    // Stop and report what closed; do not drag it in from across the room.
-    if (bestIndex < 0 || bestDistance > weld || !bestEnd) return null;
+    // A piece that connects to nothing is not dragged in from across the
+    // room — but neither does it veto the walls already walked. The walk
+    // stops at the gap and keeps what it has, as the phone's twin does
+    // (`outlineWithClosure`): a closet's partition, butting into the middle
+    // of a wall, is left over on every room scanned with its closet, and
+    // throwing the whole outline away for it left the report with no floor
+    // for a room the phone drew fine (the Private Office, 19 Oct 2026).
+    if (bestIndex < 0 || bestDistance > weld || !bestEnd) break;
     remaining.splice(bestIndex, 1);
     points.push(bestEnd);
   }
+
+  // Only if the walk described the room: most of the wall length, and more
+  // than a corner. Three segments of twenty closed into a confident triangle
+  // is the failure this whole module exists to prevent.
+  const walked = points.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - points[i].x, p.y - points[i].y), 0);
+  const total = cleaned.reduce((sum, s) => sum + length(s), 0);
+  if (total <= 0 || walked < total * 0.6 || points.length < 4) return null;
 
   const start = points[0];
   const end = points[points.length - 1];
