@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import { describe, it } from "vitest";
 import { unitLabel } from "../catalog";
 import { ESTIMATOR_STRINGS } from "./strings";
-import { buildClarkDevis } from "./clark.devis";
+import { CLARK_PRICE_CENTS, buildClarkDevis } from "./clark.devis";
 
 /**
  * Worked sample — SDC du 7027 Clark, unit 5. Prints our devis line by line
@@ -60,6 +60,7 @@ describe("worked sample — SDC du 7027 Clark, unité 5", () => {
     ];
     rows.forEach(([k, v]) => out.push(`  ${k.padEnd(30)}${money(v).padStart(12)}`));
     out.push(`  Lauresco (même chantier)       ${money(221064).padStart(12)}`);
+    out.push(`  Prix fixé (Lauresco − 2,5 %)   ${money(CLARK_PRICE_CENTS).padStart(12)}`);
     out.push(`  Main-d'œuvre incorporée        ${totals.totalLaborHours.toFixed(2).padStart(9)} h`);
     const text = out.join("\n");
     console.log("\n" + text + "\n");

@@ -42,10 +42,23 @@ import { sqmToSqFt, roundQuantity } from "./units";
  * hours carrying debris and tools through the building's common areas.
  *
  * Trailer: his "15 %" (RESTAURATION_CT_TRAILER). No minimums (his to set).
+ *
+ * **His calls on this job (19 Oct 2026).** Scope: the hall gets only its
+ * damaged strip — the rules' whole-room repaint of its walls and ceiling and
+ * its floor protection are struck, and its trim paint is the reinstalled
+ * baseboard alone (as on Tansley; a job's call, not a rule). Price: *"let's
+ * give 2.5% lower"* than Lauresco's 2 210,64 $ — 2 155,37 $ with taxes. Every
+ * line keeps our catalogue rate; one "Rabais commercial" line carries the
+ * difference, so the catalogue and the AI's examples never learn the cut.
  */
 
 const t = ESTIMATOR_STRINGS.fr;
 export const CLARK_TRAILER = RESTAURATION_CT_TRAILER;
+
+/** The price he set: Lauresco's 2 210,64 $ less 2,5 %, taxes included. */
+export const CLARK_PRICE_CENTS = Math.round(221064 * 0.975);
+/** Rule lines struck from the hall: it gets only its damaged strip. */
+const HALL_STRUCK = new Set(["PNT-WALL-2", "PNT-CEIL-2", "GEN-FLOOR-PROT"]);
 
 function patchCode(sqft: number): string {
   if (sqft <= 1) return "DW-PATCH-SM";
@@ -85,6 +98,19 @@ export function buildClarkDevis() {
   for (const line of derived) {
     // Board and tape by the square foot on the openings → patches (edit 1, 3).
     if (line.itemCode === "DW-INST-12" || line.itemCode === "DW-TAPE-L4") continue;
+    // His scope: the hall's strip, not the whole hall.
+    if (line.roomScanId === hall.roomScanId && line.itemCode && HALL_STRUCK.has(line.itemCode)) continue;
+    if (line.roomScanId === hall.roomScanId && line.itemCode === "PNT-TRIM-LF") {
+      lines.push({
+        ...line,
+        origin: "manual",
+        provenance: "operator",
+        quantity: 2.33,
+        calc: "2,33 pi lin. — la plinthe réinstallée",
+        note: "Seulement la plinthe remise en place; le reste du corridor n'est pas touché.",
+      });
+      continue;
+    }
     // The hall's baseboard was kept: reinstall, no removal, no new stock bought
     // beyond what our install rate carries (edit 3).
     if (line.itemCode === "TRIM-BASE-INST" && line.removalItemCode) {
@@ -97,9 +123,19 @@ export function buildClarkDevis() {
         removalItemCode: null,
         removeRateCents: null,
         quantity: 2.33,
-        calc: "2,33 pi lin. — le mur de 2 pi et le retour de 4 po à son bout (leur mesure)",
+        calc: "2,33 pi lin. — le mur de 2 pi et le retour de 4 po à son bout",
         note: "Plinthe existante, enlevée pendant l'urgence et conservée sur place : réinstallée, rien à enlever ni à acheter.",
       });
+      continue;
+    }
+    // The rule's notes and calcs speak to the operator ("supprimer cette
+    // ligne si…"); this copy goes to the client.
+    if (line.roomScanId === bath.roomScanId && line.itemCode === "PNT-CEIL-2") {
+      lines.push({ ...line, note: "Plafond entier, pour que la réparation ne paraisse pas." });
+      continue;
+    }
+    if ((line.itemCode ?? line.removalItemCode) === "GEN-DUMP-SM") {
+      lines.push({ ...line, calc: "1 voyage — retailles de placoplâtre, emballages et protections" });
       continue;
     }
     lines.push(line);
@@ -144,7 +180,7 @@ export function buildClarkDevis() {
       unit: "linear ft",
       quantity: 4.5,
       calc: "2 côtés × 2,24 pi (ouverture de 5 pi²) — entre les solives, là où le placoplâtre n'a rien pour se visser",
-      note: "Leur devis : fourrure 1 po × 3 po sur 5 p2. Posée au taux de notre article de blocage.",
+      note: null,
     }),
     bathLine("second-layer", {
       tradeSection: "ceiling",
@@ -154,8 +190,8 @@ export function buildClarkDevis() {
       name: "Deuxième épaisseur de placoplâtre 1/2 po (séparation coupe-feu)",
       unit: "sq ft",
       quantity: 5,
-      calc: "5 pi² × 1 épaisseur de plus — le plafond est en double épaisseur (leur devis : 5 p2 × 2 = 10 p2)",
-      note: "La réparation couvre la première épaisseur; la deuxième est posée au taux de pose de notre catalogue.",
+      calc: "5 pi² × 1 épaisseur de plus — le plafond est en double épaisseur (séparation coupe-feu entre unités)",
+      note: "La réparation de plâtre ci-dessus couvre la première épaisseur, la finition et le ponçage.",
     }),
     bathLine("fire-caulk", {
       tradeSection: "ceiling",
@@ -166,7 +202,7 @@ export function buildClarkDevis() {
       unit: "linear ft",
       quantity: 8,
       calc: "8 pi lin. — pourtour de l'ouverture, sur la première épaisseur",
-      note: "Notre catalogue n'a pas de scellant ignifuge distinct : calfeutrage au taux de notre article, produit ignifuge à fournir.",
+      note: "Scellant ignifuge, posé sur la première épaisseur.",
     }),
     bathLine("cavity-antimicrobial", {
       tradeSection: "ceiling",
@@ -176,7 +212,7 @@ export function buildClarkDevis() {
       name: "Nettoyage et antimicrobien de la charpente du plafond",
       unit: "sq ft",
       quantity: 16,
-      calc: "16 pi² de charpente exposée dans la cavité (leur mesure)",
+      calc: "16 pi² de charpente exposée dans la cavité",
       note: "La charpente de la cavité, en plus des surfaces de placoplâtre touchées.",
     }),
     bathLine("insulation", {
@@ -187,8 +223,8 @@ export function buildClarkDevis() {
       name: "Isolant en natte de fibre de verre — deux rangs R20 (≈ R40, 12 po)",
       unit: "sq ft",
       quantity: 32,
-      calc: "16 pi² × 2 rangs — leur devis : natte 12 po R40 sur 16 p2",
-      note: "Remplace la cellulose mouillée enlevée pendant l'urgence. Notre catalogue s'arrête à R20 : deux rangs pour l'équivalent R40.",
+      calc: "16 pi² × 2 rangs — 12 po, l'équivalent R40",
+      note: "Remplace la cellulose mouillée enlevée pendant l'urgence.",
     }),
     bathLine("dust-barrier", {
       tradeSection: "misc",
@@ -198,7 +234,7 @@ export function buildClarkDevis() {
       name: undefined,
       unit: "each",
       quantity: 1,
-      calc: "1 barrière à la porte de la salle de bains — leur devis : barrière anti-poussière 64 p2",
+      calc: "1 barrière à la porte de la salle de bains",
       note: null,
     }),
     roomLine(hall, "base-caulk", {
@@ -224,7 +260,7 @@ export function buildClarkDevis() {
       name: undefined,
       unit: "hour",
       quantity: 2,
-      calc: "2 allers-retours Laval–Montréal × 1 h — travaux de 1 à 2 jours (leur devis : 2 × frais de déplacement)",
+      calc: "2 allers-retours Laval–Montréal × 1 h — travaux en 2 visites",
       note: null,
     }),
   );
@@ -238,6 +274,45 @@ export function buildClarkDevis() {
     return sections.indexOf(a.tradeSection) - sections.indexOf(b.tradeSection);
   });
 
+  lines.push(discountTo(lines, CLARK_PRICE_CENTS));
   const allocated = allocateLines(lines, CLARK_TRAILER);
   return { lines: allocated, totals: estimateTotals(allocated), trailer: CLARK_TRAILER };
+}
+
+/** One line, no catalogue code, negative: the rate whose line — with its
+    own share of overhead and taxes, as the engine allocates per line — lands
+    the document's total on the price, to the cent where rounding allows. */
+function discountTo(lines: EstimateLine[], priceCents: number): EstimateLine {
+  const before = estimateTotals(allocateLines(lines, CLARK_TRAILER)).totalCents;
+  const s = CLARK_TRAILER;
+  const perDollar = (1 + s.generalsPct + s.profitPct) * (1 + s.gstPct + s.qstPct);
+  const guess = Math.round((priceCents - before) / perDollar);
+  const line = (rate: number): EstimateLine => ({
+    key: "manual:job:discount",
+    roomScanId: null,
+    roomName: t.generalConditions,
+    apartment: null,
+    tradeSection: "misc",
+    activity: "install",
+    itemCode: null,
+    removalItemCode: null,
+    name: "Rabais commercial",
+    unit: "each",
+    quantity: 1,
+    calc: "Rabais forfaitaire accordé sur ce projet",
+    note: "Chaque ligne ci-dessus reste à notre taux; le rabais est appliqué ici, avant les frais généraux, le profit et les taxes.",
+    origin: "manual",
+    provenance: "operator",
+    removeRateCents: null,
+    replaceRateCents: rate,
+    issues: [],
+    taxable: true,
+    removed: false,
+  });
+  let best = guess;
+  for (let rate = guess - 5; rate <= guess + 5; rate += 1) {
+    const miss = (r: number) => Math.abs(before + allocateLines([line(r)], s)[0].totalCents - priceCents);
+    if (miss(rate) < miss(best)) best = rate;
+  }
+  return line(best);
 }

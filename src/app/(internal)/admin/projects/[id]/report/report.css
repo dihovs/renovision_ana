@@ -304,7 +304,9 @@
    sous-total alone (ReportEstimateTable). */
 .report .estimate-table tr.total { break-before: avoid; }
 .report .estimate-table tr.unit-subtotal td { border-top: 2px solid #1f2328; font-weight: 700; }
-.report .estimate-summary { margin-top: 6mm; }
+/* Kept whole: the Clark devis (19 Oct 2026) printed the "Sommaire" heading
+   alone at the foot of a sheet and its figures on the next. */
+.report .estimate-summary { margin-top: 6mm; break-inside: avoid; }
 .report .estimate-summary-table { max-width: 90mm; margin-left: auto; }
 .report .estimate-summary-table td { padding: 1.2mm 2mm; font-size: 9.5pt; }
 .report .estimate-summary-table td:last-child { text-align: right; font-weight: 600; }
