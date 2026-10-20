@@ -305,6 +305,18 @@ function OuterChain({
   );
 }
 
+/** Whether the edge a→b of this outline is an open side (no wall on it). */
+function openEdgeTest(plan: FloorPlan, openWalls: number[] | undefined) {
+  const flags = openSegmentFlags(plan, openWalls);
+  return (a: Pt, b: Pt) =>
+    plan.segments.some(
+      (s, i) =>
+        flags[i] &&
+        ((Math.hypot(s.x1 - a.x, s.y1 - a.y) < 0.02 && Math.hypot(s.x2 - b.x, s.y2 - b.y) < 0.02) ||
+          (Math.hypot(s.x1 - b.x, s.y1 - b.y) < 0.02 && Math.hypot(s.x2 - a.x, s.y2 - a.y) < 0.02)),
+    );
+}
+
 /**
  * **The building's outside face, dimensioned.** The reference sketches print
  * every room's own lengths inside and the building's outside lengths beyond
@@ -319,16 +331,20 @@ function ExteriorChain({
   fmt,
   wall,
 }: {
-  rooms: { plan: FloorPlan; at: { x: number; y: number } }[];
+  rooms: { plan: FloorPlan; at: { x: number; y: number }; openWalls?: number[] }[];
   fmt: Format;
   wall: number;
 }) {
   const OFFSET = 0.3;
+  const closed = rooms.filter((room) => room.plan.polygon.length >= 3);
   const runs = exteriorRuns(
-    rooms
-      .filter((room) => room.plan.polygon.length >= 3)
-      .map((room) => room.plan.polygon.map((p) => ({ x: p.x + room.at.x, y: p.y + room.at.y }))),
+    closed.map((room) => room.plan.polygon.map((p) => ({ x: p.x + room.at.x, y: p.y + room.at.y }))),
     wall,
+    closed.map((room) => {
+      const test = openEdgeTest(room.plan, room.openWalls);
+      return (a: Pt, b: Pt) =>
+        test({ x: a.x - room.at.x, y: a.y - room.at.y }, { x: b.x - room.at.x, y: b.y - room.at.y });
+    }),
   );
   if (!runs) return null;
   // Longest first, and each run steps further out until its label clears the
@@ -440,13 +456,7 @@ function Room({
   // Walls stand OUTSIDE the outline (wallBand.ts): a shared wall prints once
   // at its true thickness. Null without a closed outline — the old centred
   // stroke then.
-  const isOpenEdge = (a: Pt, b: Pt) =>
-    plan.segments.some(
-      (s, i) =>
-        openFlags[i] &&
-        ((Math.hypot(s.x1 - a.x, s.y1 - a.y) < 0.02 && Math.hypot(s.x2 - b.x, s.y2 - b.y) < 0.02) ||
-          (Math.hypot(s.x1 - b.x, s.y1 - b.y) < 0.02 && Math.hypot(s.x2 - a.x, s.y2 - a.y) < 0.02)),
-    );
+  const isOpenEdge = openEdgeTest(plan, room.openWalls);
   const band = wallBand(plan.polygon, T, plan.openings, isOpenEdge);
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? LOCATOR_PALE_INK : PLAN_INK;
@@ -850,7 +860,11 @@ export default function ReportStoreyPlan({
 
         {registered && !isLocator && (
           <ExteriorChain
-            rooms={drawable.map((_, index) => ({ plan: plans[index], at: layout.placed[index] }))}
+            rooms={drawable.map((room, index) => ({
+              plan: plans[index],
+              at: layout.placed[index],
+              openWalls: room.openWalls,
+            }))}
             fmt={fmt}
             wall={wallThickness}
           />

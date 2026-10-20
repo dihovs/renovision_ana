@@ -3,7 +3,8 @@
 // Read from the Québec Xactimate estimates the owner has handed over
 // (Docs/Estimator-Xactimate-Conventions.md lists them), most recently
 // Polygon's 1641745-SDC-H1 (8 Oct 2026, three stacked condo units at 122 boul.
-// Hymus) on 14 Oct 2026, when he asked: "if there is anything useful from
+// Hymus) on 14 Oct 2026, and Lauresco's 3674_7027C_R (7027 rue Clark, unit 5)
+// on 19 Oct 2026; on the first he asked: "if there is anything useful from
 // their estimation that we can use in our AI system in the future, please
 // pull it out."
 //
@@ -32,6 +33,10 @@ export const INSURANCE_SCOPE_PATTERNS: string[] = [
   "Stacked units (302 above 202 above 102) are one loss with one floor plan repeated: price each unit as its own section and subtotal, expect the damage to change floor by floor, and check every unit below the source.",
   "General conditions on a multi-unit job: debris haul, delivery of materials, supervision hours; another firm may add a management fee and per-trade minimum charges per unit — note them when comparing, do not copy them.",
   "Surfaces another estimate marks « NON AFFECTÉ » get no lines; do not repaint or replace them on that estimate's say-so alone.",
+  "A ceiling opened under the bath of the unit above (a drain leak) is usually a rated floor-ceiling assembly: two layers of board to close it, fire-rated caulk on the first layer, wood furring as screw backing at the opening's edges, the cavity's framing cleaned and treated, and the wet insulation (often loose cellulose) replaced with batts of the full depth — the reference job specified 12\" R40.",
+  "A wall strip opened under a baseboard that was kept on site: patch the strip, reinstall the same baseboard (install only, nothing bought), caulk it and paint it; measure the baseboard with the return round any wall end.",
+  "Another firm may print its whole scope inside per-trade minimum charges, every line marked « INCLUS » with a quantity and no price: read those lines for the scope and quantities, price each one with our items.",
+  "A sketch's « Mur manquant … Ouvre sur Extérieur » is an open side of the room — no wall, no paint, no baseboard on it.",
 ];
 
 /** Xactimate SÉL codes (Québec French price lists, QCMO8X) → our catalogue.

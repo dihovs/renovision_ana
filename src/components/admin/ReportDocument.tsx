@@ -1221,6 +1221,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                       id: area.id,
                       polygon: area.polygon,
                       color: AFFECTED_AREA_FILL,
+                      overhead: area.surface === "ceiling",
                     }))}
                 />
               </div>

@@ -139,7 +139,13 @@ export default function FloorPlan({
    * shape from one coordinate system on top of another, which is the
    * mistake `AffectedArea.polygon` documents at length.
    */
-  areas?: { id: string; polygon: { x: number; y: number }[]; color: string }[];
+  areas?: {
+    id: string;
+    polygon: { x: number; y: number }[];
+    color: string;
+    /** A ceiling region: drawn over the fixtures, not under them. */
+    overhead?: boolean;
+  }[];
 }) {
   const plan = toFloorPlan(result);
   if (plan.segments.length === 0) return null;
@@ -190,6 +196,40 @@ export default function FloorPlan({
           (Math.hypot(s.x1 - b.x, s.y1 - b.y) < 0.02 && Math.hypot(s.x2 - a.x, s.y2 - a.y) < 0.02)),
     );
   const band = thumb ? null : wallBand(plan.polygon, T, plan.openings, isOpenEdge);
+
+  const damage = (area: NonNullable<typeof areas>[number], index: number) => {
+    if (area.polygon.length < 3) return null;
+    const points = area.polygon.map((p) => `${p.x},${p.y}`).join(" ");
+    const cx = area.polygon.reduce((sum, p) => sum + p.x, 0) / area.polygon.length;
+    const cy = area.polygon.reduce((sum, p) => sum + p.y, 0) / area.polygon.length;
+    return (
+      <g key={area.id}>
+        <polygon
+          points={points}
+          fill={area.color}
+          fillOpacity={0.35}
+          stroke={area.color}
+          strokeWidth={0.02}
+        />
+        {!thumb && (
+          <>
+            <circle cx={cx} cy={cy} r={0.22} fill={area.color} />
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={0.28}
+              fill={PLAN_LABEL_HALO}
+              fontWeight={700}
+            >
+              {index + 1}
+            </text>
+          </>
+        )}
+      </g>
+    );
+  };
 
   const wallPath = walled
     .map((s) => {
@@ -253,40 +293,9 @@ export default function FloorPlan({
         )}
 
         {/* The damaged regions, under the walls so a patch never covers the
-            line it was measured to. */}
-        {(areas ?? []).map((area, index) => {
-          if (area.polygon.length < 3) return null;
-          const points = area.polygon.map((p) => `${p.x},${p.y}`).join(" ");
-          const cx = area.polygon.reduce((sum, p) => sum + p.x, 0) / area.polygon.length;
-          const cy = area.polygon.reduce((sum, p) => sum + p.y, 0) / area.polygon.length;
-          return (
-            <g key={area.id}>
-              <polygon
-                points={points}
-                fill={area.color}
-                fillOpacity={0.35}
-                stroke={area.color}
-                strokeWidth={0.02}
-              />
-              {!thumb && (
-                <>
-                  <circle cx={cx} cy={cy} r={0.22} fill={area.color} />
-                  <text
-                    x={cx}
-                    y={cy}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize={0.28}
-                    fill={PLAN_LABEL_HALO}
-                    fontWeight={700}
-                  >
-                    {index + 1}
-                  </text>
-                </>
-              )}
-            </g>
-          );
-        })}
+            line it was measured to. A ceiling's go over the fixtures instead
+            (below): the opening above a bathtub is not under the tub. */}
+        {(areas ?? []).map((area, index) => (area.overhead && band ? null : damage(area, index)))}
 
         {/* Two passes: the wall body at true thickness over a slightly wider
             ink stroke, which leaves the heavier CUT face lines on both sides
@@ -425,6 +434,11 @@ export default function FloorPlan({
         {!thumb && objects && objects.length > 0 && (
           <PlanObjects objects={objects} labels />
         )}
+
+        {/* Ceiling damage over the fixtures. The band stands outside the
+            outline, so a region inside it still never covers a wall line —
+            without a band (a thumbnail's centred stroke) it stays below. */}
+        {(areas ?? []).map((area, index) => (area.overhead && band ? damage(area, index) : null))}
 
         {/* Dimensions and the scale bar are dropped at thumbnail size:
             none of it is legible on a card, and the outline alone is what

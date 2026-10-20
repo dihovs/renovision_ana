@@ -317,3 +317,34 @@ What it adds to the sections above:
   158,92 · debris per pickup 233,19. O&P 10 % + 5 % on items + généraux, plus
   a 3 % management fee as a line.
 
+## 8. The sixth document — Lauresco 3674_7027C_R (19 Oct 2026)
+Lauresco's repair devis for SDC du 7027 Clark, unit 5 (21 Sep 2026,
+`QCMO8X_AUG26`, 2 210,64 $): a leak at the drain of unit 7's bath, through
+unit 5's bathroom ceiling and the foot of a hall wall. Priced our way in
+`src/lib/estimator/insurance/clark.devis.ts` (3 312,06 $), printed by
+`src/components/admin/clark-report.render.test.tsx`. New against the five
+before it:
+
+- **A different layout.** No CAT/SÉL/ENLEV/REMPLAC columns: DESCRIPTION, QTÉ,
+  PRIX UNITAIRE, TOTAL, with each line opening on its activity — *Fournir &
+  Installer*, *Enlever/Démolir*, *Enlever & Remplacer*, *Détacher, Entreposer
+  & Réinstaller*, *Matériel seulement*, *Installer* — defined on page 2.
+- **The scope inside two minimums.** *Placoplâtre - Frais minimum* (487,67)
+  and *Peindre - Frais minimum* (447,71) carry the bathroom; the board, caulk,
+  plasterer's hours, sealer and ceiling paint below them print `INCLUS` with
+  a quantity and no price. 56 % of the items total is those two lines. Read
+  the `INCLUS` lines for scope and quantities.
+- **Rated ceiling.** Double 1/2" board, fire-rated latex caulk on the first
+  layer, 1"×3" furring as screw backing, 12" R40 batts after the wet
+  cellulose came out, framing cleaned and treated (16 pi²).
+- **Open sides on the sketch.** Their hall carries three *Mur manquant … Ouvre
+  sur Extérieur* (16', 4'3", 2'3"). Since this job our outside dimension chain
+  grows no wall on an open side and breaks where wall gives way to open side,
+  so all seven of their outside figures print the same on ours.
+- **Sketch**: vectors at 36,19 pt/ft, 4" walls, fixtures drawn, damage as a
+  red freehand outline with an arrow (*DOMMAGES (plafond, mur)*). No photos.
+- **Rates observed (AUG26)**: protection 0,84 /pi² · dust barrier 1,04 /pi² ·
+  plastic bag with dump fees 16,00 · travel, Montréal region 75,00 a trip ·
+  cleaning and debris handling 54,34/h · R40 batt 2,80 /pi² · baseboard
+  reinstall 2,64 /pi lin. · généraux 15,5 %, no separate profit line.
+

@@ -85,6 +85,11 @@ describe("wall band outside the room", () => {
     const band = wallBand(square, T, [], openBottom)!;
     expect(band.pieces).toHaveLength(3);
     expect(coveredBy({ x: 1, y: 1 + T / 2 }, band.pieces)).toBe(false);
+    // The side walls end square on the open side's line: no mitred point
+    // past it (the Clark hall's 4'-2" wall, 19 Oct 2026).
+    expect(coveredBy({ x: -T / 2, y: 1 - 0.01 }, band.pieces)).toBe(true);
+    expect(coveredBy({ x: -T / 2, y: 1 + T / 2 }, band.pieces)).toBe(false);
+    expect(coveredBy({ x: 2 + T / 2, y: 1 + T / 2 }, band.pieces)).toBe(false);
   });
 
   it("joins a wall split at a jamb into one flush run", () => {
@@ -151,6 +156,33 @@ describe("the building's outside face", () => {
     // Outside ring only: 4 sides of a 3.2 × 3.2 square.
     expect(runs).toHaveLength(4);
     for (const r of runs) expect(Math.hypot(r.x2 - r.x1, r.y2 - r.y1)).toBeCloseTo(3.2, 6);
+  });
+
+  it("grows no wall on an open side, and breaks a run where wall meets open side", async () => {
+    // Lauresco's Clark sketch: the bathroom, and the hall outside it with
+    // three open sides ("Mur manquant … Ouvre sur Extérieur").
+    const { exteriorRuns } = await import("./wallBand");
+    const { ROOM_SHAPES } = await import("@/lib/estimator/insurance/clark.job");
+    const FT = 0.3048;
+    const rings = ROOM_SHAPES.map((shape) =>
+      shape.polygonFt.map((p) => ({ x: (p.x + shape.atFt.x) * FT, y: (p.y + shape.atFt.y) * FT })),
+    );
+    const open = ROOM_SHAPES.map((shape, k) => (a: Pt, b: Pt) => {
+      const ring = rings[k];
+      return shape.openEdges.some((i) => {
+        const p = ring[i];
+        const q = ring[(i + 1) % ring.length];
+        return Math.hypot(p.x - a.x, p.y - a.y) < 1e-6 && Math.hypot(q.x - b.x, q.y - b.y) < 1e-6;
+      });
+    });
+    const runs = exteriorRuns(rings, (4 / 12) * FT, open)!;
+    const inches = runs
+      .map((r) => Math.round(Math.hypot(r.x2 - r.x1, r.y2 - r.y1) / 0.0254))
+      .filter((n) => n >= 12)
+      .sort((a, b) => a - b);
+    // Every figure their sketch prints outside: 2'-3" 3'-9" 4'-2" 4'-3"
+    // 6'-1" 12' 16'.
+    expect(inches).toEqual([27, 45, 50, 51, 73, 144, 192]);
   });
 
   it("gives up on an angled wall rather than guessing", async () => {

@@ -98,13 +98,39 @@ function outerCorners(ring: Pt[], edges: Edge[], T: number): Pt[] {
   });
 }
 
-/** A room's outline grown by its wall: the wall band's outer edge. */
-export function grownOutline(polygon: Pt[], thickness: number): Pt[] | null {
+/**
+ * A room's outline grown by its wall: the wall band's outer edge. An open
+ * side (`isOpenEdge`) has no wall to grow by, so it stays where it is — the
+ * Clark job (19 Oct 2026) printed its hall's three open sides 4" long each
+ * until it did. Where a wall and an open side meet in a straight line, the
+ * outline steps.
+ */
+export function grownOutline(
+  polygon: Pt[],
+  thickness: number,
+  isOpenEdge: (a: Pt, b: Pt) => boolean = () => false,
+): Pt[] | null {
   const ring = clean(polygon);
-  if (ring.length < 3) return null;
+  const n = ring.length;
+  if (n < 3) return null;
   const area = signedArea(ring);
   if (Math.abs(area) < EPS) return null;
-  return outerCorners(ring, edgesOf(ring, area), thickness);
+  const edges = edgesOf(ring, area);
+  const t = edges.map((e) => (isOpenEdge(e.p, e.q) ? 0 : thickness));
+  return ring.flatMap((p, i) => {
+    const ia = (i - 1 + n) % n;
+    const a = edges[ia];
+    const b = edges[i];
+    const pa = { x: a.p.x + a.out.x * t[ia], y: a.p.y + a.out.y * t[ia] };
+    const pb = { x: b.p.x + b.out.x * t[i], y: b.p.y + b.out.y * t[i] };
+    const cross = a.ux * b.uy - a.uy * b.ux;
+    const end = { x: p.x + a.out.x * t[ia], y: p.y + a.out.y * t[ia] };
+    const start = { x: p.x + b.out.x * t[i], y: p.y + b.out.y * t[i] };
+    if (Math.abs(cross) < 1e-9) return Math.abs(t[ia] - t[i]) < EPS ? [start] : [end, start];
+    const k = ((pb.x - pa.x) * b.uy - (pb.y - pa.y) * b.ux) / cross;
+    const hit = { x: pa.x + a.ux * k, y: pa.y + a.uy * k };
+    return Math.hypot(hit.x - p.x, hit.y - p.y) > 4 * Math.max(thickness, EPS) ? [start] : [hit];
+  });
 }
 
 export type ExteriorRun = { x1: number; y1: number; x2: number; y2: number; out: Pt };
@@ -117,12 +143,23 @@ export type ExteriorRun = { x1: number; y1: number; x2: number; y2: number; out:
  * outside the building (Polygon's `17' 3"`, `15' 11"`). Doors do not break a
  * run; corners do.
  *
+ * An open side grows no wall (`openEdges`, one test per polygon), and a run
+ * breaks where wall gives way to open side, as the other firms' sketches
+ * print them: Lauresco's Clark hall reads 3'-9" down to its 4'-2" wall, then
+ * 4'-3" of open side below the wall's end — not one 4'-7" run.
+ *
  * Square-cornered plans only: the merge works on the grid the rooms' own
  * corners make. An outline with an angled wall returns null and the plan
  * simply goes without the outside chain.
  */
-export function exteriorRuns(polygons: Pt[][], thickness: number): ExteriorRun[] | null {
-  const grown = polygons.map((p) => grownOutline(p, thickness)).filter((p): p is Pt[] => p !== null);
+export function exteriorRuns(
+  polygons: Pt[][],
+  thickness: number,
+  openEdges: ((a: Pt, b: Pt) => boolean)[] = [],
+): ExteriorRun[] | null {
+  const grown = polygons
+    .map((p, k) => grownOutline(p, thickness, openEdges[k]))
+    .filter((p): p is Pt[] => p !== null);
   if (grown.length === 0) return null;
   const axisAligned = grown.every((ring) =>
     ring.every((p, i) => {
@@ -133,8 +170,11 @@ export function exteriorRuns(polygons: Pt[][], thickness: number): ExteriorRun[]
   if (!axisAligned) return null;
 
   const key = (v: number) => Math.round(v * 1e5) / 1e5;
-  const xs = [...new Set(grown.flatMap((ring) => ring.map((p) => key(p.x))))].sort((a, b) => a - b);
-  const ys = [...new Set(grown.flatMap((ring) => ring.map((p) => key(p.y))))].sort((a, b) => a - b);
+  // The rooms' own corners join the grid as well: where wall gives way to
+  // open side is a corner of the room, not of its grown outline.
+  const corners = [...grown, ...polygons];
+  const xs = [...new Set(corners.flatMap((ring) => ring.map((p) => key(p.x))))].sort((a, b) => a - b);
+  const ys = [...new Set(corners.flatMap((ring) => ring.map((p) => key(p.y))))].sort((a, b) => a - b);
   const nx = xs.length - 1;
   const ny = ys.length - 1;
   if (nx < 1 || ny < 1) return null;
@@ -189,11 +229,34 @@ export function exteriorRuns(polygons: Pt[][], thickness: number): ExteriorRun[]
       if (outside[j * W + i + 1]) raw.push({ x1: gx(i + 1), y1: gy(j), x2: gx(i + 1), y2: gy(j + 1), out: { x: 1, y: 0 } });
     }
   }
-  // Merge pieces of one straight face into runs.
+  // Which pieces lie on an open side: those stay where the outline was, so
+  // they sit on one of its open edges.
+  const openSides: [Pt, Pt][] = [];
+  polygons.forEach((polygon, k) => {
+    const test = openEdges[k];
+    if (!test) return;
+    const ring = clean(polygon);
+    ring.forEach((p, i) => {
+      const q = ring[(i + 1) % ring.length];
+      if (test(p, q)) openSides.push([p, q]);
+    });
+  });
+  const onOpenSide = (e: ExteriorRun) => {
+    const mx = (e.x1 + e.x2) / 2;
+    const my = (e.y1 + e.y2) / 2;
+    return openSides.some(([p, q]) => {
+      const L = Math.hypot(q.x - p.x, q.y - p.y);
+      if (L < EPS) return false;
+      const along = ((mx - p.x) * (q.x - p.x) + (my - p.y) * (q.y - p.y)) / L;
+      const off = Math.abs((mx - p.x) * (q.y - p.y) - (my - p.y) * (q.x - p.x)) / L;
+      return off < 1e-4 && along > -1e-4 && along < L + 1e-4;
+    });
+  };
+  // Merge pieces of one straight face into runs, wall and open side apart.
   const groups = new Map<string, ExteriorRun[]>();
   for (const e of raw) {
     const horizontal = e.y1 === e.y2;
-    const k = `${horizontal ? "h" : "v"}:${horizontal ? e.y1 : e.x1}:${e.out.x}:${e.out.y}`;
+    const k = `${horizontal ? "h" : "v"}:${horizontal ? e.y1 : e.x1}:${e.out.x}:${e.out.y}:${onOpenSide(e) ? "open" : "wall"}`;
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k)!.push(e);
   }
@@ -268,11 +331,15 @@ export function wallBand(
     }
     if (e.L > at + 1e-4) stretches.push([at, e.L]);
 
+    // Beside an open side the wall ends square on the open side's line, as a
+    // sketch draws it — a mitre would poke a point past the open edge.
+    const openBefore = isOpenEdge(edges[(i - 1 + n) % n].p, edges[(i - 1 + n) % n].q);
+    const openAfter = isOpenEdge(edges[(i + 1) % n].p, edges[(i + 1) % n].q);
     for (const [a, b] of stretches) {
       const A = { x: e.p.x + e.ux * a, y: e.p.y + e.uy * a };
       const B = { x: e.p.x + e.ux * b, y: e.p.y + e.uy * b };
-      const A2 = a <= 1e-4 ? outer[i] : { x: A.x + e.out.x * T, y: A.y + e.out.y * T };
-      const B2 = b >= e.L - 1e-4 ? outer[(i + 1) % n] : { x: B.x + e.out.x * T, y: B.y + e.out.y * T };
+      const A2 = a <= 1e-4 && !openBefore ? outer[i] : { x: A.x + e.out.x * T, y: A.y + e.out.y * T };
+      const B2 = b >= e.L - 1e-4 && !openAfter ? outer[(i + 1) % n] : { x: B.x + e.out.x * T, y: B.y + e.out.y * T };
       pieces.push([A, B, B2, A2]);
     }
   });
