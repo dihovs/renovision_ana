@@ -68,6 +68,9 @@ export type RoomScanInput = {
   /** The living-area vocabulary id, asked at capture. Null means
       unclassified — the engine's `other` fallback — never a guess. */
   roomType?: string | null;
+  /** RoomPlan's own CapturedRoom JSON, as the phone received it. Filed in
+      `room_scan_captures` (0052), never inside `geometry`. */
+  rawCapture?: unknown;
 };
 
 function requireDb() {
@@ -160,7 +163,22 @@ export async function createRoomScan(input: RoomScanInput): Promise<string> {
     if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not save the scan: ${error.message}`);
   }
-  return data.id as string;
+  const id = data.id as string;
+
+  // The archive copy, AFTER the room exists. Never allowed to fail the save:
+  // the room's measurements are the record the operator is waiting on, and
+  // a missing archive (migration 0052 not yet applied, an oversized blob)
+  // costs only the chance to re-process this scan later. Logged loudly so
+  // that loss is visible rather than silent.
+  if (input.rawCapture && typeof input.rawCapture === "object") {
+    const { error: captureError } = await client
+      .from("room_scan_captures")
+      .insert({ room_scan_id: id, capture: input.rawCapture });
+    if (captureError) {
+      console.error(`[room_scans] raw capture not kept for ${id}: ${captureError.message}`);
+    }
+  }
+  return id;
 }
 
 /** Rename a room, or move it to another floor. The measurements are a

@@ -19,6 +19,7 @@ struct MoreView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showStatus = false
     @StateObject private var push = PushRegistration.shared
+    @AppStorage(DemoIcons.key) private var demoIcons = true
 
     private let columns = [GridItem(.adaptive(minimum: 104), spacing: Brand.Space.small)]
 
@@ -84,6 +85,22 @@ struct MoreView: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            // DEMO ONLY — see `DemoIcons`. Shown only on a
+                            // build that carries the demo set.
+                            if DemoIcons.available {
+                                Card(padding: Brand.Space.small) {
+                                    Toggle(isOn: $demoIcons) {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Label("Demo icons", systemImage: "square.grid.2x2")
+                                                .font(.system(size: 15, weight: .medium))
+                                                .foregroundStyle(Brand.ink)
+                                            Text("magicplan's icons in the pickers, to compare. Temporary.")
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(Brand.inkFaint)
+                                        }
+                                    }
+                                }
+                            }
                             NavigationLink {
                                 ScheduleView()
                             } label: {

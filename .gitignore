@@ -56,3 +56,7 @@ exports/
 # Reference material quarantined from the repo:
 # real business contact details, and raw unnamed capture dumps.
 Docs/reference/_excluded/
+
+# magicplan icons, for an on-device demo only (owner, 3 Nov 2026) — never committed.
+# Regenerate from ~/Developer/magicplan-study; to be replaced by our own redraws.
+ios/App/App/Assets.xcassets/DemoMagicplan/

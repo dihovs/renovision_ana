@@ -85,12 +85,37 @@ enum ObjectGlyphs {
 /// **Missing is a normal state, not a failure.** The set arrives a few at a
 /// time; anything without artwork yet falls back to the drawing it has
 /// today, so the catalogue is never broken and never half-empty.
+/// **Temporary: magicplan's icons, to see the app with them (owner, 3 Nov
+/// 2026).** He asked to try the flow with the reference app's own icons before
+/// we redraw our own from them. They live in `Assets.xcassets/DemoMagicplan`,
+/// which is gitignored — generated on this Mac from his magicplan study and
+/// never committed, never shipped beyond his own phone. Every icon still has
+/// ours behind it; this switch only changes which one is shown.
+///
+/// Remove this enum and that folder once our redraws are in.
+enum DemoIcons {
+    static let key = "demoIcons.magicplan"
+    /// On until switched off: the point of the demo is to see them.
+    static var enabled: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
+    /// Whether this build carries the demo set at all — the folder is
+    /// absent on any machine that did not generate it.
+    static var available: Bool { UIImage(named: "demo-object-toilet") != nil }
+}
+
 struct ObjectArtwork: View {
     let slug: String
 
     /// The asset name for a slug. One rule, so adding a picture means
     /// dropping in a file called `object-toilet` and nothing else.
-    static func assetName(for slug: String) -> String { "object-\(slug)" }
+    static func assetName(for slug: String) -> String {
+        // DEMO ONLY: magicplan's own icon, when the switch is on and one was
+        // matched to this item — see `DemoIcons`. Ours otherwise, always.
+        if DemoIcons.enabled {
+            let demo = "demo-object-\(slug)"
+            if UIImage(named: demo) != nil { return demo }
+        }
+        return "object-\(slug)"
+    }
 
     static func exists(_ slug: String) -> Bool {
         UIImage(named: assetName(for: slug)) != nil

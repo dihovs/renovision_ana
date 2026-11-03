@@ -28,6 +28,13 @@ export type RoomScanWall = {
       an audit flag rather than something arithmetic depends on: every wall
       always has a `lengthMeters`, refined or not. */
   meshRefined?: boolean;
+  /** Height of the bottom of a door/window/opening above the floor, metres —
+      a window's sill. From the phone since 3 Nov 2026; absent on walls and
+      on older scans. Twin: `Surface.bottomMeters` in ScanPayload.swift. */
+  bottomMeters?: number;
+  /** RoomPlan's own host wall for this opening (a wall's `detectionId`).
+      Absent on older scans, where the host is still found by distance. */
+  parentWallId?: string;
 };
 export type RoomScanFloor = { areaSquareMeters: number };
 

@@ -47,6 +47,17 @@ struct ScanGeometry: Codable {
         /// surface there for the mesh to fit a line to), so leaving it out
         /// entirely on those is a true statement, not a missing one.
         var meshRefined: Bool? = nil
+        /// How high the BOTTOM of this surface sits above the floor, metres —
+        /// a window's sill, zero for a door. Nil on walls and on scans saved
+        /// before 3 Nov 2026, when it was not kept: a window's centre was
+        /// stored in plan only, so its height off the floor was lost and every
+        /// window came back at the catalogue's stock sill.
+        var bottomMeters: Double? = nil
+        /// RoomPlan's own answer to "which wall is this door in" (iOS 17's
+        /// `parentIdentifier`), as that wall's `detectionId`. Nil on walls, on
+        /// openings RoomPlan did not attach, and on older scans — which is why
+        /// the plan still finds a host wall by distance when it is missing.
+        var parentWallId: String? = nil
     }
 
     struct Floor: Codable {
@@ -133,6 +144,22 @@ struct ScanGeometry: Codable {
     /// by comparing its area against the wall-chained one, the same way
     /// `toFloorPlan` in roomScan.ts does for the twin field there.
     var meshFloorPolygon: [EditedPoint]?
+
+    /// RoomPlan's complete `CapturedRoom`, exactly as Apple produced it,
+    /// encoded as JSON text.
+    ///
+    /// **Why it is kept (owner, 3 Nov 2026).** Everything else in this struct
+    /// is OUR reading of the scan — centre, axis and length per wall, with the
+    /// mesh corrections already applied. Each time that reading improved,
+    /// scans saved under the old one were stuck with it, because the scan
+    /// itself was gone. With Apple's record kept, an old room can be run
+    /// through a better conversion later instead of re-scanned.
+    ///
+    /// Carried on the phone only: `ScanUpload` lifts it out into its own
+    /// field so it lands in `room_scans.raw_capture`, NOT inside the
+    /// `geometry` every room list downloads — it is tens of kilobytes per
+    /// room, and nothing that draws a plan reads it.
+    var rawCapture: String?
 
     /// Which wall lengths were TYPED rather than measured, by edge index.
     ///
@@ -486,9 +513,32 @@ struct ScanGeometry: Codable {
         // is y and its z is ~0. Multiplying by z gave every room a floor area
         // of zero, which shipped once and must not ship again.
         floors = room.floors.map { Floor(areaSquareMeters: Double($0.dimensions.x * $0.dimensions.y)) }
-        doors = map(room.doors, refine: false)
-        windows = map(room.windows, refine: false)
-        openings = map(room.openings, refine: false)
+        // The floor's height in RoomPlan's world, to measure a sill against:
+        // the floor surface when RoomPlan found one, otherwise the lowest
+        // wall bottom, which is where the walls meet the floor.
+        let floorY: Double = {
+            if let floor = room.floors.first { return Double(floor.transform.columns.3.y) }
+            let bottoms = room.walls.map {
+                Double($0.transform.columns.3.y) - Double($0.dimensions.y) / 2
+            }
+            return bottoms.min() ?? 0
+        }()
+        /// An opening, plus what a plan cannot hold: how high it starts off
+        /// the floor, and which wall RoomPlan says it is in.
+        func placed(_ list: [CapturedRoom.Surface]) -> [Surface] {
+            zip(list, map(list, refine: false)).map { surface, mapped in
+                var out = mapped
+                let centreY = Double(surface.transform.columns.3.y)
+                // Never below the floor: a door measured a hair under it is
+                // still a door standing on the floor.
+                out.bottomMeters = max(0, centreY - Double(surface.dimensions.y) / 2 - floorY)
+                out.parentWallId = surface.parentIdentifier?.uuidString
+                return out
+            }
+        }
+        doors = placed(room.doors)
+        windows = placed(room.windows)
+        openings = placed(room.openings)
         doorCount = room.doors.count
         windowCount = room.windows.count
         openingCount = room.openings.count
@@ -498,6 +548,13 @@ struct ScanGeometry: Codable {
         // Handed over unconditionally — see the field's own doc comment for
         // why the gate belongs to the reader, not the writer.
         meshFloorPolygon = tracedFloor?.polygon.map { EditedPoint(x: $0.x, y: $0.y) }
+
+        // Apple's own record, untouched. `try?`: a scan that will not encode
+        // still has every measurement above, and losing the archive copy must
+        // never cost the operator the room he just walked.
+        if let data = try? JSONEncoder().encode(room) {
+            rawCapture = String(data: data, encoding: .utf8)
+        }
     }
 
     // MARK: - Derived figures
@@ -586,6 +643,12 @@ struct ScanUpload: Codable {
     /// counts basements as living area. Optional in the CODEC only, for
     /// scans held on disk from before the field existed.
     let roomType: String?
+    /// RoomPlan's raw `CapturedRoom` JSON, lifted OUT of `geometry` — see
+    /// `ScanGeometry.rawCapture`. Its own field so the server files it in
+    /// `room_scans.raw_capture`, away from the geometry every list
+    /// downloads. Optional in the codec: drawn rooms have none, and scans
+    /// held on disk from before 3 Nov 2026 never carried one.
+    let rawCapture: String?
 
     init(
         projectId: String, name: String, level: String, position: Int, geometry: ScanGeometry,
@@ -601,7 +664,10 @@ struct ScanUpload: Codable {
         self.doorCount = geometry.doorCount
         self.windowCount = geometry.windowCount
         self.stairCount = geometry.stairCount
-        self.geometry = geometry
+        var lean = geometry
+        self.rawCapture = lean.rawCapture
+        lean.rawCapture = nil
+        self.geometry = lean
         self.roomType = roomType
     }
 }
