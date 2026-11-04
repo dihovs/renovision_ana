@@ -141,6 +141,17 @@ struct ReportShareView: View {
         .onChange(of: document) { _, _ in discardRenderedPDF() }
         .navigationTitle("Report")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // The plan as files for other programs (M10): DXF, SVG, 3D, CSV,
+            // JSON. The PDF is this screen's own report.
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    PlanFilesView(projectId: projectId, projectName: projectName)
+                } label: {
+                    Label("Plan files", systemImage: "doc.on.doc")
+                }
+            }
+        }
     }
 
     /// The filename word for whichever document and language are current —

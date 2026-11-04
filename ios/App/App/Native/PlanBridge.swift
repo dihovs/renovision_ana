@@ -141,7 +141,10 @@ enum PlanBridge {
     /// counter-clockwise. The record names walls by edge number in THESE
     /// corners; the walls get their ids here, before the core reorders
     /// anything, so every edge number lands on the wall it meant.
-    static func room(_ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double) -> Room {
+    static func room(
+        _ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double,
+        name: String = "", openings: [PlanEditing.WallOpening] = []
+    ) -> Room {
         let pts = core(corners)
         let n = pts.count
         var room = Room(name: "", corners: pts.map { Corner(p: $0) })
@@ -188,6 +191,23 @@ enum PlanBridge {
             room.ceiling = .zones(base: base, zones: zones)
         default:
             room.ceiling = .flat(height: record?.height ?? flat)
+        }
+        room.name = name
+        // Openings by edge number, given their wall's id BEFORE the core
+        // reorders anything; `counterClockwise` then re-measures each offset
+        // from its wall's new start.
+        room.openings = openings.compactMap { o in
+            guard let e = edge(o.edge) else { return nil }
+            let kind: OpeningKind
+            switch o.kind.category {
+            case .door: kind = .door
+            case .window: kind = .window
+            case .passage: kind = .opening
+            }
+            let chord = pts[e].distance(to: pts[(e + 1) % n])
+            let start = PlanEditing.clampedOffset(offset: o.offset, width: o.width, edgeLength: chord)
+            return Opening(wallID: room.walls[e].id, kind: kind, offset: start, width: o.width,
+                           height: o.height, sillHeight: o.sill)
         }
         return room.counterClockwise()
     }
