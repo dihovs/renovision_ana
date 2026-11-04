@@ -274,6 +274,20 @@ enum PlanBridge {
         }
     }
 
+    /// The ceiling's height along edge `edge`, start corner to end, at
+    /// `steps + 1` even points of its chord — what a wall face's top edge
+    /// follows under a sloped, vaulted or zoned ceiling.
+    static func ceilingAlong(
+        _ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double,
+        edge: Int, steps: Int = 96
+    ) -> [Double] {
+        let n = corners.count
+        guard n >= 3, (0..<n).contains(edge) else { return [] }
+        let r = room(corners, bulges: bulges, ceiling: record, flat: flat)
+        let a = core(corners[edge]), b = core(corners[(edge + 1) % n])
+        return (0...steps).map { k in r.ceilingHeight(at: a + (b - a) * (Double(k) / Double(steps))) }
+    }
+
     private static func centroid(_ p: [Vec2]) -> Vec2 {
         var a2 = 0.0, cx = 0.0, cy = 0.0
         for i in p.indices {

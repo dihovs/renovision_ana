@@ -2193,6 +2193,15 @@ struct RoomEditorCore: View {
             // not a second editor.
             openings: $openings,
             ceilingHeight: room.ceilingHeightM,
+            // A shaped ceiling (M6): each face follows it.
+            ceilingTop: ceiling.flatMap { record in
+                record.kind == "flat" ? nil : { edge in
+                    PlanBridge.ceilingAlong(
+                        corners, bulges: bulges, ceiling: record,
+                        flat: record.height ?? record.low ?? record.eave ?? room.ceilingHeightM,
+                        edge: edge)
+                }
+            },
             roomScanId: room.id,
             objects: objects,
             onPlaceObject: { entry, along in
