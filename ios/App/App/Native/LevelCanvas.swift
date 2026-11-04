@@ -275,7 +275,9 @@ struct LevelCanvas: View {
                     // floor canvas draws, so the card and the floor agree about
                     // where a wall is and how thick. See `StoreyBaseLayer`.
                     let floorPolygons = layout.slots.map { slot -> [CGPoint] in
-                        var outline = slot.plan.polygon
+                        // Curves followed (M5): the bands are built along the
+                        // arc, split into short straight runs.
+                        var outline = slot.plan.curvedPolygon
                         if outline.count >= 4, let f = outline.first, let l = outline.last,
                             hypot(f.x - l.x, f.y - l.y) < 1e-9
                         {
@@ -316,8 +318,9 @@ struct LevelCanvas: View {
                             if pass == 0 {
                                 if slot.plan.polygon.count >= 3 {
                                     var floor = Path()
-                                    floor.move(to: pt(slot.plan.polygon[0].x, slot.plan.polygon[0].y))
-                                    for p in slot.plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
+                                    let loop = slot.plan.curvedPolygon
+                                    floor.move(to: pt(loop[0].x, loop[0].y))
+                                    for p in loop.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
                                     floor.closeSubpath()
                                     // The room just measured is white, the way the room
                                     // you are inside is white in the editor
@@ -355,9 +358,10 @@ struct LevelCanvas: View {
                                         slot.piece.room?.roomType ?? ""))
                                 if runs.isEmpty {
                                     var walls = Path()
-                                    for s in slot.plan.segments {
-                                        walls.move(to: pt(s.x1, s.y1))
-                                        walls.addLine(to: pt(s.x2, s.y2))
+                                    for i in slot.plan.segments.indices {
+                                        let along = slot.plan.run(i)
+                                        walls.move(to: pt(along[0].x, along[0].y))
+                                        for p in along.dropFirst() { walls.addLine(to: pt(p.x, p.y)) }
                                     }
                                     context.stroke(
                                         walls, with: .color(ink),

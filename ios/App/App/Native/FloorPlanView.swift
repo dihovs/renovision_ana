@@ -150,8 +150,9 @@ struct FloorPlanView: View {
             // 1. Floor.
             if plan.polygon.count >= 3 {
                 var floor = Path()
-                floor.move(to: pt(plan.polygon[0]))
-                for p in plan.polygon.dropFirst() { floor.addLine(to: pt(p)) }
+                let loop = plan.curvedPolygon
+                floor.move(to: pt(loop[0]))
+                for p in loop.dropFirst() { floor.addLine(to: pt(p)) }
                 floor.closeSubpath()
                 context.fill(floor, with: .color(Brand.Plan.floorMuted))
             }
@@ -183,9 +184,17 @@ struct FloorPlanView: View {
             }
 
             var walls = Path()
-            for s in plan.segments {
+            for (i, s) in plan.segments.enumerated() {
                 let L = s.length
                 guard L > 0 else { continue }
+                // A curved wall (M5) follows its arc; the joint extension
+                // below is for straight walls meeting at a corner.
+                let along = plan.run(i)
+                if along.count > 2 {
+                    walls.move(to: pt(along[0]))
+                    for p in along.dropFirst() { walls.addLine(to: pt(p)) }
+                    continue
+                }
                 let ux = (s.x2 - s.x1) / L
                 let uy = (s.y2 - s.y1) / L
                 let e1 = nearJoint(s.x1, s.y1) ? T / 2 : 0

@@ -371,7 +371,7 @@ enum Dollhouse {
     /// outline. What is dropped is only what the chain rejected AND sits
     /// outside the room it claims to belong to.
     static func wallSegments(of room: Room) -> [FloorPlanGeometry.Segment] {
-        let outline = closedOutline(room.plan.polygon)
+        let outline = closedOutline(room.plan.curvedPolygon)
         guard outline.count >= 3 else { return room.plan.segments }
 
         var walls: [FloorPlanGeometry.Segment] = []
@@ -476,7 +476,7 @@ enum Dollhouse {
 
         for (index, room) in rooms.enumerated() {
             let ox = Double(room.origin.x), oy = Double(room.origin.y)
-            let outline = closedOutline(room.plan.polygon)
+            let outline = closedOutline(room.plan.curvedPolygon)
             for segment in wallSegments(of: room) {
                 pieces.append(
                     DollhouseStorey.Piece(
@@ -761,8 +761,8 @@ enum Dollhouse {
 
         if room.plan.polygon.count >= 3 {
             let path = UIBezierPath()
-            path.move(to: room.plan.polygon[0])
-            for p in room.plan.polygon.dropFirst() { path.addLine(to: p) }
+            path.move(to: room.plan.curvedPolygon[0])
+            for p in room.plan.curvedPolygon.dropFirst() { path.addLine(to: p) }
             path.close()
             let shape = SCNShape(path: path, extrusionDepth: CGFloat(slabDepth))
             // Double-sided deliberately: `SCNShape` extrudes along +z and the

@@ -61,6 +61,11 @@ enum FloorPlanGeometry {
         /// put every fixture at a different angle from the walls around it.
         /// Openings are already carried this way for the same reason.
         var objects: [PlacedObject] = []
+        /// Curved walls (floor-plan spec §10, M5): segment i bulges this far,
+        /// + away from the room. Empty for a straight room and for a scan
+        /// nobody corrected. Drawn with `run(_:)`; never splits a segment, so
+        /// every per-wall record keeps counting walls the way it always has.
+        var bulges: [Double] = []
 
         struct PlacedObject {
             let id: String
@@ -149,7 +154,7 @@ enum FloorPlanGeometry {
             // it loses a real corner to the drop.
             var loop = points.map { CGPoint(x: $0.x - minX, y: $0.y - minY) }
             if let first = loop.first { loop.append(first) }
-            return Plan(
+            var made = Plan(
                 segments: shifted,
                 openings: openings,
                 polygon: loop,
@@ -161,6 +166,12 @@ enum FloorPlanGeometry {
                     into: loop,
                     size: CGSize(
                         width: (xs.max() ?? 0) - minX, height: (ys.max() ?? 0) - minY)))
+            if let bulges = geometry.edgeBulge, bulges.count == points.count,
+                bulges.contains(where: { $0 != 0 })
+            {
+                made.bulges = bulges
+            }
+            return made
         }
 
         let chained = rawPlan(from: geometry)
@@ -1181,5 +1192,30 @@ extension FloorPlanGeometry {
         guard !deepest.isEmpty else { return CGPoint(x: width / 2, y: height / 2) }
         let sum = deepest.reduce(CGPoint.zero) { CGPoint(x: $0.x + $1.x, y: $0.y + $1.y) }
         return CGPoint(x: sum.x / Double(deepest.count), y: sum.y / Double(deepest.count))
+    }
+}
+
+// MARK: - Curved walls, for every renderer (M5)
+
+extension FloorPlanGeometry.Plan {
+    /// Points along segment i, start to end, in plan metres: its two ends
+    /// when straight, the arc when curved. Every renderer draws walls
+    /// through this, so a curve shows the same on the storey, the cards,
+    /// the room's own plan and the 3D model.
+    func run(_ i: Int) -> [CGPoint] {
+        let s = segments[i]
+        let a = CGPoint(x: s.x1, y: s.y1), b = CGPoint(x: s.x2, y: s.y2)
+        guard i < bulges.count, bulges[i] != 0, polygon.count >= 4 else { return [a, b] }
+        return PlanBridge.edgePoints(Array(polygon.dropLast()), edge: i, bulge: bulges[i])
+    }
+
+    /// The outline with every curve followed — for fills and hit tests.
+    /// The same as `polygon` for a straight room.
+    var curvedPolygon: [CGPoint] {
+        guard !bulges.isEmpty, polygon.count >= 4, segments.count == polygon.count - 1 else { return polygon }
+        var out: [CGPoint] = []
+        for i in segments.indices { out += run(i).dropLast() }
+        if let first = out.first { out.append(first) }
+        return out
     }
 }

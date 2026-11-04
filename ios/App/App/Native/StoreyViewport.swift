@@ -420,7 +420,8 @@ struct StoreyLayout {
         wholeFloorHeight = packed.height
 
         let floorPolygons = rooms.map { room -> [CGPoint] in
-            var outline = room.plan.polygon
+            // Curves followed (M5): walls are built along the arc.
+            var outline = room.plan.curvedPolygon
             if outline.count >= 4, let f = outline.first, let l = outline.last,
                 hypot(f.x - l.x, f.y - l.y) < 1e-9
             {
@@ -808,8 +809,9 @@ struct StoreyBaseLayer: View {
                     if pass == 0 {
                         if plan.polygon.count >= 3 {
                             var floor = Path()
-                            floor.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
-                            for p in plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
+                            let loop = plan.curvedPolygon
+                            floor.move(to: pt(loop[0].x, loop[0].y))
+                            for p in loop.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
                             floor.closeSubpath()
                             let fill: Color
                             if isNew {
@@ -821,6 +823,33 @@ struct StoreyBaseLayer: View {
                             }
                             context.opacity = opacity
                             context.fill(floor, with: .color(fill))
+                            // A shaped ceiling (M6), faint, as the editor
+                            // draws it: bulkheads shaded, a ridge dashed.
+                            if let record = storeyRoom.room.geometry?.ceilingProfile,
+                                record.kind != "flat", plan.polygon.count >= 4
+                            {
+                                let overhead = PlanBridge.ceilingOverlay(
+                                    Array(plan.polygon.dropLast()), bulges: plan.bulges,
+                                    ceiling: record, flat: storeyRoom.room.ceilingHeightM)
+                                context.drawLayer { layer in
+                                    layer.clip(to: floor)
+                                    for zone in overhead.zones where zone.count >= 3 {
+                                        var shape = Path()
+                                        shape.move(to: pt(zone[0].x, zone[0].y))
+                                        for p in zone.dropFirst() { shape.addLine(to: pt(p.x, p.y)) }
+                                        shape.closeSubpath()
+                                        layer.fill(shape, with: .color(Brand.Plan.ink.opacity(0.07)))
+                                    }
+                                    if let (a, b) = overhead.ridge {
+                                        var line = Path()
+                                        line.move(to: pt(a.x, a.y))
+                                        line.addLine(to: pt(b.x, b.y))
+                                        layer.stroke(
+                                            line, with: .color(Brand.Plan.ink.opacity(0.4)),
+                                            style: StrokeStyle(lineWidth: 1, dash: [8, 3, 2, 3]))
+                                    }
+                                }
+                            }
                             if isNew {
                                 context.stroke(
                                     floor, with: .color(Brand.blue.opacity(0.55)),
@@ -862,9 +891,10 @@ struct StoreyBaseLayer: View {
                             // the loose ends from reading as deliberate square
                             // corners they are not.
                             var walls = Path()
-                            for s in plan.segments {
-                                walls.move(to: pt(s.x1, s.y1))
-                                walls.addLine(to: pt(s.x2, s.y2))
+                            for i in plan.segments.indices {
+                                let along = plan.run(i)
+                                walls.move(to: pt(along[0].x, along[0].y))
+                                for p in along.dropFirst() { walls.addLine(to: pt(p.x, p.y)) }
                             }
                             context.stroke(
                                 walls, with: .color(ink),
