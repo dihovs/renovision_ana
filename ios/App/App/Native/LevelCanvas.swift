@@ -1342,6 +1342,9 @@ struct FloorCanvasView: View {
     /// dragged more than once before it is set down, and `DragGesture`
     /// reports translation from its own start, not from the room's home.
     @State private var liftDragStart: CGSize = .zero
+    /// The lifted room's angle when the current drag began; the square-up
+    /// turn is added on top of it, fresh each frame.
+    @State private var dragTurnBase: Double?
     /// True for the length of the press-and-drag that picks a room up, so
     /// the plain move gesture does not also claim the same finger and apply
     /// the travel twice.
@@ -2922,6 +2925,7 @@ struct FloorCanvasView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         lifted = StoreyBaseLayer.LiftedRoom(id: room.id)
         liftDragStart = .zero
+        dragTurnBase = nil
         wasFlush = false
         lifting = true
     }
@@ -2962,8 +2966,19 @@ struct FloorCanvasView: View {
             width: liftDragStart.width + step.width,
             height: liftDragStart.height + step.height)
 
-        let moving = floorPolygon(room, offset: free, angle: lift.angle)
         let others = cachedLayout.rooms.filter { $0.id != lift.id }.map { floorPolygon($0) }
+
+        // Turn it square first (floor-plan spec §12, T13): a wall within 3°
+        // of anti-parallel to a neighbour's, and within reach, is turned
+        // exactly parallel — so the flush below closes the gap along the
+        // whole wall instead of touching at one end. Worked out each frame
+        // from the angle the drag began at, so it lets go again as the room
+        // is pulled away.
+        if dragTurnBase == nil { dragTurnBase = lift.angle }
+        let base = dragTurnBase ?? lift.angle
+        lift.angle = base + Self.squaringTurn(
+            moving: floorPolygon(room, offset: free, angle: base), others: others)
+        let moving = floorPolygon(room, offset: free, angle: lift.angle)
         // 14 points of reach, so it feels the same at any zoom — but never
         // less than the floor-plan spec's 10 cm (§12, T13): zoomed right in,
         // 14 points is a few centimetres and a room dropped 6 cm off its
@@ -2981,6 +2996,27 @@ struct FloorCanvasView: View {
         // there — a haptic that repeats reads as a stutter, not as contact.
         if result.flush, !wasFlush { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
         wasFlush = result.flush
+    }
+
+    /// How much to turn a room being dragged so the wall it is bringing to
+    /// a neighbour lands exactly parallel — FloorPlanCore's placement snap,
+    /// which only offers a turn of 3° or less. 0 when nothing is in reach.
+    /// Both outlines are put the same way round first: the snap matches
+    /// walls that run in opposite directions, which is what two rooms
+    /// sharing a wall do only when they are wound alike.
+    static func squaringTurn(moving: [CGPoint], others: [[CGPoint]]) -> Double {
+        func ring(_ p: [CGPoint]) -> [Vec2] {
+            var r = p
+            if r.count > 3, r.first == r.last { r.removeLast() }
+            let v = r.map { Vec2(Double($0.x), Double($0.y)) }
+            return Polygon.signedArea(v) < 0 ? v.reversed() : v
+        }
+        let mine = ring(moving)
+        let theirs = others.map(ring).filter { $0.count >= 3 }
+        guard mine.count >= 3, !theirs.isEmpty,
+            let snap = Alignment.snap(moving: mine, neighbours: theirs)
+        else { return 0 }
+        return abs(snap.rotation) > 1e-6 ? snap.rotation : 0
     }
 
     /// The floor bar's verbs. `Merge Rooms` appears only with a room in the
@@ -3187,6 +3223,7 @@ struct FloorCanvasView: View {
         lifted?.offset = .zero
         lifted?.angle = 0
         liftDragStart = .zero
+        dragTurnBase = nil
         guides = []
         wasFlush = false
         await loadObjects()

@@ -68,8 +68,9 @@ struct PlanFilesView: View {
 
     /// Every room in a plan JSON (this app's own format, `Export.json`)
     /// added to THIS project: on its floor, where it stood, with its
-    /// openings, its curves and its ceiling height. Shaped ceilings come in
-    /// flat at their average height — say so rather than guess walls.
+    /// openings, its curves and its ceiling — sloped, vaulted and bulkhead
+    /// ceilings keep their shape when the Ceiling sheet can describe it; any
+    /// other comes in flat at its average height, and the message says so.
     private func bringIn(_ url: URL) async {
         error = nil
         imported = nil
@@ -82,7 +83,7 @@ struct PlanFilesView: View {
             for floor in project.floors {
                 for (position, room) in floor.rooms.enumerated() {
                     guard let made = Self.scan(for: room) else { continue }
-                    if room.isShapedCeiling { shaped += 1 }
+                    if room.isShapedCeiling, made.geometry.ceilingProfile == nil { shaped += 1 }
                     let id = try await API.shared.saveScan(ScanUpload(
                         projectId: projectId, name: room.name.isEmpty ? "Room" : room.name,
                         level: floor.name, position: position, geometry: made.geometry))
@@ -91,7 +92,7 @@ struct PlanFilesView: View {
                 }
             }
             imported = "Added \(count) room\(count == 1 ? "" : "s") from \(project.name)."
-                + (shaped > 0 ? " \(shaped) shaped ceiling\(shaped == 1 ? "" : "s") came in flat at the average height — set them again with Ceiling." : "")
+                + (shaped > 0 ? " \(shaped) ceiling\(shaped == 1 ? "" : "s") had a shape this app cannot draw and came in flat at the average height — set \(shaped == 1 ? "it" : "them") again with Ceiling." : "")
             files = try Self.write(scans: try await API.shared.scans(projectId: projectId), projectName: projectName)
         } catch {
             self.error = "Could not bring that plan in: \(error.localizedDescription)"
@@ -132,7 +133,74 @@ struct PlanFilesView: View {
             return 0
         }
         if bulges.contains(where: { $0 != 0 }) { geometry.edgeBulge = bulges }
+        // The ceiling's shape, in the editor's own record — walls by edge
+        // number, which the y-flip leaves alone. Kept only when the record
+        // rebuilds the same ceiling (same air, within 0.5 %); a shape the
+        // editor cannot describe stays flat at the average height.
+        if let record = ceilingRecord(for: room) {
+            let rebuilt = PlanBridge.room(local, bulges: bulges, ceiling: record, flat: height)
+            let want = room.volume
+            if want > 0, abs(rebuilt.volume - want) / want < 0.005 {
+                geometry.ceilingProfile = record
+                geometry.ceilingFigures = PlanBridge.ceilingFigures(
+                    local, bulges: bulges, ceiling: record, flat: height)
+            }
+        }
         return (geometry, CGPoint(x: minX, y: minY))
+    }
+
+    /// The core room's ceiling as the editor's record, or nil when it is flat
+    /// or a shape the editor's Ceiling sheet has no way to say: a ridge not
+    /// parallel to a wall or not through the middle, a zone that is not a
+    /// strip along one wall.
+    static func ceilingRecord(for room: Room) -> PlanBridge.CeilingRecord? {
+        let pts = room.points
+        let n = pts.count
+        guard n >= 3 else { return nil }
+        let ccw = Polygon.isCounterClockwise(pts)
+        switch room.ceiling {
+        case .flat:
+            return nil
+        case .sloped(let low, let high, let lowID, let highID):
+            guard let lo = room.wallIndex(lowID), let hi = room.wallIndex(highID) else { return nil }
+            return .init(kind: "sloped", low: low, high: high, lowEdge: lo, highEdge: hi)
+        case .vaulted(let eave, let ridge, let axis):
+            let d = axis.b - axis.a
+            let len = (d.x * d.x + d.y * d.y).squareRoot()
+            guard len > 1e-9 else { return nil }
+            let u = d * (1 / len)
+            // The editor's ridge runs through the outline's area centroid.
+            let c = PlanBridge.centroid(pts)
+            guard abs((c - axis.a).cross(u)) < 0.05 else { return nil }
+            let edge = (0..<n).first { i in
+                let w = pts[(i + 1) % n] - pts[i]
+                let wl = (w.x * w.x + w.y * w.y).squareRoot()
+                return wl > 1e-9 && abs((w * (1 / wl)).cross(u)) < sin(1 * .pi / 180)
+            }
+            guard let e = edge else { return nil }
+            return .init(kind: "vaulted", eave: eave, ridge: ridge, ridgeEdge: e)
+        case .zones(let base, let zones):
+            var strips: [PlanBridge.CeilingRecord.Strip] = []
+            for zone in zones {
+                guard zone.polygon.count == 4 else { return nil }
+                let q = zone.polygon
+                // [a, b, b + v, a + v] with a → b one of the room's walls.
+                guard let i = (0..<n).first(where: {
+                    pts[$0].distance(to: q[0]) < 0.01 && pts[($0 + 1) % n].distance(to: q[1]) < 0.01
+                }) else { return nil }
+                let a = pts[i], b = pts[(i + 1) % n]
+                let w = b - a
+                let wl = (w.x * w.x + w.y * w.y).squareRoot()
+                guard wl > 1e-9 else { return nil }
+                let inward = ccw ? Vec2(-w.y / wl, w.x / wl) : Vec2(w.y / wl, -w.x / wl)
+                let depth = (q[3] - a).dot(inward)
+                guard depth > 0, q[3].distance(to: a + inward * depth) < 0.01,
+                    q[2].distance(to: b + inward * depth) < 0.01
+                else { return nil }
+                strips.append(.init(edge: i, depth: depth, height: zone.height))
+            }
+            return .init(kind: "zones", height: base, strips: strips)
+        }
     }
 
     private func make() async {

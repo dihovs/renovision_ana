@@ -320,7 +320,8 @@ enum PlanBridge {
         return (0...steps).map { k in r.ceilingHeight(at: a + (b - a) * (Double(k) / Double(steps))) }
     }
 
-    private static func centroid(_ p: [Vec2]) -> Vec2 {
+    /// The outline's area centroid — where the editor runs a vaulted ridge.
+    static func centroid(_ p: [Vec2]) -> Vec2 {
         var a2 = 0.0, cx = 0.0, cy = 0.0
         for i in p.indices {
             let s = p[i], t = p[(i + 1) % p.count]

@@ -20,18 +20,24 @@ curve — offsets still along the chord (§9), jambs stood up onto the arc
 (`Arc.pointOverChord`, `Room.jambs(of:)`) in the editor, the storey, the 3D
 model and the DXF. The dimension chain still measures along the chord.
 
+Fixed 4 Nov (build 235): dragging a room within 3° / 10 cm of a neighbour's
+wall now TURNS it parallel, then the flush closes the gap
+(`LevelCanvas.squaringTurn`, core `Alignment.snap`). Plan import keeps
+sloped, vaulted (ridge through the centroid, parallel to a wall) and
+bulkhead-strip ceilings; any other shape still comes in flat and says so.
+- Still open: an imported ceiling the Ceiling sheet cannot describe (ridge
+  off-centre or skewed, a zone that is not a strip along one wall) comes in
+  flat at its average height.
+
 ## Still open, deliberately
 - Every build since 227 was installed blind or not at all: the owner's iPhone
   was unavailable from the M8 build on. Nothing from M8 onward has been
   tried on a screen.
 - Leica DISTO driver is UNVERIFIED (community UUIDs); Bosch GLM absent
   (protocol unpublished). Confirm a reading against a tape first.
-- The app's room-drag snap still only slides; the core's turn-to-square
-  is not applied (turning a room rewrites its outline here).
 - Scans before 4 Nov keep the old outline chain on phone and web; scans
   since carry the M11 outline. Old scans with a raw capture
   (room_scan_captures, since step 1) could be re-run — not done.
-- Imported shaped ceilings come in flat at their average height.
 - IFC4 export: v2 per the spec.
 
 ## A — finish what M5–M7 left open
