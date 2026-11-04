@@ -37,7 +37,7 @@ extension Room {
 
     /// The outline as a polygon, with each curved wall replaced by `steps`
     /// short chords — what the plane integrals and the half-plane split need.
-    func outlinePolygon(steps: Int = 48) -> [Vec2] {
+    public func outlinePolygon(steps: Int = 48) -> [Vec2] {
         let p = points
         let n = p.count
         var out: [Vec2] = []

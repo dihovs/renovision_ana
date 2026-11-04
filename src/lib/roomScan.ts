@@ -38,6 +38,16 @@ export type RoomScanWall = {
 };
 export type RoomScanFloor = { areaSquareMeters: number };
 
+/** Measured under a shaped ceiling — twin of `ScanGeometry.CeilingFigures`. */
+export type CeilingFigures = {
+  volumeCbm: number;
+  grossWallSqm: number;
+  ceilingSurfaceSqm: number;
+  meanHeightM: number;
+  minHeightM: number;
+  maxHeightM: number;
+};
+
 /** A door or window, positioned the same way a wall is so the plan can cut
     it into the wall it sits in rather than drawing an unbroken box. */
 export type RoomScanOpening = {
@@ -100,6 +110,12 @@ export type ScanGeometry = RoomScanResult & {
       bulges this many metres, + away from the room, − into it. Absent or 0
       is straight. See src/lib/arc.ts. */
   edgeBulge?: number[];
+  /** The ceiling's shape (floor-plan spec §11, M6) — flat, sloped, vaulted
+      or zones, by edge number. Written by the phone; see ScanPayload.swift
+      `CeilingRecord`. Absent is flat at `ceiling_height_m`. */
+  ceilingProfile?: Record<string, unknown>;
+  /** What the phone measured under that ceiling when the room was saved. */
+  ceilingFigures?: CeilingFigures;
   meshFloorPolygon?: { x: number; y: number }[];
   /** Which edge lengths were TYPED rather than measured, by editedPolygon
       edge index — edge i runs from point i to point i+1, wrapping. */
@@ -565,7 +581,13 @@ export function savedCeilingHeightMeters(scan: SavedScan): number {
     detected openings still deducted from net — correcting an outline does
     not take the doors out of the walls. */
 export function savedWallAreaSquareMeters(scan: SavedScan): { gross: number; net: number } {
-  const gross = savedPerimeterMeters(scan) * savedCeilingHeightMeters(scan);
+  // Under a sloped, vaulted or zoned ceiling (M6) the walls are not all one
+  // height; the phone measured them wall by wall when the room was saved.
+  const figured = scan.geometry?.ceilingFigures?.grossWallSqm;
+  const gross =
+    typeof figured === "number" && figured > 0
+      ? figured
+      : savedPerimeterMeters(scan) * savedCeilingHeightMeters(scan);
   const net = Math.max(0, gross - openingAreaSquareMeters(scan.geometry));
   return { gross, net };
 }

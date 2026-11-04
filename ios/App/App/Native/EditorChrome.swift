@@ -1431,6 +1431,8 @@ enum EditorAction: Hashable {
     /// Set every nearly-square corner exactly square, keeping locked walls —
     /// the floor-plan spec's one-tap squaring (§6, M3).
     case square
+    /// The ceiling's shape — flat, sloped, vaulted, bulkheads (M6).
+    case ceiling
     case duplicate
     case addCorner
     /// Step one wall out (or in) over a typed width — see `PlanEditing.bumpOut`.
@@ -1453,6 +1455,7 @@ enum EditorAction: Hashable {
         case .setSize: return "Set Size"
         case .editLayout: return "Edit Layout"
         case .square: return "Square"
+        case .ceiling: return "Ceiling"
         case .duplicate: return "Duplicate"
         case .addCorner: return "Add Corner"
         case .bumpOut: return "Bump Out"
@@ -1478,6 +1481,8 @@ enum EditorAction: Hashable {
         case .editLayout: return "square.and.pencil"
         // A right angle, which is the whole verb.
         case .square: return "angle"
+        // A roof line over a box: the ceiling's shape.
+        case .ceiling: return "house"
         case .duplicate: return "square.on.square"
         case .addCorner: return "plus.circle"
         case .bumpOut: return "square.split.bottomrightquarter"
@@ -1520,7 +1525,7 @@ enum EditorAction: Hashable {
             // that had nowhere to appear.
             return [.insert, .rotate, .mergeRooms]
         case .room:
-            return [.insert, .setSize, .square, .editLayout, .duplicate, .delete]
+            return [.insert, .setSize, .square, .ceiling, .editLayout, .duplicate, .delete]
         case .wall(let dragging):
             return dragging
                 ? [.insert, .delete]

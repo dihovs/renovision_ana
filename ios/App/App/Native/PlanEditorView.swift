@@ -313,6 +313,7 @@ struct RoomEditorCore: View {
         /// to reach them too — a wall you cannot un-add is worse than no wall.
         var interiorWalls: [ScanGeometry.InteriorWall] = []
         var bulges: [Double] = []
+        var ceiling: ScanGeometry.CeilingRecord?
     }
 
     /// Viewport. `zoom` multiplies the fit scale; `pan` slides the camera in
@@ -335,6 +336,10 @@ struct RoomEditorCore: View {
     /// ever disagree in count, `PlanBridge.aligned` treats the room as
     /// straight rather than hang a curve on the wrong wall.
     @State private var bulges: [Double] = []
+    /// The ceiling's shape (M6), by edge. Nil until he sets one — and a save
+    /// with nil says nothing about the ceiling, so a stored shape survives.
+    @State private var ceiling: ScanGeometry.CeilingRecord?
+    @State private var editingCeiling = false
 
     enum Selection: Equatable {
         case none
@@ -656,6 +661,19 @@ struct RoomEditorCore: View {
             }
             Button("Leave it alone", role: .cancel) { lockedWarning = nil }
         }
+        .sheet(isPresented: $editingCeiling) {
+            CeilingSheet(
+                corners: corners, bulges: bulges,
+                // The flat figure to start from. A shaped ceiling's stored
+                // column is its AVERAGE, so the shape's own base is better.
+                flatHeight: ceiling?.height ?? ceiling?.low ?? ceiling?.eave ?? room.ceilingHeightM,
+                current: ceiling,
+                apply: { record in
+                    push()
+                    ceiling = record
+                })
+            .presentationDetents([.medium, .large])
+        }
         .sheet(item: $curving) { target in
             WallCurveSheet(
                 chord: PlanEditing.edgeLength(corners, target.id),
@@ -691,6 +709,7 @@ struct RoomEditorCore: View {
         openings = PlanEditing.openingsAfterBumpOut(
             openings, edge: index, offset: offset, width: width)
         locked = Set(locked.compactMap { $0 == index ? nil : ($0 > index ? $0 + 4 : $0) })
+        remapCeiling { $0 > index ? $0 + 4 : $0 }
         // The bumped wall is now five straight walls; the rest keep theirs.
         if bulges.count == corners.count {
             bulges[index] = 0
@@ -814,6 +833,35 @@ struct RoomEditorCore: View {
                     // waits on a selection the way the old hatch did.
                     context.fill(floor, with: .color(Brand.surface))
                     EditorChrome.tileGrid(floor, context: context, scale: scale)
+
+                    // The ceiling's shape (M6), drawn faintly inside the
+                    // floor: a bulkhead's footprint shaded, a vault's ridge
+                    // dashed — the way a plan marks what is overhead.
+                    let overhead = PlanBridge.ceilingOverlay(
+                        corners, bulges: bulges, ceiling: ceiling, flat: room.ceilingHeightM)
+                    if !overhead.zones.isEmpty || overhead.ridge != nil {
+                        context.drawLayer { layer in
+                            layer.clip(to: floor)
+                            for zone in overhead.zones where zone.count >= 3 {
+                                var shape = Path()
+                                shape.move(to: pt(zone[0]))
+                                for p in zone.dropFirst() { shape.addLine(to: pt(p)) }
+                                shape.closeSubpath()
+                                layer.fill(shape, with: .color(Brand.Plan.ink.opacity(0.08)))
+                                layer.stroke(
+                                    shape, with: .color(Brand.Plan.ink.opacity(0.35)),
+                                    style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                            }
+                            if let (a, b) = overhead.ridge {
+                                var line = Path()
+                                line.move(to: pt(a))
+                                line.addLine(to: pt(b))
+                                layer.stroke(
+                                    line, with: .color(Brand.Plan.ink.opacity(0.45)),
+                                    style: StrokeStyle(lineWidth: 1.5, dash: [10, 4, 2, 4]))
+                            }
+                        }
+                    }
 
                     // Walls. The selected one is blue and thicker; an invalid
                     // shape goes dashed red — signalled, never blocked, since
@@ -1360,7 +1408,12 @@ struct RoomEditorCore: View {
                         // Floor-plan spec §9: sill + height must stay under
                         // the ceiling. Refused, not trimmed — which of the
                         // two numbers is wrong is his call, not the app's.
-                        let ceiling = room.ceilingHeightM
+                        // Under a shaped ceiling (M6), the lowest it comes
+                        // over this opening's own span.
+                        let here = openings[index]
+                        let ceiling = PlanBridge.ceilingOver(
+                            corners, bulges: bulges, ceiling: self.ceiling, flat: room.ceilingHeightM,
+                            edge: here.edge, offset: here.offset, width: here.width)
                         if ceiling > 0, newSill + newHeight > ceiling + 1e-6 {
                             let format = UnitSettings.shared.format
                             openingRefusal =
@@ -2618,7 +2671,7 @@ struct RoomEditorCore: View {
             // The menu itself still shows the other four greyed with their
             // reasons, the way the floor canvas's own already does.
             // `Square` (M3) is real too — the floor-plan spec's solver.
-            return [.insert, .setSize, .square, .duplicate, .delete]
+            return [.insert, .setSize, .square, .ceiling, .duplicate, .delete]
         case .area:
             // Both verbs are real: Edit Shape opens the point editor this
             // area already had, and Delete removes it. Insert stays greyed
@@ -3095,6 +3148,8 @@ struct RoomEditorCore: View {
             startMeasuring(at: 0)
         case (.square, .none):
             squareRoom()
+        case (.ceiling, .none):
+            editingCeiling = true
         case (.duplicate, .none):
             duplicating = true
         case (.delete, .none):
@@ -3244,6 +3299,9 @@ struct RoomEditorCore: View {
         openings = PlanEditing.openingsAfterCornerAdded(
             openings, polygon: corners, splitEdge: index)
         locked = PlanEditing.lockedAfterCornerAdded(locked, splitEdge: index)
+        // The ceiling names walls by number too (M6): every wall after the
+        // split moves up one; the split wall keeps its number.
+        remapCeiling { $0 > index ? $0 + 1 : $0 }
         let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
         // The split wall becomes two STRAIGHT walls — a corner on a curve's
         // chord is not on the curve. Every other wall keeps its own.
@@ -3268,6 +3326,12 @@ struct RoomEditorCore: View {
             // the first corner goes, the old last wall, now the new last.
             bulges.remove(at: index)
             if !bulges.isEmpty { bulges[index > 0 ? index - 1 : bulges.count - 1] = 0 }
+        }
+        // The two walls at this corner become one, numbered as for the curves.
+        let n = corners.count
+        remapCeiling { e in
+            if index == 0 { return e == 0 ? n - 2 : e - 1 }
+            return e < index ? e : (e == index ? index - 1 : e - 1)
         }
         corners = PlanEditing.removeCorner(corners, index: index)
         selection = .none
@@ -3414,6 +3478,7 @@ struct RoomEditorCore: View {
         // that was never corrected has none.
         let stored = room.geometry?.edgeBulge ?? []
         bulges = stored.count == corners.count ? stored : Array(repeating: 0, count: corners.count)
+        ceiling = room.geometry?.ceilingProfile
 
         // Freeze the viewport to the room's extent AS OPENED. `measuredBounds`
         // is now correct for `corners`, so this is the one moment to capture
@@ -3460,15 +3525,25 @@ struct RoomEditorCore: View {
         }
     }
 
+    /// Renumber the ceiling's walls after an edit renumbered the room's.
+    private func remapCeiling(_ map: (Int) -> Int) {
+        guard var record = ceiling else { return }
+        record.lowEdge = record.lowEdge.map(map)
+        record.highEdge = record.highEdge.map(map)
+        record.ridgeEdge = record.ridgeEdge.map(map)
+        record.strips = record.strips?.map { var s = $0; s.edge = map(s.edge); return s }
+        ceiling = record
+    }
+
     private func push() {
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
         if history.count > 100 { history.removeFirst() }
         future.removeAll()
     }
 
     private func undo() {
         guard let previous = history.popLast() else { return }
-        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges))
+        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
         corners = previous.corners
         openings = previous.openings
         locked = previous.locked
@@ -3476,6 +3551,7 @@ struct RoomEditorCore: View {
         // Wall left the wall standing. Fixed with the curves (3 Nov 2026).
         interiorWalls = previous.interiorWalls
         bulges = previous.bulges
+        ceiling = previous.ceiling
         selection = .none
         // A measurement walk indexes the polygon it started on; geometry
         // restored from history may not be that polygon. End it.
@@ -3485,12 +3561,13 @@ struct RoomEditorCore: View {
 
     private func redo() {
         guard let next = future.popLast() else { return }
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
         corners = next.corners
         openings = next.openings
         locked = next.locked
         interiorWalls = next.interiorWalls
         bulges = next.bulges
+        ceiling = next.ceiling
         selection = .none
         measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -3507,7 +3584,8 @@ struct RoomEditorCore: View {
                 openings: canAuthorOpenings ? openings : nil,
                 ceilingHeight: room.ceilingHeightM,
                 interiorWalls: interiorWalls,
-                edgeBulge: PlanBridge.aligned(bulges, corners) ?? Array(repeating: 0, count: corners.count))
+                edgeBulge: PlanBridge.aligned(bulges, corners) ?? Array(repeating: 0, count: corners.count),
+                ceiling: ceiling)
             if openedCorners.count == corners.count, openedCorners != corners {
                 onOutlineChanged?(openedCorners, corners)
             }

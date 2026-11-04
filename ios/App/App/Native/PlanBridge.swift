@@ -132,6 +132,158 @@ enum PlanBridge {
 
     /// The deepest a wall of this chord may bulge in v1 (§10): a semicircle.
     static func maxBulge(chord: Double) -> Double { chord / 2 }
+
+    // MARK: - Ceilings (spec §11, M6)
+
+    typealias CeilingRecord = ScanGeometry.CeilingRecord
+
+    /// The room in the core's model with its ceiling, curved walls included,
+    /// counter-clockwise. The record names walls by edge number in THESE
+    /// corners; the walls get their ids here, before the core reorders
+    /// anything, so every edge number lands on the wall it meant.
+    static func room(_ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double) -> Room {
+        let pts = core(corners)
+        let n = pts.count
+        var room = Room(name: "", corners: pts.map { Corner(p: $0) })
+        let ccw = Polygon.isCounterClockwise(pts)
+        if let bulges = aligned(bulges, corners) {
+            for (i, b) in bulges.enumerated() where b != 0 { room.walls[i].shape = .arc(sagitta: ccw ? b : -b) }
+        }
+        func edge(_ i: Int?) -> Int? { i.flatMap { (0..<n).contains($0) ? $0 : nil } }
+        /// Into the room from edge i: left of travel when counter-clockwise.
+        func inward(_ i: Int) -> Vec2 {
+            let a = pts[i], b = pts[(i + 1) % n]
+            let len = max(a.distance(to: b), 1e-12)
+            let u = (b - a) * (1 / len)
+            return ccw ? Vec2(-u.y, u.x) : Vec2(u.y, -u.x)
+        }
+
+        switch record?.kind {
+        case "sloped":
+            if let lo = edge(record?.lowEdge), let hi = edge(record?.highEdge),
+                let low = record?.low, let high = record?.high
+            {
+                room.ceiling = .sloped(lowHeight: low, highHeight: high,
+                                       lowWallID: room.walls[lo].id, highWallID: room.walls[hi].id)
+            } else {
+                room.ceiling = .flat(height: flat)
+            }
+        case "vaulted":
+            if let e = edge(record?.ridgeEdge), let eave = record?.eave, let ridge = record?.ridge {
+                // Through the middle of the room, parallel to the chosen wall.
+                let c = centroid(pts)
+                let d = pts[(e + 1) % n] - pts[e]
+                room.ceiling = .vaulted(eaveHeight: eave, ridgeHeight: ridge,
+                                        ridgeAxis: RidgeAxis(a: c, b: c + d))
+            } else {
+                room.ceiling = .flat(height: flat)
+            }
+        case "zones":
+            let base = record?.height ?? flat
+            let zones: [HeightZone] = (record?.strips ?? []).compactMap { strip in
+                guard let i = edge(strip.edge), strip.depth > 0 else { return nil }
+                let a = pts[i], b = pts[(i + 1) % n], v = inward(i) * strip.depth
+                return HeightZone(polygon: [a, b, b + v, a + v], height: strip.height)
+            }
+            room.ceiling = .zones(base: base, zones: zones)
+        default:
+            room.ceiling = .flat(height: record?.height ?? flat)
+        }
+        return room.counterClockwise()
+    }
+
+    /// The figures a ceiling gives this room — what is saved with it.
+    static func ceilingFigures(_ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double)
+        -> ScanGeometry.CeilingFigures?
+    {
+        guard corners.count >= 3 else { return nil }
+        let r = room(corners, bulges: bulges, ceiling: record, flat: flat)
+        let area = r.area
+        guard area > 0 else { return nil }
+        // Every profile is planes and flat pieces, so its extremes are at the
+        // outline's corners, on a ridge, or at a zone's own height.
+        var heights = r.outlinePolygon().map { r.ceilingHeight(at: $0) }
+        switch r.ceiling {
+        case .vaulted(_, let ridge, _): heights.append(ridge)
+        case .zones(let base, let zones): heights += [base] + zones.map(\.height)
+        default: break
+        }
+        let volume = r.volume
+        return ScanGeometry.CeilingFigures(
+            volumeCbm: volume,
+            grossWallSqm: r.grossWallArea,
+            ceilingSurfaceSqm: r.ceilingSurfaceArea,
+            meanHeightM: volume / area,
+            minHeightM: heights.min() ?? flat,
+            maxHeightM: heights.max() ?? flat)
+    }
+
+    /// What is wrong with this ceiling, in words — nil when nothing.
+    static func ceilingProblem(_ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double) -> String? {
+        let r = room(corners, bulges: bulges, ceiling: record, flat: flat)
+        guard let issue = r.ceilingIssues.first else { return nil }
+        switch issue {
+        case .unknownWall, .noRun: return "Pick a low wall and a different high wall across the room from it."
+        case .nonPositiveHeight: return "Every height has to be more than zero."
+        case .badRidge: return "The ridge has to be at least as high as the eaves."
+        case .zoneOutsideRoom(let i): return "Zone \(i + 1) reaches outside the room — make it shallower."
+        }
+    }
+
+    /// The lowest the ceiling comes over an opening's own span on edge
+    /// `edge` — what its sill + height has to fit under (§9 with §11).
+    static func ceilingOver(
+        _ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double,
+        edge: Int, offset: Double, width: Double
+    ) -> Double {
+        guard record != nil, record?.kind != "flat" else { return record?.height ?? flat }
+        let r = room(corners, bulges: bulges, ceiling: record, flat: flat)
+        // Find the same wall after the core's reordering: by its corners.
+        let a = core(corners[edge]), b = core(corners[(edge + 1) % corners.count])
+        for j in r.walls.indices {
+            let p = r.points[j], q = r.points[(j + 1) % r.corners.count]
+            if p == a, q == b { return r.ceilingMin(onWall: j, from: offset, width: width) }
+            if p == b, q == a {
+                // Reversed: the offset is measured from the other end.
+                let chord = a.distance(to: b)
+                return r.ceilingMin(onWall: j, from: chord - offset - width, width: width)
+            }
+        }
+        return flat
+    }
+
+    /// What the plan draws of a shaped ceiling, in the app's frame: each
+    /// bulkhead's footprint, and a vault's ridge as a long line through the
+    /// room (the caller clips it to the floor).
+    static func ceilingOverlay(_ corners: [CGPoint], bulges: [Double], ceiling record: CeilingRecord?, flat: Double)
+        -> (zones: [[CGPoint]], ridge: (CGPoint, CGPoint)?)
+    {
+        guard let record, record.kind != "flat", corners.count >= 3 else { return ([], nil) }
+        let r = room(corners, bulges: bulges, ceiling: record, flat: flat)
+        switch r.ceiling {
+        case .zones(_, let zones):
+            return (zones.map { app($0.polygon) }, nil)
+        case .vaulted(_, _, let axis):
+            let d = axis.b - axis.a
+            let len = max(d.length, 1e-9)
+            let reach = 1000.0
+            let u = d * (reach / len)
+            return ([], (app(axis.a - u), app(axis.a + u)))
+        default:
+            return ([], nil)
+        }
+    }
+
+    private static func centroid(_ p: [Vec2]) -> Vec2 {
+        var a2 = 0.0, cx = 0.0, cy = 0.0
+        for i in p.indices {
+            let s = p[i], t = p[(i + 1) % p.count]
+            let w = s.x * t.y - t.x * s.y
+            a2 += w; cx += (s.x + t.x) * w; cy += (s.y + t.y) * w
+        }
+        guard abs(a2) > 1e-12 else { return p.first ?? Vec2(0, 0) }
+        return Vec2(cx / (3 * a2), cy / (3 * a2))
+    }
 }
 
 private extension CGPoint {

@@ -106,8 +106,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               return Number.isFinite(n) ? n : 0;
             })
           : undefined;
+      // The ceiling's shape and the phone's figures for it (M6). Stored as
+      // sent — the phone measured; the server keeps the record.
+      const ceiling =
+        body.ceilingProfile && typeof body.ceilingProfile === "object"
+          ? {
+              profile: body.ceilingProfile as Record<string, unknown>,
+              figures: readCeilingFigures(body.ceilingFigures),
+            }
+          : undefined;
       await saveEditedPolygon(
-        id, polygon, locked, readOpenings(body), readInteriorWalls(body), edgeBulge,
+        id, polygon, locked, readOpenings(body), readInteriorWalls(body), edgeBulge, ceiling,
       );
     }
 
@@ -148,4 +157,18 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     await deleteRoomScan(id);
     return { ok: true };
   });
+}
+
+/** The phone's ceiling figures, every one a finite number ≥ 0, or nothing. */
+function readCeilingFigures(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const keys = ["volumeCbm", "grossWallSqm", "ceilingSurfaceSqm", "meanHeightM", "minHeightM", "maxHeightM"] as const;
+  const out = {} as Record<(typeof keys)[number], number>;
+  for (const k of keys) {
+    const n = Number(v[k]);
+    if (!Number.isFinite(n) || n < 0) return null;
+    out[k] = n;
+  }
+  return out;
 }

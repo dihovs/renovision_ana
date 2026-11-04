@@ -174,6 +174,57 @@ struct ScanGeometry: Codable {
     /// is straight. Twin: `edgeBulge` in src/lib/roomScan.ts, measured by
     /// src/lib/arc.ts on the server and `PlanBridge` on the phone.
     var edgeBulge: [Double]?
+    /// The ceiling's shape (floor-plan spec §11, M6), when it is not one
+    /// flat height. Nil is flat at `ceiling_height_m`, which is every room
+    /// filed before 3 Nov 2026. See `CeilingRecord`.
+    var ceilingProfile: CeilingRecord?
+    /// What the phone worked out from that shape when the room was saved —
+    /// the record, as with every other measurement here. `ceiling_height_m`
+    /// is set to `meanHeightM` alongside, so every reader that multiplies
+    /// floor by ceiling (volume, drying) gets the right air without knowing
+    /// any of this exists.
+    var ceilingFigures: CeilingFigures?
+
+    /// A ceiling as stored: by WALL, never by absolute point, so it follows
+    /// the room when a corner is dragged afterwards — the same rule locked
+    /// walls and curves keep. Edge numbers count in `editedPolygon`.
+    struct CeilingRecord: Codable, Equatable {
+        /// "flat", "sloped", "vaulted" or "zones".
+        var kind: String
+        /// Flat: the height. Zones: the base height around them.
+        var height: Double?
+        /// Sloped: the height along `lowEdge`, rising to `high` along `highEdge`.
+        var low: Double?
+        var high: Double?
+        var lowEdge: Int?
+        var highEdge: Int?
+        /// Vaulted: `eave` at the walls farthest from the ridge, `ridge` along
+        /// it. The ridge runs parallel to `ridgeEdge`, through the middle of
+        /// the room.
+        var eave: Double?
+        var ridge: Double?
+        var ridgeEdge: Int?
+        /// Zones: strips along walls — a bulkhead, a soffit over cabinets —
+        /// each `depth` into the room at its own `height`.
+        var strips: [Strip]?
+
+        struct Strip: Codable, Equatable, Hashable {
+            var edge: Int
+            var depth: Double
+            var height: Double
+        }
+
+        static func flat(_ h: Double) -> CeilingRecord { CeilingRecord(kind: "flat", height: h) }
+    }
+
+    struct CeilingFigures: Codable, Equatable {
+        var volumeCbm: Double
+        var grossWallSqm: Double
+        var ceilingSurfaceSqm: Double
+        var meanHeightM: Double
+        var minHeightM: Double
+        var maxHeightM: Double
+    }
 
     /// Doors and windows the operator PLACED on a drawn or typed room, kept
     /// in their editable form: which edge of the (edited) polygon, how far
@@ -388,7 +439,8 @@ struct ScanGeometry: Codable {
     /// Heights are the kind's convention clamped to the ceiling — a 6'8"
     /// door in a 6' crawl space must not deduct wall that does not exist.
     static func surfaces(
-        for authored: [ScanGeometry.AuthoredOpening], polygon: [CGPoint], ceilingHeight: Double
+        for authored: [ScanGeometry.AuthoredOpening], polygon: [CGPoint], ceilingHeight: Double,
+        ceilingOver: ((PlanEditing.WallOpening) -> Double)? = nil
     ) -> (doors: [Surface], windows: [Surface], passages: [Surface]) {
         var doors: [Surface] = []
         var windows: [Surface] = []
@@ -419,7 +471,10 @@ struct ScanGeometry: Codable {
                 // window's top past the ceiling is not wall that was there
                 // to deduct; measuring from the floor instead overstated the
                 // hole of every window whose top met the ceiling.
-                heightMeters: max(0, min(opening.height, ceilingHeight - opening.sill)),
+                // Under a sloped, vaulted or zoned ceiling (M6) "the
+                // ceiling" is the lowest it comes over THIS opening's span.
+                heightMeters: max(
+                    0, min(opening.height, (ceilingOver?(opening) ?? ceilingHeight) - opening.sill)),
                 centerX: (a.x + b.x) / 2,
                 centerZ: (a.y + b.y) / 2,
                 axisX: dx / width,
@@ -434,7 +489,8 @@ struct ScanGeometry: Codable {
     }
 
     static func surfaces(
-        for authored: [PlanEditing.WallOpening], polygon: [CGPoint], ceilingHeight: Double
+        for authored: [PlanEditing.WallOpening], polygon: [CGPoint], ceilingHeight: Double,
+        ceilingOver: ((PlanEditing.WallOpening) -> Double)? = nil
     ) -> (doors: [Surface], windows: [Surface], passages: [Surface]) {
         surfaces(
             for: authored.map {
@@ -442,7 +498,7 @@ struct ScanGeometry: Codable {
                     edge: $0.edge, offset: $0.offset, width: $0.width, height: $0.height,
                     sill: $0.sill, kind: $0.kind.rawValue)
             },
-            polygon: polygon, ceilingHeight: ceilingHeight)
+            polygon: polygon, ceilingHeight: ceilingHeight, ceilingOver: ceilingOver)
     }
 
     /// `meshPoints` is every LiDAR mesh vertex ARKit accumulated during this

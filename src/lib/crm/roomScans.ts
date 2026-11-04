@@ -4,6 +4,7 @@ import { openWallLengthMeters, perimeterWithOpenWallsMeters } from "../openWalls
 import type { ScanGeometry } from "../roomScan";
 import { arcFigures, bulgeAt, signedSegmentArea } from "../arc";
 import type { AuthoredOpening } from "../authoredOpening";
+import type { CeilingFigures } from "../roomScan";
 
 /**
  * Room scans, stored against the project they measured.
@@ -311,6 +312,7 @@ export async function saveEditedPolygon(
   openings?: AuthoredOpenings,
   interiorWalls?: { x1: number; y1: number; x2: number; y2: number }[],
   edgeBulge?: number[],
+  ceiling?: { profile: Record<string, unknown>; figures: CeilingFigures | null },
 ): Promise<void> {
   const client = requireDb();
 
@@ -338,10 +340,22 @@ export async function saveEditedPolygon(
 
   const base = { ...((data?.geometry ?? {}) as Record<string, unknown>) };
   delete base.edgeBulge;
+  // The ceiling (M6) names walls by edge number, like the curves above: a
+  // save that says nothing about it keeps the stored one only while the
+  // outline still has the same edges.
+  const keptCeiling =
+    !ceiling &&
+    Array.isArray((base.editedPolygon as unknown[] | undefined) ?? null) &&
+    (base.editedPolygon as unknown[]).length === polygon.length;
+  if (ceiling || !keptCeiling) {
+    delete base.ceilingProfile;
+    delete base.ceilingFigures;
+  }
   const geometry = {
     ...base,
     editedPolygon: polygon,
     ...(curved ? { edgeBulge: curved } : {}),
+    ...(ceiling ? { ceilingProfile: ceiling.profile, ...(ceiling.figures ? { ceilingFigures: ceiling.figures } : {}) } : {}),
     // Which lengths were typed rather than measured. A claim file has to be
     // able to tell those apart — "which of these did you measure?" is a fair
     // question with a real answer.
@@ -385,6 +399,12 @@ export async function saveEditedPolygon(
       geometry,
       floor_area_sqm: areaSqm,
       wall_length_m: wallRunM,
+      // A shaped ceiling's AVERAGE height (volume ÷ floor), so every reader
+      // that multiplies floor by ceiling — volume, drying, the estimator —
+      // gets the right air without knowing the ceiling is shaped.
+      ...(ceiling?.figures && ceiling.figures.meanHeightM > 0
+        ? { ceiling_height_m: ceiling.figures.meanHeightM }
+        : {}),
       // The count columns are what lists and reports cite; they must say
       // what the blob says.
       ...(openings

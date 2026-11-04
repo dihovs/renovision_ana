@@ -971,6 +971,10 @@ actor API {
         /// from this build, all zeros for a straight room, so a curve that
         /// was straightened is cleared rather than left behind.
         let edgeBulge: [Double]?
+        /// The ceiling's shape and what it measured (M6). Nil says nothing,
+        /// and the stored ones are kept.
+        let ceilingProfile: ScanGeometry.CeilingRecord?
+        let ceilingFigures: ScanGeometry.CeilingFigures?
     }
 
     /// Save a plan corrected by hand. The scan's own measurements are kept —
@@ -980,15 +984,24 @@ actor API {
         roomId: String, corners: [CGPoint], locked: [Int] = [],
         openings placed: [PlanEditing.WallOpening]? = nil, ceilingHeight: Double = 0,
         interiorWalls: [ScanGeometry.InteriorWall]? = nil,
-        edgeBulge: [Double]? = nil
+        edgeBulge: [Double]? = nil,
+        ceiling: ScanGeometry.CeilingRecord? = nil
     ) async throws {
+        // A room with no recorded ceiling still has to deduct SOMETHING for a
+        // door; the builder's 8' is the least surprising stand-in.
+        let flat = ceilingHeight > 0 ? ceilingHeight : 2.44
+        let bulges = edgeBulge ?? []
         let synthesized = placed.map {
             ScanGeometry.surfaces(
-                for: $0, polygon: corners,
-                // A room with no recorded ceiling still has to deduct
-                // SOMETHING for a door; the builder's 8' is the least
-                // surprising stand-in.
-                ceilingHeight: ceilingHeight > 0 ? ceilingHeight : 2.44)
+                for: $0, polygon: corners, ceilingHeight: flat,
+                ceilingOver: { opening in
+                    PlanBridge.ceilingOver(
+                        corners, bulges: bulges, ceiling: ceiling, flat: flat,
+                        edge: opening.edge, offset: opening.offset, width: opening.width)
+                })
+        }
+        let figures = ceiling.flatMap {
+            PlanBridge.ceilingFigures(corners, bulges: bulges, ceiling: $0, flat: flat)
         }
         _ = try await request(
             "/api/v1/scans/\(roomId)", method: "PATCH",
@@ -1003,7 +1016,9 @@ actor API {
                 doorCount: synthesized?.doors.count,
                 windowCount: synthesized?.windows.count,
                 openingCount: synthesized?.passages.count,
-                edgeBulge: edgeBulge))
+                edgeBulge: edgeBulge,
+                ceilingProfile: ceiling,
+                ceilingFigures: figures))
     }
 
     // MARK: - Photos

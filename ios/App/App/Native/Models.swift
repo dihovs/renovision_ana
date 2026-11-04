@@ -857,7 +857,12 @@ struct RoomScan: Decodable, Identifiable, Hashable {
     }
 
     var wallAreaGrossSqm: Double {
-        wallLengthM * averageWallHeightM + partitionAreaSqm
+        // A sloped, vaulted or zoned ceiling (M6): the walls were measured
+        // under it, wall by wall, when the room was saved.
+        if let figured = geometry?.ceilingFigures?.grossWallSqm, figured > 0 {
+            return figured + partitionAreaSqm
+        }
+        return wallLengthM * averageWallHeightM + partitionAreaSqm
     }
 
     /// Net wall area: gross with the doors, windows and cased openings the
