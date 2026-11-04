@@ -29,6 +29,12 @@ public struct SolverTuning: Codable, Sendable {
     /// How many times to re-solve with the anchors moved to the last answer
     /// — see `square`. One round is the spec's solver exactly.
     public var rounds: Int = 6
+    /// The spec's gauge (§6): wall 0 keeps its direction. Right for a room
+    /// someone DREW, whose first wall is where they put it. For a scan every
+    /// wall is a degree or two off, and pinning one makes the rest bend to
+    /// it — so the scan path turns this off and lets every corner's anchor
+    /// decide the room's orientation together; only corner 0 stays put.
+    public var pinFirstWall: Bool = true
 
     public init() {}
 }
@@ -156,10 +162,15 @@ public enum Squaring {
         let n = p0.count
         let u = (p0[1] - p0[0]) * (1 / max(p0[1].distance(to: p0[0]), 1e-12))
 
+        let pin = tuning.pinFirstWall
         func points(_ q: [Double]) -> [Vec2] {
             var p = p0
-            p[1] = p0[0] + u * q[0]
-            for i in 2..<n { p[i] = Vec2(q[2 * i - 3], q[2 * i - 2]) }
+            if pin {
+                p[1] = p0[0] + u * q[0]
+                for i in 2..<n { p[i] = Vec2(q[2 * i - 3], q[2 * i - 2]) }
+            } else {
+                for i in 1..<n { p[i] = Vec2(q[2 * i - 2], q[2 * i - 1]) }
+            }
             return p
         }
 
@@ -182,8 +193,8 @@ public enum Squaring {
 
         func cost(_ r: [Double]) -> Double { r.reduce(0) { $0 + $1 * $1 } }
 
-        var q = [p0[1].distance(to: p0[0])]
-        for i in 2..<n { q += [p0[i].x, p0[i].y] }
+        var q: [Double] = pin ? [p0[1].distance(to: p0[0])] : []
+        for i in (pin ? 2 : 1)..<n { q += [p0[i].x, p0[i].y] }
 
         var r = residuals(q)
         var c = cost(r)
