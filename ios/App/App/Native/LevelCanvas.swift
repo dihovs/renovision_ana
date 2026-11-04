@@ -1448,6 +1448,9 @@ struct FloorCanvasView: View {
     @State private var addingPhoto = false
     @State private var floorInfo = false
     @State private var choosingMethod = false
+    /// Shared walls whose neighbour's side no longer matches a locked length
+    /// just saved — see `proposeSharedLocks`.
+    @State private var sharedProposals: [SharedLockProposal] = []
     @State private var picked = false
     @State private var method: CaptureFlow.CaptureMode = .draw
 
@@ -1808,6 +1811,86 @@ struct FloorCanvasView: View {
     /// low corner would slide the room across the sheet unless its position
     /// takes the same step back. Both are worked out against ONE offset:
     /// before and after share the frame `origin - minBefore`.
+    // MARK: - A locked length across a shared wall (spec §12, A4)
+
+    struct SharedLockProposal: Identifiable {
+        let id = UUID()
+        let room: RoomScan
+        /// The neighbour's own edge, in its plan polygon.
+        let edge: Int
+        let length: Double
+    }
+
+    /// After a room is saved: every wall of it that is LOCKED and shared
+    /// with a neighbour whose matching wall now measures differently. Asked,
+    /// never done silently — it changes another room's measurements.
+    ///
+    /// "The same wall" is held tight: the two must lie along each other
+    /// almost entirely and differ by no more than 30 cm. A hallway's long
+    /// wall merely touching a bedroom's is a different wall, and a typed
+    /// length on the bedroom says nothing about the hallway.
+    private func proposeSharedLocks(after roomId: String) {
+        guard let saved = cachedLayout.room(id: roomId),
+            let locked = saved.room.geometry?.lockedEdges, !locked.isEmpty
+        else { return }
+        func ring(_ r: StoreyRoom) -> [Vec2] {
+            var loop = floorPolygon(r)
+            if loop.count > 1, loop.first == loop.last { loop.removeLast() }
+            return PlanBridge.core(loop)
+        }
+        let mine = ring(saved)
+        guard mine.count >= 3 else { return }
+        var found: [SharedLockProposal] = []
+        for other in cachedLayout.rooms where other.id != roomId && other.room.geometry?.editedPolygon != nil {
+            let theirs = ring(other)
+            guard theirs.count >= 3 else { continue }
+            let pairs = [0, StoreyLayout.interiorWall].flatMap { gap in
+                Alignment.sharedWalls([mine, theirs], gap: gap)
+            }
+            for pair in pairs where locked.contains(pair.wallA) {
+                let lenA = mine[pair.wallA].distance(to: mine[(pair.wallA + 1) % mine.count])
+                let lenB = theirs[pair.wallB].distance(to: theirs[(pair.wallB + 1) % theirs.count])
+                guard abs(lenA - lenB) > 0.01, abs(lenA - lenB) <= 0.30,
+                    pair.overlap >= min(lenA, lenB) - 0.05,
+                    !found.contains(where: { $0.room.id == other.id && $0.edge == pair.wallB })
+                else { continue }
+                found.append(SharedLockProposal(room: other.room, edge: pair.wallB, length: lenA))
+            }
+        }
+        sharedProposals = found
+    }
+
+    /// Set each neighbour's shared wall to the locked length, lock it, save
+    /// it, and keep the room where it stands on the floor.
+    private func applySharedLocks(_ proposals: [SharedLockProposal]) async {
+        for p in proposals {
+            guard let placed = cachedLayout.room(id: p.room.id), let g = p.room.geometry else { continue }
+            var ring = placed.plan.polygon
+            if ring.count > 1, ring.first == ring.last { ring.removeLast() }
+            let next = PlanEditing.setEdgeLength(ring, index: p.edge, to: p.length, anchoring: .centre)
+            let locked = Set(g.lockedEdges ?? []).union([p.edge])
+            do {
+                try await API.shared.saveEditedPlan(
+                    roomId: p.room.id, corners: next, locked: Array(locked).sorted(),
+                    openings: g.authoredOpenings.map { $0.compactMap(PlanEditing.WallOpening.init) },
+                    ceilingHeight: p.room.ceilingHeightM,
+                    interiorWalls: g.interiorWalls,
+                    edgeBulge: g.edgeBulge,
+                    ceiling: g.ceilingProfile)
+                // The plan is drawn from its own top-left corner; if the
+                // resize moved that corner, move the room by the same so it
+                // stays exactly where it stood.
+                let shift = StoreyArranging.bounds(next).origin
+                if let x = p.room.planX, let y = p.room.planY, abs(shift.x) + abs(shift.y) > 0.0005 {
+                    try await API.shared.placeRoom(roomId: p.room.id, x: x + shift.x, y: y + shift.y)
+                }
+            } catch {
+                mergeError = "Could not update \(p.room.name): \(error.localizedDescription)"
+            }
+        }
+        await load()
+    }
+
     private func carryNeighbours(of roomId: String, from before: [CGPoint], to after: [CGPoint])
         async
     {
@@ -2342,7 +2425,12 @@ struct FloorCanvasView: View {
                             onOutlineChanged: { before, after in
                                 Task { await carryNeighbours(of: room.id, from: before, to: after) }
                             },
-                            onSaved: { Task { await load() } }
+                            onSaved: {
+                                Task {
+                                    await load()
+                                    proposeSharedLocks(after: room.id)
+                                }
+                            }
                         )
                         // Spent the moment it is handed over — it is one
                         // placement, not a mode, and leaving it set would
@@ -2360,6 +2448,21 @@ struct FloorCanvasView: View {
                     // frame one while `RoomEditorCore`'s own chrome is
                     // still arriving.
                     floorChrome(label: label)
+                        .confirmationDialog(
+                            sharedProposals.count == 1
+                                ? "\(sharedProposals[0].room.name) shares this wall. Set its side to \(UnitSettings.shared.format.format(sharedProposals[0].length)) too?"
+                                : "\(sharedProposals.count) rooms share walls you just measured. Set their sides to match?",
+                            isPresented: Binding(
+                                get: { !sharedProposals.isEmpty }, set: { if !$0 { sharedProposals = [] } }),
+                            titleVisibility: .visible
+                        ) {
+                            Button(sharedProposals.count == 1 ? "Set it" : "Set all \(sharedProposals.count)") {
+                                let chosen = sharedProposals
+                                sharedProposals = []
+                                Task { await applySharedLocks(chosen) }
+                            }
+                            Button("Leave them", role: .cancel) { sharedProposals = [] }
+                        }
                         .alert(
                             "Could not merge those rooms",
                             isPresented: Binding(
