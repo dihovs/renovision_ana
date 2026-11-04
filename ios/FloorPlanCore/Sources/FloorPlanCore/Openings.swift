@@ -105,11 +105,12 @@ extension Room {
         return out
     }
 
-    /// Gross area of wall j: chord × the ceiling height at it. Flat ceilings
-    /// only — sloped, vaulted and zoned walls are M6, and until then they are
+    /// Gross area of wall j: its run along the face (the arc length of a
+    /// curved wall, §10) × the ceiling height at it. Flat ceilings only —
+    /// sloped, vaulted and zoned walls are M6, and until then they are
     /// measured at their lowest height, which never overstates paint.
     public func grossWallArea(_ j: Int) -> Double {
-        wallLength(j) * ceiling.heightAtWall(walls[j].id)
+        wallRun(j) * ceiling.heightAtWall(walls[j].id)
     }
 
     /// Net area of wall j (§9): gross less width × height of each opening on

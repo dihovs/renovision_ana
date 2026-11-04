@@ -312,6 +312,7 @@ struct RoomEditorCore: View {
         /// Partitions standing in the room. In the snapshot because undo has
         /// to reach them too — a wall you cannot un-add is worse than no wall.
         var interiorWalls: [ScanGeometry.InteriorWall] = []
+        var bulges: [Double] = []
     }
 
     /// Viewport. `zoom` multiplies the fit scale; `pan` slides the camera in
@@ -327,6 +328,13 @@ struct RoomEditorCore: View {
     @State private var centreBase: CGPoint = .zero
     /// The wall a Bump Out sheet is open for.
     @State private var bumpingOut: BumpTarget?
+    /// The wall whose Curve sheet is open (M5).
+    @State private var curving: BumpTarget?
+    /// One bulge per edge, + away from the room (M5). Kept in step with
+    /// `corners` by every edit that adds or removes a corner; when the two
+    /// ever disagree in count, `PlanBridge.aligned` treats the room as
+    /// straight rather than hang a curve on the wrong wall.
+    @State private var bulges: [Double] = []
 
     enum Selection: Equatable {
         case none
@@ -648,6 +656,20 @@ struct RoomEditorCore: View {
             }
             Button("Leave it alone", role: .cancel) { lockedWarning = nil }
         }
+        .sheet(item: $curving) { target in
+            WallCurveSheet(
+                chord: PlanEditing.edgeLength(corners, target.id),
+                current: bulges.count == corners.count ? bulges[target.id] : 0,
+                apply: { bulge in
+                    guard corners.indices.contains(target.id) else { return }
+                    push()
+                    if bulges.count != corners.count {
+                        bulges = Array(repeating: 0, count: corners.count)
+                    }
+                    bulges[target.id] = bulge
+                })
+            .presentationDetents([.medium])
+        }
         .sheet(item: $bumpingOut) { target in
             BumpOutSheet(
                 wallLength: PlanEditing.edgeLength(corners, target.id),
@@ -669,6 +691,11 @@ struct RoomEditorCore: View {
         openings = PlanEditing.openingsAfterBumpOut(
             openings, edge: index, offset: offset, width: width)
         locked = Set(locked.compactMap { $0 == index ? nil : ($0 > index ? $0 + 4 : $0) })
+        // The bumped wall is now five straight walls; the rest keep theirs.
+        if bulges.count == corners.count {
+            bulges[index] = 0
+            bulges.insert(contentsOf: [0, 0, 0, 0], at: index + 1)
+        }
         corners = next
         select(.wall(index + 2))
         return true
@@ -769,9 +796,15 @@ struct RoomEditorCore: View {
 
                     guard corners.count >= 3 else { return }
 
+                    // Curved walls (M5) are followed along their arc, so the
+                    // floor fill and the wall agree.
+                    let curves = PlanBridge.aligned(bulges, corners)
+                    func run(_ i: Int) -> [CGPoint] {
+                        PlanBridge.edgePoints(corners, edge: i, bulge: curves?[i] ?? 0)
+                    }
                     var floor = Path()
                     floor.move(to: pt(corners[0]))
-                    for c in corners.dropFirst() { floor.addLine(to: pt(c)) }
+                    for i in corners.indices { for p in run(i).dropFirst() { floor.addLine(to: pt(p)) } }
                     floor.closeSubpath()
 
                     // §2: the room you are INSIDE is white with a fine tan
@@ -787,10 +820,10 @@ struct RoomEditorCore: View {
                     // a finger often passes through a bad shape on its way to
                     // a good one.
                     for i in corners.indices {
-                        let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
+                        let along = run(i)
                         var wall = Path()
-                        wall.move(to: pt(corners[a]))
-                        wall.addLine(to: pt(corners[b]))
+                        wall.move(to: pt(along[0]))
+                        for p in along.dropFirst() { wall.addLine(to: pt(p)) }
 
                         let isSelected = selection == .wall(i)
                         let core = isSelected ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale)
@@ -2437,7 +2470,7 @@ struct RoomEditorCore: View {
             }
 
             HStack {
-                Text(Measure.sqftLabel(PlanEditing.area(corners)))
+                Text(Measure.sqftLabel(PlanBridge.area(corners, bulges: bulges)))
                     .font(.system(size: 15, weight: .bold).monospacedDigit())
                     .foregroundStyle(outlineGuessed ? Brand.inkSoft : Brand.ink)
                 // Never the bare words "floor area" over a number nobody
@@ -2598,7 +2631,7 @@ struct RoomEditorCore: View {
             // rooms somebody could stand in. Offering it and then refusing
             // is worse than not offering it.
             var verbs: Set<EditorAction> =
-                canAuthorOpenings ? [.insert, .addCorner, .bumpOut] : [.addCorner, .bumpOut]
+                canAuthorOpenings ? [.insert, .addCorner, .bumpOut, .curve] : [.addCorner, .bumpOut, .curve]
             // `Add Wall` only where a stub would actually fit — against a
             // wall with room in front of it. Offering it and then refusing is
             // worse than not offering it, the same rule Split Room follows.
@@ -3076,6 +3109,8 @@ struct RoomEditorCore: View {
             addCorner(on: index)
         case (.bumpOut, .wall(let index)):
             bumpingOut = BumpTarget(id: index)
+        case (.curve, .wall(let index)):
+            curving = BumpTarget(id: index)
         case (.addWall, .wall(let index)):
             addInteriorWall(on: index)
         case (.delete, .interiorWall(let index)):
@@ -3210,6 +3245,12 @@ struct RoomEditorCore: View {
             openings, polygon: corners, splitEdge: index)
         locked = PlanEditing.lockedAfterCornerAdded(locked, splitEdge: index)
         let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
+        // The split wall becomes two STRAIGHT walls — a corner on a curve's
+        // chord is not on the curve. Every other wall keeps its own.
+        if bulges.count == corners.count {
+            bulges[index] = 0
+            bulges.insert(0, at: index + 1)
+        }
         corners = next
         selection = .corner(made)
     }
@@ -3220,6 +3261,14 @@ struct RoomEditorCore: View {
             openings, polygon: corners, corner: index)
         locked = PlanEditing.lockedAfterCornerRemoved(
             locked, corner: index, count: corners.count)
+        // The two walls meeting at this corner become one, straight.
+        if bulges.count == corners.count {
+            // Old walls index−1 and index merge. Removing `index` shifts every
+            // later wall down one, so the merged wall is index−1 — or, when
+            // the first corner goes, the old last wall, now the new last.
+            bulges.remove(at: index)
+            if !bulges.isEmpty { bulges[index > 0 ? index - 1 : bulges.count - 1] = 0 }
+        }
         corners = PlanEditing.removeCorner(corners, index: index)
         selection = .none
     }
@@ -3361,6 +3410,10 @@ struct RoomEditorCore: View {
         // at — deleting it here would delete it from the record on Save.
         openings = (room.geometry?.authoredOpenings ?? [])
             .compactMap(PlanEditing.WallOpening.init)
+        // Curves belong to the corrected outline's edges; a scanned room
+        // that was never corrected has none.
+        let stored = room.geometry?.edgeBulge ?? []
+        bulges = stored.count == corners.count ? stored : Array(repeating: 0, count: corners.count)
 
         // Freeze the viewport to the room's extent AS OPENED. `measuredBounds`
         // is now correct for `corners`, so this is the one moment to capture
@@ -3408,17 +3461,21 @@ struct RoomEditorCore: View {
     }
 
     private func push() {
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges))
         if history.count > 100 { history.removeFirst() }
         future.removeAll()
     }
 
     private func undo() {
         guard let previous = history.popLast() else { return }
-        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
+        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges))
         corners = previous.corners
         openings = previous.openings
         locked = previous.locked
+        // Partitions were snapshotted but never restored — undoing an Add
+        // Wall left the wall standing. Fixed with the curves (3 Nov 2026).
+        interiorWalls = previous.interiorWalls
+        bulges = previous.bulges
         selection = .none
         // A measurement walk indexes the polygon it started on; geometry
         // restored from history may not be that polygon. End it.
@@ -3428,10 +3485,12 @@ struct RoomEditorCore: View {
 
     private func redo() {
         guard let next = future.popLast() else { return }
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges))
         corners = next.corners
         openings = next.openings
         locked = next.locked
+        interiorWalls = next.interiorWalls
+        bulges = next.bulges
         selection = .none
         measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -3447,7 +3506,8 @@ struct RoomEditorCore: View {
                 // here, so the detections survive the polygon correction.
                 openings: canAuthorOpenings ? openings : nil,
                 ceilingHeight: room.ceilingHeightM,
-                interiorWalls: interiorWalls)
+                interiorWalls: interiorWalls,
+                edgeBulge: PlanBridge.aligned(bulges, corners) ?? Array(repeating: 0, count: corners.count))
             if openedCorners.count == corners.count, openedCorners != corners {
                 onOutlineChanged?(openedCorners, corners)
             }

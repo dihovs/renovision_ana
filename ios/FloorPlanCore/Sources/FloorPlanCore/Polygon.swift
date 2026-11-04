@@ -80,10 +80,15 @@ public enum Polygon {
 
 extension Room {
 
+    /// The CORNER polygon's signed area — what orientation is decided on.
     public var signedArea: Double { Polygon.signedArea(points) }
-    /// Floor area in m². Straight walls only until M5 adds arc segments.
-    public var area: Double { Polygon.area(points) }
-    public var perimeter: Double { Polygon.perimeter(points) }
+    /// Floor area in m², curved walls included (§10): the corner polygon,
+    /// plus each outward bulge's segment, minus each inward one's.
+    public var area: Double {
+        Polygon.area(points) + walls.indices.reduce(0) { $0 + arc($1).signedSegmentArea }
+    }
+    /// Perimeter along the walls' faces — the arc length of a curved wall.
+    public var perimeter: Double { walls.indices.reduce(0) { $0 + wallRun($1) } }
     public var isSimple: Bool { Polygon.isSimple(points) }
 
     /// The chord length of wall i.

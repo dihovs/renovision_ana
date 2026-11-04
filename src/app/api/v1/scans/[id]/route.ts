@@ -95,7 +95,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             .map((n) => Number(n))
             .filter((n) => Number.isInteger(n) && n >= 0 && n < polygon.length)
         : [];
-      await saveEditedPolygon(id, polygon, locked, readOpenings(body), readInteriorWalls(body));
+      // Curved walls (M5): one bulge per edge, + away from the room. Only
+      // when the save sends them, and only when there is one per edge — a
+      // list that does not line up with the outline cannot say which wall
+      // it means, so it is ignored rather than guessed at.
+      const edgeBulge =
+        Array.isArray(body.edgeBulge) && body.edgeBulge.length === polygon.length
+          ? (body.edgeBulge as unknown[]).map((b) => {
+              const n = Number(b);
+              return Number.isFinite(n) ? n : 0;
+            })
+          : undefined;
+      await saveEditedPolygon(
+        id, polygon, locked, readOpenings(body), readInteriorWalls(body), edgeBulge,
+      );
     }
 
     await updateRoomScan(id, {

@@ -96,6 +96,10 @@ export type ScanGeometry = RoomScanResult & {
       below is what decides whether to trust it, by comparing its area
       against the wall-chained one — the Swift twin is
       `FloorPlanGeometry.plan(from:)`, and the two gates must agree. */
+  /** Curved walls (floor-plan spec §10, M5): edge i of `editedPolygon`
+      bulges this many metres, + away from the room, − into it. Absent or 0
+      is straight. See src/lib/arc.ts. */
+  edgeBulge?: number[];
   meshFloorPolygon?: { x: number; y: number }[];
   /** Which edge lengths were TYPED rather than measured, by editedPolygon
       edge index — edge i runs from point i to point i+1, wrapping. */

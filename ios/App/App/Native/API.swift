@@ -967,6 +967,10 @@ actor API {
         let doorCount: Int?
         let windowCount: Int?
         let openingCount: Int?
+        /// One bulge per edge (M5), + away from the room. Sent on every save
+        /// from this build, all zeros for a straight room, so a curve that
+        /// was straightened is cleared rather than left behind.
+        let edgeBulge: [Double]?
     }
 
     /// Save a plan corrected by hand. The scan's own measurements are kept —
@@ -975,7 +979,8 @@ actor API {
     func saveEditedPlan(
         roomId: String, corners: [CGPoint], locked: [Int] = [],
         openings placed: [PlanEditing.WallOpening]? = nil, ceilingHeight: Double = 0,
-        interiorWalls: [ScanGeometry.InteriorWall]? = nil
+        interiorWalls: [ScanGeometry.InteriorWall]? = nil,
+        edgeBulge: [Double]? = nil
     ) async throws {
         let synthesized = placed.map {
             ScanGeometry.surfaces(
@@ -997,7 +1002,8 @@ actor API {
                 openings: synthesized?.passages,
                 doorCount: synthesized?.doors.count,
                 windowCount: synthesized?.windows.count,
-                openingCount: synthesized?.passages.count))
+                openingCount: synthesized?.passages.count,
+                edgeBulge: edgeBulge))
     }
 
     // MARK: - Photos

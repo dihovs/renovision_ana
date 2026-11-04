@@ -1,3 +1,4 @@
+import { arcFigures, bulgeAt } from "./arc";
 import { wallLengthM } from "./crm/areaShapes";
 import {
   planCorners,
@@ -44,10 +45,13 @@ export function openWallLengthMeters(
 ): number {
   const corners = outlineCorners(geometry);
   if (corners.length < 3) return 0;
-  return validIndices(openWalls, corners.length).reduce(
-    (sum, i) => sum + wallLengthM(corners, i),
-    0,
-  );
+  // A curved edge runs its arc (M5) — the same figure the closed perimeter
+  // counted it at, so opening it removes all of it.
+  const edited = (geometry.editedPolygon?.length ?? 0) >= 3;
+  return validIndices(openWalls, corners.length).reduce((sum, i) => {
+    const chord = wallLengthM(corners, i);
+    return sum + (edited ? arcFigures(chord, bulgeAt(geometry.edgeBulge, i)).length : chord);
+  }, 0);
 }
 
 /**
@@ -61,7 +65,7 @@ export function closedPerimeterMeters(geometry: ScanGeometry): number {
   if (edited && edited.length >= 3) {
     return edited.reduce((sum, a, i) => {
       const b = edited[(i + 1) % edited.length];
-      return sum + Math.hypot(b.x - a.x, b.y - a.y);
+      return sum + arcFigures(Math.hypot(b.x - a.x, b.y - a.y), bulgeAt(geometry.edgeBulge, i)).length;
     }, 0);
   }
   return totalWallLengthMeters(geometry);

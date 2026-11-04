@@ -169,6 +169,11 @@ struct ScanGeometry: Codable {
     /// must not be a shrug. A locked length also refuses to be changed by a
     /// stray drag without asking first.
     var lockedEdges: [Int]?
+    /// Curved walls (floor-plan spec §10, M5): edge i of `editedPolygon`
+    /// bulges this many metres, + away from the room, − into it; 0 or absent
+    /// is straight. Twin: `edgeBulge` in src/lib/roomScan.ts, measured by
+    /// src/lib/arc.ts on the server and `PlanBridge` on the phone.
+    var edgeBulge: [Double]?
 
     /// Doors and windows the operator PLACED on a drawn or typed room, kept
     /// in their editable form: which edge of the (edited) polygon, how far

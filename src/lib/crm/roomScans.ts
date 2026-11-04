@@ -2,6 +2,7 @@ import { db, isMissingTable, MigrationPendingError } from "./db";
 import { listOpenWalls } from "./roomWalls";
 import { openWallLengthMeters, perimeterWithOpenWallsMeters } from "../openWalls";
 import type { ScanGeometry } from "../roomScan";
+import { arcFigures, bulgeAt, signedSegmentArea } from "../arc";
 import type { AuthoredOpening } from "../authoredOpening";
 
 /**
@@ -241,19 +242,28 @@ export async function getRoomScanProject(id: string): Promise<string | null> {
  * traced the other way, and an operator dragging corners has no idea which
  * way round they are going.
  */
-export function polygonMetrics(polygon: { x: number; y: number }[]): {
+export function polygonMetrics(
+  polygon: { x: number; y: number }[],
+  edgeBulge?: readonly number[] | null,
+): {
   areaSqm: number;
   perimeterM: number;
 } {
   let twiceArea = 0;
   let perimeterM = 0;
+  let segments = 0;
   for (let i = 0; i < polygon.length; i += 1) {
     const a = polygon[i];
     const b = polygon[(i + 1) % polygon.length];
     twiceArea += a.x * b.y - b.x * a.y;
-    perimeterM += Math.hypot(b.x - a.x, b.y - a.y);
+    // A curved wall (floor-plan spec §10, M5) runs its arc, not its chord,
+    // and adds — or, bulging in, removes — the slice between the two.
+    const chord = Math.hypot(b.x - a.x, b.y - a.y);
+    const bulge = bulgeAt(edgeBulge, i);
+    perimeterM += arcFigures(chord, bulge).length;
+    segments += signedSegmentArea(chord, bulge);
   }
-  return { areaSqm: Math.abs(twiceArea) / 2, perimeterM };
+  return { areaSqm: Math.max(0, Math.abs(twiceArea) / 2 + segments), perimeterM };
 }
 
 /**
@@ -300,6 +310,7 @@ export async function saveEditedPolygon(
   lockedEdges: number[] = [],
   openings?: AuthoredOpenings,
   interiorWalls?: { x1: number; y1: number; x2: number; y2: number }[],
+  edgeBulge?: number[],
 ): Promise<void> {
   const client = requireDb();
 
@@ -310,11 +321,27 @@ export async function saveEditedPolygon(
     .single();
   if (readError) throw new Error(`Could not find that room: ${readError.message}`);
 
-  const { areaSqm, perimeterM } = polygonMetrics(polygon);
+  // Curved walls, one per edge (M5). When this save declares them they are
+  // the answer. When it does not — a build from before curves existed — the
+  // stored ones are kept only if they still line up edge for edge; an outline
+  // corrected to a different corner count by such a build comes out
+  // straight rather than with a curve hung on the wrong wall.
+  const previous = (data?.geometry as { edgeBulge?: unknown } | null)?.edgeBulge;
+  const bulges: number[] | undefined = edgeBulge
+    ? edgeBulge
+    : Array.isArray(previous) && previous.length === polygon.length
+      ? (previous as number[])
+      : undefined;
+  const curved = bulges?.some((b) => Number.isFinite(b) && b !== 0) ? bulges : undefined;
 
+  const { areaSqm, perimeterM } = polygonMetrics(polygon, curved);
+
+  const base = { ...((data?.geometry ?? {}) as Record<string, unknown>) };
+  delete base.edgeBulge;
   const geometry = {
-    ...((data?.geometry ?? {}) as Record<string, unknown>),
+    ...base,
     editedPolygon: polygon,
+    ...(curved ? { edgeBulge: curved } : {}),
     // Which lengths were typed rather than measured. A claim file has to be
     // able to tell those apart — "which of these did you measure?" is a fair
     // question with a real answer.

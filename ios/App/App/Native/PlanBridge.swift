@@ -82,6 +82,56 @@ enum PlanBridge {
             return .conflict(walls: walls, crosses: crosses)
         }
     }
+
+    // MARK: - Curved walls (spec §10, M5)
+    //
+    // A wall's curve is stored as a BULGE: metres, + away from the room,
+    // − into it (`ScanGeometry.edgeBulge`). The spec's sagitta is "+ to the
+    // right of travel", which is away from the room only in a
+    // counter-clockwise outline — so the sign is converted here, from the
+    // outline's real winding, and nowhere else.
+
+    /// The bulges, if they line up with these corners edge for edge. An
+    /// outline whose corner count changed under them has no curves left to
+    /// trust, and is drawn and measured straight.
+    static func aligned(_ bulges: [Double], _ corners: [CGPoint]) -> [Double]? {
+        bulges.count == corners.count && bulges.contains(where: { $0 != 0 }) ? bulges : nil
+    }
+
+    /// The room in the core's model, curved walls included, counter-clockwise.
+    static func room(_ corners: [CGPoint], bulges: [Double]) -> Room {
+        let pts = core(corners)
+        var room = Room(name: "", corners: pts.map { Corner(p: $0) })
+        if let bulges = aligned(bulges, corners) {
+            let ccw = Polygon.isCounterClockwise(pts)
+            for (i, b) in bulges.enumerated() where b != 0 {
+                room.walls[i].shape = .arc(sagitta: ccw ? b : -b)
+            }
+        }
+        return room.counterClockwise()
+    }
+
+    /// Floor area with curved walls.
+    static func area(_ corners: [CGPoint], bulges: [Double]) -> Double {
+        corners.count >= 3 ? room(corners, bulges: bulges).area : 0
+    }
+
+    /// Points along edge i from its start corner to its end corner, in the
+    /// app's own frame: just the two corners when straight, `steps + 1`
+    /// points along the arc when curved.
+    static func edgePoints(_ corners: [CGPoint], edge i: Int, bulge: Double, steps: Int = 24) -> [CGPoint] {
+        let n = corners.count
+        let a = corners[i], b = corners[(i + 1) % n]
+        guard bulge != 0, n >= 3 else { return [a, b] }
+        let ccw = Polygon.isCounterClockwise(core(corners))
+        let sagitta = ccw ? bulge : -bulge
+        return (0...steps).map { k in
+            app(Arc.point(from: core(a), to: core(b), sagitta: sagitta, at: Double(k) / Double(steps)))
+        }
+    }
+
+    /// The deepest a wall of this chord may bulge in v1 (§10): a semicircle.
+    static func maxBulge(chord: Double) -> Double { chord / 2 }
 }
 
 private extension CGPoint {

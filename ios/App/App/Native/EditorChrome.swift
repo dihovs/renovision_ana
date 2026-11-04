@@ -1435,6 +1435,8 @@ enum EditorAction: Hashable {
     case addCorner
     /// Step one wall out (or in) over a typed width — see `PlanEditing.bumpOut`.
     case bumpOut
+    /// Curve this wall (floor-plan spec §10, M5).
+    case curve
     case addWall
     case splitRoom
     case mergeRooms
@@ -1454,6 +1456,7 @@ enum EditorAction: Hashable {
         case .duplicate: return "Duplicate"
         case .addCorner: return "Add Corner"
         case .bumpOut: return "Bump Out"
+        case .curve: return "Curve"
         case .addWall: return "Add Wall"
         case .splitRoom: return "Split Room"
         case .mergeRooms: return "Merge Rooms"
@@ -1478,6 +1481,7 @@ enum EditorAction: Hashable {
         case .duplicate: return "square.on.square"
         case .addCorner: return "plus.circle"
         case .bumpOut: return "square.split.bottomrightquarter"
+        case .curve: return "point.topleft.curvedto.point.bottomright.up"
         case .addWall: return "plus.rectangle"
         case .splitRoom: return "scissors"
         // Two shapes becoming one, which is the whole verb.
@@ -1520,7 +1524,7 @@ enum EditorAction: Hashable {
         case .wall(let dragging):
             return dragging
                 ? [.insert, .delete]
-                : [.insert, .addCorner, .bumpOut, .addWall, .splitRoom, .delete]
+                : [.insert, .addCorner, .bumpOut, .curve, .addWall, .splitRoom, .delete]
         case .corner:
             return [.insert, .delete]
         case .object:

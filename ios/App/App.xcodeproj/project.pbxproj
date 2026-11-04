@@ -97,6 +97,7 @@
 		EFD5E8192949A044EDD894D2 /* WallMeshRefinement.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E84D28CC877202BACA77EE /* WallMeshRefinement.swift */; };
 		5C543E2EE15D7011EBAEB719 /* FloorMeshRefinement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C296920150BF2BE074A7F1 /* FloorMeshRefinement.swift */; };
 		8A0E697ACCFAEC85D4B2C20F /* PlanBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */; };
+		2544C41AC8F8B0D4DD3EC82C /* WallCurveSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 632C7FEBF0C7EA9F1DB8E616 /* WallCurveSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -190,6 +191,7 @@
 		E5E84D28CC877202BACA77EE /* WallMeshRefinement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallMeshRefinement.swift; sourceTree = "<group>"; };
 		14C296920150BF2BE074A7F1 /* FloorMeshRefinement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloorMeshRefinement.swift; sourceTree = "<group>"; };
 		D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanBridge.swift; sourceTree = "<group>"; };
+		632C7FEBF0C7EA9F1DB8E616 /* WallCurveSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/WallCurveSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -234,6 +236,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				632C7FEBF0C7EA9F1DB8E616 /* WallCurveSheet.swift */,
 				D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */,
 				14C296920150BF2BE074A7F1 /* FloorMeshRefinement.swift */,
 				E5E84D28CC877202BACA77EE /* WallMeshRefinement.swift */,
@@ -403,6 +406,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2544C41AC8F8B0D4DD3EC82C /* WallCurveSheet.swift in Sources */,
 				8A0E697ACCFAEC85D4B2C20F /* PlanBridge.swift in Sources */,
 				5C543E2EE15D7011EBAEB719 /* FloorMeshRefinement.swift in Sources */,
 				EFD5E8192949A044EDD894D2 /* WallMeshRefinement.swift in Sources */,
