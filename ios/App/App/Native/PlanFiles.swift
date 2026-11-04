@@ -16,6 +16,8 @@ struct PlanFilesView: View {
     @State private var files: [URL] = []
     @State private var error: String?
     @State private var working = true
+    @State private var importing = false
+    @State private var imported: String?
 
     var body: some View {
         List {
@@ -23,6 +25,7 @@ struct PlanFilesView: View {
                 HStack { ProgressView(); Text("Making the files…").foregroundStyle(Brand.inkSoft) }
             }
             if let error { Text(error).foregroundStyle(.red) }
+            if let imported { Text(imported).foregroundStyle(Brand.green) }
             if !files.isEmpty {
                 Section {
                     ShareLink(items: files) {
@@ -50,6 +53,86 @@ struct PlanFilesView: View {
         .navigationTitle("Plan files")
         .navigationBarTitleDisplayMode(.inline)
         .task { await make() }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { importing = true } label: { Label("Bring a plan in", systemImage: "square.and.arrow.down") }
+            }
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+            guard case .success(let url) = result else { return }
+            Task { await bringIn(url) }
+        }
+    }
+
+    // MARK: - Import (spec M12: the native JSON, read back)
+
+    /// Every room in a plan JSON (this app's own format, `Export.json`)
+    /// added to THIS project: on its floor, where it stood, with its
+    /// openings, its curves and its ceiling height. Shaped ceilings come in
+    /// flat at their average height — say so rather than guess walls.
+    private func bringIn(_ url: URL) async {
+        error = nil
+        imported = nil
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let project = try Export.project(from: Data(contentsOf: url))
+            var count = 0
+            var shaped = 0
+            for floor in project.floors {
+                for (position, room) in floor.rooms.enumerated() {
+                    guard let made = Self.scan(for: room) else { continue }
+                    if room.isShapedCeiling { shaped += 1 }
+                    let id = try await API.shared.saveScan(ScanUpload(
+                        projectId: projectId, name: room.name.isEmpty ? "Room" : room.name,
+                        level: floor.name, position: position, geometry: made.geometry))
+                    try await API.shared.placeRoom(roomId: id, x: made.place.x, y: made.place.y)
+                    count += 1
+                }
+            }
+            imported = "Added \(count) room\(count == 1 ? "" : "s") from \(project.name)."
+                + (shaped > 0 ? " \(shaped) shaped ceiling\(shaped == 1 ? "" : "s") came in flat at the average height — set them again with Ceiling." : "")
+            files = try Self.write(scans: try await API.shared.scans(projectId: projectId), projectName: projectName)
+        } catch {
+            self.error = "Could not bring that plan in: \(error.localizedDescription)"
+        }
+    }
+
+    /// A core room as a drawn room's geometry, in the app's frame, plus
+    /// where its top-left corner sits on the floor.
+    static func scan(for room: Room) -> (geometry: ScanGeometry, place: CGPoint)? {
+        let floorPts = PlanBridge.app(room.floorPoints)
+        guard floorPts.count >= 3 else { return nil }
+        let minX = floorPts.map(\.x).min() ?? 0, minY = floorPts.map(\.y).min() ?? 0
+        let local = floorPts.map { CGPoint(x: $0.x - minX, y: $0.y - minY) }
+        let openings: [PlanEditing.WallOpening] = room.openings.compactMap { o in
+            guard let edge = room.wallIndex(o.wallID) else { return nil }
+            let kind: PlanEditing.OpeningKind
+            switch o.kind {
+            case .door: kind = .doorSingle
+            case .window: kind = .windowStandard
+            case .opening: kind = .doorCased
+            case .slidingDoor: kind = .doorPatio
+            case .garageDoor: kind = .doorGarage
+            }
+            return PlanEditing.WallOpening(
+                edge: edge, offset: o.offset, width: o.width, height: o.height, sill: o.sillHeight, kind: kind)
+        }
+        let height: Double
+        if case .flat(let h) = room.ceiling { height = h } else { height = room.area > 0 ? room.volume / room.area : 2.44 }
+        var geometry = ScanGeometry(polygon: local, ceilingHeight: height, authored: openings)
+        // Curves: the y-flip into the app's frame does not reorder walls,
+        // and a bulge is "away from the room" in any frame.
+        let bulges: [Double] = room.walls.map { w in
+            if case .arc(let s) = w.shape {
+                // The core stores rooms counter-clockwise, where right of
+                // travel — positive sagitta — is out of the room.
+                return s
+            }
+            return 0
+        }
+        if bulges.contains(where: { $0 != 0 }) { geometry.edgeBulge = bulges }
+        return (geometry, CGPoint(x: minX, y: minY))
     }
 
     private func make() async {

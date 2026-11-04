@@ -323,3 +323,11 @@ enum PlanBridge {
 private extension CGPoint {
     func distance(to o: CGPoint) -> Double { hypot(o.x - x, o.y - y) }
 }
+
+extension Room {
+    /// Anything but one flat height.
+    var isShapedCeiling: Bool {
+        if case .flat = ceiling { return false }
+        return true
+    }
+}

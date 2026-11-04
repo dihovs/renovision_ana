@@ -208,6 +208,19 @@ geometry is tested on the TypeScript side and mirrored into Swift by hand.
 - **A new Swift file must be registered**: `python3 ios/App/add-sources.py
   Native/YourFile.swift`, then `check-project.py`. It is not automatic.
 
+## Floor-plan spec (3–4 Nov 2026)
+
+The owner's spec `Docs/vinsnipe-floor-plan-spec.md` is the source of truth
+for the room model, built INTO this app. The plan of record and what is
+still open: `Docs/FLOOR-PLAN-PLAN.md`. The geometry lives in
+`ios/FloorPlanCore` (a local Swift package, `swift test`, linked into the
+app); `ios/App/App/Native/PlanBridge.swift` is the one crossing between
+the app's y-down plan points and the core's y-up ones. Stored additions to
+`room_scans.geometry`: `edgeBulge` (curves, + away from the room),
+`ceilingProfile` + `ceilingFigures` (by edge; `ceiling_height_m` becomes
+the mean height), `importedOutline` (M11 outline for scans since 4 Nov),
+`rawCapture` lifted into `room_scan_captures` (migration 0052).
+
 ## 5. Next task
 
 **In this order. The first is five minutes and unblocks a build.**
