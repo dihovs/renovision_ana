@@ -1,3 +1,4 @@
+import FloorPlanCore
 import SwiftUI
 
 /// Build a room by placing its corners, one tap at a time.
@@ -101,6 +102,9 @@ struct DrawRoomView: View {
     /// any more than it is in the plan editor — `PlanEditing.quantum` is the
     /// store-level rounding; this is the coarser one a tap deserves.
     private let snap = 0.05
+    /// The floor-plan spec's capture thresholds (§4): own-corner snap 3 cm,
+    /// auto-close 25 cm, minimum wall 10 cm. One struct, tuned in one place.
+    private let tuning = CaptureTuning()
     /// How close, in screen points, a tap must be to a corner or a wall to
     /// land on it. Points rather than metres so it feels the same at any
     /// zoom.
@@ -389,18 +393,19 @@ struct DrawRoomView: View {
         let view = viewport(size)
         if manual == nil { manual = view }
 
-        // Tapping the first corner closes the outline — the same gesture a
-        // hand already expects from every polygon tool.
-        if corners.count >= 3, let first = corners.first {
-            let onScreen = toScreen(first, size)
-            if hypot(onScreen.x - location.x, onScreen.y - location.y) < 22 {
-                closed = true
-                snapNote = nil
-                return
-            }
+        // A tap near the first corner closes the outline (spec §4 auto-close)
+        // — measured in METRES, 25 cm, the same at every zoom. It used to be
+        // 22 screen points, which zoomed out to a whole house is most of a
+        // metre and closed rooms that still had a corner to go.
+        let raw = toModel(location, size)
+        if corners.count >= 3, let first = corners.first,
+            hypot(first.x - raw.x, first.y - raw.y) < tuning.autoClose
+        {
+            tryClose()
+            return
         }
         let landed = DrawSnapping.snap(
-            toModel(location, size),
+            raw,
             corners: corners,
             // A partition between two rooms of the house; an exterior wall
             // where either side is outdoors — the same stated figures the
@@ -415,10 +420,39 @@ struct DrawRoomView: View {
             },
             grid: snap,
             cornerReach: min(cornerReach * view.metresPerPoint, cornerReachMax),
+            ownCornerReach: tuning.vertexSnap,
             wallReach: min(wallReach * view.metresPerPoint, wallReachMax),
             alignReach: min(alignReach * view.metresPerPoint, alignReachMax))
+
+        // Shorter than the spec's minimum wall (§4, 10 cm) is a double tap or
+        // a finger that slid, not a wall: ignored, and said so. "Less than":
+        // exactly 10 cm is a wall. A shorter real jog can still be TYPED.
+        if let last = corners.last {
+            let d = hypot(landed.point.x - last.x, landed.point.y - last.y)
+            if d < tuning.minWall - 1e-9 {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                snapNote =
+                    "Too short (\(units.format.format(d))) — a wall needs at least \(units.format.format(tuning.minWall)). Type it if it is real."
+                return
+            }
+        }
         snapNote = landed.note
         corners.append(landed.point)
+    }
+
+    /// Close the outline — every way of closing comes through here, so the
+    /// spec's rule is applied once: an outline whose walls cross or touch
+    /// (§4, T15) is refused and left open to fix, never saved as a room
+    /// whose area means two things.
+    private func tryClose() {
+        guard corners.count >= 3 else { return }
+        guard PlanBridge.isSimple(corners) else {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            snapNote = "The walls cross — undo or move a corner, then close."
+            return
+        }
+        closed = true
+        snapNote = nil
     }
 
     /// **A wall typed, not tapped.** Drawing from a plan or a tape, the
@@ -438,8 +472,7 @@ struct DrawRoomView: View {
         if corners.count >= 3, let first = corners.first,
             hypot(first.x - next.x, first.y - next.y) < 0.02
         {
-            closed = true
-            snapNote = nil
+            tryClose()
         } else {
             corners.append(next)
             snapNote = "Typed: \(units.format.format(metres)) wall"
@@ -511,10 +544,7 @@ struct DrawRoomView: View {
                     .minimumScaleFactor(0.8)
                 Spacer()
                 if canClose {
-                    Button("Close shape") {
-                        closed = true
-                        snapNote = nil
-                    }
+                    Button("Close shape") { tryClose() }
                     .font(.system(size: 14, weight: .bold))
                 }
             }
@@ -538,7 +568,9 @@ struct DrawRoomView: View {
             }
 
             Button("Use this room") {
-                onDone(corners, ceilingM, [])
+                // Counter-clockwise, as the floor-plan spec stores every room
+                // (§1, T16) — whichever way round it was tapped.
+                onDone(PlanBridge.counterClockwise(corners), ceilingM, [])
             }
             .buttonStyle(PrimaryButtonStyle(enabled: closed && areaSqm > 0.5))
             .disabled(!closed || areaSqm <= 0.5)
@@ -605,14 +637,21 @@ enum DrawSnapping {
         neighbours: [(name: String, polygon: [CGPoint], wall: Double)],
         grid: Double,
         cornerReach: Double,
+        ownCornerReach: Double,
         wallReach: Double,
         alignReach: Double
     ) -> Landing {
-        // 1. One of this room's own corners.
+        // 1. One of this room's own corners — within `ownCornerReach` only,
+        //    which is the floor-plan spec's vertexSnap (3 cm, §4). It used to
+        //    be the finger-sized `cornerReach`, up to 30 cm, and a short real
+        //    jog — a 1' chimney chase, a closet return — was pulled shut onto
+        //    the corner before it. Closing the outline no longer needs a big
+        //    reach here: the 25 cm auto-close in `DrawRoomView.place` does it.
+        //    Strictly within: a tap exactly 3 cm away is a different corner.
         var own: (point: CGPoint, distance: Double)?
         for p in corners {
             let d = hypot(p.x - raw.x, p.y - raw.y)
-            if d <= cornerReach, own == nil || d < own!.distance { own = (p, d) }
+            if d < ownCornerReach, own == nil || d < own!.distance { own = (p, d) }
         }
         if let own { return Landing(point: own.point, note: nil) }
 

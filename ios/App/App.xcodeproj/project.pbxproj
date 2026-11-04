@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
+		FPC0BUILDFILE00000000FIL /* FloorPlanCore in Frameworks */ = {isa = PBXBuildFile; productRef = FPC0PRODUCTDEP0000000DEP /* FloorPlanCore */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		AA1000000000000000000012 /* RoomModelViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1000000000000000000011 /* RoomModelViewController.swift */; };
@@ -95,6 +96,7 @@
 		5F27D95F7494B4B4E9B6284D /* DXFImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68F1FF8555BF4D6C5DFCA80 /* DXFImporter.swift */; };
 		EFD5E8192949A044EDD894D2 /* WallMeshRefinement.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5E84D28CC877202BACA77EE /* WallMeshRefinement.swift */; };
 		5C543E2EE15D7011EBAEB719 /* FloorMeshRefinement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C296920150BF2BE074A7F1 /* FloorMeshRefinement.swift */; };
+		8A0E697ACCFAEC85D4B2C20F /* PlanBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -187,6 +189,7 @@
 		D68F1FF8555BF4D6C5DFCA80 /* DXFImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/DXFImporter.swift; sourceTree = "<group>"; };
 		E5E84D28CC877202BACA77EE /* WallMeshRefinement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallMeshRefinement.swift; sourceTree = "<group>"; };
 		14C296920150BF2BE074A7F1 /* FloorMeshRefinement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloorMeshRefinement.swift; sourceTree = "<group>"; };
+		D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanBridge.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -196,6 +199,7 @@
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
 				TW11L10BUILD00000000FIL0 /* TwilioVoice in Frameworks */,
+				FPC0BUILDFILE00000000FIL /* FloorPlanCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,6 +234,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */,
 				14C296920150BF2BE074A7F1 /* FloorMeshRefinement.swift */,
 				E5E84D28CC877202BACA77EE /* WallMeshRefinement.swift */,
 				D68F1FF8555BF4D6C5DFCA80 /* DXFImporter.swift */,
@@ -332,6 +337,7 @@
 			packageProductDependencies = (
 				TW11L10PROD000000000DEP0 /* TwilioVoice */,
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
+				FPC0PRODUCTDEP0000000DEP /* FloorPlanCore */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -365,6 +371,7 @@
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
 				TW11L10PKG0000000000REF0 /* XCRemoteSwiftPackageReference "twilio-voice-ios" */,
+				FPC0LOCALPKGREF000000REF /* XCLocalSwiftPackageReference "../FloorPlanCore" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -396,6 +403,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8A0E697ACCFAEC85D4B2C20F /* PlanBridge.swift in Sources */,
 				5C543E2EE15D7011EBAEB719 /* FloorMeshRefinement.swift in Sources */,
 				EFD5E8192949A044EDD894D2 /* WallMeshRefinement.swift in Sources */,
 				5F27D95F7494B4B4E9B6284D /* DXFImporter.swift in Sources */,
@@ -695,6 +703,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "CapApp-SPM";
 		};
+		FPC0LOCALPKGREF000000REF /* XCLocalSwiftPackageReference "../FloorPlanCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../FloorPlanCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -707,6 +719,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = TW11L10PKG0000000000REF0 /* XCRemoteSwiftPackageReference "twilio-voice-ios" */;
 			productName = TwilioVoice;
+		};
+		FPC0PRODUCTDEP0000000DEP /* FloorPlanCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FPC0LOCALPKGREF000000REF /* XCLocalSwiftPackageReference "../FloorPlanCore" */;
+			productName = FloorPlanCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
