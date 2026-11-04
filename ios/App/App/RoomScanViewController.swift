@@ -474,8 +474,41 @@ final class RoomScanViewController: UIViewController, RoomCaptureSessionDelegate
         // Leaving the picker's own default `dismiss()` in place here was a
         // double dismiss that closed the whole scan session instead of just
         // this sheet — see the doc comment on `ObjectLibraryPicker.selfDismisses`.
+        // What the scanner thinks it is, likeliest first, its family beside
+        // it — answered in one tap when the guess is right, which it usually
+        // is (owner, 4 Nov 2026).
+        var suggested: [LibraryItem] = []
+        var suggestedLabel = ""
+        if let object = room.objects.first(where: { $0.identifier == id }) {
+            var slugs = ScanCatalogue.family(for: object.category)
+            if case .object(let chosen) = choices.answer(for: id) {
+                // Already answered: what he chose leads, the family follows.
+                slugs = [chosen] + slugs.filter { $0 != chosen }
+            }
+            suggested = slugs.compactMap(ObjectCatalog.entry(slug:)).map(LibraryItem.object)
+            suggestedLabel = ScanCatalogue.suggestion(
+                for: object.category, confidence: object.confidence
+            ).label
+        } else if isOpening {
+            // A door or window: the kind its width suggests (or the one
+            // already chosen), then the rest of that kind's family.
+            let doors = room.doors.map { ($0, false, false) }
+                + room.windows.map { ($0, true, false) } + room.openings.map { ($0, false, true) }
+            if let (surface, isWindow, isPassage) = doors.first(where: { $0.0.identifier == id }) {
+                var guess = ScanCatalogue.openingKind(
+                    width: Double(surface.dimensions.x), isWindow: isWindow, isPassage: isPassage)
+                if case .opening(let chosen) = choices.answer(for: id) { guess = chosen }
+                let family = PlanEditing.OpeningKind.allCases.filter {
+                    $0 != guess && $0.category == guess.category
+                }
+                suggested = ([guess] + family).map(LibraryItem.opening)
+                suggestedLabel = guess.label
+            }
+        }
+
         let picker = ObjectLibraryPicker(
-            context: isOpening ? .wall : .room, selfDismisses: false
+            context: isOpening ? .wall : .room, selfDismisses: false,
+            suggested: suggested, suggestedLabel: suggestedLabel
         ) { [weak self] item in
             guard let self else { return }
             switch item {

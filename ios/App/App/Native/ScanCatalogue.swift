@@ -127,6 +127,53 @@ enum ScanCatalogue {
         }
     }
 
+    /// What to offer FIRST when the operator taps a detection: the scanner's
+    /// own best guess, then the rest of its family right beside it.
+    ///
+    /// The owner, 4 Nov 2026, scanning a bathroom: the badge said "Bathtub?",
+    /// he tapped it, and got the whole library. *"The option that it's
+    /// guessing needs to be the first one… and then right beside should give
+    /// me other bathtubs, because most probably it's a bathtub. Maybe I have
+    /// to just choose this type of it."* A low-confidence guess is still the
+    /// likeliest answer — it is placed only once he confirms it, but it is
+    /// never thrown away. A coarse category (sink, washer/dryer, storage) has
+    /// no single guess, so its whole family is offered, likeliest first.
+    static func family(forCategoryName name: String) -> [String] {
+        let slugs: [String]
+        switch name {
+        case "bathtub":
+            slugs = ["bathtub", "shower_tub_combo", "corner_bathtub", "corner_bathtub_round",
+                     "oval_bathtub", "space_saving_bathtub", "shower_stall"]
+        case "toilet": slugs = ["toilet", "wall_hung_toilet", "bidet", "urinal"]
+        case "sink":
+            slugs = ["vanity_24", "kitchen_sink", "laundry_tub", "double_vanity", "pedestal_sink",
+                     "single_sink", "double_sink", "corner_sink", "sink_semi_pedestal", "sink_cabinet"]
+        case "washerDryer": slugs = ["washer", "dryer", "washer_dryer_stacked", "washer_dryer_combo"]
+        case "storage":
+            slugs = ["wardrobe", "tall_pantry", "shelf_unit", "dresser", "high_cabinet",
+                     "base_cabinet", "wall_cabinet", "filing_cabinet", "tall_broom_cabinet"]
+        case "refrigerator": slugs = ["refrigerator", "refrigerator_french", "freezer", "freezer_chest"]
+        case "oven", "stove": slugs = ["range", "cooktop", "oven_wall_double", "range_hood"]
+        case "dishwasher": slugs = ["dishwasher", "dishwasher_drawer"]
+        case "fireplace": slugs = ["fireplace", "fireplace_insert"]
+        case "stairs": slugs = ["stairs", "stairs_landing", "stairs_spiral"]
+        case "bed": slugs = ["bed_queen", "bed_double", "bed_twin", "bed_king", "bunk_bed"]
+        case "sofa": slugs = ["sofa", "sofa_sectional", "armchair"]
+        case "television": slugs = ["television", "tv_stand"]
+        case "table":
+            slugs = ["table", "dining_table", "dining_table_round", "coffee_table", "side_table",
+                     "console_table", "desk"]
+        case "chair": slugs = ["chair", "armchair", "office_chair"]
+        default: slugs = []
+        }
+        return slugs.filter { ObjectCatalog.entry(slug: $0) != nil }
+    }
+
+    /// The same, for the live enum — read through the name it is stored as.
+    static func family(for category: CapturedRoom.Object.Category) -> [String] {
+        family(forCategoryName: String(describing: category))
+    }
+
     /// The symbol drawn in the middle of a detection's silhouette.
     ///
     /// A question mark where there is nothing confident to draw — the badge
