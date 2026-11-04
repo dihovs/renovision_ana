@@ -221,6 +221,12 @@ public enum CeilingProfile: Codable, Sendable {
     case sloped(lowHeight: Meters, highHeight: Meters, lowWallID: UUID, highWallID: UUID)
     /// Two planes meeting at the ridge.
     case vaulted(eaveHeight: Meters, ridgeHeight: Meters, ridgeAxis: RidgeAxis)
-    /// Multi-height: each zone is a sub-polygon with its own flat height.
-    case zones([HeightZone])
+    /// Multi-height: the room at `base`, except inside each zone — a
+    /// sub-polygon with its own flat height (a bulkhead, a dropped soffit).
+    ///
+    /// `base` is not in the spec's §3 listing, which gives this case only the
+    /// zones — but its own §11 volume rule, Σ A_zone·h_zone + (A − Σ A_zone)
+    /// ·h_base, needs a base height, and a room whose ceiling is "zones and
+    /// nothing else" has no height at all between them. Added 3 Nov 2026.
+    case zones(base: Meters, zones: [HeightZone])
 }

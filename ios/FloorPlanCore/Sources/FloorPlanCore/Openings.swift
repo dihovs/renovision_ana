@@ -48,27 +48,6 @@ extension Opening {
     }
 }
 
-extension CeilingProfile {
-    /// The ceiling height where a wall stands — what an opening's top must
-    /// stay under. A flat ceiling is one figure everywhere. For the other
-    /// profiles (M6) this is the LOWEST point along the wall, which is the
-    /// safe bound: an opening that fits under it fits anywhere on that wall.
-    public func heightAtWall(_ wallID: UUID) -> Meters {
-        switch self {
-        case .flat(let h):
-            return h
-        case .sloped(let low, let high, let lowWall, let highWall):
-            if wallID == lowWall { return low }
-            if wallID == highWall { return high }
-            return low
-        case .vaulted(let eave, _, _):
-            return eave
-        case .zones(let zones):
-            return zones.map(\.height).min() ?? 0
-        }
-    }
-}
-
 extension Room {
 
     /// The index of a wall, by id.
@@ -90,7 +69,11 @@ extension Room {
         // (T12's 3.08 + 0.9 = 3.98 on a 4 m wall).
         let past = opening.offset + opening.width - (chord - tuning.reveal)
         if past > eps { out.append(.pastWallEnd(past)) }
-        let over = opening.sillHeight + opening.height - ceiling.heightAtWall(opening.wallID)
+        // Against the LOWEST ceiling over the opening's own span: under a
+        // sloped ceiling the same window fits at the high end of a wall and
+        // not at the low end.
+        let over = opening.sillHeight + opening.height
+            - ceilingMin(onWall: j, from: opening.offset, width: opening.width)
         if over > eps { out.append(.aboveCeiling(over)) }
         for other in openings where other.wallID == opening.wallID
             && other.id != opening.id && !ignoring.contains(other.id)
@@ -105,22 +88,14 @@ extension Room {
         return out
     }
 
-    /// Gross area of wall j: its run along the face (the arc length of a
-    /// curved wall, §10) × the ceiling height at it. Flat ceilings only —
-    /// sloped, vaulted and zoned walls are M6, and until then they are
-    /// measured at their lowest height, which never overstates paint.
-    public func grossWallArea(_ j: Int) -> Double {
-        wallRun(j) * ceiling.heightAtWall(walls[j].id)
-    }
-
-    /// Net area of wall j (§9): gross less width × height of each opening on
-    /// it. An opening is deducted only as far as it is under the ceiling —
+    /// Net area of wall j (§9): its area under the ceiling (§11, see
+    /// `grossWallArea`) less width × height of each opening on it. An opening
+    /// is deducted only as far as it is under the ceiling over its own span —
     /// part of a hole above the ceiling is not wall that was there to paint.
     public func netWallArea(_ j: Int) -> Double {
-        let ceilingHere = ceiling.heightAtWall(walls[j].id)
         let holes = openings.filter { $0.wallID == walls[j].id }.reduce(0.0) { sum, o in
-            let tall = max(0, min(o.height, ceilingHere - o.sillHeight))
-            return sum + o.width * tall
+            let top = ceilingMin(onWall: j, from: o.offset, width: o.width)
+            return sum + o.width * max(0, min(o.height, top - o.sillHeight))
         }
         return max(0, grossWallArea(j) - holes)
     }
