@@ -1433,6 +1433,8 @@ enum EditorAction: Hashable {
     case square
     /// The ceiling's shape — flat, sloped, vaulted, bulkheads (M6).
     case ceiling
+    /// Bluetooth laser meter (M9).
+    case laser
     case duplicate
     case addCorner
     /// Step one wall out (or in) over a typed width — see `PlanEditing.bumpOut`.
@@ -1456,6 +1458,7 @@ enum EditorAction: Hashable {
         case .editLayout: return "Edit Layout"
         case .square: return "Square"
         case .ceiling: return "Ceiling"
+        case .laser: return "Laser"
         case .duplicate: return "Duplicate"
         case .addCorner: return "Add Corner"
         case .bumpOut: return "Bump Out"
@@ -1483,6 +1486,7 @@ enum EditorAction: Hashable {
         case .square: return "angle"
         // A roof line over a box: the ceiling's shape.
         case .ceiling: return "house"
+        case .laser: return "laser.burst"
         case .duplicate: return "square.on.square"
         case .addCorner: return "plus.circle"
         case .bumpOut: return "square.split.bottomrightquarter"
@@ -1525,7 +1529,7 @@ enum EditorAction: Hashable {
             // that had nowhere to appear.
             return [.insert, .rotate, .mergeRooms]
         case .room:
-            return [.insert, .setSize, .square, .ceiling, .editLayout, .duplicate, .delete]
+            return [.insert, .setSize, .square, .ceiling, .laser, .editLayout, .duplicate, .delete]
         case .wall(let dragging):
             return dragging
                 ? [.insert, .delete]

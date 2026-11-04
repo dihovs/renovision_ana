@@ -1,3 +1,4 @@
+import FloorPlanCore
 import SwiftUI
 
 /// Editing a plan with a finger.
@@ -340,6 +341,11 @@ struct RoomEditorCore: View {
     /// with nil says nothing about the ceiling, so a stored shape survives.
     @State private var ceiling: ScanGeometry.CeilingRecord?
     @State private var editingCeiling = false
+    /// The laser meter (M9): the panel, and readings that arrived with no
+    /// wall selected, waiting to be placed.
+    @ObservedObject private var laser = LaserMeterManager.shared
+    @State private var laserOpen = false
+    @State private var pendingReadings: [LaserReading] = []
 
     enum Selection: Equatable {
         case none
@@ -661,6 +667,15 @@ struct RoomEditorCore: View {
             }
             Button("Leave it alone", role: .cancel) { lockedWarning = nil }
         }
+        .sheet(isPresented: $laserOpen) {
+            LaserSheet(suggested: {
+                if case .wall(let i) = selection { return PlanEditing.edgeLength(corners, i) }
+                return nil
+            }())
+            .presentationDetents([.medium, .large])
+        }
+        .onReceive(laser.readings) { reading in takeLaserReading(reading) }
+        .overlay(alignment: .top) { pendingTray }
         .sheet(isPresented: $editingCeiling) {
             CeilingSheet(
                 corners: corners, bulges: bulges,
@@ -2680,7 +2695,7 @@ struct RoomEditorCore: View {
             // The menu itself still shows the other four greyed with their
             // reasons, the way the floor canvas's own already does.
             // `Square` (M3) is real too — the floor-plan spec's solver.
-            return [.insert, .setSize, .square, .ceiling, .duplicate, .delete]
+            return [.insert, .setSize, .square, .ceiling, .laser, .duplicate, .delete]
         case .area:
             // Both verbs are real: Edit Shape opens the point editor this
             // area already had, and Delete removes it. Insert stays greyed
@@ -3159,6 +3174,8 @@ struct RoomEditorCore: View {
             squareRoom()
         case (.ceiling, .none):
             editingCeiling = true
+        case (.laser, .none):
+            laserOpen = true
         case (.duplicate, .none):
             duplicating = true
         case (.delete, .none):
@@ -3531,6 +3548,68 @@ struct RoomEditorCore: View {
             lines.append("Check those measurements, or unlock one, then try again.")
             squareConflict = lines.joined(separator: "\n\n")
             if let worst = walls.first { select(.wall(worst.edge)) }
+        }
+    }
+
+    // MARK: - Laser readings (M9)
+
+    /// Where a reading goes (spec §13): into the measuring walk when one is
+    /// running — it IS that wall's measurement; onto the selected wall,
+    /// which is then locked, with the next wall round selected; otherwise
+    /// into the tray to be placed by hand.
+    private func takeLaserReading(_ reading: LaserReading) {
+        if measuring != nil {
+            commitMeasurement(reading.meters)
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            return
+        }
+        if case .wall(let i) = selection, corners.indices.contains(i) {
+            setLaserLength(reading.meters, on: i)
+            return
+        }
+        pendingReadings.append(reading)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    private func setLaserLength(_ metres: Double, on i: Int) {
+        push()
+        corners = PlanEditing.setEdgeLength(
+            corners, index: i, to: metres, anchoring: lengthAnchor(forEdge: i))
+        // A lasered length is a measured one: locked, like a typed one.
+        locked.insert(i)
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        // The next wall counter-clockwise on screen — round the room the way
+        // the spec walks it, whichever way this outline happens to run.
+        let n = corners.count
+        let ccw = Polygon.isCounterClockwise(PlanBridge.core(corners))
+        select(.wall(ccw ? (i + 1) % n : (i - 1 + n) % n))
+    }
+
+    /// Readings waiting for a wall. Select a wall, then tap one to place it.
+    @ViewBuilder private var pendingTray: some View {
+        if !pendingReadings.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "laser.burst").foregroundStyle(.white)
+                ForEach(pendingReadings) { reading in
+                    Button {
+                        guard case .wall(let i) = selection, corners.indices.contains(i) else { return }
+                        pendingReadings.removeAll { $0.id == reading.id }
+                        setLaserLength(reading.meters, on: i)
+                    } label: {
+                        Text(UnitSettings.shared.format.format(reading.meters))
+                            .font(.system(size: 13, weight: .bold))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.white, in: Capsule())
+                            .foregroundStyle(Brand.ink)
+                    }
+                }
+                Button { pendingReadings = [] } label: {
+                    Image(systemName: "xmark").foregroundStyle(.white)
+                }
+            }
+            .padding(8)
+            .background(Brand.blue, in: Capsule())
+            .padding(.top, 60)
         }
     }
 
