@@ -409,7 +409,12 @@ struct ScanGeometry: Codable {
                 // figure — independently editable since 18 Aug 2026, and
                 // net wall area has to deduct what was actually declared,
                 // not what a kind starts at by default.
-                heightMeters: min(opening.height, ceilingHeight),
+                // ...and only as far as it is UNDER the ceiling, counted from
+                // its sill (floor-plan spec §9: sill + height ≤ ceiling). A
+                // window's top past the ceiling is not wall that was there
+                // to deduct; measuring from the floor instead overstated the
+                // hole of every window whose top met the ceiling.
+                heightMeters: max(0, min(opening.height, ceilingHeight - opening.sill)),
                 centerX: (a.x + b.x) / 2,
                 centerZ: (a.y + b.y) / 2,
                 axisX: dx / width,

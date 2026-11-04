@@ -1,4 +1,5 @@
 import CoreGraphics
+import FloorPlanCore
 import Foundation
 
 /// The geometry behind editing a plan by hand.
@@ -1240,16 +1241,23 @@ enum PlanEditing {
         }
     }
 
-    /// How close to a corner a jamb may sit. Real framing needs a king stud;
-    /// drawings that let a door touch a corner exactly draw ambiguously.
-    static let jambMargin = 0.05
+    /// Where an opening may sit on its wall — the floor-plan spec's rule
+    /// (§9, T12): from the wall's start corner itself, to `endReveal` short
+    /// of its end corner. `0 ≤ offset` and `offset + width ≤ length − 0.02`.
+    ///
+    /// It used to be 5 cm clear of BOTH corners (`jambMargin`, for a king
+    /// stud). The spec is the source of truth since 3 Nov 2026 and allows
+    /// more, so nothing placed under the old rule moves: every offset it
+    /// allowed, this allows too.
+    static let startMargin = 0.0
+    static var endReveal: Double { FloorPlanCore.OpeningTuning().reveal }
 
     /// Pin an opening inside its wall. When the wall is too short for the
-    /// margins the opening is centred instead — a visible overhang the
+    /// reveal the opening is centred instead — a visible overhang the
     /// operator will fix, rather than a silently deleted door.
     static func clampedOffset(offset: Double, width: Double, edgeLength: Double) -> Double {
-        guard edgeLength - width >= 2 * jambMargin else { return (edgeLength - width) / 2 }
-        return min(max(offset, jambMargin), edgeLength - width - jambMargin)
+        guard edgeLength - width >= startMargin + endReveal else { return (edgeLength - width) / 2 }
+        return min(max(offset, startMargin), edgeLength - width - endReveal)
     }
 
     /// Place a kind on an edge, in the middle of the widest gap left between
@@ -1262,12 +1270,12 @@ enum PlanEditing {
         let length = edgeLength(polygon, edge)
         // Jambs of what is already on this wall, in order, bracketed by the
         // corners' margins so every gap is computed one way.
-        var stops: [(from: Double, to: Double)] = [(0, jambMargin)]
+        var stops: [(from: Double, to: Double)] = [(0, startMargin)]
         for other in existing where other.edge == edge {
             let start = clampedOffset(offset: other.offset, width: other.width, edgeLength: length)
             stops.append((start, start + other.width))
         }
-        stops.append((length - jambMargin, length))
+        stops.append((length - endReveal, length))
         stops.sort { $0.from < $1.from }
 
         var bestStart = 0.0
@@ -1317,8 +1325,8 @@ enum PlanEditing {
         avoiding others: [WallOpening]
     ) -> WallOpening {
         let length = edgeLength(polygon, opening.edge)
-        var lower = jambMargin
-        var upper = length - opening.width - jambMargin
+        var lower = startMargin
+        var upper = length - opening.width - endReveal
         for other in others where other.edge == opening.edge && other != opening {
             let otherStart = clampedOffset(
                 offset: other.offset, width: other.width, edgeLength: length)
@@ -1352,13 +1360,13 @@ enum PlanEditing {
         let neighbours = others.filter { $0.edge == opening.edge && $0 != opening }
 
         var reshaped = opening
-        if width >= length - 2 * jambMargin {
+        if width >= length - startMargin - endReveal {
             guard neighbours.isEmpty else { return nil }
             reshaped.width = quantise(length)
             reshaped.offset = 0
             return reshaped
         }
-        let start = min(max(offset, jambMargin), length - width - jambMargin)
+        let start = min(max(offset, startMargin), length - width - endReveal)
         for other in neighbours {
             let otherStart = clampedOffset(
                 offset: other.offset, width: other.width, edgeLength: length)

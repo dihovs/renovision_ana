@@ -260,6 +260,8 @@ struct RoomEditorCore: View {
     @State private var lockedWarning: Int?
     /// Why Square could not run, said in words — see `squareRoom`.
     @State private var squareConflict: String?
+    /// Why a typed opening size was refused — see `onDimensionsChanged`.
+    @State private var openingRefusal: String?
     /// True when the scan's walls never closed and this rectangle is a
     /// placeholder rather than the room. Everything derived from it — the
     /// floor area under the canvas most of all — is a guess until the
@@ -611,6 +613,15 @@ struct RoomEditorCore: View {
                 .disabled(invalid)
             Button("Discard", role: .destructive) { onExit() }
             Button("Keep editing", role: .cancel) {}
+        }
+        .alert(
+            "That doesn't fit",
+            isPresented: Binding(
+                get: { openingRefusal != nil }, set: { if !$0 { openingRefusal = nil } })
+        ) {
+            Button("OK", role: .cancel) { openingRefusal = nil }
+        } message: {
+            Text(openingRefusal ?? "")
         }
         .alert(
             "Can't square this room",
@@ -1313,6 +1324,16 @@ struct RoomEditorCore: View {
                         if !newKind.swings { openings[index].swingInward = nil }
                     },
                     onDimensionsChanged: { newHeight, newSill in
+                        // Floor-plan spec §9: sill + height must stay under
+                        // the ceiling. Refused, not trimmed — which of the
+                        // two numbers is wrong is his call, not the app's.
+                        let ceiling = room.ceilingHeightM
+                        if ceiling > 0, newSill + newHeight > ceiling + 1e-6 {
+                            let format = UnitSettings.shared.format
+                            openingRefusal =
+                                "Sill \(format.format(newSill)) + height \(format.format(newHeight)) reaches \(format.format(newSill + newHeight)), above this room's \(format.format(ceiling)) ceiling. Lower one of them."
+                            return
+                        }
                         push()
                         openings[index].height = newHeight
                         openings[index].sill = newSill
