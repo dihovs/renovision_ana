@@ -1,6 +1,6 @@
 "use client";
 
-import { toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
+import { planRing, toFloorPlan, type ScanGeometry } from "@/lib/roomScan";
 import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
 import { bandPath, wallBand, type Pt } from "./wallBand";
@@ -195,7 +195,9 @@ export default function FloorPlan({
         ((Math.hypot(s.x1 - a.x, s.y1 - a.y) < 0.02 && Math.hypot(s.x2 - b.x, s.y2 - b.y) < 0.02) ||
           (Math.hypot(s.x1 - b.x, s.y1 - b.y) < 0.02 && Math.hypot(s.x2 - a.x, s.y2 - a.y) < 0.02)),
     );
-  const band = thumb ? null : wallBand(plan.polygon, T, plan.openings, isOpenEdge);
+  // Curved walls (M5) are followed: the band is built along the arc.
+  const ring = planRing(plan);
+  const band = thumb ? null : wallBand(ring, T, plan.openings, isOpenEdge);
 
   const damage = (area: NonNullable<typeof areas>[number], index: number) => {
     if (area.polygon.length < 3) return null;
@@ -288,8 +290,8 @@ export default function FloorPlan({
         role="img"
         aria-label={`Floor plan of ${name}`}
       >
-        {plan.polygon.length > 0 && (
-          <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill={PLAN_FILL} />
+        {ring.length > 0 && (
+          <polygon points={ring.map((p) => `${p.x},${p.y}`).join(" ")} fill={PLAN_FILL} />
         )}
 
         {/* The damaged regions, under the walls so a patch never covers the

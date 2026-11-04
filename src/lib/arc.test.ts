@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arcFigures, signedSegmentArea } from "./arc";
+import { arcFigures, curvedRing, edgeArcPoints, signedSegmentArea } from "./arc";
 import { polygonMetrics } from "./crm/roomScans";
 import { closedPerimeterMeters } from "./openWalls";
 import type { ScanGeometry } from "./roomScan";
@@ -59,5 +59,44 @@ describe("polygonMetrics with curved walls", () => {
   it("the closed perimeter counts the arc too", () => {
     const geometry = { editedPolygon: rect, edgeBulge: [0.5, 0, 0, 0] } as unknown as ScanGeometry;
     expect(closedPerimeterMeters(geometry)).toBeCloseTo(4.1646 + 10, 3);
+  });
+});
+
+describe("drawing a curved wall", () => {
+  // y-down frame, wall 0 the top wall (0,0) → (4,0): out of the room is −y.
+  const rect = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 3 },
+    { x: 0, y: 3 },
+  ];
+  const ring = 12; // this ring's shoelace in its own frame (positive)
+
+  it("bows out of the room, by exactly the bulge at the middle", () => {
+    const pts = edgeArcPoints(rect[0], rect[1], 0.5, ring, 24);
+    expect(pts[0]).toEqual(rect[0]);
+    expect(pts[24].x).toBeCloseTo(4, 9);
+    expect(pts[12].x).toBeCloseTo(2, 9);
+    expect(pts[12].y).toBeCloseTo(-0.5, 9);
+  });
+
+  it("bows in when negative, and the same whichever way the ring runs", () => {
+    expect(edgeArcPoints(rect[0], rect[1], -0.5, ring, 24)[12].y).toBeCloseTo(0.5, 9);
+    // Reversed ring: edge (4,0) → (0,0), negative shoelace; still out is −y.
+    expect(edgeArcPoints(rect[1], rect[0], 0.5, -ring, 24)[12].y).toBeCloseTo(-0.5, 9);
+  });
+
+  it("every point is one radius from the centre", () => {
+    const r = arcFigures(4, 0.5).radius;
+    for (const p of edgeArcPoints(rect[0], rect[1], 0.5, ring, 24)) {
+      expect(Math.hypot(p.x - 2, p.y - (-0.5 + r))).toBeCloseTo(r, 9);
+    }
+  });
+
+  it("a curved ring follows the arc and keeps the other corners", () => {
+    const out = curvedRing(rect, [0.5, 0, 0, 0]);
+    expect(out.length).toBe(24 + 3);
+    expect(out[0]).toEqual(rect[0]);
+    expect(curvedRing(rect, [0, 0, 0, 0])).toEqual(rect);
   });
 });

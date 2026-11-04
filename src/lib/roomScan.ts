@@ -1,3 +1,4 @@
+import { curvedRing } from "./arc";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { chainOutline } from "./wallChain";
 
@@ -613,6 +614,11 @@ export type FloorPlan = {
       the scan's world space (section labels) needs the same shift. */
   offsetX: number;
   offsetY: number;
+  /** Curved walls (M5): segment i bulges this far, + away from the room.
+      Corrected outlines only; absent for a straight room. Draw through
+      `curvedRing` (src/lib/arc.ts) — segments are never split, so every
+      per-wall record keeps counting walls as it always has. */
+  bulges?: number[];
 };
 
 /**
@@ -912,6 +918,15 @@ function chainIntoPolygon(segments: PlanSegment[]): PlanPoint[] {
  * maps to y directly and the result reads as a top-down plan the right way
  * up.
  */
+/**
+ * The outline to DRAW: `plan.polygon` with every curved wall followed
+ * (M5). The same ring for a straight room. Fills, wall bands and outlines
+ * go through this; anything counting walls keeps using `segments`.
+ */
+export function planRing(plan: FloorPlan): PlanPoint[] {
+  return plan.bulges ? curvedRing(plan.polygon, plan.bulges) : plan.polygon;
+}
+
 export function toFloorPlan(result: ScanGeometry): FloorPlan {
   // A plan the operator corrected by hand replaces the scan's walls for
   // drawing purposes — but only for drawing; the sensor's own geometry is
@@ -954,6 +969,9 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
       height: Math.max(...ys) - minY,
       offsetX: minX,
       offsetY: minY,
+      ...(result.edgeBulge?.length === points.length && result.edgeBulge.some((b) => b !== 0)
+        ? { bulges: result.edgeBulge }
+        : {}),
     };
   }
 

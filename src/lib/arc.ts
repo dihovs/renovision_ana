@@ -49,3 +49,54 @@ export function bulgeAt(edgeBulge: readonly number[] | null | undefined, i: numb
   const b = edgeBulge?.[i];
   return typeof b === "number" && Number.isFinite(b) ? b : 0;
 }
+
+type Pt = { x: number; y: number };
+
+/**
+ * Points along the edge a → b of a ring whose signed shoelace area is
+ * `ringArea`, bowed `bulge` metres away from the ring's inside (− toward
+ * it). The two ends when straight. Twin of `PlanBridge.edgePoints`.
+ *
+ * Works in any frame: "inside" is read from the ring's own winding, so a
+ * y-down web plan and a y-up spec plan agree on which way is out.
+ */
+export function edgeArcPoints(a: Pt, b: Pt, bulge: number, ringArea: number, steps = 24): Pt[] {
+  const chord = Math.hypot(b.x - a.x, b.y - a.y);
+  if (bulge === 0 || chord <= 0) return [a, b];
+  const ux = (b.x - a.x) / chord;
+  const uy = (b.y - a.y) / chord;
+  // Positive shoelace: the inside is LEFT of travel, so out is right.
+  const out = ringArea > 0 ? { x: uy, y: -ux } : { x: -uy, y: ux };
+  const s = Math.abs(bulge);
+  const sign = bulge > 0 ? 1 : -1;
+  const { radius } = arcFigures(chord, s);
+  const pts: Pt[] = [];
+  for (let k = 0; k <= steps; k += 1) {
+    const t = k / steps;
+    const x = (t - 0.5) * chord;
+    // Height of the arc above its chord at x along it.
+    const h = Math.sqrt(Math.max(0, radius * radius - x * x)) - (radius - s);
+    pts.push({
+      x: a.x + ux * t * chord + out.x * h * sign,
+      y: a.y + uy * t * chord + out.y * h * sign,
+    });
+  }
+  return pts;
+}
+
+/** A ring (no repeated closing point) with every curved edge followed. */
+export function curvedRing(points: readonly Pt[], bulges: readonly number[] | null | undefined): Pt[] {
+  if (!bulges || bulges.length !== points.length || !bulges.some((b) => b !== 0)) return [...points];
+  let twice = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
+    const q = points[(i + 1) % points.length];
+    twice += p.x * q.y - q.x * p.y;
+  }
+  const out: Pt[] = [];
+  points.forEach((a, i) => {
+    const b = points[(i + 1) % points.length];
+    out.push(...edgeArcPoints(a, b, bulgeAt(bulges, i), twice).slice(0, -1));
+  });
+  return out;
+}

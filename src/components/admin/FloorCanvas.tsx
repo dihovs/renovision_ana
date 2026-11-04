@@ -9,6 +9,7 @@ import {
   toFloorPlan,
   totalFloorAreaSquareMeters,
   type SavedScan,
+  planRing,
 } from "@/lib/roomScan";
 
 /**
@@ -174,7 +175,7 @@ export default function FloorCanvas({
               >
                 {plan.polygon.length > 0 && (
                   <polygon
-                    points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")}
+                    points={planRing(plan).map((p) => `${p.x},${p.y}`).join(" ")}
                     fill={isSelected || isDragging ? "#e8f0fb" : "#efeff0"}
                   />
                 )}

@@ -1,6 +1,6 @@
 import { resolvePlacements } from "@/lib/floorLayout";
 import { bandPath, exteriorRuns, wallBand, type Pt } from "./wallBand";
-import { toFloorPlan, type FloorPlan, type ScanGeometry } from "@/lib/roomScan";
+import { toFloorPlan, type FloorPlan, type ScanGeometry, planRing } from "@/lib/roomScan";
 import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
 import { formatArea, formatBare } from "@/lib/report/strings";
@@ -457,7 +457,9 @@ function Room({
   // at its true thickness. Null without a closed outline — the old centred
   // stroke then.
   const isOpenEdge = openEdgeTest(plan, room.openWalls);
-  const band = wallBand(plan.polygon, T, plan.openings, isOpenEdge);
+  // Curved walls (M5) followed, as on the room's own plan.
+  const drawn = planRing(plan);
+  const band = wallBand(drawn, T, plan.openings, isOpenEdge);
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? LOCATOR_PALE_INK : PLAN_INK;
   const fill = tone === "pale" ? LOCATOR_PALE_FILL : tone === "ink" ? LOCATOR_INK_FILL : PLAN_FILL;
@@ -520,8 +522,8 @@ function Room({
   const anchor = outside ? "start" : "middle";
   return (
     <g transform={`translate(${at.x},${at.y})`}>
-      {plan.polygon.length > 0 && (
-        <polygon points={plan.polygon.map((p) => `${p.x},${p.y}`).join(" ")} fill={fill} />
+      {drawn.length > 0 && (
+        <polygon points={drawn.map((p) => `${p.x},${p.y}`).join(" ")} fill={fill} />
       )}
 
       {/* Damage under the walls, so a patch never covers the line it was
