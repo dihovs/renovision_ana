@@ -99,6 +99,7 @@
 		8A0E697ACCFAEC85D4B2C20F /* PlanBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */; };
 		2544C41AC8F8B0D4DD3EC82C /* WallCurveSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 632C7FEBF0C7EA9F1DB8E616 /* WallCurveSheet.swift */; };
 		AAA63EA7EA4F6D131DA44853 /* CeilingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5B0C737DF3922E86B1ABF7 /* CeilingSheet.swift */; };
+		A3640A5E1CFBDA3833DF893C /* ARCornerCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A136DD3FAAC2389FA315E9 /* ARCornerCapture.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -194,6 +195,7 @@
 		D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanBridge.swift; sourceTree = "<group>"; };
 		632C7FEBF0C7EA9F1DB8E616 /* WallCurveSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/WallCurveSheet.swift; sourceTree = "<group>"; };
 		CD5B0C737DF3922E86B1ABF7 /* CeilingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CeilingSheet.swift; sourceTree = "<group>"; };
+		B1A136DD3FAAC2389FA315E9 /* ARCornerCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ARCornerCapture.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -238,6 +240,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				B1A136DD3FAAC2389FA315E9 /* ARCornerCapture.swift */,
 				CD5B0C737DF3922E86B1ABF7 /* CeilingSheet.swift */,
 				632C7FEBF0C7EA9F1DB8E616 /* WallCurveSheet.swift */,
 				D81F6C6E5FDC2030FCA9B912 /* PlanBridge.swift */,
@@ -409,6 +412,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A3640A5E1CFBDA3833DF893C /* ARCornerCapture.swift in Sources */,
 				AAA63EA7EA4F6D131DA44853 /* CeilingSheet.swift in Sources */,
 				2544C41AC8F8B0D4DD3EC82C /* WallCurveSheet.swift in Sources */,
 				8A0E697ACCFAEC85D4B2C20F /* PlanBridge.swift in Sources */,

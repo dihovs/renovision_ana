@@ -1,3 +1,4 @@
+import ARKit
 import RoomPlan
 import FloorPlanCore
 import SwiftUI
@@ -3281,12 +3282,18 @@ struct AddRoomMethodSheet: View {
                             onPick(.scan)
                             dismiss()
                         }
+                        // Tap each corner through the camera (spec §8, M8).
+                        // World tracking, not LiDAR — so it is the scan every
+                        // recent iPhone can do.
                         methodCard(
                             title: "Manual-Scan",
-                            caption: "RoomPlan detects objects itself — there is no manual variant.",
+                            caption: "Walk the room and tap each corner through the camera.",
                             art: .manual,
-                            enabled: false
-                        ) {}
+                            enabled: ARWorldTrackingConfiguration.isSupported
+                        ) {
+                            onPick(.arCorners)
+                            dismiss()
+                        }
                     }
 
                     Card(padding: 0) {

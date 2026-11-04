@@ -179,6 +179,10 @@ struct CaptureFlow: View {
         /// fastest pulled from a rectangle, an L-shaped basement with a
         /// bulkhead has no rectangle to start from.
         case drawCorners
+        /// Walk the room and tap each corner through the camera — the
+        /// reference's Manual-Scan (floor-plan spec §8, M8). Needs world
+        /// tracking, not LiDAR.
+        case arCorners
     }
 
     private enum Stage {
@@ -194,6 +198,8 @@ struct CaptureFlow: View {
         case drawing
         /// Corner-by-corner drawing, `DrawRoomView`.
         case drawingCorners
+        /// Corners tapped through the camera, `ARCornerCaptureView`.
+        case tappingCorners
         case review
         /// Filed. Offer the next room while the AR session still tracks.
         case saved
@@ -223,7 +229,7 @@ struct CaptureFlow: View {
                 case .chooseFloor: floorChooser
                 case .chooseType: typeChooser
                 case .briefing: briefing
-                case .capturing, .drawing, .drawingCorners: Color.clear
+                case .capturing, .drawing, .drawingCorners, .tappingCorners: Color.clear
                 case .review: review
                 case .saved: savedStage
                 }
@@ -250,6 +256,20 @@ struct CaptureFlow: View {
                     }
                 }
             }
+        }
+        .fullScreenCover(
+            isPresented: .init(get: { stage == .tappingCorners }, set: { _ in })
+        ) {
+            // A room tapped in AR is measured in the camera's own frame, not
+            // the storey's, so it is filed like a drawn rectangle — squared
+            // to the page and placed by the floor's packer — never "where it
+            // was drawn" against rooms it was not drawn against.
+            ARCornerCaptureView(
+                onCancel: { stage = .briefing },
+                onDone: { polygon, ceiling, openings in
+                    finishDrawn(polygon: polygon, ceiling: ceiling, openings: openings)
+                    drawnCorners = nil
+                })
         }
         .fullScreenCover(
             isPresented: .init(get: { stage == .drawingCorners }, set: { _ in })
@@ -410,6 +430,7 @@ struct CaptureFlow: View {
         case .scan: return .capturing
         case .draw: return .drawing
         case .drawCorners: return .drawingCorners
+        case .arCorners: return .tappingCorners
         }
     }
 
@@ -712,7 +733,11 @@ struct CaptureFlow: View {
                     .disabled(name.trimmed.isEmpty)
                     .opacity(name.trimmed.isEmpty ? 0.5 : 1)
                 } else {
-                    Button(mode == .drawCorners ? "Start placing corners" : "Start drawing") {
+                    Button(
+                        mode == .arCorners
+                            ? "Open the camera"
+                            : mode == .drawCorners ? "Start placing corners" : "Start drawing"
+                    ) {
                         error = nil
                         stage = canvasStage
                     }
@@ -762,6 +787,17 @@ struct CaptureFlow: View {
                 ("camera",
                  "The white shutter takes a photo mid-scan and files it against this room, so nothing has to be photographed twice."),
             ]
+            : mode == .arCorners
+                ? [
+                    ("lightbulb",
+                     "Put the lights on, and point at the floor first — the camera needs to find it before the first corner."),
+                    ("scope",
+                     "Aim the crosshair where each wall meets the floor and tap Add corner. Go round the room in order."),
+                    ("checkmark.circle",
+                     "When it turns green it has found the two walls meeting there, and the corner lands exactly where they cross."),
+                    ("arrow.uturn.backward",
+                     "Come back to the first corner to close. A misplaced corner is one Undo away."),
+                ]
             : mode == .drawCorners
                 ? [
                     // This card used to describe the rectangle tool for BOTH
