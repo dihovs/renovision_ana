@@ -65,7 +65,7 @@ public enum Model3D {
             var sag = 0.0
             if case .arc(let v) = room.walls[i].shape { sag = v }
             // Along the chord, where each opening's hole is (§9 offsets are
-            // measured along the chord).
+            // measured along the chord); every cut is stood up onto the curve.
             let holes = room.openings.filter { $0.wallID == room.walls[i].id }
                 .map { (from: max(0, $0.offset), to: min(chord, $0.offset + $0.width), sill: $0.sillHeight, head: $0.sillHeight + $0.height) }
                 .sorted { $0.from < $1.from }
@@ -75,7 +75,7 @@ public enum Model3D {
             for hole in holes { cuts.formUnion([hole.from, hole.to]) }
             if sag != 0 { for k in 1..<16 { cuts.insert(chord * Double(k) / 16) } }
             let stops = cuts.sorted()
-            func at(_ d: Double) -> Vec2 { Arc.point(from: a, to: b, sagitta: sag, at: d / chord) }
+            func at(_ d: Double) -> Vec2 { Arc.pointOverChord(from: a, to: b, sagitta: sag, at: d) }
 
             for k in 0..<(stops.count - 1) {
                 let d0 = stops[k], d1 = stops[k + 1]

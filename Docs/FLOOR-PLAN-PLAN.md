@@ -13,7 +13,12 @@ M6 ceilings · M7 rooms side by side · M8 Manual-Scan (AR corners) ·
 A1–A4 · B1–B3 (M9 laser) · C1–C4 (M10 exports) · D1–D3 (M11 LiDAR outline) ·
 E1–E3 (M12 import, undo audit, notes).
 
-FloorPlanCore: `swift test` — 75 tests, the spec's T1–T17 among them.
+FloorPlanCore: `swift test` — 80 tests, the spec's T1–T17 among them.
+
+Fixed 4 Nov (build 234): a door or window on a curved wall now sits ON the
+curve — offsets still along the chord (§9), jambs stood up onto the arc
+(`Arc.pointOverChord`, `Room.jambs(of:)`) in the editor, the storey, the 3D
+model and the DXF. The dimension chain still measures along the chord.
 
 ## Still open, deliberately
 - Every build since 227 was installed blind or not at all: the owner's iPhone
@@ -21,7 +26,6 @@ FloorPlanCore: `swift test` — 75 tests, the spec's T1–T17 among them.
   tried on a screen.
 - Leica DISTO driver is UNVERIFIED (community UUIDs); Bosch GLM absent
   (protocol unpublished). Confirm a reading against a tape first.
-- Openings on a curved wall cut its chord, not its arc.
 - The app's room-drag snap still only slides; the core's turn-to-square
   is not applied (turning a room rewrites its outline here).
 - Scans before 4 Nov keep the old outline chain on phone and web; scans

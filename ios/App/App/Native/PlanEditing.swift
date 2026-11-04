@@ -1298,7 +1298,13 @@ enum PlanEditing {
     }
 
     /// The jamb endpoints in the polygon's own space, clamped into the wall.
-    static func openingEndpoints(_ polygon: [CGPoint], _ opening: WallOpening)
+    ///
+    /// `bulges` (one per edge, + away from the room): on a curved wall the
+    /// offsets are still along the chord, but the jambs are stood up onto the
+    /// arc (floor-plan spec §9) — the door sits in the curve, not across it.
+    /// Callers that measure along the wall (re-keying, the dimension chain)
+    /// leave it empty and get the chord points.
+    static func openingEndpoints(_ polygon: [CGPoint], _ opening: WallOpening, bulges: [Double] = [])
         -> (a: CGPoint, b: CGPoint)?
     {
         let n = polygon.count
@@ -1308,6 +1314,12 @@ enum PlanEditing {
         guard length > 1e-9 else { return nil }
         let direction = normalised(sub(polygon[bi], polygon[ai]))
         let start = clampedOffset(offset: opening.offset, width: opening.width, edgeLength: length)
+        if opening.edge < bulges.count, bulges[opening.edge] != 0 {
+            return (
+                PlanBridge.pointOverChord(polygon, edge: opening.edge, bulge: bulges[opening.edge], at: start),
+                PlanBridge.pointOverChord(
+                    polygon, edge: opening.edge, bulge: bulges[opening.edge], at: start + opening.width))
+        }
         return (
             CGPoint(
                 x: polygon[ai].x + direction.x * start,

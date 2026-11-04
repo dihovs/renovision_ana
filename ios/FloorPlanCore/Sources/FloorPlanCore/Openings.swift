@@ -88,6 +88,18 @@ extension Room {
         return out
     }
 
+    /// Where an opening's two jambs are, in the room's own frame: offset and
+    /// offset + width along its wall's chord, stood up onto the arc when the
+    /// wall is curved (§9 "drawn on the arc"). Nil when its wall is gone.
+    public func jambs(of opening: Opening) -> (start: Vec2, end: Vec2)? {
+        guard let j = wallIndex(opening.wallID) else { return nil }
+        let a = points[j], b = points[(j + 1) % points.count]
+        var sag = 0.0
+        if case .arc(let v) = walls[j].shape { sag = v }
+        return (Arc.pointOverChord(from: a, to: b, sagitta: sag, at: opening.offset),
+                Arc.pointOverChord(from: a, to: b, sagitta: sag, at: opening.offset + opening.width))
+    }
+
     /// Net area of wall j (§9): its area under the ceiling (§11, see
     /// `grossWallArea`) less width × height of each opening on it. An opening
     /// is deducted only as far as it is under the ceiling over its own span —

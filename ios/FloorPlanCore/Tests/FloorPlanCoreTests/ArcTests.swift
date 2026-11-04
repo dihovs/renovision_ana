@@ -85,4 +85,79 @@ final class ArcTests: XCTestCase {
         // A semicircle: length πR with R = 2.
         XCTAssertEqual(Arc(chord: 4, sagitta: 2).length, .pi * 2, accuracy: 1e-9)
     }
+
+    // §9: an opening's offset is along the chord, and it is DRAWN on the arc.
+    // T9's arc, (0,0) → (4,0) bulging up to (2,1), centre (2,−1.5), R 2.5:
+    // the chord point 0.5 m along stands up to (0.5, 0.5) — √(1.5² + 2²) = 2.5.
+    func testPointOverChordStandsOnTheArc() {
+        let a = Vec2(0, 0), b = Vec2(4, 0)
+        // Up is to the LEFT of a → b, so the sagitta is negative.
+        let top = Arc.pointOverChord(from: a, to: b, sagitta: -1, at: 2)
+        XCTAssertEqual(top.x, 2, accuracy: 1e-9); XCTAssertEqual(top.y, 1, accuracy: 1e-9)
+        let p = Arc.pointOverChord(from: a, to: b, sagitta: -1, at: 0.5)
+        XCTAssertEqual(p.x, 0.5, accuracy: 1e-9); XCTAssertEqual(p.y, 0.5, accuracy: 1e-9)
+        // The ends are the corners; a straight wall is the chord point.
+        XCTAssertEqual(Arc.pointOverChord(from: a, to: b, sagitta: -1, at: 0).distance(to: a), 0, accuracy: 1e-9)
+        XCTAssertEqual(Arc.pointOverChord(from: a, to: b, sagitta: -1, at: 4).distance(to: b), 0, accuracy: 1e-9)
+        XCTAssertEqual(Arc.pointOverChord(from: a, to: b, sagitta: 0, at: 1.5).x, 1.5, accuracy: 1e-12)
+    }
+
+    /// A 4 × 3 room whose first wall bulges out 0.5 (T8's arc), with a door
+    /// 1 m along it: centre (2, 3.75), R 4.25.
+    private func curvedRoomWithDoor() -> (Room, Opening) {
+        var r = Room(name: "R", corners: [Vec2(0, 0), Vec2(4, 0), Vec2(4, 3), Vec2(0, 3)].map { Corner(p: $0) })
+        r.walls[0].shape = .arc(sagitta: 0.5)
+        let door = Opening(wallID: r.walls[0].id, kind: .door, offset: 1, width: 0.9, height: 2.03)
+        r.openings = [door]
+        return (r, door)
+    }
+
+    func testADoorOnACurvedWallSitsInTheCurve() throws {
+        let (room, door) = curvedRoomWithDoor()
+        let (s, e) = try XCTUnwrap(room.jambs(of: door))
+        let centre = Vec2(2, 3.75)
+        XCTAssertEqual(s.distance(to: centre), 4.25, accuracy: 1e-9)
+        XCTAssertEqual(e.distance(to: centre), 4.25, accuracy: 1e-9)
+        // Still 1 m and 1.9 m along the chord, as stored (§9).
+        XCTAssertEqual(s.x, 1, accuracy: 1e-9)
+        XCTAssertEqual(e.x, 1.9, accuracy: 1e-9)
+        XCTAssertLessThan(s.y, -0.3)   // out in the bulge, not on the chord
+    }
+
+    func testADoorOnAStraightWallIsUnchanged() throws {
+        var (room, door) = curvedRoomWithDoor()
+        room.walls[0].shape = .straight
+        let (s, e) = try XCTUnwrap(room.jambs(of: door))
+        XCTAssertEqual(s.x, 1, accuracy: 1e-12); XCTAssertEqual(s.y, 0, accuracy: 1e-12)
+        XCTAssertEqual(e.x, 1.9, accuracy: 1e-12); XCTAssertEqual(e.y, 0, accuracy: 1e-12)
+    }
+
+    // The 3D model's hole is cut at the same jambs, on the curve.
+    func testThe3DHoleIsCutOnTheCurve() throws {
+        let (room, door) = curvedRoomWithDoor()
+        let (s, e) = try XCTUnwrap(room.jambs(of: door))
+        let walls = try XCTUnwrap(Model3D.mesh([room]).positions[.walls])
+        for jamb in [s, e] {
+            XCTAssertTrue(walls.contains { abs($0.x - jamb.x) < 1e-9 && abs($0.y - jamb.y) < 1e-9 && abs($0.z - 2.03) < 1e-9 },
+                          "the door head meets the jamb at \(jamb)")
+        }
+    }
+
+    // And the DXF's opening line joins those jambs.
+    func testTheDXFOpeningLineIsOnTheCurve() throws {
+        let (room, door) = curvedRoomWithDoor()
+        let (s, e) = try XCTUnwrap(room.jambs(of: door))
+        let dxf = Export.dxf([room])
+        let lines = dxf.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        let at = try XCTUnwrap(lines.firstIndex(of: "OPENINGS").flatMap { first in
+            lines.indices.dropFirst(first + 1).first { lines[$0] == "OPENINGS" } })
+        func value(_ code: String) -> Double? {
+            guard let k = lines[at...].firstIndex(of: code) else { return nil }
+            return Double(lines[k + 1])
+        }
+        XCTAssertEqual(try XCTUnwrap(value("10")), s.x * 1000, accuracy: 0.6)
+        XCTAssertEqual(try XCTUnwrap(value("20")), s.y * 1000, accuracy: 0.6)
+        XCTAssertEqual(try XCTUnwrap(value("11")), e.x * 1000, accuracy: 0.6)
+        XCTAssertEqual(try XCTUnwrap(value("21")), e.y * 1000, accuracy: 0.6)
+    }
 }

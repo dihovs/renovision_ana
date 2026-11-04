@@ -337,6 +337,9 @@ struct RoomEditorCore: View {
     /// ever disagree in count, `PlanBridge.aligned` treats the room as
     /// straight rather than hang a curve on the wrong wall.
     @State private var bulges: [Double] = []
+    /// `bulges` when it lines up with the corners — doors on a curved wall
+    /// are drawn and hit-tested on the curve (spec §9).
+    private var openingBulges: [Double] { bulges.count == corners.count ? bulges : [] }
     /// The ceiling's shape (M6), by edge. Nil until he sets one — and a save
     /// with nil says nothing about the ceiling, so a stored shape survives.
     @State private var ceiling: ScanGeometry.CeilingRecord?
@@ -1013,11 +1016,12 @@ struct RoomEditorCore: View {
                                 toScreen: pt,
                                 scale: scale,
                                 inside: Brand.surface,
-                                outside: Brand.Plan.sheet)
+                                outside: Brand.Plan.sheet,
+                                bulges: openingBulges)
                             if selection == .opening(index) {
                                 EditorChrome.drawOpeningSelection(
                                     context: context, polygon: corners, opening: opening,
-                                    toScreen: pt, scale: scale)
+                                    toScreen: pt, scale: scale, bulges: openingBulges)
                             }
                         }
                     }
@@ -1594,7 +1598,7 @@ struct RoomEditorCore: View {
         let cornerTolerance = handleHit / 2 / scale
         let nearestOpening =
             openings.indices
-            .map { OpeningGlyphs.distance(to: openings[$0], polygon: corners, from: point) }
+            .map { OpeningGlyphs.distance(to: openings[$0], polygon: corners, from: point, bulges: openingBulges) }
             .min() ?? .infinity
         for i in corners.indices {
             let d = PlanEditing.length(PlanEditing.sub(corners[i], point))
@@ -1660,7 +1664,7 @@ struct RoomEditorCore: View {
         var bestOpening = -1
         var bestOpeningDistance = openingTolerance
         for i in openings.indices {
-            let d = OpeningGlyphs.distance(to: openings[i], polygon: corners, from: point)
+            let d = OpeningGlyphs.distance(to: openings[i], polygon: corners, from: point, bulges: openingBulges)
             if d < bestOpeningDistance {
                 bestOpeningDistance = d
                 bestOpening = i
@@ -2129,7 +2133,7 @@ struct RoomEditorCore: View {
         var bestOpeningDistance = tolerance
         var openingEdge = -1
         for opening in openings {
-            let d = OpeningGlyphs.distance(to: opening, polygon: corners, from: point)
+            let d = OpeningGlyphs.distance(to: opening, polygon: corners, from: point, bulges: openingBulges)
             if d < bestOpeningDistance {
                 bestOpeningDistance = d
                 openingEdge = opening.edge

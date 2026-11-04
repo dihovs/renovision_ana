@@ -128,7 +128,11 @@ enum FloorPlanGeometry {
             for record in geometry.authoredOpenings ?? [] {
                 guard let placed = PlanEditing.WallOpening(record) else { continue }
                 let kind = placed.kind
-                guard let (a, b) = PlanEditing.openingEndpoints(points, placed) else { continue }
+                guard
+                    let (a, b) = PlanEditing.openingEndpoints(
+                        points, placed,
+                        bulges: geometry.edgeBulge?.count == points.count ? geometry.edgeBulge ?? [] : [])
+                else { continue }
                 let drawn: Opening.Kind
                 switch kind.category {
                 case .door: drawn = .door

@@ -1229,9 +1229,10 @@ enum EditorChrome {
         polygon: [CGPoint],
         opening: PlanEditing.WallOpening,
         toScreen: (CGPoint) -> CGPoint,
-        scale: CGFloat
+        scale: CGFloat,
+        bulges: [Double] = []
     ) {
-        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { return }
+        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening, bulges: bulges) else { return }
         let A = toScreen(a)
         let B = toScreen(b)
         let w = hypot(B.x - A.x, B.y - A.y)

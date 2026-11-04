@@ -8,9 +8,12 @@ import Foundation
 extension Room {
     /// The corners in FLOOR coordinates: turned by `rotation` about the
     /// room's own origin, then moved by `origin` (§12 room → floor transform).
-    public var floorPoints: [Vec2] {
+    public var floorPoints: [Vec2] { points.map(onFloor) }
+
+    /// One point of the room's own frame, carried onto the floor.
+    public func onFloor(_ p: Vec2) -> Vec2 {
         let c = cos(rotation), s = sin(rotation)
-        return points.map { Vec2(origin.x + $0.x * c - $0.y * s, origin.y + $0.x * s + $0.y * c) }
+        return Vec2(origin.x + p.x * c - p.y * s, origin.y + p.x * s + p.y * c)
     }
 
     /// Wall i's DXF bulge: tan(θ/4) with θ the included angle — tan(φ/2) —
@@ -77,12 +80,9 @@ public enum Export {
             }
 
             for o in room.openings {
-                guard let j = room.wallIndex(o.wallID) else { continue }
-                let a = p[j], b = p[(j + 1) % n]
-                let chord = a.distance(to: b)
-                guard chord > 0 else { continue }
-                let u = (b - a) * (1 / chord)
-                let s = a + u * o.offset, e = a + u * (o.offset + o.width)
+                // On a curved wall the line joins the two jambs ON the arc.
+                guard let (j0, j1) = room.jambs(of: o) else { continue }
+                let s = room.onFloor(j0), e = room.onFloor(j1)
                 pair(0, "LINE"); pair(8, "OPENINGS")
                 pair(10, mm(s.x)); pair(20, mm(s.y)); pair(30, "0")
                 pair(11, mm(e.x)); pair(21, mm(e.y)); pair(31, "0")

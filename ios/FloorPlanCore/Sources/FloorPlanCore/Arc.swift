@@ -93,6 +93,26 @@ public struct Arc: Equatable, Sendable {
         let angle = start + sweep * t
         return Vec2(centre.x + arc.radius * cos(angle), centre.y + arc.radius * sin(angle))
     }
+    /// The point on the arc straight above the chord point `d` metres from
+    /// `a` (spec §9: "for arc walls, the offset is measured along the chord,
+    /// and the opening is drawn on the arc"). A door's jambs are found by
+    /// their chord offsets and then stood up onto the curve with this — so
+    /// the door sits in the wall, not across the space between its ends.
+    /// `d` is clamped to the chord. The chord point itself when straight.
+    public static func pointOverChord(from a: Vec2, to b: Vec2, sagitta s: Meters, at d: Meters) -> Vec2 {
+        let chord = a.distance(to: b)
+        guard chord > 0 else { return a }
+        let u = (b - a) * (1 / chord)
+        let along = min(max(d, 0), chord)
+        let foot = a + u * along
+        guard abs(s) > 1e-12 else { return foot }
+        let r = Arc(chord: chord, sagitta: s).radius
+        let x = along - chord / 2
+        // Height of the arc above its chord at x from the middle.
+        let h = (max(0, r * r - x * x)).squareRoot() - (r - abs(s))
+        let right = Vec2(u.y, -u.x)
+        return foot + right * (h * (s > 0 ? 1 : -1))
+    }
 }
 
 extension Room {

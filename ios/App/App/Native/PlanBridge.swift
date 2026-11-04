@@ -130,6 +130,18 @@ enum PlanBridge {
         }
     }
 
+    /// The point on curved edge i straight above the chord point `d` metres
+    /// from its start corner — where a door's jamb goes (§9). Same sign rule
+    /// as `edgePoints`. `corners` may or may not repeat the first point.
+    static func pointOverChord(_ corners: [CGPoint], edge i: Int, bulge: Double, at d: Double) -> CGPoint {
+        var ring = corners
+        if ring.count > 3, let f = ring.first, let l = ring.last, f == l { ring.removeLast() }
+        let n = ring.count
+        let a = ring[i % n], b = ring[(i + 1) % n]
+        let ccw = Polygon.isCounterClockwise(core(ring))
+        return app(Arc.pointOverChord(from: core(a), to: core(b), sagitta: ccw ? bulge : -bulge, at: d))
+    }
+
     /// The deepest a wall of this chord may bulge in v1 (§10): a semicircle.
     static func maxBulge(chord: Double) -> Double { chord / 2 }
 
