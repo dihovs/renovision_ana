@@ -35,4 +35,55 @@ enum PlanBridge {
     static func counterClockwise(_ corners: [CGPoint]) -> [CGPoint] {
         Polygon.isCounterClockwise(core(corners)) ? corners : corners.reversed()
     }
+
+    // MARK: - Squaring (spec §6, M3)
+
+    enum SquareOutcome {
+        /// The squared corners, in the SAME order and frame as given — so
+        /// openings and locks keyed by edge index stay on their walls.
+        case squared([CGPoint])
+        /// Nothing changed. One line per locked wall that disagrees, worst
+        /// first, as (app edge index, how far off in metres: positive means
+        /// the right angles want it LONGER than its lock).
+        case conflict(walls: [(edge: Int, off: Double)], crosses: Bool)
+    }
+
+    /// Square a room's outline, holding every locked edge at its current
+    /// length.
+    ///
+    /// In the app a "locked" edge is one whose length was typed or lasered —
+    /// the padlock — and the number IS its current length, so that is what
+    /// the solver is told to keep. Corners go across by id and come back by
+    /// id, which is what makes the solver's own counter-clockwise reordering
+    /// invisible here.
+    static func square(_ corners: [CGPoint], locked: Set<Int>) -> SquareOutcome {
+        let n = corners.count
+        var room = Room(name: "", corners: core(corners).map { Corner(p: $0) })
+        for j in locked where j < n {
+            room.walls[j].lockedLength = corners[j].distance(to: corners[(j + 1) % n])
+        }
+        let edgeOf = Dictionary(uniqueKeysWithValues: room.walls.indices.map { (room.walls[$0].id, $0) })
+
+        switch Squaring.square(room) {
+        case .solved(let out):
+            let byID = Dictionary(uniqueKeysWithValues: out.corners.map { ($0.id, $0.p) })
+            return .squared(room.corners.map { app(byID[$0.id] ?? $0.p) })
+        case .conflict(let worst):
+            var crosses = false
+            var walls: [(edge: Int, off: Double)] = []
+            for r in worst {
+                switch r.kind {
+                case .crossing: crosses = true
+                case .length:
+                    if let id = r.wallID, let edge = edgeOf[id] { walls.append((edge, r.value)) }
+                case .angle: break
+                }
+            }
+            return .conflict(walls: walls, crosses: crosses)
+        }
+    }
+}
+
+private extension CGPoint {
+    func distance(to o: CGPoint) -> Double { hypot(o.x - x, o.y - y) }
 }

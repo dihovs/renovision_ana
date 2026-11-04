@@ -258,6 +258,8 @@ struct RoomEditorCore: View {
     /// them apart.
     @State private var locked: Set<Int> = []
     @State private var lockedWarning: Int?
+    /// Why Square could not run, said in words — see `squareRoom`.
+    @State private var squareConflict: String?
     /// True when the scan's walls never closed and this rectangle is a
     /// placeholder rather than the room. Everything derived from it — the
     /// floor area under the canvas most of all — is a guess until the
@@ -609,6 +611,15 @@ struct RoomEditorCore: View {
                 .disabled(invalid)
             Button("Discard", role: .destructive) { onExit() }
             Button("Keep editing", role: .cancel) {}
+        }
+        .alert(
+            "Can't square this room",
+            isPresented: Binding(
+                get: { squareConflict != nil }, set: { if !$0 { squareConflict = nil } })
+        ) {
+            Button("OK", role: .cancel) { squareConflict = nil }
+        } message: {
+            Text(squareConflict ?? "")
         }
         .confirmationDialog(
             "A wall next to this one was measured by hand. Moving this wall changes it.",
@@ -2552,7 +2563,8 @@ struct RoomEditorCore: View {
             // Room · Object · Note · Photo · Form, and Object is now built.
             // The menu itself still shows the other four greyed with their
             // reasons, the way the floor canvas's own already does.
-            return [.insert, .setSize, .duplicate, .delete]
+            // `Square` (M3) is real too — the floor-plan spec's solver.
+            return [.insert, .setSize, .square, .duplicate, .delete]
         case .area:
             // Both verbs are real: Edit Shape opens the point editor this
             // area already had, and Delete removes it. Insert stays greyed
@@ -3027,6 +3039,8 @@ struct RoomEditorCore: View {
             partitionHeight = index
         case (.setSize, _):
             startMeasuring(at: 0)
+        case (.square, .none):
+            squareRoom()
         case (.duplicate, .none):
             duplicating = true
         case (.delete, .none):
@@ -3333,6 +3347,43 @@ struct RoomEditorCore: View {
         // so the camera stops chasing the edit. Two-finger pan/zoom still
         // works on top of this frame; nothing re-fits it automatically.
         frozenBounds = measuredBounds
+    }
+
+    /// **Square** (floor-plan spec §6, M3): every corner within 10° of
+    /// square, straight or reflex is set exactly so; every padlocked wall
+    /// keeps its length to the millimetre; corners further off are real
+    /// angles and stay as drawn. Undoable like any edit.
+    ///
+    /// When the locks and the right angles cannot both hold — a rectangle
+    /// locked at 4, 3, 4 and 3.10 m — NOTHING moves. The operator is told
+    /// which locked walls disagree and by how much, and the worst is
+    /// selected, because only he knows which measurement is the wrong one.
+    private func squareRoom() {
+        switch PlanBridge.square(corners, locked: locked) {
+        case .squared(let next):
+            let moved = zip(next, corners).contains { hypot($0.x - $1.x, $0.y - $1.y) > 0.0005 }
+            guard moved else {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                return
+            }
+            push()
+            corners = next
+            carryAnchoredObjects()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        case .conflict(let walls, let crosses):
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            let format = UnitSettings.shared.format
+            var lines = walls.prefix(3).map { wall in
+                let length = format.format(PlanEditing.edgeLength(corners, wall.edge))
+                let off = format.format(abs(wall.off))
+                return "The locked \(length) wall is \(off) too \(wall.off > 0 ? "short" : "long") for square corners."
+            }
+            if crosses { lines.append("Squaring would make the walls cross.") }
+            if lines.isEmpty { lines.append("The corners cannot all be made square with these walls.") }
+            lines.append("Check those measurements, or unlock one, then try again.")
+            squareConflict = lines.joined(separator: "\n\n")
+            if let worst = walls.first { select(.wall(worst.edge)) }
+        }
     }
 
     private func push() {
