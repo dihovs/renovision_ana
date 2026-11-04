@@ -186,7 +186,12 @@ enum FloorPlanGeometry {
         // wall chain never closed at all, in which case there is nothing to
         // disagree with and an independently measured floor is worth more
         // than none.
-        if let traced = geometry.meshFloorPolygon, traced.count >= 3 {
+        // Not over an M11 outline: the trace rescued the old chain, and its
+        // pixel-stepped edges would only replace a squared room with a
+        // wobbly one. Twin: the same gate in roomScan.ts.
+        if (geometry.importedOutline?.count ?? 0) < 3,
+            let traced = geometry.meshFloorPolygon, traced.count >= 3
+        {
             let tracedArea = FloorPlanGeometry.polygonArea(traced.map { CGPoint(x: $0.x, y: $0.y) })
             let chainedArea = FloorPlanGeometry.polygonArea(Array(chained.polygon.dropLast()))
             let chainClosed = chained.polygon.count >= 4 && chainedArea > 0.5
@@ -417,7 +422,12 @@ enum FloorPlanGeometry {
         return Plan(
             segments: segments,
             openings: openings,
-            polygon: chainIntoPolygon(segments),
+            // A scan since M11 carries its own chained, squared outline.
+            polygon: geometry.importedOutline.flatMap { pts -> [CGPoint]? in
+                guard pts.count >= 3 else { return nil }
+                let loop = pts.map { CGPoint(x: $0.x, y: $0.y) }
+                return loop + [loop[0]]
+            } ?? chainIntoPolygon(segments),
             width: (xs.max() ?? 0) - minX,
             height: (ys.max() ?? 0) - minY,
             objects: placed)

@@ -111,6 +111,12 @@ export type ScanGeometry = RoomScanResult & {
       bulges this many metres, + away from the room, − into it. Absent or 0
       is straight. See src/lib/arc.ts. */
   edgeBulge?: number[];
+  /** The outline the phone worked out from this scan's walls when it was
+      taken (floor-plan spec §8, M11: walls chained into the cheapest closed
+      loop, then squared) — in `toFloorPlan`'s own normalised frame. When
+      present it IS the room's outline, ahead of the old chain and the mesh
+      trace. Absent on scans taken before 4 Nov 2026, which keep theirs. */
+  importedOutline?: { x: number; y: number }[];
   /** The ceiling's shape (floor-plan spec §11, M6) — flat, sloped, vaulted
       or zones, by edge number. Written by the phone; see ScanPayload.swift
       `CeilingRecord`. Absent is flat at `ceiling_height_m`. */
@@ -1029,7 +1035,12 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
   const chained: FloorPlan = {
     segments,
     openings: rawOpenings.map(shift),
-    polygon: chainIntoPolygon(segments),
+    // A scan taken since M11 carries the outline the phone chained and
+    // squared from these same walls; that is the room's outline.
+    polygon:
+      result.importedOutline && result.importedOutline.length >= 3
+        ? [...result.importedOutline, result.importedOutline[0]]
+        : chainIntoPolygon(segments),
     width: Math.max(...xs) - minX,
     height: Math.max(...ys) - minY,
     offsetX: minX,
@@ -1047,7 +1058,10 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
   // SOMETIMES right where the wall chain is wrong) OR when the wall chain
   // never closed at all, in which case there is nothing to disagree with.
   const traced = result.meshFloorPolygon;
-  if (traced && traced.length >= 3) {
+  // The mesh trace was a rescue for outlines the old chain got wrong; an
+  // M11 outline does not need rescuing, and the trace's pixel-stepped edges
+  // would only replace a squared room with a wobbly one.
+  if (traced && traced.length >= 3 && !(result.importedOutline && result.importedOutline.length >= 3)) {
     const tracedArea = polygonAreaSquareMeters(traced);
     const chainClosed = chained.polygon.length >= 4;
     const chainedArea = chainClosed ? polygonAreaSquareMeters(chained.polygon.slice(0, -1)) : 0;

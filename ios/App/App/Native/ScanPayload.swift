@@ -1,4 +1,5 @@
 import CoreGraphics
+import FloorPlanCore
 import Foundation
 import RoomPlan
 
@@ -160,6 +161,14 @@ struct ScanGeometry: Codable {
     /// `geometry` every room list downloads — it is tens of kilobytes per
     /// room, and nothing that draws a plan reads it.
     var rawCapture: String?
+
+    /// The outline worked out from this scan's walls when it was taken
+    /// (floor-plan spec §8, M11): chained into the cheapest closed loop and
+    /// squared (FloorPlanCore `WallChain`). In `FloorPlanGeometry.plan`'s
+    /// own frame. When present it is the room's outline on the phone AND
+    /// the web (twin: `importedOutline` in roomScan.ts). Scans from before
+    /// 4 Nov 2026 have none and keep the old chain on both sides.
+    var importedOutline: [EditedPoint]?
 
     /// Which wall lengths were TYPED rather than measured, by edge index.
     ///
@@ -615,12 +624,31 @@ struct ScanGeometry: Codable {
         // why the gate belongs to the reader, not the writer.
         meshFloorPolygon = tracedFloor?.polygon.map { EditedPoint(x: $0.x, y: $0.y) }
 
+        // The room's outline, chained and squared from the walls above in
+        // the plan's own frame — what both halves of the app draw from now.
+        importedOutline = Self.chainedOutline(of: self)
+
         // Apple's own record, untouched. `try?`: a scan that will not encode
         // still has every measurement above, and losing the archive copy must
         // never cost the operator the room he just walked.
         if let data = try? JSONEncoder().encode(room) {
             rawCapture = String(data: data, encoding: .utf8)
         }
+    }
+
+    /// M11: the walls, as `FloorPlanGeometry.plan` lays them out, into one
+    /// closed squared outline — nil when they never close (the old chain is
+    /// then still tried when drawing).
+    static func chainedOutline(of geometry: ScanGeometry) -> [EditedPoint]? {
+        var probe = geometry
+        probe.importedOutline = nil
+        probe.meshFloorPolygon = nil
+        let plan = FloorPlanGeometry.plan(from: probe)
+        let walls = plan.segments.map {
+            WallChain.Segment(Vec2($0.x1, $0.y1), Vec2($0.x2, $0.y2))
+        }
+        guard let outline = WallChain.squaredOutline(walls), outline.points.count >= 3 else { return nil }
+        return outline.points.map { EditedPoint(x: $0.x, y: $0.y) }
     }
 
     // MARK: - Derived figures

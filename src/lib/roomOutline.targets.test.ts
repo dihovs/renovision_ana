@@ -6,6 +6,12 @@ import { CASES, CLEAN, ROUGH, TYPICAL, realCorners, score, toScan, type Noise, t
  * What the room outline must do, against hand-measured rooms (owner,
  * 3 Nov 2026). See roomOutline.fixtures.ts for the rooms and the noise.
  *
+ * **4 Nov 2026: this scores the OLD chain, kept as the record.** Scans taken
+ * since then carry `importedOutline`, chained and squared on the phone by
+ * FloorPlanCore `WallChain` (spec M11) — scored on these same rooms, same
+ * generator, in WallChainTests.swift, where all four failures below pass.
+ * The old chain still draws scans taken before that date.
+ *
  * Two kinds of test below.
  *
  *   `it` — holds today and must keep holding.
