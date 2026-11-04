@@ -1,4 +1,5 @@
 import RoomPlan
+import FloorPlanCore
 import SwiftUI
 
 /// Where every room on a storey sits, in floor metres — shelf-packed for
@@ -1109,7 +1110,42 @@ private struct StoreyInfoSheet: View {
     /// Held rooms are included: a floor's footprint should not jump when a
     /// phone finds a bar. They carry an area and a perimeter like any other.
     private var surfaces: WallThickness.Surfaces {
-        WallThickness.groundSurfaces(
+        // Rooms placed on the floor are registered in one frame now, so the
+        // footprint is measured from their REAL outlines (floor-plan spec
+        // §12) instead of each room grown on its own and summed — which could
+        // not tell a shared partition from an exterior wall and said itself
+        // that it under-counted. Held rooms have no place on the floor yet,
+        // so a floor with any keeps the estimate below.
+        let layout = StoreyLayout(rooms)
+        if pending.isEmpty, !layout.rooms.isEmpty {
+            // Each room's own outline, carried to where it sits on the floor;
+            // the outline's repeated closing point dropped.
+            let outlines: [[Vec2]] = layout.rooms.map { placed in
+                var loop = placed.plan.polygon
+                if loop.count > 1, loop.first == loop.last { loop.removeLast() }
+                return PlanBridge.core(loop.map {
+                    CGPoint(x: placed.origin.x + $0.x, y: placed.origin.y + $0.y)
+                })
+            }.filter { $0.count >= 3 }
+            // A room whose walls never closed has no outline to add; the
+            // estimate below still counts it.
+            if outlines.count == layout.rooms.count {
+                let clear: Double = rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted }
+                let t = WallThickness.default
+                return WallThickness.Surfaces(
+                    withoutWalls: clear,
+                    // §12 gross: each room grown by half a partition, the
+                    // union counted once. A one-room floor has no partition
+                    // to add, as before.
+                    withInteriorWalls: outlines.count < 2
+                        ? clear : Alignment.grossArea(outlines, wallThickness: t.interiorM),
+                    // Each room grown by a whole exterior wall: the outside
+                    // gets its full thickness, and the partition gap between
+                    // two rooms is filled by both growths and counted once.
+                    withAllWalls: Alignment.unionArea(outlines.map { Alignment.offset($0, by: t.exteriorM) }))
+            }
+        }
+        return WallThickness.groundSurfaces(
             rooms: rooms.map { (floorAreaSqm: $0.floorAreaSqmTrusted, perimeterM: $0.wallLengthM) }
                 + pending.map {
                     // A held room has no row to read a perimeter column from,
@@ -2820,8 +2856,13 @@ struct FloorCanvasView: View {
 
         let moving = floorPolygon(room, offset: free, angle: lift.angle)
         let others = cachedLayout.rooms.filter { $0.id != lift.id }.map { floorPolygon($0) }
+        // 14 points of reach, so it feels the same at any zoom — but never
+        // less than the floor-plan spec's 10 cm (§12, T13): zoomed right in,
+        // 14 points is a few centimetres and a room dropped 6 cm off its
+        // neighbour stayed 6 cm off.
         let result = StoreyArranging.snap(
-            moving: moving, others: others, tolerance: 14 / viewport.scale)
+            moving: moving, others: others,
+            tolerance: max(14 / viewport.scale, AlignmentTuning().wallSnap))
 
         lift.offset = CGSize(
             width: free.width + result.offset.width, height: free.height + result.offset.height)
