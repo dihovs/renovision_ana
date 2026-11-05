@@ -20,6 +20,7 @@ struct ProjectsView: View {
     /// The project being opened. A grid card is a button rather than a
     /// NavigationLink, so the push is driven from here.
     @State private var opened: ProjectSummary?
+    @Environment(\.scenePhase) private var scenePhase
     @State private var filter: ProjectFilter = .all
     @State private var creatingNow = false
     @StateObject private var queue = ScanQueue.shared
@@ -162,6 +163,19 @@ struct ProjectsView: View {
             }
             .navigationTitle("Projects")
             .navigationDestination(item: $opened) { ProjectDetailView(project: $0) }
+            // **The list reloads every time it is shown again** — back from a
+            // project, or back from another tab. It used to load once, so a
+            // project saved empty kept its blank card after a room was
+            // scanned into it hours later (owner, 5 Nov 2026). The server
+            // already draws the card from the rooms as they are now; the
+            // phone just never asked again.
+            .onChange(of: opened) { _, now in
+                if now == nil { Task { await load() } }
+            }
+            .onAppear { if projects != nil { Task { await load() } } }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active, projects != nil { Task { await load() } }
+            }
             .searchable(text: $query, prompt: "Search projects or clients")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

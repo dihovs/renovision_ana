@@ -1718,7 +1718,24 @@ struct FloorCanvasView: View {
         // middle distance.
         let bounds = storeyRoom.floorBounds
         let plan = cachedLayout.groupBounds(of: cameraFocusID) ?? bounds
-        return framed(plan.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22))
+        let fitted = framed(plan.insetBy(dx: -bounds.width * 0.22, dy: -bounds.height * 0.22))
+        // **The room opens the way the floor was showing it** — owner,
+        // 5 Nov 2026: "I zoom and I turn and then I click on it… it needs
+        // to open with the same rotation, with the same zoom." Two parts:
+        //
+        // - The camera works in UNTURNED floor metres and the turn is
+        //   applied about `turnPivot` at draw time, so a turned room is
+        //   drawn away from its unturned centre. Aim at where it is DRAWN,
+        //   or a turned room opens off to one side.
+        // - A floor he has zoomed keeps his zoom: same framed size, only
+        //   re-aimed at the room. Untouched (zoom 1), the room is fitted as
+        //   before.
+        let drawnCentre = StoreyArranging.rotate(
+            [CGPoint(x: fitted.midX, y: fitted.midY)], by: liveAngle, about: turnPivot)[0]
+        let size = abs(floorZoom - 1) > 0.02 ? framed(adjustedFloorBounds).size : fitted.size
+        return CGRect(
+            x: drawnCentre.x - size.width / 2, y: drawnCentre.y - size.height / 2,
+            width: size.width, height: size.height)
     }
 
     /// The whole floor, moved and scaled by whatever the fingers have done

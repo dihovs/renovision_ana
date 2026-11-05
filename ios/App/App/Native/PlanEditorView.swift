@@ -775,6 +775,16 @@ struct RoomEditorCore: View {
                     y: externalViewport.canvasSize.height / 2 - storeyFrame.minY)
             }()
             let centre = CGPoint(x: base.x + pan.width, y: base.y + pan.height)
+            // **The floor's turn, carried into the room** (owner, 5 Nov
+            // 2026). Everything below is drawn upright and then the whole
+            // canvas is turned about where the storey's pivot lands — the
+            // same rotation `StoreyViewport.point` applies, so the room
+            // opens exactly as the floor showed it. Turning the view rather
+            // than every coordinate keeps every gesture right for free:
+            // SwiftUI maps touches back through the rotation.
+            let turn = externalViewport?.angle ?? 0
+            let pivotOnScreen = screenPoint(
+                externalViewport?.pivot ?? .zero, centre: centre, scale: scale)
 
             // `roomOrigin` shifts a LOCAL point (what `corners` always is,
             // save file and all) into FLOOR space before it meets `bounds`,
@@ -808,7 +818,10 @@ struct RoomEditorCore: View {
                     // `EditorChrome.drawGrid`. The mapping is handed over
                     // rather than reinvented: model (0, 0) on screen, and
                     // the same metres→points scale the walls use.
-                    if showGrid {
+                    // Turned, the grid is drawn underneath the turned
+                    // canvas instead (see the `.background` below), so it
+                    // still fills the screen to the corners.
+                    if showGrid, turn == 0 {
                         EditorChrome.drawGrid(
                             context: context, size: proxy.size,
                             model: (origin: pt(.zero), scale: scale))
@@ -1290,6 +1303,22 @@ struct RoomEditorCore: View {
             }
             .onTapGesture { location in
                 handleTap(toModel(location), scale: scale)
+            }
+            .rotationEffect(
+                .radians(turn),
+                anchor: UnitPoint(
+                    x: pivotOnScreen.x / max(proxy.size.width, 1),
+                    y: pivotOnScreen.y / max(proxy.size.height, 1)))
+            .background {
+                if turn != 0, showGrid {
+                    Canvas { context, size in
+                        EditorChrome.drawGrid(
+                            context: context, size: size,
+                            model: (origin: screenPoint(.zero, centre: centre, scale: scale), scale: scale),
+                            angle: turn, pivot: externalViewport?.pivot ?? .zero)
+                    }
+                    .allowsHitTesting(false)
+                }
             }
         }
         .background(Brand.Plan.paper)
