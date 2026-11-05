@@ -453,6 +453,15 @@ struct DrawRoomView: View {
         }
         closed = true
         snapNote = nil
+        // Squared as a whole on closing, the way magicplan does: a corner a
+        // few degrees off square is set exactly, a real angle is left, and
+        // every wall stays near the length it was drawn at.
+        if case .squared(let next) = PlanBridge.square(corners, locked: [], tuning: .onClose),
+            zip(next, corners).contains(where: { hypot($0.x - $1.x, $0.y - $1.y) > 0.0005 })
+        {
+            corners = next
+            snapNote = "Corners squared."
+        }
     }
 
     /// **A wall typed, not tapped.** Drawing from a plan or a tape, the

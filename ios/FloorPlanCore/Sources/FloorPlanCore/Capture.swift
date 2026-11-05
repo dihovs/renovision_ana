@@ -103,3 +103,79 @@ public struct OutlineCapture: Sendable {
         return .closed
     }
 }
+
+/// **The turn hint while drawing** (magicplan, POLYGON_LOGIC Part D).
+///
+/// While the next corner is being aimed, the aim is compared with the last
+/// wall turned 90°, then 45°, then 135° (either way). The first of those whose
+/// line passes within `coarse` of the aim is the candidate; it is used only
+/// when the aim is within `fine` of it. The hinted point keeps the length the
+/// operator is aiming at and fixes only the angle — so a wall tapped 3° off
+/// square lands square, and one meant at 60° is left alone.
+public enum AimHint {
+    public static let coarse: Meters = 0.2
+    public static let fine: Meters = 0.05
+    /// The last wall must be at least this long to have a direction worth
+    /// following, and the aim at least this far from the last corner.
+    public static let minWall: Meters = 0.3
+    public static let minReach: Meters = 0.15
+
+    public struct Hint: Equatable, Sendable {
+        public var point: Vec2
+        /// The turn from the last wall, degrees: ±90, ±45 or ±135.
+        public var degrees: Double
+    }
+
+    /// `points` are the corners placed so far; nil when there is no hint.
+    public static func hint(points: [Vec2], aim: Vec2) -> Hint? {
+        guard points.count >= 2 else { return nil }
+        let last = points[points.count - 1]
+        let before = points[points.count - 2]
+        let wall = last - before
+        let wallLength = wall.length
+        let reach = aim.distance(to: last)
+        guard wallLength >= minWall, reach >= minReach else { return nil }
+        let u = wall * (1 / wallLength)
+        let toAim = aim - last
+        for degrees in [90.0, 45.0, 135.0] {
+            var best: (Hint, Double)?
+            for sign in [1.0, -1.0] {
+                let a = degrees * sign * .pi / 180
+                let d = Vec2(u.x * cos(a) - u.y * sin(a), u.x * sin(a) + u.y * cos(a))
+                // Only ahead along the candidate line, never behind it.
+                let along = toAim.dot(d)
+                guard along > 0 else { continue }
+                let miss = abs(toAim.cross(d))
+                guard miss < coarse else { continue }
+                let hint = Hint(point: last + d * reach, degrees: degrees * sign)
+                if miss < (best?.1 ?? .infinity) { best = (hint, miss) }
+            }
+            if let (hint, miss) = best { return miss < fine ? hint : nil }
+        }
+        return nil
+    }
+}
+
+/// **When a room may be closed** (magicplan, POLYGON_LOGIC Part A): when the
+/// aim is within 0.2 m of the first corner, or when the corners so far
+/// already enclose more than 1 m² AND the outline turns sharply (over 75°)
+/// at both its first and its last corner — so a sliver, or a shape that
+/// would close along a slant nobody drew, is not one tap from being saved.
+public enum CloseRule {
+    public static let nearFirst: Meters = 0.2
+    public static let minArea: Double = 1
+    public static let minEndTurnDegrees: Double = 75
+
+    public static func canClose(points: [Vec2], aim: Vec2? = nil) -> Bool {
+        guard points.count >= 3 else { return false }
+        if let aim, let first = points.first, aim.distance(to: first) < nearFirst { return true }
+        guard abs(Polygon.signedArea(points)) > minArea else { return false }
+        func turn(_ i: Int) -> Double {
+            let n = points.count
+            let a = points[i] - points[(i - 1 + n) % n]
+            let b = points[(i + 1) % n] - points[i]
+            return abs(atan2(a.cross(b), a.dot(b))) * 180 / .pi
+        }
+        return min(turn(0), turn(points.count - 1)) > minEndTurnDegrees
+    }
+}

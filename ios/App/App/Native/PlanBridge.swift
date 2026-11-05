@@ -56,7 +56,9 @@ enum PlanBridge {
     /// the solver is told to keep. Corners go across by id and come back by
     /// id, which is what makes the solver's own counter-clockwise reordering
     /// invisible here.
-    static func square(_ corners: [CGPoint], locked: Set<Int>) -> SquareOutcome {
+    static func square(
+        _ corners: [CGPoint], locked: Set<Int>, tuning: SolverTuning = SolverTuning()
+    ) -> SquareOutcome {
         let n = corners.count
         var room = Room(name: "", corners: core(corners).map { Corner(p: $0) })
         for j in locked where j < n {
@@ -64,7 +66,7 @@ enum PlanBridge {
         }
         let edgeOf = Dictionary(uniqueKeysWithValues: room.walls.indices.map { (room.walls[$0].id, $0) })
 
-        switch Squaring.square(room) {
+        switch Squaring.square(room, tuning: tuning) {
         case .solved(let out):
             let byID = Dictionary(uniqueKeysWithValues: out.corners.map { ($0.id, $0.p) })
             return .squared(room.corners.map { app(byID[$0.id] ?? $0.p) })

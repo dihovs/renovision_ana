@@ -72,7 +72,11 @@ struct ARCornerCaptureView: View {
                 var band = Path()
                 band.move(to: last)
                 band.addLine(to: aim)
-                context.stroke(band, with: .color(.white), style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                // Green while the wall is on a square (or 45°) turn off the
+                // last one — the corner will land exactly on that line.
+                context.stroke(
+                    band, with: .color(model.aimHinted ? .green : .white),
+                    style: StrokeStyle(lineWidth: model.aimHinted ? 3 : 2, dash: model.aimHinted ? [] : [6, 4]))
             }
             for (i, p) in pts.enumerated() {
                 let r: CGFloat = i == 0 ? 8 : 5
@@ -156,7 +160,7 @@ struct ARCornerCaptureView: View {
                 }
                 .disabled(!model.canPlace)
                 Button { model.close() } label: { label("Close", "checkmark") }
-                    .disabled(model.cornerCount < 3)
+                    .disabled(model.cornerCount < 3 || !model.canCloseNow)
             }
         }
         .padding(Brand.Space.base)
@@ -194,6 +198,8 @@ final class ARCornerModel: NSObject, ObservableObject, ARSessionDelegate {
     @Published var canPlace = false
     @Published var aimScreen: CGPoint?
     @Published var aimLockedToCorner = false
+    /// The aim is on a 90° / 45° / 135° turn off the last wall.
+    @Published var aimHinted = false
     @Published var cornerScreens: [CGPoint] = []
     @Published var liveLength: Double?
     @Published var cornerCount = 0
@@ -249,7 +255,7 @@ final class ARCornerModel: NSObject, ObservableObject, ARSessionDelegate {
         let centre = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
         let aim = floorPoint(at: centre)
         if let aim {
-            let (point, locked) = cornerAid(aim, planes: planes)
+            let (point, locked) = hinted(cornerAid(aim, planes: planes))
             aimScreen = screen(point, camera: camera)
             aimLockedToCorner = locked
             if let last = world.last { liveLength = Double(simd_distance(last, point)) } else { liveLength = nil }
@@ -285,7 +291,7 @@ final class ARCornerModel: NSObject, ObservableObject, ARSessionDelegate {
     func addCorner(at location: CGPoint) {
         guard canPlace, let raw = floorPoint(at: location) else { return }
         let planes = view?.session.currentFrame?.anchors.compactMap { $0 as? ARPlaneAnchor } ?? []
-        let (point, locked) = cornerAid(raw, planes: planes)
+        let (point, locked) = hinted(cornerAid(raw, planes: planes))
 
         switch capture.tap(plan(point)) {
         case .added(let p, let snapped):
@@ -326,8 +332,31 @@ final class ARCornerModel: NSObject, ObservableObject, ARSessionDelegate {
         guard let room = capture.room else { return }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         pause()
-        closedCorners = Self.squaredToPage(PlanBridge.app(room.points))
+        // Squared as a whole the moment it closes, the way magicplan does:
+        // corners near square set exactly, every wall kept near the length
+        // it was walked at. A room that cannot square stays as captured.
+        var corners = PlanBridge.app(room.points)
+        if case .squared(let next) = PlanBridge.square(corners, locked: [], tuning: .onClose) {
+            corners = next
+        }
+        closedCorners = Self.squaredToPage(corners)
     }
+
+    /// magicplan's turn hint (`AimHint`): aimed within 5 cm of a right turn
+    /// (or 45°, or 135°) off the last wall, the corner goes exactly there,
+    /// at the distance aimed. A corner the wall planes already locked wins.
+    private func hinted(_ aid: (SIMD3<Float>, Bool)) -> (SIMD3<Float>, Bool) {
+        let (point, locked) = aid
+        guard !locked, let hint = AimHint.hint(points: capture.points, aim: plan(point)) else {
+            aimHinted = false
+            return aid
+        }
+        aimHinted = true
+        return (SIMD3(Float(hint.point.x), point.y, Float(-hint.point.y)), false)
+    }
+
+    /// Whether the Close button may be used now (magicplan's close rule).
+    var canCloseNow: Bool { CloseRule.canClose(points: capture.points) }
 
     private func refreshArea() {
         area = capture.points.count >= 3 ? Polygon.area(capture.points) : 0

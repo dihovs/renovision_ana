@@ -35,8 +35,34 @@ public struct SolverTuning: Codable, Sendable {
     /// it — so the scan path turns this off and lets every corner's anchor
     /// decide the room's orientation together; only corner 0 stays put.
     public var pinFirstWall: Bool = true
+    /// magicplan's per-corner tolerances (POLYGON_LOGIC Part B) instead of
+    /// one flat `squareTolDegrees`: a near-straight corner 3.5° (15° beside
+    /// a "flagged" neighbour), a real corner 7°, a corner at the end of a
+    /// wall under 0.5 m 20°. Off by default — the plan editor's Square
+    /// button keeps the flat 10° the owner is used to.
+    public var perCornerTolerance: Bool = false
+    /// Holds every UNLOCKED wall near the length it was drawn at, so the
+    /// room's sizes do not drift while its corners square up (magicplan
+    /// keeps every wall's measured length in its fit). 0 = off.
+    public var drawnLengthWeight: Double = 0
+    /// Holds corners that are NOT squared near their drawn angle (magicplan's
+    /// weight 1 against 100 for a squared one). 0 = off.
+    public var freeAngleWeight: Double = 0
 
     public init() {}
+
+    /// What magicplan does when a drawn room closes: per-corner tolerances,
+    /// squared angles held 100× harder than free ones, and every wall kept
+    /// near its drawn length. Ratios are theirs (100 / 1 / 1 against our
+    /// locks' 1000, which still win).
+    public static var onClose: SolverTuning {
+        var t = SolverTuning()
+        t.perCornerTolerance = true
+        t.angleWeight = 100
+        t.freeAngleWeight = 1
+        t.drawnLengthWeight = 1
+        return t
+    }
 }
 
 /// One thing the solver could not satisfy, and by how much.
@@ -106,7 +132,9 @@ public enum Squaring {
         var solved = p0
         var failures: [Residual] = []
         for _ in 0..<tuning.rounds {
-            solved = solve(p0: anchor, targets: targets, locks: locks, angleWeight: tuning.angleWeight, tuning: tuning)
+            solved = solve(
+                p0: anchor, targets: targets, locks: locks, angleWeight: tuning.angleWeight, tuning: tuning,
+                drawn: p0)
             failures = check(solved, targets: targets, locks: locks, tuning: tuning)
             if failures.isEmpty { break }
             anchor = solved
@@ -135,15 +163,43 @@ public enum Squaring {
     /// near a multiple of 90° targets it exactly; a user-locked angle uses its
     /// own value; every other corner is free.
     static func angleTargets(_ room: Room, _ p: [Vec2], _ tuning: SolverTuning) -> [(Int, Double)] {
-        let tol = tuning.squareTolDegrees * .pi / 180
         return room.corners.indices.compactMap { i in
             if let locked = room.corners[i].lockedAngle { return (i, locked) }
             let theta = interiorAngle(p, i)
             let target = (theta / (.pi / 2)).rounded() * (.pi / 2)
             // 0° and 360° are not corners a room can have.
-            guard target > 0, target < 2 * .pi, abs(theta - target) <= tol else { return nil }
+            guard target > 0, target < 2 * .pi else { return nil }
+            let degrees = tuning.perCornerTolerance ? cornerTolerance(p, i) : tuning.squareTolDegrees
+            guard abs(theta - target) <= degrees * .pi / 180 else { return nil }
             return (i, target)
         }
+    }
+
+    /// The turn at corner i in degrees: + left, − right, 0 straight on.
+    static func turnDegrees(_ p: [Vec2], _ i: Int) -> Double {
+        (.pi - interiorAngle(p, i)) * 180 / .pi
+    }
+
+    /// magicplan's snap tolerance for one corner (POLYGON_LOGIC Part B2).
+    static func cornerTolerance(_ p: [Vec2], _ i: Int) -> Double {
+        let n = p.count
+        let prev = (i - 1 + n) % n, next = (i + 1) % n
+        let turn = turnDegrees(p, i)
+        let quarter = (turn / 90).rounded()
+        let wallIn = p[prev].distance(to: p[i])
+        let wallOut = p[i].distance(to: p[next])
+        // A right angle at the end of a short wall — a jog, a closet return:
+        // forgiving, because a short wall's direction is the least certain.
+        if abs(quarter) == 1, min(wallIn, wallOut) < 0.5 { return 20 }
+        if quarter != 0 { return 7 }
+        // Near-straight: a real slight bend is kept unless a neighbour says
+        // the wall is ragged anyway.
+        let before = turnDegrees(p, prev), after = turnDegrees(p, next)
+        let flagged =
+            before * after <= 0
+            || abs(before) >= 45 || abs(after) >= 45
+            || wallIn >= 0.5 || wallOut >= 0.5
+        return flagged ? 15 : 3.5
     }
 
     // MARK: - Solve
@@ -157,8 +213,20 @@ public enum Squaring {
     /// degrees of freedom (§5).
     static func solve(
         p0: [Vec2], targets: [(Int, Double)], locks: [(Int, Meters)], angleWeight: Double,
-        tuning: SolverTuning
+        tuning: SolverTuning, drawn: [Vec2]? = nil
     ) -> [Vec2] {
+        let drawn = drawn ?? p0
+        let squared = Set(targets.map(\.0))
+        let lockedWalls = Set(locks.map(\.0))
+        let freeAngles: [(Int, Double)] =
+            tuning.freeAngleWeight > 0
+            ? drawn.indices.filter { !squared.contains($0) }.map { ($0, interiorAngle(drawn, $0)) } : []
+        let drawnLengths: [(Int, Double)] =
+            tuning.drawnLengthWeight > 0
+            ? drawn.indices.filter { !lockedWalls.contains($0) }
+                .map { ($0, drawn[$0].distance(to: drawn[($0 + 1) % drawn.count])) } : []
+        let sF = tuning.freeAngleWeight.squareRoot()
+        let sD = tuning.drawnLengthWeight.squareRoot()
         let n = p0.count
         let u = (p0[1] - p0[0]) * (1 / max(p0[1].distance(to: p0[0]), 1e-12))
 
@@ -184,6 +252,8 @@ public enum Squaring {
             r.reserveCapacity(targets.count + locks.count + 2 * n)
             for (i, target) in targets { r.append(sA * wrap(interiorAngle(p, i) - target)) }
             for (j, length) in locks { r.append(sL * (p[j].distance(to: p[(j + 1) % n]) - length)) }
+            for (i, angle) in freeAngles { r.append(sF * wrap(interiorAngle(p, i) - angle)) }
+            for (j, length) in drawnLengths { r.append(sD * (p[j].distance(to: p[(j + 1) % n]) - length)) }
             for i in 1..<n {
                 r.append(sP * (p[i].x - p0[i].x))
                 r.append(sP * (p[i].y - p0[i].y))
