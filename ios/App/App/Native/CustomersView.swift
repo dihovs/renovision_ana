@@ -67,10 +67,7 @@ struct CustomersView: View {
             }
             .navigationTitle("Customers")
             .navigationDestination(item: $opened) { client in
-                WebScreen(path: "/admin/clients/\(client.id)")
-                    .ignoresSafeArea(edges: .bottom)
-                    .navigationTitle(client.name)
-                    .navigationBarTitleDisplayMode(.inline)
+                CustomerHubView(client: client)
             }
             .searchable(text: $query, prompt: "Search customers")
             .sheet(isPresented: $creating) {
@@ -175,8 +172,8 @@ struct EstimatesView: View {
     private var rest: [QuoteSummary] { (invoices ?? []).filter { !$0.isAwaitingAnswer } }
     private var awaitingCents: Int { awaiting.reduce(0) { $0 + $1.totalCents } }
 
+    // Pushed from More now (no stack of its own) — it was a tab root.
     var body: some View {
-        NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 Brand.canvas.ignoresSafeArea()
 
@@ -247,7 +244,7 @@ struct EstimatesView: View {
                     .padding(.trailing, Brand.Space.large)
                     .padding(.bottom, Brand.Space.large)
             }
-            .navigationTitle("Estimates")
+            .navigationTitle("Quotes")
             .sheet(isPresented: $buildingQuote) {
                 NavigationStack {
                     WebScreen(path: "/admin/quotes/new")
@@ -257,7 +254,6 @@ struct EstimatesView: View {
                 }
             }
             .task { await load() }
-        }
     }
 
     private func load() async {
@@ -329,7 +325,7 @@ private struct QuoteCard: View {
 }
 
 /// Cents to dollars, in the app's one place for it.
-private func money(_ cents: Int) -> String {
+func money(_ cents: Int) -> String {
     let value = Double(cents) / 100
     let formatter = NumberFormatter()
     formatter.numberStyle = .currency

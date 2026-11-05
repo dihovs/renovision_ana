@@ -34,6 +34,8 @@
 		52763D817DEF74CB401D10C3 /* CallManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDAFC13BEDFB912C801339B0 /* CallManager.swift */; };
 		FC777ADF70B94B6444C032C5 /* PhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757B8D35348C20F44D2EE482 /* PhoneView.swift */; };
 		0ABAB67263690A05807B70AB /* CustomersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */; };
+		305676067F287502BC3D6821 /* AppTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF792E129BDDE5CB4A25B59 /* AppTabs.swift */; };
+		AAEA65C79F67AB5FF983AA7D /* CustomerHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D718A29B73EF17BE9D3AA7D1 /* CustomerHubView.swift */; };
 		134C11B1F11F4454AB0698EE /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0B83FB695A83FEF3FDE977 /* ScanView.swift */; };
 		805AB54A03F19C368F45A962 /* MoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F840D6CFE328A3196F454A /* MoreView.swift */; };
 		7C262F10406210A42BAD7978 /* ScanPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */; };
@@ -133,6 +135,8 @@
 		EDAFC13BEDFB912C801339B0 /* CallManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CallManager.swift; sourceTree = "<group>"; };
 		757B8D35348C20F44D2EE482 /* PhoneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PhoneView.swift; sourceTree = "<group>"; };
 		2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CustomersView.swift; sourceTree = "<group>"; };
+		1DF792E129BDDE5CB4A25B59 /* AppTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/AppTabs.swift; sourceTree = "<group>"; };
+		D718A29B73EF17BE9D3AA7D1 /* CustomerHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/CustomerHubView.swift; sourceTree = "<group>"; };
 		0A0B83FB695A83FEF3FDE977 /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanView.swift; sourceTree = "<group>"; };
 		12F840D6CFE328A3196F454A /* MoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/MoreView.swift; sourceTree = "<group>"; };
 		29FD551C4630FED0B9EE0D88 /* ScanPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/ScanPayload.swift; sourceTree = "<group>"; };
@@ -316,6 +320,8 @@
 				12F840D6CFE328A3196F454A /* MoreView.swift */,
 				0A0B83FB695A83FEF3FDE977 /* ScanView.swift */,
 				2AAADD4F5029CE28A6DF7237 /* CustomersView.swift */,
+				1DF792E129BDDE5CB4A25B59 /* AppTabs.swift */,
+				D718A29B73EF17BE9D3AA7D1 /* CustomerHubView.swift */,
 				757B8D35348C20F44D2EE482 /* PhoneView.swift */,
 				EDAFC13BEDFB912C801339B0 /* CallManager.swift */,
 				3FD9F04AB53B52854089E5C1 /* Theme.swift */,
@@ -491,6 +497,8 @@
 				805AB54A03F19C368F45A962 /* MoreView.swift in Sources */,
 				134C11B1F11F4454AB0698EE /* ScanView.swift in Sources */,
 				0ABAB67263690A05807B70AB /* CustomersView.swift in Sources */,
+				305676067F287502BC3D6821 /* AppTabs.swift in Sources */,
+				AAEA65C79F67AB5FF983AA7D /* CustomerHubView.swift in Sources */,
 				FC777ADF70B94B6444C032C5 /* PhoneView.swift in Sources */,
 				52763D817DEF74CB401D10C3 /* CallManager.swift in Sources */,
 				CA222D1BB6E2CDD8B11B84EC /* Theme.swift in Sources */,
