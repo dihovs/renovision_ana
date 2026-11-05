@@ -275,30 +275,120 @@ enum StoreyWalls {
         }
     }
 
-    /// What is behind a point on a room's edge, looking out along `out`.
-    static func kind(
-        at point: CGPoint, out: CGPoint, others: [[CGPoint]], interior: Double
-    ) -> Kind {
+    /// The wall behind one point of a room's edge: its kind and its two faces,
+    /// metres out from the edge.
+    struct Section: Equatable {
+        let kind: Kind
+        let near: Double
+        let far: Double
+    }
+
+    /// **One wall per pair of facing edges** (magicplan's rule, POLYGON_LOGIC
+    /// Part C: a wall has two faces and each face belongs to a room).
+    ///
+    /// Before 5 Nov 2026 each room guessed on its own with two probes, and
+    /// every room behind a gap drew a full partition `0…t` outward — so two
+    /// rooms 6 cm apart each drew 11 cm of wall into the other's floor. Now
+    /// the edge facing this one is FOUND (anti-parallel within 3°, overlapping
+    /// along it), the gap between them is measured, and both rooms draw the
+    /// same one wall from it:
+    ///
+    /// - gap of at least ¾ of a partition — the wall fills the gap exactly,
+    ///   `0…gap`, so its two faces are the two rooms' outlines;
+    /// - a smaller gap, flush included — one partition centred in the gap,
+    ///   which is what two rooms pushed together have always drawn;
+    /// - nothing facing within an exterior wall's reach — the outside.
+    ///
+    /// Both rooms work out the same band, so drawing it twice paints the same
+    /// pixels; nothing pokes into the neighbour.
+    static func section(
+        at point: CGPoint, along u: CGPoint, out: CGPoint, others: [[CGPoint]],
+        interior: Double, exterior: Double, outdoor: Bool = false
+    ) -> Section {
+        let reach = exterior + 0.05
+        var best: Double?
+        for polygon in others {
+            let n = polygon.count
+            for j in 0..<n {
+                let c = polygon[j]
+                let d = polygon[(j + 1) % n]
+                let length = hypot(d.x - c.x, d.y - c.y)
+                guard length > 0.05 else { continue }
+                let w = CGPoint(x: (d.x - c.x) / length, y: (d.y - c.y) / length)
+                // Anti-parallel within 3° — the two faces of one wall run
+                // opposite ways round their two rooms.
+                guard u.x * w.x + u.y * w.y < -0.9986 else { continue }
+                // Opposite this point along the other edge (1 cm of slack).
+                let along = (point.x - c.x) * w.x + (point.y - c.y) * w.y
+                guard along > -0.01, along < length + 0.01 else { continue }
+                // How far out the other face is.
+                let gap = (c.x - point.x) * out.x + (c.y - point.y) * out.y
+                guard gap > -0.03, gap < reach else { continue }
+                if best.map({ abs(gap) < abs($0) }) ?? true { best = gap }
+            }
+        }
+        if let gap = best {
+            if gap >= interior * 0.75 { return Section(kind: .partition, near: 0, far: gap) }
+            let middle = max(gap, 0) / 2
+            return Section(kind: .shared, near: middle - interior / 2, far: middle + interior / 2)
+        }
+        // A neighbour at an angle: no facing edge, but there is a room right
+        // behind. The old probes, kept for that case.
         func behind(_ distance: Double) -> Bool {
             let probe = CGPoint(x: point.x + out.x * distance, y: point.y + out.y * distance)
             return others.contains { DrawSnapping.contains($0, probe) }
         }
-        if behind(0.02) { return .shared }
-        if behind(interior + 0.05) { return .partition }
-        return .exterior
+        if behind(0.02) { return Section(kind: .shared, near: -interior / 2, far: interior / 2) }
+        if behind(interior + 0.05) { return Section(kind: .partition, near: 0, far: interior) }
+        return Section(kind: .exterior, near: 0, far: outdoor ? Self.outdoorEdge : exterior)
+    }
+
+    /// What is behind a point on a room's edge, looking out along `out`.
+    static func kind(
+        at point: CGPoint, out: CGPoint, others: [[CGPoint]], interior: Double
+    ) -> Kind {
+        let u = CGPoint(x: out.y, y: -out.x)
+        return section(
+            at: point, along: u, out: out, others: others, interior: interior,
+            exterior: StoreyLayout.exteriorWall
+        ).kind
     }
 
     /// The faces of the wall a point on an edge sits in — where a door's
-    /// jambs and leaf are drawn from.
+    /// jambs and leaf are drawn from. `u` is not known here, so both
+    /// directions along the edge are tried: only one of them can face
+    /// another room's edge.
     static func faces(
         at point: CGPoint, out: CGPoint, others: [[CGPoint]],
         interior: Double, exterior: Double
     ) -> (near: Double, far: Double) {
-        switch kind(at: point, out: out, others: others, interior: interior) {
-        case .shared: return (-interior / 2, interior / 2)
-        case .partition: return (0, interior)
-        case .exterior: return (0, exterior)
-        }
+        let one = section(
+            at: point, along: CGPoint(x: out.y, y: -out.x), out: out, others: others,
+            interior: interior, exterior: exterior)
+        if one.kind != .exterior { return (one.near, one.far) }
+        let other = section(
+            at: point, along: CGPoint(x: -out.y, y: out.x), out: out, others: others,
+            interior: interior, exterior: exterior)
+        return (other.near, other.far)
+    }
+
+    /// How far the band of an edge has to run on past its end at a corner for
+    /// its far face to meet the NEXT wall's far face — negative when the
+    /// corner turns in and the far face has to stop short instead.
+    ///
+    /// The crossing of the two far-face lines (magicplan's corner rule, Part
+    /// C), taken with each wall's OWN thickness. The old figure used this
+    /// wall's thickness for both, so an outside wall meeting a thinner
+    /// partition ran on by the outside wall's 18 cm and poked a stub past it.
+    ///
+    /// `u` runs along this edge TOWARD the corner; `n` is its outward normal;
+    /// `m` the next wall's outward normal; `t1`, `t2` the two far faces.
+    static func runOn(u: CGPoint, n: CGPoint, m: CGPoint, t1: Double, t2: Double) -> Double {
+        let um = u.x * m.x + u.y * m.y
+        guard abs(um) > 0.02 else { return 0 }
+        let nm = n.x * m.x + n.y * m.y
+        let s = (t2 - t1 * nm) / um
+        return max(-3 * max(t1, t2), min(3 * max(t1, t2), s))
     }
 
     /// Every run of wall around room `index`. `polygons` are every room on
@@ -315,83 +405,76 @@ enum StoreyWalls {
         guard count >= 3 else { return [] }
         let others = polygons.enumerated().filter { $0.offset != index && $0.element.count >= 3 }
             .map(\.element)
-
-        func thickness(_ kind: Kind) -> (Double, Double) {
-            switch kind {
-            case .shared: return (-interior / 2, interior / 2)
-            case .partition: return (0, interior)
-            // A porch, balcony or terrace has no wall of its own on the
-            // outside — an edge, a railing — and the owner's reference plan
-            // draws exactly that: a thin line, where a band would read as a
-            // room built out of brick.
-            case .exterior: return (0, outdoor ? Self.outdoorEdge : exterior)
-            }
-        }
         func local(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x - origin.x, y: p.y - origin.y) }
 
-        var runs: [Run] = []
+        // Pass 1: every edge, classified in short steps.
+        struct Edge {
+            let a: CGPoint, b: CGPoint, u: CGPoint, out: CGPoint, length: Double
+            let sections: [Section]
+        }
+        var edges: [Edge?] = []
         for i in 0..<count {
             let a = polygon[i]
             let b = polygon[(i + 1) % count]
             let length = hypot(b.x - a.x, b.y - a.y)
-            guard length > 1e-6 else { continue }
+            guard length > 1e-6 else { edges.append(nil); continue }
             let out = DrawSnapping.outwardNormal(polygon, i)
             let u = CGPoint(x: (b.x - a.x) / length, y: (b.y - a.y) / length)
-
-            // Is the corner at each end convex — does the outside wrap round it?
-            func convex(at corner: CGPoint, _ otherOut: CGPoint) -> Bool {
-                let probe = CGPoint(
-                    x: corner.x + (out.x + otherOut.x) * 0.01,
-                    y: corner.y + (out.y + otherOut.y) * 0.01)
-                return !DrawSnapping.contains(polygon, probe)
-            }
-            let outPrev = DrawSnapping.outwardNormal(polygon, (i + count - 1) % count)
-            let outNext = DrawSnapping.outwardNormal(polygon, (i + 1) % count)
-            let convexA = convex(at: a, outPrev)
-            let convexB = convex(at: b, outNext)
-            // How far to run on, per metre of thickness, for the two outside
-            // faces to meet in one point: tan(half the turn). A square corner
-            // is 1 — the whole thickness, as before — but a 45° wall needs
-            // 0.41, and running it on by the full thickness poked a stub out
-            // past every angled corner (owner's bathroom, 5 Nov 2026).
-            // Capped so a near-hairpin corner cannot throw a spike.
-            func miter(_ other: CGPoint) -> Double {
-                let c = max(-1, min(1, out.x * other.x + out.y * other.y))
-                return min(sqrt((1 - c) / max(1 + c, 1e-6)), 3)
-            }
-            let miterA = miter(outPrev)
-            let miterB = miter(outNext)
-
-            // Classify the edge in short steps and merge equal neighbours.
             let pieces = max(1, Int((length / step).rounded(.up)))
-            var kinds: [Kind] = []
-            for k in 0..<pieces {
+            let sections = (0..<pieces).map { k -> Section in
                 let t = (Double(k) + 0.5) / Double(pieces) * length
-                let p = CGPoint(x: a.x + u.x * t, y: a.y + u.y * t)
-                kinds.append(kind(at: p, out: out, others: others, interior: interior))
+                return section(
+                    at: CGPoint(x: a.x + u.x * t, y: a.y + u.y * t), along: u, out: out,
+                    others: others, interior: interior, exterior: exterior, outdoor: outdoor)
             }
+            edges.append(Edge(a: a, b: b, u: u, out: out, length: length, sections: sections))
+        }
+        /// The nearest real edge before / after `i` (skipping zero-length ones).
+        func neighbour(_ i: Int, _ step: Int) -> Edge? {
+            var j = i
+            for _ in 0..<count {
+                j = (j + step + count) % count
+                if let edge = edges[j] { return edge }
+            }
+            return nil
+        }
+
+        // Pass 2: runs, with each end meeting the next wall's real far face.
+        var runs: [Run] = []
+        for i in 0..<count {
+            guard let edge = edges[i] else { continue }
+            let pieces = edge.sections.count
+            let prev = neighbour(i, -1)
+            let next = neighbour(i, 1)
             var start = 0
             while start < pieces {
                 var end = start
-                while end + 1 < pieces, kinds[end + 1] == kinds[start] { end += 1 }
-                let s0 = Double(start) / Double(pieces) * length
-                let s1 = Double(end + 1) / Double(pieces) * length
-                let (near, far) = thickness(kinds[start])
+                while end + 1 < pieces, edge.sections[end + 1] == edge.sections[start] { end += 1 }
+                let s0 = Double(start) / Double(pieces) * edge.length
+                let s1 = Double(end + 1) / Double(pieces) * edge.length
+                let here = edge.sections[start]
+                var pastA = 0.0, pastB = 0.0, trimA = 0.0, trimB = 0.0
+                // A wall two rooms share is not run on: the room it is
+                // shared with closes the corner, and running it on pokes a
+                // stub into the room beyond.
+                if here.kind != .shared {
+                    if start == 0, let prev, let theirs = prev.sections.last {
+                        let s = runOn(
+                            u: CGPoint(x: -edge.u.x, y: -edge.u.y), n: edge.out, m: prev.out,
+                            t1: here.far, t2: theirs.far)
+                        if s > 0 { pastA = s } else { trimA = min(-s, (s1 - s0) / 2) }
+                    }
+                    if end == pieces - 1, let next, let theirs = next.sections.first {
+                        let s = runOn(u: edge.u, n: edge.out, m: next.out, t1: here.far, t2: theirs.far)
+                        if s > 0 { pastB = s } else { trimB = min(-s, (s1 - s0) / 2) }
+                    }
+                }
                 runs.append(
                     Run(
-                        a: local(CGPoint(x: a.x + u.x * s0, y: a.y + u.y * s0)),
-                        b: local(CGPoint(x: a.x + u.x * s1, y: a.y + u.y * s1)),
-                        out: out, kind: kinds[start], near: near, far: far,
-                        // A line two rooms share is drawn centred and is
-                        // not run on: the room it is shared with already
-                        // closes the corner, and run on it pokes a stub
-                        // into the room beyond.
-                        pastA: start == 0 && convexA && kinds[start] != .shared ? far * miterA : 0,
-                        pastB: end == pieces - 1 && convexB && kinds[start] != .shared ? far * miterB : 0,
-                        trimA: start == 0 && !convexA && kinds[start] != .shared
-                            ? min(far * miterA, (s1 - s0) / 2) : 0,
-                        trimB: end == pieces - 1 && !convexB && kinds[start] != .shared
-                            ? min(far * miterB, (s1 - s0) / 2) : 0))
+                        a: local(CGPoint(x: edge.a.x + edge.u.x * s0, y: edge.a.y + edge.u.y * s0)),
+                        b: local(CGPoint(x: edge.a.x + edge.u.x * s1, y: edge.a.y + edge.u.y * s1)),
+                        out: edge.out, kind: here.kind, near: here.near, far: here.far,
+                        pastA: pastA, pastB: pastB, trimA: trimA, trimB: trimB))
                 start = end + 1
             }
         }
@@ -831,7 +914,7 @@ struct StoreyBaseLayer: View {
                     // Real interior wall, 2×4 partition + drywall — the same
                     // figure `FloorPlanView` uses, so the two never draw a
                     // different thickness for what is the same wall.
-                    let wallThicknessM = 0.114
+                    let wallThicknessM = StoreyLayout.interiorWall
                     let band = max(2, wallThicknessM * viewport.scale)
 
                     if pass == 0 {

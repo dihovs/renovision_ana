@@ -131,7 +131,7 @@ struct FloorPlanView: View {
     var label: (name: String, sqft: Int)?
 
     /// Real interior wall: 2×4 partition + drywall.
-    private let T = 0.114
+    private let T = StoreyLayout.interiorWall
     /// The cut-face line weight, in device points — never scaled by zoom.
     private let cutPt: CGFloat = 1.4
 

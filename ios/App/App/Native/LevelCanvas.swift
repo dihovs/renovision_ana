@@ -313,7 +313,7 @@ struct LevelCanvas: View {
                             // Sheet level-of-detail: solid bands and honest gaps —
                             // the spec's thumbnail tier, because six rooms on a
                             // phone width leave no room for symbols.
-                            let band = max(2, 0.114 * scale)
+                            let band = max(2, StoreyLayout.interiorWall * scale)
 
                             if pass == 0 {
                                 if slot.plan.polygon.count >= 3 {

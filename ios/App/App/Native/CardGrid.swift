@@ -473,7 +473,7 @@ struct MiniPlan: View {
                 // ONE path — the same fix `StoreyBaseLayer` needed, for the
                 // same reason: separate per-segment subpaths never join, so
                 // any corner that is not square-on gapped or spurred.
-                let band = max(1.4, 0.114 * scale)
+                let band = max(1.4, StoreyLayout.interiorWall * scale)
                 if plan.polygon.count >= 3 {
                     var outline = Path()
                     let loop = plan.curvedPolygon

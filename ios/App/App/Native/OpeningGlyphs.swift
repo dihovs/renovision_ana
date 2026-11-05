@@ -16,7 +16,7 @@ enum OpeningGlyphs {
 
     /// The wall band thickness the editors draw with, in metres — the same
     /// 2×4-partition-plus-drywall convention as the renderers.
-    static let bandT = 0.114
+    static let bandT = StoreyLayout.interiorWall
 
     /// Draw one opening into an editor canvas. `toScreen` is the editor's
     /// own model-to-screen mapping; `scale` its points-per-metre.

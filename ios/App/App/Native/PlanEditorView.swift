@@ -841,7 +841,7 @@ struct RoomEditorCore: View {
                         context.stroke(
                             shape, with: .color(Brand.Plan.wallFootprint),
                             style: StrokeStyle(
-                                lineWidth: max(3, 0.114 * scale) + 7, lineJoin: .miter))
+                                lineWidth: max(3, StoreyLayout.interiorWall * scale) + 7, lineJoin: .miter))
                     }
 
                     guard corners.count >= 3 else { return }
@@ -905,7 +905,7 @@ struct RoomEditorCore: View {
                         for p in along.dropFirst() { wall.addLine(to: pt(p)) }
 
                         let isSelected = selection == .wall(i)
-                        let core = isSelected ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale)
+                        let core = isSelected ? max(6, StoreyLayout.interiorWall * scale + 4) : max(3, StoreyLayout.interiorWall * scale)
 
                         // A wall is a BAND, not a line. The reference draws the
                         // wall black with a grey band around it, and the grey
@@ -982,7 +982,7 @@ struct RoomEditorCore: View {
                         stub.move(to: pt(CGPoint(x: partition.x1, y: partition.y1)))
                         stub.addLine(to: pt(CGPoint(x: partition.x2, y: partition.y2)))
                         let picked = selection == .interiorWall(index)
-                        let core = picked ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale)
+                        let core = picked ? max(6, StoreyLayout.interiorWall * scale + 4) : max(3, StoreyLayout.interiorWall * scale)
                         context.stroke(
                             stub, with: .color(Brand.Plan.wallFootprint),
                             style: StrokeStyle(lineWidth: core + 7, lineCap: .round))

@@ -152,14 +152,21 @@ enum StoreyArranging {
     /// The smallest push that puts one of this room's walls onto one of
     /// theirs.
     ///
-    /// Coincident CENTRELINES, not a wall's thickness apart: a wall is drawn
-    /// as a band centred on the polygon outline, so two rooms whose outlines
-    /// coincide draw one band and read as a shared wall — which is what
-    /// pushing two rooms together is supposed to look like. Leaving a gap of
-    /// one thickness would draw two walls with a hairline of paper between
-    /// them.
+    /// **One partition apart, not outline on outline** (5 Nov 2026, the
+    /// magicplan audit). A room's outline is the INSIDE face of its walls, so
+    /// two rooms side by side have a wall's thickness of building between
+    /// their outlines. Snapping the outlines together laid the shared wall
+    /// over 57 mm of each floor and made the house 114 mm short for every
+    /// partition. `StoreyWalls` now finds the facing edge and fills the gap
+    /// with exactly one wall, so the gap no longer draws as two walls with
+    /// paper between them — which was the reason for snapping flush.
+    ///
+    /// A room dragged against its neighbour's OUTSIDE face lands one
+    /// partition out from it; a room dropped on top of a neighbour is pushed
+    /// out to the same place.
     private static func flushCorrection(
-        moving: [CGPoint], others: [[CGPoint]], tolerance: Double
+        moving: [CGPoint], others: [[CGPoint]], tolerance: Double,
+        partition: Double = StoreyLayout.interiorWall
     ) -> Flush? {
         var best: Flush?
         var bestMagnitude = tolerance * 1.0001
@@ -171,7 +178,8 @@ enum StoreyArranging {
             let ua = CGVector(dx: (a.1.x - a.0.x) / la, dy: (a.1.y - a.0.y) / la)
 
             for other in others {
-                for b in edges(other) {
+                for (bIndex, edge) in edges(other).enumerated() {
+                    let b = (edge.0, edge.1, index: bIndex)
                     let lb = hypot(b.1.x - b.0.x, b.1.y - b.0.y)
                     guard lb > 0.3 else { continue }
                     let ub = CGVector(dx: (b.1.x - b.0.x) / lb, dy: (b.1.y - b.0.y) / lb)
@@ -189,11 +197,16 @@ enum StoreyArranging {
                     let overlap = min(max(t0, t1), lb) - max(min(t0, t1), 0)
                     guard overlap > 0.25 else { continue }
 
-                    let n = CGVector(dx: -ub.dy, dy: ub.dx)
-                    let d = (a.0.x - b.0.x) * n.dx + (a.0.y - b.0.y) * n.dy
-                    guard abs(d) < bestMagnitude else { continue }
-                    bestMagnitude = abs(d)
-                    best = Flush(vector: CGVector(dx: -d * n.dx, dy: -d * n.dy), normal: n)
+                    // Only a wall facing back at this one — anti-parallel —
+                    // is the other face of a partition.
+                    guard ua.dx * ub.dx + ua.dy * ub.dy < 0 else { continue }
+                    let n = DrawSnapping.outwardNormal(other, b.index)
+                    let nv = CGVector(dx: n.x, dy: n.y)
+                    let d = (a.0.x - b.0.x) * nv.dx + (a.0.y - b.0.y) * nv.dy
+                    let push = partition - d
+                    guard abs(push) < bestMagnitude else { continue }
+                    bestMagnitude = abs(push)
+                    best = Flush(vector: CGVector(dx: push * nv.dx, dy: push * nv.dy), normal: nv)
                 }
             }
         }

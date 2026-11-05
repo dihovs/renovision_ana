@@ -294,7 +294,7 @@ struct DrawRoomView: View {
             context.fill(path, with: .color(Brand.Plan.floorMuted))
             // The wall's own thickness at this zoom, as the storey draws it,
             // so a shared wall reads as one wall the moment it is shared.
-            let band = max(2, 0.114 / viewport(size).metresPerPoint)
+            let band = max(2, StoreyLayout.interiorWall / viewport(size).metresPerPoint)
             context.stroke(
                 path, with: .color(Brand.Plan.wallFootprint),
                 style: StrokeStyle(lineWidth: band, lineJoin: .miter))

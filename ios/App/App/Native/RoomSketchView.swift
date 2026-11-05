@@ -292,7 +292,7 @@ struct RoomSketchView: View {
                             wall.move(to: pt(corners[a]))
                             wall.addLine(to: pt(corners[b]))
                             let selected = selection == .wall(i)
-                            let core = selected ? 9 : max(3, 0.114 * scale)
+                            let core = selected ? 9 : max(3, StoreyLayout.interiorWall * scale)
 
                             // The wall's own footprint, under the black — see
                             // the note in PlanEditorView. Both canvases draw a

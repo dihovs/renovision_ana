@@ -62,7 +62,7 @@ struct RoomThumbnail: View {
             }
             context.stroke(
                 walls, with: .color(Brand.Plan.ink),
-                style: StrokeStyle(lineWidth: max(1.5, 0.114 * scale), lineCap: .square))
+                style: StrokeStyle(lineWidth: max(1.5, StoreyLayout.interiorWall * scale), lineCap: .square))
 
             // Openings knocked back out of the band, so a doorway reads as a
             // gap. The floor colour, not white: the card sits on white.
@@ -72,7 +72,7 @@ struct RoomThumbnail: View {
                 cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
                 context.stroke(
                     cut, with: .color(Brand.Plan.floorMuted),
-                    style: StrokeStyle(lineWidth: max(1.5, 0.114 * scale), lineCap: .butt))
+                    style: StrokeStyle(lineWidth: max(1.5, StoreyLayout.interiorWall * scale), lineCap: .butt))
             }
         }
         .frame(width: size, height: size)
