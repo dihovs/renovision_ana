@@ -85,6 +85,12 @@ actor API {
         method: String = "GET",
         body: (some Encodable)? = Optional<String>.none
     ) async throws -> Data {
+        // `-uiPreview` simulator builds: an offline sample project, so the
+        // plan screens can be tested without a sign-in. See `PreviewServer`.
+        if PreviewData.on {
+            let data = try body.map { try JSONEncoder().encode($0) }
+            return try await PreviewServer.shared.handle(path: path, method: method, body: data)
+        }
         guard let url = URL(string: path, relativeTo: Self.baseURL) else {
             throw APIError.server("Bad path: \(path)")
         }

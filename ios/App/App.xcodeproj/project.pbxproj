@@ -108,6 +108,7 @@
 		B383D94F0842EB95BF15D7DF /* LaserMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8533B7FAB38755B439451BA1 /* LaserMeter.swift */; };
 		85B9095E513B918006A767AB /* LaserSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E5DA7FF8384C910B0F66771 /* LaserSheet.swift */; };
 		1D8E78D603D05122C42642CA /* PlanFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCE8554220EF98543C699E3 /* PlanFiles.swift */; };
+		6F1BBC9C46B48971422BB9CB /* PreviewServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C230E6C9C2680DF9DF376282 /* PreviewServer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -212,6 +213,7 @@
 		8533B7FAB38755B439451BA1 /* LaserMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LaserMeter.swift; sourceTree = "<group>"; };
 		2E5DA7FF8384C910B0F66771 /* LaserSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LaserSheet.swift; sourceTree = "<group>"; };
 		FDCE8554220EF98543C699E3 /* PlanFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanFiles.swift; sourceTree = "<group>"; };
+		C230E6C9C2680DF9DF376282 /* PreviewServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PreviewServer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -256,6 +258,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				C230E6C9C2680DF9DF376282 /* PreviewServer.swift */,
 				FDCE8554220EF98543C699E3 /* PlanFiles.swift */,
 				2E5DA7FF8384C910B0F66771 /* LaserSheet.swift */,
 				8533B7FAB38755B439451BA1 /* LaserMeter.swift */,
@@ -436,6 +439,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6F1BBC9C46B48971422BB9CB /* PreviewServer.swift in Sources */,
 				1D8E78D603D05122C42642CA /* PlanFiles.swift in Sources */,
 				85B9095E513B918006A767AB /* LaserSheet.swift in Sources */,
 				B383D94F0842EB95BF15D7DF /* LaserMeter.swift in Sources */,

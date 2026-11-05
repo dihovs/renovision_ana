@@ -258,7 +258,20 @@ struct RoomEditorCore: View {
     /// are different kinds of fact, and a claim file must be able to tell
     /// them apart.
     @State private var locked: Set<Int> = []
-    @State private var lockedWarning: Int?
+    /// An edit waiting on "this changes a wall measured by hand — go
+    /// ahead?" (magicplan asks before ANY change to a locked dimension:
+    /// object-model §3a). `then` runs on yes, after the locks named are
+    /// released; nil for a drag, which the operator simply repeats.
+    struct LockedChange {
+        let edges: [Int]
+        let title: String
+        let confirm: String
+        let then: (() -> Void)?
+    }
+    @State private var lockedWarning: LockedChange?
+    /// Set for the one edit that runs right after an unlock — see the
+    /// locked-change dialog. Plain var: read and cleared in the same call.
+    @State private var skipNextPush = false
     /// Why Square could not run, said in words — see `squareRoom`.
     @State private var squareConflict: String?
     /// Why a typed opening size was refused — see `onDimensionsChanged`.
@@ -315,6 +328,15 @@ struct RoomEditorCore: View {
         var interiorWalls: [ScanGeometry.InteriorWall] = []
         var bulges: [Double] = []
         var ceiling: ScanGeometry.CeilingRecord?
+        /// Objects and damaged areas as they stood. These save to the server
+        /// the moment they change, so undoing one is a write too — see
+        /// `reconcile` (magicplan's undo reaches every edit, objects
+        /// included: `editor-chrome-design.md` §3).
+        var objects: [RoomObject] = []
+        var areas: [AffectedArea] = []
+        /// A step that only touched objects or areas — already saved, so it
+        /// does not make the room "adjusted by hand" or ask to be saved.
+        var objectsOnly = false
     }
 
     /// Viewport. `zoom` multiplies the fit scale; `pan` slides the camera in
@@ -378,7 +400,7 @@ struct RoomEditorCore: View {
         room.geometry.map { FloorPlanGeometry.plan(from: $0) }
     }
 
-    private var isDirty: Bool { !history.isEmpty }
+    private var isDirty: Bool { history.contains { !$0.objectsOnly } }
 
     private var invalid: Bool { PlanEditing.selfIntersects(corners) }
 
@@ -552,6 +574,7 @@ struct RoomEditorCore: View {
             ObjectDetailView(object: object) { changed in
                 if changed { Task { await loadObjects() } }
             } onDelete: {
+                push(objectsOnly: true)
                 Task { await removeObject(object.id) }
             }
         }
@@ -655,18 +678,26 @@ struct RoomEditorCore: View {
             Text(squareConflict ?? "")
         }
         .confirmationDialog(
-            "A wall next to this one was measured by hand. Moving this wall changes it.",
+            lockedWarning?.title ?? "",
             isPresented: Binding(
                 get: { lockedWarning != nil }, set: { if !$0 { lockedWarning = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Unlock and move it") {
-                if let index = lockedWarning {
-                    let n = corners.count
-                    locked.remove((index - 1 + n) % n)
-                    locked.remove((index + 1) % n)
+            Button(lockedWarning?.confirm ?? "Unlock") {
+                if let change = lockedWarning {
+                    // Unlock and the edit it was for are ONE undo step: the
+                    // snapshot is taken here, with the padlock still on, and
+                    // the edit's own push is skipped. A bare unlock (before a
+                    // drag the operator repeats) is a step of its own.
+                    if !change.edges.isEmpty { push() }
+                    for edge in change.edges { locked.remove(edge) }
+                    lockedWarning = nil
+                    if let then = change.then {
+                        skipNextPush = !change.edges.isEmpty
+                        then()
+                        skipNextPush = false
+                    }
                 }
-                lockedWarning = nil
             }
             Button("Leave it alone", role: .cancel) { lockedWarning = nil }
         }
@@ -1895,7 +1926,10 @@ struct RoomEditorCore: View {
 
         if dragStart == nil {
             dragStart = Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls)
-            push()
+            switch selection {
+            case .object, .area: push(objectsOnly: true)
+            default: push()
+            }
             captureWallAnchors()
         }
         guard let start = dragStart?.corners else { return }
@@ -1955,10 +1989,14 @@ struct RoomEditorCore: View {
             // Named for what they are, not `neighbours` — that word now
             // means the rooms next door, and the shadowing cost a build.
             let adjacentEdges = [(index - 1 + n) % n, (index + 1) % n]
-            if adjacentEdges.contains(where: { locked.contains($0) }), lockedWarning == nil {
-                lockedWarning = index
-                corners = start
-                dragStart = nil
+            if adjacentEdges.contains(where: { locked.contains($0) }) {
+                if lockedWarning == nil {
+                    lockedWarning = LockedChange(
+                        edges: adjacentEdges.filter { locked.contains($0) },
+                        title: "A wall next to this one was measured by hand. Moving this wall changes it.",
+                        confirm: "Unlock and move it", then: nil)
+                }
+                abandonDrag(start)
                 return
             }
 
@@ -1997,6 +2035,21 @@ struct RoomEditorCore: View {
             liveLabel = UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index))
 
         case .corner(let index):
+            // A corner is the end of two walls: moving it changes both.
+            let n = start.count
+            let ends = [(index - 1 + n) % n, index].filter { locked.contains($0) }
+            if !ends.isEmpty {
+                if lockedWarning == nil {
+                    lockedWarning = LockedChange(
+                        edges: ends,
+                        title: ends.count == 1
+                            ? "This corner ends a wall measured by hand. Moving it changes that wall."
+                            : "Both walls at this corner were measured by hand. Moving it changes them.",
+                        confirm: "Unlock and move it", then: nil)
+                }
+                abandonDrag(start)
+                return
+            }
             let moved = CGPoint(
                 x: start[index].x + value.translation.width / scale,
                 y: start[index].y + value.translation.height / scale)
@@ -2335,7 +2388,7 @@ struct RoomEditorCore: View {
     /// Order matters. The new room is created FIRST: if that fails there is
     /// nothing to undo, where shrinking the original first and then failing
     /// would leave half a room and no record of the other half.
-    private func commitSplit(_ split: PlanEditing.RoomSplit) async {
+    private func commitSplit(_ split: PlanEditing.RoomSplit, keepLocked: Set<Int> = []) async {
         guard let projectId = room.projectId else { return }
         let ceiling = room.ceilingHeightM
 
@@ -2358,10 +2411,11 @@ struct RoomEditorCore: View {
                 x: roomOrigin.x + split.madeShift.width,
                 y: roomOrigin.y + split.madeShift.height)
 
-            // Locked lengths are dropped: every edge has renumbered, and a
-            // padlock pointing at the wrong wall is worse than no padlock.
+            // Padlocks follow their walls into the kept piece, found by
+            // their ends (`locksSurvivingSplit`); a wall the cut went
+            // through loses its own, after the operator said yes to that.
             try await API.shared.saveEditedPlan(
-                roomId: room.id, corners: split.kept, locked: [],
+                roomId: room.id, corners: split.kept, locked: keepLocked.sorted(),
                 openings: split.keptOpenings, ceilingHeight: ceiling)
             try? await API.shared.placeRoom(
                 roomId: room.id,
@@ -2838,6 +2892,7 @@ struct RoomEditorCore: View {
     /// stood and which way it faced, because that is the part the operator
     /// already got right.
     private func placeChosen(_ entry: ObjectCatalog.Entry) {
+        push(objectsOnly: true)
         if case .object(let id) = selection,
             let existing = objects.first(where: { $0.id == id })
         {
@@ -3220,11 +3275,17 @@ struct RoomEditorCore: View {
             // in THIS wall, because a wall is selected.
             placingObject = true
         case (.addCorner, .wall(let index)):
-            addCorner(on: index)
+            guardLocked(index, "Adding a corner splits a wall measured by hand into two.") {
+                addCorner(on: index)
+            }
         case (.bumpOut, .wall(let index)):
-            bumpingOut = BumpTarget(id: index)
+            guardLocked(index, "A bump-out changes a wall measured by hand.") {
+                bumpingOut = BumpTarget(id: index)
+            }
         case (.curve, .wall(let index)):
-            curving = BumpTarget(id: index)
+            guardLocked(index, "Curving a wall measured by hand changes its length.") {
+                curving = BumpTarget(id: index)
+            }
         case (.addWall, .wall(let index)):
             addInteriorWall(on: index)
         case (.delete, .interiorWall(let index)):
@@ -3237,7 +3298,19 @@ struct RoomEditorCore: View {
                 let split = PlanEditing.splitRoom(
                     corners, edge: index, at: point, openings: openings)
             else { break }
-            Task { await commitSplit(split) }
+            let survive = PlanEditing.locksSurvivingSplit(
+                locked, before: corners, kept: split.kept, made: split.made)
+            if survive.lost > 0 {
+                lockedWarning = LockedChange(
+                    edges: [],
+                    title: survive.lost == 1
+                        ? "The cut goes through a wall measured by hand. Its padlock comes off."
+                        : "The cut goes through \(survive.lost) walls measured by hand. Their padlocks come off.",
+                    confirm: "Split the room",
+                    then: { Task { await commitSplit(split, keepLocked: survive.kept) } })
+            } else {
+                Task { await commitSplit(split, keepLocked: survive.kept) }
+            }
         case (.delete, .corner(let index)):
             deleteCorner(index)
         case (.delete, .opening(let index)):
@@ -3250,6 +3323,7 @@ struct RoomEditorCore: View {
             editingAreaShape = areas.first(where: { $0.id == id })
 
         case (.delete, .area(let id)):
+            push(objectsOnly: true)
             Task { await removeArea(id) }
 
         case (.rotate, .object(let id)):
@@ -3258,10 +3332,13 @@ struct RoomEditorCore: View {
             // gesture; nobody has asked for one, and a stock unit sits
             // square to a wall in every room this trade works in.
             guard let object = objects.first(where: { $0.id == id }) else { break }
+            push(objectsOnly: true)
             Task { await patchObject(id, rotation: (object.rotation + 90).truncatingRemainder(dividingBy: 360)) }
         case (.duplicate, .object(let id)):
+            push(objectsOnly: true)
             Task { await duplicateObject(id) }
         case (.delete, .object(let id)):
+            push(objectsOnly: true)
             Task { await removeObject(id) }
         case (.replaceWith, .object):
             // The catalogue again: "replace with" on an object means swap
@@ -3351,17 +3428,28 @@ struct RoomEditorCore: View {
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
+    /// Run `edit` now, or — when wall `index` is padlocked — ask first.
+    private func guardLocked(_ index: Int, _ why: String, _ edit: @escaping () -> Void) {
+        guard locked.contains(index) else { return edit() }
+        let length = UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index))
+        lockedWarning = LockedChange(
+            edges: [index], title: "\(why) It was \(length). Its padlock comes off.",
+            confirm: "Unlock and change it", then: edit)
+    }
+
     private func addCorner(on index: Int) {
         push()
+        let at = PlanEditing.cornerSplitDistance(
+            corners, edge: index, tap: wallTapPoint, openings: openings)
         // The split renumbers every edge after it; openings and locks are
         // keyed by edge and must move too, or a door quietly changes wall.
         openings = PlanEditing.openingsAfterCornerAdded(
-            openings, polygon: corners, splitEdge: index)
+            openings, polygon: corners, splitEdge: index, at: at)
         locked = PlanEditing.lockedAfterCornerAdded(locked, splitEdge: index)
         // The ceiling names walls by number too (M6): every wall after the
         // split moves up one; the split wall keeps its number.
         remapCeiling { $0 > index ? $0 + 1 : $0 }
-        let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
+        let (next, made) = PlanEditing.addCorner(corners, onEdge: index, at: at)
         // The split wall becomes two STRAIGHT walls — a corner on a curve's
         // chord is not on the curve. Every other wall keeps its own.
         if bulges.count == corners.count {
@@ -3656,15 +3744,114 @@ struct RoomEditorCore: View {
         ceiling = record
     }
 
-    private func push() {
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
+    /// A drag refused before it changed anything: put the shape back and
+    /// take back the undo step its first frame pushed, so a refused drag
+    /// leaves nothing to undo and nothing "adjusted by hand".
+    private func abandonDrag(_ start: [CGPoint]) {
+        corners = start
+        if dragStart != nil, !history.isEmpty { history.removeLast() }
+        dragStart = nil
+    }
+
+    private func push(objectsOnly: Bool = false) {
+        if skipNextPush {
+            skipNextPush = false
+            return
+        }
+        var step = current
+        step.objectsOnly = objectsOnly
+        history.append(step)
         if history.count > 100 { history.removeFirst() }
         future.removeAll()
     }
 
+    /// Everything undo can put back, as it stands now.
+    private var current: Snapshot {
+        Snapshot(
+            corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls,
+            bulges: bulges, ceiling: ceiling, objects: objects, areas: areas)
+    }
+
+    /// Server ids of objects and areas undo had to re-create: a deleted
+    /// object comes back under a new id, and older steps still name the old
+    /// one. Followed to the end of the chain.
+    @State private var idAlias: [String: String] = [:]
+    private func live(_ id: String) -> String {
+        var id = id
+        var hops = 0
+        while let next = idAlias[id], hops < 50 { id = next; hops += 1 }
+        return id
+    }
+
+    /// Make the server's objects and areas match a step being undone or
+    /// redone: delete what was added since, re-create what was deleted,
+    /// put back what moved. Local state is set first so the drawing does not
+    /// wait; the reload at the end brings the real ids.
+    private func reconcile(objects target: [RoomObject], areas targetAreas: [AffectedArea]) {
+        let nowObjects = objects
+        let nowAreas = areas
+        let objectsChanged = nowObjects != target
+        let areasChanged = nowAreas.map(\.id) != targetAreas.map(\.id)
+            || zip(nowAreas, targetAreas).contains { $0.polygon != $1.polygon }
+        guard objectsChanged || areasChanged else { return }
+        objects = target
+        areas = targetAreas
+        Task {
+            if objectsChanged {
+                let want = Dictionary(target.map { (live($0.id), $0) }, uniquingKeysWith: { a, _ in a })
+                let have = Dictionary(nowObjects.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                for old in nowObjects where want[old.id] == nil {
+                    try? await API.shared.deleteObject(id: old.id)
+                }
+                for (id, o) in want {
+                    if let was = have[id] {
+                        guard was != o else { continue }
+                        try? await API.shared.updateObject(
+                            id: id, name: o.name, at: CGPoint(x: o.x, y: o.y), rotation: o.rotation,
+                            width: o.width, depth: o.depth, height: o.height,
+                            disposition: o.disposition, included: o.included, quantity: o.quantity,
+                            sizeHandSet: o.sizeHandSet, notes: o.notes)
+                    } else if let made = try? await API.shared.createObject(
+                        roomScanId: room.id, kind: o.kind, name: o.name, at: CGPoint(x: o.x, y: o.y),
+                        rotation: o.rotation, width: o.width, depth: o.depth, height: o.height)
+                    {
+                        idAlias[id] = made
+                        try? await API.shared.updateObject(
+                            id: made, disposition: o.disposition, included: o.included,
+                            quantity: o.quantity, sizeHandSet: o.sizeHandSet, notes: o.notes)
+                    }
+                }
+            }
+            if areasChanged {
+                let want = Dictionary(targetAreas.map { (live($0.id), $0) }, uniquingKeysWith: { a, _ in a })
+                let have = Dictionary(nowAreas.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                for old in nowAreas where want[old.id] == nil {
+                    try? await API.shared.deleteArea(id: old.id)
+                }
+                for (id, a) in want {
+                    let polygon = a.polygon.map { CGPoint(x: $0.x, y: $0.y) }
+                    if let was = have[id] {
+                        guard was.polygon != a.polygon else { continue }
+                        try? await API.shared.updateArea(id: id, polygon: polygon)
+                    } else if let made = try? await API.shared.createArea(
+                        roomScanId: room.id, name: a.name, damageType: a.damageType,
+                        surface: a.surface, wallIndex: a.wallIndex, color: a.color,
+                        polygon: polygon, notes: a.notes)
+                    {
+                        idAlias[id] = made
+                    }
+                }
+            }
+            await loadObjects()
+        }
+    }
+
     private func undo() {
         guard let previous = history.popLast() else { return }
-        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
+        var now = current
+        now.objectsOnly = previous.objectsOnly
+        future.append(now)
+        reconcile(objects: previous.objects, areas: previous.areas)
         corners = previous.corners
         openings = previous.openings
         locked = previous.locked
@@ -3682,7 +3869,10 @@ struct RoomEditorCore: View {
 
     private func redo() {
         guard let next = future.popLast() else { return }
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
+        var now = current
+        now.objectsOnly = next.objectsOnly
+        history.append(now)
+        reconcile(objects: next.objects, areas: next.areas)
         corners = next.corners
         openings = next.openings
         locked = next.locked

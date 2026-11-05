@@ -302,7 +302,32 @@ struct LevelCanvas: View {
                         }
                     }
 
+                    // Every wall on the card as ONE fill — no seam where two
+                    // walls meet (see `StoreyWalls.path`).
+                    let slotRuns = layout.slots.indices.map { index -> [StoreyWalls.Run] in
+                        let slot = layout.slots[index]
+                        return StoreyWalls.runs(
+                            of: index, polygons: floorPolygons,
+                            origin: CGPoint(x: slot.x, y: slot.y),
+                            interior: StoreyLayout.interiorWall,
+                            exterior: StoreyLayout.exteriorWall,
+                            outdoor: DrawRoomView.outdoorTypes.contains(slot.piece.room?.roomType ?? ""))
+                    }
+                    var allWalls = Path()
+                    for (index, slot) in layout.slots.enumerated() {
+                        allWalls.addPath(
+                            StoreyWalls.path(slotRuns[index]) {
+                                CGPoint(x: (slot.x + $0.x) * scale + ox, y: (slot.y + $0.y) * scale + oy)
+                            })
+                    }
+
                     for pass in 0..<3 {
+                        if pass == 1 {
+                            context.drawLayer { layer in
+                                layer.clip(to: holes, options: .inverse)
+                                layer.fill(allWalls, with: .color(ink))
+                            }
+                        }
                         for (index, slot) in layout.slots.enumerated() {
                             let isNew = spotlight.contains(slot.piece.id)
                             func pt(_ px: Double, _ py: Double) -> CGPoint {
@@ -349,13 +374,7 @@ struct LevelCanvas: View {
                             }
 
                             if pass == 1 {
-                                let runs = StoreyWalls.runs(
-                                    of: index, polygons: floorPolygons,
-                                    origin: CGPoint(x: slot.x, y: slot.y),
-                                    interior: StoreyLayout.interiorWall,
-                                    exterior: StoreyLayout.exteriorWall,
-                                    outdoor: DrawRoomView.outdoorTypes.contains(
-                                        slot.piece.room?.roomType ?? ""))
+                                let runs = slotRuns[index]
                                 if runs.isEmpty {
                                     var walls = Path()
                                     for i in slot.plan.segments.indices {
@@ -366,19 +385,6 @@ struct LevelCanvas: View {
                                     context.stroke(
                                         walls, with: .color(ink),
                                         style: StrokeStyle(lineWidth: band, lineCap: .square))
-                                } else {
-                                    context.drawLayer { layer in
-                                        layer.clip(to: holes, options: .inverse)
-                                        for run in runs {
-                                            let q = run.band
-                                            guard q.count == 4 else { continue }
-                                            var quad = Path()
-                                            quad.move(to: pt(q[0].x, q[0].y))
-                                            for p in q.dropFirst() { quad.addLine(to: pt(p.x, p.y)) }
-                                            quad.closeSubpath()
-                                            layer.fill(quad, with: .color(ink))
-                                        }
-                                    }
                                 }
                                 // **A window is glass, not a gap.** Every opening
                                 // is a hole in the band, and at card scale a hole
@@ -1286,6 +1292,12 @@ struct FloorCanvasView: View {
     /// floor that has never been turned reads as — the two are the same
     /// fact. See migration 0043 and `commitTurn()`.
     @State private var floorDisplayAngle: Double = 0
+    /// Floor-depth undo (magicplan has an undo pill at every level). Each
+    /// step is the whole floor as it stood before a move, a turn of a room,
+    /// or a turn of the storey — see `FloorStep`.
+    @State private var floorHistory: [FloorStep] = []
+    @State private var floorFuture: [FloorStep] = []
+    @State private var floorUndoBusy = false
     @State private var inserting = false
     @State private var dollhouse = false
     /// 3D was picked while the view-mode popover was still on screen; the
@@ -2672,7 +2684,10 @@ struct FloorCanvasView: View {
         VStack {
             HStack(alignment: .top) {
                 EditorUndoRedoPill(
-                    canUndo: false, canRedo: false, onUndo: {}, onRedo: {})
+                    canUndo: !floorHistory.isEmpty && !floorUndoBusy,
+                    canRedo: !floorFuture.isEmpty && !floorUndoBusy,
+                    onUndo: { Task { await floorUndo() } },
+                    onRedo: { Task { await floorRedo() } })
                 Spacer()
                 HStack(spacing: Brand.Space.tight) {
                     EditorStepperPill(action: { switchingFloor = true }) {
@@ -3123,6 +3138,10 @@ struct FloorCanvasView: View {
                 ceilingHeight: room.room.ceilingHeightM)
             try await API.shared.placeRoom(roomId: room.id, x: corner.x, y: corner.y)
             try await API.shared.deleteScan(id: otherId)
+            // A merge deletes a room; undo cannot bring a row back, so the
+            // steps before it would undo against a floor that changed.
+            floorHistory.removeAll()
+            floorFuture.removeAll()
         } catch {
             mergeError = error.localizedDescription
         }
@@ -3186,8 +3205,101 @@ struct FloorCanvasView: View {
     /// stored position, so freezing them all is what stops the other rooms
     /// shuffling themselves the next time the floor loads — once a floor has
     /// been arranged by hand, it stays arranged.
+    /// One floor as it stood: the storey's turn, and every room's position,
+    /// outline (with its padlocks and doors) and fixtures.
+    struct FloorStep {
+        struct Room {
+            var x: Double
+            var y: Double
+            var corners: [CGPoint]
+            var locked: [Int]
+            var openings: [PlanEditing.WallOpening]
+            var ceiling: Double
+            var objects: [RoomObject]
+        }
+        var angle: Double
+        var rooms: [String: Room]
+    }
+
+    private func floorSnapshot() -> FloorStep {
+        var rooms: [String: FloorStep.Room] = [:]
+        for r in cachedLayout.rooms {
+            var corners = r.plan.polygon
+            if corners.count >= 4 { corners.removeLast() }
+            rooms[r.id] = FloorStep.Room(
+                x: r.origin.x, y: r.origin.y, corners: corners,
+                locked: r.room.geometry?.lockedEdges ?? [],
+                openings: (r.room.geometry?.authoredOpenings ?? []).compactMap(PlanEditing.WallOpening.init),
+                ceiling: r.room.ceilingHeightM, objects: roomObjects[r.id] ?? [])
+        }
+        return FloorStep(angle: floorDisplayAngle, rooms: rooms)
+    }
+
+    private func recordFloorStep() {
+        floorHistory.append(floorSnapshot())
+        if floorHistory.count > 50 { floorHistory.removeFirst() }
+        floorFuture.removeAll()
+    }
+
+    /// Write the floor back to `step`: only what differs — a room that did
+    /// not turn keeps its scan untouched (writing an outline turns a pristine
+    /// scan into an edited one; see `commitTurn`).
+    private func applyFloor(_ step: FloorStep) async {
+        let now = floorSnapshot()
+        func same(_ a: [CGPoint], _ b: [CGPoint]) -> Bool {
+            a.count == b.count && zip(a, b).allSatisfy { hypot($0.x - $1.x, $0.y - $1.y) < 0.001 }
+        }
+        for (id, want) in step.rooms {
+            guard let have = now.rooms[id] else { continue }
+            if !same(have.corners, want.corners) {
+                try? await API.shared.saveEditedPlan(
+                    roomId: id, corners: want.corners, locked: want.locked,
+                    openings: want.openings, ceilingHeight: want.ceiling)
+            }
+            if abs(have.x - want.x) > 0.001 || abs(have.y - want.y) > 0.001 {
+                try? await API.shared.placeRoom(roomId: id, x: want.x, y: want.y)
+            }
+            for o in want.objects {
+                guard let h = have.objects.first(where: { $0.id == o.id }),
+                    abs(h.x - o.x) > 0.001 || abs(h.y - o.y) > 0.001 || abs(h.rotation - o.rotation) > 0.01
+                else { continue }
+                try? await API.shared.updateObject(
+                    id: o.id, at: CGPoint(x: o.x, y: o.y), rotation: o.rotation)
+            }
+        }
+        if abs(now.angle - step.angle) > 0.01 {
+            floorDisplayAngle = step.angle
+            try? await API.shared.setFloorDisplayAngle(
+                projectId: projectId, level: level, degrees: step.angle)
+        }
+        scans = (try? await API.shared.scans(projectId: projectId)) ?? scans
+        refreshLayout()
+        await loadObjects()
+    }
+
+    private func floorUndo() async {
+        guard !floorUndoBusy, let step = floorHistory.popLast() else { return }
+        floorUndoBusy = true
+        floorFuture.append(floorSnapshot())
+        await applyFloor(step)
+        floorUndoBusy = false
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func floorRedo() async {
+        guard !floorUndoBusy, let step = floorFuture.popLast() else { return }
+        floorUndoBusy = true
+        floorHistory.append(floorSnapshot())
+        await applyFloor(step)
+        floorUndoBusy = false
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     private func commitPlacement() async {
         guard let lift = lifted, let room = cachedLayout.room(id: lift.id) else { return }
+        if abs(lift.angle) > 0.0005 || hypot(lift.offset.width, lift.offset.height) > 0.001 {
+            recordFloorStep()
+        }
 
         var originShift = CGSize.zero
 
@@ -3326,6 +3438,10 @@ struct FloorCanvasView: View {
 
         guard abs(snapped) > 0.001 else { return }
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        var step = floorSnapshot()
+        step.angle = previous
+        floorHistory.append(step)
+        floorFuture.removeAll()
 
         do {
             try await API.shared.setFloorDisplayAngle(

@@ -617,16 +617,47 @@ enum PlanEditing {
 
     /// Split a wall in two at its midpoint. Returns the polygon and the index
     /// of the corner just made, so the caller can select it immediately.
-    static func addCorner(_ polygon: [CGPoint], onEdge index: Int) -> ([CGPoint], Int) {
+    static func addCorner(_ polygon: [CGPoint], onEdge index: Int, at distance: Double? = nil)
+        -> ([CGPoint], Int)
+    {
         let n = polygon.count
         guard n >= 3, index >= 0, index < n else { return (polygon, -1) }
         let (a, b) = edgeCorners(index, count: n)
-        let midpoint = quantise(
-            CGPoint(x: (polygon[a].x + polygon[b].x) / 2, y: (polygon[a].y + polygon[b].y) / 2))
+        let length = edgeLength(polygon, index)
+        let along = distance ?? length / 2
+        let t = length > 1e-9 ? along / length : 0.5
+        let point = quantise(
+            CGPoint(
+                x: polygon[a].x + (polygon[b].x - polygon[a].x) * t,
+                y: polygon[a].y + (polygon[b].y - polygon[a].y) * t))
 
         var result = polygon
-        result.insert(midpoint, at: a + 1)
+        result.insert(point, at: a + 1)
         return (result, a + 1)
+    }
+
+    /// **Where Add Corner goes: where the wall was tapped** (magicplan: a
+    /// 2.500 wall became 1.035 + 1.465, not two halves). The tap projected
+    /// onto the wall, kept at least 10 cm from either end, and moved off any
+    /// door or window it lands in — a corner inside an opening would cut the
+    /// opening in two. Nil (the midpoint) when the wall is too short to say.
+    static func cornerSplitDistance(
+        _ polygon: [CGPoint], edge index: Int, tap: CGPoint?, openings: [WallOpening]
+    ) -> Double? {
+        guard let tap, polygon.indices.contains(index) else { return nil }
+        let (a, b) = edgeCorners(index, count: polygon.count)
+        let length = edgeLength(polygon, index)
+        let margin = 0.10
+        guard length > margin * 2 else { return nil }
+        let u = normalised(sub(polygon[b], polygon[a]))
+        var along = dot(sub(tap, polygon[a]), u)
+        along = min(max(along, margin), length - margin)
+        for opening in openings where opening.edge == index {
+            let start = opening.offset, end = opening.offset + opening.width
+            guard along > start, along < end else { continue }
+            along = along - start < end - along ? start : end
+        }
+        return min(max(along, margin), length - margin)
     }
 
     /// **A bump-out (or a recess) on one wall, from three typed numbers.**
@@ -1429,9 +1460,9 @@ enum PlanEditing {
     /// up one, and an opening on the split edge goes to whichever half holds
     /// its centre.
     static func openingsAfterCornerAdded(
-        _ openings: [WallOpening], polygon: [CGPoint], splitEdge: Int
+        _ openings: [WallOpening], polygon: [CGPoint], splitEdge: Int, at distance: Double? = nil
     ) -> [WallOpening] {
-        let half = edgeLength(polygon, splitEdge) / 2
+        let half = distance ?? edgeLength(polygon, splitEdge) / 2
         return openings.map { opening in
             var moved = opening
             if opening.edge > splitEdge {
@@ -1439,6 +1470,7 @@ enum PlanEditing {
             } else if opening.edge == splitEdge {
                 let centre = opening.offset + opening.width / 2
                 if centre > half {
+                    // Past the new corner: it moves to the second piece.
                     moved.edge += 1
                     moved.offset = opening.offset - half
                 }
@@ -2137,6 +2169,34 @@ extension PlanEditing {
     /// on a line square to that wall. The ORIGINAL row keeps the larger
     /// piece — the room somebody named and photographed should stay the room
     /// — and the offcut becomes a new one.
+    /// Padlocks that survive a split: a locked wall the cut did not touch is
+    /// still the same wall, the same length, in the kept piece — find it
+    /// there by its two ends. Walls the cut shortened lose theirs.
+    static func locksSurvivingSplit(
+        _ locked: Set<Int>, before: [CGPoint], kept: [CGPoint], made: [CGPoint] = []
+    ) -> (kept: Set<Int>, lost: Int) {
+        func same(_ p: CGPoint, _ q: CGPoint) -> Bool { hypot(p.x - q.x, p.y - q.y) < 0.002 }
+        func find(_ a: CGPoint, _ b: CGPoint, in polygon: [CGPoint]) -> Int? {
+            polygon.indices.first { j in
+                let (c, d) = edgeCorners(j, count: polygon.count)
+                return (same(polygon[c], a) && same(polygon[d], b))
+                    || (same(polygon[c], b) && same(polygon[d], a))
+            }
+        }
+        var out: Set<Int> = []
+        var lost = 0
+        for edge in locked where before.indices.contains(edge) {
+            let (a, b) = edgeCorners(edge, count: before.count)
+            if let match = find(before[a], before[b], in: kept) {
+                out.insert(match)
+            } else if find(before[a], before[b], in: made) == nil {
+                // Neither piece has it whole: the cut went through it.
+                lost += 1
+            }
+        }
+        return (out, lost)
+    }
+
     struct RoomSplit {
         let kept: [CGPoint]
         let made: [CGPoint]

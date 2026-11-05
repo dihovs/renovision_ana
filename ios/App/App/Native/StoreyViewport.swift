@@ -481,6 +481,28 @@ enum StoreyWalls {
         return runs
     }
 
+    /// Every band of a room as ONE path, every quad wound the same way, so a
+    /// single fill paints them all. Filled one by one, two bands meeting on
+    /// a mitre each anti-aliased their own edge and left a faint diagonal
+    /// seam down every inside corner — "we can see the corners of two
+    /// walls" (owner, 5 Nov 2026). One fill has no edge there to soften.
+    static func path(_ runs: [Run], _ toScreen: (CGPoint) -> CGPoint) -> Path {
+        var path = Path()
+        for run in runs {
+            var q = run.band.map(toScreen)
+            guard q.count == 4 else { continue }
+            // Same winding for every quad, or overlapping ones would cancel
+            // under the non-zero rule and punch holes where walls cross.
+            var twice = 0.0
+            for i in 0..<4 { twice += q[i].x * q[(i + 1) % 4].y - q[(i + 1) % 4].x * q[i].y }
+            if twice < 0 { q.reverse() }
+            path.move(to: q[0])
+            for p in q.dropFirst() { path.addLine(to: p) }
+            path.closeSubpath()
+        }
+        return path
+    }
+
     /// How thick the outside edge of a porch, balcony or terrace is drawn.
     static let outdoorEdge = 0.03
 
@@ -880,7 +902,25 @@ struct StoreyBaseLayer: View {
                 }
             }
 
+            // Every wall of every fully drawn room, filled as ONE path, so
+            // where one room's wall meets the next room's there is no seam
+            // either — see `StoreyWalls.path`. A room fading under the
+            // focused overlay keeps its own fill, at its own opacity.
+            var solidWalls = Path()
+            for storeyRoom in layout.rooms
+            where !(storeyRoom.id == focusedRoomID && focusProgress > 0.003) {
+                guard let runs = layout.wallRuns[storeyRoom.id], !runs.isEmpty else { continue }
+                let place = onFloor(storeyRoom)
+                solidWalls.addPath(StoreyWalls.path(runs) { viewport.point(place($0.x, $0.y)) })
+            }
+
             for pass in 0..<3 {
+                if pass == 1 {
+                    context.drawLayer { layer in
+                        layer.clip(to: holes, options: .inverse)
+                        layer.fill(solidWalls, with: .color(ink))
+                    }
+                }
                 for storeyRoom in layout.rooms {
                     let isFocused = storeyRoom.id == focusedRoomID
                     // Fully gone once the overlay has fully arrived — not
@@ -975,6 +1015,11 @@ struct StoreyBaseLayer: View {
                     if pass == 1 {
                         context.opacity = opacity
                         if let runs = layout.wallRuns[storeyRoom.id], !runs.isEmpty {
+                            // Already in `solidWalls` unless it is fading.
+                            if !(isFocused && focusProgress > 0.003) {
+                                context.opacity = 1
+                                continue
+                            }
                             // Each stretch of wall as its own band, outside the
                             // room — see `StoreyWalls`. The corner problem the
                             // closed, mitred outline solved (a notch and a spur
@@ -985,15 +1030,8 @@ struct StoreyBaseLayer: View {
                             // already overlap.
                             context.drawLayer { layer in
                                 layer.clip(to: holes, options: .inverse)
-                                for run in runs {
-                                    let q = run.band
-                                    guard q.count == 4 else { continue }
-                                    var quad = Path()
-                                    quad.move(to: pt(q[0].x, q[0].y))
-                                    for p in q.dropFirst() { quad.addLine(to: pt(p.x, p.y)) }
-                                    quad.closeSubpath()
-                                    layer.fill(quad, with: .color(ink))
-                                }
+                                layer.fill(
+                                    StoreyWalls.path(runs) { pt($0.x, $0.y) }, with: .color(ink))
                             }
                         } else if plan.polygon.count < 3 {
                             // No closed outline — a scan whose walls never chained.
