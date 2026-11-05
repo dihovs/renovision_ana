@@ -138,6 +138,22 @@ actor PreviewServer {
             if let id, parts.count > 4, parts[4] == "walls" { return try json(["walls": []]) }
             _ = id
             return try json(["scans": rooms, "floorDisplay": floorAngles])
+        case ("POST", "scans"):
+            // A room filed by a capture: kept like any other.
+            let newID = makeID("room")
+            let geometry = input["geometry"] as? [String: Any] ?? [:]
+            var points: [CGPoint] = []
+            if let edited = geometry["editedPolygon"] as? [[String: Double]] {
+                points = edited.map { CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0) }
+            }
+            rooms.append([
+                "id": newID, "project_id": projectID, "name": input["name"] ?? "Room",
+                "level": input["level"] ?? "main", "position": rooms.count,
+                "floor_area_sqm": points.count >= 3 ? PlanEditing.area(points) : 0,
+                "wall_length_m": points.count >= 3 ? Self.perimeter(points) : 0,
+                "ceiling_height_m": 2.44, "geometry": geometry,
+            ])
+            return try json(["id": newID])
         case ("PATCH", "scans"):
             if let id { patchRoom(id, input) }
             return try json(["ok": true])

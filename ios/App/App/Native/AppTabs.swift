@@ -66,6 +66,10 @@ struct CreateMenu: View {
     @Environment(\.dismiss) private var dismiss
     @State private var open: Item?
     @State private var form: Item?
+    /// Half height for the menu itself; full height the moment it opens a
+    /// screen — Measure ends on a floor plan, which in half a screen was a
+    /// postage stamp (5 Nov 2026).
+    @State private var detent: PresentationDetent = .medium
 
     enum Item: String, Identifiable {
         case customer, project, estimate, quote, measure, expense, task
@@ -117,7 +121,8 @@ struct CreateMenu: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
+        .onChange(of: open) { _, now in if now != nil { detent = .large } }
     }
 
     private func tile(_ item: Item, _ title: String, _ icon: String, _ tint: Color) -> some View {

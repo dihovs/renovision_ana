@@ -14,6 +14,22 @@ struct ScanEntryView: View {
     @State private var chosen: ProjectSummary?
     @State private var error: String?
     @State private var query = ""
+    /// Where to go once the capture sheet is down: the storey just measured,
+    /// drawn, with the new room on it — the same landing a capture started
+    /// from inside a project has always had (ORD-16). Without it this entry
+    /// dropped the operator back on the project list, the room nowhere in
+    /// sight (owner, 5 Nov 2026: "it doesn't show the scanned room").
+    @State private var landingIntent: ScanLanding?
+    @State private var landing: ScanLanding?
+
+    struct ScanLanding: Hashable, Identifiable {
+        let project: ProjectSummary
+        let level: String
+        let filed: [FiledRoom]
+        var id: String { project.id + "/" + level }
+        static func == (a: ScanLanding, b: ScanLanding) -> Bool { a.id == b.id }
+        func hash(into h: inout Hasher) { h.combine(id) }
+    }
 
     private var shown: [ProjectSummary] {
         guard let projects else { return [] }
@@ -105,12 +121,28 @@ struct ScanEntryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Search projects")
             .task { await load() }
-            .sheet(item: $chosen) { project in
+            .sheet(
+                item: $chosen,
+                onDismiss: {
+                    landing = landingIntent
+                    landingIntent = nil
+                }
+            ) { project in
                 CaptureFlow(
                     projectId: project.id,
                     projectName: project.name,
                     existingCount: project.roomCount,
-                    onSaved: { Task { await load() } })
+                    onSaved: { Task { await load() } },
+                    onFinished: { level, filed in
+                        landingIntent = ScanLanding(project: project, level: level, filed: filed)
+                    })
+            }
+            .navigationDestination(item: $landing) { destination in
+                StoreyPlanView(
+                    projectId: destination.project.id,
+                    projectName: destination.project.name,
+                    level: destination.level,
+                    arrivals: destination.filed)
             }
     }
 
