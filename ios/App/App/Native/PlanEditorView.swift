@@ -179,6 +179,9 @@ struct RoomEditorCore: View {
     /// them it is actually on — drawn grey and green respectively while a
     /// wall drag runs. See `PlanEditing.collinearAlignments`.
     @State private var alignments: [PlanEditing.Alignment] = []
+    /// While a CORNER is dragged: the other corners it has lined up with,
+    /// as (dragged corner, corner it lines up with) — drawn as green guides.
+    @State private var cornerGuides: [(CGPoint, CGPoint)] = []
     @State private var alignedOffset: Double?
     /// Where on the wall the finger last landed, in the room's own metres.
     ///
@@ -990,6 +993,18 @@ struct RoomEditorCore: View {
                     // to show that two walls FAR APART share one straight
                     // run — a stub beside the wall you are already looking
                     // at says nothing.
+                    for (from, to) in cornerGuides {
+                        // Run on past both corners, so the line reads as a
+                        // shared straight, not a tie between two dots.
+                        let d = PlanEditing.normalised(PlanEditing.sub(to, from))
+                        let far = 1.5
+                        var guide = Path()
+                        guide.move(to: pt(CGPoint(x: from.x - d.x * far, y: from.y - d.y * far)))
+                        guide.addLine(to: pt(CGPoint(x: to.x + d.x * far, y: to.y + d.y * far)))
+                        context.stroke(
+                            guide, with: .color(Brand.snapGuide),
+                            style: StrokeStyle(lineWidth: 1.2, dash: [5, 3]))
+                    }
                     if !alignments.isEmpty, corners.count >= 3 {
                         var extent = StoreyArranging.bounds(corners)
                         for neighbour in neighbours {
@@ -1337,6 +1352,7 @@ struct RoomEditorCore: View {
                         interiorWallGrab = nil
                         dragStartModel = nil
                         alignments = []
+                        cornerGuides = []
                         alignedOffset = nil
                         lastPanDrag = .zero
                         saveCarriedObjects()
@@ -2082,7 +2098,40 @@ struct RoomEditorCore: View {
                 UISelectionFeedbackGenerator().selectionChanged()
             }
             snapEngaged = squared.engaged
-            corners = PlanEditing.moveCorner(start, index: index, to: squared.point)
+            // **Line up with other corners** — this room's and the rooms next
+            // door — when square did not already take it (the reference's
+            // green guides, Magicplan-Screen-Spec §2.18). Each axis on its own,
+            // so a corner can sit level with one corner and plumb with another.
+            var point = squared.engaged ? squared.point : moved
+            var guides: [(CGPoint, CGPoint)] = []
+            do {
+                let reach = captureRadius / scale
+                let others =
+                    start.indices.filter { $0 != index }.map { start[$0] }
+                    + neighbours.flatMap(\.polygon)
+                // Measured from where the FINGER is; a hit on either axis
+                // wins over the square snap, which then only fills in the
+                // axis nothing lined up on.
+                if let x = others.min(by: { abs($0.x - moved.x) < abs($1.x - moved.x) }),
+                    abs(x.x - moved.x) < reach
+                {
+                    point.x = x.x
+                    guides.append((point, x))
+                }
+                if let y = others.min(by: { abs($0.y - moved.y) < abs($1.y - moved.y) }),
+                    abs(y.y - moved.y) < reach
+                {
+                    point.y = y.y
+                    guides.append((point, y))
+                }
+                if !guides.isEmpty, cornerGuides.isEmpty {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
+                // Both guides must point at the corner as it finally lands.
+                guides = guides.map { (point, $0.1) }
+            }
+            cornerGuides = guides
+            corners = PlanEditing.moveCorner(start, index: index, to: point)
             guessedEdges.remove(index)
             guessedEdges.remove((index - 1 + n) % n)
             carryAnchoredObjects()

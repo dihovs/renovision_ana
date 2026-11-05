@@ -2741,6 +2741,21 @@ struct FloorCanvasView: View {
                 }
             }
             .padding(Brand.Space.base)
+            // Rooms on top of each other: said, not just shaded.
+            if lifted == nil, let first = cachedLayout.overlaps.first {
+                Label(
+                    cachedLayout.overlaps.count == 1
+                        ? "\(first.names) overlap — move one so they don't"
+                        : "\(cachedLayout.overlaps.count) pairs of rooms overlap",
+                    systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Color.red.opacity(0.85), in: Capsule())
+                    .padding(.top, 6)
+                    .frame(maxWidth: .infinity)
+                    .allowsHitTesting(false)
+            }
             Spacer()
             // The reference's Insert menu rises from the bar rather
             // than replacing the screen: what you are inserting INTO

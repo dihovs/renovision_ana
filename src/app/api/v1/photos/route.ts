@@ -3,6 +3,7 @@ import { guarded } from "../guard";
 import {
   addProjectFile,
   deleteProjectFile,
+  moveProjectFile,
   listProjectFiles, listRoomFiles,
   signProjectFileUrls,
   MAX_PROJECT_FILE_BYTES,
@@ -154,5 +155,28 @@ export async function DELETE(request: Request) {
   return guarded(async () => {
     await deleteProjectFile(id);
     return { deleted: id };
+  });
+}
+
+/**
+ * Move one photo to another room of the same job (`roomScanId`), or back to
+ * the job itself (`roomScanId: null`). Body: `{ id, roomScanId }`.
+ */
+export async function PATCH(request: Request) {
+  let body: { id?: unknown; roomScanId?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Expected JSON." }, { status: 400 });
+  }
+  const id = typeof body.id === "string" ? body.id : "";
+  if (!id) return NextResponse.json({ error: "id is required." }, { status: 400 });
+  if (!("roomScanId" in body) || (body.roomScanId !== null && typeof body.roomScanId !== "string")) {
+    return NextResponse.json({ error: "roomScanId must be a room id or null." }, { status: 400 });
+  }
+  const roomScanId = (body.roomScanId as string | null) || null;
+  return guarded(async () => {
+    await moveProjectFile(id, roomScanId);
+    return { moved: id, roomScanId };
   });
 }

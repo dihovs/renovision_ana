@@ -20,6 +20,14 @@ actor PreviewServer {
     private var rooms: [[String: Any]] = []
     private var objects: [String: [[String: Any]]] = [:]
     private var areas: [String: [[String: Any]]] = [:]
+    /// Photos by room ("" = the job's own). No image bytes: a tile with no
+    /// URL draws as a blank card, which is all a move test needs.
+    private var photos: [String: [[String: Any]]] = [
+        "preview-living": [
+            ["id": "preview-photo-1", "filename": "living-1.jpg", "note": NSNull()],
+            ["id": "preview-photo-2", "filename": "living-2.jpg", "note": NSNull()],
+        ]
+    ]
     private var floorAngles: [String: Double] = [:]
     private var nextID = 1
 
@@ -37,7 +45,7 @@ actor PreviewServer {
                 id == "preview-living"
                 ? [
                     PlanEditing.WallOpening(
-                        edge: 1, offset: 1.5, width: 0.9, height: 2.03, sill: 0, kind: .doorSingle),
+                        edge: 1, offset: 0.2, width: 0.9, height: 2.03, sill: 0, kind: .doorSingle),
                     PlanEditing.WallOpening(
                         edge: 0, offset: 1.8, width: 1.4, height: 1.2, sill: 0.9, kind: .windowStandard),
                 ] : []
@@ -229,7 +237,18 @@ actor PreviewServer {
         case ("DELETE", "areas"):
             if let id { for (room, list) in areas { areas[room] = list.filter { $0["id"] as? String != id } } }
             return try json(["ok": true])
-        case ("GET", "photos"): return try json(["photos": []])
+        case ("GET", "photos"):
+            return try json(["photos": photos[query["roomScanId"] ?? ""] ?? []])
+        case ("PATCH", "photos"):
+            if let target = input["id"] as? String {
+                var found: [String: Any]?
+                for (room, list) in photos {
+                    if let hit = list.first(where: { $0["id"] as? String == target }) { found = hit }
+                    photos[room] = list.filter { $0["id"] as? String != target }
+                }
+                if let found { photos[input["roomScanId"] as? String ?? "", default: []].append(found) }
+            }
+            return try json(["ok": true])
         case ("GET", "moisture"): return try json(["readings": []])
         case ("GET", "equipment"): return try json(["equipment": []])
         default:

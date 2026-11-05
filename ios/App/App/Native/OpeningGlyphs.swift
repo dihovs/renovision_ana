@@ -266,6 +266,9 @@ enum OpeningGlyphs {
         let pieces: [Double]
         /// Indices of the pieces whose figure survived collision pruning.
         let labelled: Set<Int>
+        /// Of those, the ones printed one row further out because they did
+        /// not fit on the chain itself — the short pier beside a door.
+        var outboard: Set<Int> = []
         /// Nothing to draw: no opening, or nothing legible left after pruning.
         var isEmpty: Bool { pieces.count < 2 || labelled.isEmpty }
     }
@@ -327,9 +330,11 @@ enum OpeningGlyphs {
         }
 
         var kept = Set<Int>()
+        var outboard = Set<Int>()
         // Screen intervals along the run that a kept figure already occupies,
         // each padded by 3pt so two figures never touch shoulders.
         var taken: [ClosedRange<CGFloat>] = []
+        var takenOutboard: [ClosedRange<CGFloat>] = []
 
         func footprint(_ index: Int) -> ClosedRange<CGFloat> {
             let half = spans[index].half + 3
@@ -347,13 +352,26 @@ enum OpeningGlyphs {
         }
         // Pass 2 — wall pieces, only where they fit their own run and clear
         // everything already kept.
+        //
+        // **A piece that does not fit is moved, not dropped** (5 Nov 2026,
+        // the reference's own chains — screens/48 prints every pier beside
+        // every door). The pieces always add up to the wall, and the pier
+        // beside a door is the number a contractor reads most. So a figure
+        // that will not sit on its own run goes one row further out, centred
+        // on its piece; only if THAT row is taken too is it left off.
         for index in pieces.indices where index % 2 == 0 && pieces[index] > 0.02 {
-            guard spans[index].half * 2 <= spans[index].run - 4 else { continue }
-            guard !taken.contains(where: { $0.overlaps(footprint(index)) }) else { continue }
-            keep(index)
+            let fits = spans[index].half * 2 <= spans[index].run - 4
+            let clear = !taken.contains(where: { $0.overlaps(footprint(index)) })
+            if fits && clear {
+                keep(index)
+            } else if !takenOutboard.contains(where: { $0.overlaps(footprint(index)) }) {
+                kept.insert(index)
+                outboard.insert(index)
+                takenOutboard.append(footprint(index))
+            }
         }
 
-        return ChainLayout(pieces: pieces, labelled: kept)
+        return ChainLayout(pieces: pieces, labelled: kept, outboard: outboard)
     }
 
     /// One chain figure, resolved. Openings carry the weight because they are
@@ -443,7 +461,17 @@ enum OpeningGlyphs {
 
             let text = chainText(piece, isOpening: index % 2 == 1, context: context)
             let size = text.measure(in: proxySize)
-            let p = at(centre)
+            var p = at(centre)
+            if layout.outboard.contains(index) {
+                // One text line further out, with a hairline back to its piece.
+                let lift: CGFloat = 13
+                let q = CGPoint(x: p.x + nx * lift, y: p.y + ny * lift)
+                var leader = Path()
+                leader.move(to: CGPoint(x: p.x + nx * 2, y: p.y + ny * 2))
+                leader.addLine(to: CGPoint(x: q.x - nx * (size.height / 2), y: q.y - ny * (size.height / 2)))
+                context.stroke(leader, with: .color(EditorChrome.dimensionGrey), lineWidth: 0.5)
+                p = q
+            }
             // Along the run and the right way up, same rule as the overall
             // figure: a wall read from either end is the same wall.
             var angle = atan2(uy, ux)

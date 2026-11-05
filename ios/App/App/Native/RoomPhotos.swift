@@ -49,6 +49,10 @@ struct RoomPhotosSection: View {
     /// understand a media kind neither was built for.
     @State private var viewingVideo: RoomPhoto?
     @State private var uploadingVideo = false
+    /// The photo whose "Move to…" picker is open, and the job's other rooms
+    /// to offer — fetched when the picker opens, never up front.
+    @State private var moving: RoomPhoto?
+    @State private var moveTargets: [RoomScan] = []
     /// Photos this phone is still holding, so the grid shows them the moment
     /// they are taken rather than after the server has them.
     @ObservedObject private var queue = PhotoQueue.shared
@@ -132,6 +136,13 @@ struct RoomPhotosSection: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            Task { await openMove(photo) }
+                        } label: {
+                            Label("Move to…", systemImage: "folder")
+                        }
+                    }
                 }
 
                 // Held on this phone: drawn exactly like the rest, with a
@@ -203,6 +214,21 @@ struct RoomPhotosSection: View {
             }
         }
         .task { await load() }
+        .confirmationDialog(
+            "Move photo to", isPresented: Binding(
+                get: { moving != nil }, set: { if !$0 { moving = nil } }),
+            titleVisibility: .visible
+        ) {
+            // The photo is captured HERE: the dialog clears `moving` on its
+            // way down, before an async action would get to read it.
+            if let photo = moving {
+                ForEach(moveTargets) { room in
+                    Button(room.name) { Task { await move(photo, to: room.id) } }
+                }
+                Button("The job (no room)") { Task { await move(photo, to: nil) } }
+            }
+            Button("Cancel", role: .cancel) { moving = nil }
+        }
         // A queued photo left the queue — it either landed on the server or
         // failed out. Either way the server's list is the truth now, and
         // this is the ONE place the grid re-fetches after a capture; see the
@@ -385,6 +411,21 @@ struct RoomPhotosSection: View {
             }
         default:
             error = "Camera access is off for this app. Settings › Renovision › Camera."
+        }
+    }
+
+    private func openMove(_ photo: RoomPhoto) async {
+        let rooms = (try? await API.shared.scans(projectId: projectId)) ?? []
+        moveTargets = rooms.filter { $0.id != roomScanId }
+        moving = photo
+    }
+
+    private func move(_ photo: RoomPhoto, to room: String?) async {
+        do {
+            try await API.shared.movePhoto(id: photo.id, toRoom: room)
+            photos?.removeAll { $0.id == photo.id }
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 

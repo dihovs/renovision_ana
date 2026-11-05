@@ -109,6 +109,7 @@
 		85B9095E513B918006A767AB /* LaserSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E5DA7FF8384C910B0F66771 /* LaserSheet.swift */; };
 		1D8E78D603D05122C42642CA /* PlanFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCE8554220EF98543C699E3 /* PlanFiles.swift */; };
 		6F1BBC9C46B48971422BB9CB /* PreviewServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C230E6C9C2680DF9DF376282 /* PreviewServer.swift */; };
+		978BBF08101BBAC80A8088E3 /* SketchPDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF1429FDCECDE6CD81D04330 /* SketchPDF.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -214,6 +215,7 @@
 		2E5DA7FF8384C910B0F66771 /* LaserSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/LaserSheet.swift; sourceTree = "<group>"; };
 		FDCE8554220EF98543C699E3 /* PlanFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PlanFiles.swift; sourceTree = "<group>"; };
 		C230E6C9C2680DF9DF376282 /* PreviewServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/PreviewServer.swift; sourceTree = "<group>"; };
+		CF1429FDCECDE6CD81D04330 /* SketchPDF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Native/SketchPDF.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -258,6 +260,7 @@
 				AA1000000000000000000005 /* RoomScanViewController.swift */,
 				AA1000000000000000000003 /* RoomScanPlugin.swift */,
 				AA1000000000000000000001 /* SpeakerPlugin.swift */,
+				CF1429FDCECDE6CD81D04330 /* SketchPDF.swift */,
 				C230E6C9C2680DF9DF376282 /* PreviewServer.swift */,
 				FDCE8554220EF98543C699E3 /* PlanFiles.swift */,
 				2E5DA7FF8384C910B0F66771 /* LaserSheet.swift */,
@@ -439,6 +442,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				978BBF08101BBAC80A8088E3 /* SketchPDF.swift in Sources */,
 				6F1BBC9C46B48971422BB9CB /* PreviewServer.swift in Sources */,
 				1D8E78D603D05122C42642CA /* PlanFiles.swift in Sources */,
 				85B9095E513B918006A767AB /* LaserSheet.swift in Sources */,

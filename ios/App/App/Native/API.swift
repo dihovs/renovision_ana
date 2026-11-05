@@ -1128,6 +1128,25 @@ actor API {
         _ = try await request("/api/v1/photos?id=\(encoded)", method: "DELETE")
     }
 
+    /// File a photo against another room of the same job, or against the
+    /// job itself when `roomScanId` is nil. The server clears its wall and
+    /// damaged-area tags, which only mean something inside the old room.
+    func movePhoto(id: String, toRoom roomScanId: String?) async throws {
+        struct Body: Encodable {
+            let id: String
+            let roomScanId: String?
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(id, forKey: .id)
+                try c.encode(roomScanId, forKey: .roomScanId)  // null, not absent
+            }
+            enum CodingKeys: String, CodingKey { case id, roomScanId }
+        }
+        _ = try await request(
+            "/api/v1/photos", method: "PATCH",
+            body: Body(id: id, roomScanId: roomScanId))
+    }
+
     // MARK: - Video (S7)
     //
     // Two round trips to us, one direct one to Storage — a route handler's

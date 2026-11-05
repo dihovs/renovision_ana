@@ -563,6 +563,40 @@ struct StoreyLayout {
             return outline.map { CGPoint(x: $0.x + room.origin.x, y: $0.y + room.origin.y) }
         }
         self.floorPolygons = floorPolygons
+        // **Rooms standing on each other** — a defect state in the reference
+        // (Magicplan-Screen-Spec §2.18): measured twice, or dropped in the
+        // wrong place. Found once per layout; drawn red and named.
+        var overlaps: [(names: String, region: [[CGPoint]])] = []
+        for i in floorPolygons.indices where floorPolygons[i].count >= 3 {
+            for j in floorPolygons.indices where j > i && floorPolygons[j].count >= 3 {
+                let a = CGMutablePath(), b = CGMutablePath()
+                a.addLines(between: floorPolygons[i]); a.closeSubpath()
+                b.addLines(between: floorPolygons[j]); b.closeSubpath()
+                // Rooms that merely share a line (a flush join) meet in a
+                // sliver with no width; only a real patch of floor counts.
+                let shared = a.intersection(b)
+                guard !shared.isEmpty else { continue }
+                let box = shared.boundingBoxOfPath
+                guard box.width > 0.05, box.height > 0.05 else { continue }
+                var rings: [[CGPoint]] = []
+                var ring: [CGPoint] = []
+                shared.applyWithBlock { e in
+                    switch e.pointee.type {
+                    case .moveToPoint:
+                        if ring.count >= 3 { rings.append(ring) }
+                        ring = [e.pointee.points[0]]
+                    case .addLineToPoint: ring.append(e.pointee.points[0])
+                    case .closeSubpath:
+                        if ring.count >= 3 { rings.append(ring) }
+                        ring = []
+                    default: break
+                    }
+                }
+                if ring.count >= 3 { rings.append(ring) }
+                overlaps.append(("\(rooms[i].room.name) and \(rooms[j].room.name)", rings))
+            }
+        }
+        self.overlaps = overlaps
         var runs: [String: [StoreyWalls.Run]] = [:]
         for (index, room) in rooms.enumerated() {
             runs[room.id] = StoreyWalls.runs(
@@ -578,6 +612,9 @@ struct StoreyLayout {
     let floorPolygons: [[CGPoint]]
     /// Each room's walls, room metres — see `StoreyWalls`.
     let wallRuns: [String: [StoreyWalls.Run]]
+    /// Pairs of rooms whose floors overlap, with the shared region in floor
+    /// metres.
+    let overlaps: [(names: String, region: [[CGPoint]])]
 
     /// The stated thicknesses walls are drawn at: a 2×4 partition and a 2×6
     /// exterior wall, `WallThickness.default` — the same figures the
@@ -919,6 +956,22 @@ struct StoreyBaseLayer: View {
                     context.drawLayer { layer in
                         layer.clip(to: holes, options: .inverse)
                         layer.fill(solidWalls, with: .color(ink))
+                    }
+                    // Overlapping floors, red, over everything below — only
+                    // while nothing is in the air, since a room being dragged
+                    // overlaps on its way past and is not a mistake yet.
+                    if lifted == nil {
+                        for overlap in layout.overlaps {
+                            for ring in overlap.region {
+                                var shape = Path()
+                                shape.addLines(ring.map { viewport.point($0) })
+                                shape.closeSubpath()
+                                context.fill(shape, with: .color(Color.red.opacity(0.28)))
+                                context.stroke(
+                                    shape, with: .color(.red),
+                                    style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
+                            }
+                        }
                     }
                 }
                 for storeyRoom in layout.rooms {

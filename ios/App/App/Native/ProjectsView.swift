@@ -2179,29 +2179,55 @@ struct ProjectExportSheet: View {
                             .buttonStyle(.plain)
 
                             Divider().padding(.leading, 58)
-                            ExportRow(
-                                icon: "doc.richtext",
-                                title: "Sketch PDF",
-                                caption: "The plan on its own, without the report around it",
-                                ready: false)
+                            NavigationLink {
+                                SketchPDFView(projectId: projectId, projectName: projectName)
+                            } label: {
+                                ExportRow(
+                                    icon: "doc.richtext",
+                                    title: "Sketch PDF",
+                                    caption: "The plan on its own, one floor per page",
+                                    ready: true)
+                            }
+                            .buttonStyle(.plain)
                             Divider().padding(.leading, 58)
-                            ExportRow(
-                                icon: "photo.on.rectangle",
-                                title: "Sketch Files",
-                                caption: "The plan as an image — PNG, SVG",
-                                ready: false)
+                            // These three were greyed out while the files
+                            // already existed behind the Report screen
+                            // (`PlanFilesView`) — now each opens its own kind.
+                            NavigationLink {
+                                PlanFilesView(projectId: projectId, projectName: projectName, only: ["dxf", "svg"])
+                                    .navigationTitle("Sketch Files")
+                            } label: {
+                                ExportRow(
+                                    icon: "photo.on.rectangle",
+                                    title: "Sketch Files",
+                                    caption: "The plan as drawing files — DXF for CAD, SVG",
+                                    ready: true)
+                            }
+                            .buttonStyle(.plain)
                             Divider().padding(.leading, 58)
-                            ExportRow(
-                                icon: "cube",
-                                title: "3D Model",
-                                caption: "This editor is 2D by design, so there is no model to export",
-                                ready: false)
+                            NavigationLink {
+                                PlanFilesView(projectId: projectId, projectName: projectName, only: ["usdz", "gltf"])
+                                    .navigationTitle("3D Model")
+                            } label: {
+                                ExportRow(
+                                    icon: "cube",
+                                    title: "3D Model",
+                                    caption: "USDZ (opens on any iPhone or Mac, AR) · glTF",
+                                    ready: true)
+                            }
+                            .buttonStyle(.plain)
                             Divider().padding(.leading, 58)
-                            ExportRow(
-                                icon: "ruler",
-                                title: "Statistics",
-                                caption: "Areas and perimeters of every room, as a file",
-                                ready: false)
+                            NavigationLink {
+                                PlanFilesView(projectId: projectId, projectName: projectName, only: ["csv"])
+                                    .navigationTitle("Statistics")
+                            } label: {
+                                ExportRow(
+                                    icon: "ruler",
+                                    title: "Statistics",
+                                    caption: "Areas and perimeters of every room, as a spreadsheet",
+                                    ready: true)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
 

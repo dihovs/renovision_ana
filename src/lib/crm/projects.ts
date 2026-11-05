@@ -1121,6 +1121,47 @@ export async function updateProjectDetails(
 }
 
 /**
+ * Re-file a photo against another room of the same job, or against the job
+ * itself (`roomScanId` null).
+ *
+ * The wall and damaged-area tags are cleared: both are indexes into the OLD
+ * room, and pointing at wall 3 of a room that has no wall 3 is worse than
+ * pointing at none. Refused when the room belongs to another project, so a
+ * photo can never be moved into a claim it was not taken for.
+ */
+export async function moveProjectFile(
+  fileId: string,
+  roomScanId: string | null,
+): Promise<void> {
+  const client = requireDb();
+  const { data: file, error } = await client
+    .from("project_files")
+    .select("id, project_id")
+    .eq("id", fileId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not find the photo: ${error.message}`);
+  if (!file) throw new Error("That photo no longer exists.");
+
+  if (roomScanId) {
+    const { data: room, error: roomError } = await client
+      .from("room_scans")
+      .select("project_id")
+      .eq("id", roomScanId)
+      .maybeSingle();
+    if (roomError) throw new Error(`Could not find the room: ${roomError.message}`);
+    if (!room || (room as { project_id: string }).project_id !== (file as { project_id: string }).project_id) {
+      throw new Error("That room is not part of this photo's job.");
+    }
+  }
+
+  const { error: updateError } = await client
+    .from("project_files")
+    .update({ room_scan_id: roomScanId, wall_index: null, affected_area_id: null })
+    .eq("id", fileId);
+  if (updateError) throw new Error(`Could not move the photo: ${updateError.message}`);
+}
+
+/**
  * Delete a file: row first, object second.
  *
  * Ordered this way deliberately. If the object went first and the row delete

@@ -12,6 +12,9 @@ import SwiftUI
 struct PlanFilesView: View {
     let projectId: String
     let projectName: String
+    /// Only these extensions, when the export sheet asked for one kind
+    /// (Sketch Files · 3D Model · Statistics); nil lists everything.
+    var only: Set<String>? = nil
 
     @State private var files: [URL] = []
     @State private var error: String?
@@ -26,14 +29,14 @@ struct PlanFilesView: View {
             }
             if let error { Text(error).foregroundStyle(.red) }
             if let imported { Text(imported).foregroundStyle(Brand.green) }
-            if !files.isEmpty {
+            if !shown.isEmpty {
                 Section {
-                    ShareLink(items: files) {
-                        Label("Send all \(files.count) files", systemImage: "square.and.arrow.up.on.square")
+                    ShareLink(items: shown) {
+                        Label("Send all \(shown.count) files", systemImage: "square.and.arrow.up.on.square")
                     }
                 }
                 Section {
-                    ForEach(files, id: \.self) { url in
+                    ForEach(shown, id: \.self) { url in
                         ShareLink(item: url) {
                             HStack {
                                 Image(systemName: icon(for: url.pathExtension))
@@ -295,6 +298,11 @@ struct PlanFilesView: View {
             scene.rootNode.addChildNode(node)
         }
         return scene
+    }
+
+    private var shown: [URL] {
+        guard let only else { return files }
+        return files.filter { only.contains($0.pathExtension.lowercased()) }
     }
 
     private func icon(for ext: String) -> String {
