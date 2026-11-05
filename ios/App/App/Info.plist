@@ -28,6 +28,8 @@
 	<string>Renovision connects to your Bluetooth laser meter so a measurement lands straight on the wall you are measuring.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Site photos for a project's file library are taken with the camera and attached directly to the job.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Renovision saves your customers to Contacts so calls and texts show who is calling, and lets you pick contacts to add as customers. Only contacts the app made are ever changed.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Shows where you are on the map when setting a project address, so you can drop the pin on the property you are standing at.</string>
 	<key>NSMicrophoneUsageDescription</key>

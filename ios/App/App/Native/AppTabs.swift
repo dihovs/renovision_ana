@@ -14,6 +14,7 @@ struct AppTabs: View {
     @State private var tab: Tab = .home
     @State private var lastTab: Tab = .home
     @State private var creating = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TabView(selection: $tab) {
@@ -49,6 +50,11 @@ struct AppTabs: View {
             }
         }
         .sheet(isPresented: $creating) { CreateMenu() }
+        // Contacts kept current on their own, when he turned that on.
+        .task { await ContactSync.shared.syncIfAuto() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await ContactSync.shared.syncIfAuto() } }
+        }
     }
 }
 
@@ -153,7 +159,7 @@ struct MoreTab: View {
     @StateObject private var push = PushRegistration.shared
 
     private enum Destination: Hashable {
-        case schedule, leads, messages, quotes, scan
+        case schedule, leads, messages, quotes, scan, contacts
         case web(path: String, title: String)
     }
 
@@ -207,6 +213,9 @@ struct MoreTab: View {
                     }
                 }
                 Section("App") {
+                    NavigationLink(value: Destination.contacts) {
+                        label("Sync contacts", "person.crop.circle.badge.checkmark", Brand.green)
+                    }
                     Button {
                         PushRegistration.shared.enable()
                     } label: {
@@ -234,6 +243,7 @@ struct MoreTab: View {
                 case .messages: MessagesView()
                 case .quotes: EstimatesView()
                 case .scan: ScanEntryView()
+                case .contacts: ContactSyncView()
                 case .web(let path, let title):
                     WebScreen(path: path)
                         .ignoresSafeArea(edges: .bottom)
