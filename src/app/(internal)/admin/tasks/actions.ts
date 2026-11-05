@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { isSignedIn } from "@/lib/adminAuth";
 import { cancelCallTask } from "@/lib/crm/callTasks";
-import { setOwnerTaskDone } from "@/lib/crm/tasks";
+import { setOwnerTaskDone, updateOwnerTaskDetails } from "@/lib/crm/tasks";
 
 /**
  * Two mutations, both subtractive.
@@ -82,5 +82,22 @@ export async function cancelCallTaskAction(id: string): Promise<void> {
   }
   if (result.changed === 0) throw new Error(CANCEL_FAILURE_MESSAGE.not_cancellable);
 
+  revalidatePath("/admin/tasks");
+}
+
+/** Who it is for, which job, how often, when (migration 0057). */
+export async function saveTaskDetailsAction(
+  id: string,
+  details: { assigneeId: string | null; jobId: string | null; repeat: string; dueDate: string | null },
+): Promise<void> {
+  await requireSession();
+  const result = await updateOwnerTaskDetails(id, details);
+  if (!result.ok) {
+    throw new Error(
+      result.reason === "migration_pending"
+        ? "Assigning tasks needs migration 0057_task_assignment.sql — run it in the Supabase SQL editor."
+        : (FAILURE_MESSAGE[result.reason] ?? "Could not save the task."),
+    );
+  }
   revalidatePath("/admin/tasks");
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { OwnerTask } from "@/lib/crm/tasks";
+import { REPEAT_LABEL, REPEAT_RULES, type RepeatRule } from "@/lib/crm/taskRepeat";
 
 /**
  * The dictated to-do list.
@@ -26,11 +27,21 @@ export default function TaskList({
   tasks,
   today,
   setDone,
+  people = [],
+  jobs = [],
+  saveDetails,
 }: {
   tasks: OwnerTask[];
   /** "YYYY-MM-DD" in Montreal, from the server — see the page for why. */
   today: string;
   setDone: (id: string, done: boolean) => Promise<void>;
+  /** The team and open jobs, for "who is it for / which job" (0053, 0057). */
+  people?: { id: string; name: string }[];
+  jobs?: { id: string; label: string }[];
+  saveDetails?: (
+    id: string,
+    details: { assigneeId: string | null; jobId: string | null; repeat: string; dueDate: string | null },
+  ) => Promise<void>;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +98,9 @@ export default function TaskList({
                 today={today}
                 pending={pending}
                 onToggle={() => run(() => setDone(task.id, true))}
+                people={people}
+                jobs={jobs}
+                onSave={saveDetails ? (d) => run(() => saveDetails(task.id, d)) : undefined}
               />
             ))}
           </ul>
@@ -106,6 +120,9 @@ export default function TaskList({
                 today={today}
                 pending={pending}
                 onToggle={() => run(() => setDone(task.id, false))}
+                people={people}
+                jobs={jobs}
+                onSave={saveDetails ? (d) => run(() => saveDetails(task.id, d)) : undefined}
               />
             ))}
           </ul>
@@ -121,17 +138,29 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+type TaskDetails = { assigneeId: string | null; jobId: string | null; repeat: string; dueDate: string | null };
+
 function TaskRow({
   task,
   today,
   pending,
   onToggle,
+  people,
+  jobs,
+  onSave,
 }: {
   task: OwnerTask;
   today: string;
   pending: boolean;
   onToggle: () => void;
+  people: { id: string; name: string }[];
+  jobs: { id: string; label: string }[];
+  onSave?: (details: TaskDetails) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const assignee = people.find((p) => p.id === task.assignee_id);
+  const job = jobs.find((j) => j.id === task.job_id);
+  const repeat = (task.repeat_rule ?? "none") as RepeatRule;
   const isDone = Boolean(task.done_at);
   const overdue = isOverdue(task, today);
 
@@ -199,7 +228,69 @@ function TaskRow({
           {isDone && task.done_at && (
             <span className="text-charcoal/35">· done {formatTimestamp(task.done_at)}</span>
           )}
+
+          {assignee && (
+            <span className="rounded-full bg-brand-blue/[0.08] px-1.5 py-0.5 font-bold text-brand-blue">{assignee.name}</span>
+          )}
+          {task.job_id && (
+            <Link href={`/admin/jobs/${task.job_id}`} className="font-semibold text-brand-blue hover:underline">
+              {job?.label ?? "Job"}
+            </Link>
+          )}
+          {repeat !== "none" && <span className="font-semibold text-charcoal/55">↻ {REPEAT_LABEL[repeat]}</span>}
+          {onSave && !isDone && (
+            <button type="button" onClick={() => setEditing((v) => !v)} className="cursor-pointer font-semibold text-brand-blue">
+              {editing ? "Close" : "Assign…"}
+            </button>
+          )}
         </div>
+
+        {editing && onSave && (
+          <form
+            className="mt-2 grid gap-2 rounded-lg bg-[#f6f8fb] p-2 sm:grid-cols-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              onSave({
+                assigneeId: String(f.get("assigneeId") || "") || null,
+                jobId: String(f.get("jobId") || "") || null,
+                repeat: String(f.get("repeat") || "none"),
+                dueDate: String(f.get("dueDate") || "") || null,
+              });
+              setEditing(false);
+            }}
+          >
+            <select name="assigneeId" defaultValue={task.assignee_id ?? ""} aria-label="For" className="rounded-md border border-black/10 bg-white px-2 py-1.5 text-xs">
+              <option value="">Me</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <select name="jobId" defaultValue={task.job_id ?? ""} aria-label="Job" className="rounded-md border border-black/10 bg-white px-2 py-1.5 text-xs">
+              <option value="">No job</option>
+              {jobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.label}
+                </option>
+              ))}
+            </select>
+            <select name="repeat" defaultValue={repeat} aria-label="Repeat" className="rounded-md border border-black/10 bg-white px-2 py-1.5 text-xs">
+              {REPEAT_RULES.map((r) => (
+                <option key={r} value={r}>
+                  {REPEAT_LABEL[r]}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <input type="date" name="dueDate" defaultValue={task.due_date ?? ""} aria-label="Due" className="min-w-0 flex-1 rounded-md border border-black/10 bg-white px-2 py-1.5 text-xs" />
+              <button type="submit" disabled={pending} className="cursor-pointer rounded-md bg-brand-blue px-3 text-xs font-bold text-white disabled:opacity-50">
+                Save
+              </button>
+            </div>
+          </form>
+        )}
       </div>
       {/* No call marker here. Outbound calls are their own queue, in the
           section above, and a dictated note is not one of them — a "not
@@ -281,5 +372,6 @@ function formatTimestamp(iso: string): string {
  */
 function sourceLabel(source: string): string {
   if (source === "voice") return "Dictated by phone";
+  if (source === "repeat") return "Repeat of an earlier task";
   return `From ${source}`;
 }

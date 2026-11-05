@@ -1,4 +1,7 @@
 import { db, isMissingTable } from "./db";
+import { nextDueDate, REPEAT_RULES, type RepeatRule } from "./taskRepeat";
+
+export * from "./taskRepeat";
 
 /**
  * The owner's dictated to-do list (migration 0017).
@@ -23,7 +26,14 @@ export type OwnerTask = {
   done_at: string | null;
   source: string;
   call_sid: string | null;
+  /** Migration 0057 — absent until it runs. */
+  assignee_id?: string | null;
+  job_id?: string | null;
+  repeat_rule?: RepeatRule;
+  repeated_from?: string | null;
 };
+
+
 
 /**
  * Why a write did not happen. Kept as three distinct values because they need
@@ -199,14 +209,61 @@ export async function setOwnerTaskDone(id: string, done: boolean): Promise<TaskU
   const supabase = db();
   if (!supabase) return { ok: false, reason: "unconfigured" };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("owner_tasks")
     .update({ done_at: done ? new Date().toISOString() : null })
-    .eq("id", id);
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
 
   if (error) {
     if (isMissingTable(error)) return { ok: false, reason: "migration_pending" };
     console.error("[tasks] could not update the task:", error.message);
+    return { ok: false, reason: "failed", detail: error.message };
+  }
+
+  // A repeating task (0057) comes back: ticking it makes the next one. The
+  // unique index on repeated_from makes a second tick a no-op, not a twin.
+  const task = data as OwnerTask | null;
+  if (done && task?.repeat_rule && task.repeat_rule !== "none") {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+    const { error: repeatError } = await supabase.from("owner_tasks").insert({
+      body: task.body,
+      due_date: nextDueDate(task.due_date, task.repeat_rule, today),
+      source: "repeat",
+      assignee_id: task.assignee_id ?? null,
+      job_id: task.job_id ?? null,
+      repeat_rule: task.repeat_rule,
+      repeated_from: task.id,
+    });
+    if (repeatError && repeatError.code !== "23505") {
+      console.error("[tasks] could not make the next repeat:", repeatError.message);
+    }
+  }
+  return { ok: true };
+}
+
+/** Who, which job, how often, and when (0057). Only the keys given change. */
+export async function updateOwnerTaskDetails(
+  id: string,
+  patch: { assigneeId?: string | null; jobId?: string | null; repeat?: string; dueDate?: string | null },
+): Promise<TaskUpdateResult> {
+  const supabase = db();
+  if (!supabase) return { ok: false, reason: "unconfigured" };
+  const update: Record<string, unknown> = {};
+  if ("assigneeId" in patch) update.assignee_id = patch.assigneeId || null;
+  if ("jobId" in patch) update.job_id = patch.jobId || null;
+  if (patch.repeat !== undefined) {
+    update.repeat_rule = (REPEAT_RULES as readonly string[]).includes(patch.repeat) ? patch.repeat : "none";
+  }
+  if ("dueDate" in patch) update.due_date = patch.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(patch.dueDate) ? patch.dueDate : null;
+  if (Object.keys(update).length === 0) return { ok: true };
+
+  const { error } = await supabase.from("owner_tasks").update(update).eq("id", id);
+  if (error) {
+    if (isMissingTable(error) || /column .* does not exist|schema cache/i.test(error.message)) {
+      return { ok: false, reason: "migration_pending", detail: "0057" };
+    }
     return { ok: false, reason: "failed", detail: error.message };
   }
   return { ok: true };
