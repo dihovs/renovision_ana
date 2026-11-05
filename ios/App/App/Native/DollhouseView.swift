@@ -17,6 +17,16 @@ import SwiftUI
 /// a model that feels like a diagram.
 @available(iOS 17.0, *)
 struct DollhouseScreen: View {
+    /// "main" / "2nd" as the header names a floor: "Main Floor", "2nd Floor".
+    static func floorName(_ level: String) -> String {
+        let trimmed = level.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return "Floor" }
+        if trimmed.lowercased().contains("floor") || trimmed.lowercased() == "basement" {
+            return trimmed.prefix(1).uppercased() + trimmed.dropFirst()
+        }
+        return trimmed.prefix(1).uppercased() + trimmed.dropFirst() + " Floor"
+    }
+
     let title: String
     let rooms: [Dollhouse.Room]
     /// How many rooms this storey has AT ALL, before any were rejected for
@@ -97,12 +107,26 @@ struct DollhouseScreen: View {
                 .allowsHitTesting(false)
             }
             .task { ScanLens.appendToDiagnostics(diagnosis) }
-            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .font(.system(size: 16, weight: .semibold))
+                // The reference's 3D header (screens/scan-17): the floor, and
+                // under it what this view is — "3D View • Read Only" — with a
+                // literal "2D" on the left as the one-tap way back to editing.
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold))
+                            Text("2D").font(.system(size: 15, weight: .semibold))
+                        }
+                    }
+                    .accessibilityLabel("Back to 2D")
+                }
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 1) {
+                        Text(Self.floorName(title)).font(.system(size: 16, weight: .semibold))
+                        Text("3D View • Read Only")
+                            .font(.system(size: 11)).foregroundStyle(Brand.inkFaint)
+                    }
                 }
             }
             .sheet(item: $shareImage) { wrapped in
@@ -269,7 +293,7 @@ struct DollhouseSceneView: UIViewRepresentable {
         view.allowsCameraControl = false
         view.autoenablesDefaultLighting = false
         view.antialiasingMode = .multisampling4X
-        view.backgroundColor = UIColor(white: 0.94, alpha: 1)
+        view.backgroundColor = UIColor(white: 0.80, alpha: 1)
         // **120 Hz on a ProMotion phone.** SceneKit defaults to 60, and on
         // the device this app is actually used on that is half the frames it
         // could be drawing. Nothing else in this file makes turning feel as
@@ -300,6 +324,11 @@ struct DollhouseSceneView: UIViewRepresentable {
         let aspect = max(0.3, Double(screen.width) / max(Double(screen.height) - 120, 1))
         let fit = max(deep, wide / aspect) / 2 * 1.4
         context.coordinator.configure(zoom: Float(max(3.0, fit)))
+        // Simulator testing only: the two-finger turn does not reach the
+        // simulator, so `-preview3DTilt` opens already tilted.
+        if ProcessInfo.processInfo.arguments.contains("-preview3DTilt") {
+            context.coordinator.tilt(pitchDegrees: 38, yawDegrees: 28)
+        }
 
         controller?.onReset = { [weak coordinator = context.coordinator] in
             coordinator?.resetView()
@@ -469,6 +498,12 @@ struct DollhouseSceneView: UIViewRepresentable {
             shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
         ) -> Bool { true }
 
+        func tilt(pitchDegrees: Float, yawDegrees: Float) {
+            pitch = pitchDegrees * .pi / 180
+            yaw = yawDegrees * .pi / 180
+            apply()
+        }
+
         func configure(zoom: Float) {
             self.zoom = zoom
             self.initialZoom = zoom
@@ -629,9 +664,12 @@ struct DollhouseSceneView: UIViewRepresentable {
             // The camera stays parked; zoom widens the orthographic
             // frustum instead of moving it, so nothing can clip through a
             // wall on the way in.
+            // `zoom` is still half the visible height at the model; with a
+            // perspective lens that is a distance back along the view.
+            let half = Float(Dollhouse.fieldOfView) * .pi / 360
             rig.childNode(withName: "pitch", recursively: false)?
                 .childNode(withName: "camera", recursively: false)?
-                .camera?.orthographicScale = Double(zoom)
+                .position = SCNVector3(0, 0, zoom / tan(half))
             SCNTransaction.commit()
         }
 

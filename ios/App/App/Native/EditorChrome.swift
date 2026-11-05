@@ -583,7 +583,9 @@ enum EditorChrome {
                     .foregroundStyle(Brand.ink)
             }
             let text = context.resolve(
-                figure.font(.system(size: 15, weight: selected ? .bold : .regular)))
+                // 12 pt, the reference's quiet figure (screens/37, /48): the
+                // plan is the subject, the numbers annotate it.
+                figure.font(.system(size: 12, weight: selected ? .semibold : .regular)))
             let size = text.measure(in: proxySize)
             // Shared with `dimensionHit`, so the number and its tap target
             // are the same point by construction.
@@ -674,8 +676,25 @@ enum EditorChrome {
         // line, the same way a sliver wall gets no figure.
         guard right - left > 1, bottom - top > 1 else { return }
 
+        // **Only when it says something new** (5 Nov 2026, the owner: "too
+        // many numbers"). The reference's own square room carries four
+        // figures, not six (screens/37): an overall line beside a wall that
+        // already spans the whole width prints the same number twice. So the
+        // width line is drawn only when no single wall runs the full width,
+        // and the depth line only when none runs the full depth — exactly
+        // the rooms (an L, a notch, a slant) where it is the only answer.
+        func spanned(horizontal: Bool) -> Bool {
+            let full = horizontal ? maxX - minX : maxY - minY
+            return polygon.indices.contains { i in
+                let a = polygon[i], b = polygon[(i + 1) % polygon.count]
+                let along = horizontal ? abs(b.x - a.x) : abs(b.y - a.y)
+                let across = horizontal ? abs(b.y - a.y) : abs(b.x - a.x)
+                return across < 0.005 && abs(along - full) < 0.01
+            }
+        }
+
         // Width along the bottom.
-        if bottom + overallExtentRow + textLift + 12 < proxySize.height {
+        if !spanned(horizontal: true), bottom + overallExtentRow + textLift + 12 < proxySize.height {
             run(
                 context: context,
                 from: CGPoint(x: left, y: bottom), to: CGPoint(x: right, y: bottom),
@@ -684,7 +703,7 @@ enum EditorChrome {
 
         // Depth up the left. The normal points AWAY from the room, so the
         // line, its witness lines and its figure all step out together.
-        if left - (overallExtentRow + textLift + 12) > 0 {
+        if !spanned(horizontal: false), left - (overallExtentRow + textLift + 12) > 0 {
             run(
                 context: context,
                 from: CGPoint(x: left, y: top), to: CGPoint(x: left, y: bottom),
@@ -739,7 +758,7 @@ enum EditorChrome {
         let text = context.resolve(
             Text(format.format(metres))
                 .foregroundStyle(Brand.blue)
-                .font(.system(size: 15, weight: .regular)))
+                .font(.system(size: 12, weight: .regular)))
         let size = text.measure(in: proxySize)
         let at = CGPoint(
             x: (a.x + b.x) / 2 + nx * (off + textLift),

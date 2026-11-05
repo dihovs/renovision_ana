@@ -31,7 +31,17 @@ actor PreviewServer {
         func room(_ id: String, _ name: String, _ polygon: [CGPoint], at x: Double, _ y: Double)
             -> [String: Any]
         {
-            let geometry = ScanGeometry(polygon: polygon, ceilingHeight: 2.44)
+            // The living room gets a door into the kitchen and a window, so
+            // the 3D's openings have something to cut.
+            let authored: [PlanEditing.WallOpening] =
+                id == "preview-living"
+                ? [
+                    PlanEditing.WallOpening(
+                        edge: 1, offset: 1.5, width: 0.9, height: 2.03, sill: 0, kind: .doorSingle),
+                    PlanEditing.WallOpening(
+                        edge: 0, offset: 1.8, width: 1.4, height: 1.2, sill: 0.9, kind: .windowStandard),
+                ] : []
+            let geometry = ScanGeometry(polygon: polygon, ceilingHeight: 2.44, authored: authored)
             var json = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(geometry)))
                 as? [String: Any] ?? [:]
             // Drawn rooms lock every wall; the sample starts unlocked except
@@ -109,7 +119,7 @@ actor PreviewServer {
         return [
             "id": "preview-office", "project_id": projectID, "name": "Office (scanned)",
             "level": "main", "position": 0, "floor_area_sqm": 12, "wall_length_m": 14,
-            "ceiling_height_m": 2.44, "plan_x": x, "plan_y": 0, "geometry": out,
+            "ceiling_height_m": 2.9, "plan_x": x, "plan_y": 0, "geometry": out,
         ]
     }
 

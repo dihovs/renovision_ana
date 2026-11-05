@@ -177,7 +177,7 @@ enum Dollhouse {
 
     static func scene(rooms: [Room], displayAngleRadians: Double = 0) -> SCNScene {
         let scene = SCNScene()
-        scene.background.contents = UIColor(white: 0.94, alpha: 1)
+        scene.background.contents = UIColor(white: 0.80, alpha: 1)
 
         let world = SCNNode()
         world.name = "world"
@@ -305,6 +305,9 @@ enum Dollhouse {
     /// matching the plan the instant you look at anything but the centre.
     /// The reference is orthographic at every angle; so is this now, and
     /// the pinch drives `orthographicScale` instead of a distance.
+    /// Vertical field of view, degrees.
+    static let fieldOfView: CGFloat = 32
+
     static func cameraRig(span: Double) -> SCNNode {
         let rig = SCNNode()
         rig.name = "rig"
@@ -318,13 +321,18 @@ enum Dollhouse {
         let camera = SCNNode()
         camera.name = "camera"
         camera.camera = SCNCamera()
-        camera.camera?.usesOrthographicProjection = true
-        camera.camera?.orthographicScale = max(4.0, span * 0.62)
+        // **Perspective, like the reference's 3D** (its screenshots show the
+        // inner faces of every wall from above — only a perspective camera
+        // can). A narrow lens keeps the walls from splaying, which was the
+        // reason this was once orthographic.
+        camera.camera?.usesOrthographicProjection = false
+        camera.camera?.fieldOfView = Dollhouse.fieldOfView
+        camera.camera?.projectionDirection = .vertical
         // Wide near/far: an orthographic camera parked far enough back to
         // clear the model from any angle still has to keep the near face of
         // it in front of zNear.
-        camera.camera?.zNear = 0.05
-        camera.camera?.zFar = 2000
+        camera.camera?.zNear = 0.1
+        camera.camera?.zFar = 500
         camera.position = SCNVector3(0, 0, Float(max(30.0, span * 4)))
         pitch.addChildNode(camera)
         return rig
@@ -507,39 +515,39 @@ enum Dollhouse {
             }
             return outline.map { CGPoint(x: $0.x + room.origin.x, y: $0.y + room.origin.y) }
         }
-        var banded: [DollhouseStorey.Wall] = []
-        var seen: [String: Int] = [:]
+        // Every band of every room, as ONE outline: the union is a single
+        // solid, so no two walls ever share a volume. Separate boxes that
+        // ran on past their corners overlapped, and in 3D the overlap
+        // flickered (owner, 5 Nov 2026: "on 3D walls flicker").
+        // Grouped by ceiling height: each room's walls stand to ITS ceiling
+        // (magicplan raises every wall to the tallest room — a bug our spec
+        // says not to copy, Magicplan-Screen-Spec §2.24). A wall two rooms
+        // share belongs to the taller one, so each group is cut back by the
+        // taller groups before it is stood up — still no two solids overlap.
+        var groups: [Int: (mass: CGMutablePath, caps: [[CGPoint]], height: Double)] = [:]
         for (index, room) in rooms.enumerated() where floorPolygons[index].count >= 3 {
-            let runs = StoreyWalls.runs(
+            let key = Int((room.ceilingHeight * 100).rounded())
+            var group = groups[key] ?? (CGMutablePath(), [], room.ceilingHeight)
+            for run in StoreyWalls.runs(
                 of: index, polygons: floorPolygons, origin: .zero,
                 interior: StoreyLayout.interiorWall, exterior: StoreyLayout.exteriorWall)
-            for run in runs {
-                let length = hypot(run.b.x - run.a.x, run.b.y - run.a.y)
-                guard length > 0.01, run.far - run.near > 0.005 else { continue }
-                let u = CGPoint(x: (run.b.x - run.a.x) / length, y: (run.b.y - run.a.y) / length)
-                let mid = (run.near + run.far) / 2
-                let a = CGPoint(
-                    x: run.a.x - u.x * run.pastA + run.out.x * mid,
-                    y: run.a.y - u.y * run.pastA + run.out.y * mid)
-                let b = CGPoint(
-                    x: run.b.x + u.x * run.pastB + run.out.x * mid,
-                    y: run.b.y + u.y * run.pastB + run.out.y * mid)
-                // A wall two rooms share comes back from both, identical:
-                // stand it once (two coincident boxes fight for the same
-                // pixels), at the taller room's height.
-                let key = [a, b].map { String(format: "%.2f,%.2f", $0.x, $0.y) }.sorted().joined(separator: "|")
-                if let at = seen[key] {
-                    banded[at].height = max(banded[at].height, room.ceilingHeight)
-                    continue
-                }
-                seen[key] = banded.count
-                banded.append(
-                    DollhouseStorey.Wall(
-                        a: a, b: b, thickness: run.far - run.near, height: room.ceilingHeight,
-                        holes: []))
+            {
+                var r = run
+                // 2 mm off the room's own face, so a cabinet or a floor
+                // standing flush against it never shares its plane.
+                if r.near == 0 { r = StoreyWalls.Run(
+                    a: r.a, b: r.b, out: r.out, kind: r.kind, near: 0.002, far: r.far,
+                    pastA: r.pastA, pastB: r.pastB, trimA: r.trimA, trimB: r.trimB) }
+                let q = r.band
+                guard q.count == 4, r.far - r.near > 0.004 else { continue }
+                let quad = CGMutablePath()
+                quad.addLines(between: q)
+                quad.closeSubpath()
+                group.mass = group.mass.union(quad).mutableCopy() ?? group.mass
+                group.caps.append(q)
             }
+            groups[key] = group
         }
-
         for (index, room) in rooms.enumerated() {
             let ox = Double(room.origin.x), oy = Double(room.origin.y)
             let outline = closedOutline(room.plan.curvedPolygon)
@@ -566,12 +574,23 @@ enum Dollhouse {
 
         let node = SCNNode()
         node.name = "storey-walls"
-        let walls =
-            banded.map { wall -> DollhouseStorey.Wall in
-                var wall = wall
-                wall.holes = DollhouseStorey.holes(on: wall, openings: openings)
-                return wall
-            } + DollhouseStorey.network(pieces: pieces, openings: openings)
+        var taller = CGMutablePath()
+        for key in groups.keys.sorted(by: >) {
+            guard let group = groups[key], group.height > 0.1, !group.mass.isEmpty else { continue }
+            let own: CGPath = taller.isEmpty ? group.mass : group.mass.subtracting(taller)
+            taller = taller.union(group.mass).mutableCopy() ?? taller
+            guard !own.isEmpty else { continue }
+            node.addChildNode(
+                wallMass(
+                    own, caps: group.caps, openings: openings.map { o in
+                        var o = o
+                        o.head = min(o.head, group.height)
+                        o.sill = min(o.sill, group.height)
+                        return o
+                    }, height: group.height,
+                    rooms: floorPolygons.filter { $0.count >= 3 }))
+        }
+        let walls = DollhouseStorey.network(pieces: pieces, openings: openings)
         for wall in walls {
             node.addChildNode(storeyWallNode(wall))
         }
@@ -605,6 +624,183 @@ enum Dollhouse {
         // failure being chased here. Correctness first; if this costs frames
         // on a large storey, measure it then.
         return node
+    }
+
+    /// The storey's walls as one extruded solid, with every opening cut
+    /// through it and the wall above a door / below a window put back as its
+    /// own piece inside the cut — so no two pieces ever overlap.
+    private static func wallMass(
+        _ outline: CGPath, caps: [[CGPoint]], openings: [DollhouseStorey.Opening], height: Double,
+        rooms: [[CGPoint]]
+    ) -> SCNNode {
+        let node = SCNNode()
+        var holes = CGMutablePath()
+        var fills: [(quad: [CGPoint], bottom: Double, top: Double)] = []
+        for opening in openings {
+            let quad = StoreyWalls.hole(opening.a, opening.b, reach: StoreyLayout.exteriorWall + 0.03)
+            guard quad.count == 4 else { continue }
+            let path = CGMutablePath()
+            path.addLines(between: quad)
+            path.closeSubpath()
+            holes = holes.union(path).mutableCopy() ?? holes
+            if opening.head < height - 0.01 { fills.append((quad, opening.head, height)) }
+            if opening.sill > 0.01 { fills.append((quad, 0, opening.sill)) }
+        }
+        let walls = holes.isEmpty ? outline : outline.subtracting(holes)
+
+        // Wall faces, built edge by edge from the solid's own outline.
+        // `SCNShape` was tried and capped every room over: it does not
+        // honour the holes a union leaves for the rooms.
+        // **Only the faces that look into a room.** The outside skin of the
+        // building is never drawn, so whichever way the model is turned the
+        // near walls cannot stand between the camera and the rooms — the
+        // dollhouse cut, without a cutaway rule. Before this the storey
+        // culled FRONT faces, which showed the back of every near wall:
+        // tilted, a grey sheet over the rooms (owner's 2nd floor, 5 Nov).
+        // A jamb (its front in a doorway) is a room face too.
+        let holePath = holes
+        node.addChildNode(
+            sides(of: walls, bottom: 0, top: height) { front in
+                rooms.contains { DrawSnapping.contains($0, front) } || holePath.contains(front)
+            })
+        // Tops: every band as a flat dark quad. Bands overlap at corners,
+        // but they are coplanar and identical in colour and light, so the
+        // overlap cannot show — unlike side faces, which flickered.
+        node.addChildNode(flatQuads(caps, at: height, clip: walls))
+
+        for fill in fills {
+            let quad = CGMutablePath()
+            quad.addLines(between: fill.quad)
+            quad.closeSubpath()
+            let piece = quad.intersection(outline)
+            guard !piece.isEmpty else { continue }
+            node.addChildNode(sides(of: piece, bottom: fill.bottom, top: fill.top) { _ in true })
+            for ring in rings(of: piece) where ring.count >= 3 {
+                node.addChildNode(flatQuads([ring], at: fill.top, clip: nil))
+                node.addChildNode(flatQuads([ring], at: fill.bottom, clip: nil, facingUp: false))
+            }
+        }
+        return node
+    }
+
+    /// The closed rings of a path, as point lists (curves taken by their
+    /// end points — a union of straight bands has none).
+    private static func rings(of path: CGPath) -> [[CGPoint]] {
+        var out: [[CGPoint]] = []
+        var current: [CGPoint] = []
+        path.applyWithBlock { pointer in
+            let e = pointer.pointee
+            switch e.type {
+            case .moveToPoint:
+                if current.count >= 3 { out.append(current) }
+                current = [e.points[0]]
+            case .addLineToPoint: current.append(e.points[0])
+            case .addQuadCurveToPoint: current.append(e.points[1])
+            case .addCurveToPoint: current.append(e.points[2])
+            case .closeSubpath:
+                if current.count >= 3 { out.append(current) }
+                current = []
+            @unknown default: break
+            }
+        }
+        if current.count >= 3 { out.append(current) }
+        return out.map { ring in
+            var r = ring
+            if let f = r.first, let l = r.last, hypot(f.x - l.x, f.y - l.y) < 1e-6 { r.removeLast() }
+            return r
+        }
+    }
+
+    /// Vertical faces along every edge of `solid`, each facing OUT of it,
+    /// culled at the front so the storey stays open to the camera.
+    private static func sides(
+        of solid: CGPath, bottom: Double, top: Double, keep: (CGPoint) -> Bool
+    ) -> SCNNode {
+        var vertices: [SCNVector3] = []
+        var normals: [SCNVector3] = []
+        var indices: [Int32] = []
+        for ring in rings(of: solid) {
+            for i in ring.indices {
+                let p = ring[i], q = ring[(i + 1) % ring.count]
+                let length = hypot(q.x - p.x, q.y - p.y)
+                guard length > 1e-4 else { continue }
+                var nx = -(q.y - p.y) / length, ny = (q.x - p.x) / length
+                let mid = CGPoint(x: (p.x + q.x) / 2 + nx * 0.003, y: (p.y + q.y) / 2 + ny * 0.003)
+                if solid.contains(mid, using: .evenOdd) { nx = -nx; ny = -ny }
+                // What the face looks at, 5 cm out: a room (keep) or the
+                // outdoors (the building's skin — never drawn).
+                let front = CGPoint(x: (p.x + q.x) / 2 + nx * 0.05, y: (p.y + q.y) / 2 + ny * 0.05)
+                guard keep(front) else { continue }
+                let n = SCNVector3(Float(nx), 0, Float(ny))
+                let a = SCNVector3(Float(p.x), Float(bottom), Float(p.y))
+                let b = SCNVector3(Float(q.x), Float(bottom), Float(q.y))
+                let c = SCNVector3(Float(q.x), Float(top), Float(q.y))
+                let d = SCNVector3(Float(p.x), Float(top), Float(p.y))
+                let base = Int32(vertices.count)
+                vertices += [a, b, c, d]
+                normals += [n, n, n, n]
+                // Wound so the face's own front is the outward side.
+                let ab = SCNVector3(b.x - a.x, b.y - a.y, b.z - a.z)
+                let ac = SCNVector3(c.x - a.x, c.y - a.y, c.z - a.z)
+                let cross = SCNVector3(
+                    ab.y * ac.z - ab.z * ac.y, ab.z * ac.x - ab.x * ac.z, ab.x * ac.y - ab.y * ac.x)
+                if cross.x * n.x + cross.z * n.z >= 0 {
+                    indices += [base, base + 1, base + 2, base, base + 2, base + 3]
+                } else {
+                    indices += [base, base + 2, base + 1, base, base + 3, base + 2]
+                }
+            }
+        }
+        let geometry = SCNGeometry(
+            sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
+            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        // Ordinary back-face culling: a face is seen from the side it faces.
+        geometry.materials = [material(wallInk)]
+        return SCNNode(geometry: geometry)
+    }
+
+    /// Flat polygons (convex quads, or a fill's ring as a fan) at one
+    /// height, facing up (or down). `clip` keeps a cap out of a door's hole.
+    private static func flatQuads(
+        _ polygons: [[CGPoint]], at y: Double, clip: CGPath?, facingUp: Bool = true
+    ) -> SCNNode {
+        var polys = polygons
+        if let clip {
+            polys = polygons.flatMap { q -> [[CGPoint]] in
+                let path = CGMutablePath()
+                path.addLines(between: q)
+                path.closeSubpath()
+                return rings(of: path.intersection(clip))
+            }
+        }
+        var vertices: [SCNVector3] = []
+        var normals: [SCNVector3] = []
+        var indices: [Int32] = []
+        let n = SCNVector3(0, facingUp ? 1 : -1, 0)
+        for poly in polys where poly.count >= 3 {
+            let base = Int32(vertices.count)
+            for p in poly {
+                vertices.append(SCNVector3(Float(p.x), Float(y), Float(p.y)))
+                normals.append(n)
+            }
+            // Fan, wound to face the normal: (x, z) plan order is clockwise
+            // seen from +y when the plan's signed area is positive.
+            var area = 0.0
+            for i in poly.indices {
+                let a = poly[i], b = poly[(i + 1) % poly.count]
+                area += a.x * b.y - b.x * a.y
+            }
+            let flip = (area > 0) == facingUp
+            for k in 1..<(poly.count - 1) {
+                let i1 = base + Int32(k), i2 = base + Int32(k + 1)
+                indices += flip ? [base, i2, i1] : [base, i1, i2]
+            }
+        }
+        let geometry = SCNGeometry(
+            sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
+            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        geometry.materials = [material(facingUp ? wallCapInk : wallInk)]
+        return SCNNode(geometry: geometry)
     }
 
     /// One merged wall, as the pieces that actually stand.
@@ -736,9 +932,12 @@ enum Dollhouse {
         let node = SCNNode()
         node.name = "object:\(object.id)"
         node.addChildNode(
-            DollhouseModel.build(
-                shape: entry?.shape ?? .box, width: width, depth: depth, height: height,
-                included: object.included))
+            DemoModels.node(
+                slug: object.kind, width: width, depth: depth, height: height,
+                included: object.included)
+                ?? DollhouseModel.build(
+                    shape: entry?.shape ?? .box, width: width, depth: depth, height: height,
+                    included: object.included))
         node.position = SCNVector3(
             Float(object.x), Float(mountHeight(for: entry, height: height)), Float(object.y))
         node.eulerAngles = SCNVector3(0, Float(-object.rotation * .pi / 180), 0)
@@ -794,7 +993,8 @@ enum Dollhouse {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side))
         return renderer.image { ctx in
             let g = ctx.cgContext
-            UIColor(red: 0.855, green: 0.815, blue: 0.760, alpha: 1).setFill()
+            // Grey boards, the reference's 3D floor (screens/scan-17).
+            UIColor(white: 0.56, alpha: 1).setFill()
             g.fill(CGRect(x: 0, y: 0, width: side, height: side))
             // Four courses of boards, each course offset half a board so the
             // butt joints stagger the way laid flooring does.
@@ -1053,9 +1253,12 @@ enum Dollhouse {
 
         let node = SCNNode()
         node.addChildNode(
-            DollhouseModel.build(
-                shape: entry?.shape ?? .box, width: width, depth: depth, height: height,
-                included: true))
+            slug.flatMap {
+                DemoModels.node(slug: $0, width: width, depth: depth, height: height, included: true)
+            }
+                ?? DollhouseModel.build(
+                    shape: entry?.shape ?? .box, width: width, depth: depth, height: height,
+                    included: true))
         node.position = SCNVector3(
             Float(object.centre.x),
             Float(mountHeight(for: entry, height: height)),

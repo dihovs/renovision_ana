@@ -2645,7 +2645,10 @@ struct FloorCanvasView: View {
                 floorContext: drawingContext,
                 drawsInPlace: true)
         }
-        .task { await load() }
+        .task {
+            await load()
+            if PreviewData.on, ProcessInfo.processInfo.arguments.contains("-preview3DOpen") { dollhouse = true }
+        }
     }
 
     /// Floor-depth's own controls — extracted unchanged from what used to

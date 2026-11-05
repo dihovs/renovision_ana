@@ -75,7 +75,18 @@ struct MainTabs: View {
         // Home · Projects · ＋ · Customers · More — see AppTabs.swift.
         // The scan tab and floating Scan button stay gone: scanning starts
         // from a project's Floor Plans rail, or Measure in ＋ and More.
-        AppTabs(onSignedOut: onSignedOut)
+        Group {
+            if ProcessInfo.processInfo.arguments.contains("-preview3DOpen") {
+                // Simulator testing only: straight to the sample house's
+                // floor, which opens its 3D on load (see FloorCanvasView).
+                NavigationStack {
+                    FloorCanvasView(
+                        projectId: "preview-project", projectName: "Sample house", level: "main")
+                }
+            } else {
+                AppTabs(onSignedOut: onSignedOut)
+            }
+        }
         .tint(Brand.blue)
         // Presented OVER the tabs rather than navigated to inside one.
         //

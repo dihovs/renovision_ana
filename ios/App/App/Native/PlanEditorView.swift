@@ -399,7 +399,10 @@ struct RoomEditorCore: View {
     // MARK: - Constants (from the spec's table)
 
     private let handleHit: CGFloat = 44
-    private let handleDot: CGFloat = 13
+    /// 11 pt, white with a thin grey ring — the reference's corner dot
+    /// (screens/37). A heavier blue ring on every corner read as clutter
+    /// (owner, 5 Nov 2026); blue is kept for the one that is selected.
+    private let handleDot: CGFloat = 11
     private let wallBand: CGFloat = 22
     private let captureRadius: CGFloat = 8
 
@@ -1165,13 +1168,14 @@ struct RoomEditorCore: View {
                         for i in corners.indices {
                             let p = pt(corners[i])
                             let big = selection == .corner(i)
-                            let r = (big ? handleDot + 3 : handleDot) / 2
+                            let r = (big ? handleDot + 5 : handleDot) / 2
                             context.fill(
                                 Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
                                 with: .color(big ? Brand.blue : .white))
                             context.stroke(
                                 Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
-                                with: .color(Brand.blue), lineWidth: 2)
+                                with: .color(big ? Brand.blue : Brand.Plan.ink.opacity(0.55)),
+                                lineWidth: big ? 2 : 1.2)
                         }
                     }
 

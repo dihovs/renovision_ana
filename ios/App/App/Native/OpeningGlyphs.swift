@@ -363,7 +363,7 @@ enum OpeningGlyphs {
     ) -> GraphicsContext.ResolvedText {
         context.resolve(
             Text(FloorPlanGeometry.feetInches(metres))
-                .font(.system(size: 12, weight: isOpening ? .bold : .regular))
+                .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(Brand.blue))
     }
 

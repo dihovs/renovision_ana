@@ -292,3 +292,71 @@ enum DollhouseModel {
         return node
     }
 }
+
+/// **Temporary: magicplan's own 3D furniture, to see the model with them
+/// (owner, 5 Nov 2026: "we don't have all the 3D assets… magicplan
+/// provided").** The same arrangement as `DemoIcons`: the models live in
+/// `Assets.xcassets/DemoMagicplan3D`, generated on this Mac from his
+/// magicplan study and gitignored — never committed, never in a Release
+/// build, never shipped beyond his own phone. Every object still has our own
+/// `DollhouseModel` behind it; this only changes which one is drawn, and only
+/// when the demo switch is on. Remove with the folder once our own models
+/// exist.
+enum DemoModels {
+    private static var cache: [String: SCNNode] = [:]
+    private static var missing: Set<String> = []
+
+    /// Their model for a catalogue slug, fitted to the object's own box and
+    /// turned to face +z like ours; nil when there is none (or in Release).
+    static func node(slug: String, width: Double, depth: Double, height: Double, included: Bool)
+        -> SCNNode?
+    {
+        #if DEBUG
+        guard DemoIcons.enabled, !missing.contains(slug) else { return nil }
+        let prototype: SCNNode
+        if let cached = cache[slug] {
+            prototype = cached
+        } else {
+            guard let asset = NSDataAsset(name: "demo3d-\(slug)") else {
+                missing.insert(slug)
+                return nil
+            }
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("demo3d-\(slug).obj")
+            do { try asset.data.write(to: url) } catch { missing.insert(slug); return nil }
+            guard let scene = try? SCNScene(url: url, options: nil) else {
+                missing.insert(slug)
+                return nil
+            }
+            let holder = SCNNode()
+            for child in scene.rootNode.childNodes { holder.addChildNode(child) }
+            // One matte off-white, the reference's own look for furniture.
+            let paint = SCNMaterial()
+            paint.diffuse.contents = UIColor(white: 0.95, alpha: 1)
+            paint.lightingModel = .physicallyBased
+            paint.roughness.contents = 0.8
+            holder.enumerateHierarchy { node, _ in
+                if let g = node.geometry { g.materials = [paint] }
+            }
+            cache[slug] = holder
+            prototype = holder
+        }
+        let (lo, hi) = prototype.boundingBox
+        let size = SCNVector3(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z)
+        guard size.x > 0, size.y > 0, size.z > 0 else { return nil }
+        let model = prototype.clone()
+        // Their files are millimetres, y up, front at -z.
+        model.position = SCNVector3(-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -(lo.z + hi.z) / 2)
+        let fit = SCNNode()
+        fit.addChildNode(model)
+        fit.scale = SCNVector3(
+            Float(width) / size.x, Float(height) / size.y, Float(depth) / size.z)
+        let turn = SCNNode()
+        turn.eulerAngles = SCNVector3(0, Float.pi, 0)
+        turn.addChildNode(fit)
+        turn.opacity = included ? 1 : 0.35
+        return turn
+        #else
+        return nil
+        #endif
+    }
+}
