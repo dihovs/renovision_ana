@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { guarded } from "../../../guard";
 import { getClient } from "@/lib/crm/clients";
 import { listInsuranceEstimates } from "@/lib/crm/insuranceEstimates";
@@ -16,10 +15,11 @@ import { clientDisplayName, clientPersonName, formatAddress } from "@/lib/crm/ty
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const client = await getClient(id).catch(() => null);
-  if (!client) return NextResponse.json({ error: "No such customer." }, { status: 404 });
-
+  // Signed in first (inside guarded), THEN look the customer up — a caller
+  // without a session must not learn which ids exist.
   return guarded(async () => {
+    const client = await getClient(id);
+    if (!client) throw new Error("No such customer.");
     const safe = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
     const [leads, estimates, quotes, projects, jobs, invoices] = await Promise.all([
       safe(listLeads(50, id)),
