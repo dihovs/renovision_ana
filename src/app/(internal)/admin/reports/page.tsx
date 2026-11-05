@@ -47,7 +47,7 @@ export default async function ReportsPage() {
     // likely migration 0012 not run yet) must never take down the reports
     // above, so they are deliberately excluded from the check below.
     client.from("expenses").select("job_id, amount_cents, incurred_on"),
-    client.from("time_entries").select("job_id, minutes, worked_on"),
+    client.from("time_entries").select("job_id, minutes, worked_on").not("minutes", "is", null),
     client.from("jobs").select("id, job_number, title, client_snapshot").is("archived_at", null),
   ]);
 

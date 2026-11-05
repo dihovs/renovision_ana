@@ -100,6 +100,7 @@ function buildNav(): NavItem[] {
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: true },
   // Who works, in what role — visits are assigned to them, hours clocked.
   { href: "/admin/team", label: "Team", icon: IconBuilding, ready: true },
+  { href: "/admin/timesheets", label: "Timesheets", icon: IconCalendar, ready: true },
   { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
   { href: "/admin/expenses", label: "Expenses", icon: IconTag, ready: true },
   { href: "/admin/reports", label: "Reports", icon: IconShield, ready: true },

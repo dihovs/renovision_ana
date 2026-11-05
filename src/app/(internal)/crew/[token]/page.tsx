@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CrewChecklist, VisitDoneButton } from "./CrewActions";
-import { toggleChecklistItemAction, toggleVisitDoneAction } from "./actions";
+import CrewClock, { type ClockLabels } from "./CrewClock";
+import { startClockAction, stopClockAction, toggleChecklistItemAction, toggleVisitDoneAction } from "./actions";
+import { crewClockPeople, type CrewClockPerson } from "@/lib/crm/timeClock";
 import { getCrewJob, type CrewJobPayload, type CrewVisit } from "@/lib/crm/crewView";
 import { formatQuantity } from "@/lib/crm/money";
 
@@ -62,6 +64,15 @@ const COPY = {
     visitDone: "Marquer la visite terminée",
     visitDoneUndo: "Visite terminée",
     noPrices: "Cette feuille ne contient aucun prix. Pour toute question de facturation, appelez le bureau.",
+    clock: {
+      whoAreYou: "Qui êtes-vous ?",
+      start: "Commencer le chrono",
+      stop: "Arrêter",
+      running: "Le chrono tourne. Arrêtez-le en partant.",
+      elsewhere: "Votre chrono tourne sur une autre visite.",
+      failed: "Non enregistré. Vérifiez votre réseau et réessayez.",
+      change: "Pas vous ?",
+    },
   },
   en: {
     crewSheet: "Job sheet",
@@ -95,6 +106,15 @@ const COPY = {
     visitDone: "Mark visit complete",
     visitDoneUndo: "Visit complete",
     noPrices: "This sheet carries no prices. For anything about billing, call the office.",
+    clock: {
+      whoAreYou: "Who are you?",
+      start: "Start the clock",
+      stop: "Stop",
+      running: "The clock is running. Stop it when you leave.",
+      elsewhere: "Your clock is running on another visit.",
+      failed: "Not saved. Check your signal and try again.",
+      change: "Not you?",
+    },
   },
 };
 
@@ -155,6 +175,8 @@ export default async function CrewJobPage({
   const t = COPY[locale];
   const now = new Date();
   const next = leadVisit(job.visits, now);
+  // The team who can clock in here (0053–0055); empty until those run.
+  const clockPeople = await crewClockPeople(token).catch(() => [] as CrewClockPerson[]);
 
   return (
     <main
@@ -198,7 +220,7 @@ export default async function CrewJobPage({
 
         <div className="space-y-4">
           <WhereCard job={job} t={t} />
-          <WhenCard job={job} next={next} locale={locale} t={t} token={token} />
+          <WhenCard job={job} next={next} locale={locale} t={t} token={token} clockPeople={clockPeople} />
           <ContactCard job={job} t={t} />
 
           {job.instructions && (
@@ -373,12 +395,14 @@ function WhenCard({
   locale,
   t,
   token,
+  clockPeople,
 }: {
   job: CrewJobPayload;
   next: CrewVisit | null;
   locale: CrewLocale;
   t: CrewCopy;
   token: string;
+  clockPeople: CrewClockPerson[];
 }) {
   const others = job.visits.filter((visit) => visit.id !== next?.id);
 
@@ -419,6 +443,16 @@ function WhenCard({
             }}
             toggleAction={toggleVisitDoneAction.bind(null, token)}
           />
+
+          {!next.completedAt && (
+            <CrewClock
+              people={clockPeople}
+              visitId={next.id}
+              labels={t.clock satisfies ClockLabels}
+              startAction={startClockAction.bind(null, token)}
+              stopAction={stopClockAction.bind(null, token)}
+            />
+          )}
         </>
       )}
 

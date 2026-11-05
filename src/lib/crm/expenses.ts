@@ -116,6 +116,9 @@ export async function listTimeEntries(limit = 300): Promise<TimeEntryListItem[]>
   const { data, error } = await client
     .from("time_entries")
     .select("*, jobs(job_number, title, client_snapshot)")
+    // A running clock (0055) has no minutes yet; it is not a time entry
+    // until it stops.
+    .not("minutes", "is", null)
     .order("worked_on", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);

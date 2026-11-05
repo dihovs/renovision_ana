@@ -560,7 +560,7 @@ export async function revokeCrewToken(jobId: string): Promise<void> {
  * archived, job long finished — because a page that distinguishes "wrong
  * token" from "expired token" is a page that confirms which tokens exist.
  */
-async function resolveCrewToken(token: string, now: Date): Promise<string | null> {
+export async function resolveCrewToken(token: string, now: Date = new Date()): Promise<string | null> {
   const client = db();
   if (!client) return null;
   if (!TOKEN_PATTERN.test(token)) return null;

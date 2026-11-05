@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { setCrewChecklistItemDone, setCrewVisitCompleted } from "@/lib/crm/crewView";
+import { startCrewClock, stopCrewClock } from "@/lib/crm/timeClock";
 
 /**
  * The two things a crew may change from a phone.
@@ -37,4 +38,18 @@ export async function toggleVisitDoneAction(
   const ok = await setCrewVisitCompleted(token, visitId, completed);
   if (ok) revalidatePath(`/crew/${token}`);
   return ok;
+}
+
+/** Clock in on a visit (migration 0055). Same token guard, inside. */
+export async function startClockAction(token: string, visitId: string, memberId: string): Promise<boolean> {
+  const result = await startCrewClock(token, visitId, memberId);
+  if (result.ok || result.reason === "running") revalidatePath(`/crew/${token}`);
+  return result.ok;
+}
+
+/** Clock out. */
+export async function stopClockAction(token: string, entryId: string): Promise<boolean> {
+  const result = await stopCrewClock(token, entryId);
+  if (result.ok) revalidatePath(`/crew/${token}`);
+  return result.ok;
 }
