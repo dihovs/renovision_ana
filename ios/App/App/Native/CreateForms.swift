@@ -2,10 +2,15 @@ import SwiftUI
 
 /// Start a project.
 ///
-/// Three fields, and only the name is required. The situation this is used in
+/// Three things, and only the name is required. The situation this is used in
 /// is standing at a property that flooded an hour ago: the job exists, the
 /// paperwork does not, and a form that refuses to record it until a customer
 /// has been created is how measurements end up in somebody's notes app.
+///
+/// Redesigned 5 Nov 2026 (owner: "ours looks a bit too crowded"): grouped
+/// cards with the fields inline, the Home look, instead of a caps label and a
+/// box per field; the customer is picked from a searchable list rather than a
+/// menu that grew one line per customer.
 struct NewProjectSheet: View {
     let onCreated: (String) -> Void
 
@@ -17,77 +22,69 @@ struct NewProjectSheet: View {
     @State private var saving = false
     @State private var error: String?
     @State private var addingCustomer = false
+    @State private var pickingCustomer = false
     @FocusState private var focused: Bool
+
+    private var chosen: ClientSummary? { clients.first { $0.id == clientId } }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Brand.canvas.ignoresSafeArea()
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Brand.Space.base) {
-                        Field(label: "PROJECT NAME", text: $name, placeholder: "Tremblay — basement water loss")
+            ScrollView {
+                VStack(alignment: .leading, spacing: Brand.Space.large) {
+                    GroupedCard {
+                        TextField("Project name", text: $name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .textInputAutocapitalization(.words)
                             .focused($focused)
-
-                        VStack(alignment: .leading, spacing: Brand.Space.tight) {
-                            SectionHeading(title: "CUSTOMER", trailing: "optional")
-                            Menu {
-                                // First, because the situation this form is
-                                // used in is meeting somebody new: the
-                                // customer usually does not exist yet, and
-                                // making that the last option means backing
-                                // out of the project to go and create one.
-                                Button {
-                                    addingCustomer = true
-                                } label: {
-                                    Label("New customer…", systemImage: "person.badge.plus")
-                                }
-                                Divider()
-                                Button("No customer yet") { clientId = nil }
-                                if !clients.isEmpty { Divider() }
-                                ForEach(clients) { client in
-                                    Button(client.name) { clientId = client.id }
-                                }
-                            } label: {
-                                Card(padding: Brand.Space.small) {
-                                    HStack {
-                                        Text(chosenName)
-                                            .font(.system(size: 15))
-                                            .foregroundStyle(clientId == nil ? Brand.inkFaint : Brand.ink)
-                                        Spacer()
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundStyle(Brand.inkFaint)
-                                    }
-                                }
-                            }
-                        }
-
-                        Field(
-                            label: "WHAT HAPPENED", text: $description,
-                            placeholder: "Burst supply line under the kitchen sink…", lines: 4)
-
-                        if let error {
-                            Text(error).font(.footnote).foregroundStyle(.red)
-                        }
-
-                        Button(saving ? "Creating…" : "Create project") {
-                            Task { await create() }
-                        }
-                        .buttonStyle(PrimaryButtonStyle(enabled: !saving && !name.trimmed.isEmpty))
-                        .disabled(saving || name.trimmed.isEmpty)
+                            .padding(.horizontal, Brand.Space.base)
+                            .padding(.vertical, 14)
                     }
-                    .padding(Brand.Space.base)
+
+                    VStack(alignment: .leading, spacing: Brand.Space.small) {
+                        SectionHeading(title: "CUSTOMER", trailing: "optional")
+                        GroupedCard { customerRows }
+                    }
+
+                    VStack(alignment: .leading, spacing: Brand.Space.small) {
+                        SectionHeading(title: "WHAT HAPPENED", trailing: "optional")
+                        GroupedCard {
+                            TextField("Burst supply line under the kitchen sink…", text: $description, axis: .vertical)
+                                .font(.system(size: 15))
+                                .lineLimit(3...6)
+                                .padding(.horizontal, Brand.Space.base)
+                                .padding(.vertical, 12)
+                        }
+                    }
+
+                    if let error {
+                        Text(error).font(.footnote).foregroundStyle(.red)
+                    }
                 }
+                .padding(Brand.Space.base)
             }
+            .background(Brand.canvas)
             .navigationTitle("New project")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                // Top right, like the iPhone's own forms: a button at the
+                // bottom sat on top of the fields once the keyboard was up.
+                ToolbarItem(placement: .topBarTrailing) {
+                    if saving {
+                        ProgressView()
+                    } else {
+                        Button("Create") { Task { await create() } }
+                            .fontWeight(.semibold)
+                            .disabled(name.trimmed.isEmpty)
+                    }
+                }
             }
             .task {
                 focused = true
-                clients = (try? await API.shared.clients()) ?? []
+                clients = PreviewData.on ? CustomersView.previewClients : ((try? await API.shared.clients()) ?? [])
+            }
+            .sheet(isPresented: $pickingCustomer) {
+                CustomerPickerSheet(clients: clients) { clientId = $0 }
             }
             .sheet(isPresented: $addingCustomer) {
                 NewCustomerSheet { newId in
@@ -103,9 +100,45 @@ struct NewProjectSheet: View {
         }
     }
 
-    private var chosenName: String {
-        guard let clientId else { return "No customer yet" }
-        return clients.first { $0.id == clientId }?.name ?? "No customer yet"
+    @ViewBuilder private var customerRows: some View {
+        if let chosen {
+            IconRow(title: chosen.name, detail: chosen.phone ?? chosen.email, showsChevron: false) {
+                InitialsAvatar(name: chosen.name)
+            } trailing: {
+                Button { clientId = nil } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Brand.inkFaint)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove customer")
+            }
+            RowDivider()
+            Button { pickingCustomer = true } label: {
+                IconRow(title: "Change customer", showsChevron: true) {
+                    IconTile(icon: "arrow.left.arrow.right", tint: Brand.inkSoft)
+                } trailing: { EmptyView() }
+            }
+            .buttonStyle(.plain)
+        } else {
+            // New first: on a first visit the customer usually does not
+            // exist yet.
+            Button { addingCustomer = true } label: {
+                IconRow(title: "New customer", detail: "Name and a number", showsChevron: true) {
+                    IconTile(icon: "person.badge.plus", tint: Brand.green)
+                } trailing: { EmptyView() }
+            }
+            .buttonStyle(.plain)
+            if !clients.isEmpty {
+                RowDivider()
+                Button { pickingCustomer = true } label: {
+                    IconRow(title: "Existing customer", detail: "\(clients.count) on file", showsChevron: true) {
+                        IconTile(icon: "person.2", tint: Brand.blue)
+                    } trailing: { EmptyView() }
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private func create() async {
@@ -125,12 +158,60 @@ struct NewProjectSheet: View {
     }
 }
 
+/// Pick a customer from a searchable list — one tap, no scrolling a menu.
+struct CustomerPickerSheet: View {
+    let clients: [ClientSummary]
+    let onPick: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private var shown: [ClientSummary] {
+        guard !query.isEmpty else { return clients }
+        return clients.filter {
+            $0.name.localizedCaseInsensitiveContains(query)
+                || ($0.company ?? "").localizedCaseInsensitiveContains(query)
+                || ($0.phone ?? "").filter(\.isNumber).contains(query.filter(\.isNumber).isEmpty ? "\u{0}" : query.filter(\.isNumber))
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                GroupedCard {
+                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, client in
+                        if index > 0 { RowDivider() }
+                        Button {
+                            onPick(client.id)
+                            dismiss()
+                        } label: {
+                            IconRow(title: client.name, detail: client.phone ?? client.email, showsChevron: false) {
+                                InitialsAvatar(name: client.name)
+                            } trailing: { EmptyView() }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(Brand.Space.base)
+            }
+            .background(Brand.canvas)
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Name, company or number")
+            .navigationTitle("Customer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+            }
+        }
+    }
+}
+
 /// Add a customer.
 ///
 /// A name and a number. Billing addresses and tax rates are desk work, and a
 /// form asking for them on a driveway is a form nobody finishes — what cannot
 /// be recovered later is the phone number of the person standing in front of
-/// you.
+/// you. Laid out like the iPhone's own new-contact card: two grouped cards,
+/// fields inline.
 struct NewCustomerSheet: View {
     /// The new customer's id, so a caller that needed one — the project form,
     /// mid-flow — can select it without asking the operator to find it.
@@ -154,56 +235,73 @@ struct NewCustomerSheet: View {
         _phone = State(initialValue: prefillPhone)
     }
 
+    private var displayName: String {
+        let person = "\(firstName.trimmed) \(lastName.trimmed)".trimmed
+        return person.isEmpty ? company.trimmed : person
+    }
+
     private var canSave: Bool {
         !(firstName.trimmed.isEmpty && lastName.trimmed.isEmpty && company.trimmed.isEmpty)
     }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Brand.canvas.ignoresSafeArea()
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Brand.Space.base) {
-                        HStack(spacing: Brand.Space.small) {
-                            Field(label: "FIRST NAME", text: $firstName, placeholder: "Marc")
-                                .focused($focused)
-                            Field(label: "SURNAME", text: $lastName, placeholder: "Tremblay")
+            ScrollView {
+                VStack(alignment: .leading, spacing: Brand.Space.large) {
+                    Group {
+                        if displayName.isEmpty {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 30))
+                                .foregroundStyle(Brand.blue)
+                                .frame(width: 72, height: 72)
+                                .background(Brand.blue.opacity(0.13), in: .circle)
+                        } else {
+                            InitialsAvatar(name: displayName, size: 72)
                         }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, Brand.Space.small)
 
-                        Field(label: "COMPANY", text: $company, placeholder: "optional")
+                    GroupedCard {
+                        InlineField(placeholder: "First name", text: $firstName)
+                            .focused($focused)
+                        RowDivider(inset: Brand.Space.base)
+                        InlineField(placeholder: "Surname", text: $lastName)
+                        RowDivider(inset: Brand.Space.base)
+                        InlineField(placeholder: "Company (optional)", text: $company)
+                    }
 
-                        Field(
-                            label: "PHONE", text: $phone, placeholder: "(450) 555-0123",
-                            keyboard: .phonePad)
+                    GroupedCard {
+                        InlineField(placeholder: "Phone", text: $phone, icon: "phone.fill", tint: Brand.green, keyboard: .phonePad)
+                        RowDivider()
+                        InlineField(placeholder: "Email", text: $email, icon: "envelope.fill", tint: Brand.blue, keyboard: .emailAddress)
+                    }
 
-                        Field(
-                            label: "EMAIL", text: $email, placeholder: "marc@example.ca",
-                            keyboard: .emailAddress)
-
-                        if let error {
-                            Text(error).font(.footnote).foregroundStyle(.red)
-                        }
-
-                        Button(saving ? "Adding…" : "Add customer") {
-                            Task { await create() }
-                        }
-                        .buttonStyle(PrimaryButtonStyle(enabled: !saving && canSave))
-                        .disabled(saving || !canSave)
-
-                        Text(
-                            "Estimates and invoices will go to this email. Marketing consent is separate and is not switched on here."
-                        )
+                    Text("Estimates and invoices go to this email. Marketing consent is separate.")
                         .font(.system(size: 11))
                         .foregroundStyle(Brand.inkFaint)
+                        .padding(.horizontal, 4)
+
+                    if let error {
+                        Text(error).font(.footnote).foregroundStyle(.red)
                     }
-                    .padding(Brand.Space.base)
                 }
+                .padding(Brand.Space.base)
             }
+            .background(Brand.canvas)
             .navigationTitle("New customer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if saving {
+                        ProgressView()
+                    } else {
+                        Button("Add") { Task { await create() } }
+                            .fontWeight(.semibold)
+                            .disabled(!canSave)
+                    }
+                }
             }
             .task { focused = true }
         }
@@ -225,6 +323,30 @@ struct NewCustomerSheet: View {
             self.error = error.localizedDescription
         }
         saving = false
+    }
+}
+
+/// A field that is a row of a grouped card, placeholder as its label — the
+/// way the iPhone's own contact card asks for a name.
+struct InlineField: View {
+    let placeholder: String
+    @Binding var text: String
+    var icon: String?
+    var tint: Color = Brand.blue
+    var keyboard: UIKeyboardType = .default
+
+    var body: some View {
+        HStack(spacing: Brand.Space.small) {
+            if let icon { IconTile(icon: icon, tint: tint) }
+            TextField(placeholder, text: $text)
+                .font(.system(size: 16))
+                .keyboardType(keyboard)
+                .autocorrectionDisabled(keyboard != .default)
+                .textInputAutocapitalization(keyboard == .default ? .words : .never)
+                .textContentType(keyboard == .phonePad ? .telephoneNumber : keyboard == .emailAddress ? .emailAddress : nil)
+        }
+        .padding(.horizontal, Brand.Space.base)
+        .padding(.vertical, icon == nil ? 14 : 9)
     }
 }
 
