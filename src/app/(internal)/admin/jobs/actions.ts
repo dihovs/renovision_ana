@@ -19,6 +19,7 @@ import {
   updateVisit,
 } from "@/lib/crm/jobs";
 import { withdrawJobCalls, withdrawQueuedCalls } from "@/lib/crm/jobCalls";
+import { setVisitCrew } from "@/lib/crm/visitCrew";
 import {
   conversionError,
   type ConversionResult,
@@ -356,4 +357,12 @@ export async function notifyCrewAction(
   return result.ok
     ? { ok: `Sent to ${result.outcomes.filter((o) => o.ok).length} of ${result.outcomes.length}.`, lines }
     : { error: "Nothing was sent.", lines };
+}
+
+/** Who is on a visit (migration 0054). Replaces the whole set. */
+export async function setVisitCrewAction(jobId: string, visitId: string, memberIds: string[]): Promise<void> {
+  await requireSession();
+  await setVisitCrew(visitId, memberIds);
+  revalidatePath(`/admin/jobs/${jobId}`);
+  revalidatePath("/admin/schedule");
 }

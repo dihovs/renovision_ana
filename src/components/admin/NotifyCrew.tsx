@@ -36,12 +36,15 @@ export default function NotifyCrew({
   history,
   action,
   crewUrl,
+  preselected = [],
 }: {
   candidates: CrewCandidate[];
   history: DispatchHistoryRow[];
   action: (prev: DispatchState, formData: FormData) => Promise<DispatchState>;
   /** The existing crew link, when one has been minted. Shown so it can be copied. */
   crewUrl: string | null;
+  /** Ticked to start with: the crew assigned to the job's visits. */
+  preselected?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [state, submit, pending] = useActionState(action, {});
@@ -109,6 +112,7 @@ export default function NotifyCrew({
                   type="checkbox"
                   name="contactId"
                   value={candidate.id}
+                  defaultChecked={Boolean(candidate.optedInAt) && preselected.includes(candidate.id)}
                   disabled={!candidate.optedInAt}
                   className="size-4 accent-brand-blue"
                 />

@@ -13,7 +13,15 @@ import NotifyCrew, { type CrewCandidate, type DispatchHistoryRow } from "./Notif
  * because this is the newest table in the schema and migrations here are applied
  * by hand.
  */
-export default async function CrewDispatch({ jobId }: { jobId: string }) {
+export default async function CrewDispatch({
+  jobId,
+  preselected = [],
+}: {
+  jobId: string;
+  /** WhatsApp contacts of the crew assigned to this job's visits — ticked
+      for him, so "tell the crew" means the crew that is on it. */
+  preselected?: string[];
+}) {
   let candidates: CrewCandidate[] = [];
   try {
     candidates = (await listDispatchableContacts()).map((contact) => ({
@@ -50,6 +58,7 @@ export default async function CrewDispatch({ jobId }: { jobId: string }) {
       history={history}
       action={notifyCrewAction.bind(null, jobId)}
       crewUrl={token ? `${base}/${token}` : null}
+      preselected={preselected}
     />
   );
 }

@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { markJobVisitsDispatched } from "./visitCrew";
 import { crewJobPayload, ensureCrewToken } from "./crewView";
 import { sendSms } from "@/lib/sms/send";
 import { sendTemplate, sendText, canSend, WA_ERROR, type SendResult } from "@/lib/whatsapp/send";
@@ -187,7 +188,11 @@ export async function dispatchJob(input: {
     outcomes.push(await dispatchOne({ contactId, job: input.jobId, params, crewUrl, kind: input.kind, language, now }));
   }
 
-  return { ok: outcomes.some((o) => o.ok), crewUrl, outcomes };
+  const ok = outcomes.some((o) => o.ok);
+  // The visits now read "crew told". After the sends, never before: a
+  // status that claims a message went out when none did is worse than none.
+  if (ok) await markJobVisitsDispatched(input.jobId, now);
+  return { ok, crewUrl, outcomes };
 }
 
 async function dispatchOne(input: {
