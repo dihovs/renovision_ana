@@ -96,10 +96,17 @@ enum ObjectGlyphs {
 enum DemoIcons {
     static let key = "demoIcons.magicplan"
     /// On until switched off: the point of the demo is to see them.
-    static var enabled: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
+    static var enabled: Bool { available && (UserDefaults.standard.object(forKey: key) as? Bool ?? true) }
     /// Whether this build carries the demo set at all — the folder is
-    /// absent on any machine that did not generate it.
-    static var available: Bool { UIImage(named: "demo-object-toilet") != nil }
+    /// absent on any machine that did not generate it. Never in a Release
+    /// build: an archive made on this Mac would otherwise ship them.
+    static var available: Bool {
+        #if DEBUG
+        return UIImage(named: "demo-object-toilet") != nil
+        #else
+        return false
+        #endif
+    }
 }
 
 struct ObjectArtwork: View {
