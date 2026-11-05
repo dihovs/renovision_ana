@@ -249,6 +249,13 @@ enum StoreyWalls {
         /// less at a shallower turn), else nothing.
         let pastA: Double
         let pastB: Double
+        /// At a concave corner — the room's outline turning IN — the two
+        /// walls' bands overlap outside it, and square ends showed one wall's
+        /// end through the other (owner's bathroom, 5 Nov 2026). The far face
+        /// is pulled back by this much at each end instead, so the two bands
+        /// meet along one mitred line from the corner out.
+        var trimA: Double = 0
+        var trimB: Double = 0
 
         /// The band as four points, room metres.
         var band: [CGPoint] {
@@ -257,11 +264,13 @@ enum StoreyWalls {
             let u = CGPoint(x: (b.x - a.x) / length, y: (b.y - a.y) / length)
             let start = CGPoint(x: a.x - u.x * pastA, y: a.y - u.y * pastA)
             let end = CGPoint(x: b.x + u.x * pastB, y: b.y + u.y * pastB)
+            let farStart = CGPoint(x: start.x + u.x * trimA, y: start.y + u.y * trimA)
+            let farEnd = CGPoint(x: end.x - u.x * trimB, y: end.y - u.y * trimB)
             return [
                 CGPoint(x: start.x + out.x * near, y: start.y + out.y * near),
                 CGPoint(x: end.x + out.x * near, y: end.y + out.y * near),
-                CGPoint(x: end.x + out.x * far, y: end.y + out.y * far),
-                CGPoint(x: start.x + out.x * far, y: start.y + out.y * far),
+                CGPoint(x: farEnd.x + out.x * far, y: farEnd.y + out.y * far),
+                CGPoint(x: farStart.x + out.x * far, y: farStart.y + out.y * far),
             ]
         }
     }
@@ -378,7 +387,11 @@ enum StoreyWalls {
                         // closes the corner, and run on it pokes a stub
                         // into the room beyond.
                         pastA: start == 0 && convexA && kinds[start] != .shared ? far * miterA : 0,
-                        pastB: end == pieces - 1 && convexB && kinds[start] != .shared ? far * miterB : 0))
+                        pastB: end == pieces - 1 && convexB && kinds[start] != .shared ? far * miterB : 0,
+                        trimA: start == 0 && !convexA && kinds[start] != .shared
+                            ? min(far * miterA, (s1 - s0) / 2) : 0,
+                        trimB: end == pieces - 1 && !convexB && kinds[start] != .shared
+                            ? min(far * miterB, (s1 - s0) / 2) : 0))
                 start = end + 1
             }
         }

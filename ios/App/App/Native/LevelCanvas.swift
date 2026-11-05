@@ -1326,6 +1326,14 @@ struct FloorCanvasView: View {
     /// these hold the last total so each frame applies only its own delta.
     @State private var lastFloorDrag: CGSize = .zero
     @State private var lastFloorPinch: CGFloat = 1
+    /// What two fingers on the floor are doing, decided once per gesture.
+    /// The turn used to start on the first frame of ANY two-finger touch,
+    /// and the pinch stands aside during a turn — so pinching never zoomed
+    /// (owner, 5 Nov 2026: "I need to be able to zoom in and out"). Now a
+    /// turn waits for a real twist, a zoom for a real spread, and whichever
+    /// shows first keeps the gesture until the fingers lift.
+    private enum TwoFinger { case undecided, zoom, turn }
+    @State private var twoFinger: TwoFinger = .undecided
 
     /// Arranging a floor by hand — the owner's ask of 19 Aug 2026: *"we
     /// should be able to hold on it, and it should allow us to move it
@@ -2307,15 +2315,19 @@ struct FloorCanvasView: View {
                                 // pan above: banking the twist's scale
                                 // change and spending it all on the frame
                                 // after one finger lifts.
-                                guard turning == nil else {
+                                guard turning == nil, twoFinger != .turn else {
                                     lastFloorPinch = value
                                     return
                                 }
+                                if twoFinger == .undecided, abs(value - 1) > 0.04 { twoFinger = .zoom }
                                 let delta = value / lastFloorPinch
                                 lastFloorPinch = value
                                 floorZoom = min(max(floorZoom * delta, 0.4), 6)
                             }
-                            .onEnded { _ in lastFloorPinch = 1 }
+                            .onEnded { _ in
+                                lastFloorPinch = 1
+                                if twoFinger == .zoom { twoFinger = .undecided }
+                            }
                     )
                     // **Two fingers TURN the storey — his own idea, and a
                     // better one than the mode.** *"Why if you just grab
@@ -2337,12 +2349,15 @@ struct FloorCanvasView: View {
                     .simultaneousGesture(
                         RotationGesture()
                             .onChanged { value in
-                                guard focusedRoomID == nil, lifted == nil else { return }
-                                // The baseline is taken BEFORE it is used.
-                                // Reading a stale one on the first frame and
-                                // only then recording the new one made the
-                                // storey jump the moment two fingers landed.
+                                guard focusedRoomID == nil, lifted == nil, twoFinger != .zoom else { return }
+                                // A pinch twists the fingers a little too;
+                                // only a deliberate twist of ~15° turns the
+                                // floor. The baseline is taken BEFORE it is
+                                // used, at the moment the turn engages, so
+                                // the storey does not jump by the threshold.
                                 if turning == nil {
+                                    guard abs(value.radians) > .pi / 12 else { return }
+                                    twoFinger = .turn
                                     fingerTurnStart = value.radians
                                     lastDetent = nil
                                 }
@@ -2352,6 +2367,11 @@ struct FloorCanvasView: View {
                             }
                             .onEnded { _ in
                                 fingerTurnStart = 0
+                                twoFinger = .undecided
+                                // A pinch that never became a turn left
+                                // `turning` nil, and `commitTurn` does
+                                // nothing then; one armed by the Rotate
+                                // button still commits as before.
                                 Task { await commitTurn() }
                             }
                     )
