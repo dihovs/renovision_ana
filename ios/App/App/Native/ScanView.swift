@@ -24,8 +24,10 @@ struct ScanEntryView: View {
         }
     }
 
+    // No NavigationStack of its own: every way in (More, the ＋ menu, All
+    // tools) pushes this onto a stack already, and a stack nested inside a
+    // push swallows the taps — "Measure a room" did nothing (5 Nov 2026).
     var body: some View {
-        NavigationStack {
             ZStack {
                 Brand.canvas.ignoresSafeArea()
 
@@ -99,8 +101,8 @@ struct ScanEntryView: View {
                 }
                 .refreshable { await load() }
             }
-            .navigationTitle("Scan")
-            .dismissableWhenPresented()
+            .navigationTitle("Measure a room")
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Search projects")
             .task { await load() }
             .sheet(item: $chosen) { project in
@@ -110,7 +112,6 @@ struct ScanEntryView: View {
                     existingCount: project.roomCount,
                     onSaved: { Task { await load() } })
             }
-        }
     }
 
     private func load() async {
