@@ -56,6 +56,11 @@ const nextConfig: NextConfig = {
     // unmatched URL to compose a 404 from, so Next falls back to its stock
     // bare page. See src/app/global-not-found.tsx.
     globalNotFound: true,
+    // A crew checklist carries its signature and photos inline (shrunk to
+    // ~150 kB each on the phone, migration 0056). The 1 MB default refuses
+    // a form with a handful of photos; Vercel's own request cap is 4.5 MB,
+    // and the crew form refuses anything over 3.8 MB before sending.
+    serverActions: { bodySizeLimit: "4mb" },
   },
   /**
    * Was: `/gestionnaires` → `/commercial` redirect, removed Sep 2026 when a

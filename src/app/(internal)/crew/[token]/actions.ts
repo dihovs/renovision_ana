@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { setCrewChecklistItemDone, setCrewVisitCompleted } from "@/lib/crm/crewView";
 import { startCrewClock, stopCrewClock } from "@/lib/crm/timeClock";
+import { submitCrewChecklist, type SubmitResult } from "@/lib/crm/checklists";
+import type { QueuedSubmit } from "./CrewChecklistForms";
 
 /**
  * The two things a crew may change from a phone.
@@ -52,4 +54,15 @@ export async function stopClockAction(token: string, entryId: string): Promise<b
   const result = await stopCrewClock(token, entryId);
   if (result.ok) revalidatePath(`/crew/${token}`);
   return result.ok;
+}
+
+/**
+ * Submit a filled checklist (migration 0056). Called again by the phone's
+ * queue when a first try had no signal; the id it carries makes a retry of
+ * one that already arrived a no-op. Every field is re-checked on the server.
+ */
+export async function submitChecklistAction(token: string, payload: QueuedSubmit): Promise<SubmitResult> {
+  const result = await submitCrewChecklist({ token, ...payload });
+  if (result.ok) revalidatePath(`/crew/${token}`);
+  return result;
 }

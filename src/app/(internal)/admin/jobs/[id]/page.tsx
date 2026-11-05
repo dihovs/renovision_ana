@@ -21,6 +21,7 @@ import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
 import AskClaude from "@/components/admin/AskClaude";
 import CallButton from "@/components/admin/CallButton";
 import JobChecklist from "@/components/admin/JobChecklist";
+import JobChecklistsCard from "@/components/admin/JobChecklistsCard";
 import JobDetail from "@/components/admin/JobDetail";
 import JobRecurrence, { type RecurrenceAnchor } from "@/components/admin/JobRecurrence";
 import CrewDispatch from "@/components/admin/CrewDispatch";
@@ -198,6 +199,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       <CrewDispatch jobId={job.id} preselected={crewContactIds(visitCrew)} />
 
       <JobThread jobId={job.id} />
+
+      <JobChecklistsCard jobId={job.id} visits={job.visits} />
 
       <JobDetail
         jobId={job.id}

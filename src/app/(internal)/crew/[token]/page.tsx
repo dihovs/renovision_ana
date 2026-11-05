@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CrewChecklist, VisitDoneButton } from "./CrewActions";
+import CrewChecklistForms, { type FormLabels } from "./CrewChecklistForms";
 import CrewClock, { type ClockLabels } from "./CrewClock";
-import { startClockAction, stopClockAction, toggleChecklistItemAction, toggleVisitDoneAction } from "./actions";
+import { startClockAction, stopClockAction, submitChecklistAction, toggleChecklistItemAction, toggleVisitDoneAction } from "./actions";
+import { crewChecklists, type CrewChecklist as CrewForm } from "@/lib/crm/checklists";
 import { crewClockPeople, type CrewClockPerson } from "@/lib/crm/timeClock";
 import { getCrewJob, type CrewJobPayload, type CrewVisit } from "@/lib/crm/crewView";
 import { formatQuantity } from "@/lib/crm/money";
@@ -64,6 +66,20 @@ const COPY = {
     visitDone: "Marquer la visite terminée",
     visitDoneUndo: "Visite terminée",
     noPrices: "Cette feuille ne contient aucun prix. Pour toute question de facturation, appelez le bureau.",
+    forms: {
+      submit: "Envoyer",
+      sending: "Envoi…",
+      sent: "Envoyé au bureau",
+      queued: "Gardé sur ce téléphone — envoi dès que le réseau revient",
+      queuedCount: "{n} formulaire(s) en attente de réseau. Ne fermez pas ce lien avant l'envoi.",
+      addPhoto: "Photo",
+      clear: "Effacer",
+      signHere: "Signez avec le doigt",
+      pick: "Choisir…",
+      lastSent: "Dernier envoi :",
+      fix: "À corriger avant l'envoi :",
+      tooBig: "Trop de photos pour un seul envoi. Retirez-en quelques-unes.",
+    },
     clock: {
       whoAreYou: "Qui êtes-vous ?",
       start: "Commencer le chrono",
@@ -106,6 +122,20 @@ const COPY = {
     visitDone: "Mark visit complete",
     visitDoneUndo: "Visit complete",
     noPrices: "This sheet carries no prices. For anything about billing, call the office.",
+    forms: {
+      submit: "Submit",
+      sending: "Sending…",
+      sent: "Sent to the office",
+      queued: "Kept on this phone — sends when signal returns",
+      queuedCount: "{n} form(s) waiting for signal. Keep this link open until they send.",
+      addPhoto: "Photo",
+      clear: "Clear",
+      signHere: "Sign with your finger",
+      pick: "Choose…",
+      lastSent: "Last sent:",
+      fix: "Fix before sending:",
+      tooBig: "Too many photos for one send. Remove a few.",
+    },
     clock: {
       whoAreYou: "Who are you?",
       start: "Start the clock",
@@ -177,6 +207,9 @@ export default async function CrewJobPage({
   const next = leadVisit(job.visits, now);
   // The team who can clock in here (0053–0055); empty until those run.
   const clockPeople = await crewClockPeople(token).catch(() => [] as CrewClockPerson[]);
+  // Checklist forms for the visit in front of them (0056): the whole-job
+  // ones plus that visit's own. Empty until the migration runs.
+  const forms = await crewChecklists(token, next?.id ?? null).catch(() => [] as CrewForm[]);
 
   return (
     <main
@@ -263,6 +296,7 @@ export default async function CrewJobPage({
             )}
           </Card>
 
+          {!(forms.length > 0 && job.checklist.length === 0) && (
           <Card title={t.checklist}>
             {job.checklistUnavailable ? (
               <p className="text-lg text-charcoal/45">{t.checklistUnavailable}</p>
@@ -283,6 +317,16 @@ export default async function CrewJobPage({
               />
             )}
           </Card>
+          )}
+
+          <CrewChecklistForms
+            token={token}
+            checklists={forms}
+            visitId={next?.id ?? null}
+            people={clockPeople.map((p) => ({ id: p.id, name: p.name }))}
+            labels={t.forms satisfies FormLabels}
+            submitAction={submitChecklistAction.bind(null, token)}
+          />
 
           <Card title={t.photos}>
             {job.photosUnavailable ? (
