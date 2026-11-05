@@ -244,8 +244,9 @@ enum StoreyWalls {
         /// beside the room, `-t/2…t/2` for one centred on a shared line.
         let near: Double
         let far: Double
-        /// How far the band runs on past `a` and `b`: a wall's own thickness
-        /// at a convex corner, so the outside corner is solid, else nothing.
+        /// How far the band runs on past `a` and `b`: at a convex corner just
+        /// far enough for the outside faces to meet (the thickness at 90°,
+        /// less at a shallower turn), else nothing.
         let pastA: Double
         let pastB: Double
 
@@ -335,8 +336,22 @@ enum StoreyWalls {
                     y: corner.y + (out.y + otherOut.y) * 0.01)
                 return !DrawSnapping.contains(polygon, probe)
             }
-            let convexA = convex(at: a, DrawSnapping.outwardNormal(polygon, (i + count - 1) % count))
-            let convexB = convex(at: b, DrawSnapping.outwardNormal(polygon, (i + 1) % count))
+            let outPrev = DrawSnapping.outwardNormal(polygon, (i + count - 1) % count)
+            let outNext = DrawSnapping.outwardNormal(polygon, (i + 1) % count)
+            let convexA = convex(at: a, outPrev)
+            let convexB = convex(at: b, outNext)
+            // How far to run on, per metre of thickness, for the two outside
+            // faces to meet in one point: tan(half the turn). A square corner
+            // is 1 — the whole thickness, as before — but a 45° wall needs
+            // 0.41, and running it on by the full thickness poked a stub out
+            // past every angled corner (owner's bathroom, 5 Nov 2026).
+            // Capped so a near-hairpin corner cannot throw a spike.
+            func miter(_ other: CGPoint) -> Double {
+                let c = max(-1, min(1, out.x * other.x + out.y * other.y))
+                return min(sqrt((1 - c) / max(1 + c, 1e-6)), 3)
+            }
+            let miterA = miter(outPrev)
+            let miterB = miter(outNext)
 
             // Classify the edge in short steps and merge equal neighbours.
             let pieces = max(1, Int((length / step).rounded(.up)))
@@ -362,8 +377,8 @@ enum StoreyWalls {
                         // not run on: the room it is shared with already
                         // closes the corner, and run on it pokes a stub
                         // into the room beyond.
-                        pastA: start == 0 && convexA && kinds[start] != .shared ? far : 0,
-                        pastB: end == pieces - 1 && convexB && kinds[start] != .shared ? far : 0))
+                        pastA: start == 0 && convexA && kinds[start] != .shared ? far * miterA : 0,
+                        pastB: end == pieces - 1 && convexB && kinds[start] != .shared ? far * miterB : 0))
                 start = end + 1
             }
         }
