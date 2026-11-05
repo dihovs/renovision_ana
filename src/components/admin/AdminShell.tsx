@@ -84,6 +84,9 @@ function buildNav(): NavItem[] {
   { href: "/admin/outreach", label: "Introductions", icon: IconFlag, ready: true },
   { href: "/admin/inbox", label: "Inbox", icon: IconClipboard, ready: true },
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
+  // The insurance estimator's documents, all of them. Also reachable from
+  // each client's page; this is the door for "which estimates are open".
+  { href: "/admin/estimates", label: "Estimates", icon: IconClipboard, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
   { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },
   {
@@ -103,6 +106,7 @@ function buildNav(): NavItem[] {
 
 /** What the ＋ button offers. Grows as each section becomes real. */
 const CREATE_ACTIONS = [
+  { href: "/admin/estimates#new", label: "Estimate" },
   { href: "/admin/quotes/new", label: "Quote" },
   { href: "/admin/clients/new", label: "Client" },
   { href: "/admin/price-book", label: "Price book item" },
