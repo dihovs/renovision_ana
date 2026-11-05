@@ -462,7 +462,8 @@ enum Money {
         if value >= 10_000 {
             return "$\(Int(value / 1000))k"
         }
-        return "$\(Int(value.rounded()))"
+        // "$6,420", not "$6420".
+        return "$" + Int(value.rounded()).formatted(.number.grouping(.automatic).locale(Locale(identifier: "en_CA")))
     }
 }
 

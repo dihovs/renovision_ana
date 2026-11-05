@@ -162,7 +162,8 @@ struct HomeView: View {
                             HStack(spacing: Brand.Space.small) {
                                 Text(visit.startsAt, format: .dateTime.hour().minute())
                                     .font(.system(size: 13, weight: .bold)).monospacedDigit()
-                                    .frame(width: 52, alignment: .leading)
+                                    .fixedSize()
+                                    .frame(width: 70, alignment: .leading)
                                 Text(visit.title ?? "Visit").font(.system(size: 14)).lineLimit(1)
                                     .strikethrough(visit.done)
                                 Spacer()
@@ -345,6 +346,12 @@ struct HomeView: View {
     }
 
     private func load() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-uiPreview") {
+            summary = Self.previewSummary
+            return
+        }
+        #endif
         do {
             summary = try await API.shared.dashboard()
             error = nil
@@ -355,6 +362,29 @@ struct HomeView: View {
         }
     }
 }
+
+#if DEBUG
+extension HomeView {
+    /// Sample figures for `-uiPreview` simulator screenshots. Not real data.
+    static var previewSummary: DashboardSummary? {
+        let day = Calendar.current.startOfDay(for: .now)
+        func at(_ h: Int, _ m: Int) -> String {
+            ISO8601DateFormatter().string(from: day.addingTimeInterval(TimeInterval(h * 3600 + m * 60)))
+        }
+        let json = """
+        {"projects":{"active":16,"total":42,"roomsMeasured":114},
+         "estimates":{"awaiting":3,"awaitingCents":1845000},
+         "invoices":{"outstanding":2,"outstandingCents":642000},
+         "equipment":{"running":4,"unitDays":19},
+         "visits":[{"id":"a","title":"Tremblay — basement drying check","startsAt":"\(at(8, 0))","done":true},
+                   {"id":"b","title":"Clark 7027 unit 5 — moisture readings","startsAt":"\(at(13, 30))","done":false},
+                   {"id":"c","title":"Hymus — pick up dehumidifiers","startsAt":"\(at(16, 0))","done":false}],
+         "missedCalls":1,"unreadMessages":2,"unseenCalls":1,"newLeads":3}
+        """
+        return try? JSONDecoder().decode(DashboardSummary.self, from: Data(json.utf8))
+    }
+}
+#endif
 
 private struct QuickAction: View {
     let icon: String
@@ -423,7 +453,8 @@ private struct QuickAction: View {
 private struct FigureTile: View {
     let label: String
     let value: String
-    let note: String
+    /// A localized key so "^[3 quote](inflect: true)" reads "3 quotes".
+    let note: LocalizedStringKey
     let icon: String
     let tint: Color
 

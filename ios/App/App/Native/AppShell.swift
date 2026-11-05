@@ -49,6 +49,12 @@ struct AppShell: View {
         .task {
             // A cookie survives app launches, so most starts skip the password
             // screen entirely — the same behaviour the WebView had.
+            #if DEBUG
+            // Simulator screenshots of the screens behind the password —
+            // `-uiPreview` on launch, test builds only. Home shows sample
+            // figures (HomeView.previewSummary); nothing is signed in.
+            if ProcessInfo.processInfo.arguments.contains("-uiPreview") { phase = .ready; return }
+            #endif
             phase = await API.shared.isSignedIn() ? .ready : .signedOut
         }
         .preferredColorScheme(appearance)
