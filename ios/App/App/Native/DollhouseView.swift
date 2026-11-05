@@ -285,8 +285,21 @@ struct DollhouseSceneView: UIViewRepresentable {
         // Half the storey's span plus a margin: the whole floor lands on
         // screen at the pose it opens in, which is the point of opening
         // straight down.
-        context.coordinator.configure(
-            zoom: Float(max(4.0, Dollhouse.bounds(of: rooms).span * 0.62)))
+        // The WHOLE storey on screen when it opens (5 Nov 2026: a 12.7 m
+        // floor opened cropped to its middle 7). `orthographicScale` is half
+        // the visible HEIGHT, and the screen is tall and narrow, so a wide
+        // storey is limited by its width over the screen's aspect, not by
+        // its span. The model may be turned (`displayAngleRadians`), so the
+        // turned box is what has to fit. 18% of margin all round for the
+        // wall thickness and the controls floating over the edges.
+        let extent = Dollhouse.extent(of: rooms)
+        let c = abs(cos(displayAngleRadians)), s = abs(sin(displayAngleRadians))
+        let wide = extent.width * c + extent.height * s
+        let deep = extent.width * s + extent.height * c
+        let screen = UIScreen.main.bounds.size
+        let aspect = max(0.3, Double(screen.width) / max(Double(screen.height) - 120, 1))
+        let fit = max(deep, wide / aspect) / 2 * 1.4
+        context.coordinator.configure(zoom: Float(max(3.0, fit)))
 
         controller?.onReset = { [weak coordinator = context.coordinator] in
             coordinator?.resetView()

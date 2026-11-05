@@ -152,6 +152,17 @@ enum Dollhouse {
     /// own — so it came back empty, the model was centred on garbage and the
     /// camera was placed a distance computed from a zero span. Every room's
     /// footprint is already known here; asking SceneKit was never necessary.
+    /// The storey's width and depth, metres — what the opening zoom has to
+    /// fit on a screen that is taller than it is wide.
+    static func extent(of rooms: [Room]) -> CGSize {
+        guard !rooms.isEmpty else { return CGSize(width: 10, height: 10) }
+        let minX = rooms.map { $0.origin.x }.min() ?? 0
+        let minY = rooms.map { $0.origin.y }.min() ?? 0
+        let maxX = rooms.map { $0.origin.x + $0.plan.width }.max() ?? 1
+        let maxY = rooms.map { $0.origin.y + $0.plan.height }.max() ?? 1
+        return CGSize(width: max(maxX - minX, 1), height: max(maxY - minY, 1))
+    }
+
     static func bounds(of rooms: [Room]) -> (centre: CGPoint, span: Double) {
         guard !rooms.isEmpty else { return (.zero, 10) }
         let minX = rooms.map { $0.origin.x }.min() ?? 0
@@ -324,7 +335,11 @@ enum Dollhouse {
         sun.light = SCNLight()
         sun.light?.type = .directional
         sun.light?.intensity = 780
-        sun.light?.castsShadow = true
+        // **No cast shadows.** Full-height walls under a low sun threw
+        // metre-wide dark bands across every floor — read from above, they
+        // looked like stains on the plan (5 Nov 2026). The reference's model
+        // is evenly lit; the walls still read as solid by their shading.
+        sun.light?.castsShadow = false
         // **Forward, small map, few samples.** The owner: *"when I turn things
         // around, we have a lot of stutter."* Deferred shadows at radius 6 are
         // a full-screen pass with a wide blur every single frame, which is
@@ -474,17 +489,70 @@ enum Dollhouse {
         var pieces: [DollhouseStorey.Piece] = []
         var openings: [DollhouseStorey.Opening] = []
 
+        // **The same walls as the 2D plan** (5 Nov 2026, the owner: "make it
+        // look like magicplan"). The 3D used to build its own wall network
+        // from each room's segments, and it got the joins wrong in ways the
+        // plan no longer does: outside walls stopped where their room ended,
+        // leaving a notch above every partition, corners did not run on, and
+        // outside walls were partition-thin. `StoreyWalls` already knows
+        // each wall's kind, its two faces and how far it runs on at each
+        // corner; standing those bands up is the whole job. Rooms without a
+        // closed outline still go through the old network below.
+        let floorPolygons = rooms.map { room -> [CGPoint] in
+            var outline = room.plan.curvedPolygon
+            if outline.count >= 4, let f = outline.first, let l = outline.last,
+                hypot(f.x - l.x, f.y - l.y) < 1e-9
+            {
+                outline.removeLast()
+            }
+            return outline.map { CGPoint(x: $0.x + room.origin.x, y: $0.y + room.origin.y) }
+        }
+        var banded: [DollhouseStorey.Wall] = []
+        var seen: [String: Int] = [:]
+        for (index, room) in rooms.enumerated() where floorPolygons[index].count >= 3 {
+            let runs = StoreyWalls.runs(
+                of: index, polygons: floorPolygons, origin: .zero,
+                interior: StoreyLayout.interiorWall, exterior: StoreyLayout.exteriorWall)
+            for run in runs {
+                let length = hypot(run.b.x - run.a.x, run.b.y - run.a.y)
+                guard length > 0.01, run.far - run.near > 0.005 else { continue }
+                let u = CGPoint(x: (run.b.x - run.a.x) / length, y: (run.b.y - run.a.y) / length)
+                let mid = (run.near + run.far) / 2
+                let a = CGPoint(
+                    x: run.a.x - u.x * run.pastA + run.out.x * mid,
+                    y: run.a.y - u.y * run.pastA + run.out.y * mid)
+                let b = CGPoint(
+                    x: run.b.x + u.x * run.pastB + run.out.x * mid,
+                    y: run.b.y + u.y * run.pastB + run.out.y * mid)
+                // A wall two rooms share comes back from both, identical:
+                // stand it once (two coincident boxes fight for the same
+                // pixels), at the taller room's height.
+                let key = [a, b].map { String(format: "%.2f,%.2f", $0.x, $0.y) }.sorted().joined(separator: "|")
+                if let at = seen[key] {
+                    banded[at].height = max(banded[at].height, room.ceilingHeight)
+                    continue
+                }
+                seen[key] = banded.count
+                banded.append(
+                    DollhouseStorey.Wall(
+                        a: a, b: b, thickness: run.far - run.near, height: room.ceilingHeight,
+                        holes: []))
+            }
+        }
+
         for (index, room) in rooms.enumerated() {
             let ox = Double(room.origin.x), oy = Double(room.origin.y)
             let outline = closedOutline(room.plan.curvedPolygon)
-            for segment in wallSegments(of: room) {
-                pieces.append(
-                    DollhouseStorey.Piece(
-                        a: CGPoint(x: segment.x1 + ox, y: segment.y1 + oy),
-                        b: CGPoint(x: segment.x2 + ox, y: segment.y2 + oy),
-                        height: room.ceilingHeight,
-                        room: index,
-                        outward: outwardNormal(of: segment, outline: outline)))
+            if floorPolygons[index].count < 3 {
+                for segment in wallSegments(of: room) {
+                    pieces.append(
+                        DollhouseStorey.Piece(
+                            a: CGPoint(x: segment.x1 + ox, y: segment.y1 + oy),
+                            b: CGPoint(x: segment.x2 + ox, y: segment.y2 + oy),
+                            height: room.ceilingHeight,
+                            room: index,
+                            outward: outwardNormal(of: segment, outline: outline)))
+                }
             }
             for opening in room.plan.openings {
                 let (sill, head) = extent(of: opening, ceiling: room.ceilingHeight)
@@ -498,7 +566,12 @@ enum Dollhouse {
 
         let node = SCNNode()
         node.name = "storey-walls"
-        let walls = DollhouseStorey.network(pieces: pieces, openings: openings)
+        let walls =
+            banded.map { wall -> DollhouseStorey.Wall in
+                var wall = wall
+                wall.holes = DollhouseStorey.holes(on: wall, openings: openings)
+                return wall
+            } + DollhouseStorey.network(pieces: pieces, openings: openings)
         for wall in walls {
             node.addChildNode(storeyWallNode(wall))
         }
