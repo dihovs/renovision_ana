@@ -870,6 +870,12 @@ struct ProjectDetailView: View {
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(Brand.inkSoft)
                     }
+                    // A principal item is laid out at its full width, so
+                    // without a cap a long name ran under the back and share
+                    // buttons instead of truncating ("TEST - plan drawn room
+                    // by room, real walls (Devis)", 11 Oct 2026). 230 pt is
+                    // what is left between them on the narrowest phone.
+                    .frame(maxWidth: 230)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {

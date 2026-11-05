@@ -1,3 +1,4 @@
+import FloorPlanCore
 import SwiftUI
 
 /// Editing a plan with a finger.
@@ -155,6 +156,20 @@ struct RoomEditorCore: View {
 
     @State private var selection: Selection = .none
     @State private var dragStart: Snapshot?
+    /// INT-E22 — the same chrome a room gets: a move cross, a rotate pin,
+    /// draggable corners, all in place on this canvas rather than behind a
+    /// separate "Edit Shape" screen. `areaDragMode` is decided once, from
+    /// where the finger went down, and held for the rest of that drag so a
+    /// finger that wanders off a handle mid-drag does not switch what it is
+    /// doing. `areaDragStartPolygon` is the shape's own state at the moment
+    /// the drag began — everything else in this frame is computed as an
+    /// offset from it, the same discipline `dragStart` uses for the room.
+    /// `liveAreaPolygon` is what the canvas actually draws while a drag is
+    /// live; nil means "draw the area's own stored shape".
+    private enum AreaDragMode { case corner(Int), move, rotate }
+    @State private var areaDragMode: AreaDragMode?
+    @State private var areaDragStartPolygon: [CGPoint]?
+    @State private var liveAreaPolygon: [CGPoint]?
     /// Cumulative-to-incremental bookkeeping for the one-finger pan —
     /// `DragGesture` reports the total since the gesture began, this holds
     /// the last total so each frame applies only its own delta.
@@ -244,6 +259,10 @@ struct RoomEditorCore: View {
     /// them apart.
     @State private var locked: Set<Int> = []
     @State private var lockedWarning: Int?
+    /// Why Square could not run, said in words — see `squareRoom`.
+    @State private var squareConflict: String?
+    /// Why a typed opening size was refused — see `onDimensionsChanged`.
+    @State private var openingRefusal: String?
     /// True when the scan's walls never closed and this rectangle is a
     /// placeholder rather than the room. Everything derived from it — the
     /// floor area under the canvas most of all — is a guess until the
@@ -294,6 +313,8 @@ struct RoomEditorCore: View {
         /// Partitions standing in the room. In the snapshot because undo has
         /// to reach them too — a wall you cannot un-add is worse than no wall.
         var interiorWalls: [ScanGeometry.InteriorWall] = []
+        var bulges: [Double] = []
+        var ceiling: ScanGeometry.CeilingRecord?
     }
 
     /// Viewport. `zoom` multiplies the fit scale; `pan` slides the camera in
@@ -301,9 +322,33 @@ struct RoomEditorCore: View {
     /// UIKit because two-finger-only is not something SwiftUI can say.
     @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
-    /// The canvas's own size, needed to zoom about the fingers rather than
-    /// the middle of the screen — the pinch callback has no geometry proxy.
-    @State private var canvasSize: CGSize = .zero
+    /// Where the drawing's middle sits in the canvas with no pan applied —
+    /// `centre` minus `pan`, as the canvas works it out. Needed to zoom about
+    /// the fingers rather than the middle of the screen, since the pinch
+    /// callback has no geometry proxy. Not simply half the canvas: inside the
+    /// floor the drawing centres on the shared viewport instead.
+    @State private var centreBase: CGPoint = .zero
+    /// The wall a Bump Out sheet is open for.
+    @State private var bumpingOut: BumpTarget?
+    /// The wall whose Curve sheet is open (M5).
+    @State private var curving: BumpTarget?
+    /// One bulge per edge, + away from the room (M5). Kept in step with
+    /// `corners` by every edit that adds or removes a corner; when the two
+    /// ever disagree in count, `PlanBridge.aligned` treats the room as
+    /// straight rather than hang a curve on the wrong wall.
+    @State private var bulges: [Double] = []
+    /// `bulges` when it lines up with the corners — doors on a curved wall
+    /// are drawn and hit-tested on the curve (spec §9).
+    private var openingBulges: [Double] { bulges.count == corners.count ? bulges : [] }
+    /// The ceiling's shape (M6), by edge. Nil until he sets one — and a save
+    /// with nil says nothing about the ceiling, so a stored shape survives.
+    @State private var ceiling: ScanGeometry.CeilingRecord?
+    @State private var editingCeiling = false
+    /// The laser meter (M9): the panel, and readings that arrived with no
+    /// wall selected, waiting to be placed.
+    @ObservedObject private var laser = LaserMeterManager.shared
+    @State private var laserOpen = false
+    @State private var pendingReadings: [LaserReading] = []
 
     enum Selection: Equatable {
         case none
@@ -591,6 +636,24 @@ struct RoomEditorCore: View {
             Button("Discard", role: .destructive) { onExit() }
             Button("Keep editing", role: .cancel) {}
         }
+        .alert(
+            "That doesn't fit",
+            isPresented: Binding(
+                get: { openingRefusal != nil }, set: { if !$0 { openingRefusal = nil } })
+        ) {
+            Button("OK", role: .cancel) { openingRefusal = nil }
+        } message: {
+            Text(openingRefusal ?? "")
+        }
+        .alert(
+            "Can't square this room",
+            isPresented: Binding(
+                get: { squareConflict != nil }, set: { if !$0 { squareConflict = nil } })
+        ) {
+            Button("OK", role: .cancel) { squareConflict = nil }
+        } message: {
+            Text(squareConflict ?? "")
+        }
         .confirmationDialog(
             "A wall next to this one was measured by hand. Moving this wall changes it.",
             isPresented: Binding(
@@ -607,6 +670,72 @@ struct RoomEditorCore: View {
             }
             Button("Leave it alone", role: .cancel) { lockedWarning = nil }
         }
+        .sheet(isPresented: $laserOpen) {
+            LaserSheet(suggested: {
+                if case .wall(let i) = selection { return PlanEditing.edgeLength(corners, i) }
+                return nil
+            }())
+            .presentationDetents([.medium, .large])
+        }
+        .onReceive(laser.readings) { reading in takeLaserReading(reading) }
+        .overlay(alignment: .top) { pendingTray }
+        .sheet(isPresented: $editingCeiling) {
+            CeilingSheet(
+                corners: corners, bulges: bulges,
+                // The flat figure to start from. A shaped ceiling's stored
+                // column is its AVERAGE, so the shape's own base is better.
+                flatHeight: ceiling?.height ?? ceiling?.low ?? ceiling?.eave ?? room.ceilingHeightM,
+                current: ceiling,
+                apply: { record in
+                    push()
+                    ceiling = record
+                })
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $curving) { target in
+            WallCurveSheet(
+                chord: PlanEditing.edgeLength(corners, target.id),
+                current: bulges.count == corners.count ? bulges[target.id] : 0,
+                apply: { bulge in
+                    guard corners.indices.contains(target.id) else { return }
+                    push()
+                    if bulges.count != corners.count {
+                        bulges = Array(repeating: 0, count: corners.count)
+                    }
+                    bulges[target.id] = bulge
+                })
+            .presentationDetents([.medium])
+        }
+        .sheet(item: $bumpingOut) { target in
+            BumpOutSheet(
+                wallLength: PlanEditing.edgeLength(corners, target.id),
+                apply: { offset, width, depth in
+                    applyBumpOut(on: target.id, offset: offset, width: width, depth: depth)
+                })
+            .presentationDetents([.medium])
+        }
+    }
+
+    struct BumpTarget: Identifiable { let id: Int }
+
+    /// False when the numbers do not fit the wall; the sheet says so.
+    private func applyBumpOut(on index: Int, offset: Double, width: Double, depth: Double) -> Bool {
+        guard let next = PlanEditing.bumpOut(
+            corners, edge: index, offset: offset, width: width, depth: depth)
+        else { return false }
+        push()
+        openings = PlanEditing.openingsAfterBumpOut(
+            openings, edge: index, offset: offset, width: width)
+        locked = Set(locked.compactMap { $0 == index ? nil : ($0 > index ? $0 + 4 : $0) })
+        remapCeiling { $0 > index ? $0 + 4 : $0 }
+        // The bumped wall is now five straight walls; the rest keep theirs.
+        if bulges.count == corners.count {
+            bulges[index] = 0
+            bulges.insert(contentsOf: [0, 0, 0, 0], at: index + 1)
+        }
+        corners = next
+        select(.wall(index + 2))
+        return true
     }
 
     // MARK: - Canvas
@@ -637,16 +766,15 @@ struct RoomEditorCore: View {
             // express it in this canvas's local space by subtracting where
             // this canvas starts. `pan` still rides on top, unchanged.
             let storeyFrame = proxy.frame(in: .named(Self.storeySpace))
-            let centre: CGPoint = {
+            let base: CGPoint = {
                 guard let externalViewport else {
-                    return CGPoint(
-                        x: proxy.size.width / 2 + pan.width,
-                        y: proxy.size.height / 2 + pan.height)
+                    return CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
                 }
                 return CGPoint(
-                    x: externalViewport.canvasSize.width / 2 - storeyFrame.minX + pan.width,
-                    y: externalViewport.canvasSize.height / 2 - storeyFrame.minY + pan.height)
+                    x: externalViewport.canvasSize.width / 2 - storeyFrame.minX,
+                    y: externalViewport.canvasSize.height / 2 - storeyFrame.minY)
             }()
+            let centre = CGPoint(x: base.x + pan.width, y: base.y + pan.height)
 
             // `roomOrigin` shifts a LOCAL point (what `corners` always is,
             // save file and all) into FLOOR space before it meets `bounds`,
@@ -705,9 +833,15 @@ struct RoomEditorCore: View {
 
                     guard corners.count >= 3 else { return }
 
+                    // Curved walls (M5) are followed along their arc, so the
+                    // floor fill and the wall agree.
+                    let curves = PlanBridge.aligned(bulges, corners)
+                    func run(_ i: Int) -> [CGPoint] {
+                        PlanBridge.edgePoints(corners, edge: i, bulge: curves?[i] ?? 0)
+                    }
                     var floor = Path()
                     floor.move(to: pt(corners[0]))
-                    for c in corners.dropFirst() { floor.addLine(to: pt(c)) }
+                    for i in corners.indices { for p in run(i).dropFirst() { floor.addLine(to: pt(p)) } }
                     floor.closeSubpath()
 
                     // §2: the room you are INSIDE is white with a fine tan
@@ -718,15 +852,44 @@ struct RoomEditorCore: View {
                     context.fill(floor, with: .color(Brand.surface))
                     EditorChrome.tileGrid(floor, context: context, scale: scale)
 
+                    // The ceiling's shape (M6), drawn faintly inside the
+                    // floor: a bulkhead's footprint shaded, a vault's ridge
+                    // dashed — the way a plan marks what is overhead.
+                    let overhead = PlanBridge.ceilingOverlay(
+                        corners, bulges: bulges, ceiling: ceiling, flat: room.ceilingHeightM)
+                    if !overhead.zones.isEmpty || overhead.ridge != nil {
+                        context.drawLayer { layer in
+                            layer.clip(to: floor)
+                            for zone in overhead.zones where zone.count >= 3 {
+                                var shape = Path()
+                                shape.move(to: pt(zone[0]))
+                                for p in zone.dropFirst() { shape.addLine(to: pt(p)) }
+                                shape.closeSubpath()
+                                layer.fill(shape, with: .color(Brand.Plan.ink.opacity(0.08)))
+                                layer.stroke(
+                                    shape, with: .color(Brand.Plan.ink.opacity(0.35)),
+                                    style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                            }
+                            if let (a, b) = overhead.ridge {
+                                var line = Path()
+                                line.move(to: pt(a))
+                                line.addLine(to: pt(b))
+                                layer.stroke(
+                                    line, with: .color(Brand.Plan.ink.opacity(0.45)),
+                                    style: StrokeStyle(lineWidth: 1.5, dash: [10, 4, 2, 4]))
+                            }
+                        }
+                    }
+
                     // Walls. The selected one is blue and thicker; an invalid
                     // shape goes dashed red — signalled, never blocked, since
                     // a finger often passes through a bad shape on its way to
                     // a good one.
                     for i in corners.indices {
-                        let (a, b) = PlanEditing.edgeCorners(i, count: corners.count)
+                        let along = run(i)
                         var wall = Path()
-                        wall.move(to: pt(corners[a]))
-                        wall.addLine(to: pt(corners[b]))
+                        wall.move(to: pt(along[0]))
+                        for p in along.dropFirst() { wall.addLine(to: pt(p)) }
 
                         let isSelected = selection == .wall(i)
                         let core = isSelected ? max(6, 0.114 * scale + 4) : max(3, 0.114 * scale)
@@ -853,11 +1016,12 @@ struct RoomEditorCore: View {
                                 toScreen: pt,
                                 scale: scale,
                                 inside: Brand.surface,
-                                outside: Brand.Plan.sheet)
+                                outside: Brand.Plan.sheet,
+                                bulges: openingBulges)
                             if selection == .opening(index) {
                                 EditorChrome.drawOpeningSelection(
                                     context: context, polygon: corners, opening: opening,
-                                    toScreen: pt, scale: scale)
+                                    toScreen: pt, scale: scale, bulges: openingBulges)
                             }
                         }
                     }
@@ -878,9 +1042,38 @@ struct RoomEditorCore: View {
                     // does not swallow the band it runs up to.
                     for area in areas where area.surface != "wall" {
                         EditorChrome.drawArea(
-                            polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                            polygon: currentAreaPolygon(area),
                             tone: area.displayColor, context: context, toScreen: pt,
                             selected: selection == .area(area.id), handleSize: handleDot)
+                    }
+
+                    // INT-E22's move cross and rotate pin, on the one area
+                    // under adjustment — the same disc-and-glyph manipulator
+                    // a lifted room already draws, so the two never become
+                    // two different affordances for the same idea.
+                    if case .area(let id) = selection,
+                        let area = areas.first(where: { $0.id == id }),
+                        let handles = Self.areaHandlePositions(
+                            polygon: currentAreaPolygon(area), scale: scale)
+                    {
+                        for (point, symbol) in [
+                            (handles.move, "arrow.up.and.down.and.arrow.left.and.right")
+                        ] {
+                            StoreyBaseLayer.drawManipulator(
+                                context, at: pt(point), symbol: symbol,
+                                background: Brand.Plan.sheet)
+                        }
+                        // Amber, per the reference frame — the one manipulator
+                        // that is not the plain blue-on-white disc, because
+                        // rotate is the one action this canvas does not
+                        // otherwise offer anywhere else on an area.
+                        let rotatePoint = pt(handles.rotate)
+                        context.fill(
+                            Path(ellipseIn: CGRect(x: rotatePoint.x - 9, y: rotatePoint.y - 9, width: 18, height: 18)),
+                            with: .color(Color(red: 0.96, green: 0.65, blue: 0.14)))
+                        context.stroke(
+                            Path(ellipseIn: CGRect(x: rotatePoint.x - 9, y: rotatePoint.y - 9, width: 18, height: 18)),
+                            with: .color(.white), lineWidth: 2)
                     }
 
                     for object in objects {
@@ -1048,8 +1241,8 @@ struct RoomEditorCore: View {
                         pan.height += delta.height
                     })
             )
-            .onAppear { canvasSize = proxy.size }
-            .onChange(of: proxy.size) { canvasSize = $0 }
+            .onAppear { centreBase = base }
+            .onChange(of: base) { _, new in centreBase = new }
             .gesture(
                 // One finger: edit what is selected, else select.
                 DragGesture(minimumDistance: 4)
@@ -1072,6 +1265,7 @@ struct RoomEditorCore: View {
                             measuring?.baseline = corners
                             measuring?.typed = Array(repeating: nil, count: corners.count)
                         }
+                        commitAreaDragIfNeeded()
                         dragStart = nil
                         liveLabel = nil
                         snapEngaged = false
@@ -1230,6 +1424,21 @@ struct RoomEditorCore: View {
                         if !newKind.swings { openings[index].swingInward = nil }
                     },
                     onDimensionsChanged: { newHeight, newSill in
+                        // Floor-plan spec §9: sill + height must stay under
+                        // the ceiling. Refused, not trimmed — which of the
+                        // two numbers is wrong is his call, not the app's.
+                        // Under a shaped ceiling (M6), the lowest it comes
+                        // over this opening's own span.
+                        let here = openings[index]
+                        let ceiling = PlanBridge.ceilingOver(
+                            corners, bulges: bulges, ceiling: self.ceiling, flat: room.ceilingHeightM,
+                            edge: here.edge, offset: here.offset, width: here.width)
+                        if ceiling > 0, newSill + newHeight > ceiling + 1e-6 {
+                            let format = UnitSettings.shared.format
+                            openingRefusal =
+                                "Sill \(format.format(newSill)) + height \(format.format(newHeight)) reaches \(format.format(newSill + newHeight)), above this room's \(format.format(ceiling)) ceiling. Lower one of them."
+                            return
+                        }
                         push()
                         openings[index].height = newHeight
                         openings[index].sill = newSill
@@ -1239,7 +1448,18 @@ struct RoomEditorCore: View {
                         openings[index].hingeAtStart = hinge
                         openings[index].swingInward = inward
                     },
-                    onDelete: { deleteOpening(index) })
+                    onDelete: { deleteOpening(index) },
+                    wallLength: PlanEditing.edgeLength(corners, openings[index].edge),
+                    onPlacementChanged: { newWidth, newOffset in
+                        guard openings.indices.contains(index),
+                            let reshaped = PlanEditing.reshapeOpening(
+                                openings[index], width: newWidth, offset: newOffset,
+                                along: corners, avoiding: openings)
+                        else { return nil }
+                        push()
+                        openings[index] = reshaped
+                        return reshaped
+                    })
             }
     }
 
@@ -1260,6 +1480,77 @@ struct RoomEditorCore: View {
             j = i
         }
         return inside
+    }
+
+    /// The polygon this canvas is actually drawing for a selected area right
+    /// now — the live, in-progress shape while a drag holds one, the stored
+    /// shape otherwise. Every area-adjustment function reads through this
+    /// one place so the handles, the fill and the hit-testing can never
+    /// draw three different shapes for the same drag.
+    private func currentAreaPolygon(_ area: AffectedArea) -> [CGPoint] {
+        liveAreaPolygon ?? area.polygon.map { CGPoint(x: $0.x, y: $0.y) }
+    }
+
+    private static func centroid(of polygon: [CGPoint]) -> CGPoint {
+        guard !polygon.isEmpty else { return .zero }
+        let sum = polygon.reduce(CGPoint.zero) { CGPoint(x: $0.x + $1.x, y: $0.y + $1.y) }
+        return CGPoint(x: sum.x / CGFloat(polygon.count), y: sum.y / CGFloat(polygon.count))
+    }
+
+    /// Where the move cross and the rotate pin sit, in room metres — the
+    /// ONE place both the drawing code and the hit-test agree on their
+    /// position, so a handle drawn here is a handle grabbable there.
+    ///
+    /// **Move**, per the reference frame (`INT-E22`): "one large blue 4-way
+    /// cross, beside the shape rather than on its label" — placed off the
+    /// shape's right edge, a fixed 40 SCREEN points out (`/ scale` turns
+    /// that into the model distance that draws as 40pt at the canvas's
+    /// current zoom).
+    ///
+    /// **Rotate**, per the same frame: "small amber pin at a corner" —
+    /// placed just beyond the polygon's own first corner, extrapolated
+    /// outward from the centroid, so it reads as attached to that corner
+    /// without sitting exactly on the corner's own drag handle.
+    private static func areaHandlePositions(
+        polygon: [CGPoint], scale: CGFloat
+    ) -> (move: CGPoint, rotate: CGPoint)? {
+        guard polygon.count >= 3 else { return nil }
+        let xs = polygon.map(\.x)
+        let ys = polygon.map(\.y)
+        let maxX = xs.max() ?? 0
+        let midY = ((ys.min() ?? 0) + (ys.max() ?? 0)) / 2
+        let move = CGPoint(x: maxX + 40 / scale, y: midY)
+
+        let centre = centroid(of: polygon)
+        let corner = polygon[0]
+        let toCorner = CGPoint(x: corner.x - centre.x, y: corner.y - centre.y)
+        let length = max(hypot(toCorner.x, toCorner.y), 0.01)
+        let extend = 22 / scale
+        let rotate = CGPoint(
+            x: corner.x + toCorner.x / length * extend,
+            y: corner.y + toCorner.y / length * extend)
+
+        return (move, rotate)
+    }
+
+    /// Which handle a drag STARTING at `touch` grabbed, decided once per
+    /// drag and held for the rest of it. Corners first (the smallest, most
+    /// specific targets), then the move cross and rotate pin, then the
+    /// shape's own body — which drags too, the same rule the room's own
+    /// lifted-body drag already established: the handle is the affordance,
+    /// not the only way in.
+    private func detectAreaDragMode(startingAt touch: CGPoint, polygon: [CGPoint], scale: CGFloat)
+        -> AreaDragMode
+    {
+        let tolerance = handleHit / 2 / scale
+        for i in polygon.indices where hypot(polygon[i].x - touch.x, polygon[i].y - touch.y) < tolerance {
+            return .corner(i)
+        }
+        if let handles = Self.areaHandlePositions(polygon: polygon, scale: scale) {
+            if hypot(handles.move.x - touch.x, handles.move.y - touch.y) < tolerance { return .move }
+            if hypot(handles.rotate.x - touch.x, handles.rotate.y - touch.y) < tolerance { return .rotate }
+        }
+        return .move
     }
 
     /// **Adjusting a damaged area is an ISOLATED mode.**
@@ -1299,8 +1590,19 @@ struct RoomEditorCore: View {
             return
         }
 
+        // A corner's handle is generous, and a window set a hand's width
+        // from the corner sits inside it at ordinary zoom: tapping the window
+        // selected the corner, every time (a bedroom's 0.13 m window on the
+        // owner's reference plan, 11 Oct 2026). So the corner takes the tap
+        // only when no opening is nearer to the finger than it is.
         let cornerTolerance = handleHit / 2 / scale
-        for i in corners.indices where PlanEditing.length(PlanEditing.sub(corners[i], point)) < cornerTolerance {
+        let nearestOpening =
+            openings.indices
+            .map { OpeningGlyphs.distance(to: openings[$0], polygon: corners, from: point, bulges: openingBulges) }
+            .min() ?? .infinity
+        for i in corners.indices {
+            let d = PlanEditing.length(PlanEditing.sub(corners[i], point))
+            guard d < cornerTolerance, d <= nearestOpening else { continue }
             select(.corner(i))
             return
         }
@@ -1362,7 +1664,7 @@ struct RoomEditorCore: View {
         var bestOpening = -1
         var bestOpeningDistance = openingTolerance
         for i in openings.indices {
-            let d = OpeningGlyphs.distance(to: openings[i], polygon: corners, from: point)
+            let d = OpeningGlyphs.distance(to: openings[i], polygon: corners, from: point, bulges: openingBulges)
             if d < bestOpeningDistance {
                 bestOpeningDistance = d
                 bestOpening = i
@@ -1508,20 +1810,22 @@ struct RoomEditorCore: View {
     /// centre instead slides whatever you were looking at off the edge, which
     /// on a long room means chasing the thing you were trying to inspect.
     ///
-    /// The camera is `centre = size/2 + pan`, so holding the point under the
-    /// fingers still means moving `centre` to `focus - (focus - centre) ·
+    /// The camera is `centre = centreBase + pan`, so holding the point under
+    /// the fingers still means moving `centre` to `focus - (focus - centre) ·
     /// factor` — a pan delta of `(focus - centre) · (1 - factor)`. Clamping
     /// zoom first means a pinch past either stop stops panning too, rather
     /// than sliding the plan while the scale refuses to change.
+    ///
+    /// `centreBase`, not half the canvas: inside the floor the drawing is
+    /// centred on the full-screen viewport, half the action bar lower, and
+    /// pivoting about the wrong centre moved the room away on every pinch.
     private func zoomBy(_ factor: CGFloat, about focus: CGPoint) {
         let clamped = min(max(zoom * factor, 0.5), 6)
         let applied = clamped / zoom
         guard applied != 1 else { return }
         zoom = clamped
 
-        let centre = CGPoint(
-            x: canvasSize.width / 2 + pan.width,
-            y: canvasSize.height / 2 + pan.height)
+        let centre = CGPoint(x: centreBase.x + pan.width, y: centreBase.y + pan.height)
         pan.width += (focus.x - centre.x) * (1 - applied)
         pan.height += (focus.y - centre.y) * (1 - applied)
     }
@@ -1568,11 +1872,53 @@ struct RoomEditorCore: View {
         guard let start = dragStart?.corners else { return }
 
         switch selection {
-        // An area is selected and shape-edited, not dragged bodily: moving
-        // a wet patch across a floor would be moving the measurement, and
-        // nobody has asked for that.
-        case .area:
-            break
+        // INT-E22, the owner's own words: *"for adjustment I need this for
+        // walls and for affected areas."* A room gets a move cross and a
+        // rotate pin already; an area only had corner dots to look at and
+        // a separate "Edit Shape" screen to actually use them in. This is
+        // that same chrome, on this same canvas.
+        case .area(let id):
+            guard let area = areas.first(where: { $0.id == id }) else { break }
+            let base = areaDragStartPolygon ?? area.polygon.map { CGPoint(x: $0.x, y: $0.y) }
+            if areaDragStartPolygon == nil { areaDragStartPolygon = base }
+            let touch = dragStartModel ?? Self.centroid(of: base)
+            let mode = areaDragMode ?? detectAreaDragMode(startingAt: touch, polygon: base, scale: scale)
+            areaDragMode = mode
+
+            let translation = CGPoint(
+                x: value.translation.width / scale, y: value.translation.height / scale)
+
+            switch mode {
+            case .corner(let index):
+                guard base.indices.contains(index) else { break }
+                var updated = base
+                updated[index] = CGPoint(
+                    x: base[index].x + translation.x, y: base[index].y + translation.y)
+                liveAreaPolygon = updated
+
+            case .move:
+                liveAreaPolygon = base.map {
+                    CGPoint(x: $0.x + translation.x, y: $0.y + translation.y)
+                }
+
+            case .rotate:
+                // The angle swept from where the finger went down to where
+                // it is now, both measured from the shape's own centroid —
+                // the same construction the storey turn uses, at room scale
+                // instead of floor scale.
+                let centre = Self.centroid(of: base)
+                let current = CGPoint(x: touch.x + translation.x, y: touch.y + translation.y)
+                let startAngle = atan2(touch.y - centre.y, touch.x - centre.x)
+                let currentAngle = atan2(current.y - centre.y, current.x - centre.x)
+                let delta = currentAngle - startAngle
+                let c = cos(delta)
+                let s = sin(delta)
+                liveAreaPolygon = base.map { p in
+                    let dx = p.x - centre.x
+                    let dy = p.y - centre.y
+                    return CGPoint(x: centre.x + dx * c - dy * s, y: centre.y + dx * s + dy * c)
+                }
+            }
         case .wall(let index):
             // Dragging a wall changes its NEIGHBOURS' lengths, not its own —
             // so a locked neighbour is what has to be defended here.
@@ -1787,7 +2133,7 @@ struct RoomEditorCore: View {
         var bestOpeningDistance = tolerance
         var openingEdge = -1
         for opening in openings {
-            let d = OpeningGlyphs.distance(to: opening, polygon: corners, from: point)
+            let d = OpeningGlyphs.distance(to: opening, polygon: corners, from: point, bulges: openingBulges)
             if d < bestOpeningDistance {
                 bestOpeningDistance = d
                 openingEdge = opening.edge
@@ -1866,6 +2212,15 @@ struct RoomEditorCore: View {
             // not a second editor.
             openings: $openings,
             ceilingHeight: room.ceilingHeightM,
+            // A shaped ceiling (M6): each face follows it.
+            ceilingTop: ceiling.flatMap { record in
+                record.kind == "flat" ? nil : { edge in
+                    PlanBridge.ceilingAlong(
+                        corners, bulges: bulges, ceiling: record,
+                        flat: record.height ?? record.low ?? record.eave ?? room.ceilingHeightM,
+                        edge: edge)
+                }
+            },
             roomScanId: room.id,
             objects: objects,
             onPlaceObject: { entry, along in
@@ -2196,7 +2551,7 @@ struct RoomEditorCore: View {
             }
 
             HStack {
-                Text(Measure.sqftLabel(PlanEditing.area(corners)))
+                Text(Measure.sqftLabel(PlanBridge.area(corners, bulges: bulges)))
                     .font(.system(size: 15, weight: .bold).monospacedDigit())
                     .foregroundStyle(outlineGuessed ? Brand.inkSoft : Brand.ink)
                 // Never the bare words "floor area" over a number nobody
@@ -2343,7 +2698,8 @@ struct RoomEditorCore: View {
             // Room · Object · Note · Photo · Form, and Object is now built.
             // The menu itself still shows the other four greyed with their
             // reasons, the way the floor canvas's own already does.
-            return [.insert, .setSize, .duplicate, .delete]
+            // `Square` (M3) is real too — the floor-plan spec's solver.
+            return [.insert, .setSize, .square, .ceiling, .laser, .duplicate, .delete]
         case .area:
             // Both verbs are real: Edit Shape opens the point editor this
             // area already had, and Delete removes it. Insert stays greyed
@@ -2355,7 +2711,8 @@ struct RoomEditorCore: View {
             // rectangle, and a tap far enough from either end to leave two
             // rooms somebody could stand in. Offering it and then refusing
             // is worse than not offering it.
-            var verbs: Set<EditorAction> = canAuthorOpenings ? [.insert, .addCorner] : [.addCorner]
+            var verbs: Set<EditorAction> =
+                canAuthorOpenings ? [.insert, .addCorner, .bumpOut, .curve] : [.addCorner, .bumpOut, .curve]
             // `Add Wall` only where a stub would actually fit — against a
             // wall with room in front of it. Offering it and then refusing is
             // worse than not offering it, the same rule Split Room follows.
@@ -2675,6 +3032,52 @@ struct RoomEditorCore: View {
         }
     }
 
+    /// Was `_ = try? await API.shared.deleteArea(id:)` — a failure (session
+    /// expired mid-use, most likely) was silently swallowed, `selection`
+    /// still cleared, and the reload then correctly showed the area STILL
+    /// THERE, because it never left the server. Nothing on screen said the
+    /// delete had failed, so it read as "deleting does nothing." Same fix as
+    /// `removeObject` just above, which already had this right.
+    private func removeArea(_ id: String) async {
+        do {
+            try await API.shared.deleteArea(id: id)
+            selection = .none
+            await loadObjects()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Save a move, rotate or corner-drag on an area's shape — called on
+    /// lift, once per drag, the same point `dragStart` commits the room's
+    /// own edits from.
+    ///
+    /// `liveAreaPolygon` is kept set through the save rather than cleared
+    /// immediately: clearing it first would make the canvas fall back to
+    /// `areas`' OLD polygon for the moment before the reload lands, which
+    /// reads as the shape snapping back before snapping forward again.
+    private func commitAreaDragIfNeeded() {
+        guard case .area(let id) = selection, let updated = liveAreaPolygon,
+            areaDragMode != nil
+        else {
+            areaDragMode = nil
+            areaDragStartPolygon = nil
+            liveAreaPolygon = nil
+            return
+        }
+        areaDragMode = nil
+        areaDragStartPolygon = nil
+        Task {
+            do {
+                try await API.shared.updateArea(id: id, polygon: updated)
+                await loadObjects()
+            } catch {
+                self.error = error.localizedDescription
+            }
+            liveAreaPolygon = nil
+        }
+    }
+
     /// §4's room-depth Insert: their five nouns, in their order, with the
     /// four that are not built greyed and saying why — the same treatment
     /// `LevelCanvas` already gives the floor-depth copy of this menu.
@@ -2771,6 +3174,12 @@ struct RoomEditorCore: View {
             partitionHeight = index
         case (.setSize, _):
             startMeasuring(at: 0)
+        case (.square, .none):
+            squareRoom()
+        case (.ceiling, .none):
+            editingCeiling = true
+        case (.laser, .none):
+            laserOpen = true
         case (.duplicate, .none):
             duplicating = true
         case (.delete, .none):
@@ -2783,6 +3192,10 @@ struct RoomEditorCore: View {
             placingObject = true
         case (.addCorner, .wall(let index)):
             addCorner(on: index)
+        case (.bumpOut, .wall(let index)):
+            bumpingOut = BumpTarget(id: index)
+        case (.curve, .wall(let index)):
+            curving = BumpTarget(id: index)
         case (.addWall, .wall(let index)):
             addInteriorWall(on: index)
         case (.delete, .interiorWall(let index)):
@@ -2808,11 +3221,7 @@ struct RoomEditorCore: View {
             editingAreaShape = areas.first(where: { $0.id == id })
 
         case (.delete, .area(let id)):
-            Task {
-                _ = try? await API.shared.deleteArea(id: id)
-                selection = .none
-                await loadObjects()
-            }
+            Task { await removeArea(id) }
 
         case (.rotate, .object(let id)):
             // A quarter turn, which is what rotating a cabinet against a
@@ -2920,7 +3329,16 @@ struct RoomEditorCore: View {
         openings = PlanEditing.openingsAfterCornerAdded(
             openings, polygon: corners, splitEdge: index)
         locked = PlanEditing.lockedAfterCornerAdded(locked, splitEdge: index)
+        // The ceiling names walls by number too (M6): every wall after the
+        // split moves up one; the split wall keeps its number.
+        remapCeiling { $0 > index ? $0 + 1 : $0 }
         let (next, made) = PlanEditing.addCorner(corners, onEdge: index)
+        // The split wall becomes two STRAIGHT walls — a corner on a curve's
+        // chord is not on the curve. Every other wall keeps its own.
+        if bulges.count == corners.count {
+            bulges[index] = 0
+            bulges.insert(0, at: index + 1)
+        }
         corners = next
         selection = .corner(made)
     }
@@ -2931,6 +3349,20 @@ struct RoomEditorCore: View {
             openings, polygon: corners, corner: index)
         locked = PlanEditing.lockedAfterCornerRemoved(
             locked, corner: index, count: corners.count)
+        // The two walls meeting at this corner become one, straight.
+        if bulges.count == corners.count {
+            // Old walls index−1 and index merge. Removing `index` shifts every
+            // later wall down one, so the merged wall is index−1 — or, when
+            // the first corner goes, the old last wall, now the new last.
+            bulges.remove(at: index)
+            if !bulges.isEmpty { bulges[index > 0 ? index - 1 : bulges.count - 1] = 0 }
+        }
+        // The two walls at this corner become one, numbered as for the curves.
+        let n = corners.count
+        remapCeiling { e in
+            if index == 0 { return e == 0 ? n - 2 : e - 1 }
+            return e < index ? e : (e == index ? index - 1 : e - 1)
+        }
         corners = PlanEditing.removeCorner(corners, index: index)
         selection = .none
     }
@@ -3072,6 +3504,11 @@ struct RoomEditorCore: View {
         // at — deleting it here would delete it from the record on Save.
         openings = (room.geometry?.authoredOpenings ?? [])
             .compactMap(PlanEditing.WallOpening.init)
+        // Curves belong to the corrected outline's edges; a scanned room
+        // that was never corrected has none.
+        let stored = room.geometry?.edgeBulge ?? []
+        bulges = stored.count == corners.count ? stored : Array(repeating: 0, count: corners.count)
+        ceiling = room.geometry?.ceilingProfile
 
         // Freeze the viewport to the room's extent AS OPENED. `measuredBounds`
         // is now correct for `corners`, so this is the one moment to capture
@@ -3081,18 +3518,132 @@ struct RoomEditorCore: View {
         frozenBounds = measuredBounds
     }
 
+    /// **Square** (floor-plan spec §6, M3): every corner within 10° of
+    /// square, straight or reflex is set exactly so; every padlocked wall
+    /// keeps its length to the millimetre; corners further off are real
+    /// angles and stay as drawn. Undoable like any edit.
+    ///
+    /// When the locks and the right angles cannot both hold — a rectangle
+    /// locked at 4, 3, 4 and 3.10 m — NOTHING moves. The operator is told
+    /// which locked walls disagree and by how much, and the worst is
+    /// selected, because only he knows which measurement is the wrong one.
+    private func squareRoom() {
+        switch PlanBridge.square(corners, locked: locked) {
+        case .squared(let next):
+            let moved = zip(next, corners).contains { hypot($0.x - $1.x, $0.y - $1.y) > 0.0005 }
+            guard moved else {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                return
+            }
+            push()
+            corners = next
+            carryAnchoredObjects()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        case .conflict(let walls, let crosses):
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            let format = UnitSettings.shared.format
+            var lines = walls.prefix(3).map { wall in
+                let length = format.format(PlanEditing.edgeLength(corners, wall.edge))
+                let off = format.format(abs(wall.off))
+                return "The locked \(length) wall is \(off) too \(wall.off > 0 ? "short" : "long") for square corners."
+            }
+            if crosses { lines.append("Squaring would make the walls cross.") }
+            if lines.isEmpty { lines.append("The corners cannot all be made square with these walls.") }
+            lines.append("Check those measurements, or unlock one, then try again.")
+            squareConflict = lines.joined(separator: "\n\n")
+            if let worst = walls.first { select(.wall(worst.edge)) }
+        }
+    }
+
+    // MARK: - Laser readings (M9)
+
+    /// Where a reading goes (spec §13): into the measuring walk when one is
+    /// running — it IS that wall's measurement; onto the selected wall,
+    /// which is then locked, with the next wall round selected; otherwise
+    /// into the tray to be placed by hand.
+    private func takeLaserReading(_ reading: LaserReading) {
+        if measuring != nil {
+            commitMeasurement(reading.meters)
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            return
+        }
+        if case .wall(let i) = selection, corners.indices.contains(i) {
+            setLaserLength(reading.meters, on: i)
+            return
+        }
+        pendingReadings.append(reading)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    private func setLaserLength(_ metres: Double, on i: Int) {
+        push()
+        corners = PlanEditing.setEdgeLength(
+            corners, index: i, to: metres, anchoring: lengthAnchor(forEdge: i))
+        // A lasered length is a measured one: locked, like a typed one.
+        locked.insert(i)
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        // The next wall counter-clockwise on screen — round the room the way
+        // the spec walks it, whichever way this outline happens to run.
+        let n = corners.count
+        let ccw = Polygon.isCounterClockwise(PlanBridge.core(corners))
+        select(.wall(ccw ? (i + 1) % n : (i - 1 + n) % n))
+    }
+
+    /// Readings waiting for a wall. Select a wall, then tap one to place it.
+    @ViewBuilder private var pendingTray: some View {
+        if !pendingReadings.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "laser.burst").foregroundStyle(.white)
+                ForEach(pendingReadings) { reading in
+                    Button {
+                        guard case .wall(let i) = selection, corners.indices.contains(i) else { return }
+                        pendingReadings.removeAll { $0.id == reading.id }
+                        setLaserLength(reading.meters, on: i)
+                    } label: {
+                        Text(UnitSettings.shared.format.format(reading.meters))
+                            .font(.system(size: 13, weight: .bold))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.white, in: Capsule())
+                            .foregroundStyle(Brand.ink)
+                    }
+                }
+                Button { pendingReadings = [] } label: {
+                    Image(systemName: "xmark").foregroundStyle(.white)
+                }
+            }
+            .padding(8)
+            .background(Brand.blue, in: Capsule())
+            .padding(.top, 60)
+        }
+    }
+
+    /// Renumber the ceiling's walls after an edit renumbered the room's.
+    private func remapCeiling(_ map: (Int) -> Int) {
+        guard var record = ceiling else { return }
+        record.lowEdge = record.lowEdge.map(map)
+        record.highEdge = record.highEdge.map(map)
+        record.ridgeEdge = record.ridgeEdge.map(map)
+        record.strips = record.strips?.map { var s = $0; s.edge = map(s.edge); return s }
+        ceiling = record
+    }
+
     private func push() {
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
         if history.count > 100 { history.removeFirst() }
         future.removeAll()
     }
 
     private func undo() {
         guard let previous = history.popLast() else { return }
-        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
+        future.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
         corners = previous.corners
         openings = previous.openings
         locked = previous.locked
+        // Partitions were snapshotted but never restored — undoing an Add
+        // Wall left the wall standing. Fixed with the curves (3 Nov 2026).
+        interiorWalls = previous.interiorWalls
+        bulges = previous.bulges
+        ceiling = previous.ceiling
         selection = .none
         // A measurement walk indexes the polygon it started on; geometry
         // restored from history may not be that polygon. End it.
@@ -3102,10 +3653,13 @@ struct RoomEditorCore: View {
 
     private func redo() {
         guard let next = future.popLast() else { return }
-        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls))
+        history.append(Snapshot(corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls, bulges: bulges, ceiling: ceiling))
         corners = next.corners
         openings = next.openings
         locked = next.locked
+        interiorWalls = next.interiorWalls
+        bulges = next.bulges
+        ceiling = next.ceiling
         selection = .none
         measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -3121,7 +3675,9 @@ struct RoomEditorCore: View {
                 // here, so the detections survive the polygon correction.
                 openings: canAuthorOpenings ? openings : nil,
                 ceilingHeight: room.ceilingHeightM,
-                interiorWalls: interiorWalls)
+                interiorWalls: interiorWalls,
+                edgeBulge: PlanBridge.aligned(bulges, corners) ?? Array(repeating: 0, count: corners.count),
+                ceiling: ceiling)
             if openedCorners.count == corners.count, openedCorners != corners {
                 onOutlineChanged?(openedCorners, corners)
             }
@@ -3178,6 +3734,9 @@ struct PlanEditorView: View {
 /// useful and safe to build today, since it is only ever swapping one
 /// catalog entry for another, held in memory like every other edit until
 /// the room's own Save, and routed through the same undo history.
+///
+/// **Width and position are typed too, since 11 Oct 2026** — through the
+/// editor, which owns the wall: see `onPlacementChanged`.
 struct OpeningDetailView: View {
     let opening: PlanEditing.WallOpening
     let onKindChanged: (PlanEditing.OpeningKind) -> Void
@@ -3198,6 +3757,20 @@ struct OpeningDetailView: View {
     /// "nobody has said" and the plan keeps drawing its convention.
     let onSwingChanged: (Bool?, Bool?) -> Void
     let onDelete: () -> Void
+    /// How long this opening's wall is — what "Whole wall" fills.
+    var wallLength: Double = 0
+    /// A typed width and distance from the wall's start corner, handed to the
+    /// editor that owns the wall. The objection above was right: only the
+    /// editor knows the wall's length and what else is on it, so the sheet
+    /// asks and the editor answers — the opening as stored, clamped into the
+    /// wall, or nil when it does not fit (`PlanEditing.reshapeOpening`).
+    ///
+    /// Why it had to exist, 11 Oct 2026: drawing the owner's reference plan,
+    /// a 30" door and a 48" cased opening were the only sizes there were, a
+    /// door could only be dragged to roughly where it goes, and an open-plan
+    /// join — an entry running straight into its hallway — could not be made
+    /// at all.
+    var onPlacementChanged: ((Double, Double) -> PlanEditing.WallOpening?)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var kind: PlanEditing.OpeningKind
@@ -3207,18 +3780,32 @@ struct OpeningDetailView: View {
     @State private var swingInward: Bool?
     @State private var confirmingDelete = false
     @State private var detent: PresentationDetent = .medium
+    @State private var width: Double
+    @State private var offset: Double
+    @State private var widthText = ""
+    @State private var offsetText = ""
+    @State private var placementRefused = false
+    @FocusState private var typing: PlacementField?
+
+    private enum PlacementField { case width, offset }
 
     init(
         opening: PlanEditing.WallOpening, onKindChanged: @escaping (PlanEditing.OpeningKind) -> Void,
         onDimensionsChanged: @escaping (Double, Double) -> Void,
         onSwingChanged: @escaping (Bool?, Bool?) -> Void,
-        onDelete: @escaping () -> Void
+        onDelete: @escaping () -> Void,
+        wallLength: Double = 0,
+        onPlacementChanged: ((Double, Double) -> PlanEditing.WallOpening?)? = nil
     ) {
         self.opening = opening
         self.onKindChanged = onKindChanged
         self.onDimensionsChanged = onDimensionsChanged
         self.onSwingChanged = onSwingChanged
         self.onDelete = onDelete
+        self.wallLength = wallLength
+        self.onPlacementChanged = onPlacementChanged
+        _width = State(initialValue: opening.width)
+        _offset = State(initialValue: opening.offset)
         _kind = State(initialValue: opening.kind)
         _height = State(initialValue: opening.height)
         _sill = State(initialValue: opening.sill)
@@ -3276,10 +3863,24 @@ struct OpeningDetailView: View {
                 }
 
                 Section {
-                    StatisticRowView(
-                        row: .init(
-                            id: "width", label: "Width",
-                            value: UnitSettings.shared.format.format(opening.width), meaning: nil))
+                    if onPlacementChanged != nil {
+                        placementField("Width", text: $widthText, field: .width)
+                        placementField("From start of wall", text: $offsetText, field: .offset)
+                        if kind.category == .passage {
+                            // The open-plan join: the whole edge, no wall
+                            // left either side.
+                            Button("Whole wall — no wall left here") {
+                                commitPlacement(width: wallLength, offset: 0)
+                            }
+                            .disabled(abs(width - wallLength) < 0.01)
+                        }
+                    } else {
+                        StatisticRowView(
+                            row: .init(
+                                id: "width", label: "Width",
+                                value: UnitSettings.shared.format.format(opening.width),
+                                meaning: nil))
+                    }
                     OpeningDimensionStepper(label: "Height", value: $height) {
                         onDimensionsChanged(height, sill)
                     }
@@ -3289,9 +3890,15 @@ struct OpeningDetailView: View {
                 } header: {
                     Text("Dimensions")
                 } footer: {
-                    Text("Width follows the kind above, sized to fit the wall. Height and Distance to Floor are this opening's own — the reference's own third field, for the sill height this app never had anywhere to store until now.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.inkFaint)
+                    Text(
+                        placementRefused
+                            ? "That does not fit — it runs past the end of the wall or over another opening on it."
+                            : (onPlacementChanged != nil
+                                ? "Type a width and how far its near edge is from the start of the wall — 2' 8\", 32 in or 0.81 m all work. Height and Distance to Floor are this opening's own."
+                                : "Width follows the kind above, sized to fit the wall. Height and Distance to Floor are this opening's own — the reference's own third field, for the sill height this app never had anywhere to store until now.")
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(placementRefused ? .orange : Brand.inkFaint)
                 }
 
                 // WHICH WAY IT OPENS. The owner asked for it as part of
@@ -3350,6 +3957,18 @@ struct OpeningDetailView: View {
         .background(Brand.Plan.paper)
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
+        .onAppear { showPlacement() }
+        .onChange(of: typing) { previous, current in
+            // Leaving a field commits it, the way Return does.
+            if previous == .width { commitTyped(.width) }
+            if previous == .offset { commitTyped(.offset) }
+            // Arriving empties it, the value it held left showing as the
+            // placeholder: a tap put the cursor in FRONT of "3'", so the
+            // first attempt at typing a width (the owner's reference plan,
+            // 11 Oct 2026) produced "0.97m3'" and was thrown away.
+            if current == .width { widthText = "" }
+            if current == .offset { offsetText = "" }
+        }
         .confirmationDialog(
             "Delete this \(kind.label.lowercased())?",
             isPresented: $confirmingDelete, titleVisibility: .visible
@@ -3366,6 +3985,59 @@ struct OpeningDetailView: View {
     private static let windows: [PlanEditing.OpeningKind] = [
         .windowStandard, .windowWide, .windowSmall,
     ]
+
+    // MARK: - Width and place
+
+    private func placementField(
+        _ label: String, text: Binding<String>, field: PlacementField
+    ) -> some View {
+        HStack {
+            Text(label).foregroundStyle(Brand.ink)
+            Spacer()
+            TextField(
+                UnitSettings.shared.format.format(field == .width ? width : offset), text: text
+            )
+                .multilineTextAlignment(.trailing)
+                .keyboardType(.numbersAndPunctuation)
+                .submitLabel(.done)
+                .monospacedDigit()
+                .foregroundStyle(Brand.blue)
+                .frame(maxWidth: 140)
+                .focused($typing, equals: field)
+                .onSubmit { commitTyped(field) }
+        }
+    }
+
+    private func showPlacement() {
+        widthText = UnitSettings.shared.format.format(width)
+        offsetText = UnitSettings.shared.format.format(offset)
+    }
+
+    private func commitTyped(_ field: PlacementField) {
+        let format = UnitSettings.shared.format
+        switch field {
+        case .width:
+            guard let value = format.parse(widthText) else { return showPlacement() }
+            commitPlacement(width: value, offset: offset)
+        case .offset:
+            guard let value = format.parse(offsetText) else { return showPlacement() }
+            commitPlacement(width: width, offset: value)
+        }
+    }
+
+    private func commitPlacement(width newWidth: Double, offset newOffset: Double) {
+        guard abs(newWidth - width) > 0.0005 || abs(newOffset - offset) > 0.0005 else {
+            return showPlacement()
+        }
+        if let stored = onPlacementChanged?(newWidth, newOffset) {
+            width = stored.width
+            offset = stored.offset
+            placementRefused = false
+        } else {
+            placementRefused = true
+        }
+        showPlacement()
+    }
 
     private var header: some View {
         HStack(spacing: Brand.Space.small) {
@@ -3622,3 +4294,69 @@ struct OpeningPicker: View {
     }
 }
 
+
+/// Three typed numbers for `PlanEditing.bumpOut`: where along the wall,
+/// how wide, how far out. In or out is a toggle rather than a minus sign —
+/// nobody types "-2'" on a job site.
+private struct BumpOutSheet: View {
+    let wallLength: Double
+    let apply: (_ offset: Double, _ width: Double, _ depth: Double) -> Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var units = UnitSettings.shared
+    @State private var fromStart = ""
+    @State private var width = ""
+    @State private var depth = ""
+    @State private var inward = false
+    @State private var refused = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    field("From start of wall", $fromStart)
+                    field("Width", $width)
+                    field(inward ? "Depth in" : "Depth out", $depth)
+                    Picker("Direction", selection: $inward) {
+                        Text("Out of the room").tag(false)
+                        Text("Into the room").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                } footer: {
+                    Text(
+                        refused
+                            ? "That does not fit on this \(units.format.format(wallLength)) wall — leave a little wall at both ends."
+                            : "This wall is \(units.format.format(wallLength)). Feet and inches: 2' 1, or metres: 0.63m."
+                    )
+                    .foregroundStyle(refused ? Color.red : Brand.inkSoft)
+                }
+            }
+            .navigationTitle("Bump Out")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Apply") {
+                        guard let o = units.format.parse(fromStart),
+                            let w = units.format.parse(width),
+                            let d = units.format.parse(depth)
+                        else { refused = true; return }
+                        if apply(o, w, inward ? -d : d) { dismiss() } else { refused = true }
+                    }
+                    .bold()
+                }
+            }
+        }
+    }
+
+    private func field(_ label: String, _ text: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField("—", text: text)
+                .keyboardType(.numbersAndPunctuation)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 120)
+        }
+    }
+}

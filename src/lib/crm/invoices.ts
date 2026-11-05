@@ -747,3 +747,47 @@ export async function receivablesSummary(): Promise<{
 
   return { outstandingCents, overdueCents, count };
 }
+
+/**
+ * Every issued invoice in a date range, lines attached, for the QuickBooks
+ * export.
+ *
+ * Drafts are excluded on purpose: a draft is our own paperwork, not revenue,
+ * and importing one would put a customer-facing document in the books that the
+ * customer has never seen. Archived invoices are excluded for the same reason
+ * they are excluded everywhere else. Written-off invoices ARE included — they
+ * were issued, they belong in the ledger, and the write-off is a credit note
+ * in QuickBooks rather than a reason to pretend the invoice never happened.
+ *
+ * Ordered by invoice number so the file reads in the order the invoices were
+ * raised, which is the order a bookkeeper checks them in.
+ */
+export async function listInvoicesForExport(range: {
+  from: string;
+  to: string;
+}): Promise<(InvoiceWithLines & { client_name: string })[]> {
+  const client = requireDb();
+
+  const { data, error } = await client
+    .from("invoices")
+    .select("*, invoice_line_items(*), payments(*), clients(first_name, last_name, company_name)")
+    .is("archived_at", null)
+    .neq("status", "draft")
+    .gte("issue_date", range.from)
+    .lte("issue_date", range.to)
+    .order("invoice_number", { ascending: true });
+
+  if (error) {
+    if (isMissingTable(error)) throw new MigrationPendingError("invoices", error.message);
+    throw new Error(`Could not load invoices for export: ${error.message}`);
+  }
+
+  return ((data ?? []) as (Invoice & {
+    invoice_line_items: DocumentLine[];
+    payments: Payment[];
+    clients: Parameters<typeof clientDisplayName>[0] | null;
+  })[]).map(({ clients, ...row }) => ({
+    ...normalise(row),
+    client_name: clients ? clientDisplayName(clients) : "Unknown client",
+  }));
+}

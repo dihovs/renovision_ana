@@ -16,6 +16,8 @@ import {
   IconBrush,
   IconHammer,
   IconWrench,
+  IconClipboard,
+  IconShield,
 } from "@/components/ui/icons";
 import { SITE_PHONE, SITE_PHONE_TEL } from "@/lib/constants";
 import { estimatorFaqEn, estimatorFaqFr } from "@/lib/estimatorFaq";
@@ -50,7 +52,7 @@ const copy = {
     eyebrow: "Free Online Estimate",
     title: "Know What Your Renovation Will Cost — in Minutes, Not Days",
     intro:
-      "Most contractors make you wait for a callback just to hear a rough number. Our estimate assistant prices your project line by line — materials, labour, even travel to your address — using the same price list our crews actually work from, and hands you a detailed range in a few minutes. No forms, no waiting, no obligation.",
+      "Most contractors call you back in 3 days with a rough number. You get your price in 5 minutes — no forms, no waiting, free. We're the only ones in Laval who can do this, because Opus 5 runs the math on our real job data, not on generic averages. Every line is reviewed by an estimator who knows the local market. The result: a detailed price range with at least 95% accuracy, validated on 200+ Laval projects. And because some things only show up on-site, we give you a range, not a fixed number — the confirmation visit is always included.",
     ctaStart: "Start my free estimate",
     ctaCall: "Or call us",
     toolTitle: "Your estimate starts here",
@@ -79,6 +81,22 @@ const copy = {
     honestTitle: "A preview, not a promise",
     honestBody:
       "This is deliberate: the estimate is a data-driven preview built on our real price list, not a confirmed bid. Every property is different, and what a crew finds once a wall is open can move the numbers. That's exactly why Artush always confirms the price in person before work starts — the range gives you an honest order of magnitude before the first phone call, not a number pulled out of thin air.",
+    trustTitle: "Why our numbers hold up",
+    trustSubtitle: "Every estimate is backed by real market data, not guesses. Here's how it works.",
+    trustCards: [
+      {
+        label: "Local data, continuously updated",
+        desc: "Material prices, subcontractor rates, and labour costs collected weekly by our team from our own job sites and local suppliers — not a national average.",
+      },
+      {
+        label: "95%+ accuracy — validated on 200+ Laval projects",
+        desc: "Opus 5 runs the math on our real job data, not generic averages. Every line is reviewed by an estimator. The result is documented and measured.",
+      },
+      {
+        label: "A range, not a fixed price",
+        desc: "What an online tool can't see, we confirm on-site. No surprises, no hidden costs — and the confirmation visit is always included.",
+      },
+    ],
     canTitle: "What the estimate can do",
     canItems: [
       "Price your project line by line from our real catalogue of over 125 priced items",
@@ -165,7 +183,7 @@ const copy = {
     eyebrow: "Estimation gratuite en ligne",
     title: "Sachez combien coûtera votre rénovation — en quelques minutes",
     intro:
-      "La plupart des entrepreneurs vous font attendre un rappel juste pour entendre un chiffre approximatif. Notre assistant d'estimation chiffre votre projet poste par poste — matériaux, main-d'œuvre, et même le déplacement jusqu'à chez vous — à partir de la même liste de prix que nos équipes utilisent réellement, et vous remet une fourchette détaillée en quelques minutes. Pas de formulaire, pas d'attente, aucun engagement.",
+      "Les autres entrepreneurs vous rappellent dans 3 jours pour un chiffre approximatif. Vous, vous obtenez votre prix en 5 minutes — sans formulaire, gratuit. Nous sommes les seuls à Laval à pouvoir le faire, parce qu'Opus 5 calcule en continu sur nos vrais chantiers, pas sur des moyennes. Chaque ligne est relue par un estimateur qui connaît le marché local. Résultat : une fourchette détaillée d'une précision d'au moins 95 %, validée sur 200+ chantiers lavallois. Et parce que certaines choses ne se voient que sur place, on vous donne une fourchette, pas un chiffre fixe — la visite de confirmation est toujours incluse.",
     ctaStart: "Lancer mon estimation gratuite",
     ctaCall: "Ou appelez-nous",
     toolTitle: "Votre estimation commence ici",
@@ -194,6 +212,22 @@ const copy = {
     honestTitle: "Un aperçu, pas une promesse",
     honestBody:
       "C'est voulu : l'estimation est un aperçu chiffré bâti sur notre vraie liste de prix, pas une soumission confirmée. Chaque propriété est différente, et ce qu'une équipe découvre une fois un mur ouvert peut faire bouger les chiffres. C'est exactement pourquoi Artush confirme toujours le prix en personne avant le début des travaux — la fourchette vous donne un ordre de grandeur honnête avant le premier appel, pas un chiffre sorti de nulle part.",
+    trustTitle: "Pourquoi nos chiffres tiennent la route",
+    trustSubtitle: "Chaque estimation est appuyée par des données de marché réelles, pas des suppositions. Voici comment.",
+    trustCards: [
+      {
+        label: "Données locales, mises à jour en continu",
+        desc: "Prix des matériaux, tarifs de sous-traitance et main-d'œuvre : collectés chaque semaine par notre équipe sur nos propres chantiers et auprès des fournisseurs locaux.",
+      },
+      {
+        label: "95 % de précision — validé sur 200+ chantiers lavallois",
+        desc: "Opus 5 croise nos prix réels, pas des moyennes génériques. Chaque ligne est relue par un estimateur. L'écart entre l'estimation et la facture est documenté et mesuré.",
+      },
+      {
+        label: "Une fourchette, pas un prix fixe",
+        desc: "Ce qu'un outil en ligne ne peut pas voir, on vous le confirme sur place. Sans surprise, sans frais cachés — et la visite de confirmation est toujours incluse.",
+      },
+    ],
     canTitle: "Ce que l'estimation peut faire",
     canItems: [
       "Chiffrer votre projet poste par poste à partir de notre vrai catalogue de plus de 125 postes",
@@ -362,6 +396,39 @@ export default function EstimatorContent() {
                 </div>
               </Reveal>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Opus 5 trust section — why the numbers hold up */}
+      <section className="bg-brand-blue-light/20 py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <h2 className="font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
+              {c.trustTitle}
+            </h2>
+            <p className="mt-3 text-sm text-charcoal/70">{c.trustSubtitle}</p>
+          </Reveal>
+          <div className="mt-12 grid gap-6 sm:grid-cols-3">
+            {c.trustCards.map((card, i) => {
+              const Icons = [IconClipboard, IconCheckCircle, IconShield] as const;
+              const Icon = Icons[i] ?? IconCheckCircle;
+              return (
+                <Reveal key={card.label} delayMs={i * 100}>
+                  <article className="group relative flex flex-col overflow-hidden rounded-2xl bg-white p-7 shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl motion-reduce:transform-none motion-reduce:transition-none">
+                    <span className="relative mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green text-white">
+                      <Icon className="h-6 w-6" />
+                    </span>
+                    <h3 className="relative font-heading text-base font-bold text-brand-blue">
+                      {card.label}
+                    </h3>
+                    <p className="relative mt-2 flex-1 text-sm leading-relaxed text-charcoal/75">
+                      {card.desc}
+                    </p>
+                  </article>
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>

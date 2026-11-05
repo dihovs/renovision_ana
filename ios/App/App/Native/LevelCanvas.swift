@@ -1,4 +1,6 @@
+import ARKit
 import RoomPlan
+import FloorPlanCore
 import SwiftUI
 
 /// Where every room on a storey sits, in floor metres — shelf-packed for
@@ -268,170 +270,256 @@ struct LevelCanvas: View {
                             pitch: 15, dotRadius: 0.6, arm: 2.6)
                     }
 
+                    // Every floor, then every wall with every opening already a
+                    // hole in it, then the rest — the same `StoreyWalls` model the
+                    // floor canvas draws, so the card and the floor agree about
+                    // where a wall is and how thick. See `StoreyBaseLayer`.
+                    let floorPolygons = layout.slots.map { slot -> [CGPoint] in
+                        // Curves followed (M5): the bands are built along the
+                        // arc, split into short straight runs.
+                        var outline = slot.plan.curvedPolygon
+                        if outline.count >= 4, let f = outline.first, let l = outline.last,
+                            hypot(f.x - l.x, f.y - l.y) < 1e-9
+                        {
+                            outline.removeLast()
+                        }
+                        return outline.map { CGPoint(x: $0.x + slot.x, y: $0.y + slot.y) }
+                    }
+                    var holes = Path()
                     for slot in layout.slots {
-                        let isNew = spotlight.contains(slot.piece.id)
-                        func pt(_ px: Double, _ py: Double) -> CGPoint {
-                            CGPoint(
-                                x: (slot.x + px) * scale + ox,
-                                y: (slot.y + py) * scale + oy)
-                        }
-
-                        if slot.plan.polygon.count >= 3 {
-                            var floor = Path()
-                            floor.move(to: pt(slot.plan.polygon[0].x, slot.plan.polygon[0].y))
-                            for p in slot.plan.polygon.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
-                            floor.closeSubpath()
-                            // The room just measured is white, the way the room
-                            // you are inside is white in the editor
-                            // (`editor-chrome-design.md` §2) — the others stay
-                            // grey, UNLESS the operator gave this one its own
-                            // colour (ORD-37), which then wins: a colour
-                            // chosen on purpose says more than "not the one
-                            // just scanned".
-                            let fill: Color
-                            if isNew {
-                                fill = Brand.Plan.paper
-                            } else if let custom = slot.piece.room?.displayColor {
-                                fill = custom.opacity(0.35)
-                            } else {
-                                fill = Brand.Plan.floorMuted
-                            }
-                            context.fill(floor, with: .color(fill))
-                            if isNew {
-                                context.stroke(
-                                    floor, with: .color(Brand.blue.opacity(0.55)),
-                                    style: StrokeStyle(lineWidth: 1.5))
-                            }
-                        }
-
-                        // Sheet level-of-detail: solid bands and honest gaps —
-                        // the spec's thumbnail tier, because six rooms on a
-                        // phone width leave no room for symbols.
-                        let band = max(2, 0.114 * scale)
-                        var walls = Path()
-                        for s in slot.plan.segments {
-                            walls.move(to: pt(s.x1, s.y1))
-                            walls.addLine(to: pt(s.x2, s.y2))
-                        }
-                        context.stroke(
-                            walls, with: .color(ink),
-                            style: StrokeStyle(lineWidth: band, lineCap: .square))
-
                         for opening in slot.plan.openings {
-                            var cut = Path()
-                            cut.move(to: pt(opening.segment.x1, opening.segment.y1))
-                            cut.addLine(to: pt(opening.segment.x2, opening.segment.y2))
-                            context.stroke(
-                                cut, with: .color(bg),
-                                style: StrokeStyle(lineWidth: band + 1.5, lineCap: .butt))
-                        }
-
-                        // **The damage, under the furniture.** A shaded patch
-                        // is what the estimate's quantities are measured
-                        // from, and a drawing that omits it leaves a figure
-                        // an adjuster cannot point at. Drawn before the
-                        // objects so a vanity standing in a wet patch still
-                        // reads as a vanity.
-                        for area in areas[slot.piece.id] ?? [] where area.surface != "wall" {
-                            EditorChrome.drawArea(
-                                polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
-                                tone: area.displayColor, context: context,
-                                toScreen: { pt($0.x, $0.y) })
-                        }
-
-                        // **The furniture, at storey scale.** Unlabelled —
-                        // the room's own name plate owns that space and a
-                        // hundred-point room cannot carry both, which is
-                        // exactly what `drawObject`'s own comment says.
-                        for object in objects[slot.piece.id] ?? [] where object.included {
-                            EditorChrome.drawObject(
-                                object, context: context,
-                                toScreen: { pt($0.x, $0.y) },
-                                scale: scale, selected: false, labelled: false)
-                        }
-
-                        // Name + area, when the room plots big enough to hold
-                        // them.
-                        let plotWidth = slot.plan.width * scale
-
-                        // A warning belongs on the room it is about (ORD-16).
-                        // Drawn inside the room's own top-left corner, so it
-                        // travels with the shape however the sheet is packed.
-                        if flagged.contains(slot.piece.id), plotWidth >= 40 {
-                            let mark = context.resolve(
-                                Text(Image(systemName: "exclamationmark.triangle.fill"))
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(Color.orange))
-                            let corner = pt(0, 0)
-                            context.draw(
-                                mark, at: CGPoint(x: corner.x + 10, y: corner.y + 10),
-                                anchor: .center)
-                        }
-
-                        // 40, not 64: the label scales now, so a room that
-                        // was too narrow for 14pt type is wide enough for
-                        // the 8pt version of it.
-                        if plotWidth >= 40 {
-                            // The point deepest inside the room's own shape,
-                            // not the bounding box's midpoint. The two agree
-                            // on a plain rectangle, which is why this bug sat
-                            // unnoticed — but an L-shaped room's bounding-box
-                            // centre can land outside the room entirely,
-                            // which reads as "the label isn't in the middle"
-                            // because it genuinely is not.
-                            let anchor = FloorPlanGeometry.labelAnchor(
-                                slot.plan.polygon, width: slot.plan.width, height: slot.plan.height)
-                            let centre = pt(anchor.x, anchor.y)
-                            // **The type is sized to the DRAWING, not fixed.**
-                            // Sized up on the owner's word on 18 Aug — 11/9
-                            // was legible on a desk and not on a job site —
-                            // but a fixed 14/11 then swallowed the tile on
-                            // the project page's Floor Plans rail, where the
-                            // whole storey is 60 points across: *"on this
-                            // card the plan is too small and the writing is
-                            // big, make it like magicplan."* Right, and the
-                            // fault was fixing a size that has to work at
-                            // 60pt and at 320. It is a fraction of the
-                            // room's own drawn width now, clamped at both
-                            // ends: 14 on the full sheet exactly as before,
-                            // small enough on a thumbnail that the plan is
-                            // what the card shows.
-                            let nameSize = min(14, max(7, plotWidth * 0.13))
-                            let areaSize = nameSize * 0.78
-                            let name = context.resolve(
-                                Text(slot.piece.name)
-                                    .font(.system(size: nameSize, weight: .bold))
-                                    .foregroundStyle(Brand.Plan.label))
-                            let sqft = context.resolve(
-                                Text(Measure.sqftLabel(slot.piece.areaSqm))
-                                    .font(.system(size: areaSize, weight: .medium))
-                                    .foregroundStyle(Brand.Plan.labelSoft))
-                            let box = name.measure(in: proxy.size)
-                            let sqftBox = sqft.measure(in: proxy.size)
-                            let plateWidth = max(box.width, sqftBox.width) + nameSize * 0.7
-                            let plateHeight = nameSize + areaSize + nameSize * 0.8
-                            // The knock-out plate only where the label would
-                            // otherwise sit on the walls. On a thumbnail the
-                            // type is small enough to read against the floor
-                            // fill, and a plate there is a grey slab over
-                            // the drawing — which is what the card was
-                            // showing.
-                            if nameSize >= 11 {
-                                context.fill(
-                                    Path(
-                                        roundedRect: CGRect(
-                                            x: centre.x - plateWidth / 2,
-                                            y: centre.y - plateHeight / 2,
-                                            width: plateWidth, height: plateHeight),
-                                        cornerRadius: 4),
-                                    with: .color(bg.opacity(0.8)))
+                            let s = opening.segment
+                            let q = StoreyWalls.hole(
+                                CGPoint(x: s.x1, y: s.y1), CGPoint(x: s.x2, y: s.y2),
+                                reach: StoreyLayout.exteriorWall + 0.03)
+                            guard q.count == 4 else { continue }
+                            func at(_ p: CGPoint) -> CGPoint {
+                                CGPoint(x: (slot.x + p.x) * scale + ox, y: (slot.y + p.y) * scale + oy)
                             }
-                            context.draw(
-                                name, at: CGPoint(x: centre.x, y: centre.y - areaSize * 0.62),
-                                anchor: .center)
-                            context.draw(
-                                sqft, at: CGPoint(x: centre.x, y: centre.y + nameSize * 0.62),
-                                anchor: .center)
+                            holes.move(to: at(q[0]))
+                            for p in q.dropFirst() { holes.addLine(to: at(p)) }
+                            holes.closeSubpath()
+                        }
+                    }
+
+                    for pass in 0..<3 {
+                        for (index, slot) in layout.slots.enumerated() {
+                            let isNew = spotlight.contains(slot.piece.id)
+                            func pt(_ px: Double, _ py: Double) -> CGPoint {
+                                CGPoint(
+                                    x: (slot.x + px) * scale + ox,
+                                    y: (slot.y + py) * scale + oy)
+                            }
+                            // Sheet level-of-detail: solid bands and honest gaps —
+                            // the spec's thumbnail tier, because six rooms on a
+                            // phone width leave no room for symbols.
+                            let band = max(2, 0.114 * scale)
+
+                            if pass == 0 {
+                                if slot.plan.polygon.count >= 3 {
+                                    var floor = Path()
+                                    let loop = slot.plan.curvedPolygon
+                                    floor.move(to: pt(loop[0].x, loop[0].y))
+                                    for p in loop.dropFirst() { floor.addLine(to: pt(p.x, p.y)) }
+                                    floor.closeSubpath()
+                                    // The room just measured is white, the way the room
+                                    // you are inside is white in the editor
+                                    // (`editor-chrome-design.md` §2) — the others stay
+                                    // grey, UNLESS the operator gave this one its own
+                                    // colour (ORD-37), which then wins: a colour
+                                    // chosen on purpose says more than "not the one
+                                    // just scanned".
+                                    let fill: Color
+                                    if isNew {
+                                        fill = Brand.Plan.paper
+                                    } else if let custom = slot.piece.room?.displayColor {
+                                        fill = custom.opacity(0.35)
+                                    } else {
+                                        fill = Brand.Plan.floorMuted
+                                    }
+                                    context.fill(floor, with: .color(fill))
+                                    if isNew {
+                                        context.stroke(
+                                            floor, with: .color(Brand.blue.opacity(0.55)),
+                                            style: StrokeStyle(lineWidth: 1.5))
+                                    }
+                                }
+
+                                continue
+                            }
+
+                            if pass == 1 {
+                                let runs = StoreyWalls.runs(
+                                    of: index, polygons: floorPolygons,
+                                    origin: CGPoint(x: slot.x, y: slot.y),
+                                    interior: StoreyLayout.interiorWall,
+                                    exterior: StoreyLayout.exteriorWall,
+                                    outdoor: DrawRoomView.outdoorTypes.contains(
+                                        slot.piece.room?.roomType ?? ""))
+                                if runs.isEmpty {
+                                    var walls = Path()
+                                    for i in slot.plan.segments.indices {
+                                        let along = slot.plan.run(i)
+                                        walls.move(to: pt(along[0].x, along[0].y))
+                                        for p in along.dropFirst() { walls.addLine(to: pt(p.x, p.y)) }
+                                    }
+                                    context.stroke(
+                                        walls, with: .color(ink),
+                                        style: StrokeStyle(lineWidth: band, lineCap: .square))
+                                } else {
+                                    context.drawLayer { layer in
+                                        layer.clip(to: holes, options: .inverse)
+                                        for run in runs {
+                                            let q = run.band
+                                            guard q.count == 4 else { continue }
+                                            var quad = Path()
+                                            quad.move(to: pt(q[0].x, q[0].y))
+                                            for p in q.dropFirst() { quad.addLine(to: pt(p.x, p.y)) }
+                                            quad.closeSubpath()
+                                            layer.fill(quad, with: .color(ink))
+                                        }
+                                    }
+                                }
+                                // **A window is glass, not a gap.** Every opening
+                                // is a hole in the band, and at card scale a hole
+                                // with no symbol in it reads as a broken wall — the
+                                // reference house's card looked like a row of
+                                // brackets (11 Oct 2026). A hairline down the
+                                // middle of an outside wall's band is the window
+                                // at this tier; doors and passages stay open.
+                                let polygon = slot.plan.polygon
+                                if !polygon.isEmpty {
+                                    let cx = polygon.map(\.x).reduce(0, +) / Double(polygon.count)
+                                    let cy = polygon.map(\.y).reduce(0, +) / Double(polygon.count)
+                                    for opening in slot.plan.openings where opening.kind == .window {
+                                        let s = opening.segment
+                                        let w = s.length
+                                        guard w > 0.05 else { continue }
+                                        var nx = -(s.y2 - s.y1) / w
+                                        var ny = (s.x2 - s.x1) / w
+                                        // Outward: away from the room's middle.
+                                        if ((s.x1 + s.x2) / 2 - cx) * nx + ((s.y1 + s.y2) / 2 - cy) * ny < 0 {
+                                            nx = -nx
+                                            ny = -ny
+                                        }
+                                        let mid = StoreyLayout.exteriorWall / 2
+                                        var glass = Path()
+                                        glass.move(to: pt(s.x1 + nx * mid, s.y1 + ny * mid))
+                                        glass.addLine(to: pt(s.x2 + nx * mid, s.y2 + ny * mid))
+                                        context.stroke(
+                                            glass, with: .color(ink), lineWidth: max(0.6, band * 0.3))
+                                    }
+                                }
+                                continue
+                            }
+
+                            // **The damage, under the furniture.** A shaded patch
+                            // is what the estimate's quantities are measured
+                            // from, and a drawing that omits it leaves a figure
+                            // an adjuster cannot point at. Drawn before the
+                            // objects so a vanity standing in a wet patch still
+                            // reads as a vanity.
+                            for area in areas[slot.piece.id] ?? [] where area.surface != "wall" {
+                                EditorChrome.drawArea(
+                                    polygon: area.polygon.map { CGPoint(x: $0.x, y: $0.y) },
+                                    tone: area.displayColor, context: context,
+                                    toScreen: { pt($0.x, $0.y) })
+                            }
+
+                            // **The furniture, at storey scale.** Unlabelled —
+                            // the room's own name plate owns that space and a
+                            // hundred-point room cannot carry both, which is
+                            // exactly what `drawObject`'s own comment says.
+                            for object in objects[slot.piece.id] ?? [] where object.included {
+                                EditorChrome.drawObject(
+                                    object, context: context,
+                                    toScreen: { pt($0.x, $0.y) },
+                                    scale: scale, selected: false, labelled: false)
+                            }
+
+                            // Name + area, when the room plots big enough to hold
+                            // them.
+                            let plotWidth = slot.plan.width * scale
+
+                            // A warning belongs on the room it is about (ORD-16).
+                            // Drawn inside the room's own top-left corner, so it
+                            // travels with the shape however the sheet is packed.
+                            if flagged.contains(slot.piece.id), plotWidth >= 40 {
+                                let mark = context.resolve(
+                                    Text(Image(systemName: "exclamationmark.triangle.fill"))
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color.orange))
+                                let corner = pt(0, 0)
+                                context.draw(
+                                    mark, at: CGPoint(x: corner.x + 10, y: corner.y + 10),
+                                    anchor: .center)
+                            }
+
+                            // 40, not 64: the label scales now, so a room that
+                            // was too narrow for 14pt type is wide enough for
+                            // the 8pt version of it.
+                            if plotWidth >= 40 {
+                                // The point deepest inside the room's own shape,
+                                // not the bounding box's midpoint. The two agree
+                                // on a plain rectangle, which is why this bug sat
+                                // unnoticed — but an L-shaped room's bounding-box
+                                // centre can land outside the room entirely,
+                                // which reads as "the label isn't in the middle"
+                                // because it genuinely is not.
+                                let anchor = FloorPlanGeometry.labelAnchor(
+                                    slot.plan.polygon, width: slot.plan.width, height: slot.plan.height)
+                                let centre = pt(anchor.x, anchor.y)
+                                // **The type is sized to the DRAWING, not fixed.**
+                                // Sized up on the owner's word on 18 Aug — 11/9
+                                // was legible on a desk and not on a job site —
+                                // but a fixed 14/11 then swallowed the tile on
+                                // the project page's Floor Plans rail, where the
+                                // whole storey is 60 points across: *"on this
+                                // card the plan is too small and the writing is
+                                // big, make it like magicplan."* Right, and the
+                                // fault was fixing a size that has to work at
+                                // 60pt and at 320. It is a fraction of the
+                                // room's own drawn width now, clamped at both
+                                // ends: 14 on the full sheet exactly as before,
+                                // small enough on a thumbnail that the plan is
+                                // what the card shows.
+                                let nameSize = min(14, max(7, plotWidth * 0.13))
+                                let areaSize = nameSize * 0.78
+                                let name = context.resolve(
+                                    Text(slot.piece.name)
+                                        .font(.system(size: nameSize, weight: .bold))
+                                        .foregroundStyle(Brand.Plan.label))
+                                let sqft = context.resolve(
+                                    Text(Measure.sqftLabel(slot.piece.areaSqm))
+                                        .font(.system(size: areaSize, weight: .medium))
+                                        .foregroundStyle(Brand.Plan.labelSoft))
+                                let box = name.measure(in: proxy.size)
+                                let sqftBox = sqft.measure(in: proxy.size)
+                                let plateWidth = max(box.width, sqftBox.width) + nameSize * 0.7
+                                let plateHeight = nameSize + areaSize + nameSize * 0.8
+                                // The knock-out plate only where the label would
+                                // otherwise sit on the walls. On a thumbnail the
+                                // type is small enough to read against the floor
+                                // fill, and a plate there is a grey slab over
+                                // the drawing — which is what the card was
+                                // showing.
+                                if nameSize >= 11 {
+                                    context.fill(
+                                        Path(
+                                            roundedRect: CGRect(
+                                                x: centre.x - plateWidth / 2,
+                                                y: centre.y - plateHeight / 2,
+                                                width: plateWidth, height: plateHeight),
+                                            cornerRadius: 4),
+                                        with: .color(bg.opacity(0.8)))
+                                }
+                                context.draw(
+                                    name, at: CGPoint(x: centre.x, y: centre.y - areaSize * 0.62),
+                                    anchor: .center)
+                                context.draw(
+                                    sqft, at: CGPoint(x: centre.x, y: centre.y + nameSize * 0.62),
+                                    anchor: .center)
+                            }
                         }
                     }
                 }
@@ -1027,7 +1115,42 @@ private struct StoreyInfoSheet: View {
     /// Held rooms are included: a floor's footprint should not jump when a
     /// phone finds a bar. They carry an area and a perimeter like any other.
     private var surfaces: WallThickness.Surfaces {
-        WallThickness.groundSurfaces(
+        // Rooms placed on the floor are registered in one frame now, so the
+        // footprint is measured from their REAL outlines (floor-plan spec
+        // §12) instead of each room grown on its own and summed — which could
+        // not tell a shared partition from an exterior wall and said itself
+        // that it under-counted. Held rooms have no place on the floor yet,
+        // so a floor with any keeps the estimate below.
+        let layout = StoreyLayout(rooms)
+        if pending.isEmpty, !layout.rooms.isEmpty {
+            // Each room's own outline, carried to where it sits on the floor;
+            // the outline's repeated closing point dropped.
+            let outlines: [[Vec2]] = layout.rooms.map { placed in
+                var loop = placed.plan.polygon
+                if loop.count > 1, loop.first == loop.last { loop.removeLast() }
+                return PlanBridge.core(loop.map {
+                    CGPoint(x: placed.origin.x + $0.x, y: placed.origin.y + $0.y)
+                })
+            }.filter { $0.count >= 3 }
+            // A room whose walls never closed has no outline to add; the
+            // estimate below still counts it.
+            if outlines.count == layout.rooms.count {
+                let clear: Double = rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted }
+                let t = WallThickness.default
+                return WallThickness.Surfaces(
+                    withoutWalls: clear,
+                    // §12 gross: each room grown by half a partition, the
+                    // union counted once. A one-room floor has no partition
+                    // to add, as before.
+                    withInteriorWalls: outlines.count < 2
+                        ? clear : Alignment.grossArea(outlines, wallThickness: t.interiorM),
+                    // Each room grown by a whole exterior wall: the outside
+                    // gets its full thickness, and the partition gap between
+                    // two rooms is filled by both growths and counted once.
+                    withAllWalls: Alignment.unionArea(outlines.map { Alignment.offset($0, by: t.exteriorM) }))
+            }
+        }
+        return WallThickness.groundSurfaces(
             rooms: rooms.map { (floorAreaSqm: $0.floorAreaSqmTrusted, perimeterM: $0.wallLengthM) }
                 + pending.map {
                     // A held room has no row to read a perimeter column from,
@@ -1219,6 +1342,9 @@ struct FloorCanvasView: View {
     /// dragged more than once before it is set down, and `DragGesture`
     /// reports translation from its own start, not from the room's home.
     @State private var liftDragStart: CGSize = .zero
+    /// The lifted room's angle when the current drag began; the square-up
+    /// turn is added on top of it, fresh each frame.
+    @State private var dragTurnBase: Double?
     /// True for the length of the press-and-drag that picks a room up, so
     /// the plain move gesture does not also claim the same finger and apply
     /// the travel twice.
@@ -1325,6 +1451,9 @@ struct FloorCanvasView: View {
     @State private var addingPhoto = false
     @State private var floorInfo = false
     @State private var choosingMethod = false
+    /// Shared walls whose neighbour's side no longer matches a locked length
+    /// just saved — see `proposeSharedLocks`.
+    @State private var sharedProposals: [SharedLockProposal] = []
     @State private var picked = false
     @State private var method: CaptureFlow.CaptureMode = .draw
 
@@ -1458,6 +1587,27 @@ struct FloorCanvasView: View {
 
     private func refreshLayout() {
         cachedLayout = StoreyLayout(rooms)
+    }
+
+    /// This floor as `DrawRoomView` needs it: every room's outline in the
+    /// same floor metres this canvas draws in, so a room drawn against them
+    /// is filed exactly where it was drawn.
+    private var drawingContext: [CaptureFlow.FloorContextRoom] {
+        cachedLayout.rooms.map { room in
+            var outline = room.plan.polygon
+            if outline.count >= 4, let first = outline.first, let last = outline.last,
+                hypot(first.x - last.x, first.y - last.y) < 1e-6
+            {
+                outline.removeLast()
+            }
+            return CaptureFlow.FloorContextRoom(
+                id: room.id, name: room.room.name, level: room.room.level,
+                polygon: outline.map {
+                    CGPoint(x: $0.x + room.origin.x, y: $0.y + room.origin.y)
+                },
+                origin: room.origin, planX: room.room.planX, planY: room.room.planY,
+                roomType: room.room.roomType)
+        }
     }
 
     private var focusedRoom: RoomScan? {
@@ -1604,6 +1754,7 @@ struct FloorCanvasView: View {
     @State private var roomAreas: [String: [AffectedArea]] = [:]
     @State private var pendingLibraryItem: LibraryItem?
     @State private var choosingLibraryItem = false
+    @State private var importingPlan = false
 
     private static let roomTransitionDuration: Double = 0.3
     private static let roomTransitionAnimation: Animation = .easeInOut(duration: roomTransitionDuration)
@@ -1663,6 +1814,86 @@ struct FloorCanvasView: View {
     /// low corner would slide the room across the sheet unless its position
     /// takes the same step back. Both are worked out against ONE offset:
     /// before and after share the frame `origin - minBefore`.
+    // MARK: - A locked length across a shared wall (spec §12, A4)
+
+    struct SharedLockProposal: Identifiable {
+        let id = UUID()
+        let room: RoomScan
+        /// The neighbour's own edge, in its plan polygon.
+        let edge: Int
+        let length: Double
+    }
+
+    /// After a room is saved: every wall of it that is LOCKED and shared
+    /// with a neighbour whose matching wall now measures differently. Asked,
+    /// never done silently — it changes another room's measurements.
+    ///
+    /// "The same wall" is held tight: the two must lie along each other
+    /// almost entirely and differ by no more than 30 cm. A hallway's long
+    /// wall merely touching a bedroom's is a different wall, and a typed
+    /// length on the bedroom says nothing about the hallway.
+    private func proposeSharedLocks(after roomId: String) {
+        guard let saved = cachedLayout.room(id: roomId),
+            let locked = saved.room.geometry?.lockedEdges, !locked.isEmpty
+        else { return }
+        func ring(_ r: StoreyRoom) -> [Vec2] {
+            var loop = floorPolygon(r)
+            if loop.count > 1, loop.first == loop.last { loop.removeLast() }
+            return PlanBridge.core(loop)
+        }
+        let mine = ring(saved)
+        guard mine.count >= 3 else { return }
+        var found: [SharedLockProposal] = []
+        for other in cachedLayout.rooms where other.id != roomId && other.room.geometry?.editedPolygon != nil {
+            let theirs = ring(other)
+            guard theirs.count >= 3 else { continue }
+            let pairs = [0, StoreyLayout.interiorWall].flatMap { gap in
+                Alignment.sharedWalls([mine, theirs], gap: gap)
+            }
+            for pair in pairs where locked.contains(pair.wallA) {
+                let lenA = mine[pair.wallA].distance(to: mine[(pair.wallA + 1) % mine.count])
+                let lenB = theirs[pair.wallB].distance(to: theirs[(pair.wallB + 1) % theirs.count])
+                guard abs(lenA - lenB) > 0.01, abs(lenA - lenB) <= 0.30,
+                    pair.overlap >= min(lenA, lenB) - 0.05,
+                    !found.contains(where: { $0.room.id == other.id && $0.edge == pair.wallB })
+                else { continue }
+                found.append(SharedLockProposal(room: other.room, edge: pair.wallB, length: lenA))
+            }
+        }
+        sharedProposals = found
+    }
+
+    /// Set each neighbour's shared wall to the locked length, lock it, save
+    /// it, and keep the room where it stands on the floor.
+    private func applySharedLocks(_ proposals: [SharedLockProposal]) async {
+        for p in proposals {
+            guard let placed = cachedLayout.room(id: p.room.id), let g = p.room.geometry else { continue }
+            var ring = placed.plan.polygon
+            if ring.count > 1, ring.first == ring.last { ring.removeLast() }
+            let next = PlanEditing.setEdgeLength(ring, index: p.edge, to: p.length, anchoring: .centre)
+            let locked = Set(g.lockedEdges ?? []).union([p.edge])
+            do {
+                try await API.shared.saveEditedPlan(
+                    roomId: p.room.id, corners: next, locked: Array(locked).sorted(),
+                    openings: g.authoredOpenings.map { $0.compactMap(PlanEditing.WallOpening.init) },
+                    ceilingHeight: p.room.ceilingHeightM,
+                    interiorWalls: g.interiorWalls,
+                    edgeBulge: g.edgeBulge,
+                    ceiling: g.ceilingProfile)
+                // The plan is drawn from its own top-left corner; if the
+                // resize moved that corner, move the room by the same so it
+                // stays exactly where it stood.
+                let shift = StoreyArranging.bounds(next).origin
+                if let x = p.room.planX, let y = p.room.planY, abs(shift.x) + abs(shift.y) > 0.0005 {
+                    try await API.shared.placeRoom(roomId: p.room.id, x: x + shift.x, y: y + shift.y)
+                }
+            } catch {
+                mergeError = "Could not update \(p.room.name): \(error.localizedDescription)"
+            }
+        }
+        await load()
+    }
+
     private func carryNeighbours(of roomId: String, from before: [CGPoint], to after: [CGPoint])
         async
     {
@@ -2197,7 +2428,12 @@ struct FloorCanvasView: View {
                             onOutlineChanged: { before, after in
                                 Task { await carryNeighbours(of: room.id, from: before, to: after) }
                             },
-                            onSaved: { Task { await load() } }
+                            onSaved: {
+                                Task {
+                                    await load()
+                                    proposeSharedLocks(after: room.id)
+                                }
+                            }
                         )
                         // Spent the moment it is handed over — it is one
                         // placement, not a mode, and leaving it set would
@@ -2215,6 +2451,21 @@ struct FloorCanvasView: View {
                     // frame one while `RoomEditorCore`'s own chrome is
                     // still arriving.
                     floorChrome(label: label)
+                        .confirmationDialog(
+                            sharedProposals.count == 1
+                                ? "\(sharedProposals[0].room.name) shares this wall. Set its side to \(UnitSettings.shared.format.format(sharedProposals[0].length)) too?"
+                                : "\(sharedProposals.count) rooms share walls you just measured. Set their sides to match?",
+                            isPresented: Binding(
+                                get: { !sharedProposals.isEmpty }, set: { if !$0 { sharedProposals = [] } }),
+                            titleVisibility: .visible
+                        ) {
+                            Button(sharedProposals.count == 1 ? "Set it" : "Set all \(sharedProposals.count)") {
+                                let chosen = sharedProposals
+                                sharedProposals = []
+                                Task { await applySharedLocks(chosen) }
+                            }
+                            Button("Leave them", role: .cancel) { sharedProposals = [] }
+                        }
                         .alert(
                             "Could not merge those rooms",
                             isPresented: Binding(
@@ -2294,7 +2545,7 @@ struct FloorCanvasView: View {
         .alert("Floor plan", isPresented: $showingHelp) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("This is the floor itself. Insert adds a room to it — start from a rectangle and pull it into shape. Tap a room once it is drawn to open its details.")
+            Text("This is the floor itself. Insert adds a room to it — draw it corner by corner against the rooms already here, pull a rectangle into shape, or scan it. Tap a room to edit it; press and hold to move it.")
         }
         .sheet(
             isPresented: $choosingMethod,
@@ -2321,18 +2572,29 @@ struct FloorCanvasView: View {
         .sheet(isPresented: $addingPhoto, onDismiss: { Task { await load() } }) {
             ProjectFileUploader(projectId: projectId) { Task { await load() } }
         }
+        .sheet(isPresented: $importingPlan, onDismiss: { Task { await load() } }) {
+            PlanImportSheet(
+                projectId: projectId, level: showing, floorLabel: label,
+                existing: drawingContext, existingCount: (scans ?? []).count,
+                onFiled: { Task { await load() } })
+        }
         .sheet(isPresented: $inserting, onDismiss: { Task { await load() } }) {
             CaptureFlow(
                 projectId: projectId,
                 projectName: projectName,
                 existingCount: (scans ?? []).count,
                 existingNames: (scans ?? []).map(\.name),
-                initialLevel: level,
+                // The floor on screen, not the one this screen was opened
+                // on: after the floors stepper switched storeys, Insert used
+                // to file the new room on the original floor.
+                initialLevel: showing,
                 // Insert IS the mode choice on this screen, so the chooser
                 // has nothing left to ask.
                 initialMode: method,
                 onSaved: { Task { await load() } },
-                onFinished: { _, _ in })
+                onFinished: { _, _ in },
+                floorContext: drawingContext,
+                drawsInPlace: true)
         }
         .task { await load() }
     }
@@ -2563,6 +2825,15 @@ struct FloorCanvasView: View {
                 choosingMethod = true
             }
             Divider()
+            // A whole floor at once, from a plan somebody else drew — see
+            // `PlanImportSheet`.
+            insertRow(
+                "Plan from a drawing", icon: "doc.viewfinder", enabled: true,
+                note: "Photo, screenshot or PDF of a drawn plan"
+            ) {
+                importingPlan = true
+            }
+            Divider()
             // Live since S8. At floor depth the library opens the same way
             // it does inside a room; what differs is only that the room is
             // named by the NEXT tap rather than already known.
@@ -2654,6 +2925,7 @@ struct FloorCanvasView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         lifted = StoreyBaseLayer.LiftedRoom(id: room.id)
         liftDragStart = .zero
+        dragTurnBase = nil
         wasFlush = false
         lifting = true
     }
@@ -2694,10 +2966,26 @@ struct FloorCanvasView: View {
             width: liftDragStart.width + step.width,
             height: liftDragStart.height + step.height)
 
-        let moving = floorPolygon(room, offset: free, angle: lift.angle)
         let others = cachedLayout.rooms.filter { $0.id != lift.id }.map { floorPolygon($0) }
+
+        // Turn it square first (floor-plan spec §12, T13): a wall within 3°
+        // of anti-parallel to a neighbour's, and within reach, is turned
+        // exactly parallel — so the flush below closes the gap along the
+        // whole wall instead of touching at one end. Worked out each frame
+        // from the angle the drag began at, so it lets go again as the room
+        // is pulled away.
+        if dragTurnBase == nil { dragTurnBase = lift.angle }
+        let base = dragTurnBase ?? lift.angle
+        lift.angle = base + Self.squaringTurn(
+            moving: floorPolygon(room, offset: free, angle: base), others: others)
+        let moving = floorPolygon(room, offset: free, angle: lift.angle)
+        // 14 points of reach, so it feels the same at any zoom — but never
+        // less than the floor-plan spec's 10 cm (§12, T13): zoomed right in,
+        // 14 points is a few centimetres and a room dropped 6 cm off its
+        // neighbour stayed 6 cm off.
         let result = StoreyArranging.snap(
-            moving: moving, others: others, tolerance: 14 / viewport.scale)
+            moving: moving, others: others,
+            tolerance: max(14 / viewport.scale, AlignmentTuning().wallSnap))
 
         lift.offset = CGSize(
             width: free.width + result.offset.width, height: free.height + result.offset.height)
@@ -2708,6 +2996,27 @@ struct FloorCanvasView: View {
         // there — a haptic that repeats reads as a stutter, not as contact.
         if result.flush, !wasFlush { UIImpactFeedbackGenerator(style: .rigid).impactOccurred() }
         wasFlush = result.flush
+    }
+
+    /// How much to turn a room being dragged so the wall it is bringing to
+    /// a neighbour lands exactly parallel — FloorPlanCore's placement snap,
+    /// which only offers a turn of 3° or less. 0 when nothing is in reach.
+    /// Both outlines are put the same way round first: the snap matches
+    /// walls that run in opposite directions, which is what two rooms
+    /// sharing a wall do only when they are wound alike.
+    static func squaringTurn(moving: [CGPoint], others: [[CGPoint]]) -> Double {
+        func ring(_ p: [CGPoint]) -> [Vec2] {
+            var r = p
+            if r.count > 3, r.first == r.last { r.removeLast() }
+            let v = r.map { Vec2(Double($0.x), Double($0.y)) }
+            return Polygon.signedArea(v) < 0 ? v.reversed() : v
+        }
+        let mine = ring(moving)
+        let theirs = others.map(ring).filter { $0.count >= 3 }
+        guard mine.count >= 3, !theirs.isEmpty,
+            let snap = Alignment.snap(moving: mine, neighbours: theirs)
+        else { return 0 }
+        return abs(snap.rotation) > 1e-6 ? snap.rotation : 0
     }
 
     /// The floor bar's verbs. `Merge Rooms` appears only with a room in the
@@ -2914,6 +3223,7 @@ struct FloorCanvasView: View {
         lifted?.offset = .zero
         lifted?.angle = 0
         liftDragStart = .zero
+        dragTurnBase = nil
         guides = []
         wasFlush = false
         await loadObjects()
@@ -3116,12 +3426,18 @@ struct AddRoomMethodSheet: View {
                             onPick(.scan)
                             dismiss()
                         }
+                        // Tap each corner through the camera (spec §8, M8).
+                        // World tracking, not LiDAR — so it is the scan every
+                        // recent iPhone can do.
                         methodCard(
                             title: "Manual-Scan",
-                            caption: "RoomPlan detects objects itself — there is no manual variant.",
+                            caption: "Walk the room and tap each corner through the camera.",
                             art: .manual,
-                            enabled: false
-                        ) {}
+                            enabled: ARWorldTrackingConfiguration.isSupported
+                        ) {
+                            onPick(.arCorners)
+                            dismiss()
+                        }
                     }
 
                     Card(padding: 0) {

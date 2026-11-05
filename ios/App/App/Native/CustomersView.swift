@@ -11,6 +11,9 @@ struct CustomersView: View {
     @State private var query = ""
     @StateObject private var calls = CallManager.shared
     @State private var creating = false
+    /// The customer whose hub is open — the web client page, which lists
+    /// everything for them (requests, estimates, quotes, jobs, invoices).
+    @State private var opened: ClientSummary?
 
     private var shown: [ClientSummary] {
         guard let clients else { return [] }
@@ -46,7 +49,7 @@ struct CustomersView: View {
                             }
                         } else {
                             ForEach(shown) { client in
-                                CustomerCard(client: client) { number in
+                                CustomerCard(client: client, onOpen: { opened = client }) { number in
                                     Task { await calls.place(to: number, label: client.name) }
                                 }
                             }
@@ -63,6 +66,9 @@ struct CustomersView: View {
                     .padding(.bottom, Brand.Space.large)
             }
             .navigationTitle("Customers")
+            .navigationDestination(item: $opened) { client in
+                CustomerHubView(client: client)
+            }
             .searchable(text: $query, prompt: "Search customers")
             .sheet(isPresented: $creating) {
                 NewCustomerSheet { _ in Task { await load() } }
@@ -85,6 +91,7 @@ struct CustomersView: View {
 
 private struct CustomerCard: View {
     let client: ClientSummary
+    let onOpen: () -> Void
     let onCall: (String) -> Void
 
     private var primaryNumber: String? {
@@ -117,7 +124,8 @@ private struct CustomerCard: View {
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity)
 
                 // The one action worth a tap from a list. Absent rather than
                 // disabled when there is no number — a dead button invites
@@ -136,6 +144,11 @@ private struct CustomerCard: View {
                 }
             }
         }
+        // A tap anywhere but the call button opens the customer's hub; the
+        // Button keeps its own touches.
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        .accessibilityAddTraits(.isButton)
     }
 
     private var initials: String {
@@ -159,8 +172,8 @@ struct EstimatesView: View {
     private var rest: [QuoteSummary] { (invoices ?? []).filter { !$0.isAwaitingAnswer } }
     private var awaitingCents: Int { awaiting.reduce(0) { $0 + $1.totalCents } }
 
+    // Pushed from More now (no stack of its own) — it was a tab root.
     var body: some View {
-        NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 Brand.canvas.ignoresSafeArea()
 
@@ -231,7 +244,7 @@ struct EstimatesView: View {
                     .padding(.trailing, Brand.Space.large)
                     .padding(.bottom, Brand.Space.large)
             }
-            .navigationTitle("Estimates")
+            .navigationTitle("Quotes")
             .sheet(isPresented: $buildingQuote) {
                 NavigationStack {
                     WebScreen(path: "/admin/quotes/new")
@@ -241,7 +254,6 @@ struct EstimatesView: View {
                 }
             }
             .task { await load() }
-        }
     }
 
     private func load() async {
@@ -313,7 +325,7 @@ private struct QuoteCard: View {
 }
 
 /// Cents to dollars, in the app's one place for it.
-private func money(_ cents: Int) -> String {
+func money(_ cents: Int) -> String {
     let value = Double(cents) / 100
     let formatter = NumberFormatter()
     formatter.numberStyle = .currency

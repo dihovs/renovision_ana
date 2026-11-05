@@ -1113,7 +1113,12 @@ export async function POST(request: Request) {
                 // half-authenticated state to describe: the number either opens
                 // owner mode outright, in which case this branch is not the one
                 // running, or it does not and this is an ordinary call.
-                { locale, escalated: verdict.escalate },
+                //
+                // callerPhone is what turns on send_estimate_link (ANA-23) —
+                // it is already null on the outbound dialer path (forced above,
+                // see the comment by rawCallerPhone), so that call never gets a
+                // tool that only makes sense on an inbound line.
+                { locale, escalated: verdict.escalate, callerPhone, callSid },
                 onDelta,
               );
 

@@ -72,6 +72,13 @@ export const ROOM_TYPES: RoomTypeRule[] = [
   { id: "hallway", label: "Hallway", percent: 100, band: "above" },
   { id: "office", label: "Office", percent: 100, band: "above" },
   { id: "laundry", label: "Laundry", percent: 100, band: "above" },
+  // Three every house plan labels and this list could not name — the
+  // owner's second reference plan has five closets, a pantry and a foyer,
+  // and each had to be filed as "Storage" or "Hallway" (11 Oct 2026). All
+  // finished, heated, inside the envelope: ANSI Z765 counts them in full.
+  { id: "closet", label: "Closet", percent: 100, band: "above" },
+  { id: "pantry", label: "Pantry", percent: 100, band: "above" },
+  { id: "entry", label: "Entry / foyer", percent: 100, band: "above" },
   {
     id: "attic",
     label: "Attic / loft",

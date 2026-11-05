@@ -72,7 +72,7 @@ export default async function InvoicesPage({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <Chip href="/admin/invoices" label="All" active={!filter} />
         {(Object.keys(INVOICE_STATUS_LABEL) as InvoiceStatus[]).map((s) => (
           <Chip
@@ -82,6 +82,12 @@ export default async function InvoicesPage({
             active={filter === s}
           />
         ))}
+        <Link
+          href="/admin/invoices/export"
+          className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-bold text-charcoal/60 shadow-sm transition-colors hover:text-charcoal"
+        >
+          Export to QuickBooks
+        </Link>
       </div>
 
       {invoices.length === 0 ? (

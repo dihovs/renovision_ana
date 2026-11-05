@@ -1,4 +1,7 @@
 import { db, isMissingTable } from "./db";
+import { nextDueDate, REPEAT_RULES, type RepeatRule } from "./taskRepeat";
+
+export * from "./taskRepeat";
 
 /**
  * The owner's dictated to-do list (migration 0017).
@@ -23,7 +26,14 @@ export type OwnerTask = {
   done_at: string | null;
   source: string;
   call_sid: string | null;
+  /** Migration 0057 — absent until it runs. */
+  assignee_id?: string | null;
+  job_id?: string | null;
+  repeat_rule?: RepeatRule;
+  repeated_from?: string | null;
 };
+
+
 
 /**
  * Why a write did not happen. Kept as three distinct values because they need
@@ -199,15 +209,126 @@ export async function setOwnerTaskDone(id: string, done: boolean): Promise<TaskU
   const supabase = db();
   if (!supabase) return { ok: false, reason: "unconfigured" };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("owner_tasks")
     .update({ done_at: done ? new Date().toISOString() : null })
-    .eq("id", id);
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
 
   if (error) {
     if (isMissingTable(error)) return { ok: false, reason: "migration_pending" };
     console.error("[tasks] could not update the task:", error.message);
     return { ok: false, reason: "failed", detail: error.message };
   }
+
+  // A repeating task (0057) comes back: ticking it makes the next one. The
+  // unique index on repeated_from makes a second tick a no-op, not a twin.
+  const task = data as OwnerTask | null;
+  if (done && task?.repeat_rule && task.repeat_rule !== "none") {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+    const { error: repeatError } = await supabase.from("owner_tasks").insert({
+      body: task.body,
+      due_date: nextDueDate(task.due_date, task.repeat_rule, today),
+      source: "repeat",
+      assignee_id: task.assignee_id ?? null,
+      job_id: task.job_id ?? null,
+      repeat_rule: task.repeat_rule,
+      repeated_from: task.id,
+    });
+    if (repeatError && repeatError.code !== "23505") {
+      console.error("[tasks] could not make the next repeat:", repeatError.message);
+    }
+  }
   return { ok: true };
+}
+
+/** Who, which job, how often, and when (0057). Only the keys given change. */
+export async function updateOwnerTaskDetails(
+  id: string,
+  patch: { assigneeId?: string | null; jobId?: string | null; repeat?: string; dueDate?: string | null },
+): Promise<TaskUpdateResult> {
+  const supabase = db();
+  if (!supabase) return { ok: false, reason: "unconfigured" };
+  const update: Record<string, unknown> = {};
+  if ("assigneeId" in patch) update.assignee_id = patch.assigneeId || null;
+  if ("jobId" in patch) update.job_id = patch.jobId || null;
+  if (patch.repeat !== undefined) {
+    update.repeat_rule = (REPEAT_RULES as readonly string[]).includes(patch.repeat) ? patch.repeat : "none";
+  }
+  if ("dueDate" in patch) update.due_date = patch.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(patch.dueDate) ? patch.dueDate : null;
+  if (Object.keys(update).length === 0) return { ok: true };
+
+  const { error } = await supabase.from("owner_tasks").update(update).eq("id", id);
+  if (error) {
+    if (isMissingTable(error) || /column .* does not exist|schema cache/i.test(error.message)) {
+      return { ok: false, reason: "migration_pending", detail: "0057" };
+    }
+    return { ok: false, reason: "failed", detail: error.message };
+  }
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Matching a spoken sentence to an open task (ANA-10)
+// ---------------------------------------------------------------------------
+
+export type TaskMatch =
+  | { kind: "none" }
+  | { kind: "one"; task: OwnerTask }
+  | { kind: "many"; tasks: OwnerTask[] };
+
+/**
+ * Words that carry no meaning about WHICH task — both languages, because he
+ * dictates in either. Without this, "the Tremblay one" scores a hit on every
+ * task containing "the", and the matcher starts asking about tasks that share
+ * nothing but an article.
+ */
+const TASK_STOPWORDS = new Set([
+  "the", "and", "for", "that", "this", "with", "about", "one", "task", "thing",
+  "les", "des", "une", "pour", "avec", "chez", "dans", "cette", "tache",
+]);
+
+/** Lowercased, unaccented, split into words — the shape speech survives in. */
+function taskTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 2 && !TASK_STOPWORDS.has(word));
+}
+
+/**
+ * Which open task the owner means, from what he said.
+ *
+ * The same philosophy as contactMatch: fail towards asking. Ticking off the
+ * wrong task un-remembers something he still had to do, which is worse than
+ * any amount of "which one did you mean" — so a clear winner needs every
+ * meaningful spoken word to appear in exactly one task. Anything else is a
+ * question, never a guess. Pure, so the deciding is testable without a
+ * database.
+ */
+export function rankTaskMatches(spoken: string, tasks: OwnerTask[]): TaskMatch {
+  const wanted = taskTokens(spoken);
+  if (wanted.length === 0 || tasks.length === 0) return { kind: "none" };
+
+  const scored = tasks
+    .map((task) => {
+      const body = taskTokens(task.body);
+      const hits = wanted.filter((word) => body.some((b) => b.includes(word))).length;
+      return { task, hits, complete: hits === wanted.length };
+    })
+    .filter((entry) => entry.hits > 0)
+    .sort((a, b) => b.hits - a.hits);
+
+  if (scored.length === 0) return { kind: "none" };
+
+  const full = scored.filter((entry) => entry.complete);
+  if (full.length === 1) return { kind: "one", task: full[0].task };
+  if (full.length > 1) return { kind: "many", tasks: full.map((entry) => entry.task) };
+
+  // Nothing contained every word: offer the best partials rather than nothing,
+  // but never act on them.
+  return { kind: "many", tasks: scored.slice(0, 3).map((entry) => entry.task) };
 }

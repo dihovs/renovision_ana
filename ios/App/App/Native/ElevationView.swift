@@ -61,6 +61,10 @@ struct ElevationView: View {
     /// built, as `OpeningDetailView`'s Distance to Floor stepper.
     @Binding var openings: [PlanEditing.WallOpening]
     let ceilingHeight: Double
+    /// The ceiling's height along a wall (M6), start corner to end at even
+    /// steps, for a sloped, vaulted or bulkhead ceiling — nil when it is flat.
+    /// The face's top edge follows it; above it is not wall.
+    var ceilingTop: ((Int) -> [Double])? = nil
     let roomScanId: String
     /// Objects standing in the room. The ones against THIS wall are drawn on
     /// its face — the owner's ask, 18 Aug 2026: *"objects and toilets need
@@ -247,7 +251,16 @@ struct ElevationView: View {
         return PlanEditing.edgeLength(corners, edge)
     }
 
-    private var wallHeight: Double { max(ceilingHeight, 0.3) }
+    /// The heights along this wall's top edge, or nil for a flat ceiling.
+    private var topProfile: [Double]? {
+        guard let samples = ceilingTop?(edge), samples.count >= 2 else { return nil }
+        // A profile that is flat at the room height draws as it always did.
+        return samples.contains(where: { abs($0 - ceilingHeight) > 0.005 }) ? samples : nil
+    }
+
+    /// The face's full height: the ceiling, or the highest point of a shaped
+    /// one, so a gable's peak fits on the sheet.
+    private var wallHeight: Double { max(ceilingHeight, topProfile?.max() ?? 0, 0.3) }
 
     private var wallOpenings: [PlanEditing.WallOpening] {
         openings.filter { $0.edge == edge }
@@ -804,7 +817,19 @@ struct ElevationView: View {
                 let now = face.clampedFace(value.location)
 
                 if drawing {
-                    draft = FaceRect(a: start, b: now)
+                    // Square by default: a free-drag rectangle rarely comes
+                    // out the shape the operator meant, and the corners this
+                    // makes are still draggable afterward for anything that
+                    // needs to be a real rectangle.
+                    let dx = now.x - start.x
+                    let dy = now.y - start.y
+                    let side = max(abs(dx), abs(dy))
+                    let sx: CGFloat = dx < 0 ? -1 : 1
+                    let sy: CGFloat = dy < 0 ? -1 : 1
+                    let squared = CGPoint(
+                        x: min(max(start.x + sx * side, 0), CGFloat(face.length)),
+                        y: min(max(start.y + sy * side, 0), CGFloat(face.height)))
+                    draft = FaceRect(a: start, b: squared)
                     return
                 }
                 // Objects before openings: an object standing against the
@@ -1083,7 +1108,20 @@ struct ElevationView: View {
     /// hand", and reusing it means the operator learns it once.
     private func drawFace(context: GraphicsContext, face: Face) {
         let rect = face.rect
-        let outline = Path(rect)
+        // Under a shaped ceiling the face is the wall's real outline: the
+        // floor line, the two corners, and the ceiling's profile across the
+        // top — a slope, a gable's peak, a bulkhead's step.
+        var outline = Path(rect)
+        if let top = topProfile {
+            var shaped = Path()
+            shaped.move(to: face.point(0, 0))
+            shaped.addLine(to: face.point(face.length, 0))
+            for (k, h) in top.enumerated().reversed() {
+                shaped.addLine(to: face.point(face.length * Double(k) / Double(top.count - 1), h))
+            }
+            shaped.closeSubpath()
+            outline = shaped
+        }
         context.fill(outline, with: .color(Self.paper))
 
         // Model-space pitch, so the tiles hold their real size as a short
@@ -1117,8 +1155,15 @@ struct ElevationView: View {
         var edges = Path()
         edges.move(to: CGPoint(x: rect.minX, y: rect.maxY))
         edges.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        edges.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        edges.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        if let top = topProfile {
+            for (k, h) in top.enumerated() {
+                let p = face.point(face.length * Double(k) / Double(top.count - 1), h)
+                if k == 0 { edges.move(to: p) } else { edges.addLine(to: p) }
+            }
+        } else {
+            edges.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            edges.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        }
         context.stroke(edges, with: .color(Color(hex: 0x111111)), lineWidth: 1.6)
     }
 

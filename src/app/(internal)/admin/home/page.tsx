@@ -1,3 +1,4 @@
+import AskClaude from "@/components/admin/AskClaude";
 import Link from "next/link";
 import AdminNotice from "@/components/admin/AdminNotice";
 import HapticLink from "@/components/ui/HapticLink";
@@ -83,6 +84,15 @@ export default async function MobileHomePage() {
     <div className="space-y-6 pb-4">
       <h2 className="font-heading text-2xl font-bold text-charcoal">{greeting}, Artush</h2>
 
+      {/* ASK FIRST, WITHOUT GOING ANYWHERE. (ANA-22)
+          The heroes below are still the two things this app makes instant, but
+          both of them are a tap that changes screen first and asks second. The
+          most common thing to want on a job site is one question — "did she
+          ever confirm the tile", a photo of a wall with "what is this" — and
+          that should cost nothing but typing it. Type, dictate, or photograph
+          it here; the answer arrives on this screen. */}
+      <AskClaude startOpen title="Ask Ana" />
+
       {/* The two heroes. Talk to Ana and Call are the two things this app
           exists to make instant — both above the fold, both full-size, so
           neither is a smaller second choice under the other. */}
@@ -96,7 +106,7 @@ export default async function MobileHomePage() {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-heading text-xl font-bold text-white">Talk to Ana</span>
-            <span className="block text-sm text-white/70">Voice or typed — she knows the CRM</span>
+            <span className="block text-sm text-white/70">Hands-free — a real conversation</span>
           </span>
           <span className="shrink-0 text-white/60">
             <ChevronIcon />

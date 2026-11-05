@@ -11,6 +11,7 @@ import {
   squareMetersToSquareFeet,
   type RoomScanResult,
 } from "@/lib/roomScan";
+import { formatLength } from "@/lib/units";
 
 /**
  * A room from a tape measure.
@@ -190,7 +191,8 @@ function Field({
       ) : (
         preview !== null && (
           <p className="mt-1 text-[11px] tabular-nums text-charcoal/35">
-            {preview.toFixed(2)} m
+            {/* Read back in feet, the trade's unit — what was typed, parsed. */}
+            {formatLength(preview)}
           </p>
         )
       )}

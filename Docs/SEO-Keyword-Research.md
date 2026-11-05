@@ -104,6 +104,10 @@ page + Rive-Nord hub first).
 
 ## New pages/posts the data justifies
 
+These are now tracked, ordered and status-marked in `Docs/Content-Backlog.md`,
+which is the live queue. This section is the evidence behind it — keep it as the
+record of *why*, and edit the backlog for *what next*.
+
 A. Sous-sol inondé — quoi faire dans les 24 premières heures (Feb deadline)
 B. Chauffe-eau qui coule / tuyau gelé (publish Nov–Dec)
 C. Refoulement d'égout — assurance + l'après (avenant 42, clapet)

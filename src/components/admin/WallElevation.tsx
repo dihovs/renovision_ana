@@ -1,10 +1,9 @@
 import {
-  areaColor,
-  damageLabel,
   wallLengthM,
   type AffectedArea,
   type AreaPoint,
 } from "@/lib/crm/areaShapes";
+import { AFFECTED_AREA_FILL } from "./planPalette";
 import { formatArea, formatLength } from "@/lib/report/strings";
 import type { Locale } from "@/i18n/translations";
 
@@ -85,9 +84,9 @@ export default function WallElevation({
         <polygon
           key={area.id}
           points={area.polygon.map((p) => `${p.x},${fy(p.y)}`).join(" ")}
-          fill={areaColor(area)}
+          fill={AFFECTED_AREA_FILL}
           fillOpacity={0.28}
-          stroke={areaColor(area)}
+          stroke={AFFECTED_AREA_FILL}
           strokeWidth={0.02}
         />
       ))}
@@ -202,10 +201,12 @@ export function RoomElevations({
               <figcaption>
                 <strong>{wallWord} {index + 1}</strong>
                 <span>
+                  {/* The measurement alone. This ran
+                      `20,17 m² · Dégât d'eau, Autre` until the damage cause
+                      came out of the document; the separator went with the
+                      list rather than being left dangling after the figure. */}
                   {onWall.length > 0
-                    ? `${formatArea(locale, sqm)} · ${onWall
-                        .map((area) => damageLabel(area.damage_type, locale))
-                        .join(", ")}`
+                    ? formatArea(locale, sqm)
                     : contextLabel ?? "Shown for context — no damage marked"}
                 </span>
               </figcaption>

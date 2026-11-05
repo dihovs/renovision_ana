@@ -3,6 +3,8 @@ import {
   areaColor,
   polygonAreaSqm,
   bySurface,
+  ceilingAreas,
+  planAreas,
   floorAreas,
   wallAreas,
   totalsByDamageType,
@@ -144,13 +146,30 @@ describe("splitting by surface", () => {
   const wetFloor = area({ id: "f1", surface: "floor", area_sqm: 10 });
   const wetWall = area({ id: "w1", surface: "wall", wall_index: 2, area_sqm: 6 });
   const mouldyWall = area({ id: "w2", surface: "wall", wall_index: 0, damage_type: "mould", area_sqm: 4 });
-  const mixed = [wetFloor, wetWall, mouldyWall];
+  const wetCeiling = area({ id: "c1", surface: "ceiling", area_sqm: 8 });
+  const mixed = [wetFloor, wetWall, mouldyWall, wetCeiling];
 
   it("keeps wall areas off the floor", () => {
     expect(floorAreas(mixed).map((a) => a.id)).toEqual(["f1"]);
   });
 
-  it("keeps floor areas off the walls", () => {
+  it("keeps ceiling areas off the floor", () => {
+    // The reason floorAreas is written as "is the floor" rather than "is not
+    // a wall": a ceiling answers "not a wall" too, and the negative form fed
+    // every ceiling to the floor rules — protection, covering removal,
+    // covering replacement, baseboard. A wet ceiling billed as a wet floor is
+    // the wrong trade at the wrong rate in a document that goes to an insurer.
+    expect(floorAreas(mixed).map((a) => a.id)).not.toContain("c1");
+    expect(ceilingAreas(mixed).map((a) => a.id)).toEqual(["c1"]);
+  });
+
+  it("draws the floor and the ceiling on the plan, and never the walls", () => {
+    // planAreas is the renderer's question — whose polygon is in plan
+    // metres — and the ceiling is the floor's plane seen from underneath.
+    expect(planAreas(mixed).map((a) => a.id)).toEqual(["f1", "c1"]);
+  });
+
+  it("keeps floor and ceiling areas off the walls", () => {
     expect(wallAreas(mixed).map((a) => a.id)).toEqual(["w2", "w1"]);
   });
 
@@ -167,12 +186,26 @@ describe("splitting by surface", () => {
     const legacy = { ...area({ id: "old" }), surface: undefined as unknown as "floor" };
     expect(floorAreas([legacy]).map((a) => a.id)).toEqual(["old"]);
     expect(wallAreas([legacy])).toHaveLength(0);
+    expect(ceilingAreas([legacy])).toHaveLength(0);
   });
 
-  it("splits both ways at once without losing or duplicating anything", () => {
-    const { floor, wall } = bySurface(mixed);
-    expect(floor.length + wall.length).toBe(mixed.length);
-    expect([...floor, ...wall].map((a) => a.id).sort()).toEqual(["f1", "w1", "w2"]);
+  it("splits every way at once without losing or duplicating anything", () => {
+    const { floor, wall, ceiling } = bySurface(mixed);
+    expect(floor.length + wall.length + ceiling.length).toBe(mixed.length);
+    expect([...floor, ...wall, ...ceiling].map((a) => a.id).sort()).toEqual([
+      "c1",
+      "f1",
+      "w1",
+      "w2",
+    ]);
+  });
+
+  it("never adds floor and ceiling square footage together", () => {
+    // 10 sq m of wet floor and 8 of wet ceiling is not 18 sq m of anything —
+    // and these two are the pair that most looks addable, because they cover
+    // the same footprint. That is exactly why the sum double-counts.
+    expect(totalsByDamageType(floorAreas(mixed))).toEqual([{ type: "water", sqm: 10 }]);
+    expect(totalsByDamageType(ceilingAreas(mixed))).toEqual([{ type: "water", sqm: 8 }]);
   });
 
   it("never adds floor and wall square footage together", () => {
@@ -201,6 +234,7 @@ describe("totalsBySurface", () => {
     area({ id: "f3", surface: "floor", damage_type: "fire", area_sqm: 3 }),
     area({ id: "w1", surface: "wall", wall_index: 1, damage_type: "water", area_sqm: 6 }),
     area({ id: "w2", surface: "wall", wall_index: 0, damage_type: "mould", area_sqm: 4 }),
+    area({ id: "c1", surface: "ceiling", damage_type: "water", area_sqm: 8 }),
   ];
 
   it("totals each surface separately, by cause", () => {
@@ -213,6 +247,7 @@ describe("totalsBySurface", () => {
         { type: "water", sqm: 6 },
         { type: "mould", sqm: 4 },
       ],
+      ceiling: [{ type: "water", sqm: 8 }],
     });
   });
 
@@ -220,12 +255,13 @@ describe("totalsBySurface", () => {
     const split = totalsBySurface(mixed);
     expect(split.floor).toEqual(totalsByDamageType(floorAreas(mixed)));
     expect(split.wall).toEqual(totalsByDamageType(wallAreas(mixed)));
+    expect(split.ceiling).toEqual(totalsByDamageType(ceilingAreas(mixed)));
   });
 
-  it("counts every square metre exactly once, on one surface or the other", () => {
+  it("counts every square metre exactly once, on exactly one surface", () => {
     const sum = (totals: { sqm: number }[]) => totals.reduce((t, row) => t + row.sqm, 0);
-    const { floor, wall } = totalsBySurface(mixed);
-    expect(sum(floor) + sum(wall)).toBeCloseTo(25.5, 6);
+    const { floor, wall, ceiling } = totalsBySurface(mixed);
+    expect(sum(floor) + sum(wall) + sum(ceiling)).toBeCloseTo(33.5, 6);
   });
 
   it("gives an empty list for a surface with nothing on it", () => {
@@ -236,8 +272,9 @@ describe("totalsBySurface", () => {
     expect(totalsBySurface(floorOnly)).toEqual({
       floor: [{ type: "water", sqm: 4 }],
       wall: [],
+      ceiling: [],
     });
-    expect(totalsBySurface([])).toEqual({ floor: [], wall: [] });
+    expect(totalsBySurface([])).toEqual({ floor: [], wall: [], ceiling: [] });
   });
 
   it("counts a legacy row with no surface as floor", () => {
@@ -247,6 +284,7 @@ describe("totalsBySurface", () => {
     expect(totalsBySurface([legacy])).toEqual({
       floor: [{ type: "water", sqm: 7 }],
       wall: [],
+      ceiling: [],
     });
   });
 });

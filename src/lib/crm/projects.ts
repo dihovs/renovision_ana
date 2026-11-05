@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { db, isEmbedFailure, isMissingTable, MigrationPendingError } from "./db";
 import { clientDisplayName } from "./types";
 import { listRoomScans } from "./roomScans";
+import { cardRooms } from "../cardRooms";
 
 /**
  * Projects and their file library.
@@ -229,10 +230,10 @@ export function sanitizeContentType(type: string | undefined | null): string {
  * explicitly, which is the one way to see them.
  */
 export async function listProjects(
-  options: { status?: ProjectStatus; limit?: number } = {},
+  options: { status?: ProjectStatus; clientId?: string; limit?: number } = {},
 ): Promise<ProjectListItem[]> {
   const client = requireDb();
-  const { status, limit = 200 } = options;
+  const { status, clientId, limit = 200 } = options;
 
   /**
    * Built twice on purpose. The rich form embeds the client, the files and
@@ -248,7 +249,10 @@ export async function listProjects(
       .select(select)
       .order("updated_at", { ascending: false })
       .limit(limit);
-    return status ? q.eq("status", status) : q.neq("status", "archived");
+    // The client hub's Projects section passes clientId; everywhere else
+    // lists the whole book.
+    const scoped = clientId ? q.eq("client_id", clientId) : q;
+    return status ? scoped.eq("status", status) : scoped.neq("status", "archived");
   };
 
   const SCAN_FIELDS = "name, floor_area_sqm, geometry, level, plan_x, plan_y";
@@ -358,11 +362,10 @@ export async function listProjects(
       last_activity: last,
       room_count: scans.length,
       largest_room: largest ? { name: largest.name, geometry: largest.geometry } : null,
-      // Capped: a thumbnail is ~130pt across and a room past the first dozen
-      // is a few pixels, but every geometry blob travels over a job-site
-      // connection for EVERY card in the list. Twelve is the point past
-      // which payload costs more than the picture is worth.
-      floor_rooms: busiest.slice(0, 12).map((scan) => ({
+      // Capped: a thumbnail is ~130pt across, but every geometry blob
+      // travels over a job-site connection for EVERY card in the list. See
+      // `cardRooms` for why the cap is 24 and which rooms it keeps.
+      floor_rooms: cardRooms(busiest).map((scan) => ({
         geometry: scan.geometry,
         plan_x: scan.plan_x,
         plan_y: scan.plan_y,
@@ -819,6 +822,26 @@ export async function updateProjectStatus(id: string, status: ProjectStatus): Pr
     })
     .eq("id", id);
   if (error) throw new Error(`Could not update the project: ${error.message}`);
+}
+
+/**
+ * The project a job is attached to, if any. (ANA-14)
+ *
+ * The read half of attachJob below. A job on this CRM can exist without a
+ * project — plenty do — so null is an ordinary answer meaning "no floor plans,
+ * no drying log", not a failure.
+ */
+export async function projectForJob(jobId: string): Promise<string | null> {
+  const client = db();
+  if (!client) return null;
+  const { data, error } = await client
+    .from("project_jobs")
+    .select("project_id")
+    .eq("job_id", jobId)
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { project_id: string } | null)?.project_id ?? null;
 }
 
 export async function attachJob(projectId: string, jobId: string): Promise<void> {

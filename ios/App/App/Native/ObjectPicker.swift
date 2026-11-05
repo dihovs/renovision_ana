@@ -48,6 +48,12 @@ struct ObjectLibraryPicker: View {
     /// to dismiss it from inside) and into the storey editor's real
     /// `$capturing` sheet binding, closing the entire scan.
     var selfDismisses: Bool = true
+    /// What the scanner thinks this is, likeliest FIRST, then the rest of
+    /// its family — shown above everything else as "Looks like a bathtub".
+    /// Empty everywhere but a detection tapped mid-scan.
+    var suggested: [LibraryItem] = []
+    /// The scanner's own word for it ("Bathtub"), for that heading.
+    var suggestedLabel: String = ""
     /// Kept LAST so every other call site's trailing-closure syntax
     /// (`ObjectLibraryPicker(context: .wall) { item in ... }`) keeps
     /// compiling unchanged.
@@ -100,6 +106,27 @@ struct ObjectLibraryPicker: View {
                         }
                     }
                 } else {
+                    if !suggested.isEmpty {
+                        Section {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(alignment: .top, spacing: Brand.Space.small) {
+                                    ForEach(Array(suggested.enumerated()), id: \.element.id) { index, item in
+                                        Button { pick(item) } label: {
+                                            SuggestedTile(item: item, best: index == 0)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.vertical, 6)
+                            }
+                            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 0))
+                        } header: {
+                            Text(suggestedLabel.isEmpty ? "Looks like" : "Looks like: \(suggestedLabel)")
+                        } footer: {
+                            Text("The scanner's best guess comes first. Not it? Everything else is below.")
+                        }
+                    }
+
                     if !recent.isEmpty {
                         Section {
                             ScrollView(.horizontal, showsIndicators: false) {
@@ -354,6 +381,47 @@ struct LibraryTile: View {
     private var favourite: Bool {
         _ = version
         return ObjectHabits.isFavourite(item.id)
+    }
+}
+
+/// One tile in the "Looks like" row. The scanner's best guess is drawn
+/// bigger, ringed in brand blue and tagged, so the one-tap answer is the
+/// obvious one; its family sits beside it at the library's usual size.
+struct SuggestedTile: View {
+    let item: LibraryItem
+    let best: Bool
+
+    var body: some View {
+        let side: CGFloat = best ? 116 : 96
+        VStack(spacing: Brand.Space.tight) {
+            ZStack(alignment: .topLeading) {
+                ZStack {
+                    Brand.surfaceRaised
+                    LibraryArt(item: item).padding(6)
+                }
+                .frame(width: side, height: side * 0.86)
+                .clipShape(.rect(cornerRadius: Brand.Radius.tile))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Brand.Radius.tile)
+                        .strokeBorder(best ? Brand.blue : Color.clear, lineWidth: 2.5))
+                if best {
+                    Text("BEST GUESS")
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Brand.blue, in: .capsule)
+                        .padding(6)
+                }
+            }
+            Text(item.name)
+                .font(.system(size: 12, weight: best ? .bold : .semibold))
+                .foregroundStyle(best ? Brand.blue : Brand.ink)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: side, height: 30, alignment: .top)
+        }
     }
 }
 

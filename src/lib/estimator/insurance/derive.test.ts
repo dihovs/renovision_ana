@@ -208,6 +208,34 @@ describe("wall rules", () => {
     expect(paint[0].quantity).toBeCloseTo(sqmToSqFt(19.2), 1);
     expect(paint[0].note).toBeTruthy();
   });
+
+  it("takes the ceiling with the walls, at the floor area", () => {
+    const lines = deriveLines(context({ rooms: [wallRoom] }));
+    const ceiling = byRule(lines, "ceiling.paint");
+    expect(ceiling).toHaveLength(1);
+    expect(ceiling[0].itemCode).toBe("PNT-CEIL-2");
+    expect(ceiling[0].tradeSection).toBe("ceiling");
+    // The ceiling's quantity is the floor area, not the wall area.
+    expect(ceiling[0].quantity).toBeCloseTo(sqmToSqFt(5), 1);
+    expect(ceiling[0].note).toBeTruthy();
+  });
+
+  it("paints the ceiling off ceiling damage alone, at the floor area", () => {
+    const ceilingRoom = room({
+      affectedAreas: [area({ surface: "ceiling", area_sqm: 2 })],
+    });
+    const lines = deriveLines(context({ rooms: [ceilingRoom] }));
+    const ceiling = byRule(lines, "ceiling.paint");
+    expect(ceiling).toHaveLength(1);
+    // The whole ceiling, not the 2 m2 patch — a ceiling coat cannot be cut in.
+    expect(ceiling[0].quantity).toBeCloseTo(sqmToSqFt(5), 1);
+  });
+
+  it("leaves the ceiling alone when only the floor is damaged", () => {
+    const floorOnly = room({ affectedAreas: [area({ surface: "floor", area_sqm: 3 })] });
+    const lines = deriveLines(context({ rooms: [floorOnly] }));
+    expect(byRule(lines, "ceiling.paint")).toHaveLength(0);
+  });
 });
 
 describe("object rules", () => {

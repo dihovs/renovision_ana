@@ -6,6 +6,7 @@ import { inputClass, labelClass } from "./AddressFields";
 import type { JobState } from "@/app/(internal)/admin/jobs/actions";
 import type { ConversionState } from "@/lib/crm/conversions";
 import { formatMoney, formatQuantity, lineTotalCents } from "@/lib/crm/money";
+import VisitCrewPicker, { type CrewChip } from "./VisitCrewPicker";
 import { JOB_STATUS_LABEL, type DocumentLine, type JobStatus, type Visit } from "@/lib/crm/opsTypes";
 
 /**
@@ -33,6 +34,9 @@ export default function JobDetail({
   scheduleNextAction,
   recurrenceSlot,
   checklistSlot,
+  crew = {},
+  team = [],
+  setCrewAction,
 }: {
   jobId: string;
   status: JobStatus;
@@ -52,6 +56,11 @@ export default function JobDetail({
   // rather than props keep this file out of the recurrence business entirely.
   recurrenceSlot?: React.ReactNode;
   checklistSlot?: React.ReactNode;
+  /** visitId → who is on it (migration 0054); empty before it runs. */
+  crew?: Record<string, CrewChip[]>;
+  /** Active team members, for the crew picker. */
+  team?: CrewChip[];
+  setCrewAction?: (visitId: string, memberIds: string[]) => Promise<void>;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -234,9 +243,24 @@ export default function JobDetail({
                     </span>
                   )}
                 </span>
-                <span className="block text-xs text-charcoal/55">{formatVisit(visit)}</span>
+                <span className="block text-xs text-charcoal/55">
+                  {formatVisit(visit)}
+                  {visit.status === "dispatched" && !visit.completed_at && (
+                    <span className="ml-2 rounded-full bg-brand-blue/[0.08] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-blue">
+                      Crew told
+                    </span>
+                  )}
+                </span>
                 {visit.notes && (
                   <span className="mt-0.5 block text-xs text-charcoal/50">{visit.notes}</span>
+                )}
+                {setCrewAction && (
+                  <VisitCrewPicker
+                    key={(crew[visit.id] ?? []).map((m) => m.id).join(",")}
+                    assigned={crew[visit.id] ?? []}
+                    team={team}
+                    save={(ids) => setCrewAction(visit.id, ids)}
+                  />
                 )}
               </div>
 

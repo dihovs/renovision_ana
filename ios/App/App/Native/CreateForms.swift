@@ -235,6 +235,15 @@ struct Field: View {
     var placeholder: String = ""
     var keyboard: UIKeyboardType = .default
     var lines: Int = 1
+    /// For a number that is REPLACED rather than edited, like a room's width.
+    /// Tapping the field empties it and shows the old value as the hint, and
+    /// leaving it empty puts the old value back. Without this, typing 18' 8
+    /// into a field holding 12 made "1218' 8" — a 12,187 sq ft room (found
+    /// drawing the owner's second reference plan, 11 Oct 2026).
+    var clearsOnFocus = false
+
+    @FocusState private var focused: Bool
+    @State private var before: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Brand.Space.tight) {
@@ -248,7 +257,20 @@ struct Field: View {
                     TextField(placeholder, text: $text, axis: .vertical)
                         .lineLimit(lines...lines)
                 } else {
-                    TextField(placeholder, text: $text)
+                    TextField(before ?? placeholder, text: $text)
+                }
+            }
+            .focused($focused)
+            .onChange(of: focused) { _, isFocused in
+                guard clearsOnFocus else { return }
+                if isFocused {
+                    before = text
+                    text = ""
+                } else {
+                    if text.trimmingCharacters(in: .whitespaces).isEmpty, let before {
+                        text = before
+                    }
+                    before = nil
                 }
             }
             .font(.system(size: 16))

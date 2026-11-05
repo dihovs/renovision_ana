@@ -64,7 +64,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const surface = body.surface === "wall" ? "wall" : "floor";
+  // Anything unrecognised lands on the floor, which is where every row
+  // written before surfaces existed already sits.
+  const surface =
+    body.surface === "wall" ? "wall" : body.surface === "ceiling" ? "ceiling" : "floor";
   const damageType = DAMAGE_TYPES.includes(body.damageType as DamageType)
     ? (body.damageType as DamageType)
     : "water";

@@ -189,3 +189,111 @@ export const WATER_DAMAGE_FAQ: Record<Locale, FaqItem[]> = {
     },
   ],
 };
+
+/**
+ * Main services listing page. These five Q&As answer the broad discovery
+ * queries that don't belong to a single service page — response time,
+ * insurance, warranty, service area, scope of work.
+ */
+export const SERVICES_PAGE_FAQ: Record<Locale, FaqItem[]> = {
+  en: [
+    {
+      question: "How fast can you respond to a water damage emergency?",
+      answer:
+        "Our line is answered 24/7. For a water damage emergency in Laval or Montreal, we dispatch a crew the same day. Response time depends on distance, but emergency calls are always prioritized.",
+    },
+    {
+      question: "Do you work with my insurance company?",
+      answer:
+        "Yes. We document damage with photos and moisture readings from the first visit and provide a written scope your adjuster can process without a follow-up call. We don't decide what your policy covers, but we make sure your file has everything it needs.",
+    },
+    {
+      question: "Do you offer a warranty on your work?",
+      answer:
+        "Yes. Every project comes with a one-year written workmanship warranty. General liability insurance is in place on every job, with certificates available on request.",
+    },
+    {
+      question: "Do you serve all of Laval and Montreal?",
+      answer:
+        "Yes. We cover all of Laval (Chomedey, Sainte-Rose, Vimont, Fabreville, Duvernay, Laval-des-Rapides, Pont-Viau) and several Montreal sectors (Ahuntsic-Cartierville, Saint-Laurent, Montréal-Nord, LaSalle) as well as Terrebonne and the North Shore. Each sector has its own housing characteristics — we adapt our methods to the construction type.",
+    },
+    {
+      question: "Do you also do renovations that aren't linked to a disaster?",
+      answer:
+        "Yes. We do full interior renovations: kitchens, bathrooms, basements, flooring, drywall, painting. Everything inside the walls.",
+    },
+  ],
+  fr: [
+    {
+      question: "Quels sont vos délais d'intervention pour un dégât d'eau ?",
+      answer:
+        "Notre ligne est répondue 24/7. Pour une urgence dégât d'eau à Laval ou Montréal, on envoie une équipe le jour même. Le délai dépend de la distance, mais on priorise toujours les appels d'urgence.",
+    },
+    {
+      question: "Travaillez-vous avec mon assureur ?",
+      answer:
+        "Oui. Nous documentons les dégâts avec photos et relevés d'humidité dès la première visite, et fournissons une portée écrite que votre expert en sinistre peut traiter sans appel de suivi. Nous ne décidons pas ce que votre police couvre, mais nous faisons en sorte que votre dossier contienne tout ce qu'il faut.",
+    },
+    {
+      question: "Offrez-vous une garantie sur vos travaux ?",
+      answer:
+        "Oui. Chaque projet est accompagné d'une garantie écrite d'un an sur la main-d'œuvre. L'assurance responsabilité civile est en vigueur sur chaque chantier, avec attestations disponibles sur demande.",
+    },
+    {
+      question: "Desservez-vous tout Laval et Montréal ?",
+      answer:
+        "Oui. Nous couvrons l'ensemble de Laval (Chomedey, Sainte-Rose, Vimont, Fabreville, Duvernay, Laval-des-Rapides, Pont-Viau) et plusieurs secteurs de Montréal (Ahuntsic-Cartierville, Saint-Laurent, Montréal-Nord, LaSalle) ainsi que Terrebonne et la Rive-Nord. Chaque secteur a ses particularités — nous adaptons nos méthodes à son type de construction.",
+    },
+    {
+      question: "Faites-vous aussi la rénovation sans lien avec un sinistre ?",
+      answer:
+        "Oui. Nous faisons des rénovations intérieures complètes : cuisines, salles de bain, sous-sols, planchers, gypse, peinture. Tout ce qui se trouve à l'intérieur des murs.",
+    },
+  ],
+};
+export const FIRE_DAMAGE_FAQ: Record<Locale, FaqItem[]> = {
+  en: [
+    {
+      question: "Can anything be saved after a fire?",
+      answer:
+        "More than you might expect. Soot can be cleaned from most hard surfaces, smoke odour can be removed from textiles and wood with specialized treatment (ozone, thermal fogging), and water-damaged documents can often be restored through freeze-drying. The key is not throwing anything away before the adjuster and our team have assessed it — what looks unsalvageable in the first hour is frequently recoverable.",
+    },
+    {
+      question: "How long does it take to restore a home after a fire?",
+      answer:
+        "It depends on the extent of the fire, smoke, and water damage. A small kitchen fire confined to one room might be three to four weeks. A whole-house fire is typically several months. The drying phase after firefighting water sets the schedule — we don't start rebuilding until moisture readings confirm the structure is dry, because rebuilding over damp material traps problems.",
+    },
+    {
+      question: "Does insurance cover fire damage restoration?",
+      answer:
+        "Most Quebec home insurance policies cover fire damage, including the cost of cleanup, repair, and rebuilding. Your policy also typically covers emergency accommodations if the home is uninhabitable. What is covered exactly depends on your specific policy — call your insurer to confirm, and keep every receipt for immediate expenses.",
+    },
+    {
+      question: "Will my home smell like smoke after the repairs?",
+      answer:
+        "No — if the smoke odour is properly treated rather than painted over. Our process includes ozone treatment, thermal fogging, and surface cleaning that removes smoke residue rather than sealing it. If the odour is gone before the new paint goes on, it stays gone. A smoke smell that returns after repairs is nearly always the result of skipping the odour treatment step.",
+    },
+  ],
+  fr: [
+    {
+      question: "Peut-on sauver quelque chose après un incendie ?",
+      answer:
+        "Plus qu'on ne le croit. La suie se nettoie sur la plupart des surfaces dures, les odeurs de fumée se neutralisent dans les tissus et le bois (ozone, thermonébulisation), et les documents endommagés par l'eau se restaurent souvent par lyophilisation. L'important est de ne rien jeter avant que l'expert et notre équipe l'aient évalué : ce qui semble irrécupérable dans la première heure est souvent récupérable.",
+    },
+    {
+      question: "Combien de temps prend la restauration après un incendie ?",
+      answer:
+        "Cela dépend de l'étendue du feu, de la fumée et des dégâts d'eau. Un petit feu de cuisine confiné à une pièce peut prendre de trois à quatre semaines. Un incendie qui touche toute la maison prend généralement plusieurs mois. La phase de séchage après l'eau d'extinction commande l'échéancier — nous ne commençons pas la reconstruction avant que les relevés d'humidité confirment que la structure est sèche, parce que reconstruire sur un matériau humide emprisonne les problèmes.",
+    },
+    {
+      question: "L'assurance couvre-t-elle la restauration après incendie ?",
+      answer:
+        "La plupart des polices d'assurance habitation au Québec couvrent les dommages causés par le feu, y compris le nettoyage, la réparation et la reconstruction. Votre police couvre aussi généralement l'hébergement d'urgence si la maison est inhabitable. Ce qui est exactement couvert dépend de votre police — appelez votre assureur pour confirmer, et conservez tous les reçus pour les dépenses immédiates.",
+    },
+    {
+      question: "Est-ce que ma maison sentira la fumée après les réparations ?",
+      answer:
+        "Non — si l'odeur de fumée est correctement traitée plutôt que peinte par-dessus. Notre processus inclut le traitement à l'ozone, la thermonébulisation et le nettoyage des surfaces, qui éliminent les résidus de fumée plutôt que de les sceller. Si l'odeur disparaît avant la nouvelle peinture, elle ne revient pas. Une odeur de fumée qui réapparaît après les réparations est presque toujours le signe que l'étape de désodorisation a été sautée.",
+    },
+  ],
+};

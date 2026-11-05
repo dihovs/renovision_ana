@@ -1,7 +1,9 @@
 import AdminNotice from "@/components/admin/AdminNotice";
 import CallTaskList, { type CallTaskView } from "@/components/admin/CallTaskList";
 import TaskList from "./TaskList";
-import { cancelCallTaskAction, setTaskDoneAction } from "./actions";
+import { cancelCallTaskAction, saveTaskDetailsAction, setTaskDoneAction } from "./actions";
+import { listJobs } from "@/lib/crm/jobs";
+import { listTeamMembers } from "@/lib/crm/team";
 import { listRecentCallTasks, type CallTask } from "@/lib/crm/callTasks";
 import { db } from "@/lib/crm/db";
 import { loadOwnerTasks, type TaskLoadResult } from "@/lib/crm/tasks";
@@ -40,6 +42,21 @@ export default async function TasksPage() {
 
   const calls = callResult.ok ? await withContacts(callResult.tasks) : [];
 
+  // For the per-task "who / which job" picker (0053, 0057). Both optional:
+  // before those migrations the list simply has no picker.
+  const [people, jobs] = await Promise.all([
+    listTeamMembers()
+      .then((list) => list.map((m) => ({ id: m.id, name: m.display_name })))
+      .catch(() => [] as { id: string; name: string }[]),
+    listJobs({ limit: 100 })
+      .then((list) =>
+        list
+          .filter((j) => j.status !== "complete" && j.status !== "cancelled")
+          .map((j) => ({ id: j.id, label: `#${j.job_number}${j.title ? ` · ${j.title}` : ""}` })),
+      )
+      .catch(() => [] as { id: string; label: string }[]),
+  ]);
+
   return (
     <div className="space-y-8">
       <section>
@@ -59,7 +76,7 @@ export default async function TasksPage() {
           title="Notes"
           blurb="Two ways in, one list. Typed into the task bar at the top of any screen, or said out loud to Ana on the phone — he calls, gives his PIN, and tells her the thing he would otherwise forget by the time he is off the roof. Rows that came in by phone are marked."
         />
-        <NoteSection result={noteResult} today={today} />
+        <NoteSection result={noteResult} today={today} people={people} jobs={jobs} />
       </section>
     </div>
   );
@@ -163,7 +180,17 @@ function CallFailure({ result }: { result: { reason: string; detail?: string } }
   );
 }
 
-function NoteSection({ result, today }: { result: TaskLoadResult; today: string }) {
+function NoteSection({
+  result,
+  today,
+  people,
+  jobs,
+}: {
+  result: TaskLoadResult;
+  today: string;
+  people: { id: string; name: string }[];
+  jobs: { id: string; label: string }[];
+}) {
   if (!result.ok) {
     if (result.reason === "unconfigured") {
       return (
@@ -202,5 +229,14 @@ function NoteSection({ result, today }: { result: TaskLoadResult; today: string 
     );
   }
 
-  return <TaskList tasks={result.tasks} today={today} setDone={setTaskDoneAction} />;
+  return (
+    <TaskList
+      tasks={result.tasks}
+      today={today}
+      setDone={setTaskDoneAction}
+      people={people}
+      jobs={jobs}
+      saveDetails={saveTaskDetailsAction}
+    />
+  );
 }

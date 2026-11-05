@@ -18,10 +18,13 @@ export default function ProjectForm({
   action,
   clients,
   cancelHref,
+  defaultClientId = "",
 }: {
   action: (prev: ProjectFormState, formData: FormData) => Promise<ProjectFormState>;
   clients: { id: string; label: string }[];
   cancelHref: string;
+  /** Preset from `?client=` when the form is opened from a client hub. */
+  defaultClientId?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {} as ProjectFormState);
   const id = useId();
@@ -65,7 +68,7 @@ export default function ProjectForm({
             <label htmlFor={`${id}-client`} className={labelClass}>
               Client
             </label>
-            <select id={`${id}-client`} name="clientId" defaultValue="" className={inputClass}>
+            <select id={`${id}-client`} name="clientId" defaultValue={defaultClientId} className={inputClass}>
               <option value="">No client yet</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>

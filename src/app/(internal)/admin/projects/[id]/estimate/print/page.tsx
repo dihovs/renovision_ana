@@ -7,7 +7,8 @@ import { getCompany } from "@/lib/crm/settings";
 import { listRoomScans } from "@/lib/crm/roomScans";
 import { listProjectAffectedAreas } from "@/lib/crm/affectedAreas";
 import { listProjectObjects } from "@/lib/crm/roomObjects";
-import { areaColor } from "@/lib/crm/areaShapes";
+import { planAreas } from "@/lib/crm/areaShapes";
+import { AFFECTED_AREA_FILL } from "@/components/admin/planPalette";
 import type { ScanGeometry } from "@/lib/roomScan";
 import {
   savedFloorAreaSquareMeters,
@@ -104,15 +105,15 @@ export default async function EstimatePrintPage({
         depthM: object.depth,
       }));
 
-  // Floor areas only. A wall area's polygon lives in its wall's own face
-  // space and would be drawn as nonsense on a plan.
-  const floorAreasFor = (scanId: string) =>
-    allAreas
-      .filter(
-        (area) =>
-          area.room_scan_id === scanId && area.surface !== "wall" && area.polygon.length >= 3,
-      )
-      .map((area) => ({ id: area.id, polygon: area.polygon, color: areaColor(area) }));
+  // Plan-space areas only — the floor and the ceiling, which share the
+  // plan's metres. A wall area's polygon lives in its wall's own face space
+  // and would be drawn as nonsense on a plan.
+  const planAreasFor = (scanId: string) =>
+    planAreas(allAreas)
+      .filter((area) => area.room_scan_id === scanId && area.polygon.length >= 3)
+      // One colour for every patch, matching the restoration report — the
+      // damage cause is not stated on a printed document any more.
+      .map((area) => ({ id: area.id, polygon: area.polygon, color: AFFECTED_AREA_FILL }));
 
   const scanById = new Map(scans.map((scan) => [scan.id, scan]));
 
@@ -123,8 +124,9 @@ export default async function EstimatePrintPage({
     floorAreaSqm: savedFloorAreaSquareMeters(scan as unknown as SavedScan),
     planX: scan.plan_x === null ? null : Number(scan.plan_x),
     planY: scan.plan_y === null ? null : Number(scan.plan_y),
-    areas: floorAreasFor(scan.id),
+    areas: planAreasFor(scan.id),
     objects: planObjectsFor(scan.id),
+    openWalls: scan.open_walls,
   }));
 
   const settings = trailerSettings(estimate);
@@ -233,7 +235,8 @@ export default async function EstimatePrintPage({
                     variant="thumb"
                     locale="fr"
                     objects={planObjectsFor(scan.id)}
-                    areas={floorAreasFor(scan.id)}
+                    areas={planAreasFor(scan.id)}
+                    openWalls={scan.open_walls}
                   />
                 </div>
                 <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-0.5 text-[11px] tabular-nums sm:grid-cols-3">

@@ -1,3 +1,4 @@
+import { curvedRing } from "./arc";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { chainOutline } from "./wallChain";
 
@@ -20,8 +21,33 @@ export type RoomScanWall = {
   centerZ: number;
   axisX: number;
   axisZ: number;
+  /** True when `lengthMeters`/`centerX`/`centerZ` were corrected against the
+      LiDAR mesh rather than left as RoomPlan's own simplified fit — see
+      `WallMeshRefinement.swift`. Absent on a scan saved before this field
+      existed, and on a wall the mesh did not support a confident correction
+      for (not every wall gets enough mesh coverage), which is why this is
+      an audit flag rather than something arithmetic depends on: every wall
+      always has a `lengthMeters`, refined or not. */
+  meshRefined?: boolean;
+  /** Height of the bottom of a door/window/opening above the floor, metres —
+      a window's sill. From the phone since 3 Nov 2026; absent on walls and
+      on older scans. Twin: `Surface.bottomMeters` in ScanPayload.swift. */
+  bottomMeters?: number;
+  /** RoomPlan's own host wall for this opening (a wall's `detectionId`).
+      Absent on older scans, where the host is still found by distance. */
+  parentWallId?: string;
 };
 export type RoomScanFloor = { areaSquareMeters: number };
+
+/** Measured under a shaped ceiling — twin of `ScanGeometry.CeilingFigures`. */
+export type CeilingFigures = {
+  volumeCbm: number;
+  grossWallSqm: number;
+  ceilingSurfaceSqm: number;
+  meanHeightM: number;
+  minHeightM: number;
+  maxHeightM: number;
+};
 
 /** A door or window, positioned the same way a wall is so the plan can cut
     it into the wall it sits in rather than drawing an unbroken box. */
@@ -73,10 +99,71 @@ export type ScanGeometry = RoomScanResult & {
       Replaces the walls for drawing purposes — but only for drawing; the
       sensor's own record stays underneath, untouched. */
   editedPolygon?: { x: number; y: number }[];
+  /** The floor's own boundary, traced from the LiDAR mesh directly rather
+      than derived from RoomPlan's wall list — see
+      `WallMeshRefinement.swift`'s sibling `FloorMeshRefinement.swift`. In
+      raw world metres, the same frame the walls' own `centerX`/`centerZ`
+      already live in. Handed over unconditionally by the phone; `toFloorPlan`
+      below is what decides whether to trust it, by comparing its area
+      against the wall-chained one — the Swift twin is
+      `FloorPlanGeometry.plan(from:)`, and the two gates must agree. */
+  /** Curved walls (floor-plan spec §10, M5): edge i of `editedPolygon`
+      bulges this many metres, + away from the room, − into it. Absent or 0
+      is straight. See src/lib/arc.ts. */
+  edgeBulge?: number[];
+  /** The outline the phone worked out from this scan's walls when it was
+      taken (floor-plan spec §8, M11: walls chained into the cheapest closed
+      loop, then squared) — in `toFloorPlan`'s own normalised frame. When
+      present it IS the room's outline, ahead of the old chain and the mesh
+      trace. Absent on scans taken before 4 Nov 2026, which keep theirs. */
+  importedOutline?: { x: number; y: number }[];
+  /** The ceiling's shape (floor-plan spec §11, M6) — flat, sloped, vaulted
+      or zones, by edge number. Written by the phone; see ScanPayload.swift
+      `CeilingRecord`. Absent is flat at `ceiling_height_m`. */
+  ceilingProfile?: Record<string, unknown>;
+  /** What the phone measured under that ceiling when the room was saved. */
+  ceilingFigures?: CeilingFigures;
+  meshFloorPolygon?: { x: number; y: number }[];
   /** Which edge lengths were TYPED rather than measured, by editedPolygon
       edge index — edge i runs from point i to point i+1, wrapping. */
   lockedEdges?: number[];
   editedAt?: string;
+  /**
+   * Door/window openings for a HAND-TRACED outline, in the SAME frame as
+   * `editedPolygon` (before the plan is shifted to its own origin).
+   *
+   * The edited-polygon path has always drawn no openings at all — the
+   * comment on `toFloorPlan` explains why: the sensor's own doors are
+   * positioned against the SCAN's walls, and a corrected outline can move
+   * or drop a wall that door was cut from, so replaying the old position
+   * would put a door on a wall that no longer exists. That reasoning does
+   * not apply here: an opening the OPERATOR placed while tracing the
+   * outline is already in the traced outline's own frame, by construction,
+   * and there is nothing left to disagree with.
+   *
+   * A traced outline with no doors drawn on it reads as a floor plan of a
+   * sealed room, which is a worse approximation than a rectangle that at
+   * least admits it is schematic — so a caller tracing a polygon from a
+   * source sketch by hand (no sensor, no scan) can supply the door/window
+   * positions it read off the same sketch, and the plan draws them.
+   */
+  editedOpenings?: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    kind: "door" | "window" | "opening";
+    /** Which jamb the door hangs on — the same two choices the phone's door
+        editor gives ("Hinge: start / end of wall"). Absent: the renderer's
+        own guess. */
+    hinge?: "start" | "end";
+    /** Whether the leaf swings into this room or out of it ("Opens: into /
+        out of this room"). Absent: into the room. A traced sketch can say
+        both: Polygon's Hymus sketch hangs the bathroom door on the laundry
+        side and swings the entry door out to the corridor, and a plan that
+        cannot draw that disagrees with the drawing it was traced from. */
+    opens?: "in" | "out";
+  }[];
 };
 
 type RoomScanBridge = {
@@ -235,6 +322,9 @@ export type SavedScan = {
   room_type?: string | null;
   /** Hand-set 0-100 living-area override, or null for the type's default. */
   living_percent?: number | null;
+  /** Edges with no wall on them — open into the next room (lib/openWalls.ts).
+      Drawn dashed, and already out of `wall_length_m` on the server. */
+  open_walls?: number[];
 };
 
 /** Every room saved on a project, in walking order within each floor. */
@@ -271,6 +361,28 @@ export async function updateSavedScan(
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? "Could not save the change.");
   }
+}
+
+/**
+ * Open or close one side of a room. Returns the room's new stored perimeter
+ * (the run of wall that is left), or null when the room has no walls to
+ * measure. The server recomputes it, so a caller never does this arithmetic.
+ */
+export async function setWallOpen(
+  roomScanId: string,
+  wallIndex: number,
+  open: boolean,
+): Promise<number | null> {
+  const response = await fetch(`/api/v1/scans/${encodeURIComponent(roomScanId)}/walls`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ wallIndex, isOpen: open }),
+  });
+  const body = (await response.json().catch(() => null)) as
+    | { error?: string; perimeterM?: number | null }
+    | null;
+  if (!response.ok) throw new Error(body?.error ?? "Could not save that wall.");
+  return body?.perimeterM ?? null;
 }
 
 export async function deleteSavedScan(id: string): Promise<void> {
@@ -456,9 +568,16 @@ export function savedFloorAreaSquareMeters(scan: SavedScan): number {
   return columnOr(scan.floor_area_sqm, () => totalFloorAreaSquareMeters(scan.geometry));
 }
 
-/** Perimeter of a saved room — the corrected one, when the plan was edited. */
+/** Perimeter of a saved room — the corrected one, when the plan was edited,
+    and the run of wall only: open sides are already out of the column
+    (lib/openWalls.ts). One case the zero-means-absent rule above would get
+    wrong: a room open on EVERY side genuinely has no wall, so its column is
+    a true 0 — and a room carrying open sides with a 0 column is that room,
+    not an old row, so it reads 0 rather than falling back to the outline. */
 export function savedPerimeterMeters(scan: SavedScan): number {
-  return columnOr(scan.wall_length_m, () => totalWallLengthMeters(scan.geometry));
+  return columnOr(scan.wall_length_m, () =>
+    scan.open_walls && scan.open_walls.length > 0 ? 0 : totalWallLengthMeters(scan.geometry),
+  );
 }
 
 export function savedCeilingHeightMeters(scan: SavedScan): number {
@@ -469,13 +588,24 @@ export function savedCeilingHeightMeters(scan: SavedScan): number {
     detected openings still deducted from net — correcting an outline does
     not take the doors out of the walls. */
 export function savedWallAreaSquareMeters(scan: SavedScan): { gross: number; net: number } {
-  const gross = savedPerimeterMeters(scan) * savedCeilingHeightMeters(scan);
+  // Under a sloped, vaulted or zoned ceiling (M6) the walls are not all one
+  // height; the phone measured them wall by wall when the room was saved.
+  const figured = scan.geometry?.ceilingFigures?.grossWallSqm;
+  const gross =
+    typeof figured === "number" && figured > 0
+      ? figured
+      : savedPerimeterMeters(scan) * savedCeilingHeightMeters(scan);
   const net = Math.max(0, gross - openingAreaSquareMeters(scan.geometry));
   return { gross, net };
 }
 
 export type PlanSegment = { x1: number; y1: number; x2: number; y2: number };
-export type PlanOpening = PlanSegment & { kind: "door" | "window" | "opening" };
+export type PlanOpening = PlanSegment & {
+  kind: "door" | "window" | "opening";
+  /** See `ScanGeometry.editedOpenings` — absent on scanned openings. */
+  hinge?: "start" | "end";
+  opens?: "in" | "out";
+};
 export type PlanPoint = { x: number; y: number };
 export type FloorPlan = {
   segments: PlanSegment[];
@@ -490,6 +620,11 @@ export type FloorPlan = {
       the scan's world space (section labels) needs the same shift. */
   offsetX: number;
   offsetY: number;
+  /** Curved walls (M5): segment i bulges this far, + away from the room.
+      Corrected outlines only; absent for a straight room. Draw through
+      `curvedRing` (src/lib/arc.ts) — segments are never split, so every
+      per-wall record keeps counting walls as it always has. */
+  bulges?: number[];
 };
 
 /**
@@ -540,6 +675,90 @@ function squareToPage(segments: PlanSegment[]): PlanSegment[] {
 }
 
 /**
+ * Set a wall the scan read a few degrees out of square exactly square.
+ *
+ * RoomPlan measures each wall on its own, so the walls of a square room come
+ * back a degree or three off one another and the plan reads crooked — the
+ * owner's complaint of 19 Oct 2026. After `squareToPage` has turned the room
+ * to the page, a wall within 5° of the page's axes is turned, about its own
+ * middle, onto the axis it is already nearest. A wall further off than that
+ * is a real angle — a bay, a 45° corner — and is left exactly as scanned.
+ *
+ * This is NOT the regularisation reverted in August, which collapsed
+ * perpendicular walls into parallel ones: a wall here can only turn onto the
+ * axis it is within 5° of, so a perpendicular stays perpendicular, and no
+ * wall moves more than 5° or changes length.
+ *
+ * An opening turns with the wall it is cut into, about that wall's middle,
+ * so a door stays in its wall; an opening on no wall is squared on its own.
+ * Twin: `FloorPlanGeometry.squareNearlySquare` on the phone.
+ */
+const SQUARE_SNAP = (5 * Math.PI) / 180;
+const HOST_OFFSET = 0.15;
+
+function squareNearlySquare(walls: PlanSegment[], openings: PlanOpening[]): {
+  walls: PlanSegment[];
+  openings: PlanOpening[];
+} {
+  /** The turn that puts a segment on its nearest axis, or 0 when it is off
+      by more than the snap (or already on it). */
+  const turnOf = (seg: PlanSegment) => {
+    let angle = Math.atan2(seg.y2 - seg.y1, seg.x2 - seg.x1);
+    while (angle > Math.PI / 4) angle -= Math.PI / 2;
+    while (angle <= -Math.PI / 4) angle += Math.PI / 2;
+    return Math.abs(angle) <= SQUARE_SNAP ? -angle : 0;
+  };
+  const turned = <T extends PlanSegment>(seg: T, by: number, cx: number, cy: number): T => {
+    if (by === 0) return seg;
+    const cos = Math.cos(by);
+    const sin = Math.sin(by);
+    const at = (x: number, y: number) => ({
+      x: cx + (x - cx) * cos - (y - cy) * sin,
+      y: cy + (x - cx) * sin + (y - cy) * cos,
+    });
+    const a = at(seg.x1, seg.y1);
+    const b = at(seg.x2, seg.y2);
+    return { ...seg, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+  };
+  const mid = (seg: PlanSegment) => ({ x: (seg.x1 + seg.x2) / 2, y: (seg.y1 + seg.y2) / 2 });
+
+  const turns = walls.map(turnOf);
+  const squaredWalls = walls.map((w, i) => {
+    const c = mid(w);
+    return turned(w, turns[i], c.x, c.y);
+  });
+
+  const squaredOpenings = openings.map((o) => {
+    // The wall it sits in: near-parallel, within a wall's thickness of its
+    // line, and overlapping it along its length.
+    const oc = mid(o);
+    let host = -1;
+    let bestOffset = HOST_OFFSET;
+    walls.forEach((w, i) => {
+      const len = Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
+      if (len === 0) return;
+      const ux = (w.x2 - w.x1) / len;
+      const uy = (w.y2 - w.y1) / len;
+      const olen = Math.hypot(o.x2 - o.x1, o.y2 - o.y1) || 1;
+      const parallel = Math.abs(((o.x2 - o.x1) * ux + (o.y2 - o.y1) * uy) / olen);
+      if (parallel < Math.cos((10 * Math.PI) / 180)) return;
+      const offset = Math.abs((oc.x - w.x1) * uy - (oc.y - w.y1) * ux);
+      const along = (oc.x - w.x1) * ux + (oc.y - w.y1) * uy;
+      if (offset > bestOffset || along < -HOST_OFFSET || along > len + HOST_OFFSET) return;
+      host = i;
+      bestOffset = offset;
+    });
+    if (host >= 0) {
+      const c = mid(walls[host]);
+      return turned(o, turns[host], c.x, c.y);
+    }
+    return turned(o, turnOf(o), oc.x, oc.y);
+  });
+
+  return { walls: squaredWalls, openings: squaredOpenings };
+}
+
+/**
  * Bring walls that are already almost collinear onto one line.
  *
  * RoomPlan reports a wall interrupted by a doorway as TWO separate surfaces,
@@ -581,6 +800,22 @@ function lineOf(s: PlanSegment): Line {
   return { angle, offset: s.x1 * dy - s.y1 * dx };
 }
 
+/**
+ * The same line, described with a direction within a quarter turn of
+ * `ref`'s. `lineOf` folds a direction onto [0, pi), so the two pieces of one
+ * level wall can come back as 0 and as pi minus a hair — the same line, but
+ * with offsets of OPPOSITE sign, since the offset is measured along the
+ * folded direction's normal. Compared as they were, they never grouped. Rare
+ * on raw scans, constant once `squareNearlySquare` sets walls exactly level
+ * (found by the phone/web parity run, 19 Oct 2026).
+ */
+function inFrameOf(ref: Line, line: Line): Line {
+  const d = line.angle - ref.angle;
+  if (d > Math.PI / 2) return { angle: line.angle - Math.PI, offset: -line.offset };
+  if (d < -Math.PI / 2) return { angle: line.angle + Math.PI, offset: -line.offset };
+  return line;
+}
+
 function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
   walls: PlanSegment[];
   openings: PlanOpening[];
@@ -590,8 +825,8 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
   const lines = walls.map(lineOf);
   const lengths = walls.map((s) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1));
 
-  // Group walls that describe the same line. Angles near 0 and near pi are
-  // the same direction, so the comparison wraps.
+  // Group walls that describe the same line, each compared in the frame of
+  // the group's first wall (see inFrameOf).
   const groupOf = new Array<number>(walls.length).fill(-1);
   const groups: number[][] = [];
   for (let i = 0; i < walls.length; i += 1) {
@@ -600,28 +835,25 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
     groupOf[i] = groups.length;
     for (let j = i + 1; j < walls.length; j += 1) {
       if (groupOf[j] >= 0) continue;
-      let dAngle = Math.abs(lines[i].angle - lines[j].angle);
-      if (dAngle > Math.PI / 2) dAngle = Math.PI - dAngle;
-      if (dAngle > COLLINEAR_ANGLE) continue;
-      if (Math.abs(lines[i].offset - lines[j].offset) > COLLINEAR_OFFSET) continue;
+      const other = inFrameOf(lines[i], lines[j]);
+      if (Math.abs(other.angle - lines[i].angle) > COLLINEAR_ANGLE) continue;
+      if (Math.abs(other.offset - lines[i].offset) > COLLINEAR_OFFSET) continue;
       group.push(j);
       groupOf[j] = groups.length;
     }
     groups.push(group);
   }
 
-  // The line each group agrees on: longer walls were measured over more
-  // surface and are trusted proportionally more.
-  const target = new Array<number>(walls.length).fill(0);
-  const targetAngle = new Array<number>(walls.length).fill(0);
+  // The line each group agrees on, in its first wall's frame: longer walls
+  // were measured over more surface and are trusted proportionally more.
+  const target: Line[] = new Array<Line>(walls.length);
   for (const group of groups) {
+    const ref = lines[group[0]];
     const total = group.reduce((sum, i) => sum + lengths[i], 0) || 1;
-    const offset = group.reduce((sum, i) => sum + lines[i].offset * lengths[i], 0) / total;
-    const angle = group.reduce((sum, i) => sum + lines[i].angle * lengths[i], 0) / total;
-    for (const i of group) {
-      target[i] = offset;
-      targetAngle[i] = angle;
-    }
+    const framed = group.map((i) => inFrameOf(ref, lines[i]));
+    const offset = framed.reduce((sum, l, k) => sum + l.offset * lengths[group[k]], 0) / total;
+    const angle = framed.reduce((sum, l, k) => sum + l.angle * lengths[group[k]], 0) / total;
+    for (const i of group) target[i] = { angle, offset };
   }
 
   /** Slide a segment along its own normal by `shift`. */
@@ -631,7 +863,9 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
     return { ...s, x1: s.x1 + nx * shift, y1: s.y1 + ny * shift, x2: s.x2 + nx * shift, y2: s.y2 + ny * shift };
   };
 
-  const movedWalls = walls.map((s, i) => slide(s, lines[i].angle, target[i] - lines[i].offset));
+  const movedWalls = walls.map((s, i) =>
+    slide(s, lines[i].angle, inFrameOf(lines[i], target[i]).offset - lines[i].offset),
+  );
 
   // Openings follow the wall they were cut from — the nearest line among
   // the groups, on the same test. An opening with no wall near enough is
@@ -641,16 +875,15 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
     let best = -1;
     let bestDistance = COLLINEAR_OFFSET;
     for (let i = 0; i < walls.length; i += 1) {
-      let dAngle = Math.abs(line.angle - targetAngle[i]);
-      if (dAngle > Math.PI / 2) dAngle = Math.PI - dAngle;
-      if (dAngle > COLLINEAR_ANGLE) continue;
-      const distance = Math.abs(line.offset - target[i]);
+      const wall = inFrameOf(line, target[i]);
+      if (Math.abs(wall.angle - line.angle) > COLLINEAR_ANGLE) continue;
+      const distance = Math.abs(line.offset - wall.offset);
       if (distance < bestDistance) {
         bestDistance = distance;
         best = i;
       }
     }
-    return best < 0 ? o : slide(o, line.angle, target[best] - line.offset);
+    return best < 0 ? o : slide(o, line.angle, inFrameOf(line, target[best]).offset - line.offset);
   });
 
   return { walls: movedWalls, openings: movedOpenings };
@@ -669,7 +902,10 @@ function alignCollinearWalls(walls: PlanSegment[], openings: PlanOpening[]): {
  * that a guessed closing edge is reported instead of assumed.
  */
 function chainIntoPolygon(segments: PlanSegment[]): PlanPoint[] {
-  const outline = chainOutline(segments);
+  // 0,25 m, the phone's own tolerance (`FloorPlanGeometry.chainIntoPolygon`).
+  // This side used the module default, 0,30, so the two could disagree on
+  // whether a room closed at all.
+  const outline = chainOutline(segments, { weld: 0.25 });
   if (!outline || outline.inferredClosingEdge) return [];
   // Repeat the first corner at the end. `chainOutline` returns bare corners,
   // which is the better primitive, but everything downstream of here has
@@ -688,6 +924,15 @@ function chainIntoPolygon(segments: PlanSegment[]): PlanPoint[] {
  * maps to y directly and the result reads as a top-down plan the right way
  * up.
  */
+/**
+ * The outline to DRAW: `plan.polygon` with every curved wall followed
+ * (M5). The same ring for a straight room. Fills, wall bands and outlines
+ * go through this; anything counting walls keeps using `segments`.
+ */
+export function planRing(plan: FloorPlan): PlanPoint[] {
+  return plan.bulges ? curvedRing(plan.polygon, plan.bulges) : plan.polygon;
+}
+
 export function toFloorPlan(result: ScanGeometry): FloorPlan {
   // A plan the operator corrected by hand replaces the scan's walls for
   // drawing purposes — but only for drawing; the sensor's own geometry is
@@ -711,12 +956,28 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
       // are positioned in the scan's own frame and would land in the wrong
       // walls on a corrected outline, so — like the native renderer — they
       // are not drawn. They still deduct from net wall area.
-      openings: [],
+      //
+      // Unless the caller traced the openings itself, in the outline's own
+      // frame (`editedOpenings`) — see that field's comment. Shifted by the
+      // same minX/minY as the outline, so a door stays on the wall it was
+      // traced against.
+      openings: (result.editedOpenings ?? []).map((o) => ({
+        x1: o.x1 - minX,
+        y1: o.y1 - minY,
+        x2: o.x2 - minX,
+        y2: o.y2 - minY,
+        kind: o.kind,
+        hinge: o.hinge,
+        opens: o.opens,
+      })),
       polygon: points,
       width: Math.max(...xs) - minX,
       height: Math.max(...ys) - minY,
       offsetX: minX,
       offsetY: minY,
+      ...(result.edgeBulge?.length === points.length && result.edgeBulge.some((b) => b !== 0)
+        ? { bulges: result.edgeBulge }
+        : {}),
     };
   }
 
@@ -747,10 +1008,11 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
   // Walls and openings are rotated TOGETHER, by the angle the walls imply,
   // so a door stays in the wall it was cut from.
   const rotated = squareToPage([...rawWalls, ...rawOpeningSpans]);
-  const aligned = alignCollinearWalls(
+  const squared = squareNearlySquare(
     rotated.slice(0, rawWalls.length),
     rotated.slice(rawWalls.length) as PlanOpening[],
   );
+  const aligned = alignCollinearWalls(squared.walls, squared.openings);
   const raw = aligned.walls;
   const rawOpenings = aligned.openings;
 
@@ -770,15 +1032,69 @@ export function toFloorPlan(result: ScanGeometry): FloorPlan {
 
   const segments = raw.map(shift);
 
-  return {
+  const chained: FloorPlan = {
     segments,
     openings: rawOpenings.map(shift),
-    polygon: chainIntoPolygon(segments),
+    // A scan taken since M11 carries the outline the phone chained and
+    // squared from these same walls; that is the room's outline.
+    polygon:
+      result.importedOutline && result.importedOutline.length >= 3
+        ? [...result.importedOutline, result.importedOutline[0]]
+        : chainIntoPolygon(segments),
     width: Math.max(...xs) - minX,
     height: Math.max(...ys) - minY,
     offsetX: minX,
     offsetY: minY,
   };
+
+  // The floor's own boundary, traced from the mesh independent of RoomPlan's
+  // wall list. Mirrors `FloorPlanGeometry.plan(from:)` on the phone — the
+  // two gates must agree, or a report generated on the web disagrees with
+  // the number the operator saw on the phone that measured it.
+  //
+  // Trusted only when it does not disagree sharply with the wall-chained
+  // area (30%: looser than a single wall's own 15% refinement tolerance,
+  // because the whole point of tracing the floor separately is that it is
+  // SOMETIMES right where the wall chain is wrong) OR when the wall chain
+  // never closed at all, in which case there is nothing to disagree with.
+  const traced = result.meshFloorPolygon;
+  // The mesh trace was a rescue for outlines the old chain got wrong; an
+  // M11 outline does not need rescuing, and the trace's pixel-stepped edges
+  // would only replace a squared room with a wobbly one.
+  if (traced && traced.length >= 3 && !(result.importedOutline && result.importedOutline.length >= 3)) {
+    const tracedArea = polygonAreaSquareMeters(traced);
+    const chainClosed = chained.polygon.length >= 4;
+    const chainedArea = chainClosed ? polygonAreaSquareMeters(chained.polygon.slice(0, -1)) : 0;
+    const agrees =
+      chainClosed && chainedArea > 0.5 && Math.abs(tracedArea - chainedArea) / Math.max(chainedArea, 0.01) < 0.3;
+    if (tracedArea > 0.5 && (!chainClosed || chainedArea <= 0.5 || agrees)) {
+      const txs = traced.map((p) => p.x);
+      const tys = traced.map((p) => p.y);
+      const tMinX = Math.min(...txs);
+      const tMinY = Math.min(...tys);
+      const points = traced.map((p) => ({ x: p.x - tMinX, y: p.y - tMinY }));
+      return {
+        segments: points.map((a, i) => {
+          const b = points[(i + 1) % points.length];
+          return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+        }),
+        // No openings: `chained`'s own openings are in ITS rotated,
+        // normalised frame (`squareToPage` ran before that plan was shifted
+        // to its origin) while this traced polygon is still in raw,
+        // unrotated world metres — the same reason the edited-polygon
+        // branch above draws none either. They still deduct from net wall
+        // area regardless; only the drawing is affected.
+        openings: [],
+        polygon: [...points, points[0]],
+        width: Math.max(...txs) - tMinX,
+        height: Math.max(...tys) - tMinY,
+        offsetX: tMinX,
+        offsetY: tMinY,
+      };
+    }
+  }
+
+  return chained;
 }
 
 /**

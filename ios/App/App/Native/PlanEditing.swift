@@ -1,4 +1,5 @@
 import CoreGraphics
+import FloorPlanCore
 import Foundation
 
 /// The geometry behind editing a plan by hand.
@@ -628,6 +629,65 @@ enum PlanEditing {
         return (result, a + 1)
     }
 
+    /// **A bump-out (or a recess) on one wall, from three typed numbers.**
+    ///
+    /// Four new corners on edge `index`: `offset` metres from its start
+    /// corner, `width` along it, `depth` out of the room (negative to push
+    /// in). Found drawing the owner's second reference plan: its garage front
+    /// steps out 2 ft over 13 ft 8 in, and the only tool was Add Corner — one
+    /// midpoint at a time, each dragged by eye. Nil when the bump does not
+    /// fit inside the wall with a little left at both ends.
+    static func bumpOut(
+        _ polygon: [CGPoint], edge index: Int, offset: Double, width: Double, depth: Double
+    ) -> [CGPoint]? {
+        let n = polygon.count
+        guard n >= 3, index >= 0, index < n, width > 0.1, abs(depth) > 0.02 else { return nil }
+        let (ai, bi) = edgeCorners(index, count: n)
+        let a = polygon[ai], b = polygon[bi]
+        let length = hypot(b.x - a.x, b.y - a.y)
+        guard offset > 0.01, offset + width < length - 0.01 else { return nil }
+        let ux = (b.x - a.x) / length, uy = (b.y - a.y) / length
+        // Outward is the side away from the interior; the winding says which.
+        var twiceArea = 0.0
+        for i in 0..<n {
+            let p = polygon[i], q = polygon[(i + 1) % n]
+            twiceArea += p.x * q.y - q.x * p.y
+        }
+        let s: Double = twiceArea > 0 ? -1 : 1
+        let nx = -uy * s, ny = ux * s
+        let p1 = CGPoint(x: a.x + ux * offset, y: a.y + uy * offset)
+        let p4 = CGPoint(x: a.x + ux * (offset + width), y: a.y + uy * (offset + width))
+        let p2 = CGPoint(x: p1.x + nx * depth, y: p1.y + ny * depth)
+        let p3 = CGPoint(x: p4.x + nx * depth, y: p4.y + ny * depth)
+        var result = polygon
+        result.insert(contentsOf: [p1, p2, p3, p4].map(quantise), at: ai + 1)
+        return result
+    }
+
+    /// Where the openings go after `bumpOut` replaced edge `index` with five:
+    /// before the bump they stay, within it they move to its far wall, past
+    /// it they move to the stretch after it. Later edges shift up four.
+    static func openingsAfterBumpOut(
+        _ openings: [WallOpening], edge index: Int, offset: Double, width: Double
+    ) -> [WallOpening] {
+        openings.map { opening in
+            var moved = opening
+            if opening.edge > index {
+                moved.edge += 4
+            } else if opening.edge == index {
+                let centre = opening.offset + opening.width / 2
+                if centre > offset + width {
+                    moved.edge += 4
+                    moved.offset = opening.offset - offset - width
+                } else if centre > offset {
+                    moved.edge += 2
+                    moved.offset = max(0, opening.offset - offset)
+                }
+            }
+            return moved
+        }
+    }
+
     /// Remove a corner, merging its two walls into one.
     ///
     /// Refused below four corners: three is the fewest that encloses
@@ -1181,16 +1241,23 @@ enum PlanEditing {
         }
     }
 
-    /// How close to a corner a jamb may sit. Real framing needs a king stud;
-    /// drawings that let a door touch a corner exactly draw ambiguously.
-    static let jambMargin = 0.05
+    /// Where an opening may sit on its wall — the floor-plan spec's rule
+    /// (§9, T12): from the wall's start corner itself, to `endReveal` short
+    /// of its end corner. `0 ≤ offset` and `offset + width ≤ length − 0.02`.
+    ///
+    /// It used to be 5 cm clear of BOTH corners (`jambMargin`, for a king
+    /// stud). The spec is the source of truth since 3 Nov 2026 and allows
+    /// more, so nothing placed under the old rule moves: every offset it
+    /// allowed, this allows too.
+    static let startMargin = 0.0
+    static var endReveal: Double { FloorPlanCore.OpeningTuning().reveal }
 
     /// Pin an opening inside its wall. When the wall is too short for the
-    /// margins the opening is centred instead — a visible overhang the
+    /// reveal the opening is centred instead — a visible overhang the
     /// operator will fix, rather than a silently deleted door.
     static func clampedOffset(offset: Double, width: Double, edgeLength: Double) -> Double {
-        guard edgeLength - width >= 2 * jambMargin else { return (edgeLength - width) / 2 }
-        return min(max(offset, jambMargin), edgeLength - width - jambMargin)
+        guard edgeLength - width >= startMargin + endReveal else { return (edgeLength - width) / 2 }
+        return min(max(offset, startMargin), edgeLength - width - endReveal)
     }
 
     /// Place a kind on an edge, in the middle of the widest gap left between
@@ -1203,12 +1270,12 @@ enum PlanEditing {
         let length = edgeLength(polygon, edge)
         // Jambs of what is already on this wall, in order, bracketed by the
         // corners' margins so every gap is computed one way.
-        var stops: [(from: Double, to: Double)] = [(0, jambMargin)]
+        var stops: [(from: Double, to: Double)] = [(0, startMargin)]
         for other in existing where other.edge == edge {
             let start = clampedOffset(offset: other.offset, width: other.width, edgeLength: length)
             stops.append((start, start + other.width))
         }
-        stops.append((length - jambMargin, length))
+        stops.append((length - endReveal, length))
         stops.sort { $0.from < $1.from }
 
         var bestStart = 0.0
@@ -1231,7 +1298,13 @@ enum PlanEditing {
     }
 
     /// The jamb endpoints in the polygon's own space, clamped into the wall.
-    static func openingEndpoints(_ polygon: [CGPoint], _ opening: WallOpening)
+    ///
+    /// `bulges` (one per edge, + away from the room): on a curved wall the
+    /// offsets are still along the chord, but the jambs are stood up onto the
+    /// arc (floor-plan spec §9) — the door sits in the curve, not across it.
+    /// Callers that measure along the wall (re-keying, the dimension chain)
+    /// leave it empty and get the chord points.
+    static func openingEndpoints(_ polygon: [CGPoint], _ opening: WallOpening, bulges: [Double] = [])
         -> (a: CGPoint, b: CGPoint)?
     {
         let n = polygon.count
@@ -1241,6 +1314,12 @@ enum PlanEditing {
         guard length > 1e-9 else { return nil }
         let direction = normalised(sub(polygon[bi], polygon[ai]))
         let start = clampedOffset(offset: opening.offset, width: opening.width, edgeLength: length)
+        if opening.edge < bulges.count, bulges[opening.edge] != 0 {
+            return (
+                PlanBridge.pointOverChord(polygon, edge: opening.edge, bulge: bulges[opening.edge], at: start),
+                PlanBridge.pointOverChord(
+                    polygon, edge: opening.edge, bulge: bulges[opening.edge], at: start + opening.width))
+        }
         return (
             CGPoint(
                 x: polygon[ai].x + direction.x * start,
@@ -1258,8 +1337,8 @@ enum PlanEditing {
         avoiding others: [WallOpening]
     ) -> WallOpening {
         let length = edgeLength(polygon, opening.edge)
-        var lower = jambMargin
-        var upper = length - opening.width - jambMargin
+        var lower = startMargin
+        var upper = length - opening.width - endReveal
         for other in others where other.edge == opening.edge && other != opening {
             let otherStart = clampedOffset(
                 offset: other.offset, width: other.width, edgeLength: length)
@@ -1273,6 +1352,43 @@ enum PlanEditing {
         var moved = opening
         moved.offset = quantise(min(max(opening.offset + delta, lower), upper))
         return moved
+    }
+
+    /// An opening given a typed width and a typed distance from its wall's
+    /// start corner — or nil when that does not fit: past the wall's end, or
+    /// over another opening on the same wall.
+    ///
+    /// The same arithmetic `slideOpening` does for a drag, done for a number
+    /// somebody typed. A width within two jamb margins of the whole wall IS
+    /// the whole wall — that is an open-plan join, a cased opening with no
+    /// wall left either side of it — and it is only allowed on a wall with
+    /// nothing else in it.
+    static func reshapeOpening(
+        _ opening: WallOpening, width: Double, offset: Double, along polygon: [CGPoint],
+        avoiding others: [WallOpening]
+    ) -> WallOpening? {
+        let length = edgeLength(polygon, opening.edge)
+        guard length > 0.1, width.isFinite, offset.isFinite, width >= 0.1 else { return nil }
+        let neighbours = others.filter { $0.edge == opening.edge && $0 != opening }
+
+        var reshaped = opening
+        if width >= length - startMargin - endReveal {
+            guard neighbours.isEmpty else { return nil }
+            reshaped.width = quantise(length)
+            reshaped.offset = 0
+            return reshaped
+        }
+        let start = min(max(offset, startMargin), length - width - endReveal)
+        for other in neighbours {
+            let otherStart = clampedOffset(
+                offset: other.offset, width: other.width, edgeLength: length)
+            if start < otherStart + other.width - 0.001, otherStart < start + width - 0.001 {
+                return nil
+            }
+        }
+        reshaped.width = quantise(width)
+        reshaped.offset = quantise(start)
+        return reshaped
     }
 
     /// The dimension chain of one wall: the pieces from corner to corner,

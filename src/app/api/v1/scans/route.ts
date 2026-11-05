@@ -68,6 +68,24 @@ export async function POST(request: Request) {
       // that sat in the offline queue. Absent means unclassified, which the
       // living-area engine treats as `other`; it must never be invented here.
       roomType: typeof body.roomType === "string" ? body.roomType : null,
+      rawCapture: parseRawCapture(body.rawCapture),
     }),
   }));
+}
+
+/**
+ * RoomPlan's CapturedRoom, sent by the phone as JSON TEXT (it rides the
+ * offline queue as a string, so it is stored on disk exactly as Apple encoded
+ * it). Parsed here so Postgres holds it as jsonb and it can be queried later.
+ * Anything that will not parse is dropped, not stored as a broken string — an
+ * archive that cannot be read back is not an archive.
+ */
+function parseRawCapture(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }

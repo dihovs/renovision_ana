@@ -18,39 +18,53 @@
 // equipment per unit-day off the drying log.
 
 import type { AffectedArea } from "../../crm/areaShapes";
+import { ceilingAreas as ceilingAreasOf, floorAreas as floorAreasOf } from "../../crm/areaShapes";
 import type { RoomObject } from "../../crm/roomObjects";
 import type { EquipmentPlacement, MoistureReading } from "../../crm/dryingLog";
 import { unitDays } from "../../crm/dryingLog";
 import type { EstimateContext, EstimateRoom, FloorFinish, RuleLine } from "./types";
+import type { EstimatorStrings } from "./strings";
 import { mToLinFt, roundQuantity, sqmToSqFt } from "./units";
 
 export type RoomRule = {
   id: string;
   title: string;
-  lines: (room: EstimateRoom) => RuleLine[];
+  /** `t` is the document's own vocabulary — see ./strings.ts for why the
+      CALC citation is chosen at derivation time and not at print time. */
+  lines: (room: EstimateRoom, t: EstimatorStrings) => RuleLine[];
 };
 
 export type ObjectRule = {
   id: string;
   title: string;
-  lines: (object: RoomObject, room: EstimateRoom) => RuleLine[];
+  lines: (object: RoomObject, room: EstimateRoom, t: EstimatorStrings) => RuleLine[];
 };
 
 export type ProjectRule = {
   id: string;
   title: string;
-  lines: (ctx: EstimateContext) => RuleLine[];
+  lines: (ctx: EstimateContext, t: EstimatorStrings) => RuleLine[];
 };
 
 // ---------------------------------------------------------------------------
 // Small shared derivations
 
+// The three surface filters delegate to areaShapes rather than re-deriving
+// "not a wall" here. That negative form was this file's own bug: it read a
+// ceiling area as a floor area, and a wet ceiling priced as a wet floor is
+// the wrong trade at the wrong rate inside a document that goes to an
+// insurer. One definition of each surface, in the module that defines the
+// surfaces.
 function floorAreas(room: EstimateRoom): AffectedArea[] {
-  return room.affectedAreas.filter((area) => area.surface !== "wall");
+  return floorAreasOf(room.affectedAreas);
 }
 
 function wallAreas(room: EstimateRoom): AffectedArea[] {
   return room.affectedAreas.filter((area) => area.surface === "wall");
+}
+
+function ceilingAreas(room: EstimateRoom): AffectedArea[] {
+  return ceilingAreasOf(room.affectedAreas);
 }
 
 function affectedFloorSqFt(room: EstimateRoom): number {
@@ -59,6 +73,10 @@ function affectedFloorSqFt(room: EstimateRoom): number {
 
 function affectedWallSqFt(room: EstimateRoom): number {
   return sqmToSqFt(wallAreas(room).reduce((sum, area) => sum + area.area_sqm, 0));
+}
+
+function affectedCeilingSqFt(room: EstimateRoom): number {
+  return sqmToSqFt(ceilingAreas(room).reduce((sum, area) => sum + area.area_sqm, 0));
 }
 
 function areaNames(areas: AffectedArea[]): string {
@@ -75,7 +93,11 @@ const FLOOR_FINISH_ITEMS: Record<
   FloorFinish,
   {
     removal: string;
-    install: Array<{ code: string; label?: string }>;
+    /** `unpricedLabel` marks the one install with no book code: its name
+        comes from the document's own vocabulary (`t.carpetInstallLabel`),
+        not from this table, so the table carries the flag and not the
+        words. */
+    install: Array<{ code: string; unpricedLabel?: true }>;
     installScope: "full" | "affected";
   }
 > = {
@@ -102,7 +124,7 @@ const FLOOR_FINISH_ITEMS: Record<
   carpet: {
     removal: "DEM-CARPET",
     // The book has no carpet install item — the line derives unpriced.
-    install: [{ code: "", label: "Install carpet and underpad" }],
+    install: [{ code: "", unpricedLabel: true }],
     installScope: "full",
   },
   tile: {
@@ -119,7 +141,7 @@ export const ROOM_RULES: RoomRule[] = [
   {
     id: "floor.protection",
     title: "Surface protection in every room with damage",
-    lines: (room) => {
+    lines: (room, t) => {
       if (room.affectedAreas.length === 0) return [];
       const sqft = roundQuantity(sqmToSqFt(room.stats.floorAreaSqm));
       return [
@@ -129,7 +151,7 @@ export const ROOM_RULES: RoomRule[] = [
           tradeSection: "floor",
           unit: "sq ft",
           quantity: sqft,
-          calc: `floor area ${sqft} sq ft — full room`,
+          calc: t.floorAreaFullRoom(sqft),
         },
       ];
     },
@@ -137,7 +159,7 @@ export const ROOM_RULES: RoomRule[] = [
   {
     id: "floor.replace",
     title: "Floor covering: remove at the measured damage; install reach depends on the finish",
-    lines: (room) => {
+    lines: (room, t) => {
       const areas = floorAreas(room);
       if (areas.length === 0) return [];
       const removedSqFt = roundQuantity(affectedFloorSqFt(room));
@@ -147,12 +169,12 @@ export const ROOM_RULES: RoomRule[] = [
           {
             keyHint: "unknown-finish",
             itemCode: null,
-            label: "Floor covering removal and replacement",
+            label: t.floorCoveringLabel,
             activity: "replace",
             tradeSection: "floor",
             unit: "sq ft",
             quantity: fullSqFt,
-            calc: `floor finish not recorded — affected ${removedSqFt} sq ft of ${fullSqFt}`,
+            calc: t.floorFinishNotRecorded(removedSqFt, fullSqFt),
             issues: ["unknown_finish"],
           },
         ];
@@ -161,8 +183,8 @@ export const ROOM_RULES: RoomRule[] = [
       const installSqFt = finish.installScope === "full" ? fullSqFt : removedSqFt;
       const installCalc =
         finish.installScope === "full"
-          ? `full floor ${fullSqFt} sq ft — ${room.floorFinish} replaced wall to wall`
-          : `affected area ${removedSqFt} sq ft — ${room.floorFinish} patched, not relaid`;
+          ? t.fullFloorReplaced(fullSqFt, room.floorFinish)
+          : t.affectedAreaPatched(removedSqFt, room.floorFinish);
       const lines: RuleLine[] = [
         {
           keyHint: `remove:${finish.removal}`,
@@ -172,14 +194,14 @@ export const ROOM_RULES: RoomRule[] = [
           tradeSection: "floor",
           unit: "sq ft",
           quantity: removedSqFt,
-          calc: `affected floor: ${areaNames(areas)} = ${removedSqFt} sq ft`,
+          calc: t.affectedFloor(areaNames(areas), removedSqFt),
         },
       ];
       for (const install of finish.install) {
         lines.push({
           keyHint: install.code || "install-unpriced",
           itemCode: install.code || null,
-          label: install.label,
+          label: install.unpricedLabel ? t.carpetInstallLabel : undefined,
           activity: "install",
           tradeSection: "floor",
           unit: "sq ft",
@@ -194,14 +216,14 @@ export const ROOM_RULES: RoomRule[] = [
   {
     id: "floor.baseboard",
     title: "Baseboard follows the floor — at the baseboard length, not the perimeter",
-    lines: (room) => {
+    lines: (room, t) => {
       if (floorAreas(room).length === 0) return [];
       // Trim does not run across a doorway. The app's own baseboard figure
       // (perimeter minus door widths) is what this trade is priced against;
       // billing the raw perimeter overstates every room with a door.
       const lengthFt = roundQuantity(mToLinFt(room.baseboardLengthM));
       if (lengthFt === 0) return [];
-      const calc = `baseboard length ${lengthFt} lin ft (perimeter minus doorways)`;
+      const calc = t.baseboardLength(lengthFt);
       return [
         {
           itemCode: "TRIM-BASE-INST",
@@ -225,46 +247,63 @@ export const ROOM_RULES: RoomRule[] = [
   },
   {
     id: "wall.baseboard",
-    title: "Baseboard on affected walls (only when the floor stays)",
-    lines: (room) => {
+    title: "Baseboard off the affected walls, paint around the whole room",
+    // The two sides of trim have DIFFERENT reaches and billing them at one
+    // length is wrong whichever length is picked. Baseboard comes off the
+    // wall the drywall comes off — nowhere else — so the E&R follows the
+    // affected walls. Paint follows the repaint, and the repaint is the
+    // room: a painter who cuts in one wall's trim and leaves the other
+    // eleven feet in the old sheen has not finished the room, and the
+    // owner's own scoping of the first real job says so ("paint the entire
+    // room, every wall, the ceiling, and also the trims"). Same convention
+    // wall.paint already sets for the walls themselves — full room by
+    // default, trimmed down by the operator when the claim is partial.
+    lines: (room, t) => {
       if (floorAreas(room).length > 0) return []; // floor.baseboard already owns it
       const walls = wallAreas(room);
       if (walls.length === 0) return [];
       const indices = [...new Set(walls.map((area) => area.wall_index ?? 0))];
-      const lengthFt = roundQuantity(
+      const affectedFt = roundQuantity(
         mToLinFt(indices.reduce((sum, i) => sum + (room.wallLengthsM[i] ?? 0), 0)),
       );
-      if (lengthFt === 0) return [];
-      const calc = `walls ${indices.join(", ")} — ${lengthFt} lin ft`;
-      return [
-        {
+      // Trim does not run across a doorway; the app's baseboard figure is the
+      // perimeter minus the door widths, and the raw perimeter overstates
+      // every room with a door.
+      const roomFt = roundQuantity(mToLinFt(room.baseboardLengthM));
+      const lines: RuleLine[] = [];
+      if (affectedFt > 0) {
+        lines.push({
           itemCode: "TRIM-BASE-INST",
           removalItemCode: "DEM-BASE",
           activity: "replace",
           tradeSection: "trim",
           unit: "linear ft",
-          quantity: lengthFt,
-          calc,
-        },
-        {
+          quantity: affectedFt,
+          calc: t.affectedWallsRun(indices.join(", "), affectedFt),
+        });
+      }
+      if (roomFt > 0) {
+        lines.push({
           itemCode: "PNT-TRIM-LF",
           activity: "install",
           tradeSection: "trim",
           unit: "linear ft",
-          quantity: lengthFt,
-          calc,
-        },
-      ];
+          quantity: roomFt,
+          calc: t.baseboardLengthFullRoom(roomFt),
+          note: t.trimPaintNote(affectedFt, indices.join(", ")),
+        });
+      }
+      return lines;
     },
   },
   {
     id: "wall.drywall",
     title: "Wet drywall out and back at the measured area",
-    lines: (room) => {
+    lines: (room, t) => {
       const walls = wallAreas(room);
       if (walls.length === 0) return [];
       const sqft = roundQuantity(affectedWallSqFt(room));
-      const calc = `affected walls: ${areaNames(walls)} = ${sqft} sq ft`;
+      const calc = t.affectedWalls(areaNames(walls), sqft);
       return [
         {
           itemCode: "DW-INST-12",
@@ -291,7 +330,7 @@ export const ROOM_RULES: RoomRule[] = [
           tradeSection: "walls",
           unit: "sq ft",
           quantity: roundQuantity(sqft * 1.25),
-          calc: `${sqft} sq ft × 1,25 — seal past the patch joint`,
+          calc: t.sealPastJoint(sqft),
         },
       ];
     },
@@ -299,7 +338,7 @@ export const ROOM_RULES: RoomRule[] = [
   {
     id: "wall.paint",
     title: "Repaint the room's walls after a wall repair",
-    lines: (room) => {
+    lines: (room, t) => {
       if (wallAreas(room).length === 0) return [];
       const sqft = roundQuantity(sqmToSqFt(room.stats.wallAreaNetSqm));
       return [
@@ -309,8 +348,78 @@ export const ROOM_RULES: RoomRule[] = [
           tradeSection: "walls",
           unit: "sq ft",
           quantity: sqft,
-          calc: `net wall area ${sqft} sq ft — trim to the affected walls if partial`,
-          note: "Full room by default; the reference claims often paint affected walls only.",
+          calc: t.netWallArea(sqft),
+          note: t.wallPaintNote,
+        },
+      ];
+    },
+  },
+  {
+    id: "ceiling.drywall",
+    title: "Wet ceiling drywall out and back at the measured area",
+    // The wall pattern, with the ceiling's own removal item. DEM-CEILING
+    // exists in the book separately from DEM-DRYWALL because taking board
+    // down overhead is not the same job as taking it off a wall, and the
+    // rates say so; the install side is the same board either way.
+    lines: (room, t) => {
+      const ceilings = ceilingAreas(room);
+      if (ceilings.length === 0) return [];
+      const sqft = roundQuantity(affectedCeilingSqFt(room));
+      const calc = t.affectedCeiling(areaNames(ceilings), sqft);
+      return [
+        {
+          itemCode: "DW-INST-12",
+          removalItemCode: "DEM-CEILING",
+          activity: "replace",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: sqft,
+          calc,
+        },
+        {
+          itemCode: "DW-TAPE-L4",
+          activity: "install",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: sqft,
+          calc,
+        },
+        {
+          itemCode: "PNT-STAINBLOCK",
+          activity: "install",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: roundQuantity(sqft * 1.25),
+          calc: t.sealPastJoint(sqft),
+        },
+      ];
+    },
+  },
+  {
+    id: "ceiling.paint",
+    title: "Repaint the ceiling when the room is repainted",
+    // Fires off a WALL area as well as a ceiling one, and that is the point.
+    // Repainting a room's walls and leaving the ceiling in its old sheen
+    // finishes nothing — the cut line between them is the most looked-at
+    // edge in the room — so the ceiling goes with the repaint the same way
+    // the trim does. PNT-CEIL-2 sat unused in the book until this rule; the
+    // first real job derived nine lines and the operator hand-added this one.
+    //
+    // Quantity is the FLOOR area, because the ceiling is the floor's plane:
+    // one measured figure, not a second one that could disagree with it.
+    lines: (room, t) => {
+      if (wallAreas(room).length === 0 && ceilingAreas(room).length === 0) return [];
+      const sqft = roundQuantity(sqmToSqFt(room.stats.floorAreaSqm));
+      if (sqft === 0) return [];
+      return [
+        {
+          itemCode: "PNT-CEIL-2",
+          activity: "install",
+          tradeSection: "ceiling",
+          unit: "sq ft",
+          quantity: sqft,
+          calc: t.ceilingIsFloorArea(sqft),
+          note: t.ceilingPaintNote,
         },
       ];
     },
@@ -318,7 +427,7 @@ export const ROOM_RULES: RoomRule[] = [
   {
     id: "room.antimicrobial",
     title: "Antimicrobial on every affected surface of a water loss",
-    lines: (room) => {
+    lines: (room, t) => {
       const water = room.affectedAreas.filter((area) => area.damage_type === "water");
       if (water.length === 0) return [];
       const sqft = roundQuantity(sqmToSqFt(water.reduce((sum, area) => sum + area.area_sqm, 0)));
@@ -329,7 +438,7 @@ export const ROOM_RULES: RoomRule[] = [
           tradeSection: "misc",
           unit: "sq ft",
           quantity: sqft,
-          calc: `affected surfaces: ${areaNames(water)} = ${sqft} sq ft`,
+          calc: t.affectedSurfaces(areaNames(water), sqft),
         },
       ];
     },
@@ -426,7 +535,7 @@ export const OBJECT_RULES: ObjectRule[] = [
   {
     id: "object.disposition",
     title: "Placed objects billed by their disposition",
-    lines: (object) => {
+    lines: (object, _room, t) => {
       if (!object.included) return []; // excluded from the claim — the dollhouse's translucent objects
       if (object.disposition === "none") return [];
 
@@ -437,20 +546,20 @@ export const OBJECT_RULES: ObjectRule[] = [
       const unit = perLf ? "linear ft" : "each";
       const quantity = perLf ? roundQuantity(widthFt * object.quantity) : object.quantity;
       const calc = perLf
-        ? `${label}: width ${widthFt} lin ft × ${object.quantity}`
-        : `${label} × ${object.quantity}`;
+        ? t.objectPerLinearFt(label, widthFt, object.quantity)
+        : t.objectEach(label, object.quantity);
 
       if (object.disposition === "protect") {
         return [
           {
             itemCode: null,
-            label: `Protect in place — ${label}`,
+            label: t.protectInPlace(label),
             activity: "memo",
             tradeSection: "misc",
             unit: "each",
             quantity: object.quantity,
             calc,
-            note: "Protection is carried by the room's surface-protection line; recorded here at no charge.",
+            note: t.protectInPlaceNote,
           },
         ];
       }
@@ -461,7 +570,7 @@ export const OBJECT_RULES: ObjectRule[] = [
         return [
           {
             itemCode: null,
-            label: `Detach and reset — ${label}`,
+            label: t.detachReset(label),
             activity: "detachReset",
             tradeSection: "misc",
             unit,
@@ -477,7 +586,7 @@ export const OBJECT_RULES: ObjectRule[] = [
           {
             itemCode: null,
             removalItemCode: items?.removal ?? null,
-            label: items?.removal ? undefined : `Remove — ${label}`,
+            label: items?.removal ? undefined : t.removeLabel(label),
             activity: "remove",
             tradeSection: "misc",
             unit,
@@ -493,7 +602,7 @@ export const OBJECT_RULES: ObjectRule[] = [
         {
           itemCode: items?.install ?? null,
           removalItemCode: items?.removal ?? null,
-          label: items?.install ? undefined : `Remove and replace — ${label}`,
+          label: items?.install ? undefined : t.removeAndReplace(label),
           activity: "replace",
           tradeSection: "misc",
           unit,
@@ -547,13 +656,13 @@ export const PROJECT_RULES: ProjectRule[] = [
   {
     id: "drying.equipment",
     title: "Drying equipment per unit-day, straight off the drying log",
-    lines: (ctx) =>
+    lines: (ctx, t) =>
       ctx.equipment.flatMap((placement): RuleLine[] => {
         const days = placementDays(placement, ctx.asOf);
         if (days === 0) return [];
         const code = equipmentItem(placement.kind);
         const span = `${placement.in_service_at.slice(0, 10)} → ${
-          placement.out_of_service_at?.slice(0, 10) ?? "in service"
+          placement.out_of_service_at?.slice(0, 10) ?? t.stillInService
         }`;
         return [
           {
@@ -562,14 +671,18 @@ export const PROJECT_RULES: ProjectRule[] = [
             // whichever placement is third after the next re-run.
             keyHint: placement.id,
             itemCode: code,
-            label: code ? undefined : `${placement.kind} rental`,
+            label: code ? undefined : t.equipmentRental(placement.kind),
             activity: "install",
             tradeSection: "misc",
             unit: "day",
             quantity: days,
-            calc: `${placement.kind}${
-              placement.identifier ? ` ${placement.identifier}` : ""
-            } × ${placement.quantity}, ${span} = ${days} unit-days`,
+            calc: t.equipmentUnitDays(
+              `${placement.kind}${
+                placement.identifier ? ` ${placement.identifier}` : ""
+              } × ${placement.quantity}`,
+              span,
+              days,
+            ),
             issues: code ? undefined : ["no_item"],
           },
         ];
@@ -578,7 +691,7 @@ export const PROJECT_RULES: ProjectRule[] = [
   {
     id: "drying.monitoring",
     title: "One monitoring visit per local day a reading was taken",
-    lines: (ctx) => {
+    lines: (ctx, t) => {
       const visits = distinctReadingDays(ctx.readings);
       if (visits === 0) return [];
       return [
@@ -588,7 +701,7 @@ export const PROJECT_RULES: ProjectRule[] = [
           tradeSection: "misc",
           unit: "visit",
           quantity: visits,
-          calc: `${visits} distinct days with moisture readings (local time)`,
+          calc: t.monitoringVisits(visits),
         },
       ];
     },
@@ -596,7 +709,7 @@ export const PROJECT_RULES: ProjectRule[] = [
   {
     id: "drying.documentation",
     title: "Photo and moisture documentation, once per documented job",
-    lines: (ctx) => {
+    lines: (ctx, t) => {
       if (ctx.readings.length === 0) return [];
       return [
         {
@@ -605,7 +718,7 @@ export const PROJECT_RULES: ProjectRule[] = [
           tradeSection: "misc",
           unit: "report",
           quantity: 1,
-          calc: `${ctx.readings.length} readings on file`,
+          calc: t.readingsOnFile(ctx.readings.length),
         },
       ];
     },
@@ -613,7 +726,7 @@ export const PROJECT_RULES: ProjectRule[] = [
   {
     id: "general.debris",
     title: "Debris out — one small load until the scope says otherwise",
-    lines: (ctx) => {
+    lines: (ctx, t) => {
       const anyDamage = ctx.rooms.some((room) => room.affectedAreas.length > 0);
       if (!anyDamage) return [];
       return [
@@ -624,7 +737,7 @@ export const PROJECT_RULES: ProjectRule[] = [
           tradeSection: "misc",
           unit: "load",
           quantity: 1,
-          calc: "1 load — resize to the demolition actually scoped",
+          calc: t.debrisLoad,
         },
       ];
     },
@@ -632,7 +745,7 @@ export const PROJECT_RULES: ProjectRule[] = [
   {
     id: "general.finalClean",
     title: "Final cleanup once per job",
-    lines: (ctx) => {
+    lines: (ctx, t) => {
       const anyDamage = ctx.rooms.some((room) => room.affectedAreas.length > 0);
       if (!anyDamage) return [];
       return [
@@ -642,7 +755,7 @@ export const PROJECT_RULES: ProjectRule[] = [
           tradeSection: "misc",
           unit: "job",
           quantity: 1,
-          calc: "once per job",
+          calc: t.oncePerJob,
         },
       ];
     },

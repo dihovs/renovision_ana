@@ -12,6 +12,7 @@ real estimates on claims he has access to, all French Québec Xactimate output:
 | `1515767` (Jean-Picard) | Polygon | Catégorie 3 repair | 13 | **Full CAT/SÉL/CALC column set** — the real Xactimate detail |
 | `1558248` (Champs de Mars) | Polygon | Catégorie 3 repair | 53 | Minimum charges, management fee, 43 photo pages |
 | `201-0001` (Jean-Picard TRAS) | Restauration CT | Urgence / dégât d'eau | 9 | **The emergency side**: per-day equipment, minimums |
+| `1641745-SDC-H1` (Hymus, Oct 2026) | Polygon | Catégorie 3 repair | 17 / 89 | Three stacked condo units, **vector sketches**, minimums per unit, 72 captioned photos |
 
 Jean-Picard is a matched pair: CT's emergency mitigation and Polygon's repair
 devis for the same loss — the exact two documents VinSnipe's sibling never has
@@ -281,3 +282,69 @@ From `Estimator-Spec.md` §5, updated:
 New, only the owner can answer: his **O&P convention** (does he bill 10/5 like
 the restorers, and profit on items+generals or items?), his **management fee**
 (Polygon charges 3% on some jobs), and his **per-trade minimums**.
+
+---
+
+## 7. The fifth document — 1641745-SDC-H1 (14 Oct 2026)
+
+Polygon's repair devis for SDC H1 Phase 3 (122 boul. Hymus, Pointe-Claire):
+units 302 → 202 → 102, one loss down a stack, `QCMO8X_OCT26`. Priced our way
+in `src/lib/estimator/insurance/hymus.devis.ts`, printed by
+`src/components/admin/hymus-report.render.test.tsx`; the reusable scope
+lessons went into `scopePatterns.ts` (AI prompt + Xactimate→catalogue map).
+What it adds to the sections above:
+
+- **No text layer.** It went through "Microsoft: Print To PDF": every glyph is
+  a filled path. Reading it means OCR (Apple Vision, on device, reads the
+  captions and line items cleanly), not text extraction.
+- **The sketch pages are vectors.** Walls are pairs of stroked lines 5,04 pt
+  apart; the drawing is 15,24 pt to the foot (one printed dimension fixes it,
+  all the others then check to the inch). Room outlines come off the inner
+  lines exactly — traced areas matched the printed ones to 0,4 pi².
+- **Minimums per unit.** Drywall minimum (`PCP CSMMM`, 489,70) and insulation
+  minimum (`ISO MIN`, 229,40) are charged once in EVERY unit, with the note
+  *« Couvre l'unité »* — three of each on this job, plus finish-carpentry and
+  framing `MN-A` lines. 39 % of the items total was minimums and fees.
+- **Emergency openings at material only.** *« Deux ouvertures effectuer
+  pendant l'urgence »* → the repair bills `Matériel seulement` board with the
+  labour inside the unit's minimum; no removal line.
+- **Photo captions carry the room path**: `Unit 302/Aire ouverte / cuisine -
+  2-IMG_0025  Date prise : 2026-09-15`, so photographs file themselves by unit
+  and room. Each photograph is stored as three stacked image strips.
+- **Rates observed (QCMO8X, OCT26)**: carpenter 83,11/h · cleaning technician
+  54,56/h · supervision 79,18/h · drywall 5/8 R&R 0,72 + 3,29 /pi² · ceiling
+  paint two coats 1,41 /pi² · masking 0,63 /pi² · toilet D&R 262,64 · sink D&R
+  158,92 · debris per pickup 233,19. O&P 10 % + 5 % on items + généraux, plus
+  a 3 % management fee as a line.
+
+## 8. The sixth document — Lauresco 3674_7027C_R (19 Oct 2026)
+Lauresco's repair devis for SDC du 7027 Clark, unit 5 (21 Sep 2026,
+`QCMO8X_AUG26`, 2 210,64 $): a leak at the drain of unit 7's bath, through
+unit 5's bathroom ceiling and the foot of a hall wall. Priced our way in
+`src/lib/estimator/insurance/clark.devis.ts` (3 312,06 $), printed by
+`src/components/admin/clark-report.render.test.tsx`. New against the five
+before it:
+
+- **A different layout.** No CAT/SÉL/ENLEV/REMPLAC columns: DESCRIPTION, QTÉ,
+  PRIX UNITAIRE, TOTAL, with each line opening on its activity — *Fournir &
+  Installer*, *Enlever/Démolir*, *Enlever & Remplacer*, *Détacher, Entreposer
+  & Réinstaller*, *Matériel seulement*, *Installer* — defined on page 2.
+- **The scope inside two minimums.** *Placoplâtre - Frais minimum* (487,67)
+  and *Peindre - Frais minimum* (447,71) carry the bathroom; the board, caulk,
+  plasterer's hours, sealer and ceiling paint below them print `INCLUS` with
+  a quantity and no price. 56 % of the items total is those two lines. Read
+  the `INCLUS` lines for scope and quantities.
+- **Rated ceiling.** Double 1/2" board, fire-rated latex caulk on the first
+  layer, 1"×3" furring as screw backing, 12" R40 batts after the wet
+  cellulose came out, framing cleaned and treated (16 pi²).
+- **Open sides on the sketch.** Their hall carries three *Mur manquant … Ouvre
+  sur Extérieur* (16', 4'3", 2'3"). Since this job our outside dimension chain
+  grows no wall on an open side and breaks where wall gives way to open side,
+  so all seven of their outside figures print the same on ours.
+- **Sketch**: vectors at 36,19 pt/ft, 4" walls, fixtures drawn, damage as a
+  red freehand outline with an arrow (*DOMMAGES (plafond, mur)*). No photos.
+- **Rates observed (AUG26)**: protection 0,84 /pi² · dust barrier 1,04 /pi² ·
+  plastic bag with dump fees 16,00 · travel, Montréal region 75,00 a trip ·
+  cleaning and debris handling 54,34/h · R40 batt 2,80 /pi² · baseboard
+  reinstall 2,64 /pi lin. · généraux 15,5 %, no separate profit line.
+

@@ -5,8 +5,11 @@ import TrustBar from "@/components/home/TrustBar";
 import AudienceSections from "@/components/home/AudienceSections";
 import ServicesSection from "@/components/home/ServicesSection";
 import HowItWorks from "@/components/home/HowItWorks";
+import AuthorityBadges from "@/components/home/AuthorityBadges";
 import Testimonials from "@/components/home/Testimonials";
 import PartnerLogos from "@/components/home/PartnerLogos";
+import TechAdvantage from "@/components/home/TechAdvantage";
+import AppNarrative from "@/components/home/AppNarrative";
 import CtaBand from "@/components/home/CtaBand";
 import { localizedMetadata } from "@/lib/seo";
 import { getGoogleReviewsData } from "@/lib/googleReviews";
@@ -33,6 +36,11 @@ export default async function Home() {
       <HeroBanner overallRating={reviews.overallRating} reviewCount={reviews.reviewCount} />
       <StatsBar />
       <ScrollBeforeAfter />
+      {/* Authority signals first for B2B (property managers, insurers, brokers):
+          certifications speak louder than testimonials to commercial buyers.
+          Reviews follow for B2C — each segment sees its signal without scrolling
+          past content meant for the other. */}
+      <AuthorityBadges />
       <Testimonials
         liveReviews={reviews.items}
         overallRating={reviews.overallRating}
@@ -42,6 +50,8 @@ export default async function Home() {
       <AudienceSections />
       <ServicesSection />
       <HowItWorks />
+      <TechAdvantage />
+      <AppNarrative />
       <PartnerLogos />
       <CtaBand />
     </>

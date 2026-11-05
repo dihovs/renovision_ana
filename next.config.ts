@@ -56,20 +56,20 @@ const nextConfig: NextConfig = {
     // unmatched URL to compose a 404 from, so Next falls back to its stock
     // bare page. See src/app/global-not-found.tsx.
     globalNotFound: true,
+    // A crew checklist carries its signature and photos inline (shrunk to
+    // ~150 kB each on the phone, migration 0056). The 1 MB default refuses
+    // a form with a handful of photos; Vercel's own request cap is 4.5 MB,
+    // and the crew form refuses anything over 3.8 MB before sending.
+    serverActions: { bodySizeLimit: "4mb" },
   },
   /**
-   * `/gestionnaires` is the URL a property manager might guess, and the one the
-   * content backlog originally specified as a new page. It isn't one:
-   * `/commercial` already is the property-manager audience page, and a second
-   * page would put two of ours in front of the same query. Permanent, so the
-   * redirect is cached and any link that ever points here consolidates onto the
-   * page that has the inbound links.
+   * Was: `/gestionnaires` → `/commercial` redirect, removed Sep 2026 when a
+   * standalone property-manager page was built at `/gestionnaires`. The old
+   * redirect kept the page unreachable; now both `/assureurs` and
+   * `/gestionnaires` serve their own content.
    */
   async redirects() {
-    return [
-      { source: "/gestionnaires", destination: "/commercial", permanent: true },
-      { source: "/en/gestionnaires", destination: "/en/commercial", permanent: true },
-    ];
+    return [];
   },
   async headers() {
     // ORDER MATTERS. Both blocks match a /crew/<token> request, and when two

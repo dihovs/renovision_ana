@@ -1229,9 +1229,10 @@ enum EditorChrome {
         polygon: [CGPoint],
         opening: PlanEditing.WallOpening,
         toScreen: (CGPoint) -> CGPoint,
-        scale: CGFloat
+        scale: CGFloat,
+        bulges: [Double] = []
     ) {
-        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { return }
+        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening, bulges: bulges) else { return }
         let A = toScreen(a)
         let B = toScreen(b)
         let w = hypot(B.x - A.x, B.y - A.y)
@@ -1428,8 +1429,19 @@ enum EditorAction: Hashable {
     case rotate
     case setSize
     case editLayout
+    /// Set every nearly-square corner exactly square, keeping locked walls —
+    /// the floor-plan spec's one-tap squaring (§6, M3).
+    case square
+    /// The ceiling's shape — flat, sloped, vaulted, bulkheads (M6).
+    case ceiling
+    /// Bluetooth laser meter (M9).
+    case laser
     case duplicate
     case addCorner
+    /// Step one wall out (or in) over a typed width — see `PlanEditing.bumpOut`.
+    case bumpOut
+    /// Curve this wall (floor-plan spec §10, M5).
+    case curve
     case addWall
     case splitRoom
     case mergeRooms
@@ -1445,8 +1457,13 @@ enum EditorAction: Hashable {
         case .rotate: return "Rotate"
         case .setSize: return "Set Size"
         case .editLayout: return "Edit Layout"
+        case .square: return "Square"
+        case .ceiling: return "Ceiling"
+        case .laser: return "Laser"
         case .duplicate: return "Duplicate"
         case .addCorner: return "Add Corner"
+        case .bumpOut: return "Bump Out"
+        case .curve: return "Curve"
         case .addWall: return "Add Wall"
         case .splitRoom: return "Split Room"
         case .mergeRooms: return "Merge Rooms"
@@ -1466,8 +1483,15 @@ enum EditorAction: Hashable {
         case .rotate: return "arrow.clockwise"
         case .setSize: return "ruler"
         case .editLayout: return "square.and.pencil"
+        // A right angle, which is the whole verb.
+        case .square: return "angle"
+        // A roof line over a box: the ceiling's shape.
+        case .ceiling: return "house"
+        case .laser: return "laser.burst"
         case .duplicate: return "square.on.square"
         case .addCorner: return "plus.circle"
+        case .bumpOut: return "square.split.bottomrightquarter"
+        case .curve: return "point.topleft.curvedto.point.bottomright.up"
         case .addWall: return "plus.rectangle"
         case .splitRoom: return "scissors"
         // Two shapes becoming one, which is the whole verb.
@@ -1506,11 +1530,11 @@ enum EditorAction: Hashable {
             // that had nowhere to appear.
             return [.insert, .rotate, .mergeRooms]
         case .room:
-            return [.insert, .setSize, .editLayout, .duplicate, .delete]
+            return [.insert, .setSize, .square, .ceiling, .laser, .editLayout, .duplicate, .delete]
         case .wall(let dragging):
             return dragging
                 ? [.insert, .delete]
-                : [.insert, .addCorner, .addWall, .splitRoom, .delete]
+                : [.insert, .addCorner, .bumpOut, .curve, .addWall, .splitRoom, .delete]
         case .corner:
             return [.insert, .delete]
         case .object:

@@ -21,6 +21,11 @@ invoices. It is in breach today.
 Three separate research agents flagged this independently. The risk is not a
 surprise bill — it is enforcement against the company's only web presence.
 
+**RESOLVED — the owner confirmed on 30 Aug 2026 that the account is on Pro, not Hobby.**
+This also unblocks the Microsoft Graph sync in `Ana-Capabilities-Orders.md` ANA-04, which
+needs cron more often than daily: Graph change-notification subscriptions expire in about
+three days and have to be renewed on a schedule.
+
 Dashboard → Settings → Billing → Upgrade.
 
 Also buys: 800s max function duration (vs 300s), 1 TB transfer, and cron more
@@ -54,11 +59,40 @@ Expect 3–10 business days for an answer.
 
 If the answer is no, the fallback is CSV export/import — worse, but real.
 
+**The fallback is built** (30 Aug 2026), so this blocker no longer stops the
+books getting done — it only stops the *live sync*. `/admin/invoices/export`
+writes issued invoices as a QuickBooks Online invoice-import CSV, one row per
+line item, with the header discount split across the tax boundary so QBO
+recomputes the same tax that was charged. Code: `src/lib/crm/quickbooksCsv.ts`.
+The Intuit ticket is still worth opening; nothing has been asked of them yet.
+A drafted ticket is ready to send in `Docs/intuit-ticket-draft.md` — it needs the
+legal entity name and NEQ filled in first.
+
+**Two things learned on 30 Aug 2026.** The owner is an *admin* on the QuickBooks Online
+company but not its owner/master admin — worth confirming that an admin can create a
+developer app against the company file, because on some plans that is owner-only. And the
+drafted ticket scopes the ask as "our CRM pushes invoices into QBO. We read nothing back",
+which is now backwards: he wants to *read* estimates and payments back. **Reword before
+sending** or the answer will not cover what is actually wanted.
+
 ---
 
 ## Before the phone agent can take a real call
 
-### 4. Test Teams call forwarding — 15 minutes, do this first
+### 4. Test Teams call forwarding
+
+> **Not to be confused with Teams *messages*.** The owner asked on 30 Aug 2026 for Ana to
+> read Teams chat, Outlook and OneDrive — and explicitly **not** Teams calls. That work is
+> `Ana-Capabilities-Orders.md` ANA-04 to ANA-07, and it is a different question from the
+> call-forwarding one below.
+>
+> **WHO ADMINISTERS THE TENANT IS AN OPEN QUESTION, and it gates all of it.** On 30 Aug
+> 2026 this file recorded that Artush administers the tenant. That was my reading of a
+> garbled voice answer and it was **wrong**: on 31 Aug he said he believes **Arman** is the
+> admin and that he probably cannot sign in to the Entra portal himself. Until that is
+> settled, the Entra app registration in `Docs/Microsoft-Graph-Setup.md` has no owner and
+> ANA-04 through ANA-07 and ANA-17 are blocked — the code is built and tested, and inert.
+ — 15 minutes, do this first
 
 Can the Teams tenant forward **+1 579-990-3077** to an external number? Forward
 it to your mobile and call it.

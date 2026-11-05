@@ -277,6 +277,12 @@ function Symbol({ kind, w, d }: { kind: string; w: number; d: number }) {
   }
 }
 
+/** A rotation that would leave text reading from the top or the left. */
+function upsideDown(rotation: number): boolean {
+  const a = ((rotation % 360) + 360) % 360;
+  return a > 90.5 && a <= 270.5;
+}
+
 export default function PlanObjects({
   objects,
   /** Cabinet runs and counters are drawn, annotations are not. */
@@ -311,6 +317,11 @@ export default function PlanObjects({
           {labels && object.name && (
             <text
               y={object.depthM / 2 + 0.16}
+              // Turned with its fixture, a name would print upside down on a
+              // toilet set against the far wall (Clark, 19 Oct 2026): past a
+              // quarter turn it flips about its own anchor, so it reads from
+              // the bottom or the right of the sheet, as drawings are read.
+              transform={upsideDown(object.rotation) ? `rotate(180 0 ${object.depthM / 2 + 0.16})` : undefined}
               textAnchor="middle"
               fontSize={0.15}
               fill="#6a7078"

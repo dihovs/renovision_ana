@@ -300,8 +300,23 @@ struct PhoneView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity)
                 .frame(height: 48)
                 .padding(.horizontal, Brand.Space.large)
+                // Hold the number to paste one copied from a text, an email
+                // or a website — as on the iPhone's own keypad. The whole
+                // width answers the hold, so it works on an empty line too.
+                .contentShape(Rectangle())
+                .contextMenu {
+                    Button("Paste", systemImage: "doc.on.clipboard") {
+                        if let pasted = Self.dialable(UIPasteboard.general.string) { typed = pasted }
+                    }
+                    .disabled(!UIPasteboard.general.hasStrings)
+                    if !typed.isEmpty {
+                        Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = typed }
+                        Button("Clear", systemImage: "xmark.circle", role: .destructive) { typed = "" }
+                    }
+                }
 
             if let error = calls.lastError {
                 Text(error)
@@ -341,19 +356,32 @@ struct PhoneView: View {
                     .disabled(typed.isEmpty)
                     .opacity(typed.isEmpty ? 0.5 : 1)
 
-                    Button {
-                        if !typed.isEmpty { typed.removeLast() }
-                    } label: {
-                        Image(systemName: "delete.left.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 78, height: 78)
-                    }
-                    .opacity(typed.isEmpty ? 0 : 1)
+                    Image(systemName: "delete.left.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 78, height: 78)
+                        .contentShape(Rectangle())
+                        .onTapGesture { if !typed.isEmpty { typed.removeLast() } }
+                        // Hold delete to clear the line, like the system keypad.
+                        .onLongPressGesture(minimumDuration: 0.5) { typed = "" }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel("Delete")
+                        .opacity(typed.isEmpty ? 0 : 1)
                 }
             }
             .padding(.bottom, 104)
         }
+    }
+
+    /// What can be dialled out of pasted text: "+1 (514) 555-0199 ext"
+    /// → "+15145550199". Keeps digits, a leading +, and * / # for menus;
+    /// nil when there is no number in it at all.
+    static func dialable(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var out = trimmed.hasPrefix("+") ? "+" : ""
+        out += trimmed.filter { $0.isASCII && ($0.isNumber || $0 == "*" || $0 == "#") }
+        return out.contains(where: \.isNumber) ? String(out.prefix(20)) : nil
     }
 
     private struct Key {

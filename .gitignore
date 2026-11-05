@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase CLI's local link state — machine-specific, not the migrations
+supabase/.temp/
+
 # local lead capture (contains PII, dev-only fallback)
 /data/
 
@@ -56,3 +59,6 @@ Docs/reference/_excluded/
 
 # local secrets — synced via OneDrive, never pushed
 Docs/orca-api-key.txt
+# magicplan icons, for an on-device demo only (owner, 3 Nov 2026) — never committed.
+# Regenerate from ~/Developer/magicplan-study; to be replaced by our own redraws.
+ios/App/App/Assets.xcassets/DemoMagicplan/

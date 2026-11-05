@@ -476,17 +476,19 @@ struct MiniPlan: View {
                 let band = max(1.4, 0.114 * scale)
                 if plan.polygon.count >= 3 {
                     var outline = Path()
-                    outline.move(to: pt(plan.polygon[0].x, plan.polygon[0].y))
-                    for p in plan.polygon.dropFirst() { outline.addLine(to: pt(p.x, p.y)) }
+                    let loop = plan.curvedPolygon
+                    outline.move(to: pt(loop[0].x, loop[0].y))
+                    for p in loop.dropFirst() { outline.addLine(to: pt(p.x, p.y)) }
                     outline.closeSubpath()
                     context.stroke(
                         outline, with: .color(Brand.Plan.ink),
                         style: StrokeStyle(lineWidth: band, lineCap: .butt, lineJoin: .miter))
                 } else {
                     var walls = Path()
-                    for s in plan.segments {
-                        walls.move(to: pt(s.x1, s.y1))
-                        walls.addLine(to: pt(s.x2, s.y2))
+                    for i in plan.segments.indices {
+                        let along = plan.run(i)
+                        walls.move(to: pt(along[0].x, along[0].y))
+                        for p in along.dropFirst() { walls.addLine(to: pt(p.x, p.y)) }
                     }
                     context.stroke(
                         walls, with: .color(Brand.Plan.ink),

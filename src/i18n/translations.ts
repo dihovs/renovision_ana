@@ -55,6 +55,26 @@ const en: Record<string, unknown> & {
     items: Array<{ name: string; rating: number; quote: string }>;
   };
   partners: { title: string; primePartner: string };
+  authority: {
+    title: string;
+    subtitle: string;
+    reviews: { label: string; stat: string; desc: string };
+    insurerNetwork: { label: string; desc: string };
+    warranty: { label: string; desc: string };
+    local: { label: string; desc: string };
+  };
+  techAdvantage: {
+    title: string;
+    subtitle: string;
+    app: { label: string; desc: string };
+    dryingLog: { label: string; desc: string };
+    estimate: { label: string; desc: string };
+    opus: { label: string; desc: string };
+  };
+  appNarrative: {
+    title: string;
+    paragraphs: [string, string];
+  };
   footer: Record<string, string>;
   chat: {
     launcherLabel: string;
@@ -137,6 +157,8 @@ const en: Record<string, unknown> & {
     caseStudies: "Case Studies",
     serviceAreas: "Service Areas",
     syndicats: "For Condo Syndicates",
+    assureurs: "For Insurers",
+    gestionnaires: "For Property Managers",
     company: "Company",
     estimate: "Free Estimate",
   },
@@ -150,13 +172,14 @@ const en: Record<string, unknown> & {
   },
   hero: {
     eyebrow: "Renovations & Water Damage Restoration",
-    // The H1 is the strongest on-page signal a local business has, so it names
-    // the trade and the territory rather than spending its second half on
-    // brand voice. The trust line moved to the subheadline below.
-    headlineStart: "Renovation and Water Damage Restoration",
-    headlineAccent: "in Laval and Montreal.",
+    // Ogilvy headline: action verbs first, then the differentiator. The SEO
+    // keywords (water damage, Laval, Montreal) now live in the subheadline
+    // and are still on the page in the first viewport.
+    headlineStart: "Call. We arrive. We document.",
+    headlineAccent: "Your insurer gets a complete file, not a bill.",
+    attitudeLine: "Not the biggest. The best rated. And we answer the phone.",
     subheadline:
-      "From emergency water damage repair to full kitchen and bathroom remodels, Renovision AnA delivers reliable craftsmanship for property managers, insurers, and homeowners.",
+      "Water damage restoration and interior renovations in Laval and greater Montreal. From emergency extraction to kitchen remodels — reliable work for property managers, insurers, and homeowners.",
     ctaEstimate: "Get an Instant Estimate",
     ctaCall: "Call Now",
     beforeLabel: "Before",
@@ -330,6 +353,30 @@ const en: Record<string, unknown> & {
     title: "Trusted By",
     primePartner: "Prime Partner",
   },
+  authority: {
+    title: "Accreditations & Partners",
+    subtitle:
+      "What you get when you work with Renovision AnA — no fine print, no asterisks.",
+    reviews: { label: "5.0 Star Google Rating", stat: "100+", desc: "Projects completed with a perfect five-star rating from every client." },
+    insurerNetwork: { label: "Réseau approuvé par les assureurs", desc: "Approved contractor network for major Québec insurers. Claims-ready documentation from day one." },
+    warranty: { label: "1-Year Workmanship Warranty", desc: "We stand behind every job with a written one-year warranty on workmanship." },
+    local: { label: "Proudly Local", desc: "Based in Laval, serving the greater Montreal area. We know the codes, the adjusters, and the contractors." },
+  },
+  techAdvantage: {
+    title: "Built for speed, backed by tech",
+    subtitle: "Tools and systems that make your claim faster and your renovation smoother.",
+    app: { label: "Mobile App", desc: "Track your project in real time — photos, completed steps, and timeline, all in your pocket." },
+    dryingLog: { label: "Digital Drying Log", desc: "Moisture readings logged, dated, and delivered to your adjuster without anyone having to follow up." },
+    estimate: { label: "Instant Estimate", desc: "Describe your project, get a price range in minutes. No appointment, no waiting." },
+    opus: { label: "Powered by Opus 5", desc: "Opus 5 runs the calculations behind our estimates — trained on data our team collects from real Laval jobs. The AI speeds up the math; the estimator guarantees the result." },
+  },
+  appNarrative: {
+    title: "A project your insurer can follow remotely",
+    paragraphs: [
+      "Our mobile app lets your insurer track the job in real time. No more calls asking where things stand: every phase is documented, photographed, and time-stamped. The adjuster opens the app, sees what's been done, and approves without a follow-up call.",
+      "For you, that's peace of mind. You know what happened today, what's planned tomorrow, and you have every photo of the job — before, during, after — in your pocket. No logbook to reconstruct for the insurer six months later. It's already done.",
+    ],
+  },
   footer: {
     tagline: "Renovation and water damage restoration you can trust.",
     explore: "Explore",
@@ -453,6 +500,8 @@ const fr: typeof en = {
     caseStudies: "Études de cas",
     serviceAreas: "Zones desservies",
     syndicats: "Syndicats de copropriété",
+    assureurs: "Pour les assureurs",
+    gestionnaires: "Pour les gestionnaires immobiliers",
     company: "Entreprise",
     estimate: "Estimation",
   },
@@ -465,10 +514,11 @@ const fr: typeof en = {
   },
   hero: {
     eyebrow: "Rénovations et restauration de dégâts d'eau",
-    headlineStart: "Rénovation et restauration après dégât d'eau",
-    headlineAccent: "à Laval et Montréal.",
+    headlineStart: "Appelez. On arrive. On documente.",
+    headlineAccent: "Votre assureur reçoit un dossier complet, pas une facture.",
+    attitudeLine: "On n'est pas les plus gros. On est les mieux notés. Et on répond au téléphone.",
     subheadline:
-      "De la réparation d'urgence des dégâts d'eau aux rénovations complètes de cuisines et salles de bain, Renovision AnA offre un travail fiable pour les gestionnaires immobiliers, les assureurs et les propriétaires.",
+      "Restauration après dégât d'eau et rénovation intérieure à Laval et dans le Grand Montréal. De l'extraction d'urgence aux rénovations de cuisine — un travail fiable pour gestionnaires, assureurs et propriétaires.",
     ctaEstimate: "Estimation instantanée",
     ctaCall: "Appelez maintenant",
     beforeLabel: "Avant",
@@ -641,6 +691,30 @@ const fr: typeof en = {
   partners: {
     title: "Ils nous font confiance",
     primePartner: "Partenaire Privilégié",
+  },
+  authority: {
+    title: "Accréditations et partenaires",
+    subtitle:
+      "Ce que vous obtenez en travaillant avec Renovision AnA — sans petits caractères, sans astérisques.",
+    reviews: { label: "5.0 étoiles sur Google", stat: "100+", desc: "Projets complétés avec une note parfaite de cinq étoiles de chaque client." },
+    insurerNetwork: { label: "Réseau approuvé par les assureurs", desc: "Réseau d'entrepreneurs approuvé par les grands assureurs québécois. Documentation prête pour la réclamation dès le premier jour." },
+    warranty: { label: "Garantie d'un an sur la main-d'œuvre", desc: "Nous garantissons chaque chantier avec une garantie écrite d'un an sur la main-d'œuvre." },
+    local: { label: "Fièrement local", desc: "Basé à Laval, au service du Grand Montréal. On connaît les codes, les experts en sinistre et les corps de métier." },
+  },
+  techAdvantage: {
+    title: "Conçu pour la vitesse, soutenu par la technologie",
+    subtitle: "Des outils et systèmes qui accélèrent votre réclamation et simplifient votre rénovation.",
+    app: { label: "Application mobile", desc: "Suivez votre chantier en temps réel — photos, étapes complétées, échéancier — tout dans votre poche." },
+    dryingLog: { label: "Rapport de séchage numérique", desc: "Relevés d'humidité datés, consignés et transmis à votre assureur sans qu'il ait à relancer personne." },
+    estimate: { label: "Estimation instantanée en ligne", desc: "Décrivez votre projet, obtenez une fourchette de prix en minutes. Pas de rendez-vous, pas d'attente." },
+    opus: { label: "Propulsé par Opus 5", desc: "Opus 5 fait les calculs derrière nos estimations — entraîné sur les données que notre équipe collecte sur de vrais chantiers lavallois. L'IA accélère le calcul ; l'estimateur garantit le résultat." },
+  },
+  appNarrative: {
+    title: "Un chantier que votre assureur peut suivre à distance",
+    paragraphs: [
+      "Notre application mobile permet à votre assureur de suivre l'évolution du chantier en temps réel. Fini les appels pour savoir où en sont les travaux : chaque phase est documentée, photographiée et horodatée. L'expert ouvre l'application, voit ce qui est fait, et approuve sans rappel.",
+      "Pour vous, c'est la tranquillité d'esprit. Vous savez ce qui s'est passé aujourd'hui, ce qui est prévu demain, et vous avez toutes les photos du chantier — avant, pendant, après — dans votre poche. Pas de journal de bord à reconstituer pour l'assureur six mois plus tard. Il est déjà fait.",
+    ],
   },
   footer: {
     tagline: "Rénovation et restauration de dégâts d'eau en qui vous pouvez avoir confiance.",

@@ -34,9 +34,10 @@ enum OpeningGlyphs {
         toScreen: (CGPoint) -> CGPoint,
         scale: CGFloat,
         inside: Color,
-        outside: Color
+        outside: Color,
+        bulges: [Double] = []
     ) {
-        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { return }
+        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening, bulges: bulges) else { return }
         let A = toScreen(a)
         let B = toScreen(b)
         let w = hypot(B.x - A.x, B.y - A.y)
@@ -466,9 +467,10 @@ enum OpeningGlyphs {
 
     /// Screen-space distance from a point to an opening, for hit-testing.
     static func distance(
-        to opening: PlanEditing.WallOpening, polygon: [CGPoint], from point: CGPoint
+        to opening: PlanEditing.WallOpening, polygon: [CGPoint], from point: CGPoint,
+        bulges: [Double] = []
     ) -> Double {
-        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening) else { return .infinity }
+        guard let (a, b) = PlanEditing.openingEndpoints(polygon, opening, bulges: bulges) else { return .infinity }
         let ab = PlanEditing.sub(b, a)
         let l2 = PlanEditing.dot(ab, ab)
         guard l2 > 1e-9 else { return PlanEditing.length(PlanEditing.sub(point, a)) }

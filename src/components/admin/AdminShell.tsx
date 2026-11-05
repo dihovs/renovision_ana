@@ -84,6 +84,9 @@ function buildNav(): NavItem[] {
   { href: "/admin/outreach", label: "Introductions", icon: IconFlag, ready: true },
   { href: "/admin/inbox", label: "Inbox", icon: IconClipboard, ready: true },
   { href: "/admin/clients", label: "Clients", icon: IconBuilding, ready: true },
+  // The insurance estimator's documents, all of them. Also reachable from
+  // each client's page; this is the door for "which estimates are open".
+  { href: "/admin/estimates", label: "Estimates", icon: IconClipboard, ready: true },
   { href: "/admin/quotes", label: "Quotes", icon: IconClipboard, ready: true },
   { href: "/admin/price-book", label: "Price book", icon: IconTag, ready: true },
   {
@@ -95,6 +98,10 @@ function buildNav(): NavItem[] {
   },
   { href: "/admin/projects", label: "Projects", icon: IconBuilding, ready: true },
   { href: "/admin/schedule", label: "Schedule", icon: IconCalendar, ready: true },
+  // Who works, in what role — visits are assigned to them, hours clocked.
+  { href: "/admin/team", label: "Team", icon: IconBuilding, ready: true },
+  { href: "/admin/timesheets", label: "Timesheets", icon: IconCalendar, ready: true },
+  { href: "/admin/checklists", label: "Checklists", icon: IconCheckCircle, ready: true },
   { href: "/admin/invoices", label: "Invoices", icon: IconCheckCircle, ready: true },
   { href: "/admin/expenses", label: "Expenses", icon: IconTag, ready: true },
   { href: "/admin/reports", label: "Reports", icon: IconShield, ready: true },
@@ -103,6 +110,7 @@ function buildNav(): NavItem[] {
 
 /** What the ＋ button offers. Grows as each section becomes real. */
 const CREATE_ACTIONS = [
+  { href: "/admin/estimates#new", label: "Estimate" },
   { href: "/admin/quotes/new", label: "Quote" },
   { href: "/admin/clients/new", label: "Client" },
   { href: "/admin/price-book", label: "Price book item" },

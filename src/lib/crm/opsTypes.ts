@@ -86,6 +86,9 @@ export type Visit = {
   // 0014 runs) for one scheduled by hand. Optional so a database that hasn't
   // run the migration still satisfies the type.
   recurrence_id?: string | null;
+  // Migration 0054: kept in step with completed_at by a trigger; "dispatched"
+  // once the crew has been sent the job. Optional for the same reason.
+  status?: "unscheduled" | "scheduled" | "dispatched" | "completed";
 };
 
 export type JobWithLines = Job & { lines: DocumentLine[]; visits: Visit[] };

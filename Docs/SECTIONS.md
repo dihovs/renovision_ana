@@ -3828,3 +3828,39 @@ Newest last. One or two lines per chat.
   19 lines, 14 946,61 $. The sofa he actually has derives as a detach-and-
   reset, visibly unpriced; the television he actually has derives as a
   zero-dollar protect-in-place.
+- **2026-10-19 (Scan outlines — crooked shapes)** Simulator build only; not
+  installed on the phone. The owner: *"Work on the room scan, make it
+  better"*, then chose **crooked shapes** as the thing that bothers him.
+  **Evidence came off his phone** (`devicectl`, read-only): the
+  `Private Office` scan of 24 Sep, 10 walls, a closet in one corner. Its
+  walls were exactly square, but the WEB drew no floor for it at all while
+  the phone drew one — the twins had drifted (the web's walk gave up on the
+  closet's two left-over partition walls; the phone's keeps the walk).
+  **Four fixes, in both twins** (`wallChain.ts` / `roomScan.ts` and
+  `FloorPlanGeometry.swift`):
+  1. `squareNearlySquare` — a wall within 5° of the page's axes is turned
+     about its middle onto the axis it is nearest; an opening turns with
+     its host wall. Past 5° (a bay, a 45° cut) nothing moves.
+  2. `meetAtCorners` — a wall's end slides along its OWN line to where it
+     crosses the wall it meets, instead of being welded onto the other
+     wall's end (which tilted short returns several degrees).
+  3. `mergeCollinear` — two pieces of one wall merge onto one straight line
+     at their weighted offset, not far-end to far-end (which slanted it).
+  4. `alignCollinear` — a level wall pointing left and one pointing right
+     came back with opposite-sign offsets and never grouped; compared in
+     one frame now (`inFrameOf`). Latent before; constant once walls are
+     set exactly level, found by the parity run.
+  Plus the web's walk now keeps what it has at a gap (the phone always
+  did) and closes at 0,25 m like the phone, not 0,30.
+  **Measured** on 500 noisy copies of his office (±1,5°, ±6 cm per wall):
+  crooked outlines (an edge > 0,5° off square) 499 → 0, mean area error
+  0,6 % → 0,0 %. At ±3° / ±10 cm: 498 → 119. **Parity**: the changed Swift
+  functions, extracted verbatim into a standalone harness, gave outlines
+  AND drawn walls identical to the web's on all 601 rooms.
+  **Wall indices are preserved**: the walk's order is untouched (only corner
+  positions move), so per-wall records on saved, unedited rooms keep their
+  walls. Not fixed, deliberately: two pieces of a wall 12–25 cm apart are
+  still joined by a slanted step — changing that adds a corner and would
+  renumber walls on saved rooms.
+  **Needs the owner**: install a device build and rescan a room with a
+  closet or nook.

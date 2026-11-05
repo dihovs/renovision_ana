@@ -346,3 +346,50 @@ describe("money is spoken, never counted out in cents", () => {
     expect(spokenMoney(1_240_000, "fr")).toBe("douze mille quatre cents dollars");
   });
 });
+
+/**
+ * Money bends to the surface; nothing else does. (ANA-20)
+ *
+ * The tools were written for a phone, where an amount has to be words or the
+ * voice model reads it off by a factor of a hundred. On a screen that same
+ * care reads as a machine that cannot count. So the surface travels with the
+ * call — and it changes formatting only, never what a tool refuses or asks.
+ */
+describe("the screen surface", () => {
+  beforeEach(() => {
+    vi.mocked(receivablesSummary).mockResolvedValue({
+      outstandingCents: 124_000,
+      overdueCents: 0,
+      count: 3,
+    });
+  });
+
+  it("writes money as digits on a screen and as words on the phone", async () => {
+    const screen = await runOwnerTool(authenticated, "money_owed", {}, { surface: "screen", locale: "en" });
+    expect(screen).toContain("1,240");
+    expect(screen).not.toMatch(/thousand/i);
+
+    const voice = await runOwnerTool(authenticated, "money_owed", {}, { surface: "voice", locale: "en" });
+    expect(voice).toMatch(/thousand/i);
+    expect(voice).not.toContain("1,240");
+  });
+
+  it("speaks for the phone when nobody says which surface", async () => {
+    // The default is the surface that breaks loudly if it is wrong. (The
+    // locale default is French, which is why this asserts the French words —
+    // the business is in Laval and the phone answers in French unless told.)
+    expect(await runOwnerTool(authenticated, "money_owed", {})).toMatch(/mille/i);
+  });
+
+  it("still refuses on a screen what it refuses on the phone", async () => {
+    // The boundary is not a formatting concern. An unauthenticated session
+    // gets nothing, whichever surface asked.
+    const refused = await runOwnerTool(
+      { authenticated: false },
+      "money_owed",
+      {},
+      { surface: "screen" },
+    );
+    expect(refused).toBe("That is not available on this call.");
+  });
+});

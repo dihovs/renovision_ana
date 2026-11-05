@@ -967,6 +967,14 @@ actor API {
         let doorCount: Int?
         let windowCount: Int?
         let openingCount: Int?
+        /// One bulge per edge (M5), + away from the room. Sent on every save
+        /// from this build, all zeros for a straight room, so a curve that
+        /// was straightened is cleared rather than left behind.
+        let edgeBulge: [Double]?
+        /// The ceiling's shape and what it measured (M6). Nil says nothing,
+        /// and the stored ones are kept.
+        let ceilingProfile: ScanGeometry.CeilingRecord?
+        let ceilingFigures: ScanGeometry.CeilingFigures?
     }
 
     /// Save a plan corrected by hand. The scan's own measurements are kept —
@@ -975,15 +983,25 @@ actor API {
     func saveEditedPlan(
         roomId: String, corners: [CGPoint], locked: [Int] = [],
         openings placed: [PlanEditing.WallOpening]? = nil, ceilingHeight: Double = 0,
-        interiorWalls: [ScanGeometry.InteriorWall]? = nil
+        interiorWalls: [ScanGeometry.InteriorWall]? = nil,
+        edgeBulge: [Double]? = nil,
+        ceiling: ScanGeometry.CeilingRecord? = nil
     ) async throws {
+        // A room with no recorded ceiling still has to deduct SOMETHING for a
+        // door; the builder's 8' is the least surprising stand-in.
+        let flat = ceilingHeight > 0 ? ceilingHeight : 2.44
+        let bulges = edgeBulge ?? []
         let synthesized = placed.map {
             ScanGeometry.surfaces(
-                for: $0, polygon: corners,
-                // A room with no recorded ceiling still has to deduct
-                // SOMETHING for a door; the builder's 8' is the least
-                // surprising stand-in.
-                ceilingHeight: ceilingHeight > 0 ? ceilingHeight : 2.44)
+                for: $0, polygon: corners, ceilingHeight: flat,
+                ceilingOver: { opening in
+                    PlanBridge.ceilingOver(
+                        corners, bulges: bulges, ceiling: ceiling, flat: flat,
+                        edge: opening.edge, offset: opening.offset, width: opening.width)
+                })
+        }
+        let figures = ceiling.flatMap {
+            PlanBridge.ceilingFigures(corners, bulges: bulges, ceiling: $0, flat: flat)
         }
         _ = try await request(
             "/api/v1/scans/\(roomId)", method: "PATCH",
@@ -997,7 +1015,10 @@ actor API {
                 openings: synthesized?.passages,
                 doorCount: synthesized?.doors.count,
                 windowCount: synthesized?.windows.count,
-                openingCount: synthesized?.passages.count))
+                openingCount: synthesized?.passages.count,
+                edgeBulge: edgeBulge,
+                ceilingProfile: ceiling,
+                ceilingFigures: figures))
     }
 
     // MARK: - Photos
@@ -1244,5 +1265,199 @@ private extension URLError {
     var isOffline: Bool {
         [.notConnectedToInternet, .networkConnectionLost, .dataNotAllowed,
          .cannotConnectToHost, .cannotFindHost, .timedOut].contains(code)
+    }
+}
+
+// MARK: - Customer screen
+
+/// Everything the Customer screen shows. Filled from one call on a server
+/// that has `/api/v1/clients/{id}/hub`, or — on an older deployment — put
+/// together from the lists that server does have, so the screen works on
+/// the live site before the branch reaches it.
+struct CustomerHub {
+    struct Row: Identifiable, Hashable {
+        enum Kind: String { case request, estimate, quote, project, job, invoice }
+        let kind: Kind
+        let id: String
+        let title: String
+        let subtitle: String?
+        let status: String
+        let amountCents: Int?
+        let date: String?
+        /// The admin page that opens it, for the web screens.
+        let path: String
+    }
+
+    var phones: [String] = []
+    var emails: [String] = []
+    var properties: [(id: String, label: String)] = []
+    var person: String?
+    var requests: [Row] = []
+    var estimates: [Row] = []
+    var quotes: [Row] = []
+    var projects: [Row] = []
+    var jobs: [Row] = []
+    var invoices: [Row] = []
+    /// False when the server could not list insurance estimates (an older
+    /// deployment); the section then says so instead of claiming "none".
+    var estimatesKnown = true
+
+    var openEstimateCents: Int {
+        estimates.filter { $0.status == "draft" }.compactMap(\.amountCents).reduce(0, +)
+            + quotes.filter { ["draft", "sent", "viewed", "changes_requested"].contains($0.status) }
+                .compactMap(\.amountCents).reduce(0, +)
+    }
+    var activeJobs: Int { jobs.filter { ["unscheduled", "scheduled", "in_progress"].contains($0.status) }.count }
+    var owingCents: Int {
+        invoices.filter { ["sent", "viewed", "part_paid"].contains($0.status) }.compactMap(\.amountCents).reduce(0, +)
+    }
+}
+
+private struct HubResponse: Decodable {
+    struct Client: Decodable {
+        let person: String?
+        let phones: [String]
+        let emails: [String]
+        let properties: [Property]
+    }
+    struct Property: Decodable { let id: String; let label: String }
+    struct Request: Decodable { let id: String; let title: String; let status: String; let createdAt: String }
+    struct Estimate: Decodable {
+        let id: String; let projectId: String; let title: String; let address: String?
+        let status: String; let totalCents: Int; let lineCount: Int; let updatedAt: String
+    }
+    struct Quote: Decodable { let id: String; let number: Int; let title: String?; let status: String; let totalCents: Int; let updatedAt: String }
+    struct Project: Decodable { let id: String; let name: String; let status: String; let roomCount: Int }
+    struct Job: Decodable { let id: String; let number: Int; let title: String?; let status: String; let totalCents: Int; let startsOn: String? }
+    struct Invoice: Decodable {
+        let id: String; let number: Int; let title: String?; let status: String
+        let totalCents: Int; let balanceCents: Int; let issueDate: String
+    }
+    let client: Client
+    let requests: [Request]
+    let estimates: [Estimate]
+    let quotes: [Quote]
+    let projects: [Project]
+    let jobs: [Job]
+    let invoices: [Invoice]
+}
+
+/// The live site's job list rows (snake_case, straight from listJobs).
+private struct LiveJobs: Decodable {
+    struct Job: Decodable {
+        let id: String; let job_number: Int; let title: String?; let status: String
+        let total_cents: Int?; let starts_on: String?
+    }
+    let jobs: [Job]
+}
+
+private struct LiveInvoices: Decodable {
+    struct Invoice: Decodable {
+        let id: String; let invoiceNumber: Int; let clientName: String; let title: String?
+        let status: String; let issueDate: String; let totalCents: Int; let balanceCents: Int
+    }
+    let invoices: [Invoice]
+}
+
+private struct StartedEstimate: Decodable { let projectId: String; let path: String }
+private struct StartEstimateBody: Encodable { let propertyId: String? }
+
+extension API {
+    func customerHub(for client: ClientSummary) async throws -> CustomerHub {
+        do {
+            let r = try await get("/api/v1/clients/\(client.id)/hub", as: HubResponse.self)
+            var hub = CustomerHub()
+            hub.person = r.client.person
+            hub.phones = r.client.phones
+            hub.emails = r.client.emails
+            hub.properties = r.client.properties.map { ($0.id, $0.label) }
+            hub.requests = r.requests.map {
+                .init(kind: .request, id: $0.id, title: $0.title, subtitle: nil, status: $0.status,
+                      amountCents: nil, date: $0.createdAt, path: "/admin/leads")
+            }
+            hub.estimates = r.estimates.map {
+                .init(kind: .estimate, id: $0.id, title: $0.title, subtitle: $0.address, status: $0.status,
+                      amountCents: $0.totalCents, date: $0.updatedAt, path: "/admin/projects/\($0.projectId)/estimate")
+            }
+            hub.quotes = r.quotes.map {
+                .init(kind: .quote, id: $0.id, title: "#\($0.number)" + ($0.title.map { " · \($0)" } ?? ""), subtitle: nil,
+                      status: $0.status, amountCents: $0.totalCents, date: $0.updatedAt, path: "/admin/quotes/\($0.id)")
+            }
+            hub.projects = r.projects.map {
+                .init(kind: .project, id: $0.id, title: $0.name, subtitle: "\($0.roomCount) rooms", status: $0.status,
+                      amountCents: nil, date: nil, path: "/admin/projects/\($0.id)")
+            }
+            hub.jobs = r.jobs.map {
+                .init(kind: .job, id: $0.id, title: "#\($0.number)" + ($0.title.map { " · \($0)" } ?? ""), subtitle: nil,
+                      status: $0.status, amountCents: $0.totalCents == 0 ? nil : $0.totalCents, date: $0.startsOn,
+                      path: "/admin/jobs/\($0.id)")
+            }
+            hub.invoices = r.invoices.map {
+                .init(kind: .invoice, id: $0.id, title: "#\($0.number)" + ($0.title.map { " · \($0)" } ?? ""),
+                      subtitle: $0.balanceCents > 0 && $0.status != "draft" ? "\(money($0.balanceCents)) owing" : nil,
+                      status: $0.status, amountCents: $0.status == "paid" || $0.status == "draft" ? $0.totalCents : $0.balanceCents,
+                      date: $0.issueDate, path: "/admin/invoices/\($0.id)")
+            }
+            return hub
+        } catch APIError.notSignedIn {
+            throw APIError.notSignedIn
+        } catch {
+            return try await legacyHub(for: client)
+        }
+    }
+
+    /// The older server: quotes and jobs filter by client; invoices and
+    /// projects only carry the client's name, so they are matched on it.
+    private func legacyHub(for client: ClientSummary) async throws -> CustomerHub {
+        async let quotes = try? get("/api/v1/quotes?clientId=\(client.id)", as: QuoteListResponse.self).quotes
+        async let jobs = try? get("/api/v1/jobs?clientId=\(client.id)", as: LiveJobs.self).jobs
+        async let invoices = try? get("/api/v1/invoices", as: LiveInvoices.self).invoices
+        async let projects = try? projects()
+
+        var hub = CustomerHub()
+        hub.estimatesKnown = false
+        hub.phones = ([client.phone] + client.phones.map(\.number)).compactMap { $0 }.uniqued()
+        hub.emails = client.email.map { [$0] } ?? []
+        hub.quotes = (await quotes ?? []).map {
+            .init(kind: .quote, id: $0.id, title: "#\($0.quoteNumber)" + ($0.title.map { " · \($0)" } ?? ""), subtitle: nil,
+                  status: $0.status, amountCents: $0.totalCents, date: nil, path: "/admin/quotes/\($0.id)")
+        }
+        hub.jobs = (await jobs ?? []).map {
+            .init(kind: .job, id: $0.id, title: "#\($0.job_number)" + ($0.title.map { " · \($0)" } ?? ""), subtitle: nil,
+                  status: $0.status, amountCents: ($0.total_cents ?? 0) == 0 ? nil : $0.total_cents, date: $0.starts_on,
+                  path: "/admin/jobs/\($0.id)")
+        }
+        hub.invoices = (await invoices ?? []).filter { $0.clientName == client.name }.map {
+            .init(kind: .invoice, id: $0.id, title: "#\($0.invoiceNumber)" + ($0.title.map { " · \($0)" } ?? ""),
+                  subtitle: $0.balanceCents > 0 && $0.status != "draft" ? "\(money($0.balanceCents)) owing" : nil,
+                  status: $0.status, amountCents: $0.status == "paid" || $0.status == "draft" ? $0.totalCents : $0.balanceCents,
+                  date: $0.issueDate, path: "/admin/invoices/\($0.id)")
+        }
+        hub.projects = (await projects ?? []).filter { $0.clientName == client.name }.map {
+            .init(kind: .project, id: $0.id, title: $0.name, subtitle: "\($0.roomCount) rooms", status: "active",
+                  amountCents: nil, date: nil, path: "/admin/projects/\($0.id)")
+        }
+        return hub
+    }
+
+    /// Make the project for a new estimate; nil on a server without the
+    /// endpoint, where the caller falls back to the web form.
+    func startEstimate(clientId: String, propertyId: String?) async throws -> String? {
+        do {
+            let data = try await request("/api/v1/clients/\(clientId)/estimate", method: "POST",
+                                         body: StartEstimateBody(propertyId: propertyId))
+            return try JSONDecoder().decode(StartedEstimate.self, from: data).path
+        } catch APIError.notSignedIn {
+            throw APIError.notSignedIn
+        } catch {
+            return nil
+        }
+    }
+}
+
+extension Array where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
     }
 }

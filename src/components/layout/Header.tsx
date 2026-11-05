@@ -149,6 +149,8 @@ export default function Header() {
     { href: "/about", label: t.nav.about },
     { href: "/service-areas", label: t.nav.serviceAreas },
     { href: "/syndicats", label: t.nav.syndicats },
+    { href: "/assureurs", label: t.nav.assureurs },
+    { href: "/gestionnaires", label: t.nav.gestionnaires },
     { href: "/case-studies", label: t.nav.caseStudies },
     { href: "/safety", label: t.nav.safety },
     { href: "/careers", label: t.nav.careers },

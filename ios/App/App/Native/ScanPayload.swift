@@ -1,4 +1,5 @@
 import CoreGraphics
+import FloorPlanCore
 import Foundation
 import RoomPlan
 
@@ -40,6 +41,24 @@ struct ScanGeometry: Codable {
         let centerZ: Double
         let axisX: Double
         let axisZ: Double
+        /// True when `lengthMeters`/`centerX`/`centerZ` were corrected
+        /// against the LiDAR mesh — see `WallMeshRefinement`. Optional both
+        /// because a scan saved before this field existed has none, and
+        /// because a door/window/opening is never refined (there is no
+        /// surface there for the mesh to fit a line to), so leaving it out
+        /// entirely on those is a true statement, not a missing one.
+        var meshRefined: Bool? = nil
+        /// How high the BOTTOM of this surface sits above the floor, metres —
+        /// a window's sill, zero for a door. Nil on walls and on scans saved
+        /// before 3 Nov 2026, when it was not kept: a window's centre was
+        /// stored in plan only, so its height off the floor was lost and every
+        /// window came back at the catalogue's stock sill.
+        var bottomMeters: Double? = nil
+        /// RoomPlan's own answer to "which wall is this door in" (iOS 17's
+        /// `parentIdentifier`), as that wall's `detectionId`. Nil on walls, on
+        /// openings RoomPlan did not attach, and on older scans — which is why
+        /// the plan still finds a host wall by distance when it is missing.
+        var parentWallId: String? = nil
     }
 
     struct Floor: Codable {
@@ -119,6 +138,38 @@ struct ScanGeometry: Codable {
     /// before the editor existed has none.
     var editedPolygon: [EditedPoint]?
 
+    /// The floor's own boundary, traced from the LiDAR mesh directly —
+    /// independent of RoomPlan's wall list, and able to disagree with it.
+    /// See `FloorMeshRefinement`. Handed over unconditionally by `init`;
+    /// `FloorPlanGeometry.plan(from:)` is what decides whether to trust it,
+    /// by comparing its area against the wall-chained one, the same way
+    /// `toFloorPlan` in roomScan.ts does for the twin field there.
+    var meshFloorPolygon: [EditedPoint]?
+
+    /// RoomPlan's complete `CapturedRoom`, exactly as Apple produced it,
+    /// encoded as JSON text.
+    ///
+    /// **Why it is kept (owner, 3 Nov 2026).** Everything else in this struct
+    /// is OUR reading of the scan — centre, axis and length per wall, with the
+    /// mesh corrections already applied. Each time that reading improved,
+    /// scans saved under the old one were stuck with it, because the scan
+    /// itself was gone. With Apple's record kept, an old room can be run
+    /// through a better conversion later instead of re-scanned.
+    ///
+    /// Carried on the phone only: `ScanUpload` lifts it out into its own
+    /// field so it lands in `room_scans.raw_capture`, NOT inside the
+    /// `geometry` every room list downloads — it is tens of kilobytes per
+    /// room, and nothing that draws a plan reads it.
+    var rawCapture: String?
+
+    /// The outline worked out from this scan's walls when it was taken
+    /// (floor-plan spec §8, M11): chained into the cheapest closed loop and
+    /// squared (FloorPlanCore `WallChain`). In `FloorPlanGeometry.plan`'s
+    /// own frame. When present it is the room's outline on the phone AND
+    /// the web (twin: `importedOutline` in roomScan.ts). Scans from before
+    /// 4 Nov 2026 have none and keep the old chain on both sides.
+    var importedOutline: [EditedPoint]?
+
     /// Which wall lengths were TYPED rather than measured, by edge index.
     ///
     /// A number somebody entered by hand is a different kind of fact from one
@@ -127,6 +178,62 @@ struct ScanGeometry: Codable {
     /// must not be a shrug. A locked length also refuses to be changed by a
     /// stray drag without asking first.
     var lockedEdges: [Int]?
+    /// Curved walls (floor-plan spec §10, M5): edge i of `editedPolygon`
+    /// bulges this many metres, + away from the room, − into it; 0 or absent
+    /// is straight. Twin: `edgeBulge` in src/lib/roomScan.ts, measured by
+    /// src/lib/arc.ts on the server and `PlanBridge` on the phone.
+    var edgeBulge: [Double]?
+    /// The ceiling's shape (floor-plan spec §11, M6), when it is not one
+    /// flat height. Nil is flat at `ceiling_height_m`, which is every room
+    /// filed before 3 Nov 2026. See `CeilingRecord`.
+    var ceilingProfile: CeilingRecord?
+    /// What the phone worked out from that shape when the room was saved —
+    /// the record, as with every other measurement here. `ceiling_height_m`
+    /// is set to `meanHeightM` alongside, so every reader that multiplies
+    /// floor by ceiling (volume, drying) gets the right air without knowing
+    /// any of this exists.
+    var ceilingFigures: CeilingFigures?
+
+    /// A ceiling as stored: by WALL, never by absolute point, so it follows
+    /// the room when a corner is dragged afterwards — the same rule locked
+    /// walls and curves keep. Edge numbers count in `editedPolygon`.
+    struct CeilingRecord: Codable, Equatable {
+        /// "flat", "sloped", "vaulted" or "zones".
+        var kind: String
+        /// Flat: the height. Zones: the base height around them.
+        var height: Double?
+        /// Sloped: the height along `lowEdge`, rising to `high` along `highEdge`.
+        var low: Double?
+        var high: Double?
+        var lowEdge: Int?
+        var highEdge: Int?
+        /// Vaulted: `eave` at the walls farthest from the ridge, `ridge` along
+        /// it. The ridge runs parallel to `ridgeEdge`, through the middle of
+        /// the room.
+        var eave: Double?
+        var ridge: Double?
+        var ridgeEdge: Int?
+        /// Zones: strips along walls — a bulkhead, a soffit over cabinets —
+        /// each `depth` into the room at its own `height`.
+        var strips: [Strip]?
+
+        struct Strip: Codable, Equatable, Hashable {
+            var edge: Int
+            var depth: Double
+            var height: Double
+        }
+
+        static func flat(_ h: Double) -> CeilingRecord { CeilingRecord(kind: "flat", height: h) }
+    }
+
+    struct CeilingFigures: Codable, Equatable {
+        var volumeCbm: Double
+        var grossWallSqm: Double
+        var ceilingSurfaceSqm: Double
+        var meanHeightM: Double
+        var minHeightM: Double
+        var maxHeightM: Double
+    }
 
     /// Doors and windows the operator PLACED on a drawn or typed room, kept
     /// in their editable form: which edge of the (edited) polygon, how far
@@ -341,7 +448,8 @@ struct ScanGeometry: Codable {
     /// Heights are the kind's convention clamped to the ceiling — a 6'8"
     /// door in a 6' crawl space must not deduct wall that does not exist.
     static func surfaces(
-        for authored: [ScanGeometry.AuthoredOpening], polygon: [CGPoint], ceilingHeight: Double
+        for authored: [ScanGeometry.AuthoredOpening], polygon: [CGPoint], ceilingHeight: Double,
+        ceilingOver: ((PlanEditing.WallOpening) -> Double)? = nil
     ) -> (doors: [Surface], windows: [Surface], passages: [Surface]) {
         var doors: [Surface] = []
         var windows: [Surface] = []
@@ -367,7 +475,15 @@ struct ScanGeometry: Codable {
                 // figure — independently editable since 18 Aug 2026, and
                 // net wall area has to deduct what was actually declared,
                 // not what a kind starts at by default.
-                heightMeters: min(opening.height, ceilingHeight),
+                // ...and only as far as it is UNDER the ceiling, counted from
+                // its sill (floor-plan spec §9: sill + height ≤ ceiling). A
+                // window's top past the ceiling is not wall that was there
+                // to deduct; measuring from the floor instead overstated the
+                // hole of every window whose top met the ceiling.
+                // Under a sloped, vaulted or zoned ceiling (M6) "the
+                // ceiling" is the lowest it comes over THIS opening's span.
+                heightMeters: max(
+                    0, min(opening.height, (ceilingOver?(opening) ?? ceilingHeight) - opening.sill)),
                 centerX: (a.x + b.x) / 2,
                 centerZ: (a.y + b.y) / 2,
                 axisX: dx / width,
@@ -382,7 +498,8 @@ struct ScanGeometry: Codable {
     }
 
     static func surfaces(
-        for authored: [PlanEditing.WallOpening], polygon: [CGPoint], ceilingHeight: Double
+        for authored: [PlanEditing.WallOpening], polygon: [CGPoint], ceilingHeight: Double,
+        ceilingOver: ((PlanEditing.WallOpening) -> Double)? = nil
     ) -> (doors: [Surface], windows: [Surface], passages: [Surface]) {
         surfaces(
             for: authored.map {
@@ -390,11 +507,21 @@ struct ScanGeometry: Codable {
                     edge: $0.edge, offset: $0.offset, width: $0.width, height: $0.height,
                     sill: $0.sill, kind: $0.kind.rawValue)
             },
-            polygon: polygon, ceilingHeight: ceilingHeight)
+            polygon: polygon, ceilingHeight: ceilingHeight, ceilingOver: ceilingOver)
     }
 
-    init(room: CapturedRoom) {
-        func map(_ list: [CapturedRoom.Surface]) -> [Surface] {
+    /// `meshPoints` is every LiDAR mesh vertex ARKit accumulated during this
+    /// room, in world space — `RoomScanViewController` snapshots them at the
+    /// moment the operator taps Done and hands them through
+    /// `RoomCaptureScreen`'s `onFinish`. Empty on a scan whose caller has
+    /// none to offer, in which case every wall keeps RoomPlan's own figure
+    /// unchanged, same as `RoomScanPlugin.geometryPayload` does for the
+    /// WebView path this mirrors.
+    init(
+        room: CapturedRoom, meshPoints: [SIMD3<Float>] = [],
+        tracedFloor: FloorMeshRefinement.TracedFloor? = nil
+    ) {
+        func map(_ list: [CapturedRoom.Surface], refine: Bool) -> [Surface] {
             list.map { surface in
                 // `dimensions` is the surface's own width × height in metres:
                 // a wall's length is x, its height is y. The transform's 4th
@@ -404,15 +531,34 @@ struct ScanGeometry: Codable {
                 // in RoomPlan's world, so the plan lives in x/z.
                 let centre = surface.transform.columns.3
                 let axis = surface.transform.columns.0
+                var lengthMeters = Double(surface.dimensions.x)
+                var centerX = Double(centre.x)
+                var centerZ = Double(centre.z)
+                var meshRefined: Bool? = nil
+
+                if refine, !meshPoints.isEmpty,
+                    let refined = WallMeshRefinement.refine(
+                        wallTransform: surface.transform,
+                        lengthMeters: surface.dimensions.x,
+                        heightMeters: surface.dimensions.y,
+                        points: meshPoints)
+                {
+                    lengthMeters = refined.lengthMeters
+                    centerX = refined.centerX
+                    centerZ = refined.centerZ
+                    meshRefined = true
+                }
+
                 return Surface(
                     detectionId: surface.identifier.uuidString,
-                    lengthMeters: Double(surface.dimensions.x),
-                    widthMeters: Double(surface.dimensions.x),
+                    lengthMeters: lengthMeters,
+                    widthMeters: lengthMeters,
                     heightMeters: Double(surface.dimensions.y),
-                    centerX: Double(centre.x),
-                    centerZ: Double(centre.z),
+                    centerX: centerX,
+                    centerZ: centerZ,
                     axisX: Double(axis.x),
-                    axisZ: Double(axis.z))
+                    axisZ: Double(axis.z),
+                    meshRefined: meshRefined)
             }
         }
 
@@ -436,21 +582,73 @@ struct ScanGeometry: Codable {
                 heightMeters: Double(object.dimensions.y))
         }
 
-        walls = map(room.walls)
+        walls = map(room.walls, refine: true)
         // x TIMES Y, not x times z. Every RoomPlan surface is a plane in its
         // own local X-Y, laid flat by the node transform — so a floor's depth
         // is y and its z is ~0. Multiplying by z gave every room a floor area
         // of zero, which shipped once and must not ship again.
         floors = room.floors.map { Floor(areaSquareMeters: Double($0.dimensions.x * $0.dimensions.y)) }
-        doors = map(room.doors)
-        windows = map(room.windows)
-        openings = map(room.openings)
+        // The floor's height in RoomPlan's world, to measure a sill against:
+        // the floor surface when RoomPlan found one, otherwise the lowest
+        // wall bottom, which is where the walls meet the floor.
+        let floorY: Double = {
+            if let floor = room.floors.first { return Double(floor.transform.columns.3.y) }
+            let bottoms = room.walls.map {
+                Double($0.transform.columns.3.y) - Double($0.dimensions.y) / 2
+            }
+            return bottoms.min() ?? 0
+        }()
+        /// An opening, plus what a plan cannot hold: how high it starts off
+        /// the floor, and which wall RoomPlan says it is in.
+        func placed(_ list: [CapturedRoom.Surface]) -> [Surface] {
+            zip(list, map(list, refine: false)).map { surface, mapped in
+                var out = mapped
+                let centreY = Double(surface.transform.columns.3.y)
+                // Never below the floor: a door measured a hair under it is
+                // still a door standing on the floor.
+                out.bottomMeters = max(0, centreY - Double(surface.dimensions.y) / 2 - floorY)
+                out.parentWallId = surface.parentIdentifier?.uuidString
+                return out
+            }
+        }
+        doors = placed(room.doors)
+        windows = placed(room.windows)
+        openings = placed(room.openings)
         doorCount = room.doors.count
         windowCount = room.windows.count
         openingCount = room.openings.count
         // Stairs matter for pricing rather than for a picture: a staircase
         // changes the scope, and RoomPlan's floor area ignores its run.
         stairCount = room.objects.filter { $0.category == .stairs }.count
+        // Handed over unconditionally — see the field's own doc comment for
+        // why the gate belongs to the reader, not the writer.
+        meshFloorPolygon = tracedFloor?.polygon.map { EditedPoint(x: $0.x, y: $0.y) }
+
+        // The room's outline, chained and squared from the walls above in
+        // the plan's own frame — what both halves of the app draw from now.
+        importedOutline = Self.chainedOutline(of: self)
+
+        // Apple's own record, untouched. `try?`: a scan that will not encode
+        // still has every measurement above, and losing the archive copy must
+        // never cost the operator the room he just walked.
+        if let data = try? JSONEncoder().encode(room) {
+            rawCapture = String(data: data, encoding: .utf8)
+        }
+    }
+
+    /// M11: the walls, as `FloorPlanGeometry.plan` lays them out, into one
+    /// closed squared outline — nil when they never close (the old chain is
+    /// then still tried when drawing).
+    static func chainedOutline(of geometry: ScanGeometry) -> [EditedPoint]? {
+        var probe = geometry
+        probe.importedOutline = nil
+        probe.meshFloorPolygon = nil
+        let plan = FloorPlanGeometry.plan(from: probe)
+        let walls = plan.segments.map {
+            WallChain.Segment(Vec2($0.x1, $0.y1), Vec2($0.x2, $0.y2))
+        }
+        guard let outline = WallChain.squaredOutline(walls), outline.points.count >= 3 else { return nil }
+        return outline.points.map { EditedPoint(x: $0.x, y: $0.y) }
     }
 
     // MARK: - Derived figures
@@ -539,6 +737,12 @@ struct ScanUpload: Codable {
     /// counts basements as living area. Optional in the CODEC only, for
     /// scans held on disk from before the field existed.
     let roomType: String?
+    /// RoomPlan's raw `CapturedRoom` JSON, lifted OUT of `geometry` — see
+    /// `ScanGeometry.rawCapture`. Its own field so the server files it in
+    /// `room_scans.raw_capture`, away from the geometry every list
+    /// downloads. Optional in the codec: drawn rooms have none, and scans
+    /// held on disk from before 3 Nov 2026 never carried one.
+    let rawCapture: String?
 
     init(
         projectId: String, name: String, level: String, position: Int, geometry: ScanGeometry,
@@ -554,7 +758,10 @@ struct ScanUpload: Codable {
         self.doorCount = geometry.doorCount
         self.windowCount = geometry.windowCount
         self.stairCount = geometry.stairCount
-        self.geometry = geometry
+        var lean = geometry
+        self.rawCapture = lean.rawCapture
+        lean.rawCapture = nil
+        self.geometry = lean
         self.roomType = roomType
     }
 }

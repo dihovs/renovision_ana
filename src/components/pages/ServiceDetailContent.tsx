@@ -62,6 +62,16 @@ export type ServiceDetailCopy = {
   /** Disclosure shown once under the photo grid — e.g. flagging that the
    *  images illustrate the process rather than depicting a specific job. */
   mediaNote?: string;
+  /**
+   * Emergency checklist shown between the hero and the process section.
+   * A numbered list of steps the homeowner can take while waiting for the
+   * crew. Optional — pages without a checklist render as before.
+   */
+  checklist?: {
+    title: string;
+    intro: string;
+    steps: { number: number; title: string; desc: string }[];
+  };
   processTitle: string;
   processIntro: string;
   processSteps: ServiceStep[];
@@ -166,6 +176,40 @@ export default function ServiceDetailContent({
           </div>
         )}
       </section>
+
+      {copy.checklist && (
+        <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+          <h2 className="font-heading text-3xl font-bold text-brand-blue sm:text-4xl">
+            {copy.checklist.title}
+          </h2>
+          <p className="mt-3 text-sm text-charcoal/70">{copy.checklist.intro}</p>
+          <ol className="mt-8 space-y-6">
+            {copy.checklist.steps.map((step) => (
+              <li
+                key={step.number}
+                className="flex gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-green text-sm font-bold text-white">
+                  {step.number}
+                </span>
+                <div>
+                  <h3 className="font-heading text-base font-bold text-brand-blue">
+                    {step.title}
+                  </h3>
+                  <p className="mt-1 text-sm leading-relaxed text-charcoal/75">
+                    {step.desc}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 text-center text-sm text-charcoal/60">
+            {locale === "fr"
+              ? "Notre ligne est répondue 24/7 au 579-999-5979"
+              : "Our line is answered 24/7 at 579-999-5979"}
+          </p>
+        </section>
+      )}
 
       <section className="bg-brand-blue-light/40 py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

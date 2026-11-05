@@ -78,6 +78,27 @@ export type OwnerSession = {
   authenticated: boolean;
 };
 
+/**
+ * The admin panel, signed in. The second authenticated owner surface. (ANA-20)
+ *
+ * WHY THIS IS NOT A HOLE IN THE GATE. `ownerToolsFor()` withholds every tool
+ * unless a session says authenticated, and on the phone that word means the
+ * caller's number was recognised. This constant asserts the same thing about a
+ * different door — and it is legitimate for a reason that has nothing to do
+ * with trust and everything to do with arithmetic: whoever holds the admin
+ * session cookie can already send an invoice, take a payment, change a status
+ * and delete a client, with one click and no model involved. Ana's surface is
+ * a strict subset of that, and a draft-only subset at that. Handing it to
+ * someone already inside the admin adds no capability; refusing to would only
+ * mean the typed box is worse at answering than the telephone.
+ *
+ * THE OBLIGATION THAT COMES WITH IT: this constant may only be used after an
+ * `isSignedIn()` check in the same request. There is exactly one such caller
+ * (`/api/admin/assistant`), and `ownerTools.test.ts` asserts that count, so a
+ * second one has to be added deliberately rather than by copying an import.
+ */
+export const ADMIN_OWNER_SESSION: OwnerSession = { authenticated: true };
+
 /** Not the owner. The state every customer call is in. */
 export const NO_OWNER_SESSION: OwnerSession = { authenticated: false };
 

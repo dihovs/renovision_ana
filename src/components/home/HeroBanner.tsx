@@ -97,12 +97,15 @@ export default function HeroBanner({
             {t.hero.eyebrow}
           </p>
           <h1 className="font-heading leading-[1.08] text-white">
-            <span className="text-[1.75rem] font-medium sm:text-4xl lg:text-[4.25rem]">
+            <span className="text-[1.75rem] font-medium sm:text-3xl lg:text-[3.5rem]">
               {t.hero.headlineStart}{" "}
             </span>
-            <em className="block text-[1.75rem] font-extrabold italic text-brand-green-soft sm:text-4xl lg:text-[4.25rem]">
+            <em className="block text-[1.5rem] font-extrabold italic text-brand-green-soft sm:text-2xl lg:text-[2.5rem]">
               {t.hero.headlineAccent}
             </em>
+            <p className="mt-4 text-sm font-semibold leading-relaxed text-white/80 sm:text-base lg:text-lg">
+              {t.hero.attitudeLine}
+            </p>
           </h1>
         </div>
 

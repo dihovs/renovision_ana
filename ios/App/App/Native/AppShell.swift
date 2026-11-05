@@ -66,27 +66,10 @@ struct MainTabs: View {
         // "More" list of its own. Everything not here is reachable from the
         // menu on Projects — a tab is for what gets used daily, and the
         // connection diagnostic is not that.
-        TabView {
-            HomeView(onSignedOut: onSignedOut)
-                .tabItem { Label("Home", systemImage: "house.fill") }
-
-            ProjectsView(onSignedOut: onSignedOut)
-                .tabItem { Label("Projects", systemImage: "folder.fill") }
-
-            CustomersView()
-                .tabItem { Label("Customers", systemImage: "person.2.fill") }
-
-            EstimatesView()
-                .tabItem { Label("Estimates", systemImage: "doc.text.fill") }
-
-            // The Scan tab is gone deliberately, and so is the floating Scan
-            // button that used to sit on a project. Scanning is a step inside
-            // a job, not a destination beside it — the reference starts a
-            // floor plan from the + in a project's Floor Plans rail, and so
-            // does this now. `ScanEntryView` still exists, for a measurement
-            // taken before anybody has made the job — it moved to More on
-            // 21 Aug when Home's third tile became Leads.
-        }
+        // Home · Projects · ＋ · Customers · More — see AppTabs.swift.
+        // The scan tab and floating Scan button stay gone: scanning starts
+        // from a project's Floor Plans rail, or Measure in ＋ and More.
+        AppTabs(onSignedOut: onSignedOut)
         .tint(Brand.blue)
         // Presented OVER the tabs rather than navigated to inside one.
         //

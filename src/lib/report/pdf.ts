@@ -1,5 +1,6 @@
 import chromium from "@sparticuz/chromium";
 import puppeteer, { type Browser } from "puppeteer-core";
+import { numberSheets } from "./sheets";
 
 /**
  * The report, as a real PDF, produced by this app rather than by whatever
@@ -96,12 +97,16 @@ export async function renderReportPdf(input: {
     // paginates against the wrong text metrics — which moves page breaks.
     await page.evaluateHandle("document.fonts.ready");
 
-    const pdf = await page.pdf({
-      format: "letter",
+    const options = {
+      format: "letter" as const,
       printBackground: true,
       preferCSSPageSize: false,
       margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
-    });
+    };
+    // The contents page's figures, rewritten from section ordinals to the
+    // sheets those sections actually start on — see lib/report/sheets.ts.
+    await numberSheets(page, options);
+    const pdf = await page.pdf(options);
     return Buffer.from(pdf);
   } finally {
     // Always. A leaked browser on a serverless function is a leaked

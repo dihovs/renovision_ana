@@ -10,6 +10,7 @@ import {
   removeVisitAction,
   scheduleNextVisitAction,
   setJobStatusAction,
+  setVisitCrewAction,
   setRecurrenceAction,
   stopRecurrenceAction,
   toggleChecklistItemAction,
@@ -20,14 +21,18 @@ import ArchiveToggleButton from "@/components/admin/ArchiveToggleButton";
 import AskClaude from "@/components/admin/AskClaude";
 import CallButton from "@/components/admin/CallButton";
 import JobChecklist from "@/components/admin/JobChecklist";
+import JobChecklistsCard from "@/components/admin/JobChecklistsCard";
 import JobDetail from "@/components/admin/JobDetail";
 import JobRecurrence, { type RecurrenceAnchor } from "@/components/admin/JobRecurrence";
+import CrewDispatch from "@/components/admin/CrewDispatch";
 import JobThread from "@/components/admin/JobThread";
 import { db, MigrationPendingError } from "@/lib/crm/db";
 import { getJob, getJobExtras } from "@/lib/crm/jobs";
 import { calculateQuoteTotals } from "@/lib/crm/money";
 import { JOB_STATUS_LABEL, lineForTotals, priced, type JobWithLines } from "@/lib/crm/opsTypes";
 import { canChargeTax, getCompany } from "@/lib/crm/settings";
+import { listTeamMembers, memberInitials, type TeamMember } from "@/lib/crm/team";
+import { crewContactIds, listVisitCrew } from "@/lib/crm/visitCrew";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +58,17 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   }
 
   if (!job) notFound();
+
+  // Crew on each visit, and the team to pick from (migrations 0053/0054).
+  // Both read as empty until those run, and the picker simply hides.
+  const [visitCrew, team] = await Promise.all([
+    listVisitCrew(job.visits.map((v) => v.id)),
+    listTeamMembers().catch(() => [] as TeamMember[]),
+  ]);
+  const chip = (m: TeamMember) => ({ id: m.id, name: m.display_name, initials: memberInitials(m) });
+  const crewChips = Object.fromEntries(
+    Object.entries(visitCrew).map(([visitId, members]) => [visitId, members.map(chip)]),
+  );
 
   // Recurrence + checklist arrive with migration 0014; until it runs they
   // simply report "pending" and this screen renders exactly as before, plus
@@ -180,7 +196,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
       <AskClaude subject={{ kind: "job", id: job.id }} />
 
+      <CrewDispatch jobId={job.id} preselected={crewContactIds(visitCrew)} />
+
       <JobThread jobId={job.id} />
+
+      <JobChecklistsCard jobId={job.id} visits={job.visits} />
 
       <JobDetail
         jobId={job.id}
@@ -198,6 +218,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         addVisitAction={addVisitAction.bind(null, job.id)}
         completeVisitAction={completeVisitAction.bind(null, job.id)}
         removeVisitAction={removeVisitAction.bind(null, job.id)}
+        crew={crewChips}
+        team={team.map(chip)}
+        setCrewAction={team.length > 0 ? setVisitCrewAction.bind(null, job.id) : undefined}
         invoiceAction={createFromJobAction.bind(null, job.id)}
         scheduleNextAction={scheduleNextVisitAction.bind(null, job.id)}
         recurrenceSlot={

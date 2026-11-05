@@ -15,8 +15,13 @@ import { getLineItem } from "../catalog";
 import { OBJECT_RULES, PROJECT_RULES, ROOM_RULES } from "./rules";
 import { rateCents } from "./trailer";
 import type { EstimateContext, EstimateLine, EstimateRoom, LineIssue, RuleLine } from "./types";
+import { ESTIMATOR_STRINGS, type EstimatorStrings } from "./strings";
+import type { Locale } from "@/i18n/translations";
 
-/** The pseudo-room general conditions print under, following the reference. */
+/** The pseudo-room general conditions print under, following the reference.
+    Already French in both languages, because that is what the reference
+    documents print and what the owner's own devis say — `Frais généraux` is
+    the section's NAME, not a translated heading. */
 export const GENERAL_CONDITIONS = "Frais généraux";
 
 /**
@@ -41,9 +46,10 @@ function lineSlot(ruleLine: RuleLine): string {
 function resolve(
   ruleId: string,
   subjectId: string,
-  room: Pick<EstimateRoom, "roomScanId" | "name"> | null,
+  room: Pick<EstimateRoom, "roomScanId" | "name" | "apartment"> | null,
   ruleLine: RuleLine,
   slot: string,
+  t: EstimatorStrings,
 ): EstimateLine {
   const issues = new Set<LineIssue>(ruleLine.issues ?? []);
 
@@ -56,7 +62,13 @@ function resolve(
   const removalItem = ruleLine.removalItemCode
     ? getLineItem(ruleLine.removalItemCode)
     : undefined;
-  const name = ruleLine.label ?? item?.name ?? removalItem?.name ?? "Unpriced work";
+  // The book's ENGLISH name is what gets stored, deliberately: it is a
+  // catalog lookup on the code, so a printed document re-localizes it at
+  // render time (`lineItemName`), and the estimate builder the owner works
+  // in stays in the language he works in. A rule's own `label` — for work
+  // the book has no code for — has no code to look up and therefore arrives
+  // already in the document's language.
+  const name = ruleLine.label ?? item?.name ?? removalItem?.name ?? t.unpricedWork;
 
   return {
     key: `${ruleId}:${subjectId}:${slot}`,
@@ -64,6 +76,11 @@ function resolve(
     provenance: "rule",
     roomScanId: room?.roomScanId ?? null,
     roomName: room?.name ?? GENERAL_CONDITIONS,
+    // Inherited from the room, never asked of a rule: a rule prices work on
+    // a surface and has no business knowing which door of a triplex it is
+    // behind. Project-level lines (débris, nettoyage final) carry none, and
+    // that is what puts them after the last apartment on the printed devis.
+    apartment: room?.apartment ?? null,
     tradeSection: ruleLine.tradeSection,
     activity: ruleLine.activity,
     itemCode: ruleLine.itemCode || null,
@@ -85,14 +102,15 @@ function resolve(
 
 /** Run every rule over the context. Deterministic: same context, same rules,
     same lines with the same keys — which is what makes the merge below safe. */
-export function deriveLines(ctx: EstimateContext): EstimateLine[] {
+export function deriveLines(ctx: EstimateContext, locale: Locale = "en"): EstimateLine[] {
+  const t = ESTIMATOR_STRINGS[locale];
   const lines: EstimateLine[] = [];
   const seenKeys = new Map<string, number>();
 
   function push(
     ruleId: string,
     subjectId: string,
-    room: Pick<EstimateRoom, "roomScanId" | "name"> | null,
+    room: Pick<EstimateRoom, "roomScanId" | "name" | "apartment"> | null,
     ruleLine: RuleLine,
   ) {
     let slot = lineSlot(ruleLine);
@@ -100,22 +118,22 @@ export function deriveLines(ctx: EstimateContext): EstimateLine[] {
     const count = seenKeys.get(base) ?? 0;
     seenKeys.set(base, count + 1);
     if (count > 0) slot = `${slot}#${count + 1}`;
-    lines.push(resolve(ruleId, subjectId, room, ruleLine, slot));
+    lines.push(resolve(ruleId, subjectId, room, ruleLine, slot, t));
   }
 
   for (const room of ctx.rooms) {
     for (const rule of ROOM_RULES) {
-      for (const ruleLine of rule.lines(room)) push(rule.id, room.roomScanId, room, ruleLine);
+      for (const ruleLine of rule.lines(room, t)) push(rule.id, room.roomScanId, room, ruleLine);
     }
     for (const object of room.objects) {
       for (const rule of OBJECT_RULES) {
-        for (const ruleLine of rule.lines(object, room)) push(rule.id, object.id, room, ruleLine);
+        for (const ruleLine of rule.lines(object, room, t)) push(rule.id, object.id, room, ruleLine);
       }
     }
   }
 
   for (const rule of PROJECT_RULES) {
-    for (const ruleLine of rule.lines(ctx)) push(rule.id, "project", null, ruleLine);
+    for (const ruleLine of rule.lines(ctx, t)) push(rule.id, "project", null, ruleLine);
   }
 
   return lines;
@@ -152,7 +170,9 @@ export function mergeLines(previous: EstimateLine[], fresh: EstimateLine[]): Est
 export function applyMinimumCharges(
   lines: EstimateLine[],
   minimumsByCategory: Record<string, number>,
+  locale: Locale = "en",
 ): EstimateLine[] {
+  const t = ESTIMATOR_STRINGS[locale];
   const baseByCategory = new Map<string, number>();
   const add = (category: string | undefined, cents: number) => {
     if (!category || cents === 0) return;
@@ -191,16 +211,17 @@ export function applyMinimumCharges(
       provenance: "rule",
       roomScanId: null,
       roomName: GENERAL_CONDITIONS,
+      apartment: null,
       tradeSection: "misc",
       activity: "install",
       itemCode: null,
       removalItemCode: null,
-      name: `Minimum labour charge — ${category}`,
+      name: t.minimumLabourCharge(category),
       unit: "each",
       quantity: 1,
       removeRateCents: null,
       replaceRateCents: shortfall,
-      calc: `minimum ${(minimumCents / 100).toFixed(2)} − billed ${(base / 100).toFixed(2)}`,
+      calc: t.minimumCalc((minimumCents / 100).toFixed(2), (base / 100).toFixed(2)),
       note: null,
       issues: [],
       taxable: true,

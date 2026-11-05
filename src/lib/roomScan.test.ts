@@ -283,6 +283,60 @@ describe("a hand-corrected outline (editedPolygon)", () => {
   });
 });
 
+describe("a mesh-traced floor (meshFloorPolygon)", () => {
+  /**
+   * Mirrors `FloorPlanGeometry.plan(from:)`'s own gate on the phone — the
+   * two must agree, or a report built on the web disagrees with the number
+   * the operator saw on the device that measured it.
+   */
+  const bedroomArea = W * H; // 17.1765
+
+  it("is used when its area agrees with the wall-chained one", () => {
+    // A hair over the true rectangle — well inside the 30% gate.
+    const traced = [
+      { x: 0, y: 0 },
+      { x: W, y: 0 },
+      { x: W, y: H + 0.05 },
+      { x: 0, y: H + 0.05 },
+    ];
+    const plan = toFloorPlan({ ...bedroom(), meshFloorPolygon: traced });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(W * (H + 0.05), 6);
+    // No openings drawn — see the field's own doc comment for why.
+    expect(plan.openings).toEqual([]);
+  });
+
+  it("is ignored when it disagrees sharply with the wall chain", () => {
+    // Half the real room — the signature of a bad trace (a stray patch of
+    // mesh picked up through a doorway), not a correction.
+    const traced = [
+      { x: 0, y: 0 },
+      { x: W / 2, y: 0 },
+      { x: W / 2, y: H },
+      { x: 0, y: H },
+    ];
+    const plan = toFloorPlan({ ...bedroom(), meshFloorPolygon: traced });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(bedroomArea, 6);
+  });
+
+  it("is used when the wall chain never closed, since there is nothing to disagree with", () => {
+    const traced = [
+      { x: 0, y: 0 },
+      { x: 3, y: 0 },
+      { x: 3, y: 2 },
+      { x: 0, y: 2 },
+    ];
+    // Two walls cannot close into an outline on their own.
+    const open: RoomScanResult = { ...bedroom(), walls: bedroom().walls.slice(0, 2) };
+    const plan = toFloorPlan({ ...open, meshFloorPolygon: traced });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(6, 6);
+  });
+
+  it("is ignored outright when it has fewer than three points", () => {
+    const plan = toFloorPlan({ ...bedroom(), meshFloorPolygon: [{ x: 0, y: 0 }] });
+    expect(polygonAreaSquareMeters(planCorners(plan))).toBeCloseTo(bedroomArea, 6);
+  });
+});
+
 describe("planCorners", () => {
   /**
    * The corner list a wall index counts against — and the reason it cannot
@@ -382,3 +436,100 @@ describe("floor area comes from the outline, not the patches", () => {
     ).toBeCloseTo(12, 5);
   });
 });
+
+describe("a scan read a few degrees out of square (19 Oct 2026)", () => {
+  /** A wall from its two ends, as RoomPlan's centre/axis/length. */
+  const from = (x1: number, z1: number, x2: number, z2: number) => {
+    const length = Math.hypot(x2 - x1, z2 - z1);
+    return wall((x1 + x2) / 2, (z1 + z2) / 2, (x2 - x1) / length, (z2 - z1) / length, length);
+  };
+  const tilt = (deg: number, x1: number, z1: number, x2: number, z2: number) => {
+    // Turn a wall about its own middle.
+    const a = (deg * Math.PI) / 180;
+    const cx = (x1 + x2) / 2;
+    const cz = (z1 + z2) / 2;
+    const at = (x: number, z: number) => [cx + (x - cx) * Math.cos(a) - (z - cz) * Math.sin(a), cz + (x - cx) * Math.sin(a) + (z - cz) * Math.cos(a)];
+    const [ax, az] = at(x1, z1);
+    const [bx, bz] = at(x2, z2);
+    return from(ax, az, bx, bz);
+  };
+  const worstOffSquare = (points: { x: number; y: number }[]) => {
+    let worst = 0;
+    for (let i = 0; i + 1 < points.length; i += 1) {
+      let a = (Math.atan2(points[i + 1].y - points[i].y, points[i + 1].x - points[i].x) * 180) / Math.PI;
+      a = ((a % 90) + 90) % 90;
+      worst = Math.max(worst, Math.min(a, 90 - a));
+    }
+    return worst;
+  };
+
+  it("draws a room square when its walls came back a couple of degrees off", () => {
+    const geometry: ScanGeometry = {
+      walls: [
+        from(0, 0, 5, 0), // the longest wall sets the page
+        tilt(2.5, 5, 0, 5, 4),
+        tilt(-2, 5, 4, 0, 4),
+        tilt(3, 0, 4, 0, 0),
+      ],
+      floors: [{ areaSquareMeters: 20 }],
+      doors: [],
+      windows: [],
+      doorCount: 0,
+      windowCount: 0,
+      openingCount: 0,
+      stairCount: 0,
+    };
+    const plan = toFloorPlan(geometry);
+    expect(plan.polygon.length).toBe(5);
+    expect(worstOffSquare(plan.polygon)).toBeLessThan(1e-6);
+    expect(polygonAreaSquareMeters(plan.polygon.slice(0, -1))).toBeCloseTo(20, 1);
+  });
+
+  it("leaves a real angled wall as scanned", () => {
+    // A 45° corner cut across a rectangle: far past the 5° snap.
+    const geometry: ScanGeometry = {
+      walls: [
+        from(0, 0, 5, 0),
+        from(5, 0, 5, 3),
+        from(5, 3, 4, 4),
+        from(4, 4, 0, 4),
+        from(0, 4, 0, 0),
+      ],
+      floors: [{ areaSquareMeters: 19.5 }],
+      doors: [],
+      windows: [],
+      doorCount: 0,
+      windowCount: 0,
+      openingCount: 0,
+      stairCount: 0,
+    };
+    const plan = toFloorPlan(geometry);
+    const cut = plan.segments.find((s) => Math.abs(s.x2 - s.x1) > 0.5 && Math.abs(s.y2 - s.y1) > 0.5)!;
+    expect(Math.abs((Math.atan2(cut.y2 - cut.y1, cut.x2 - cut.x1) * 180) / Math.PI) % 90).toBeCloseTo(45, 6);
+  });
+
+  it("keeps a door in the wall it was cut from when that wall is squared", () => {
+    const tilted = tilt(3, 5, 0, 5, 4);
+    const geometry: ScanGeometry = {
+      walls: [from(0, 0, 5.2, 0), tilted, from(5, 4, 0, 4), from(0, 4, 0, 0)],
+      floors: [{ areaSquareMeters: 20 }],
+      // A door near the far end of the tilted wall, on its line.
+      doors: [{ centerX: tilted.centerX + tilted.axisX * 1.5, centerZ: tilted.centerZ + tilted.axisZ * 1.5, axisX: tilted.axisX, axisZ: tilted.axisZ, widthMeters: 0.8, heightMeters: 2 }],
+      windows: [],
+      doorCount: 1,
+      windowCount: 0,
+      openingCount: 0,
+      stairCount: 0,
+    };
+    const plan = toFloorPlan(geometry);
+    const door = plan.openings[0];
+    const host = plan.segments.reduce((best, s) => {
+      const d = Math.abs(((s.x1 + s.x2) / 2) - ((door.x1 + door.x2) / 2));
+      return Math.abs(s.x2 - s.x1) < 1e-6 && d < Math.abs(((best.x1 + best.x2) / 2) - ((door.x1 + door.x2) / 2)) ? s : best;
+    }, plan.segments.find((s) => Math.abs(s.x2 - s.x1) < 1e-6)!);
+    // Vertical, and on the host wall's line to the millimetre.
+    expect(Math.abs(door.x2 - door.x1)).toBeLessThan(1e-6);
+    expect(Math.abs(door.x1 - host.x1)).toBeLessThan(0.001);
+  });
+});
+

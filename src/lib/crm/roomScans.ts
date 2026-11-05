@@ -1,4 +1,10 @@
 import { db, isMissingTable, MigrationPendingError } from "./db";
+import { listOpenWalls } from "./roomWalls";
+import { openWallLengthMeters, perimeterWithOpenWallsMeters } from "../openWalls";
+import type { ScanGeometry } from "../roomScan";
+import { arcFigures, bulgeAt, signedSegmentArea } from "../arc";
+import type { AuthoredOpening } from "../authoredOpening";
+import type { CeilingFigures } from "../roomScan";
 
 /**
  * Room scans, stored against the project they measured.
@@ -41,6 +47,11 @@ export type RoomScan = {
       pick removal and install items without it. NULL means not recorded,
       and the estimate says so rather than guessing (migration 0042). */
   floor_finish: "laminate" | "lvp" | "engineered" | "hardwood" | "carpet" | "tile" | null;
+  /** Not a column: the edges of this room with no wall on them, attached by
+      `listRoomScans` from `room_walls` so every drawing gets them with the
+      room (lib/openWalls.ts). Absent from a loader that doesn't attach them,
+      which draws every edge as a wall — what it was before 0051. */
+  open_walls?: number[];
 };
 
 export type RoomScanInput = {
@@ -59,6 +70,9 @@ export type RoomScanInput = {
   /** The living-area vocabulary id, asked at capture. Null means
       unclassified — the engine's `other` fallback — never a guess. */
   roomType?: string | null;
+  /** RoomPlan's own CapturedRoom JSON, as the phone received it. Filed in
+      `room_scan_captures` (0052), never inside `geometry`. */
+  rawCapture?: unknown;
 };
 
 function requireDb() {
@@ -81,7 +95,48 @@ export async function listRoomScans(projectId: string): Promise<RoomScan[]> {
     if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not load the scans: ${error.message}`);
   }
-  return (data ?? []) as RoomScan[];
+  const scans = (data ?? []) as RoomScan[];
+  // A room list never fails over the open sides: listOpenWalls already
+  // answers empty without 0051, and anything else it throws is a drawing
+  // detail, not a reason to lose the rooms.
+  const open = await listOpenWalls(scans.map((scan) => scan.id)).catch(
+    () => new Map<string, number[]>(),
+  );
+  return scans.map((scan) => ({ ...scan, open_walls: open.get(scan.id) ?? [] }));
+}
+
+/**
+ * Bring a room's stored perimeter into line with its open sides.
+ *
+ * `wall_length_m` is the run of wall, and wall area and baseboard are both
+ * derived from it everywhere — so it is the one number that has to move when
+ * a side is opened or closed, and it is recomputed from scratch each time
+ * (every wall standing, minus whatever is open now) rather than nudged, so
+ * opening and closing the same side any number of times lands back exactly
+ * where it started. A geometry with no walls to measure leaves the column
+ * alone: a zero there would be a fabricated figure, not a computed one.
+ */
+export async function syncPerimeterToOpenWalls(id: string): Promise<number | null> {
+  const client = requireDb();
+  const { data, error } = await client
+    .from("room_scans")
+    .select("geometry")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(`Could not find that room: ${error.message}`);
+
+  const geometry = (data?.geometry ?? {}) as unknown as ScanGeometry;
+  const open = (await listOpenWalls([id])).get(id) ?? [];
+  const closed = perimeterWithOpenWallsMeters(geometry, []);
+  if (!(closed > 0)) return null;
+  const perimeterM = perimeterWithOpenWallsMeters(geometry, open);
+
+  const { error: writeError } = await client
+    .from("room_scans")
+    .update({ wall_length_m: perimeterM, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (writeError) throw new Error(`Could not update the room's walls: ${writeError.message}`);
+  return perimeterM;
 }
 
 export async function createRoomScan(input: RoomScanInput): Promise<string> {
@@ -110,7 +165,22 @@ export async function createRoomScan(input: RoomScanInput): Promise<string> {
     if (isMissingTable(error)) throw new MigrationPendingError("room_scans", error.message);
     throw new Error(`Could not save the scan: ${error.message}`);
   }
-  return data.id as string;
+  const id = data.id as string;
+
+  // The archive copy, AFTER the room exists. Never allowed to fail the save:
+  // the room's measurements are the record the operator is waiting on, and
+  // a missing archive (migration 0052 not yet applied, an oversized blob)
+  // costs only the chance to re-process this scan later. Logged loudly so
+  // that loss is visible rather than silent.
+  if (input.rawCapture && typeof input.rawCapture === "object") {
+    const { error: captureError } = await client
+      .from("room_scan_captures")
+      .insert({ room_scan_id: id, capture: input.rawCapture });
+    if (captureError) {
+      console.error(`[room_scans] raw capture not kept for ${id}: ${captureError.message}`);
+    }
+  }
+  return id;
 }
 
 /** Rename a room, or move it to another floor. The measurements are a
@@ -173,19 +243,28 @@ export async function getRoomScanProject(id: string): Promise<string | null> {
  * traced the other way, and an operator dragging corners has no idea which
  * way round they are going.
  */
-export function polygonMetrics(polygon: { x: number; y: number }[]): {
+export function polygonMetrics(
+  polygon: { x: number; y: number }[],
+  edgeBulge?: readonly number[] | null,
+): {
   areaSqm: number;
   perimeterM: number;
 } {
   let twiceArea = 0;
   let perimeterM = 0;
+  let segments = 0;
   for (let i = 0; i < polygon.length; i += 1) {
     const a = polygon[i];
     const b = polygon[(i + 1) % polygon.length];
     twiceArea += a.x * b.y - b.x * a.y;
-    perimeterM += Math.hypot(b.x - a.x, b.y - a.y);
+    // A curved wall (floor-plan spec §10, M5) runs its arc, not its chord,
+    // and adds — or, bulging in, removes — the slice between the two.
+    const chord = Math.hypot(b.x - a.x, b.y - a.y);
+    const bulge = bulgeAt(edgeBulge, i);
+    perimeterM += arcFigures(chord, bulge).length;
+    segments += signedSegmentArea(chord, bulge);
   }
-  return { areaSqm: Math.abs(twiceArea) / 2, perimeterM };
+  return { areaSqm: Math.max(0, Math.abs(twiceArea) / 2 + segments), perimeterM };
 }
 
 /**
@@ -220,7 +299,7 @@ export type OpeningSurface = {
     rather than detected — its absence means "this save says nothing about
     openings", which is not the same statement as an empty list. */
 export type AuthoredOpenings = {
-  authored: { edge: number; offset: number; width: number; kind: string }[];
+  authored: AuthoredOpening[];
   doors: OpeningSurface[];
   windows: OpeningSurface[];
   passages: OpeningSurface[];
@@ -232,6 +311,8 @@ export async function saveEditedPolygon(
   lockedEdges: number[] = [],
   openings?: AuthoredOpenings,
   interiorWalls?: { x1: number; y1: number; x2: number; y2: number }[],
+  edgeBulge?: number[],
+  ceiling?: { profile: Record<string, unknown>; figures: CeilingFigures | null },
 ): Promise<void> {
   const client = requireDb();
 
@@ -242,11 +323,39 @@ export async function saveEditedPolygon(
     .single();
   if (readError) throw new Error(`Could not find that room: ${readError.message}`);
 
-  const { areaSqm, perimeterM } = polygonMetrics(polygon);
+  // Curved walls, one per edge (M5). When this save declares them they are
+  // the answer. When it does not — a build from before curves existed — the
+  // stored ones are kept only if they still line up edge for edge; an outline
+  // corrected to a different corner count by such a build comes out
+  // straight rather than with a curve hung on the wrong wall.
+  const previous = (data?.geometry as { edgeBulge?: unknown } | null)?.edgeBulge;
+  const bulges: number[] | undefined = edgeBulge
+    ? edgeBulge
+    : Array.isArray(previous) && previous.length === polygon.length
+      ? (previous as number[])
+      : undefined;
+  const curved = bulges?.some((b) => Number.isFinite(b) && b !== 0) ? bulges : undefined;
 
+  const { areaSqm, perimeterM } = polygonMetrics(polygon, curved);
+
+  const base = { ...((data?.geometry ?? {}) as Record<string, unknown>) };
+  delete base.edgeBulge;
+  // The ceiling (M6) names walls by edge number, like the curves above: a
+  // save that says nothing about it keeps the stored one only while the
+  // outline still has the same edges.
+  const keptCeiling =
+    !ceiling &&
+    Array.isArray((base.editedPolygon as unknown[] | undefined) ?? null) &&
+    (base.editedPolygon as unknown[]).length === polygon.length;
+  if (ceiling || !keptCeiling) {
+    delete base.ceilingProfile;
+    delete base.ceilingFigures;
+  }
   const geometry = {
-    ...((data?.geometry ?? {}) as Record<string, unknown>),
+    ...base,
     editedPolygon: polygon,
+    ...(curved ? { edgeBulge: curved } : {}),
+    ...(ceiling ? { ceilingProfile: ceiling.profile, ...(ceiling.figures ? { ceilingFigures: ceiling.figures } : {}) } : {}),
     // Which lengths were typed rather than measured. A claim file has to be
     // able to tell those apart — "which of these did you measure?" is a fair
     // question with a real answer.
@@ -276,12 +385,26 @@ export async function saveEditedPolygon(
     editedAt: new Date().toISOString(),
   };
 
+  // The corrected outline is the new closed perimeter; any side already
+  // marked open still has no wall on it, so it stays out of the run.
+  const open = (await listOpenWalls([id]).catch(() => new Map<string, number[]>())).get(id) ?? [];
+  const wallRunM = Math.max(
+    0,
+    perimeterM - openWallLengthMeters(geometry as unknown as ScanGeometry, open),
+  );
+
   const { error } = await client
     .from("room_scans")
     .update({
       geometry,
       floor_area_sqm: areaSqm,
-      wall_length_m: perimeterM,
+      wall_length_m: wallRunM,
+      // A shaped ceiling's AVERAGE height (volume ÷ floor), so every reader
+      // that multiplies floor by ceiling — volume, drying, the estimator —
+      // gets the right air without knowing the ceiling is shaped.
+      ...(ceiling?.figures && ceiling.figures.meanHeightM > 0
+        ? { ceiling_height_m: ceiling.figures.meanHeightM }
+        : {}),
       // The count columns are what lists and reports cite; they must say
       // what the blob says.
       ...(openings
