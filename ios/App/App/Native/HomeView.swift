@@ -22,6 +22,14 @@ struct HomeView: View {
     @State private var texting = false
     @StateObject private var calls = CallManager.shared
 
+    /// Where a Home row leads. Pushed inside Home's own stack, so Back
+    /// returns here.
+    private enum Route: Hashable {
+        case schedule, quotes
+        case web(path: String, title: String)
+    }
+    @State private var route: Route?
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -29,7 +37,7 @@ struct HomeView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: Brand.Space.large) {
-                        greeting
+                        header
 
                         if let error {
                             Card {
@@ -44,10 +52,10 @@ struct HomeView: View {
                         }
 
                         if let summary {
-                            todaySection(summary)
-                            attentionSection(summary)
+                            todayCard(summary)
                             quickActions(summary)
-                            figuresSection(summary)
+                            toDoSection(summary)
+                            businessSection(summary)
                         }
                     }
                     .padding(.horizontal, Brand.Space.base)
@@ -56,17 +64,18 @@ struct HomeView: View {
                 }
                 .refreshable { await load() }
             }
-            .navigationTitle("Today")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Refresh") { Task { await load() } }
-                        Button("More") { showMore = true }
-                        Divider()
-                        Button("Sign out", role: .destructive) { onSignedOut() }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
+            // The greeting is the title; a second "Today" above it said the
+            // same thing twice.
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(item: $route) { route in
+                switch route {
+                case .schedule: ScheduleView()
+                case .quotes: EstimatesView()
+                case .web(let path, let title):
+                    WebScreen(path: path)
+                        .ignoresSafeArea(edges: .bottom)
+                        .navigationTitle(title)
+                        .navigationBarTitleDisplayMode(.inline)
                 }
             }
             .sheet(isPresented: $showMore) { MoreView() }
@@ -75,17 +84,35 @@ struct HomeView: View {
         .fullScreenCover(isPresented: .constant(calls.state.isBusy)) { InCallView() }
     }
 
-    // MARK: - Sections
+    // MARK: - Header
 
-    private var greeting: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(Date(), format: .dateTime.weekday(.wide).day().month(.wide))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Brand.inkFaint)
-            Text(salutation)
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(Brand.ink)
+    private var header: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Date(), format: .dateTime.weekday(.wide).day().month(.wide))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Brand.inkFaint)
+                Text(salutation)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+            }
+            Spacer()
+            Menu {
+                Button("Refresh", systemImage: "arrow.clockwise") { Task { await load() } }
+                Button("All tools", systemImage: "square.grid.2x2") { showMore = true }
+                Divider()
+                Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { onSignedOut() }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Brand.ink)
+                    .frame(width: 40, height: 40)
+                    .background(Brand.surface, in: .circle)
+                    .overlay(Circle().strokeBorder(Brand.hairline, lineWidth: 0.5))
+            }
+            .accessibilityLabel("Options")
         }
+        .padding(.top, Brand.Space.small)
     }
 
     /// Reads the clock rather than saying "Hello" all day — a small thing
@@ -98,133 +125,105 @@ struct HomeView: View {
         }
     }
 
-    private func todaySection(_ summary: DashboardSummary) -> some View {
-        VStack(alignment: .leading, spacing: Brand.Space.small) {
-            SectionHeading(
-                title: "TODAY",
-                trailing: summary.visits.isEmpty ? nil : "\(summary.visits.count) scheduled")
+    // MARK: - Today
 
-            if summary.visits.isEmpty {
-                Card {
-                    Text("Nothing scheduled today.")
-                        .font(.callout)
-                        .foregroundStyle(Brand.inkSoft)
+    /// The day, in one card: how many visits, what is next, and the way into
+    /// the full schedule. Blue so it is the first thing the eye lands on.
+    private func todayCard(_ summary: DashboardSummary) -> some View {
+        let open = summary.visits.filter { !$0.done }
+        let next = open.first { $0.startsAt > .now } ?? open.first
+        return VStack(alignment: .leading, spacing: Brand.Space.small) {
+            HStack {
+                Label("Today", systemImage: "calendar")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.85))
+                Spacer()
+                Text(summary.visits.isEmpty ? "No visits" : "^[\(summary.visits.count) visit](inflect: true)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+
+            if let next {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("NEXT")
+                        .font(.system(size: 10, weight: .heavy)).tracking(0.5)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Text(next.title ?? "Site visit")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    Text(next.startsAt, format: .dateTime.hour().minute())
+                        .font(.system(size: 15, weight: .semibold)).monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+                if summary.visits.count > 1 {
+                    VStack(spacing: 6) {
+                        ForEach(summary.visits.filter { $0.id != next.id }.prefix(3)) { visit in
+                            HStack(spacing: Brand.Space.small) {
+                                Text(visit.startsAt, format: .dateTime.hour().minute())
+                                    .font(.system(size: 13, weight: .bold)).monospacedDigit()
+                                    .frame(width: 52, alignment: .leading)
+                                Text(visit.title ?? "Visit").font(.system(size: 14)).lineLimit(1)
+                                    .strikethrough(visit.done)
+                                Spacer()
+                                if visit.done { Image(systemName: "checkmark.circle.fill") }
+                            }
+                            .foregroundStyle(.white.opacity(visit.done ? 0.6 : 0.95))
+                        }
+                    }
+                    .padding(.top, 4)
                 }
             } else {
-                ForEach(summary.visits) { visit in
-                    Card(padding: Brand.Space.small) {
-                        HStack(spacing: Brand.Space.small) {
-                            VStack(spacing: 0) {
-                                Text(visit.startsAt, format: .dateTime.hour().minute())
-                                    .font(.system(size: 13, weight: .bold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(visit.done ? Brand.inkFaint : Brand.blue)
-                            }
-                            .frame(width: 54)
-
-                            Text(visit.title ?? "Visit")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(visit.done ? Brand.inkFaint : Brand.ink)
-                                .strikethrough(visit.done, color: Brand.inkFaint)
-
-                            Spacer()
-
-                            if visit.done {
-                                StatusBadge(text: "done", tone: .active)
-                            }
-                        }
-                    }
-                }
+                Text(summary.visits.isEmpty ? "Nothing booked today." : "Every visit today is done.")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.white)
             }
-        }
-    }
 
-    /// Only what is actually a task. A figure that needs no action belongs in
-    /// the numbers further down, not in a list called "needs you".
-    private func attentionSection(_ summary: DashboardSummary) -> some View {
-        let items = summary.attentionItems
-        return Group {
-            if !items.isEmpty {
-                VStack(alignment: .leading, spacing: Brand.Space.small) {
-                    SectionHeading(title: "NEEDS YOU")
-                    ForEach(items) { item in
-                        Card(padding: Brand.Space.small) {
-                            HStack(spacing: Brand.Space.small) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 9)
-                                        .fill(colour(item.tone).opacity(0.13))
-                                    Image(systemName: item.icon)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(colour(item.tone))
-                                }
-                                .frame(width: 34, height: 34)
-
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(item.title)
-                                        .font(.system(size: 15, weight: .semibold))
-                                        .foregroundStyle(Brand.ink)
-                                    Text(item.detail)
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(Brand.inkFaint)
-                                }
-                                Spacer()
-                            }
-                        }
-                    }
+            Button {
+                route = .schedule
+            } label: {
+                HStack {
+                    Text("Open schedule").font(.system(size: 14, weight: .bold))
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold))
                 }
+                .foregroundStyle(Brand.blue)
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .background(.white, in: .rect(cornerRadius: 12))
             }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
+        .padding(Brand.Space.base)
+        .background(
+            LinearGradient(colors: [Brand.blue, Brand.blueDark], startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: .rect(cornerRadius: Brand.Radius.card))
     }
 
-    private func colour(_ tone: DashboardSummary.Attention.Tone) -> Color {
-        switch tone {
-        case .urgent: return .red
-        case .waiting: return Brand.blue
-        case .money: return .orange
-        case .running: return Brand.green
-        }
-    }
+    // MARK: - Quick actions
 
-    /// **The three things that are waiting for him.**
-    ///
-    /// `Scan a room` was here and is not any more — his instruction, 21 Aug,
-    /// pointing at the tile: *"this needs to bring leads here instead."* He
-    /// is right, and the reason is what this row is for. Scanning is
-    /// something you start when you are already standing in a room with a
-    /// project open, and it is one tap from every project; leads, calls and
-    /// texts are things that arrive while the phone is in a pocket. A home
-    /// screen should say what came in, not offer a shortcut to work already
-    /// in hand.
-    ///
-    /// **And they carry counts, the way an iPhone does** — his second
-    /// instruction the same evening: *"messages and calls also should show
-    /// like on the iPhone the number of incoming calls and messages, if they
-    /// are unread."* Which means the badge has to CLEAR, or within a week it
-    /// is a red circle nobody reads. Opening a sheet marks that surface seen.
+    /// **Leads, calls and texts — the things that arrive while the phone is
+    /// in a pocket** — with iPhone-style counts that clear once opened (his
+    /// instructions of 21 Aug). Round, in one row, like a phone's own
+    /// actions; Schedule joins them so the day is one tap away too.
     private func quickActions(_ summary: DashboardSummary) -> some View {
-        VStack(alignment: .leading, spacing: Brand.Space.small) {
-            SectionHeading(title: "QUICK")
-            HStack(spacing: Brand.Space.small) {
-                QuickAction(
-                    icon: "sparkles", label: "Leads", tint: Brand.blue,
-                    badge: summary.leadBadge, badgeNoun: "new lead"
-                ) {
-                    showLeads = true
-                }
-                QuickAction(
-                    icon: "phone.fill", label: "Phone", tint: Brand.green,
-                    badge: summary.callBadge, badgeNoun: "missed call"
-                ) {
-                    phoning = true
-                    Task { await API.shared.markSeen("calls") }
-                }
-                QuickAction(
-                    icon: "message.fill", label: "Messages", tint: Brand.blueDark,
-                    badge: summary.messageBadge, badgeNoun: "unread message"
-                ) {
-                    texting = true
-                    Task { await API.shared.markSeen("messages") }
-                }
+        HStack(spacing: 0) {
+            QuickAction(icon: "sparkles", label: "Leads", tint: Brand.blue,
+                        badge: summary.leadBadge, badgeNoun: "new lead") {
+                showLeads = true
+            }
+            QuickAction(icon: "phone.fill", label: "Phone", tint: Brand.green,
+                        badge: summary.callBadge, badgeNoun: "missed call") {
+                phoning = true
+                Task { await API.shared.markSeen("calls") }
+            }
+            QuickAction(icon: "message.fill", label: "Messages", tint: Brand.blueDark,
+                        badge: summary.messageBadge, badgeNoun: "unread message") {
+                texting = true
+                Task { await API.shared.markSeen("messages") }
+            }
+            QuickAction(icon: "calendar", label: "Schedule", tint: Brand.blue) {
+                route = .schedule
             }
         }
         .sheet(isPresented: $showLeads) { NavigationStack { LeadsView() } }
@@ -238,14 +237,110 @@ struct HomeView: View {
         .onChange(of: showLeads) { _, open in if !open { Task { await load() } } }
     }
 
-    private func figuresSection(_ summary: DashboardSummary) -> some View {
+    // MARK: - To do
+
+    /// Only what is actually a task, each one a row that opens the thing.
+    private func toDoSection(_ summary: DashboardSummary) -> some View {
+        VStack(alignment: .leading, spacing: Brand.Space.small) {
+            SectionHeading(title: "TO DO")
+            VStack(spacing: 0) {
+                let rows = toDoRows(summary)
+                if rows.isEmpty {
+                    HStack(spacing: Brand.Space.small) {
+                        Image(systemName: "checkmark.seal.fill").foregroundStyle(Brand.green)
+                        Text("You're all caught up.").font(.system(size: 15, weight: .semibold)).foregroundStyle(Brand.ink)
+                        Spacer()
+                    }
+                    .padding(Brand.Space.base)
+                }
+                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                    if index > 0 { Divider().overlay(Brand.hairline).padding(.leading, 60) }
+                    Button(action: row.action) {
+                        HStack(spacing: Brand.Space.small) {
+                            Image(systemName: row.icon)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(row.tint)
+                                .frame(width: 34, height: 34)
+                                .background(row.tint.opacity(0.13), in: .rect(cornerRadius: 9))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(row.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Brand.ink)
+                                Text(row.detail).font(.system(size: 12)).foregroundStyle(Brand.inkFaint).lineLimit(1)
+                            }
+                            Spacer(minLength: Brand.Space.tight)
+                            Text(row.count)
+                                .font(.system(size: 15, weight: .bold)).monospacedDigit()
+                                .foregroundStyle(row.tint)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(Brand.inkFaint)
+                        }
+                        .padding(.horizontal, Brand.Space.base)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+            .overlay(RoundedRectangle(cornerRadius: Brand.Radius.card).strokeBorder(Brand.hairline, lineWidth: 0.5))
+        }
+    }
+
+    private struct ToDoRow {
+        let icon: String
+        let tint: Color
+        let title: String
+        let detail: String
+        let count: String
+        let action: () -> Void
+    }
+
+    private func toDoRows(_ summary: DashboardSummary) -> [ToDoRow] {
+        var rows: [ToDoRow] = []
+        if summary.leadBadge > 0 {
+            rows.append(.init(icon: "sparkles", tint: Brand.blue, title: "New requests",
+                              detail: "Leads nobody has opened yet.", count: "\(summary.leadBadge)") { showLeads = true })
+        }
+        if summary.missedCalls > 0 {
+            rows.append(.init(icon: "phone.badge.waveform", tint: .red, title: "Missed calls today",
+                              detail: "Rang the business line and did not get through.", count: "\(summary.missedCalls)") {
+                phoning = true
+            })
+        }
+        if summary.estimates.awaiting > 0 {
+            rows.append(.init(icon: "doc.text", tint: Brand.blue, title: "Quotes waiting for an answer",
+                              detail: "\(Money.short(summary.estimates.awaitingCents)) out with customers.",
+                              count: "\(summary.estimates.awaiting)") { route = .quotes })
+        }
+        if summary.invoices.outstanding > 0 {
+            rows.append(.init(icon: "dollarsign.circle", tint: .orange, title: "Invoices unpaid",
+                              detail: "\(Money.short(summary.invoices.outstandingCents)) still owing.",
+                              count: "\(summary.invoices.outstanding)") { route = .web(path: "/admin/invoices", title: "Invoices") })
+        }
+        if summary.equipment.running > 0 {
+            rows.append(.init(icon: "wind", tint: Brand.green, title: "Equipment on site",
+                              detail: "\(summary.equipment.unitDays) unit-days so far — pick up when dry.",
+                              count: "\(summary.equipment.running)") { route = .web(path: "/admin/projects", title: "Projects") })
+        }
+        return rows
+    }
+
+    // MARK: - The business
+
+    private func businessSection(_ summary: DashboardSummary) -> some View {
         VStack(alignment: .leading, spacing: Brand.Space.small) {
             SectionHeading(title: "THE BUSINESS")
-            StatBand(items: [
-                .init(label: "Active jobs", value: "\(summary.projects.active)"),
-                .init(label: "Rooms", value: "\(summary.projects.roomsMeasured)"),
-                .init(label: "Drying", value: "\(summary.equipment.running)"),
-            ])
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Brand.Space.small), GridItem(.flexible(), spacing: Brand.Space.small)],
+                      spacing: Brand.Space.small) {
+                FigureTile(label: "Quotes out", value: Money.short(summary.estimates.awaitingCents),
+                           note: "^[\(summary.estimates.awaiting) quote](inflect: true)", icon: "doc.text", tint: Brand.blue)
+                FigureTile(label: "Owing to you", value: Money.short(summary.invoices.outstandingCents),
+                           note: "^[\(summary.invoices.outstanding) invoice](inflect: true)", icon: "dollarsign.circle", tint: .orange)
+                FigureTile(label: "Active jobs", value: "\(summary.projects.active)",
+                           note: "of \(summary.projects.total) projects", icon: "folder", tint: Brand.blueDark)
+                FigureTile(label: "Drying", value: "\(summary.equipment.running)",
+                           note: "^[\(summary.projects.roomsMeasured) room](inflect: true) measured", icon: "wind", tint: Brand.green)
+            }
         }
     }
 
@@ -275,21 +370,19 @@ private struct QuickAction: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: Brand.Space.tight) {
+            VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(tint)
+                    .frame(width: 56, height: 56)
+                    .background(Brand.surface, in: .circle)
+                    .overlay(Circle().strokeBorder(Brand.hairline, lineWidth: 0.5))
+                    .overlay(alignment: .topTrailing) { badgeView }
                 Text(label)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Brand.ink)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Brand.Space.base)
-            .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
-            .overlay(
-                RoundedRectangle(cornerRadius: Brand.Radius.card)
-                    .strokeBorder(Brand.hairline, lineWidth: 0.5))
-            .overlay(alignment: .topTrailing) { badgeView }
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -319,9 +412,39 @@ private struct QuickAction: View {
                 .frame(minWidth: 18, minHeight: 18)
                 .background(Color.red, in: .capsule)
                 .overlay(Capsule().strokeBorder(Brand.canvas, lineWidth: 1.5))
-                .offset(x: 6, y: -6)
+                .offset(x: 4, y: -2)
                 .transition(.scale.combined(with: .opacity))
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: badge)
         }
+    }
+}
+
+/// One figure, in a tile: what it is, the number, a line of context.
+private struct FigureTile: View {
+    let label: String
+    let value: String
+    let note: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(label.uppercased())
+                    .font(.system(size: 10, weight: .heavy)).tracking(0.3)
+                    .foregroundStyle(Brand.inkFaint)
+                Spacer()
+                Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(tint)
+            }
+            Text(value)
+                .font(.system(size: 24, weight: .bold, design: .rounded)).monospacedDigit()
+                .foregroundStyle(Brand.ink)
+                .lineLimit(1).minimumScaleFactor(0.6)
+            Text(note).font(.system(size: 12)).foregroundStyle(Brand.inkSoft).lineLimit(1)
+        }
+        .padding(Brand.Space.base)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Brand.Radius.card).strokeBorder(Brand.hairline, lineWidth: 0.5))
     }
 }
