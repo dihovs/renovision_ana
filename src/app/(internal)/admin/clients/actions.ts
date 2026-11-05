@@ -10,6 +10,7 @@ import {
 } from "@/lib/crm/conversions";
 import { ensureHubToken, revokeHubToken } from "@/lib/crm/hub";
 import { createJobForClient } from "@/lib/crm/jobs";
+import { createProject, updateProjectDetails } from "@/lib/crm/projects";
 import { parseMoneyToCents } from "@/lib/crm/money";
 import { sendSms } from "@/lib/sms/send";
 import {
@@ -17,13 +18,14 @@ import {
   convertLeadToClient,
   createClient,
   createProperty,
+  getClient,
   hasAnyAddress,
   setClientArchived,
   updateClient,
   updateProperty,
 } from "@/lib/crm/clients";
 import type { AddressInput, ClientInput, EmailContact, PhoneContact, PropertyInput } from "@/lib/crm/types";
-import { CONTACT_TYPES } from "@/lib/crm/types";
+import { CONTACT_TYPES, clientDisplayName } from "@/lib/crm/types";
 
 export type ClientFormState = { error?: string };
 
@@ -384,4 +386,41 @@ export async function sendSmsAction(
     default:
       return result.detail ?? "It did not go through. Try again in a moment.";
   }
+}
+
+/**
+ * "New estimate" on the client hub.
+ *
+ * An insurance estimate belongs to a project (migration 0042), so this makes
+ * the project first — named after the property, carrying its address so the
+ * crew and the report see the site and not the billing address — then opens
+ * the estimator, which creates its draft on first visit (`getOrCreateDraft`).
+ */
+export async function startEstimateForClientAction(clientId: string, formData: FormData): Promise<void> {
+  await requireSession();
+
+  const client = await getClient(clientId);
+  if (!client) throw new Error("That client no longer exists.");
+
+  const propertyId = str(formData, "propertyId");
+  const property =
+    client.properties.find((p) => p.id === propertyId) ??
+    (client.properties.length === 1 ? client.properties[0] : undefined);
+
+  const street = property?.street1?.trim() || "";
+  const name = str(formData, "name") || (street ? `${street} — estimate` : `${clientDisplayName(client)} — estimate`);
+
+  const projectId = await createProject({ name, clientId });
+  if (property) {
+    await updateProjectDetails(projectId, {
+      addressLine1: [property.street1, property.street2].filter(Boolean).join(", ") || null,
+      addressCity: property.city,
+      addressPostal: property.postal_code,
+    });
+  }
+
+  revalidatePath(`/admin/clients/${clientId}`);
+  revalidatePath("/admin/projects");
+  revalidatePath("/admin/estimates");
+  redirect(`/admin/projects/${projectId}/estimate`);
 }
