@@ -230,10 +230,10 @@ export function sanitizeContentType(type: string | undefined | null): string {
  * explicitly, which is the one way to see them.
  */
 export async function listProjects(
-  options: { status?: ProjectStatus; limit?: number } = {},
+  options: { status?: ProjectStatus; clientId?: string; limit?: number } = {},
 ): Promise<ProjectListItem[]> {
   const client = requireDb();
-  const { status, limit = 200 } = options;
+  const { status, clientId, limit = 200 } = options;
 
   /**
    * Built twice on purpose. The rich form embeds the client, the files and
@@ -249,7 +249,10 @@ export async function listProjects(
       .select(select)
       .order("updated_at", { ascending: false })
       .limit(limit);
-    return status ? q.eq("status", status) : q.neq("status", "archived");
+    // The client hub's Projects section passes clientId; everywhere else
+    // lists the whole book.
+    const scoped = clientId ? q.eq("client_id", clientId) : q;
+    return status ? scoped.eq("status", status) : scoped.neq("status", "archived");
   };
 
   const SCAN_FIELDS = "name, floor_area_sqm, geometry, level, plan_x, plan_y";

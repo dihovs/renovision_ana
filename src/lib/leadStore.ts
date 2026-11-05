@@ -246,17 +246,21 @@ const LEAD_PENDING_COLUMNS = [
   "reference",
 ];
 
-/** Newest first — the only order the pipeline view ever needs. */
-export async function listLeads(limit = 200): Promise<StoredLead[]> {
+/** Newest first — the only order the pipeline view ever needs.
+
+    `clientId` scopes it to one client's requests, for the client hub
+    (`leads.client_id`, migration 0004 — set when a lead converts). */
+export async function listLeads(limit = 200, clientId?: string): Promise<StoredLead[]> {
   const db = getClient();
   if (!db) return [];
 
   async function query(columns: string) {
-    return db!
+    const q = db!
       .from("leads")
       .select(columns)
       .order("created_at", { ascending: false })
       .limit(limit);
+    return clientId ? q.eq("client_id", clientId) : q;
   }
 
   const full = await query([LEAD_COLUMNS, ...LEAD_PENDING_COLUMNS].join(", "));

@@ -1,6 +1,8 @@
 import { db, isMissingTable, MigrationPendingError } from "./db";
 import type { EstimateLine, TradeSection, TrailerSettings } from "../estimator/insurance/types";
 import { TRADE_SECTIONS } from "../estimator/insurance/types";
+import { allocateLines, estimateTotals } from "../estimator/insurance/trailer";
+import { clientDisplayName } from "./types";
 
 /**
  * Insurance estimates — database side.
@@ -231,4 +233,80 @@ export async function setRoomFloorFinish(
     .update({ floor_finish: finish })
     .eq("id", roomScanId);
   if (error) fail(error, "record the floor finish");
+}
+
+// ---------------------------------------------------------------------------
+// Lists — the Estimates page and the client hub
+// ---------------------------------------------------------------------------
+
+export type InsuranceEstimateListItem = InsuranceEstimate & {
+  project_name: string;
+  project_status: string;
+  client_id: string | null;
+  client_name: string | null;
+  address: string | null;
+  line_count: number;
+  /** Computed by the estimator's own trailer — never stored, never a second
+      copy of the arithmetic. */
+  total_cents: number;
+};
+
+type ListJoinRow = EstimateJoinRow & {
+  projects: {
+    name: string;
+    status: string;
+    client_id: string | null;
+    address_line1: string | null;
+    address_city: string | null;
+    clients: Parameters<typeof clientDisplayName>[0] | null;
+  } | null;
+};
+
+/**
+ * Every insurance estimate, newest edit first, optionally for one client or
+ * one project. Each total is worked out from its lines at read time, the same
+ * way the estimate page does it, so a list figure cannot disagree with the
+ * document.
+ */
+export async function listInsuranceEstimates(
+  options: { clientId?: string; projectId?: string; status?: "draft" | "final"; limit?: number } = {},
+): Promise<InsuranceEstimateListItem[]> {
+  const client = requireDb();
+  const { clientId, projectId, status, limit = 200 } = options;
+
+  // `!inner` so a client filter on the joined project actually filters the
+  // estimates rather than nulling the embed.
+  const projectEmbed = clientId
+    ? "projects!inner(name, status, client_id, address_line1, address_city, clients(first_name, last_name, company_name))"
+    : "projects(name, status, client_id, address_line1, address_city, clients(first_name, last_name, company_name))";
+
+  let query = client
+    .from("insurance_estimates")
+    .select(`*, insurance_estimate_lines(*), ${projectEmbed}`)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (clientId) query = query.eq("projects.client_id", clientId);
+  if (projectId) query = query.eq("project_id", projectId);
+  if (status) query = query.eq("status", status);
+
+  const { data, error } = await query;
+  if (error) fail(error, "load the estimates");
+
+  return ((data ?? []) as unknown as ListJoinRow[]).map((row) => {
+    const { projects: project, ...rest } = row;
+    const estimate = withSortedLines(rest);
+    const totals = estimateTotals(allocateLines(estimate.lines, trailerSettings(estimate)));
+    const { lines, ...head } = estimate;
+    const address = [project?.address_line1, project?.address_city].filter(Boolean).join(", ");
+    return {
+      ...head,
+      project_name: project?.name ?? "Project",
+      project_status: project?.status ?? "active",
+      client_id: project?.client_id ?? null,
+      client_name: project?.clients ? clientDisplayName(project.clients) : null,
+      address: address || null,
+      line_count: lines.filter((line) => !line.removed).length,
+      total_cents: totals.totalCents,
+    };
+  });
 }
