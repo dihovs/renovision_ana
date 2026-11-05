@@ -148,6 +148,14 @@ first.
 | `0019_conversions.sql` | The one-click lead → client → job conversions. |
 | `0020_crew_tokens.sql` | The per-job crew links. |
 | `0021_outbound_consent.sql` | Consent records, the internal do-not-call list, introductory calls. |
+| `0053_team_members.sql` | The Team page; crew on visits, the crew clock and task assignees all need it. *(4 Nov 2026)* |
+| `0054_visit_crew_status.sql` | Assigning crew to a visit, and the "Crew told" status. |
+| `0055_time_clock.sql` | Start / Stop on the crew link, and the Timesheets page. |
+| `0056_checklist_templates.sql` | Checklist templates, attaching them to a job or a visit, and the crew filling them in. |
+| `0057_task_assignment.sql` | Assigning a task to someone, linking it to a job, repeating tasks. |
+
+`0053`–`0057` must run in that order (each one leans on the one before). Until they do, the pages
+they power say which file to run, and every older screen works exactly as before.
 
 `0021` is the one that fails closed rather than quietly: with it missing, an introductory call is
 refused rather than placed, which is correct. The other four just leave their feature switched off.
