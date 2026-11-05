@@ -281,6 +281,11 @@ struct RoomEditorCore: View {
     /// floor area under the canvas most of all — is a guess until the
     /// operator drags it onto the real walls and saves.
     @State private var outlineGuessed = false
+    /// Walls the scan invented to close the room (magicplan's SUGGESTED
+    /// edges): dashed orange until the operator moves, measures or types
+    /// them. Indices into `corners`; emptied when the corner count changes,
+    /// since edge numbers then no longer mean the same walls.
+    @State private var guessedEdges: Set<Int> = []
     @State private var openedCorners: [CGPoint] = []
 
     /// Which projection the canvas is drawing (§3/§5). The plan editor opens
@@ -337,6 +342,8 @@ struct RoomEditorCore: View {
         /// A step that only touched objects or areas — already saved, so it
         /// does not make the room "adjusted by hand" or ask to be saved.
         var objectsOnly = false
+        /// Which walls were still the scan's guess.
+        var guessed: Set<Int> = []
     }
 
     /// Viewport. `zoom` multiplies the fit scale; `pan` slides the camera in
@@ -709,6 +716,7 @@ struct RoomEditorCore: View {
             .presentationDetents([.medium, .large])
         }
         .onReceive(laser.readings) { reading in takeLaserReading(reading) }
+
         .overlay(alignment: .top) { pendingTray }
         .sheet(isPresented: $editingCeiling) {
             CeilingSheet(
@@ -758,6 +766,7 @@ struct RoomEditorCore: View {
         openings = PlanEditing.openingsAfterBumpOut(
             openings, edge: index, offset: offset, width: width)
         locked = Set(locked.compactMap { $0 == index ? nil : ($0 > index ? $0 + 4 : $0) })
+        guessedEdges = Set(guessedEdges.compactMap { $0 == index ? nil : ($0 > index ? $0 + 4 : $0) })
         remapCeiling { $0 > index ? $0 + 4 : $0 }
         // The bumped wall is now five straight walls; the rest keep theirs.
         if bulges.count == corners.count {
@@ -952,13 +961,18 @@ struct RoomEditorCore: View {
                                 style: StrokeStyle(lineWidth: core + 7, lineCap: .butt))
                         }
 
+                        // A wall the scan guessed is drawn dashed orange —
+                        // magicplan's SUGGESTED edge: not measured, check it.
+                        let guessed = !invalid && !isSelected && guessedEdges.contains(i)
                         context.stroke(
                             wall,
-                            with: .color(invalid ? .red : (isSelected ? Brand.blue : Brand.Plan.ink)),
+                            with: .color(
+                                invalid ? .red
+                                    : (isSelected ? Brand.blue : (guessed ? .orange : Brand.Plan.ink))),
                             style: StrokeStyle(
                                 lineWidth: core,
                                 lineCap: .butt,
-                                dash: invalid ? [8, 5] : []))
+                                dash: invalid ? [8, 5] : (guessed ? [5, 3] : [])))
                     }
 
                     // Alignment guides, while a wall is being dragged. Grey
@@ -2031,6 +2045,7 @@ struct RoomEditorCore: View {
                 : nil
 
             corners = PlanEditing.moveEdge(start, index: index, offset: snap.value)
+            guessedEdges.remove(index)
             carryAnchoredObjects()
             liveLabel = UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index))
 
@@ -2064,6 +2079,8 @@ struct RoomEditorCore: View {
             }
             snapEngaged = squared.engaged
             corners = PlanEditing.moveCorner(start, index: index, to: squared.point)
+            guessedEdges.remove(index)
+            guessedEdges.remove((index - 1 + n) % n)
             carryAnchoredObjects()
             let before = (index - 1 + corners.count) % corners.count
             liveLabel = "\(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, before)))  ·  \(UnitSettings.shared.format.format(PlanEditing.edgeLength(corners, index)))"
@@ -2468,6 +2485,8 @@ struct RoomEditorCore: View {
         guard var run = measuring else { return }
         if let metres {
             push()
+            // Measured now: no longer a guess.
+            guessedEdges.remove(run.active)
             if PlanEditing.isRectangle(corners) {
                 // A RECTANGLE IS NOT A CHAIN. The walk below runs a tape from
                 // one trusted corner, freezing each wall's direction and
@@ -2614,6 +2633,25 @@ struct RoomEditorCore: View {
             // The scan never closed, so this shape is ours, not the room's.
             // Said before the figure it produced, in the operator's own
             // terms, with the one action that fixes it.
+            if !outlineGuessed, !guessedEdges.isEmpty {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(guessedEdges.count == 1
+                             ? "One wall was guessed by the scan"
+                             : "\(guessedEdges.count) walls were guessed by the scan")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Brand.ink)
+                        Text("Shown dashed in orange: the scanner never saw them, so the app closed the room across the gap. Measure or move them to confirm.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Brand.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.horizontal, Brand.Space.base)
+            }
             if outlineGuessed {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -3449,6 +3487,9 @@ struct RoomEditorCore: View {
         // The ceiling names walls by number too (M6): every wall after the
         // split moves up one; the split wall keeps its number.
         remapCeiling { $0 > index ? $0 + 1 : $0 }
+        // Marks follow their walls: later edges move up one; the split wall
+        // becomes two walls, both still a guess if it was.
+        guessedEdges = Set(guessedEdges.flatMap { $0 < index ? [$0] : ($0 == index ? [$0, $0 + 1] : [$0 + 1]) })
         let (next, made) = PlanEditing.addCorner(corners, onEdge: index, at: at)
         // The split wall becomes two STRAIGHT walls — a corner on a curve's
         // chord is not on the curve. Every other wall keeps its own.
@@ -3480,6 +3521,13 @@ struct RoomEditorCore: View {
             if index == 0 { return e == 0 ? n - 2 : e - 1 }
             return e < index ? e : (e == index ? index - 1 : e - 1)
         }
+        // The two walls at the corner become one: its mark is gone either
+        // way (a wall half-guessed is not a guess), later edges move down.
+        let n0 = corners.count
+        guessedEdges = Set(guessedEdges.compactMap { e in
+            if e == index || e == (index - 1 + n0) % n0 { return nil }
+            return e > index ? e - 1 : e
+        })
         corners = PlanEditing.removeCorner(corners, index: index)
         selection = .none
     }
@@ -3569,6 +3617,7 @@ struct RoomEditorCore: View {
         if scan.polygon.count >= 4 {
             corners = Array(scan.polygon.dropLast())
             outlineGuessed = false
+            guessedEdges = room.geometry?.editedPolygon == nil ? scan.guessedEdges : []
         } else if let inferred = FloorPlanGeometry.outlineWithClosure(scan.segments),
             inferred.points.count >= 4
         {
@@ -3769,7 +3818,8 @@ struct RoomEditorCore: View {
     private var current: Snapshot {
         Snapshot(
             corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls,
-            bulges: bulges, ceiling: ceiling, objects: objects, areas: areas)
+            bulges: bulges, ceiling: ceiling, objects: objects, areas: areas,
+            guessed: guessedEdges)
     }
 
     /// Server ids of objects and areas undo had to re-create: a deleted
@@ -3853,6 +3903,7 @@ struct RoomEditorCore: View {
         future.append(now)
         reconcile(objects: previous.objects, areas: previous.areas)
         corners = previous.corners
+        guessedEdges = previous.guessed
         openings = previous.openings
         locked = previous.locked
         // Partitions were snapshotted but never restored — undoing an Add
@@ -3874,6 +3925,7 @@ struct RoomEditorCore: View {
         history.append(now)
         reconcile(objects: next.objects, areas: next.areas)
         corners = next.corners
+        guessedEdges = next.guessed
         openings = next.openings
         locked = next.locked
         interiorWalls = next.interiorWalls

@@ -169,6 +169,12 @@ struct ScanGeometry: Codable {
     /// the web (twin: `importedOutline` in roomScan.ts). Scans from before
     /// 4 Nov 2026 have none and keep the old chain on both sides.
     var importedOutline: [EditedPoint]?
+    /// Edges of `importedOutline` (edge i runs from point i to i+1) that the
+    /// chain had to INVENT — a bridge across a gap in what the scanner saw.
+    /// magicplan marks these SUGGESTED and draws them differently; so do we,
+    /// so the operator knows which walls to check (POLYGON_LOGIC Part A).
+    /// Nil on scans from before 5 Nov 2026.
+    var outlineGuessedEdges: [Int]?
 
     /// Which wall lengths were TYPED rather than measured, by edge index.
     ///
@@ -626,7 +632,9 @@ struct ScanGeometry: Codable {
 
         // The room's outline, chained and squared from the walls above in
         // the plan's own frame — what both halves of the app draw from now.
-        importedOutline = Self.chainedOutline(of: self)
+        let chained = Self.chainedOutline(of: self)
+        importedOutline = chained?.points
+        outlineGuessedEdges = chained.map(\.guessed)
 
         // Apple's own record, untouched. `try?`: a scan that will not encode
         // still has every measurement above, and losing the archive copy must
@@ -639,7 +647,7 @@ struct ScanGeometry: Codable {
     /// M11: the walls, as `FloorPlanGeometry.plan` lays them out, into one
     /// closed squared outline — nil when they never close (the old chain is
     /// then still tried when drawing).
-    static func chainedOutline(of geometry: ScanGeometry) -> [EditedPoint]? {
+    static func chainedOutline(of geometry: ScanGeometry) -> (points: [EditedPoint], guessed: [Int])? {
         var probe = geometry
         probe.importedOutline = nil
         probe.meshFloorPolygon = nil
@@ -648,7 +656,10 @@ struct ScanGeometry: Codable {
             WallChain.Segment(Vec2($0.x1, $0.y1), Vec2($0.x2, $0.y2))
         }
         guard let outline = WallChain.squaredOutline(walls), outline.points.count >= 3 else { return nil }
-        return outline.points.map { EditedPoint(x: $0.x, y: $0.y) }
+        return (
+            outline.points.map { EditedPoint(x: $0.x, y: $0.y) },
+            outline.kinds.indices.filter { outline.kinds[$0] == .suggested }
+        )
     }
 
     // MARK: - Derived figures

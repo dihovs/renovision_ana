@@ -1055,6 +1055,26 @@ struct StoreyBaseLayer: View {
 
                     context.opacity = opacity
 
+                    // Walls the scan guessed (magicplan's SUGGESTED edges):
+                    // a dashed orange line down the middle of the band, so
+                    // the floor says which walls nobody measured.
+                    if !plan.guessedEdges.isEmpty, plan.polygon.count >= 4 {
+                        let loop = plan.polygon
+                        for i in plan.guessedEdges where i + 1 < loop.count {
+                            let a = loop[i], b = loop[i + 1]
+                            let length = hypot(b.x - a.x, b.y - a.y)
+                            guard length > 0.05 else { continue }
+                            let out = DrawSnapping.outwardNormal(Array(loop.dropLast()), i)
+                            let half = StoreyLayout.interiorWall / 2
+                            var line = Path()
+                            line.move(to: pt(a.x + out.x * half, a.y + out.y * half))
+                            line.addLine(to: pt(b.x + out.x * half, b.y + out.y * half))
+                            context.stroke(
+                                line, with: .color(.orange),
+                                style: StrokeStyle(lineWidth: 2, lineCap: .butt, dash: [6, 4]))
+                        }
+                    }
+
                     // **The damage.** The owner, on build 214: *"there is an
                     // affected area that I don't see here. I wanna see it."*
                     // The thumbnail `LevelCanvas` has drawn these all along and

@@ -346,9 +346,22 @@ public enum WallChain {
     public static func squaredOutline(_ walls: [Segment], tuning: Tuning = Tuning()) -> Outline? {
         guard var o = outline(walls, tuning: tuning) else { return nil }
         let room = Room(name: "", corners: o.points.map { Corner(p: $0) })
-        var solver = SolverTuning()
+        // The whole room at once, by magicplan's rules (POLYGON_LOGIC Part
+        // B): a corner squared only within its own tolerance (a real slight
+        // bend is kept), every wall held near the length the scan measured.
+        // No wall's direction is pinned — on a scan every wall is a degree
+        // or two off, and pinning one bends the rest to it.
+        var solver = SolverTuning.onClose
         solver.pinFirstWall = false
-        if case .solved(let squared) = Squaring.square(room, tuning: solver) { o.points = squared.points }
+        if case .solved(let squared) = Squaring.square(room, tuning: solver) {
+            o.points = squared.points
+        } else {
+            // Refused (it would cross, or a corner would not settle): the
+            // flat solve the scan path always used.
+            var flat = SolverTuning()
+            flat.pinFirstWall = false
+            if case .solved(let squared) = Squaring.square(room, tuning: flat) { o.points = squared.points }
+        }
         return o
     }
 }

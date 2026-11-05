@@ -66,6 +66,10 @@ enum FloorPlanGeometry {
         /// nobody corrected. Drawn with `run(_:)`; never splits a segment, so
         /// every per-wall record keeps counting walls the way it always has.
         var bulges: [Double] = []
+        /// Edges of `polygon` the scan had to guess (`ScanGeometry
+        /// .outlineGuessedEdges`) — drawn dashed until somebody corrects the
+        /// room. Empty for a drawn or corrected room.
+        var guessedEdges: Set<Int> = []
 
         struct PlacedObject {
             let id: String
@@ -423,18 +427,24 @@ enum FloorPlanGeometry {
                 height: object.heightMeters)
         }
 
-        return Plan(
+        let imported = geometry.importedOutline.flatMap { pts -> [CGPoint]? in
+            guard pts.count >= 3 else { return nil }
+            let loop = pts.map { CGPoint(x: $0.x, y: $0.y) }
+            return loop + [loop[0]]
+        }
+        var plan = Plan(
             segments: segments,
             openings: openings,
             // A scan since M11 carries its own chained, squared outline.
-            polygon: geometry.importedOutline.flatMap { pts -> [CGPoint]? in
-                guard pts.count >= 3 else { return nil }
-                let loop = pts.map { CGPoint(x: $0.x, y: $0.y) }
-                return loop + [loop[0]]
-            } ?? chainIntoPolygon(segments),
+            polygon: imported ?? chainIntoPolygon(segments),
             width: (xs.max() ?? 0) - minX,
             height: (ys.max() ?? 0) - minY,
             objects: placed)
+        if let imported {
+            let edges = imported.count - 1
+            plan.guessedEdges = Set((geometry.outlineGuessedEdges ?? []).filter { $0 >= 0 && $0 < edges })
+        }
+        return plan
     }
 
     /// Every opening the scanner found, as plan-space segments with the

@@ -51,15 +51,19 @@ public struct SolverTuning: Codable, Sendable {
 
     public init() {}
 
-    /// What magicplan does when a drawn room closes: per-corner tolerances,
+    /// What magicplan does when a room closes: per-corner tolerances,
     /// squared angles held 100× harder than free ones, and every wall kept
-    /// near its drawn length. Ratios are theirs (100 / 1 / 1 against our
-    /// locks' 1000, which still win).
+    /// near its drawn length. Their ORDER is kept — squared angles, then free
+    /// angles, then lengths — but scaled so a squared corner still lands
+    /// within this solver's 0.1° acceptance: at their raw 100 / 1 / 1 a
+    /// rough scan settled 2–5° off square and was refused as a conflict
+    /// (WallChainTests, 5 Nov 2026). Locks (1000 on metres) still beat
+    /// lengths; a locked wall against a right angle still conflicts.
     public static var onClose: SolverTuning {
         var t = SolverTuning()
         t.perCornerTolerance = true
-        t.angleWeight = 100
-        t.freeAngleWeight = 1
+        t.angleWeight = 10_000
+        t.freeAngleWeight = 100
         t.drawnLengthWeight = 1
         return t
     }

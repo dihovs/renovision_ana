@@ -67,6 +67,50 @@ actor PreviewServer {
                 ],
                 at: 0, 4 + partition),
         ]
+        if let office = Self.scannedOffice(projectID: projectID, at: 5 + partition + 3.5 + partition) {
+            rooms.append(office)
+        }
+    }
+
+    /// A SCANNED room, not a drawn one: walls as the sensor reports them,
+    /// with 1.4 m of the back wall never seen — so the chain has to bridge
+    /// it, and the bridge is the guessed edge the editor draws dashed.
+    static func scannedOffice(projectID: String, at x: Double) -> [String: Any]? {
+        let rect = [CGPoint(x: 0, y: 0), CGPoint(x: 4, y: 0), CGPoint(x: 4, y: 3), CGPoint(x: 0, y: 3)]
+        let drawn = ScanGeometry(polygon: rect, ceilingHeight: 2.44)
+        guard var json = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(drawn)))
+            as? [String: Any], var walls = json["walls"] as? [[String: Any]], walls.count == 4
+        else { return nil }
+        // Wall 2 runs (4,3) → (0,3) and wall 3 (0,3) → (0,0). The scanner
+        // never saw the corner between them: wall 2 stops 0.8 m short of it
+        // and wall 3 starts 0.8 m below it, so the chain has to bridge it.
+        var top = walls[2]
+        top["lengthMeters"] = 3.2
+        top["widthMeters"] = 3.2
+        top["centerX"] = 2.4
+        var left = walls[3]
+        left["lengthMeters"] = 2.2
+        left["widthMeters"] = 2.2
+        left["centerZ"] = 1.1
+        walls[2] = top
+        walls[3] = left
+        json["walls"] = walls
+        json["editedPolygon"] = nil
+        json["lockedEdges"] = nil
+        json["authoredOpenings"] = nil
+        guard let data = try? JSONSerialization.data(withJSONObject: json),
+            var scan = try? JSONDecoder().decode(ScanGeometry.self, from: data),
+            let chained = ScanGeometry.chainedOutline(of: scan)
+        else { return nil }
+        scan.importedOutline = chained.points
+        scan.outlineGuessedEdges = chained.guessed
+        guard let out = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(scan))) as? [String: Any]
+        else { return nil }
+        return [
+            "id": "preview-office", "project_id": projectID, "name": "Office (scanned)",
+            "level": "main", "position": 0, "floor_area_sqm": 12, "wall_length_m": 14,
+            "ceiling_height_m": 2.44, "plan_x": x, "plan_y": 0, "geometry": out,
+        ]
     }
 
     // MARK: - Routing

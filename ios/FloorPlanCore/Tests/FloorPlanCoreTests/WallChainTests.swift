@@ -165,3 +165,38 @@ final class WallChainTests: XCTestCase {
         XCTAssertEqual(Polygon.area(o.points), 12, accuracy: 1e-6)
     }
 }
+
+/// Phase 4 (5 Nov 2026): scans are squared with magicplan's rules directly,
+/// not through the fallback.
+final class ScanSquaringTests: XCTestCase {
+    func testOnCloseSolvesNoisyScansAndKeepsLengths() {
+        var direct = 0, total = 0
+        var newDrift = 0.0, oldDrift = 0.0
+        for room in WallChainTests.cases {
+            for seed in 1...30 {
+                let walls = WallChainTests.walls(room, WallChainTests.typical, seed: UInt32(seed))
+                guard let o = WallChain.outline(walls) else { continue }
+                total += 1
+                let r = Room(name: "", corners: o.points.map { Corner(p: $0) })
+                var mp = SolverTuning.onClose
+                mp.pinFirstWall = false
+                var flat = SolverTuning()
+                flat.pinFirstWall = false
+                func drift(_ p: [Vec2]) -> Double {
+                    let q = r.counterClockwise().points
+                    return zip(q.indices, q.indices).map { i, _ in
+                        abs(q[i].distance(to: q[(i + 1) % q.count]) - p[i].distance(to: p[(i + 1) % p.count]))
+                    }.max() ?? 0
+                }
+                if case .solved(let a) = Squaring.square(r, tuning: mp) {
+                    direct += 1
+                    newDrift = max(newDrift, drift(a.points))
+                }
+                if case .solved(let b) = Squaring.square(r, tuning: flat) { oldDrift = max(oldDrift, drift(b.points)) }
+            }
+        }
+        print("onClose solved \(direct)/\(total); worst wall change new \(newDrift) m, old \(oldDrift) m")
+        XCTAssertGreaterThanOrEqual(Double(direct), Double(total) * 0.95)
+        XCTAssertLessThanOrEqual(newDrift, oldDrift + 1e-6)
+    }
+}
