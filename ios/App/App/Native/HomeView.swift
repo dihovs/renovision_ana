@@ -69,8 +69,8 @@ struct HomeView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $route) { route in
                 switch route {
-                case .schedule: ScheduleView()
-                case .quotes: EstimatesView()
+                case .schedule: ScheduleView().environment(\.isPushed, true)
+                case .quotes: EstimatesView().environment(\.isPushed, true)
                 case .web(let path, let title):
                     WebScreen(path: path)
                         .ignoresSafeArea(edges: .bottom)
@@ -209,21 +209,21 @@ struct HomeView: View {
     /// actions; Schedule joins them so the day is one tap away too.
     private func quickActions(_ summary: DashboardSummary) -> some View {
         HStack(spacing: 0) {
-            QuickAction(icon: "sparkles", label: "Leads", tint: Brand.blue,
+            RoundAction(icon: "sparkles", label: "Leads", tint: Brand.blue,
                         badge: summary.leadBadge, badgeNoun: "new lead") {
                 showLeads = true
             }
-            QuickAction(icon: "phone.fill", label: "Phone", tint: Brand.green,
+            RoundAction(icon: "phone.fill", label: "Phone", tint: Brand.green,
                         badge: summary.callBadge, badgeNoun: "missed call") {
                 phoning = true
                 Task { await API.shared.markSeen("calls") }
             }
-            QuickAction(icon: "message.fill", label: "Messages", tint: Brand.blueDark,
+            RoundAction(icon: "message.fill", label: "Messages", tint: Brand.blueDark,
                         badge: summary.messageBadge, badgeNoun: "unread message") {
                 texting = true
                 Task { await API.shared.markSeen("messages") }
             }
-            QuickAction(icon: "calendar", label: "Schedule", tint: Brand.blue) {
+            RoundAction(icon: "calendar", label: "Schedule", tint: Brand.blue) {
                 route = .schedule
             }
         }
@@ -386,96 +386,3 @@ extension HomeView {
 }
 #endif
 
-private struct QuickAction: View {
-    let icon: String
-    let label: String
-    let tint: Color
-    /// How many are waiting. Zero draws nothing at all — a badge showing `0`
-    /// is a claim that something is there.
-    var badge: Int = 0
-    /// The singular noun the count is of, for the screen reader: a red dot
-    /// with a number in it says nothing out loud.
-    var badgeNoun: String = "new item"
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 56, height: 56)
-                    .background(Brand.surface, in: .circle)
-                    .overlay(Circle().strokeBorder(Brand.hairline, lineWidth: 0.5))
-                    .overlay(alignment: .topTrailing) { badgeView }
-                Text(label)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Brand.ink)
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            badge > 0
-                ? "\(label), ^[\(badge) \(badgeNoun)](inflect: true)"
-                : label)
-        .accessibilityAddTraits(.isButton)
-    }
-
-    /// **The system's badge, not an approximation of it.**
-    ///
-    /// A capsule rather than a circle so `12` does not squeeze; a minimum
-    /// width so `1` is still round; monospaced digits so the thing does not
-    /// jump a pixel as the count changes under a glance. `99+` because four
-    /// digits on a 100-point tile is a smear, and past ninety-nine the exact
-    /// number has stopped being the point.
-    ///
-    /// It sits ON the corner, half outside the card, which is what makes it
-    /// read as attached to the tile rather than printed inside it.
-    @ViewBuilder private var badgeView: some View {
-        if badge > 0 {
-            Text(badge > 99 ? "99+" : "\(badge)")
-                .font(.system(size: 11, weight: .bold).monospacedDigit())
-                .foregroundStyle(.white)
-                .padding(.horizontal, 5)
-                .frame(minWidth: 18, minHeight: 18)
-                .background(Color.red, in: .capsule)
-                .overlay(Capsule().strokeBorder(Brand.canvas, lineWidth: 1.5))
-                .offset(x: 4, y: -2)
-                .transition(.scale.combined(with: .opacity))
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: badge)
-        }
-    }
-}
-
-/// One figure, in a tile: what it is, the number, a line of context.
-private struct FigureTile: View {
-    let label: String
-    let value: String
-    /// A localized key so "^[3 quote](inflect: true)" reads "3 quotes".
-    let note: LocalizedStringKey
-    let icon: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(label.uppercased())
-                    .font(.system(size: 10, weight: .heavy)).tracking(0.3)
-                    .foregroundStyle(Brand.inkFaint)
-                Spacer()
-                Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(tint)
-            }
-            Text(value)
-                .font(.system(size: 24, weight: .bold, design: .rounded)).monospacedDigit()
-                .foregroundStyle(Brand.ink)
-                .lineLimit(1).minimumScaleFactor(0.6)
-            Text(note).font(.system(size: 12)).foregroundStyle(Brand.inkSoft).lineLimit(1)
-        }
-        .padding(Brand.Space.base)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
-        .overlay(RoundedRectangle(cornerRadius: Brand.Radius.card).strokeBorder(Brand.hairline, lineWidth: 0.5))
-    }
-}

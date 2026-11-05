@@ -14,6 +14,8 @@ struct CustomersView: View {
     /// The customer whose hub is open — the web client page, which lists
     /// everything for them (requests, estimates, quotes, jobs, invoices).
     @State private var opened: ClientSummary?
+    @State private var syncing = false
+    @State private var phoning = false
 
     private var shown: [ClientSummary] {
         guard let clients else { return [] }
@@ -30,7 +32,7 @@ struct CustomersView: View {
                 Brand.canvas.ignoresSafeArea()
 
                 ScrollView {
-                    LazyVStack(spacing: Brand.Space.small) {
+                    LazyVStack(alignment: .leading, spacing: Brand.Space.large) {
                         if let error {
                             Card {
                                 Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -39,8 +41,21 @@ struct CustomersView: View {
                             }
                         }
 
+                        if let clients, query.isEmpty {
+                            HeroCard(title: "Your customers", icon: "person.2.fill",
+                                     trailing: "\(clients.filter { $0.propertyCount > 0 }.count) with a property") {
+                                HeroFigure(label: "Customers", value: "\(clients.count)",
+                                           note: "\(clients.filter { $0.phone != nil || !$0.phones.isEmpty }.count) you can call or text")
+                            }
+                            HStack(spacing: 0) {
+                                RoundAction(icon: "person.badge.plus", label: "New", tint: Brand.blue) { creating = true }
+                                RoundAction(icon: "person.crop.circle.badge.checkmark", label: "Sync contacts", tint: Brand.green) { syncing = true }
+                                RoundAction(icon: "phone.fill", label: "Phone", tint: Brand.green) { phoning = true }
+                            }
+                        }
+
                         if clients == nil {
-                            ProgressView().padding(.top, 60)
+                            ProgressView().frame(maxWidth: .infinity).padding(.top, 60)
                         } else if shown.isEmpty {
                             Card {
                                 Text(query.isEmpty ? "No customers yet." : "Nothing matches “\(query)”.")
@@ -48,9 +63,15 @@ struct CustomersView: View {
                                     .foregroundStyle(Brand.inkSoft)
                             }
                         } else {
-                            ForEach(shown) { client in
-                                CustomerCard(client: client, onOpen: { opened = client }) { number in
-                                    Task { await calls.place(to: number, label: client.name) }
+                            VStack(alignment: .leading, spacing: Brand.Space.small) {
+                                SectionHeading(title: query.isEmpty ? "ALL CUSTOMERS" : "MATCHES", trailing: "\(shown.count)")
+                                GroupedCard {
+                                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, client in
+                                        if index > 0 { RowDivider(inset: 62) }
+                                        CustomerCard(client: client, onOpen: { opened = client }) { number in
+                                            Task { await calls.place(to: number, label: client.name) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -61,9 +82,6 @@ struct CustomersView: View {
                 }
                 .refreshable { await load() }
 
-                FloatingAction(icon: "person.badge.plus") { creating = true }
-                    .padding(.trailing, Brand.Space.large)
-                    .padding(.bottom, Brand.Space.large)
             }
             .navigationTitle("Customers")
             .navigationDestination(item: $opened) { client in
@@ -73,12 +91,22 @@ struct CustomersView: View {
             .sheet(isPresented: $creating) {
                 NewCustomerSheet { _ in Task { await load() } }
             }
+            .sheet(isPresented: $syncing, onDismiss: { Task { await load() } }) {
+                NavigationStack { ContactSyncView() }
+            }
+            .sheet(isPresented: $phoning) { PhoneView() }
             .task { await load() }
         }
         .fullScreenCover(isPresented: .constant(calls.state.isBusy)) { InCallView() }
     }
 
     private func load() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-uiPreview") {
+            clients = Self.previewClients
+            return
+        }
+        #endif
         do {
             clients = try await API.shared.clients()
             error = nil
@@ -88,6 +116,21 @@ struct CustomersView: View {
         }
     }
 }
+
+#if DEBUG
+extension CustomersView {
+    /// Sample customers for `-uiPreview` simulator screenshots. Not real people.
+    static var previewClients: [ClientSummary] {
+        let json = """
+        [{"id":"1","name":"Marie Tremblay","company":null,"phone":"+15145550101","phones":[{"number":"+15145550101","type":"mobile","primary":true}],"email":"marie@example.com","propertyCount":1},
+         {"id":"2","name":"Syndicat Clark 7027","company":"Syndicat Clark 7027","phone":"+15145550102","phones":[{"number":"+15145550102","type":"work","primary":true}],"email":null,"propertyCount":5},
+         {"id":"3","name":"Jean Gagnon","company":null,"phone":null,"phones":[],"email":"jg@example.com","propertyCount":0},
+         {"id":"4","name":"Hymus Industrial","company":"Hymus Industrial","phone":"+15145550104","phones":[{"number":"+15145550104","type":"work","primary":true}],"email":null,"propertyCount":2}]
+        """
+        return (try? JSONDecoder().decode([ClientSummary].self, from: Data(json.utf8))) ?? []
+    }
+}
+#endif
 
 private struct CustomerCard: View {
     let client: ClientSummary
@@ -99,54 +142,30 @@ private struct CustomerCard: View {
     }
 
     var body: some View {
-        Card(padding: Brand.Space.small) {
-            HStack(spacing: Brand.Space.small) {
-                ZStack {
-                    Circle().fill(Brand.blue.opacity(0.12))
-                    Text(initials)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(Brand.blue)
+        IconRow(title: client.name,
+                detail: (client.company.flatMap { $0.isEmpty || $0 == client.name ? nil : $0 })
+                    ?? (client.propertyCount > 0 ? (client.propertyCount == 1 ? "1 property" : "\(client.propertyCount) properties") : client.email)) {
+            InitialsAvatar(name: client.name, size: 40)
+        } trailing: {
+            // The one action worth a tap from a list. Absent rather than
+            // disabled when there is no number — a dead button invites
+            // tapping it again.
+            if let number = primaryNumber {
+                Button {
+                    onCall(number)
+                } label: {
+                    Image(systemName: "phone.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(Brand.green, in: .circle)
                 }
-                .frame(width: 44, height: 44)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(client.name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Brand.ink)
-                    if let company = client.company, !company.isEmpty {
-                        Text(company)
-                            .font(.system(size: 12))
-                            .foregroundStyle(Brand.inkFaint)
-                    } else if client.propertyCount > 0 {
-                        Text("^[\(client.propertyCount) property](inflect: true)")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Brand.inkFaint)
-                    }
-                }
-
-                Spacer(minLength: 0)
-                    .frame(maxWidth: .infinity)
-
-                // The one action worth a tap from a list. Absent rather than
-                // disabled when there is no number — a dead button invites
-                // tapping it again.
-                if let number = primaryNumber {
-                    Button {
-                        onCall(number)
-                    } label: {
-                        Image(systemName: "phone.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 38, height: 38)
-                            .background(Brand.green, in: .circle)
-                    }
-                    .buttonStyle(.plain)
-                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Call \(client.name)")
             }
         }
         // A tap anywhere but the call button opens the customer's hub; the
         // Button keeps its own touches.
-        .contentShape(Rectangle())
         .onTapGesture(perform: onOpen)
         .accessibilityAddTraits(.isButton)
     }
@@ -179,12 +198,13 @@ struct EstimatesView: View {
 
                 ScrollView {
                     LazyVStack(spacing: Brand.Space.base) {
-                        if let invoices, !invoices.isEmpty {
-                            StatBand(items: [
-                                .init(label: "Out for answer", value: money(awaitingCents)),
-                                .init(label: "Waiting", value: "\(awaiting.count)"),
-                                .init(label: "Total", value: "\(invoices.count)"),
-                            ])
+                        if let invoices {
+                            HeroCard(title: "Quotes", icon: "doc.text.fill",
+                                     trailing: "\(invoices.count) in all",
+                                     actionTitle: "Build a new quote", action: { buildingQuote = true }) {
+                                HeroFigure(label: "Out for an answer", value: money(awaitingCents),
+                                           note: awaiting.count == 1 ? "1 quote waiting on the customer" : "\(awaiting.count) quotes waiting on the customers")
+                            }
                         }
 
                         if let error {
@@ -209,7 +229,12 @@ struct EstimatesView: View {
                             VStack(alignment: .leading, spacing: Brand.Space.small) {
                                 SectionHeading(
                                     title: "WAITING ON AN ANSWER", trailing: money(awaitingCents))
-                                ForEach(awaiting) { QuoteCard(quote: $0) }
+                                GroupedCard {
+                                    ForEach(Array(awaiting.enumerated()), id: \.element.id) { index, quote in
+                                        if index > 0 { RowDivider(inset: Brand.Space.base) }
+                                        QuoteCard(quote: quote)
+                                    }
+                                }
                             }
                         }
 
@@ -225,7 +250,12 @@ struct EstimatesView: View {
                                 .buttonStyle(.plain)
 
                                 if showPaid {
-                                    ForEach(rest) { QuoteCard(quote: $0) }
+                                    GroupedCard {
+                                        ForEach(Array(rest.enumerated()), id: \.element.id) { index, quote in
+                                            if index > 0 { RowDivider(inset: Brand.Space.base) }
+                                            QuoteCard(quote: quote)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -236,13 +266,6 @@ struct EstimatesView: View {
                 }
                 .refreshable { await load() }
 
-                // Building an estimate means line items, tiers and pricing —
-                // a desk job, and a half-built native version would be worse
-                // than the one that already works. Opens the web builder
-                // rather than sitting there as a dead button.
-                FloatingAction(icon: "plus") { buildingQuote = true }
-                    .padding(.trailing, Brand.Space.large)
-                    .padding(.bottom, Brand.Space.large)
             }
             .navigationTitle("Quotes")
             .sheet(isPresented: $buildingQuote) {
@@ -257,6 +280,9 @@ struct EstimatesView: View {
     }
 
     private func load() async {
+        #if DEBUG
+        if PreviewData.on { invoices = PreviewData.quotes; return }
+        #endif
         do {
             invoices = try await API.shared.quotes()
             error = nil
@@ -281,11 +307,10 @@ private struct QuoteCard: View {
     }
 
     var body: some View {
-        Card(padding: Brand.Space.small) {
             HStack(spacing: Brand.Space.small) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: Brand.Space.tight) {
-                        Text("#\(quote.quoteNumber)")
+                        Text(verbatim: "#\(quote.quoteNumber)")
                             .font(.system(size: 12, weight: .bold))
                             .monospacedDigit()
                             .foregroundStyle(Brand.inkFaint)
@@ -320,7 +345,8 @@ private struct QuoteCard: View {
                     }
                 }
             }
-        }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, 12)
     }
 }
 

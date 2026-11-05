@@ -419,13 +419,24 @@ extension Color {
 ///
 /// `isPresented` is true only in the modal case, so the button appears exactly
 /// when it is needed and never doubles up with a back chevron.
+/// Set on screens PUSHED from a list (More, Home): `isPresented` is true
+/// for those too, and the system Back button is already the way out.
+private struct PushedKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var isPushed: Bool {
+        get { self[PushedKey.self] }
+        set { self[PushedKey.self] = newValue }
+    }
+}
+
 struct DismissWhenPresented: ViewModifier {
     @Environment(\.isPresented) private var isPresented
+    @Environment(\.isPushed) private var isPushed
     @Environment(\.dismiss) private var dismiss
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if isPresented {
+            if isPresented && !isPushed {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         dismiss()

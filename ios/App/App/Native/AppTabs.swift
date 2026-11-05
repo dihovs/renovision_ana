@@ -178,7 +178,7 @@ struct MoreTab: View {
                 Row(title: "Jobs", icon: "wrench.and.screwdriver", tint: Brand.blue, destination: .web(path: "/admin/jobs", title: "Jobs")),
                 Row(title: "Estimates", icon: "ruler", tint: Brand.green, destination: .web(path: "/admin/estimates", title: "Estimates")),
                 Row(title: "Quotes", icon: "doc.text", tint: Brand.blue, destination: .quotes),
-                Row(title: "Requests", icon: "tray.and.arrow.down", tint: Brand.green, destination: .leads),
+                Row(title: "Leads", icon: "sparkles", tint: Brand.green, destination: .leads),
                 Row(title: "Tasks", icon: "checklist", tint: Brand.blue, destination: .web(path: "/admin/tasks", title: "Tasks")),
                 Row(title: "Measure a room", icon: "camera.viewfinder", tint: Brand.green, destination: .scan),
             ]),
@@ -204,39 +204,74 @@ struct MoreTab: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(groups, id: \.0) { group in
-                    Section(group.0) {
-                        ForEach(group.1) { row in
-                            NavigationLink(value: row.destination) { label(row.title, row.icon, row.tint) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: Brand.Space.large) {
+                    ForEach(groups, id: \.0) { group in
+                        VStack(alignment: .leading, spacing: Brand.Space.small) {
+                            SectionHeading(title: group.0.uppercased())
+                            GroupedCard {
+                                ForEach(Array(group.1.enumerated()), id: \.element.id) { index, row in
+                                    if index > 0 { RowDivider() }
+                                    NavigationLink(value: row.destination) {
+                                        IconRow(title: row.title) { IconTile(icon: row.icon, tint: row.tint) } trailing: { EmptyView() }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
                         }
                     }
-                }
-                Section("App") {
-                    NavigationLink(value: Destination.contacts) {
-                        label("Sync contacts", "person.crop.circle.badge.checkmark", Brand.green)
+
+                    VStack(alignment: .leading, spacing: Brand.Space.small) {
+                        SectionHeading(title: "APP")
+                        GroupedCard {
+                            NavigationLink(value: Destination.contacts) {
+                                IconRow(title: "Sync contacts") { IconTile(icon: "person.crop.circle.badge.checkmark", tint: Brand.green) } trailing: { EmptyView() }
+                            }
+                            .buttonStyle(.plain)
+                            RowDivider()
+                            Button { PushRegistration.shared.enable() } label: {
+                                IconRow(title: push.authorised ? "Notifications are on" : "Turn on notifications", showsChevron: false) {
+                                    IconTile(icon: push.authorised ? "bell.badge.fill" : "bell", tint: Brand.inkSoft)
+                                } trailing: { EmptyView() }
+                            }
+                            .buttonStyle(.plain)
+                            RowDivider()
+                            NavigationLink(value: Destination.web(path: "/admin/settings", title: "Settings")) {
+                                IconRow(title: "Settings") { IconTile(icon: "gearshape", tint: Brand.inkSoft) } trailing: { EmptyView() }
+                            }
+                            .buttonStyle(.plain)
+                            RowDivider()
+                            Button { showStatus = true } label: {
+                                IconRow(title: "Connection") { IconTile(icon: "antenna.radiowaves.left.and.right", tint: Brand.inkSoft) } trailing: { EmptyView() }
+                            }
+                            .buttonStyle(.plain)
+                            RowDivider()
+                            Button { showClassic = true } label: {
+                                IconRow(title: "All tools and floor-plan options") { IconTile(icon: "square.grid.2x2", tint: Brand.inkSoft) } trailing: { EmptyView() }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    Button {
-                        PushRegistration.shared.enable()
-                    } label: {
-                        label(push.authorised ? "Notifications are on" : "Turn on notifications",
-                              push.authorised ? "bell.badge.fill" : "bell", Brand.inkSoft)
-                    }
-                    NavigationLink(value: Destination.web(path: "/admin/settings", title: "Settings")) {
-                        label("Settings", "gearshape", Brand.inkSoft)
-                    }
-                    Button { showStatus = true } label: { label("Connection", "antenna.radiowaves.left.and.right", Brand.inkSoft) }
-                    Button { showClassic = true } label: { label("All tools and floor-plan options", "square.grid.2x2", Brand.inkSoft) }
+
                     Button(role: .destructive) { onSignedOut() } label: {
-                        label("Sign out", "rectangle.portrait.and.arrow.right", .red)
+                        Text("Sign out")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                            .overlay(RoundedRectangle(cornerRadius: Brand.Radius.card).strokeBorder(Brand.hairline, lineWidth: 0.5))
                     }
+                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, Brand.Space.base)
+                .padding(.top, Brand.Space.small)
+                .padding(.bottom, Brand.Space.section)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(Brand.canvas)
             .navigationTitle("More")
             .navigationDestination(for: Destination.self) { destination in
+                Group {
                 switch destination {
                 case .schedule: ScheduleView()
                 case .leads: LeadsView()
@@ -250,20 +285,12 @@ struct MoreTab: View {
                         .navigationTitle(title)
                         .navigationBarTitleDisplayMode(.inline)
                 }
+                }
+                .environment(\.isPushed, true)
             }
             .sheet(isPresented: $showClassic) { MoreView() }
             .sheet(isPresented: $showStatus) { DiagnosticsView() }
         }
     }
 
-    private func label(_ title: String, _ icon: String, _ tint: Color) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 30, height: 30)
-                .background(tint, in: .rect(cornerRadius: 7))
-            Text(title).font(.system(size: 16)).foregroundStyle(tint == .red ? .red : Brand.ink)
-        }
-    }
 }

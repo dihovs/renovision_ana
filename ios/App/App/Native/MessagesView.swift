@@ -43,12 +43,22 @@ struct MessagesView: View {
             Brand.canvas.ignoresSafeArea()
 
             ScrollView {
-                LazyVStack(spacing: Brand.Space.small) {
+                LazyVStack(alignment: .leading, spacing: Brand.Space.base) {
                     if let error {
                         Card {
                             Label(error, systemImage: "exclamationmark.triangle.fill")
                                 .font(.callout)
                                 .foregroundStyle(.orange)
+                        }
+                    }
+
+                    if let conversations, query.isEmpty, !conversations.isEmpty {
+                        let waiting = conversations.filter(\.awaitingReply).count
+                        HeroCard(title: "Texts", icon: "message.fill",
+                                 trailing: "\(conversations.count) conversations",
+                                 actionTitle: "New message", action: { composing = true }) {
+                            HeroFigure(label: "Waiting for your reply", value: "\(waiting)",
+                                       note: waiting == 0 ? "You're caught up." : "Customers who wrote last.")
                         }
                     }
 
@@ -65,11 +75,14 @@ struct MessagesView: View {
                             .foregroundStyle(Brand.inkSoft)
                         }
                     } else {
-                        ForEach(shown) { conversation in
-                            NavigationLink(value: conversation) {
-                                ConversationRow(conversation: conversation)
+                        GroupedCard {
+                            ForEach(Array(shown.enumerated()), id: \.element.id) { index, conversation in
+                                if index > 0 { RowDivider(inset: 66) }
+                                NavigationLink(value: conversation) {
+                                    ConversationRow(conversation: conversation)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -142,6 +155,9 @@ struct MessagesView: View {
     }
 
     private func load() async {
+        #if DEBUG
+        if PreviewData.on { conversations = PreviewData.conversations; return }
+        #endif
         do {
             conversations = try await API.shared.conversations()
             error = nil
@@ -156,7 +172,6 @@ private struct ConversationRow: View {
     let conversation: SmsConversation
 
     var body: some View {
-        Card(padding: Brand.Space.small) {
             HStack(spacing: Brand.Space.small) {
                 ZStack {
                     Circle().fill(Brand.blue.opacity(0.12))
@@ -198,7 +213,9 @@ private struct ConversationRow: View {
                     .monospacedDigit()
                     .foregroundStyle(Brand.inkFaint)
             }
-        }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
     }
 
     private var initials: String {

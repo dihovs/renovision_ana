@@ -34,7 +34,17 @@ struct LeadsView: View {
             Brand.canvas.ignoresSafeArea()
 
             ScrollView {
-                LazyVStack(spacing: Brand.Space.small, pinnedViews: []) {
+                LazyVStack(alignment: .leading, spacing: Brand.Space.base, pinnedViews: []) {
+                    if let leads {
+                        let unopened = leads.filter(\.unopened).count
+                        let open = leads.filter { !["won", "lost"].contains($0.status) }
+                        HeroCard(title: "Requests", icon: "sparkles",
+                                 trailing: "\(leads.filter { $0.isEmergency && !["won", "lost"].contains($0.status) }.count) emergency") {
+                            HeroFigure(label: "Still open", value: "\(open.count)",
+                                       note: unopened == 0 ? "You've opened every one." : (unopened == 1 ? "1 nobody has opened yet" : "\(unopened) nobody has opened yet"))
+                        }
+                    }
+
                     // Filter chips, not a segmented control: five states do
                     // not fit one at phone width.
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -76,19 +86,22 @@ struct LeadsView: View {
                                 .foregroundStyle(Brand.inkSoft)
                         }
                     } else {
-                        ForEach(shown) { lead in
-                            Button {
-                                open = lead
-                                // Recorded, never advancing: opened_at is
-                                // separate from status by design.
-                                Task {
-                                    try? await API.shared.touchLead(id: lead.id)
-                                    await load()
+                        GroupedCard {
+                            ForEach(Array(shown.enumerated()), id: \.element.id) { index, lead in
+                                if index > 0 { RowDivider(inset: Brand.Space.base + 18) }
+                                Button {
+                                    open = lead
+                                    // Recorded, never advancing: opened_at is
+                                    // separate from status by design.
+                                    Task {
+                                        try? await API.shared.touchLead(id: lead.id)
+                                        await load()
+                                    }
+                                } label: {
+                                    LeadCard(lead: lead)
                                 }
-                            } label: {
-                                LeadCard(lead: lead)
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -108,6 +121,9 @@ struct LeadsView: View {
     }
 
     private func load() async {
+        #if DEBUG
+        if PreviewData.on { leads = PreviewData.leads; return }
+        #endif
         do {
             leads = try await API.shared.leads()
             error = nil
@@ -132,7 +148,6 @@ private struct LeadCard: View {
     }
 
     var body: some View {
-        Card(padding: Brand.Space.small) {
             HStack(alignment: .top, spacing: Brand.Space.small) {
                 // The unopened dot — the one piece of read state in this app
                 // that is genuinely stored rather than invented.
@@ -184,7 +199,9 @@ private struct LeadCard: View {
                     }
                 }
             }
-        }
+            .padding(.horizontal, Brand.Space.base)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
     }
 }
 
