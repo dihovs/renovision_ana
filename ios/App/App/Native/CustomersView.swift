@@ -11,6 +11,9 @@ struct CustomersView: View {
     @State private var query = ""
     @StateObject private var calls = CallManager.shared
     @State private var creating = false
+    /// The customer whose hub is open — the web client page, which lists
+    /// everything for them (requests, estimates, quotes, jobs, invoices).
+    @State private var opened: ClientSummary?
 
     private var shown: [ClientSummary] {
         guard let clients else { return [] }
@@ -46,7 +49,7 @@ struct CustomersView: View {
                             }
                         } else {
                             ForEach(shown) { client in
-                                CustomerCard(client: client) { number in
+                                CustomerCard(client: client, onOpen: { opened = client }) { number in
                                     Task { await calls.place(to: number, label: client.name) }
                                 }
                             }
@@ -63,6 +66,12 @@ struct CustomersView: View {
                     .padding(.bottom, Brand.Space.large)
             }
             .navigationTitle("Customers")
+            .navigationDestination(item: $opened) { client in
+                WebScreen(path: "/admin/clients/\(client.id)")
+                    .ignoresSafeArea(edges: .bottom)
+                    .navigationTitle(client.name)
+                    .navigationBarTitleDisplayMode(.inline)
+            }
             .searchable(text: $query, prompt: "Search customers")
             .sheet(isPresented: $creating) {
                 NewCustomerSheet { _ in Task { await load() } }
@@ -85,6 +94,7 @@ struct CustomersView: View {
 
 private struct CustomerCard: View {
     let client: ClientSummary
+    let onOpen: () -> Void
     let onCall: (String) -> Void
 
     private var primaryNumber: String? {
@@ -117,7 +127,8 @@ private struct CustomerCard: View {
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity)
 
                 // The one action worth a tap from a list. Absent rather than
                 // disabled when there is no number — a dead button invites
@@ -136,6 +147,11 @@ private struct CustomerCard: View {
                 }
             }
         }
+        // A tap anywhere but the call button opens the customer's hub; the
+        // Button keeps its own touches.
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        .accessibilityAddTraits(.isButton)
     }
 
     private var initials: String {
