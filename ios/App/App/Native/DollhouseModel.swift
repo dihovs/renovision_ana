@@ -1,4 +1,6 @@
 import SceneKit
+import ModelIO
+import SceneKit.ModelIO
 import UIKit
 
 /// **Furniture that looks like furniture.**
@@ -306,6 +308,88 @@ enum DemoModels {
     private static var cache: [String: SCNNode] = [:]
     private static var missing: Set<String> = []
 
+    private static var openingCache: [String: SCNNode] = [:]
+
+    /// Their door or window for an opening kind (`door-<OpeningKind>`),
+    /// filling a hole `width` × `height` and centred on the wall line.
+    ///
+    /// **Shut, and flat to the wall.** Several of their files are drawn open
+    /// (double and French leaves swung half a metre into the room, bifolds
+    /// folded, bay windows standing proud). The owner dropped open leaves on
+    /// 24 Aug because the swing is a guess, so every model is pressed to at
+    /// most `maxDepth` thick: the frame, panels and glass read, nothing
+    /// claims which way it opens. The frame is painted white like a leaf;
+    /// their `glass` group is glazed and see-through.
+    static func opening(
+        kind: String, width: Double, height: Double, maxDepth: Double = 0.06
+    ) -> SCNNode? {
+        #if DEBUG
+        guard DemoIcons.enabled else { return nil }
+        let slug = "door-\(kind)"
+        guard !missing.contains(slug) else { return nil }
+        let prototype: SCNNode
+        if let cached = openingCache[slug] {
+            prototype = cached
+        } else {
+            guard let asset = NSDataAsset(name: "demo3d-\(slug)") else {
+                missing.insert(slug)
+                return nil
+            }
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("demo3d-\(slug).obj")
+            do { try asset.data.write(to: url) } catch { missing.insert(slug); return nil }
+            let frame = SCNMaterial()
+            // A step off the wall white, or a shut door vanishes into its wall.
+            frame.diffuse.contents = UIColor(white: 0.84, alpha: 1)
+            frame.lightingModel = .physicallyBased
+            frame.roughness.contents = 0.7
+            frame.isDoubleSided = true
+            let glass = SCNMaterial()
+            glass.diffuse.contents = UIColor(red: 0.70, green: 0.82, blue: 0.90, alpha: 1)
+            glass.lightingModel = .physicallyBased
+            glass.roughness.contents = 0.1
+            glass.transparency = 0.35
+            glass.isDoubleSided = true
+            glass.writesToDepthBuffer = false
+            // ModelIO, not SCNScene: it keeps each OBJ `g` group as a named
+            // submesh, in the same order as the geometry's elements.
+            let mdl = MDLAsset(url: url)
+            let holder = SCNNode()
+            for case let mesh as MDLMesh in mdl.childObjects(of: MDLMesh.self) {
+                let geometry = SCNGeometry(mdlMesh: mesh)
+                let names = (mesh.submeshes as? [MDLSubmesh] ?? []).map { $0.name.lowercased() }
+                geometry.materials = geometry.elements.indices.map { i in
+                    // Each OBJ group is a submesh. ModelIO names the MESH
+                    // after its first group, so the mesh name is only trusted
+                    // when there is a single part.
+                    let name = names.indices.contains(i)
+                        ? names[i] : (names.count <= 1 ? mesh.name.lowercased() : "")
+                    return name.contains("glass") ? glass : frame
+                }
+                holder.addChildNode(SCNNode(geometry: geometry))
+            }
+            guard !holder.childNodes.isEmpty else {
+                missing.insert(slug)
+                return nil
+            }
+            openingCache[slug] = holder
+            prototype = holder
+        }
+        let (lo, hi) = prototype.boundingBox
+        let size = SCNVector3(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z)
+        guard size.x > 0, size.y > 0 else { return nil }
+        let model = prototype.clone()
+        model.position = SCNVector3(-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -(lo.z + hi.z) / 2)
+        let fit = SCNNode()
+        fit.addChildNode(model)
+        // Millimetres; depth kept as drawn up to `maxDepth`, never stretched.
+        let depthScale = size.z > 0 ? min(0.001, Float(maxDepth) / size.z) : 0.001
+        fit.scale = SCNVector3(Float(width) / size.x, Float(height) / size.y, depthScale)
+        return fit
+        #else
+        return nil
+        #endif
+    }
+
     /// Their model for a catalogue slug, fitted to the object's own box and
     /// turned to face +z like ours; nil when there is none (or in Release).
     static func node(slug: String, width: Double, depth: Double, height: Double, included: Bool)
@@ -331,7 +415,8 @@ enum DemoModels {
             for child in scene.rootNode.childNodes { holder.addChildNode(child) }
             // One matte off-white, the reference's own look for furniture.
             let paint = SCNMaterial()
-            paint.diffuse.contents = UIColor(white: 0.95, alpha: 1)
+            // A rug in furniture white swallows the table standing on it.
+            paint.diffuse.contents = UIColor(white: slug == "rug" ? 0.72 : 0.95, alpha: 1)
             paint.lightingModel = .physicallyBased
             paint.roughness.contents = 0.8
             holder.enumerateHierarchy { node, _ in

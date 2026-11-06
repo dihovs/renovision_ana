@@ -67,6 +67,33 @@ actor PreviewServer {
             "rotation": 0, "width": 0.76, "depth": 0.76, "height": 1.78, "disposition": "none",
             "included": true, "quantity": 1,
         ]]
+        // Furnished, so the 3D has real furniture to draw (demo models).
+        func thing(_ id: String, _ kind: String, _ x: Double, _ y: Double, _ w: Double, _ d: Double,
+                   _ h: Double, rot: Double = 0) -> [String: Any] {
+            ["id": "preview-\(id)", "kind": kind, "name": NSNull(), "x": x, "y": y, "rotation": rot,
+             "width": w, "depth": d, "height": h, "disposition": "none", "included": true, "quantity": 1]
+        }
+        objects["preview-living"] = [
+            thing("rug", "rug", 2.5, 2.3, 2.4, 1.7, 0.01),
+            thing("sofa", "sofa", 2.5, 3.5, 2.1, 0.9, 0.85),
+            thing("coffee", "coffee_table", 2.5, 2.3, 1.1, 0.6, 0.45),
+            thing("tv", "tv_stand", 2.5, 0.3, 1.6, 0.42, 0.5, rot: 180),
+            thing("recliner", "recliner", 4.3, 2.3, 0.9, 0.9, 1.0, rot: 270),
+            thing("plant", "plants", 0.4, 3.6, 0.5, 0.5, 0.8),
+        ]
+        objects["preview-kitchen", default: []] += [
+            thing("range", "range", 1.6, 0.35, 0.76, 0.66, 0.92, rot: 180),
+            thing("table", "dining_table_round", 1.9, 2.6, 1.1, 1.1, 0.75),
+        ]
+        objects["preview-bath"] = [
+            thing("toilet", "toilet", 0.4, 1.8, 0.4, 0.7, 0.75, rot: 90),
+            thing("vanity", "base_sink_cabinet", 1.2, 0.3, 0.6, 0.47, 0.86, rot: 180),
+        ]
+        objects["preview-office"] = [
+            thing("bed", "bed_twin", 1.0, 1.8, 0.97, 1.9, 0.8),
+            thing("night", "nightstand", 1.8, 2.6, 0.5, 0.4, 0.55),
+            thing("dresser", "dresser", 3.2, 0.3, 1.0, 0.5, 1.1, rot: 180),
+        ]
         let partition = StoreyLayout.interiorWall
         rooms = [
             room(

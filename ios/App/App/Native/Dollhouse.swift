@@ -75,6 +75,9 @@ enum Dollhouse {
     }
 
     private static let wallInk = UIColor(red: 0.965, green: 0.965, blue: 0.960, alpha: 1)
+    /// The building's outside skin — a step darker than the room faces, as
+    /// the reference's exterior walls are, so inside and outside read apart.
+    private static let exteriorInk = UIColor(red: 0.80, green: 0.80, blue: 0.78, alpha: 1)
     /// **The cut top of the wall, and it is nearly black on purpose.**
     ///
     /// Read off the reference's own 3D view, 23 Aug 2026: their walls are
@@ -659,10 +662,18 @@ enum Dollhouse {
         // tilted, a grey sheet over the rooms (owner's 2nd floor, 5 Nov).
         // A jamb (its front in a doorway) is a room face too.
         let holePath = holes
+        let facesRoom: (CGPoint) -> Bool = { front in
+            rooms.contains { DrawSnapping.contains($0, front) } || holePath.contains(front)
+        }
+        node.addChildNode(sides(of: walls, bottom: 0, top: height, keep: facesRoom))
+        // **The outside skin, solid** (owner, 5 Nov: walls looked see-through
+        // from outside). magicplan builds its "ExternalWalls" as their own
+        // opaque mesh in a slightly darker grey than the room faces, so the
+        // building reads as a solid shell and the rooms are seen over the
+        // dark cut tops. Ordinary back-face culling: from inside a room the
+        // skin faces away and does not draw.
         node.addChildNode(
-            sides(of: walls, bottom: 0, top: height) { front in
-                rooms.contains { DrawSnapping.contains($0, front) } || holePath.contains(front)
-            })
+            sides(of: walls, bottom: 0, top: height, ink: exteriorInk) { !facesRoom($0) })
         // Tops: every band as a flat dark quad. Bands overlap at corners,
         // but they are coplanar and identical in colour and light, so the
         // overlap cannot show — unlike side faces, which flickered.
@@ -714,7 +725,8 @@ enum Dollhouse {
     /// Vertical faces along every edge of `solid`, each facing OUT of it,
     /// culled at the front so the storey stays open to the camera.
     private static func sides(
-        of solid: CGPath, bottom: Double, top: Double, keep: (CGPoint) -> Bool
+        of solid: CGPath, bottom: Double, top: Double, ink: UIColor = wallInk,
+        keep: (CGPoint) -> Bool
     ) -> SCNNode {
         var vertices: [SCNVector3] = []
         var normals: [SCNVector3] = []
@@ -755,7 +767,7 @@ enum Dollhouse {
             sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
             elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
         // Ordinary back-face culling: a face is seen from the side it faces.
-        geometry.materials = [material(wallInk)]
+        geometry.materials = [material(ink)]
         return SCNNode(geometry: geometry)
     }
 
@@ -1164,6 +1176,7 @@ enum Dollhouse {
         _ opening: FloorPlanGeometry.Opening, room: Room
     ) -> SCNNode? {
         let shape = motion(for: opening)
+        if let model = demoLeaf(opening, room: room) { return model }
         if case .fixed = shape { return nil }
 
         let seg = opening.segment
@@ -1206,6 +1219,50 @@ enum Dollhouse {
             carrier.addChildNode(panel(width: width, height: height))
         case .fixed:
             return nil
+        }
+        return carrier
+    }
+
+    /// The reference's own door or window in the hole (Debug demo only).
+    ///
+    /// A detected window gets one too — it used to get nothing, because a
+    /// plain leaf in a window read as a door. A cased opening stays a hole.
+    /// Kinds whose files are drawn OPEN are filled with shut ones instead: a
+    /// double door is two single leaves, a French pair is their glazed patio
+    /// door, a bifold or entry door is a single leaf.
+    private static func demoLeaf(
+        _ opening: FloorPlanGeometry.Opening, room: Room
+    ) -> SCNNode? {
+        if opening.kind == .opening || opening.detail == .doorCased { return nil }
+        let seg = opening.segment
+        let width = seg.length
+        let (sill, head) = extent(of: opening, ceiling: room.ceilingHeight)
+        let height = head - sill
+        guard width > 0.05, height > 0.05 else { return nil }
+
+        let kind = opening.detail?.rawValue
+            ?? (opening.kind == .window ? "windowStandard" : "doorSingle")
+        var leaves: [(kind: String, width: Double, offset: Double)]
+        switch kind {
+        case "doorDouble", "doorBifoldDouble":
+            leaves = [("doorSingle", width / 2, -width / 4), ("doorSingle", width / 2, width / 4)]
+        case "doorFrench": leaves = [("doorPatio", width, 0)]
+        case "doorBifold", "doorEntry": leaves = [("doorSingle", width, 0)]
+        default: leaves = [(kind, width, 0)]
+        }
+        let carrier = SCNNode()
+        carrier.name = "leaf"
+        carrier.position = SCNVector3(
+            Float((seg.x1 + seg.x2) / 2), Float(sill + height / 2), Float((seg.y1 + seg.y2) / 2))
+        carrier.eulerAngles = SCNVector3(0, Float(-atan2(seg.y2 - seg.y1, seg.x2 - seg.x1)), 0)
+        for leaf in leaves {
+            guard let node = DemoModels.opening(kind: leaf.kind, width: leaf.width, height: height)
+                ?? DemoModels.opening(
+                    kind: opening.kind == .window ? "windowStandard" : "doorSingle",
+                    width: leaf.width, height: height)
+            else { return nil }
+            node.position.x = Float(leaf.offset)
+            carrier.addChildNode(node)
         }
         return carrier
     }
