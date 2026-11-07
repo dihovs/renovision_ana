@@ -169,7 +169,15 @@ struct LengthFormat: Equatable, Codable {
     }
 
     static func parse(_ input: String, assuming system: System) -> Double? {
+        // The keyboard's smart punctuation turns ' and " into curly quotes
+        // or primes (′ ″) as they are typed; all mean feet and inches here.
         let text = input.trimmingCharacters(in: .whitespaces).lowercased()
+            .replacingOccurrences(of: "\u{2032}", with: "'")
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{2033}", with: "\"")
+            .replacingOccurrences(of: "\u{201C}", with: "\"")
+            .replacingOccurrences(of: "\u{201D}", with: "\"")
         guard !text.isEmpty else { return nil }
 
         if let metric = parseMetric(text) { return metric }

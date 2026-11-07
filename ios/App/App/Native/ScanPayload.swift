@@ -189,6 +189,15 @@ struct ScanGeometry: Codable {
     /// is straight. Twin: `edgeBulge` in src/lib/roomScan.ts, measured by
     /// src/lib/arc.ts on the server and `PlanBridge` on the phone.
     var edgeBulge: [Double]?
+    /// Set Diagonal: a measured distance between two corners of
+    /// `editedPolygon` that are not neighbours. It fixes an out-of-square
+    /// room's shape the way four wall lengths cannot.
+    var diagonals: [StoredDiagonal]?
+    struct StoredDiagonal: Codable, Equatable, Hashable {
+        var a: Int
+        var b: Int
+        var length: Double
+    }
     /// The ceiling's shape (floor-plan spec §11, M6), when it is not one
     /// flat height. Nil is flat at `ceiling_height_m`, which is every room
     /// filed before 3 Nov 2026. See `CeilingRecord`.

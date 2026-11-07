@@ -1082,6 +1082,7 @@ struct StoreyPlanView: View {
     private func load() async {
         do {
             let loaded = try await API.shared.scans(projectId: projectId)
+            WallThickness.activate(projectId: projectId, level: level)
             scans = loaded
             // A held room that has since landed is the same room twice. Drop
             // the local copy once its row exists.
@@ -1142,7 +1143,7 @@ private struct StoreyInfoSheet: View {
             // estimate below still counts it.
             if outlines.count == layout.rooms.count {
                 let clear: Double = rooms.reduce(0) { $0 + $1.floorAreaSqmTrusted }
-                let t = WallThickness.default
+                let t = WallThickness.active
                 return WallThickness.Surfaces(
                     withoutWalls: clear,
                     // §12 gross: each room grown by half a partition, the
@@ -1162,7 +1163,8 @@ private struct StoreyInfoSheet: View {
                     // A held room has no row to read a perimeter column from,
                     // but it carries the geometry the perimeter comes from.
                     (floorAreaSqm: $0.floorAreaSqm, perimeterM: $0.geometry.perimeterM)
-                })
+                },
+            thickness: WallThickness.active)
     }
 
     private func footprintFigure(_ label: String, _ sqm: Double) -> some View {
@@ -1214,7 +1216,7 @@ private struct StoreyInfoSheet: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(Brand.ink)
                                 Spacer()
-                                Text(WallThickness.Assembly.stud2x4.shortLabel)
+                                Text("\(WallThickness.shortLabel(WallThickness.active.interiorM)) / \(WallThickness.shortLabel(WallThickness.active.exteriorM))")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundStyle(Brand.inkFaint)
                             }
@@ -1224,7 +1226,7 @@ private struct StoreyInfoSheet: View {
                                 footprintFigure("With all walls", surfaces.withAllWalls)
                             }
                             Text(
-                                "Computed from an assumed 2×4 partition and 2×6 exterior, not measured — a scan sees wall faces, not what is inside them. \"With all walls\" reads slightly under a true outside-face figure, because a room scanned on its own cannot tell an exterior wall from one it shares."
+                                "Computed from the floor's stated walls (Floor Details), not measured — a scan sees wall faces, not what is inside them. \"With all walls\" reads slightly under a true outside-face figure, because a room scanned on its own cannot tell an exterior wall from one it shares."
                             )
                             .font(.system(size: 11))
                             .foregroundStyle(Brand.inkFaint)
@@ -2588,6 +2590,7 @@ struct FloorCanvasView: View {
         .sheet(isPresented: $switchingFloor) {
             AddFloorSheet(existing: Set((scans ?? []).map(\.level))) { picked in
                 switched = picked
+                WallThickness.activate(projectId: projectId, level: picked)
                 refreshLayout()
             }
         }
@@ -2611,7 +2614,9 @@ struct FloorCanvasView: View {
             }
         }
         .sheet(isPresented: $floorInfo) {
-            FloorDetailView(level: showing, label: label, rooms: rooms)
+            FloorDetailView(projectId: projectId, level: showing, label: label, rooms: rooms) {
+                Task { await load() }
+            }
         }
         .sheet(isPresented: $choosingLibraryItem) {
             ObjectLibraryPicker(context: .floor) { item in
@@ -3480,6 +3485,7 @@ struct FloorCanvasView: View {
 
     private func load() async {
         scans = (try? await API.shared.scans(projectId: projectId)) ?? []
+        WallThickness.activate(projectId: projectId, level: showing)
         floorDisplayAngle = (try? await API.shared.floorDisplayAngles(projectId: projectId))?[level] ?? 0
         refreshLayout()
         await loadObjects()
@@ -3769,9 +3775,16 @@ struct AddRoomMethodSheet: View {
 /// Making them editable is a migration (a `floors` table keyed by project +
 /// level), not a screen — written up in S12.
 struct FloorDetailView: View {
+    let projectId: String
     let level: String
     let label: String
     let rooms: [RoomScan]
+    /// Wall widths changed — the floor redraws at them.
+    var onWallsChanged: () -> Void = {}
+
+    @State private var walls = WallThickness.default
+    @State private var savingWalls = false
+    @State private var wallsError: String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var detent: PresentationDetent = .medium
@@ -3842,6 +3855,44 @@ struct FloorDetailView: View {
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
+    /// One width, picked from the stock assemblies — the value it has now
+    /// listed too when it is not one of them.
+    private func wallPicker(_ title: String, value: Double, set: @escaping (Double) -> Void) -> some View {
+        let options = WallThickness.Assembly.allCases.map(\.rawValue)
+        let all = options.contains(where: { abs($0 - value) < 0.0005 }) ? options : [value] + options
+        return Picker(title, selection: Binding(
+            get: { all.first(where: { abs($0 - value) < 0.0005 }) ?? value },
+            set: { set($0) }
+        )) {
+            ForEach(all, id: \.self) { metres in
+                Text(WallThickness.Assembly.allCases.first(where: { abs($0.rawValue - metres) < 0.0005 })?.label
+                    ?? WallThickness.shortLabel(metres))
+                    .tag(metres)
+            }
+        }
+        .disabled(savingWalls)
+    }
+
+    private func save(interiorM: Double?, exteriorM: Double?) {
+        let before = walls
+        if let interiorM { walls.interiorM = interiorM }
+        if let exteriorM { walls.exteriorM = exteriorM }
+        savingWalls = true
+        Task {
+            do {
+                try await API.shared.setFloorWallWidths(
+                    projectId: projectId, level: level, interiorM: interiorM, exteriorM: exteriorM)
+                WallThickness.activate(projectId: projectId, level: level)
+                wallsError = nil
+                onWallsChanged()
+            } catch {
+                walls = before
+                wallsError = "Couldn't save the wall thickness: \(error.localizedDescription)"
+            }
+            savingWalls = false
+        }
+    }
+
     @ViewBuilder private var detailsTab: some View {
         Section("STATISTICS") {
             StatBand(items: [
@@ -3861,11 +3912,15 @@ struct FloorDetailView: View {
 
         Section {
             LabeledContent("Ceiling Height", value: Measure.ftLabel(ceiling))
+            wallPicker("Interior Walls", value: walls.interiorM) { save(interiorM: $0, exteriorM: nil) }
+            wallPicker("Exterior Walls", value: walls.exteriorM) { save(interiorM: nil, exteriorM: $0) }
         } header: {
             Text("DIMENSIONS")
         } footer: {
-            Text("Measured, not set — the tallest room on this floor. Wall thickness is a project-wide setting; a per-floor override needs a floors table that does not exist yet.")
+            Text(wallsError ?? "Ceiling height is measured — the tallest room on this floor. Wall thickness is stated per floor, interior and exterior apart: a scan sees wall faces, not what is inside them. Plans, 3D, footprint and reports all use it.")
+                .foregroundStyle(wallsError == nil ? Brand.inkSoft : .red)
         }
+        .onAppear { walls = WallThickness.resolved(projectId: projectId, level: level) }
 
         Section {
             LabeledContent("Floor", value: label)

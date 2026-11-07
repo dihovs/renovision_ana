@@ -65,6 +65,44 @@ enum WallThickness {
         interiorM: Assembly.stud2x4.rawValue,
         exteriorM: Assembly.exterior2x6.rawValue)
 
+    /// What a floor's API row carries: either width may be unstated.
+    struct Stated: Decodable, Equatable {
+        var interiorM: Double?
+        var exteriorM: Double?
+    }
+
+    /// Each project's stated widths by level, as the plan read last brought
+    /// them (migration 0058). Written by `API.scans(projectId:)`.
+    static var stated: [String: [String: Stated]] = [:]
+
+    /// **The storey on screen's widths** — what every renderer draws walls
+    /// at (`StoreyLayout.interiorWall` / `exteriorWall`). magicplan states
+    /// thickness per FLOOR, interior and exterior apart; a floor view sets
+    /// this when it loads, and the room editor and 3D opened from it inherit
+    /// it. Default until a floor says otherwise.
+    static var active: Pair = WallThickness.default
+
+    /// The widths stated for one storey, default where unstated.
+    static func resolved(projectId: String, level: String) -> Pair {
+        let s = stated[projectId]?[level]
+        return Pair(
+            interiorM: s?.interiorM ?? Self.default.interiorM,
+            exteriorM: s?.exteriorM ?? Self.default.exteriorM)
+    }
+
+    /// Make one storey's widths the ones drawn.
+    static func activate(projectId: String, level: String) {
+        active = resolved(projectId: projectId, level: level)
+    }
+
+    /// A width as a short name: the stock assembly it matches, or inches.
+    static func shortLabel(_ metres: Double) -> String {
+        if let match = Assembly.allCases.first(where: { abs($0.rawValue - metres) < 0.0005 }) {
+            return match.shortLabel
+        }
+        return String(format: "%.1f\"", metres / inch)
+    }
+
     /// A room's footprint including half the walls bounding it.
     ///
     /// The corner term of a polygon offset is deliberately dropped: exact only

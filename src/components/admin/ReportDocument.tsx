@@ -152,6 +152,13 @@ export type ReportData = {
    */
   wallThicknessM?: number;
   /**
+   * Each storey's stated wall widths, metres, keyed by level (migration
+   * 0058, defaults filled in). Given, the storey plans draw walls the way
+   * the phone does — one wall per pair of facing edges, the outside at the
+   * floor's exterior width. Absent: each room grown by `wallThicknessM`.
+   */
+  floorWalls?: Record<string, { interiorM: number; exteriorM: number }>;
+  /**
    * Which of the reference's three export layouts to print.
    *
    * `full` is everything — the document as built. `onlyFloors` is their
@@ -441,6 +448,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     onlyLockedDimensions = false,
     northDeg = null,
     wallThicknessM,
+    floorWalls,
     layout = "full",
     locale = "fr",
     estimate,
@@ -868,7 +876,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <ReportStoreyPlan
               locale={locale}
               north={northDeg}
-              wallThickness={wallThicknessM}
+              wallThickness={floorWalls?.[levels[0]]?.interiorM ?? wallThicknessM}
+              exteriorWallThickness={floorWalls?.[levels[0]]?.exteriorM}
               rooms={coverPlanRooms.map((room) => ({
                 id: room.id,
                 name: room.name,
@@ -1078,7 +1087,8 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             <ReportStoreyPlan
               locale={locale}
               north={northDeg}
-              wallThickness={wallThicknessM}
+              wallThickness={floorWalls?.[level]?.interiorM ?? wallThicknessM}
+              exteriorWallThickness={floorWalls?.[level]?.exteriorM}
               note={t.unregisteredStoreyNote}
               rooms={onLevel.map((room) => ({
                 id: room.id,

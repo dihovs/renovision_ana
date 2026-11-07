@@ -76,7 +76,9 @@ struct MainTabs: View {
         // The scan tab and floating Scan button stay gone: scanning starts
         // from a project's Floor Plans rail, or Measure in ＋ and More.
         Group {
-            if ProcessInfo.processInfo.arguments.contains("-preview3DOpen") {
+            if ProcessInfo.processInfo.arguments.contains("-preview3DOpen")
+                || ProcessInfo.processInfo.arguments.contains("-previewFloor")
+            {
                 // Simulator testing only: straight to the sample house's
                 // floor, which opens its 3D on load (see FloorCanvasView).
                 NavigationStack {

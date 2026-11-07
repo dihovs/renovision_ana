@@ -785,6 +785,9 @@ struct ScanListResponse: Decodable {
     /// migration 0043: this is a display fact, never baked into a room's
     /// own saved geometry. Absent level = never turned = 0, the same fact.
     let floorDisplay: [String: Double]?
+    /// Each storey's stated wall widths, metres, keyed by level (migration
+    /// 0058). Only stated levels appear.
+    let floorWalls: [String: WallThickness.Stated]?
 }
 
 struct RoomScan: Decodable, Identifiable, Hashable {

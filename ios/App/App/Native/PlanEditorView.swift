@@ -196,6 +196,25 @@ struct RoomEditorCore: View {
     /// every wall in order starting from the one the operator asked about;
     /// the panel below the canvas drives it, the canvas highlights it.
     @State private var measuring: MeasureRun?
+    /// Set Diagonal: the measured corner-to-corner distances on this room,
+    /// by corner index of `corners`.
+    @State private var diagonals: [ScanGeometry.StoredDiagonal] = []
+    /// The first corner of a diagonal being set, waiting for the second tap.
+    @State private var diagonalFrom: Int?
+    /// The length entry for one diagonal, open.
+    @State private var diagonalEntry: DiagonalEntry?
+    /// Undo/redo is putting back an outline with a different corner count
+    /// AND its own diagonals — the count change must not drop them.
+    @State private var restoringDiagonals = false
+    struct DiagonalEntry: Identifiable {
+        let a: Int
+        let b: Int
+        /// What the outline measures between them now.
+        let measured: Double
+        /// Already set — the sheet offers Remove.
+        let existing: Bool
+        var id: String { "\(a)-\(b)" }
+    }
     @State private var addingOpening = false
     /// Objects standing in this room — S8. Server rows, not part of the
     /// polygon's own undo history: placing a cabinet is a write, not an
@@ -336,6 +355,7 @@ struct RoomEditorCore: View {
         var interiorWalls: [ScanGeometry.InteriorWall] = []
         var bulges: [Double] = []
         var ceiling: ScanGeometry.CeilingRecord?
+        var diagonals: [ScanGeometry.StoredDiagonal] = []
         /// Objects and damaged areas as they stood. These save to the server
         /// the moment they change, so undoing one is a write too — see
         /// `reconcile` (magicplan's undo reaches every edit, objects
@@ -759,6 +779,54 @@ struct RoomEditorCore: View {
                 })
             .presentationDetents([.medium])
         }
+        .sheet(item: $diagonalEntry) { entry in
+            DiagonalSheet(
+                entry: entry,
+                apply: { length in applyDiagonal(entry.a, entry.b, length) },
+                remove: {
+                    push()
+                    diagonals.removeAll { $0.a == entry.a && $0.b == entry.b }
+                })
+            .presentationDetents([.medium])
+        }
+        .overlay(alignment: .top) {
+            if diagonalFrom != nil {
+                Text("Tap the opposite corner")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Brand.blue))
+                    .padding(.top, 70)
+                    .allowsHitTesting(false)
+            }
+        }
+        // A corner added or taken away renumbers every corner after it, and
+        // a diagonal names two corners by number — so it would silently move
+        // to the wrong pair. Dropped instead, except when undo or redo put
+        // the outline back together with its own diagonals.
+        .onChange(of: corners.count) { old, _ in
+            // 0 → n is the outline arriving on open, with its own diagonals.
+            guard old > 0 else { return }
+            if restoringDiagonals { restoringDiagonals = false } else { diagonals.removeAll() }
+        }
+    }
+
+    /// Set Diagonal: solve the outline so corners `a`…`b` measure `length`
+    /// with every wall keeping its length (`Diagonals.apply`). False when no
+    /// room with these walls can have that diagonal — the sheet says so.
+    private func applyDiagonal(_ a: Int, _ b: Int, _ length: Double) -> Bool {
+        var next = diagonals.filter { !($0.a == a && $0.b == b) }
+        next.append(.init(a: a, b: b, length: length))
+        let core = corners.map { Vec2(Double($0.x), Double($0.y)) }
+        guard let solved = Diagonals.apply(
+            core, next.map { FloorPlanCore.Diagonal(a: $0.a, b: $0.b, length: $0.length) })
+        else { return false }
+        push()
+        corners = solved.map { CGPoint(x: $0.x, y: $0.y) }
+        diagonals = next
+        UISelectionFeedbackGenerator().selectionChanged()
+        return true
     }
 
     struct BumpTarget: Identifiable { let id: Int }
@@ -993,6 +1061,37 @@ struct RoomEditorCore: View {
                     // to show that two walls FAR APART share one straight
                     // run — a stub beside the wall you are already looking
                     // at says nothing.
+                    // Set Diagonal: each measured diagonal as a dashed
+                    // line with its padlocked length — orange when the
+                    // outline no longer agrees with it.
+                    for d in diagonals where corners.indices.contains(d.a) && corners.indices.contains(d.b) {
+                        let a = corners[d.a]
+                        let b = corners[d.b]
+                        let off = abs(PlanEditing.length(PlanEditing.sub(b, a)) - d.length) > 0.01
+                        let tone: Color = off ? .orange : Brand.blue
+                        var line = Path()
+                        line.move(to: pt(a))
+                        line.addLine(to: pt(b))
+                        context.stroke(line, with: .color(tone), style: StrokeStyle(lineWidth: 1.4, dash: [7, 4]))
+                        let mid = pt(CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2))
+                        let label = context.resolve(
+                            (Text(Image(systemName: "lock.fill")) + Text(" " + UnitSettings.shared.format.format(d.length)))
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(tone))
+                        let size = label.measure(in: CGSize(width: 300, height: 40))
+                        context.fill(
+                            Path(roundedRect: CGRect(
+                                x: mid.x - size.width / 2 - 5, y: mid.y - size.height / 2 - 2,
+                                width: size.width + 10, height: size.height + 4), cornerRadius: 5),
+                            with: .color(.white))
+                        context.draw(label, at: mid)
+                    }
+                    if let from = diagonalFrom, corners.indices.contains(from) {
+                        let c = pt(corners[from])
+                        context.stroke(
+                            Path(ellipseIn: CGRect(x: c.x - 13, y: c.y - 13, width: 26, height: 26)),
+                            with: .color(Brand.blue), style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
+                    }
                     for (from, to) in cornerGuides {
                         // Run on past both corners, so the line reads as a
                         // shared straight, not a tie between two dots.
@@ -1682,6 +1781,36 @@ struct RoomEditorCore: View {
             }
             if stillOnIt != true { select(.none) }
             return
+        }
+
+        // **Set Diagonal, second tap.** The corner the diagonal runs to; any
+        // other tap leaves the mode.
+        if let from = diagonalFrom {
+            diagonalFrom = nil
+            let reach = handleHit / 2 / scale
+            if let j = corners.indices.first(where: {
+                PlanEditing.length(PlanEditing.sub(corners[$0], point)) < reach
+            }) {
+                if FloorPlanCore.Diagonal.allowed(from, j, count: corners.count) {
+                    let a = min(from, j), b = max(from, j)
+                    diagonalEntry = DiagonalEntry(
+                        a: a, b: b, measured: PlanEditing.length(PlanEditing.sub(corners[b], corners[a])),
+                        existing: diagonals.contains { $0.a == a && $0.b == b })
+                } else if j != from {
+                    error = "Those two corners share a wall. A diagonal runs across the room."
+                }
+            }
+            return
+        }
+        // A diagonal's label is a control: tap it to change or remove it.
+        for d in diagonals where corners.indices.contains(d.a) && corners.indices.contains(d.b) {
+            let a = corners[d.a], b = corners[d.b]
+            let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+            if PlanEditing.length(PlanEditing.sub(mid, point)) < 22 / scale {
+                diagonalEntry = DiagonalEntry(
+                    a: d.a, b: d.b, measured: PlanEditing.length(PlanEditing.sub(b, a)), existing: true)
+                return
+            }
         }
 
         // A corner's handle is generous, and a window set a hand's width
@@ -2908,7 +3037,7 @@ struct RoomEditorCore: View {
             // stub the operator is looking at is slower than moving the end.
             return [.setSize, .delete]
         case .corner:
-            return corners.count > 3 ? [.delete] : []
+            return corners.count > 3 ? [.setDiagonal, .delete] : []
         case .object:
             // Everything the reference's object bar offers that we can
             // actually do. `Insert` stays greyed for the same reason it does
@@ -3402,6 +3531,12 @@ struct RoomEditorCore: View {
             } else {
                 Task { await commitSplit(split, keepLocked: survive.kept) }
             }
+        case (.setDiagonal, .corner(let index)):
+            guard corners.count >= 4 else {
+                error = "A triangle's shape is fixed by its three walls. A diagonal needs four corners or more."
+                break
+            }
+            diagonalFrom = index
         case (.delete, .corner(let index)):
             deleteCorner(index)
         case (.delete, .opening(let index)):
@@ -3656,6 +3791,7 @@ struct RoomEditorCore: View {
     private func load() {
         guard corners.isEmpty, let scan else { return }
         locked = Set(room.geometry?.lockedEdges ?? [])
+        diagonals = room.geometry?.editedPolygon == nil ? [] : (room.geometry?.diagonals ?? [])
         // The outline when the walls closed into one; the bounding box when
         // they did not, so an open scan is still editable rather than
         // refusing to appear.
@@ -3871,7 +4007,7 @@ struct RoomEditorCore: View {
     private var current: Snapshot {
         Snapshot(
             corners: corners, openings: openings, locked: locked, interiorWalls: interiorWalls,
-            bulges: bulges, ceiling: ceiling, objects: objects, areas: areas,
+            bulges: bulges, ceiling: ceiling, diagonals: diagonals, objects: objects, areas: areas,
             guessed: guessedEdges)
     }
 
@@ -3951,6 +4087,7 @@ struct RoomEditorCore: View {
 
     private func undo() {
         guard let previous = history.popLast() else { return }
+        if previous.corners.count != corners.count { restoringDiagonals = true }
         var now = current
         now.objectsOnly = previous.objectsOnly
         future.append(now)
@@ -3964,6 +4101,7 @@ struct RoomEditorCore: View {
         interiorWalls = previous.interiorWalls
         bulges = previous.bulges
         ceiling = previous.ceiling
+        diagonals = previous.diagonals
         selection = .none
         // A measurement walk indexes the polygon it started on; geometry
         // restored from history may not be that polygon. End it.
@@ -3973,6 +4111,7 @@ struct RoomEditorCore: View {
 
     private func redo() {
         guard let next = future.popLast() else { return }
+        if next.corners.count != corners.count { restoringDiagonals = true }
         var now = current
         now.objectsOnly = next.objectsOnly
         history.append(now)
@@ -3984,6 +4123,7 @@ struct RoomEditorCore: View {
         interiorWalls = next.interiorWalls
         bulges = next.bulges
         ceiling = next.ceiling
+        diagonals = next.diagonals
         selection = .none
         measuring = nil
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -4001,7 +4141,10 @@ struct RoomEditorCore: View {
                 ceilingHeight: room.ceilingHeightM,
                 interiorWalls: interiorWalls,
                 edgeBulge: PlanBridge.aligned(bulges, corners) ?? Array(repeating: 0, count: corners.count),
-                ceiling: ceiling)
+                ceiling: ceiling,
+                diagonals: diagonals.filter {
+                    FloorPlanCore.Diagonal.allowed($0.a, $0.b, count: corners.count)
+                })
             if openedCorners.count == corners.count, openedCorners != corners {
                 onOutlineChanged?(openedCorners, corners)
             }
@@ -4622,6 +4765,66 @@ struct OpeningPicker: View {
 /// Three typed numbers for `PlanEditing.bumpOut`: where along the wall,
 /// how wide, how far out. In or out is a toggle rather than a minus sign —
 /// nobody types "-2'" on a job site.
+/// Set Diagonal's length entry: the two corners, what the outline measures
+/// between them now, and the measured figure typed or kept.
+private struct DiagonalSheet: View {
+    let entry: RoomEditorCore.DiagonalEntry
+    let apply: (Double) -> Bool
+    let remove: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var units = UnitSettings.shared
+    @State private var text = ""
+    @State private var refused = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack {
+                        Text("Corner \(entry.a + 1) to corner \(entry.b + 1)")
+                        Spacer()
+                        TextField(units.format.format(entry.measured), text: $text)
+                            .keyboardType(.numbersAndPunctuation)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 130)
+                    }
+                } footer: {
+                    Text(
+                        refused
+                            ? "No room with these wall lengths has that diagonal. Check the tape — or the walls."
+                            : "The plan measures \(units.format.format(entry.measured)) now. Type what the tape reads: every wall keeps its length and the corners turn to fit. Feet and inches: 15' 2, or metres: 4.62m."
+                    )
+                    .foregroundStyle(refused ? Color.red : Brand.inkSoft)
+                }
+                if entry.existing {
+                    Section {
+                        Button("Remove Diagonal", role: .destructive) {
+                            remove()
+                            dismiss()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Set Diagonal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Apply") {
+                        let typed = text.trimmingCharacters(in: .whitespaces)
+                        guard let length = typed.isEmpty ? entry.measured : units.format.parse(typed),
+                            length > 0
+                        else { refused = true; return }
+                        if apply(length) { dismiss() } else { refused = true }
+                    }
+                    .bold()
+                }
+            }
+        }
+    }
+}
+
 private struct BumpOutSheet: View {
     let wallLength: Double
     let apply: (_ offset: Double, _ width: Double, _ depth: Double) -> Bool

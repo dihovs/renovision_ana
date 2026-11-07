@@ -378,7 +378,11 @@ actor API {
 
     func scans(projectId: String) async throws -> [RoomScan] {
         let encoded = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
-        return try await get("/api/v1/scans?projectId=\(encoded)", as: ScanListResponse.self).scans
+        let response = try await get("/api/v1/scans?projectId=\(encoded)", as: ScanListResponse.self)
+        // The floors' wall widths ride along with the plan; kept where every
+        // renderer can find them (`WallThickness.activate`).
+        WallThickness.stated[projectId] = response.floorWalls ?? [:]
+        return response.scans
     }
 
     /// Every storey's saved turn on this project, degrees, keyed by level.
@@ -400,6 +404,34 @@ actor API {
         _ = try await request(
             "/api/v1/floors?projectId=\(p)&level=\(l)", method: "PATCH",
             body: FloorDisplayPatch(displayAngle: degrees))
+    }
+
+    private struct FloorWallsPatch: Encodable {
+        let interiorWallM: Double?
+        let exteriorWallM: Double?
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encodeIfPresent(interiorWallM, forKey: .interiorWallM)
+            try c.encodeIfPresent(exteriorWallM, forKey: .exteriorWallM)
+        }
+        enum CodingKeys: String, CodingKey { case interiorWallM, exteriorWallM }
+    }
+
+    /// State a storey's wall widths (migration 0058). Either may be left out.
+    func setFloorWallWidths(
+        projectId: String, level: String, interiorM: Double?, exteriorM: Double?
+    ) async throws {
+        let p = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        let l = level.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? level
+        _ = try await request(
+            "/api/v1/floors?projectId=\(p)&level=\(l)", method: "PATCH",
+            body: FloorWallsPatch(interiorWallM: interiorM, exteriorWallM: exteriorM))
+        var floors = WallThickness.stated[projectId] ?? [:]
+        var row = floors[level] ?? WallThickness.Stated()
+        if let interiorM { row.interiorM = interiorM }
+        if let exteriorM { row.exteriorM = exteriorM }
+        floors[level] = row
+        WallThickness.stated[projectId] = floors
     }
 
     /// File a finished capture against a project.
@@ -981,6 +1013,8 @@ actor API {
         /// and the stored ones are kept.
         let ceilingProfile: ScanGeometry.CeilingRecord?
         let ceilingFigures: ScanGeometry.CeilingFigures?
+        /// Set Diagonal. Sent on every save from this build; empty clears.
+        let diagonals: [ScanGeometry.StoredDiagonal]?
     }
 
     /// Save a plan corrected by hand. The scan's own measurements are kept —
@@ -991,7 +1025,8 @@ actor API {
         openings placed: [PlanEditing.WallOpening]? = nil, ceilingHeight: Double = 0,
         interiorWalls: [ScanGeometry.InteriorWall]? = nil,
         edgeBulge: [Double]? = nil,
-        ceiling: ScanGeometry.CeilingRecord? = nil
+        ceiling: ScanGeometry.CeilingRecord? = nil,
+        diagonals: [ScanGeometry.StoredDiagonal]? = nil
     ) async throws {
         // A room with no recorded ceiling still has to deduct SOMETHING for a
         // door; the builder's 8' is the least surprising stand-in.
@@ -1024,7 +1059,8 @@ actor API {
                 openingCount: synthesized?.passages.count,
                 edgeBulge: edgeBulge,
                 ceilingProfile: ceiling,
-                ceilingFigures: figures))
+                ceilingFigures: figures,
+                diagonals: diagonals))
     }
 
     // MARK: - Photos

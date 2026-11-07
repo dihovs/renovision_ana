@@ -29,6 +29,7 @@ actor PreviewServer {
         ]
     ]
     private var floorAngles: [String: Double] = [:]
+    private var floorWalls: [String: [String: Double]] = [:]
     private var nextID = 1
 
     /// Every request the app made, newest last — what a test reads back to
@@ -182,7 +183,7 @@ actor PreviewServer {
         case ("GET", "scans"):
             if let id, parts.count > 4, parts[4] == "walls" { return try json(["walls": []]) }
             _ = id
-            return try json(["scans": rooms, "floorDisplay": floorAngles])
+            return try json(["scans": rooms, "floorDisplay": floorAngles, "floorWalls": floorWalls])
         case ("POST", "scans"):
             // A room filed by a capture: kept like any other.
             let newID = makeID("room")
@@ -205,6 +206,12 @@ actor PreviewServer {
         case ("PATCH", "floors"):
             if let level = query["level"], let angle = input["displayAngle"] as? Double {
                 floorAngles[level] = angle
+            }
+            if let level = query["level"] {
+                var row = floorWalls[level] ?? [:]
+                if let v = input["interiorWallM"] as? Double { row["interiorM"] = v }
+                if let v = input["exteriorWallM"] as? Double { row["exteriorM"] = v }
+                if !row.isEmpty { floorWalls[level] = row }
             }
             return try json(["ok": true])
         case ("GET", "objects"):
@@ -318,7 +325,7 @@ actor PreviewServer {
         let geometryKeys = [
             "editedPolygon", "lockedEdges", "authoredOpenings", "interiorWalls", "doors", "windows",
             "openings", "doorCount", "windowCount", "openingCount", "edgeBulge", "ceilingProfile",
-            "ceilingFigures",
+            "ceilingFigures", "diagonals",
         ]
         for key in geometryKeys { if let value = input[key] { geometry[key] = value } }
         if let polygon = input["editedPolygon"] as? [[String: Double]] {

@@ -5,6 +5,7 @@ import { isConfigured, MigrationPendingError } from "@/lib/crm/db";
 import { getProject } from "@/lib/crm/projects";
 import { getCompany } from "@/lib/crm/settings";
 import { listRoomScans } from "@/lib/crm/roomScans";
+import { getFloorWallWidths, resolveWallWidths } from "@/lib/crm/floorDisplay";
 import { listProjectAffectedAreas } from "@/lib/crm/affectedAreas";
 import { listProjectObjects } from "@/lib/crm/roomObjects";
 import { planAreas } from "@/lib/crm/areaShapes";
@@ -85,10 +86,11 @@ export default async function EstimatePrintPage({
   // the REPORT'S — `FloorPlan` and `ReportStoreyPlan` — because a second
   // renderer is a second thing to drift, and a plan that disagreed between
   // the two documents would be worse than no plan in this one.
-  const [scans, allAreas, allObjects] = await Promise.all([
+  const [scans, allAreas, allObjects, wallWidths] = await Promise.all([
     listRoomScans(project.id).catch(() => []),
     listProjectAffectedAreas(project.id).catch(() => []),
     listProjectObjects(project.id).catch(() => []),
+    getFloorWallWidths(project.id).catch(() => ({})),
   ]);
 
   const planObjectsFor = (scanId: string) =>
@@ -118,6 +120,7 @@ export default async function EstimatePrintPage({
   const scanById = new Map(scans.map((scan) => [scan.id, scan]));
 
   const storeyRooms = scans.map((scan) => ({
+    level: scan.level,
     id: scan.id,
     name: scan.name,
     geometry: scan.geometry as unknown as ScanGeometry,
@@ -394,13 +397,26 @@ export default async function EstimatePrintPage({
       {storeyRooms.length > 0 && (
         <section className="mt-8 break-before-page">
           <h2 className="text-center font-heading text-sm font-bold">Plan de l&apos;étage</h2>
-          <div className="mt-2">
-            <ReportStoreyPlan
-              rooms={storeyRooms}
-              locale="fr"
-              note="Disposition assemblée à partir des pièces mesurées."
-            />
-          </div>
+          {/* One plan per storey — rooms on different floors drawn on one
+              page would stand on each other — each at its floor's stated
+              wall widths (migration 0058). */}
+          {[...new Set(storeyRooms.map((room) => room.level))].map((level, k, levels) => {
+            const widths = resolveWallWidths(wallWidths, level);
+            return (
+              <div key={level} className="mt-2">
+                {levels.length > 1 && (
+                  <h3 className="text-center font-heading text-xs font-bold">{level}</h3>
+                )}
+                <ReportStoreyPlan
+                  rooms={storeyRooms.filter((room) => room.level === level)}
+                  locale="fr"
+                  wallThickness={widths.interiorM}
+                  exteriorWallThickness={widths.exteriorM}
+                  note="Disposition assemblée à partir des pièces mesurées."
+                />
+              </div>
+            );
+          })}
         </section>
       )}
 

@@ -153,6 +153,7 @@ first.
 | ~~`0055_time_clock.sql`~~ ✅ run 4 Nov 2026 | Start / Stop on the crew link, and the Timesheets page. |
 | ~~`0056_checklist_templates.sql`~~ ✅ run 4 Nov 2026 | Checklist templates, attaching them to a job or a visit, and the crew filling them in. |
 | ~~`0057_task_assignment.sql`~~ ✅ run 4 Nov 2026 | Assigning a task to someone, linking it to a job, repeating tasks. |
+| `0058_floor_wall_thickness.sql` — **run in the Supabase SQL editor** | Interior and exterior wall thickness per floor (Floor Details → Interior Walls / Exterior Walls). Until it runs, every floor draws at 2×4 / 2×6 and changing the thickness says the migration is pending. |
 
 `0053`–`0057` must run in that order (each one leans on the one before). Until they do, the pages
 they power say which file to run, and every older screen works exactly as before.

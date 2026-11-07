@@ -115,8 +115,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               figures: readCeilingFigures(body.ceilingFigures),
             }
           : undefined;
+      // Set Diagonal: two corners that are not neighbours, and the
+      // measured distance between them. Only when the save sends the list.
+      const diagonals = Array.isArray(body.diagonals)
+        ? (body.diagonals as unknown[]).flatMap((d) => {
+            const v = d as { a?: unknown; b?: unknown; length?: unknown };
+            const a = Number(v?.a);
+            const b = Number(v?.b);
+            const length = Number(v?.length);
+            const n = polygon.length;
+            const ok =
+              Number.isInteger(a) && Number.isInteger(b) && a >= 0 && b >= 0 && a < n && b < n &&
+              Math.abs(a - b) > 1 && Math.abs(a - b) < n - 1 && Number.isFinite(length) && length > 0;
+            return ok ? [{ a: Math.min(a, b), b: Math.max(a, b), length }] : [];
+          })
+        : undefined;
       await saveEditedPolygon(
-        id, polygon, locked, readOpenings(body), readInteriorWalls(body), edgeBulge, ceiling,
+        id, polygon, locked, readOpenings(body), readInteriorWalls(body), edgeBulge, ceiling, diagonals,
       );
     }
 

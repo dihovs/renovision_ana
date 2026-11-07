@@ -313,6 +313,7 @@ export async function saveEditedPolygon(
   interiorWalls?: { x1: number; y1: number; x2: number; y2: number }[],
   edgeBulge?: number[],
   ceiling?: { profile: Record<string, unknown>; figures: CeilingFigures | null },
+  diagonals?: { a: number; b: number; length: number }[],
 ): Promise<void> {
   const client = requireDb();
 
@@ -351,6 +352,9 @@ export async function saveEditedPolygon(
     delete base.ceilingProfile;
     delete base.ceilingFigures;
   }
+  // Set Diagonal: corner pairs, so the same edge-count rule — a save that
+  // says nothing keeps them only while the outline has the same corners.
+  if (diagonals || !keptCeilingCorners(base, polygon.length)) delete base.diagonals;
   const geometry = {
     ...base,
     editedPolygon: polygon,
@@ -382,6 +386,7 @@ export async function saveEditedPolygon(
     // adds one face of wall or two is a pricing decision with money on it,
     // not something to infer from a line having been drawn.
     ...(interiorWalls ? { interiorWalls } : {}),
+    ...(diagonals && diagonals.length > 0 ? { diagonals } : {}),
     editedAt: new Date().toISOString(),
   };
 
@@ -457,4 +462,10 @@ export function totalsByLevel(scans: RoomScan[]): { level: string; totals: ScanT
     level,
     totals: totalScans(scans.filter((scan) => scan.level === level)),
   }));
+}
+
+/** Whether the stored outline has as many corners as the one being saved. */
+function keptCeilingCorners(base: Record<string, unknown>, corners: number): boolean {
+  const stored = base.editedPolygon;
+  return Array.isArray(stored) && stored.length === corners;
 }

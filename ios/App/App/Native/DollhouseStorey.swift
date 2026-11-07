@@ -115,7 +115,7 @@ enum DollhouseStorey {
     /// side was scanned, which is the case this constant exists for. A room
     /// measured on its own still has walls of a real thickness; the scanner
     /// simply never saw the far face.
-    static let defaultThickness = 0.1143
+    static var defaultThickness: Double { WallThickness.active.interiorM }
     /// The widest a merged wall is allowed to be drawn, however far apart
     /// its members were — a scan with a metre of drift should not produce a
     /// wall you could sleep on.

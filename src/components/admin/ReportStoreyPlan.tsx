@@ -1,5 +1,6 @@
 import { resolvePlacements } from "@/lib/floorLayout";
 import { bandPath, exteriorRuns, wallBand, type Pt } from "./wallBand";
+import { runs as storeyRuns, runsPath, type OpeningFaces } from "./storeyWalls";
 import { toFloorPlan, type FloorPlan, type ScanGeometry, planRing } from "@/lib/roomScan";
 import { openSegmentFlags } from "@/lib/openWalls";
 import PlanObjects, { type PlanObject } from "./PlanObjects";
@@ -438,9 +439,14 @@ function Room({
   fmt,
   tone = "full",
   wall = DEFAULT_WALL,
+  walls = null,
 }: {
   /** The wall's thickness, plan metres. */
   wall?: number;
+  /** The storey's walls for this room (storeyWalls.ts) — one wall per pair
+      of facing edges, exterior at the floor's exterior thickness. Null:
+      the room alone, grown by its own wall (wallBand.ts). */
+  walls?: { d: string; faces: OpeningFaces[] } | null;
   room: StoreyRoom;
   fmt: Format;
   plan: FloorPlan;
@@ -459,7 +465,7 @@ function Room({
   const isOpenEdge = openEdgeTest(plan, room.openWalls);
   // Curved walls (M5) followed, as on the room's own plan.
   const drawn = planRing(plan);
-  const band = wallBand(drawn, T, plan.openings, isOpenEdge);
+  const band = walls ? null : wallBand(drawn, T, plan.openings, isOpenEdge);
   const locator = tone !== "full";
   const wallInk = tone === "pale" ? LOCATOR_PALE_INK : PLAN_INK;
   const fill = tone === "pale" ? LOCATOR_PALE_FILL : tone === "ink" ? LOCATOR_INK_FILL : PLAN_FILL;
@@ -559,7 +565,9 @@ function Room({
 
       {/* Two passes: the body at true thickness over a slightly wider stroke,
           which leaves the heavier cut faces on both sides. */}
-      {band ? (
+      {walls ? (
+        <path d={walls.d} fill={wallInk} stroke={wallInk} strokeWidth={0.004} strokeLinejoin="miter" />
+      ) : band ? (
         <path d={bandPath(band)} fill={wallInk} stroke={wallInk} strokeWidth={0.004} strokeLinejoin="miter" />
       ) : (
         <>
@@ -600,12 +608,17 @@ function Room({
         // which way the wall runs from the edge. Off the band (no outline,
         // or a scanned door the outline does not run under), the old way:
         // knock it out of a centred wall.
-        const out = band?.openingNormals[index] ?? null;
+        const face = walls ? walls.faces[index] : null;
+        const out = walls ? (face?.out ?? null) : (band?.openingNormals[index] ?? null);
+        // The wall's two faces, metres out from the edge: 0…T for a room's
+        // own band, whatever the storey's wall is for a shared one.
+        const nearF = face ? face.near : 0;
+        const farF = face ? face.far : T;
         const across = (px: number, py: number) =>
           out
-            ? { x1: px, y1: py, x2: px + out.x * T, y2: py + out.y * T }
+            ? { x1: px + out.x * nearF, y1: py + out.y * nearF, x2: px + out.x * farF, y2: py + out.y * farF }
             : { x1: px - (nx * T) / 2, y1: py - (ny * T) / 2, x2: px + (nx * T) / 2, y2: py + (ny * T) / 2 };
-        const mid = out ? T / 2 : 0;
+        const mid = out ? (nearF + farF) / 2 : 0;
 
         return (
           <g key={`o${index}`}>
@@ -659,7 +672,7 @@ function Room({
               }
               // A door swinging out of the room hangs on the wall's far
               // face — the room's band lies between it and the room.
-              const shift = out && side * (nx * out.x + ny * out.y) > 0 ? T : 0;
+              const shift = out && side * (nx * out.x + ny * out.y) > 0 ? farF : out ? nearF : 0;
               const sx = out ? out.x * shift : 0;
               const sy = out ? out.y * shift : 0;
               const hx = (atEnd ? opening.x2 : opening.x1) + sx;
@@ -754,8 +767,13 @@ export default function ReportStoreyPlan({
   note,
   north = null,
   wallThickness = DEFAULT_WALL,
+  exteriorWallThickness,
 }: {
   rooms: StoreyRoom[];
+  /** The floor's exterior wall, plan metres (migration 0058). Given, and
+      every room really placed, walls follow the storey rule — one wall per
+      pair of facing edges, the outside at this thickness. */
+  exteriorWallThickness?: number;
   /** The job's wall thickness, plan metres (`ReportData.wallThicknessM`). */
   wallThickness?: number;
   /** Degrees clockwise from the top of the page that north points; null
@@ -801,6 +819,33 @@ export default function ReportStoreyPlan({
   const registered = drawable.every((room) => room.planX !== null && room.planY !== null);
   const isLocator = highlight !== undefined;
 
+  // The storey's walls, once per drawing: every room's outline in floor
+  // metres, then each room's runs found against all the others — the
+  // phone's rule (StoreyWalls), so the report draws the plan the phone does.
+  const storeyWalls =
+    registered && exteriorWallThickness !== undefined
+      ? (() => {
+          const floor = plans.map((plan, i) =>
+            planRing(plan).map((p) => ({ x: p.x + layout.placed[i].x, y: p.y + layout.placed[i].y })),
+          );
+          return plans.map((plan, i) =>
+            floor[i].length >= 3
+              ? runsPath(
+                  storeyRuns(
+                    i,
+                    floor,
+                    layout.placed[i],
+                    wallThickness,
+                    exteriorWallThickness,
+                    openEdgeTest(plan, drawable[i].openWalls),
+                  ),
+                  plan.openings,
+                )
+              : null,
+          );
+        })()
+      : null;
+
   // Room-by-room running count, so the badge numbers across a storey are one
   // sequence rather than each room restarting at 1.
   //
@@ -840,6 +885,7 @@ export default function ReportStoreyPlan({
             areaStart={starts[index]}
             fmt={fmt}
             wall={wallThickness}
+            walls={storeyWalls?.[index] ?? null}
             tone={
               !isLocator ? "full" : room.id === highlight ? "ink" : "pale"
             }
@@ -868,7 +914,7 @@ export default function ReportStoreyPlan({
               openWalls: room.openWalls,
             }))}
             fmt={fmt}
-            wall={wallThickness}
+            wall={exteriorWallThickness ?? wallThickness}
           />
         )}
 

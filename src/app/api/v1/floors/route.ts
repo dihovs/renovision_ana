@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { guarded } from "../guard";
-import { setFloorDisplayAngle } from "@/lib/crm/floorDisplay";
+import { setFloorDisplayAngle, setFloorWallWidths, validWallWidth } from "@/lib/crm/floorDisplay";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +21,30 @@ export async function PATCH(request: Request) {
     body = (await request.json()) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
+  }
+
+  // Wall widths (0058): either or both, metres. A body carrying them is a
+  // thickness change, never a turn.
+  if ("interiorWallM" in body || "exteriorWallM" in body) {
+    const widths: { interiorM?: number; exteriorM?: number } = {};
+    if ("interiorWallM" in body) {
+      const v = Number(body.interiorWallM);
+      if (!validWallWidth("interiorM", v)) {
+        return NextResponse.json({ error: "interiorWallM must be between 0.03 and 0.6 m." }, { status: 400 });
+      }
+      widths.interiorM = v;
+    }
+    if ("exteriorWallM" in body) {
+      const v = Number(body.exteriorWallM);
+      if (!validWallWidth("exteriorM", v)) {
+        return NextResponse.json({ error: "exteriorWallM must be between 0.03 and 0.8 m." }, { status: 400 });
+      }
+      widths.exteriorM = v;
+    }
+    return guarded(async () => {
+      await setFloorWallWidths(projectId, level, widths);
+      return { ok: true };
+    });
   }
 
   const angle = Number(body.displayAngle);

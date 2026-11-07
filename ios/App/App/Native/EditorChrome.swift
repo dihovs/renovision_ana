@@ -1468,6 +1468,9 @@ enum EditorAction: Hashable {
     /// Adjust a damaged area's outline, point by point. The reference's own
     /// word for it, on the bar it puts under a selected area.
     case editShape
+    /// A measured corner-to-corner distance that fixes an out-of-square
+    /// room's shape (Magicplan-Screen-Spec: corner bar, `Set Diagonal`).
+    case setDiagonal
     case delete
 
     var label: String {
@@ -1488,6 +1491,7 @@ enum EditorAction: Hashable {
         case .mergeRooms: return "Merge Rooms"
         case .replaceWith: return "Replace with..."
         case .editShape: return "Edit Shape"
+        case .setDiagonal: return "Set Diagonal"
         // The ellipsis is not decoration: §4 gives destructive labels one
         // because they confirm before they act.
         case .delete: return "Delete..."
@@ -1518,6 +1522,7 @@ enum EditorAction: Hashable {
         case .replaceWith: return "arrow.triangle.2.circlepath"
         // The reference's own glyph sense for it: points on a path.
         case .editShape: return "point.topleft.down.to.point.bottomright.curvepath"
+        case .setDiagonal: return "arrow.up.left.and.arrow.down.right"
         case .delete: return "trash"
         }
     }
@@ -1555,7 +1560,7 @@ enum EditorAction: Hashable {
                 ? [.insert, .delete]
                 : [.insert, .addCorner, .bumpOut, .curve, .addWall, .splitRoom, .delete]
         case .corner:
-            return [.insert, .delete]
+            return [.setDiagonal, .delete]
         case .object:
             // The reference's own bar for a placed object, read off
             // `interactions-editor.md` §"object inserted": `Insert ·

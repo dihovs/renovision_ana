@@ -415,7 +415,7 @@ struct DrawRoomView: View {
                 (
                     $0.name, $0.polygon,
                     outdoor || $0.outdoor
-                        ? WallThickness.default.exteriorM : WallThickness.default.interiorM
+                        ? WallThickness.active.exteriorM : WallThickness.active.interiorM
                 )
             },
             grid: snap,

@@ -5,6 +5,7 @@ import ReportDocument, { type ReportRoom } from "@/components/admin/ReportDocume
 import { isConfigured } from "@/lib/crm/db";
 import { getProject, listRoomFiles, signProjectFileUrls } from "@/lib/crm/projects";
 import { listRoomScans } from "@/lib/crm/roomScans";
+import { getFloorWallWidths, resolveWallWidths } from "@/lib/crm/floorDisplay";
 import { listAffectedAreas, ensurePolishedNotes } from "@/lib/crm/affectedAreas";
 import { listRoomWalls } from "@/lib/crm/roomWalls";
 import { listProjectObjects } from "@/lib/crm/roomObjects";
@@ -103,7 +104,10 @@ export default async function ReportPage({
 
   // Each of these can be absent — a migration not yet run, a job with no
   // drying — and each failure narrows the report rather than breaking it.
-  const scans = await listRoomScans(project.id).catch(() => []);
+  const [scans, wallWidths] = await Promise.all([
+    listRoomScans(project.id).catch(() => []),
+    getFloorWallWidths(project.id).catch(() => ({})),
+  ]);
   const equipment = await listEquipment(project.id).catch(() => []);
   // The bath, the toilet, the counter run. One query for the whole project
   // rather than one per room: a nine-room job is nine round trips otherwise,
@@ -343,6 +347,8 @@ export default async function ReportPage({
           claimFields,
           claim,
           levels,
+          // Every storey's wall widths, stated or default (migration 0058).
+          floorWalls: Object.fromEntries(levels.map((level) => [level, resolveWallWidths(wallWidths, level)])),
           rooms,
           equipment,
           generatedAt: new Date().toISOString(),

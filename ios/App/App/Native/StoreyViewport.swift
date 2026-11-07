@@ -619,8 +619,8 @@ struct StoreyLayout {
     /// The stated thicknesses walls are drawn at: a 2×4 partition and a 2×6
     /// exterior wall, `WallThickness.default` — the same figures the
     /// footprint totals and Draw Room's snapping use.
-    static let interiorWall = WallThickness.default.interiorM
-    static let exteriorWall = WallThickness.default.exteriorM
+    static var interiorWall: Double { WallThickness.active.interiorM }
+    static var exteriorWall: Double { WallThickness.active.exteriorM }
 
     private let wholeFloorWidth: Double
     private let wholeFloorHeight: Double
