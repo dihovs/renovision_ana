@@ -30,6 +30,7 @@ actor PreviewServer {
     ]
     private var floorAngles: [String: Double] = [:]
     private var floorWalls: [String: [String: Double]] = [:]
+    private var shareLinks: [[String: Any]] = []
     private var nextID = 1
 
     /// Every request the app made, newest last — what a test reads back to
@@ -270,6 +271,24 @@ actor PreviewServer {
             return try json(["ok": true])
         case ("DELETE", "areas"):
             if let id { for (room, list) in areas { areas[room] = list.filter { $0["id"] as? String != id } } }
+            return try json(["ok": true])
+        case ("GET", "share-links"):
+            return try json(["links": shareLinks])
+        case ("POST", "share-links"):
+            let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+            let link: [String: Any] = [
+                "id": makeID("link"), "url": "https://www.renovisionana.ca/s/\(token)",
+                "createdAt": ISO8601DateFormatter().string(from: Date()),
+                "expiresAt": ISO8601DateFormatter().string(from: Date().addingTimeInterval(30 * 86400)),
+                "active": true,
+            ]
+            shareLinks.insert(link, at: 0)
+            return try json(["link": link])
+        case ("DELETE", "share-links"):
+            if let target = query["id"], let i = shareLinks.firstIndex(where: { $0["id"] as? String == target }) {
+                shareLinks[i]["revokedAt"] = ISO8601DateFormatter().string(from: Date())
+                shareLinks[i]["active"] = false
+            }
             return try json(["ok": true])
         case ("GET", "photos"):
             return try json(["photos": photos[query["roomScanId"] ?? ""] ?? []])

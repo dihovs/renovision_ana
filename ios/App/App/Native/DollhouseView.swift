@@ -236,7 +236,7 @@ private struct ShareImage: Identifiable {
 /// The plain system share sheet, for the one screen in this app that hands
 /// out an image rather than a link — everything else shares a project or a
 /// report by URL, which `ShareLink` already covers without this.
-private struct ShareSheet: UIViewControllerRepresentable {
+struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     func makeUIViewController(context: Context) -> UIActivityViewController {
         UIActivityViewController(activityItems: items, applicationActivities: nil)

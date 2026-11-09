@@ -434,6 +434,26 @@ actor API {
         WallThickness.stated[projectId] = floors
     }
 
+    // MARK: - Share links (migration 0059)
+
+    func shareLinks(projectId: String) async throws -> [ProjectShareLink] {
+        struct R: Decodable { let links: [ProjectShareLink] }
+        let p = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        return try await get("/api/v1/share-links?projectId=\(p)", as: R.self).links
+    }
+
+    func createShareLink(projectId: String) async throws -> ProjectShareLink {
+        struct Body: Encodable { let projectId: String }
+        struct R: Decodable { let link: ProjectShareLink }
+        let data = try await request("/api/v1/share-links", method: "POST", body: Body(projectId: projectId))
+        return try decode(R.self, from: data).link
+    }
+
+    func revokeShareLink(id: String) async throws {
+        let i = id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id
+        _ = try await request("/api/v1/share-links?id=\(i)", method: "DELETE", body: Optional<String>.none)
+    }
+
     /// File a finished capture against a project.
     ///
     /// The measurements go up as taken. The server deliberately does not

@@ -1470,3 +1470,19 @@ enum Measure {
         return "\(Int(cubicFeet(cubicMetres).rounded())) cu ft"
     }
 }
+
+/// A view-only web link to a project's report (migration 0059).
+struct ProjectShareLink: Decodable, Identifiable, Hashable {
+    let id: String
+    let url: String
+    let createdAt: String
+    let expiresAt: String
+    let revokedAt: String?
+    let active: Bool
+
+    var status: String {
+        if revokedAt != nil { return "Revoked" }
+        let day = String(expiresAt.prefix(10))
+        return active ? "Works until \(day)" : "Expired \(day)"
+    }
+}

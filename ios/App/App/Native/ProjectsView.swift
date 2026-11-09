@@ -2273,19 +2273,20 @@ struct ProjectExportSheet: View {
                                 }
                                 .buttonStyle(.plain)
                                 Divider().padding(.leading, 58)
-                                ExportRow(
-                                    icon: "link",
-                                    title: "Get Shareable Link",
-                                    caption: "Crew links exist per job, not per project — not wired here yet",
-                                    ready: false)
+                                NavigationLink {
+                                    ShareLinksView(projectId: projectId)
+                                } label: {
+                                    ExportRow(
+                                        icon: "link",
+                                        title: "Get Shareable Link",
+                                        caption: "A view-only web link: plans, measures, damage and photos — no prices, no client",
+                                        ready: true)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
 
-                    Text("Rows without an arrow are not built yet. They are listed so this sheet stays the shape you know, not to suggest they work.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Brand.inkFaint)
-                        .padding(.top, Brand.Space.tight)
                 }
                 .padding(Brand.Space.base)
             }
@@ -2430,5 +2431,107 @@ struct AddFloorSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Get Shareable Link (migration 0059): make a view-only web link to this
+/// project's report, hand it to the share sheet, and stop old ones working.
+/// What the page shows is fixed on the server (`/s/[token]`): plans,
+/// measurements, damage and photos — never prices, the client, or the
+/// claim's numbers. Links lapse after 30 days.
+struct ShareLinksView: View {
+    let projectId: String
+
+    @State private var links: [ProjectShareLink] = []
+    @State private var loading = true
+    @State private var working = false
+    @State private var error: String?
+    @State private var sharing: ProjectShareLink?
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    Task { await create() }
+                } label: {
+                    Label(working ? "Making the link…" : "New Shareable Link", systemImage: "link.badge.plus")
+                }
+                .disabled(working)
+            } footer: {
+                Text(error ?? "Anyone with the link can view the floor plans, room measurements, damage and photos. Prices, the client's name and contact details, and the claim's numbers are never shown. A link stops working after 30 days, or when you revoke it.")
+                    .foregroundStyle(error == nil ? Brand.inkSoft : .red)
+            }
+
+            if !links.isEmpty {
+                Section("LINKS") {
+                    ForEach(links) { link in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(link.url)
+                                .font(.system(size: 12, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(link.active ? Brand.ink : Brand.inkFaint)
+                            Text(link.status)
+                                .font(.system(size: 11))
+                                .foregroundStyle(link.active ? Brand.inkSoft : .orange)
+                        }
+                        .swipeActions {
+                            if link.active {
+                                Button("Revoke", role: .destructive) { Task { await revoke(link) } }
+                                    .tint(.red)
+                            }
+                        }
+                        .contextMenu {
+                            if link.active {
+                                Button { sharing = link } label: { Label("Share…", systemImage: "square.and.arrow.up") }
+                                Button { UIPasteboard.general.string = link.url } label: { Label("Copy", systemImage: "doc.on.doc") }
+                                Button(role: .destructive) { Task { await revoke(link) } } label: { Label("Revoke", systemImage: "xmark.circle") }
+                            }
+                        }
+                        .onTapGesture { if link.active { sharing = link } }
+                    }
+                }
+            } else if loading {
+                ProgressView()
+            }
+        }
+        .navigationTitle("Shareable Link")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+        .sheet(item: $sharing) { link in
+            ShareSheet(items: [URL(string: link.url) ?? link.url])
+        }
+    }
+
+    private func load() async {
+        loading = true
+        do {
+            links = try await API.shared.shareLinks(projectId: projectId)
+        } catch {
+            self.error = error.localizedDescription
+        }
+        loading = false
+    }
+
+    private func create() async {
+        working = true
+        error = nil
+        do {
+            let link = try await API.shared.createShareLink(projectId: projectId)
+            links.insert(link, at: 0)
+            sharing = link
+        } catch {
+            self.error = "Couldn't make the link: \(error.localizedDescription)"
+        }
+        working = false
+    }
+
+    private func revoke(_ link: ProjectShareLink) async {
+        do {
+            try await API.shared.revokeShareLink(id: link.id)
+            await load()
+        } catch {
+            self.error = "Couldn't revoke it: \(error.localizedDescription)"
+        }
     }
 }

@@ -918,6 +918,27 @@ struct RoomEditorCore: View {
             }
 
             ZStack {
+                // **The magnifier.** A finger covers the corner it is
+                // dragging, so a loupe above it shows that corner at three
+                // times the zoom — walls, the neighbours' walls and the
+                // green guides — the way iOS magnifies a text caret.
+                if case .corner(let index) = selection,
+                    dragStart != nil
+                        || (PreviewData.on && ProcessInfo.processInfo.arguments.contains("-previewLoupe")),
+                    corners.indices.contains(index)
+                {
+                    let at = toScreen(corners[index])
+                    let size: CGFloat = 116
+                    let above = at.y - size * 0.95 > size / 2 + 8
+                    CornerLoupe(
+                        corner: corners[index], corners: corners,
+                        neighbours: neighbours.map(\.polygon), guides: cornerGuides,
+                        zoom: scale * 3, size: size)
+                    .position(x: min(max(at.x, size / 2 + 8), proxy.size.width - size / 2 - 8),
+                              y: above ? at.y - size * 0.95 : at.y + size * 0.95)
+                    .allowsHitTesting(false)
+                    .zIndex(20)
+                }
                 Canvas { context, _ in
                     let pt = toScreen
 
@@ -4765,6 +4786,63 @@ struct OpeningPicker: View {
 /// Three typed numbers for `PlanEditing.bumpOut`: where along the wall,
 /// how wide, how far out. In or out is a toggle rather than a minus sign —
 /// nobody types "-2'" on a job site.
+/// The corner-drag magnifier: the plan around one corner, drawn again at a
+/// higher zoom inside a circle, with a crosshair on the corner itself.
+private struct CornerLoupe: View {
+    let corner: CGPoint
+    let corners: [CGPoint]
+    let neighbours: [[CGPoint]]
+    let guides: [(CGPoint, CGPoint)]
+    /// Points per metre inside the loupe.
+    let zoom: CGFloat
+    let size: CGFloat
+
+    var body: some View {
+        Canvas { context, box in
+            let mid = CGPoint(x: box.width / 2, y: box.height / 2)
+            func pt(_ p: CGPoint) -> CGPoint {
+                CGPoint(x: mid.x + (p.x - corner.x) * zoom, y: mid.y + (p.y - corner.y) * zoom)
+            }
+            func ring(_ poly: [CGPoint]) -> Path {
+                var path = Path()
+                guard let first = poly.first else { return path }
+                path.move(to: pt(first))
+                for c in poly.dropFirst() { path.addLine(to: pt(c)) }
+                path.closeSubpath()
+                return path
+            }
+            context.fill(Path(CGRect(origin: .zero, size: box)), with: .color(Brand.canvas))
+            for n in neighbours where n.count >= 3 {
+                context.fill(ring(n), with: .color(Brand.Plan.floorMuted))
+                context.stroke(ring(n), with: .color(Brand.Plan.wallFootprint), lineWidth: 3)
+            }
+            if corners.count >= 3 {
+                context.fill(ring(corners), with: .color(Brand.surface))
+                context.stroke(ring(corners), with: .color(Brand.ink), style: StrokeStyle(lineWidth: 2.5, lineJoin: .miter))
+            }
+            for (a, b) in guides {
+                var g = Path()
+                g.move(to: pt(a))
+                g.addLine(to: pt(b))
+                context.stroke(g, with: .color(Brand.snapGuide), style: StrokeStyle(lineWidth: 1.2, dash: [5, 3]))
+            }
+            var cross = Path()
+            cross.move(to: CGPoint(x: mid.x - 12, y: mid.y))
+            cross.addLine(to: CGPoint(x: mid.x + 12, y: mid.y))
+            cross.move(to: CGPoint(x: mid.x, y: mid.y - 12))
+            cross.addLine(to: CGPoint(x: mid.x, y: mid.y + 12))
+            context.stroke(cross, with: .color(Brand.blue), lineWidth: 1.2)
+            context.stroke(
+                Path(ellipseIn: CGRect(x: mid.x - 5, y: mid.y - 5, width: 10, height: 10)),
+                with: .color(Brand.blue), lineWidth: 1.5)
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Brand.inkFaint.opacity(0.6), lineWidth: 1))
+        .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+    }
+}
+
 /// Set Diagonal's length entry: the two corners, what the outline measures
 /// between them now, and the measured figure typed or kept.
 private struct DiagonalSheet: View {

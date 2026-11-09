@@ -51,6 +51,8 @@ export const UNLOCALIZED_PREFIXES = [
   // Per-job crew links. Token surface, mobile-only, never translated as a
   // route — the page itself is bilingual from the token's own locale.
   "/crew",
+  // Get Shareable Link: a view-only report, token surface.
+  "/s",
   "/opengraph-image",
 ] as const;
 
