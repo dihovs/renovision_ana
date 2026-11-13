@@ -1,7 +1,5 @@
 import { guarded } from "../../../guard";
-import { getClient } from "@/lib/crm/clients";
-import { createProject, updateProjectDetails } from "@/lib/crm/projects";
-import { clientDisplayName } from "@/lib/crm/types";
+import { startEstimateProject } from "@/lib/crm/startEstimate";
 
 /**
  * "New estimate" on the phone's Customer screen: the same project the web
@@ -11,27 +9,7 @@ import { clientDisplayName } from "@/lib/crm/types";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = (await request.json().catch(() => ({}))) as { propertyId?: string };
-
-  return guarded(async () => {
-    const client = await getClient(id);
-    if (!client) throw new Error("No such customer.");
-    const property =
-      client.properties.find((p) => p.id === body.propertyId) ??
-      (client.properties.length === 1 ? client.properties[0] : undefined);
-    const street = property?.street1?.trim() || "";
-    const projectId = await createProject({
-      name: street ? `${street} — estimate` : `${clientDisplayName(client)} — estimate`,
-      clientId: id,
-    });
-    if (property) {
-      await updateProjectDetails(projectId, {
-        addressLine1: [property.street1, property.street2].filter(Boolean).join(", ") || null,
-        addressCity: property.city,
-        addressPostal: property.postal_code,
-      });
-    }
-    return { projectId, path: `/admin/projects/${projectId}/estimate` };
-  });
+  return guarded(() => startEstimateProject(id, { propertyId: body.propertyId }));
 }
 
 export const dynamic = "force-dynamic";

@@ -1523,6 +1523,15 @@ extension API {
 
     /// Make the project for a new estimate; nil on a server without the
     /// endpoint, where the caller falls back to the web form.
+    /// Turn a lead into a customer and open a new estimate on it, with the
+    /// lead's description waiting in the estimator's AI box. Returns the
+    /// estimator's path.
+    func startEstimate(leadId: String) async throws -> String {
+        let data = try await request("/api/v1/leads/\(leadId)/estimate", method: "POST",
+                                     body: StartEstimateBody(propertyId: nil))
+        return try JSONDecoder().decode(StartedEstimate.self, from: data).path
+    }
+
     func startEstimate(clientId: String, propertyId: String?) async throws -> String? {
         do {
             let data = try await request("/api/v1/clients/\(clientId)/estimate", method: "POST",

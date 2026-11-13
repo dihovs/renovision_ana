@@ -13,6 +13,7 @@ import {
 } from "@/lib/crm/insuranceEstimates";
 import { buildEstimateContext } from "@/lib/estimator/insurance/context";
 import { applyMinimumCharges, deriveLines, mergeLines } from "@/lib/estimator/insurance/derive";
+import { getProject } from "@/lib/crm/projects";
 import { INSURANCE_SCOPE_PATTERNS } from "@/lib/estimator/insurance/scopePatterns";
 import {
   PROPOSE_TOOL,
@@ -205,10 +206,16 @@ export async function suggestLinesAction(
     throw new Error("The AI assistant is not configured (ANTHROPIC_API_KEY).");
   }
 
-  const [estimate, ctx] = await Promise.all([
+  const [estimate, ctx, project] = await Promise.all([
     getOrCreateDraft(projectId),
     buildEstimateContext(projectId),
+    getProject(projectId).catch(() => null),
   ]);
+  // The customer's own words (a lead's description) — scope to look for,
+  // never a measurement: quantities still come from the rooms.
+  const described = project?.description?.trim()
+    ? `PROJECT DESCRIPTION (the customer's words, not measured):\n${project.description.trim().slice(0, 4000)}\n\n`
+    : "";
 
   const client = new Anthropic();
   const response = await client.messages.create({
@@ -225,7 +232,7 @@ export async function suggestLinesAction(
     messages: [
       {
         role: "user",
-        content: `PROJECT CONTEXT:\n${buildSuggestionContext(ctx, estimate.lines)}\n\nOPERATOR REQUEST: ${
+        content: `${described}PROJECT CONTEXT:\n${buildSuggestionContext(ctx, estimate.lines)}\n\nOPERATOR REQUEST: ${
           instruction.trim().slice(0, 2000) ||
           "Review the project and propose any estimate lines that are missing."
         }`,

@@ -213,6 +213,9 @@ private struct LeadDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var messaging = false
     @State private var savingContact = false
+    @State private var estimatePath: String?
+    @State private var startingEstimate = false
+    @State private var estimateError: String?
     @StateObject private var calls = CallManager.shared
 
     private static let statuses = ["new", "contacted", "quoted", "won", "lost"]
@@ -267,6 +270,24 @@ private struct LeadDetailSheet: View {
                                 }
                                 .buttonStyle(.plain)
                             }
+                        }
+
+                        Button {
+                            Task { await startEstimate() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if startingEstimate { ProgressView().tint(.white) }
+                                Label("Start estimate", systemImage: "doc.text.magnifyingglass")
+                            }
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .background(Brand.charcoalDark, in: .rect(cornerRadius: Brand.Radius.card))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(startingEstimate)
+                        if let estimateError {
+                            Text(estimateError).font(.system(size: 13)).foregroundStyle(.red)
                         }
 
                         if !lead.phone.isEmpty || !lead.email.isEmpty {
@@ -336,6 +357,12 @@ private struct LeadDetailSheet: View {
                     MessageThreadView(phone: lead.phone, displayName: lead.name)
                 }
             }
+            .navigationDestination(item: $estimatePath) { path in
+                WebScreen(path: path)
+                    .ignoresSafeArea(edges: .bottom)
+                    .navigationTitle("New estimate")
+                    .navigationBarTitleDisplayMode(.inline)
+            }
             .sheet(isPresented: $savingContact) {
                 NewContactSheet(
                     name: lead.name,
@@ -347,5 +374,19 @@ private struct LeadDetailSheet: View {
             }
         }
         .fullScreenCover(isPresented: .constant(calls.state.isBusy)) { InCallView() }
+    }
+
+    /// Lead → customer → project, then the estimator with her description in
+    /// the AI box. The lead's status is left where he put it.
+    private func startEstimate() async {
+        startingEstimate = true
+        estimateError = nil
+        defer { startingEstimate = false }
+        do {
+            estimatePath = try await API.shared.startEstimate(leadId: lead.id)
+            onChanged()
+        } catch {
+            estimateError = "Couldn't start the estimate: \(error.localizedDescription)"
+        }
     }
 }

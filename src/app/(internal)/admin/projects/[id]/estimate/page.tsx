@@ -84,6 +84,11 @@ export default async function EstimatePage({
         suggestAction={suggestLinesAction.bind(null, project.id)}
         acceptAction={acceptSuggestionsAction.bind(null, project.id)}
         finishAction={setFloorFinishAction.bind(null, project.id)}
+        initialInstruction={
+          initial.lines.length === 0 && project.description?.trim()
+            ? `Propose the lines for this request, using the rooms' measurements for quantities: ${project.description.trim()}`
+            : ""
+        }
       />
     </div>
   );

@@ -65,6 +65,7 @@ export default function EstimateBuilder({
   suggestAction,
   acceptAction,
   finishAction,
+  initialInstruction = "",
 }: {
   projectId: string;
   initial: EstimateSnapshot;
@@ -73,6 +74,9 @@ export default function EstimateBuilder({
   suggestAction: SuggestAction;
   acceptAction: AcceptAction;
   finishAction: FinishAction;
+  /** Pre-filled AI request — a new estimate started from a lead opens with
+      the customer's description here; nothing is sent until he asks. */
+  initialInstruction?: string;
 }) {
   const actions = {
     derive: deriveAction,
@@ -88,7 +92,7 @@ export default function EstimateBuilder({
   const [error, setError] = useState<string | null>(null);
   const [showRemoved, setShowRemoved] = useState(false);
 
-  const [instruction, setInstruction] = useState("");
+  const [instruction, setInstruction] = useState(initialInstruction);
   const [suggestions, setSuggestions] = useState<SuggestedLine[]>([]);
   const [aiMessage, setAiMessage] = useState<string | null>(null);
 
