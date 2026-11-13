@@ -1,4 +1,5 @@
 import Contacts
+import ContactsUI
 import SwiftUI
 
 /// Two-way contact sync between the iPhone's Contacts and the CRM.
@@ -346,6 +347,102 @@ struct ContactSyncView: View {
             error = nil
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - From a lead: open the address in a maps app, save as a contact
+
+/// The maps apps an address can open in. Google Maps and Waze are offered
+/// only when installed (their schemes are listed in Info.plist's
+/// LSApplicationQueriesSchemes); Apple Maps always is.
+enum MapsApp: String, CaseIterable, Identifiable {
+    case apple = "Apple Maps", google = "Google Maps", waze = "Waze"
+    var id: String { rawValue }
+
+    func url(for address: String) -> URL? {
+        let q = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        switch self {
+        case .apple: return URL(string: "maps://?q=\(q)")
+        case .google: return URL(string: "comgooglemaps://?q=\(q)")
+        case .waze: return URL(string: "waze://?q=\(q)&navigate=yes")
+        }
+    }
+
+    var installed: Bool {
+        switch self {
+        case .apple: return true
+        case .google: return UIApplication.shared.canOpenURL(URL(string: "comgooglemaps://")!)
+        case .waze: return UIApplication.shared.canOpenURL(URL(string: "waze://")!)
+        }
+    }
+}
+
+/// An address line that opens a "which maps app" menu on tap or long press.
+struct AddressLink: View {
+    let address: String
+    @State private var choosing = false
+
+    var body: some View {
+        Label(address, systemImage: "mappin.and.ellipse")
+            .font(.system(size: 14))
+            .foregroundStyle(Brand.blue)
+            .contentShape(Rectangle())
+            .onTapGesture { choosing = true }
+            .onLongPressGesture { choosing = true }
+            .confirmationDialog(address, isPresented: $choosing, titleVisibility: .visible) {
+                ForEach(MapsApp.allCases.filter(\.installed)) { app in
+                    Button(app.rawValue) {
+                        if let url = app.url(for: address) { UIApplication.shared.open(url) }
+                    }
+                }
+                Button("Copy address") { UIPasteboard.general.string = address }
+                Button("Cancel", role: .cancel) {}
+            }
+            .accessibilityHint("Opens the address in a maps app")
+    }
+}
+
+/// The iPhone's own "New Contact" screen, filled in. Nothing is saved until
+/// he taps Done there; the group is "Renovision" when Contacts access is on.
+struct NewContactSheet: UIViewControllerRepresentable {
+    let name: String
+    let phone: String
+    let email: String
+    let address: String?
+    let onFinish: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
+
+    func makeUIViewController(context: Context) -> UINavigationController {
+        let contact = CNMutableContact()
+        let parts = name.split(separator: " ", maxSplits: 1).map(String.init)
+        contact.givenName = parts.first ?? ""
+        contact.familyName = parts.count > 1 ? parts[1] : ""
+        if !phone.isEmpty {
+            contact.phoneNumbers = [CNLabeledValue(label: CNLabelPhoneNumberMobile, value: CNPhoneNumber(stringValue: phone))]
+        }
+        if !email.isEmpty {
+            contact.emailAddresses = [CNLabeledValue(label: CNLabelHome, value: email as NSString)]
+        }
+        if let address, !address.isEmpty {
+            let postal = CNMutablePostalAddress()
+            postal.street = address
+            contact.postalAddresses = [CNLabeledValue(label: CNLabelHome, value: postal)]
+        }
+        let controller = CNContactViewController(forNewContact: contact)
+        controller.delegate = context.coordinator
+        controller.contactStore = CNContactStore()
+        return UINavigationController(rootViewController: controller)
+    }
+
+    func updateUIViewController(_ controller: UINavigationController, context: Context) {}
+
+    final class Coordinator: NSObject, CNContactViewControllerDelegate {
+        let onFinish: () -> Void
+        init(onFinish: @escaping () -> Void) { self.onFinish = onFinish }
+        func contactViewController(_ viewController: CNContactViewController, didCompleteWith contact: CNContact?) {
+            onFinish()
         }
     }
 }

@@ -212,6 +212,7 @@ private struct LeadDetailSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var messaging = false
+    @State private var savingContact = false
     @StateObject private var calls = CallManager.shared
 
     private static let statuses = ["new", "contacted", "quoted", "won", "lost"]
@@ -229,7 +230,7 @@ private struct LeadDetailSheet: View {
                                     .font(.system(size: 20, weight: .bold))
                                     .foregroundStyle(Brand.ink)
                                 if let address = lead.address, !address.isEmpty {
-                                    Text(address).font(.system(size: 14)).foregroundStyle(Brand.inkSoft)
+                                    AddressLink(address: address)
                                 }
                                 if !lead.phone.isEmpty {
                                     Text(CallManager.pretty(CallManager.normalise(lead.phone)))
@@ -266,6 +267,19 @@ private struct LeadDetailSheet: View {
                                 }
                                 .buttonStyle(.plain)
                             }
+                        }
+
+                        if !lead.phone.isEmpty || !lead.email.isEmpty {
+                            Button {
+                                savingContact = true
+                            } label: {
+                                Label("Save to Contacts", systemImage: "person.crop.circle.badge.plus")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(Brand.ink)
+                                    .frame(maxWidth: .infinity, minHeight: 48)
+                                    .background(Brand.surface, in: .rect(cornerRadius: Brand.Radius.card))
+                            }
+                            .buttonStyle(.plain)
                         }
 
                         if let scope = lead.scopeSummary, !scope.isEmpty {
@@ -321,6 +335,15 @@ private struct LeadDetailSheet: View {
                 NavigationStack {
                     MessageThreadView(phone: lead.phone, displayName: lead.name)
                 }
+            }
+            .sheet(isPresented: $savingContact) {
+                NewContactSheet(
+                    name: lead.name,
+                    phone: CallManager.pretty(CallManager.normalise(lead.phone)),
+                    email: lead.email,
+                    address: lead.address,
+                    onFinish: { savingContact = false })
+                .ignoresSafeArea()
             }
         }
         .fullScreenCover(isPresented: .constant(calls.state.isBusy)) { InCallView() }
