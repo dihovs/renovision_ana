@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ReportDocument, { type ReportData, type ReportRoom } from "./ReportDocument";
 import { DEFAULT_COMPANY } from "@/lib/crm/settings";
 import type { ScanGeometry } from "@/lib/roomScan";
+import type { Locale } from "@/i18n/translations";
 import {
   LEVEL_GROUND,
   LEVEL_UP,
@@ -33,15 +34,17 @@ import { GARDERIE_TRAILER, buildGarderieDevis } from "@/lib/estimator/insurance/
  *   its own in the devis, so it is not in this document's total; its price
  *   is quoted in the project description.
  * - **Client and address** come from GARDERIE_CLIENT / GARDERIE_ADDRESS.
+ * - **Languages**: printed in French and in English. A photo's `noteEn` is
+ *   its caption in the English copy.
  *
  * Asserts nothing; writes the files. Not part of `npm test`. Run:
  *   GARDERIE_PHOTO_DIR=… npx vitest run --config vitest.render.mts garderie-report
  *
- * → /tmp/garderie-report.html, /tmp/garderie-report.pdf
+ * → /tmp/garderie-report.{html,pdf} (fr), /tmp/garderie-report.en.{html,pdf}
  */
 
 const PHOTO_DIR = process.env.GARDERIE_PHOTO_DIR || "/tmp/garderie-photos";
-type Manifest = Record<string, Array<{ file: string; note: string | null }>>;
+type Manifest = Record<string, Array<{ file: string; note: string | null; noteEn?: string | null }>>;
 
 function loadManifest(): Manifest {
   const path = `${PHOTO_DIR}/manifest.json`;
@@ -49,11 +52,11 @@ function loadManifest(): Manifest {
   return JSON.parse(readFileSync(path, "utf8")) as Manifest;
 }
 
-function photosFor(manifest: Manifest, key: string): ReportRoom["photos"] {
+function photosFor(manifest: Manifest, key: string, locale: Locale): ReportRoom["photos"] {
   return (manifest[key] ?? []).map((photo) => ({
     id: photo.file,
     url: `data:image/jpeg;base64,${readFileSync(`${PHOTO_DIR}/${photo.file}`).toString("base64")}`,
-    note: photo.note,
+    note: locale === "fr" ? photo.note : (photo.noteEn ?? photo.note),
     contentType: "image/jpeg",
   }));
 }
@@ -83,11 +86,39 @@ function geometry(shape: (typeof ROOM_SHAPES)[number]): ScanGeometry {
   };
 }
 
-const money = (cents: number) =>
-  (cents / 100).toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $";
+const money = (cents: number, locale: Locale) =>
+  locale === "fr"
+    ? (cents / 100).toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $"
+    : "$" + (cents / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function buildData(): ReportData {
-  const devis = buildGarderieDevis();
+/** The project's own words, per language. */
+const COPY = {
+  fr: {
+    project: "Garderie — peinture des aires communes",
+    description: (kitchen: string) =>
+      `Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée et de l'escalier (rez-de-chaussée) et du vestibule 200 (étage), avec les petites réparations du bas des murs. ` +
+      `Plans redessinés par nous à partir des plans fournis, ajustés aux superficies imprimées; hauteurs relevées sur les photos, à confirmer sur place. ` +
+      `Option : la cuisine A208, ${kitchen} taxes incluses, en plus.`,
+    kitchenNote: (kitchen: string) => `Option : peinture de la cuisine, ${kitchen} taxes incluses, en plus du total de ce document.`,
+    client: "Garderie",
+    property: "Adresse à confirmer",
+  },
+  en: {
+    project: "Daycare — painting of the common areas",
+    description: (kitchen: string) =>
+      `New grey colour, two coats, on the walls of the entrance hall and stairs (ground floor) and Vestibule 200 (2nd floor), with the small repairs at the bottom of the walls. ` +
+      `Plans redrawn by us from the plans provided, matched to the printed areas; heights read from the photos, to be confirmed on site. ` +
+      `Option: the kitchen A208, ${kitchen} taxes included, extra.`,
+    kitchenNote: (kitchen: string) => `Option: painting the kitchen, ${kitchen} taxes included, on top of this document's total.`,
+    client: "Daycare",
+    property: "Address to be confirmed",
+  },
+} as const;
+
+function buildData(locale: Locale): ReportData {
+  const c = COPY[locale];
+  const devis = buildGarderieDevis(locale);
+  const kitchen = money(devis.kitchen.totals.totalCents, locale);
   const manifest = loadManifest();
 
   const rooms: ReportRoom[] = ROOM_SHAPES.map((shape): ReportRoom => {
@@ -95,24 +126,22 @@ function buildData(): ReportData {
     const figures = roomFigures(shape);
     return {
       id,
-      name: shape.name,
+      name: shape.name[locale],
       level: shape.level,
       roomType: shape.roomType,
       floorAreaSqm: sqftToSqm(figures.floorSqFt),
       wallLengthM: m(figures.perimeterFt),
       ceilingHeightM: m(shape.ceilingFt),
       stairCount: 0,
-      notes: shape.option
-        ? `Option : peinture de la cuisine, ${money(devis.kitchen.totals.totalCents)} taxes incluses, en plus du total de ce document.`
-        : null,
+      notes: shape.option ? c.kitchenNote(kitchen) : null,
       planX: m(shape.atFt.x),
       planY: m(shape.atFt.y),
-      objects: planObjects(shape),
+      objects: planObjects(shape, locale),
       geometry: geometry(shape),
       openWalls: [],
       areas: [],
       readings: [],
-      photos: photosFor(manifest, shape.key),
+      photos: photosFor(manifest, shape.key, locale),
     };
   });
 
@@ -130,22 +159,19 @@ function buildData(): ReportData {
       qstNumber: "1230209096 IC0001",
     },
     project: {
-      name: "Garderie — peinture des aires communes",
-      description:
-        `Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée et de l'escalier (rez-de-chaussée) et du vestibule 200 (étage), avec les petites réparations du bas des murs. ` +
-        `Plans redessinés par nous à partir des plans fournis, ajustés aux superficies imprimées; hauteurs relevées sur les photos, à confirmer sur place. ` +
-        `Option : la cuisine A208, ${money(devis.kitchen.totals.totalCents)} taxes incluses, en plus.`,
+      name: c.project,
+      description: c.description(kitchen),
       started_on: "2026-11-14",
     },
-    client: { name: process.env.GARDERIE_CLIENT || "Garderie" },
-    property: process.env.GARDERIE_ADDRESS || "Adresse à confirmer",
+    client: { name: process.env.GARDERIE_CLIENT || c.client },
+    property: process.env.GARDERIE_ADDRESS || c.property,
     claimFields: [],
     claim: {},
     levels: [LEVEL_GROUND, LEVEL_UP],
     rooms,
     equipment: [],
     generatedAt: new Date("2026-11-14T12:00:00-05:00").toISOString(),
-    locale: "fr",
+    locale,
     // Her sheets carry no north arrow.
     northDeg: null,
     wallThicknessM: WALL_THICKNESS_M,
@@ -153,14 +179,14 @@ function buildData(): ReportData {
   };
 }
 
-async function emit(htmlPath: string, pdfPath: string): Promise<void> {
-  const body = renderToStaticMarkup(<ReportDocument data={buildData()} />);
+async function emit(locale: Locale, htmlPath: string, pdfPath: string): Promise<void> {
+  const body = renderToStaticMarkup(<ReportDocument data={buildData(locale)} />);
   const css = readFileSync("src/app/(internal)/admin/projects/[id]/report/report.css", "utf8");
   const html = `<!doctype html>
-<html lang="fr">
+<html lang="${locale}">
 <head>
 <meta charset="utf-8" />
-<title>Garderie — peinture des aires communes</title>
+<title>${COPY[locale].project}</title>
 <style>${css}</style>
 <style>
   /* The cover map comes from our signed-in route (/api/admin/staticmap),
@@ -198,7 +224,10 @@ async function emit(htmlPath: string, pdfPath: string): Promise<void> {
 }
 
 describe("our report — daycare common areas, grey", () => {
-  it("renders both floor plans, the rooms, the photos and our priced lines", async () => {
-    await emit("/tmp/garderie-report.html", "/tmp/garderie-report.pdf");
+  it("renders both floor plans, the rooms, the photos and our priced lines, in French", async () => {
+    await emit("fr", "/tmp/garderie-report.html", "/tmp/garderie-report.pdf");
+  }, 180_000);
+  it("renders both floor plans, the rooms, the photos and our priced lines, in English", async () => {
+    await emit("en", "/tmp/garderie-report.en.html", "/tmp/garderie-report.en.pdf");
   }, 180_000);
 });

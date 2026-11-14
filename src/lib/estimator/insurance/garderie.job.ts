@@ -28,6 +28,7 @@
 // doors: ~10'-0" to the suspended ceiling upstairs; the entrance taken at
 // 10'-0" as well. To be checked on site — the price follows the measure.
 
+import type { Locale } from "@/i18n/translations";
 import type { RoomObject } from "../../crm/roomObjects";
 import type { EstimateRoom } from "./types";
 
@@ -36,6 +37,8 @@ const m = (feet: number) => feet * FT;
 const sqm = (sqft: number) => sqft * FT * FT;
 
 export type Pt = { x: number; y: number };
+/** Every word that prints, in both of the documents' languages. */
+export type Text = Record<Locale, string>;
 type Opening = {
   x1: number;
   y1: number;
@@ -48,11 +51,11 @@ type Opening = {
   heightFt: number;
   label: string;
 };
-type PlacedObject = { kind: string; name: string; widthFt: number; depthFt: number; atFt: Pt; rotation: number };
+type PlacedObject = { kind: string; name: Text; widthFt: number; depthFt: number; atFt: Pt; rotation: number };
 
 export type GarderieRoomShape = {
   key: "entrance" | "vestibule" | "kitchen";
-  name: string;
+  name: Text;
   level: string;
   roomType: string;
   polygonFt: Pt[];
@@ -69,8 +72,10 @@ export type GarderieRoomShape = {
   option?: boolean;
 };
 
-export const LEVEL_GROUND = "Rez-de-chaussée";
-export const LEVEL_UP = "Étage";
+// Storey ids from src/lib/crm/floors.ts, so the report names them in its
+// own language: Rez-de-chaussée / Ground Floor, 2e étage / 2nd Floor.
+export const LEVEL_GROUND = "Ground";
+export const LEVEL_UP = "2nd";
 /** Her sheets draw the partitions about 4 1/2". */
 export const WALL_THICKNESS_M = (4.5 / 12) * FT;
 
@@ -80,7 +85,7 @@ const WINDOW = 4;
 export const ROOM_SHAPES: GarderieRoomShape[] = [
   {
     key: "entrance",
-    name: "Hall d'entrée et escalier (310)",
+    name: { fr: "Hall d'entrée et escalier (310)", en: "Entrance hall and stairs (310)" },
     level: LEVEL_GROUND,
     roomType: "entry",
     // 10'-4" × 17'-6". Edge 2 (the facade, run right to left) is the
@@ -108,16 +113,16 @@ export const ROOM_SHAPES: GarderieRoomShape[] = [
     objects: [
       // The flight up (UP) and, beside it, the closed flight down to the
       // basement behind the white door; the wall between them.
-      { kind: "stairs", name: "Escalier vers l'étage", widthFt: 3.12, depthFt: 9.74, atFt: { x: 3.22, y: 5.83 }, rotation: 0 },
-      { kind: "bulkhead", name: "Mur entre les volées", widthFt: 0.76, depthFt: 10.49, atFt: { x: 5.16, y: 6.21 }, rotation: 0 },
-      { kind: "stairs", name: "Escalier du sous-sol (porte blanche)", widthFt: 2.74, depthFt: 7.75, atFt: { x: 6.91, y: 7.58 }, rotation: 0 },
+      { kind: "stairs", name: { fr: "Escalier vers l'étage", en: "Stairs up" }, widthFt: 3.12, depthFt: 9.74, atFt: { x: 3.22, y: 5.83 }, rotation: 0 },
+      { kind: "bulkhead", name: { fr: "Mur entre les volées", en: "Wall between the flights" }, widthFt: 0.76, depthFt: 10.49, atFt: { x: 5.16, y: 6.21 }, rotation: 0 },
+      { kind: "stairs", name: { fr: "Escalier du sous-sol (porte blanche)", en: "Basement stairs (white door)" }, widthFt: 2.74, depthFt: 7.75, atFt: { x: 6.91, y: 7.58 }, rotation: 0 },
     ],
     extraWalls: [],
     hiddenSqFt: 0,
   },
   {
     key: "vestibule",
-    name: "Vestibule 200",
+    name: { fr: "Vestibule 200", en: "Vestibule 200" },
     level: LEVEL_UP,
     roomType: "hallway",
     // Clockwise from the corridor's north-west corner. The square block cut
@@ -149,7 +154,7 @@ export const ROOM_SHAPES: GarderieRoomShape[] = [
     atFt: { x: 0, y: 0 },
     ceilingFt: 10,
     objects: [
-      { kind: "stairs", name: "Escalier vers le rez-de-chaussée", widthFt: 3.07, depthFt: 7.79, atFt: { x: 6.135, y: 17.645 }, rotation: 0 },
+      { kind: "stairs", name: { fr: "Escalier vers le rez-de-chaussée", en: "Stairs down to the ground floor" }, widthFt: 3.07, depthFt: 7.79, atFt: { x: 6.135, y: 17.645 }, rotation: 0 },
     ],
     // The guard round the stair opening: a half-wall on its west side and
     // north end (the east side is the metal railing). The vestibule faces
@@ -163,7 +168,7 @@ export const ROOM_SHAPES: GarderieRoomShape[] = [
   },
   {
     key: "kitchen",
-    name: "Cuisine A208 (option)",
+    name: { fr: "Cuisine A208 (option)", en: "Kitchen A208 (option)" },
     level: LEVEL_UP,
     roomType: "kitchen",
     // 8'-0" × 20'-6". Edge 2 (south, run right to left) is the new wall
@@ -182,10 +187,10 @@ export const ROOM_SHAPES: GarderieRoomShape[] = [
     atFt: { x: -9.05, y: -20.56 },
     ceilingFt: 10,
     objects: [
-      { kind: "range", name: "Cuisinière", widthFt: 2.1, depthFt: 2.4, atFt: { x: 4.2, y: 1.2 }, rotation: 0 },
-      { kind: "refrigerator", name: "Réfrigérateur", widthFt: 2.1, depthFt: 2.1, atFt: { x: 6.55, y: 1.05 }, rotation: 0 },
-      { kind: "base_cabinet", name: "Comptoir et évier double", widthFt: 2, depthFt: 7.4, atFt: { x: 1.0, y: 7.2 }, rotation: 0 },
-      { kind: "base_cabinet", name: "Comptoir et lavabos", widthFt: 1.6, depthFt: 5.5, atFt: { x: 7.2, y: 8.55 }, rotation: 0 },
+      { kind: "range", name: { fr: "Cuisinière", en: "Range" }, widthFt: 2.1, depthFt: 2.4, atFt: { x: 4.2, y: 1.2 }, rotation: 0 },
+      { kind: "refrigerator", name: { fr: "Réfrigérateur", en: "Refrigerator" }, widthFt: 2.1, depthFt: 2.1, atFt: { x: 6.55, y: 1.05 }, rotation: 0 },
+      { kind: "base_cabinet", name: { fr: "Comptoir et évier double", en: "Counter and double sink" }, widthFt: 2, depthFt: 7.4, atFt: { x: 1.0, y: 7.2 }, rotation: 0 },
+      { kind: "base_cabinet", name: { fr: "Comptoir et lavabos", en: "Counter and hand sinks" }, widthFt: 1.6, depthFt: 5.5, atFt: { x: 7.2, y: 8.55 }, rotation: 0 },
     ],
     extraWalls: [],
     // Behind the refrigerator (2,1 × 6), the range (2,1 × 3), and the two
@@ -272,19 +277,19 @@ export const STAIRWELL = {
   runFt: 9.74,
   openingFt: 7.79,
   parts: [
-    { label: "Mur entre les volées", sqft: 9.74 * 5.5 },
-    { label: "Mur ouest dans l'ouverture", sqft: 7.79 * 4.5 },
-    { label: "Mur est dans l'ouverture", sqft: 7.79 * 1 },
-    { label: "Muret nord côté escalier", sqft: 3.07 * 4.5 },
+    { label: { fr: "Mur entre les volées", en: "Wall between the flights" }, sqft: 9.74 * 5.5 },
+    { label: { fr: "Mur ouest dans l'ouverture", en: "West wall in the opening" }, sqft: 7.79 * 4.5 },
+    { label: { fr: "Mur est dans l'ouverture", en: "East wall in the opening" }, sqft: 7.79 * 1 },
+    { label: { fr: "Muret nord côté escalier", en: "North half-wall, stair side" }, sqft: 3.07 * 4.5 },
   ],
 };
 export const stairwellSqFt = () => STAIRWELL.parts.reduce((s, p) => s + p.sqft, 0);
 
-export function planObjects(shape: GarderieRoomShape): Array<{ id: string; kind: string; name: string; x: number; y: number; rotation: number; widthM: number; depthM: number }> {
+export function planObjects(shape: GarderieRoomShape, locale: Locale): Array<{ id: string; kind: string; name: string; x: number; y: number; rotation: number; widthM: number; depthM: number }> {
   return shape.objects.map((o, i) => ({
     id: `${roomId(shape.key)}-obj-${i}`,
     kind: o.kind,
-    name: o.name,
+    name: o.name[locale],
     x: m(o.atFt.x),
     y: m(o.atFt.y),
     rotation: o.rotation,
@@ -293,13 +298,13 @@ export function planObjects(shape: GarderieRoomShape): Array<{ id: string; kind:
   }));
 }
 
-export function estimateRooms(): EstimateRoom[] {
+export function estimateRooms(locale: Locale): EstimateRoom[] {
   return ROOM_SHAPES.map((shape): EstimateRoom => {
     const f = roomFigures(shape);
     const objects: RoomObject[] = [];
     return {
       roomScanId: roomId(shape.key),
-      name: shape.name,
+      name: shape.name[locale],
       stats: {
         level: shape.level,
         floorAreaSqm: sqm(f.floorSqFt),

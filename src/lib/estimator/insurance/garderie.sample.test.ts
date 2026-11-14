@@ -1,89 +1,142 @@
 import { writeFileSync } from "node:fs";
 import { describe, it } from "vitest";
+import type { Locale } from "@/i18n/translations";
 import { unitLabel } from "../catalog";
 import { ESTIMATOR_STRINGS } from "./strings";
 import { buildGarderieDevis } from "./garderie.devis";
 import { ROOM_SHAPES, roomFigures, stairwellSqFt } from "./garderie.job";
-
-const painted = (key: string) => Math.round(roomFigures(ROOM_SHAPES.find((r) => r.key === key)!).paintSqFt);
-const WALLS = { entrance: painted("entrance"), stair: Math.round(stairwellSqFt()), vestibule: painted("vestibule"), kitchen: painted("kitchen") };
 import type { AllocatedLine } from "./types";
 
 /**
  * Worked sample — daycare common areas repainted grey (entrance, stairwell,
  * Vestibule 200) with the kitchen A208 as an option. Prints every CALC and
- * NOTE and writes a printable HTML. Asserts nothing.
+ * NOTE and writes a printable HTML, in French and in English. Asserts nothing.
  * Run: npx vitest run garderie.sample
- *   → /tmp/garderie-devis.txt, /tmp/garderie-devis.html
+ *   → /tmp/garderie-devis.{txt,html} (fr), /tmp/garderie-devis.en.{txt,html}
  * Client and address come from env (GARDERIE_CLIENT, GARDERIE_ADDRESS) so no
  * client data lands in the repo.
  */
 
-const t = ESTIMATOR_STRINGS.fr;
-const money = (cents: number) =>
-  (cents / 100).toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $";
+const painted = (key: string) => Math.round(roomFigures(ROOM_SHAPES.find((r) => r.key === key)!).paintSqFt);
+const WALLS = { entrance: painted("entrance"), stair: Math.round(stairwellSqFt()), vestibule: painted("vestibule"), kitchen: painted("kitchen") };
+
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-const pi2 = (n: number) => n.toLocaleString("fr-CA") + " pi²";
+
+/** The document's own words, per language. */
+const COPY = {
+  fr: {
+    money: (cents: number) =>
+      (cents / 100).toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $",
+    area: (n: number) => n.toLocaleString("fr-CA") + " pi²",
+    title: "Devis — Peinture des aires communes",
+    heading: "Devis — Peinture des aires communes de la garderie",
+    textTitle: "DEVIS — Garderie : hall d'entrée, cage d'escalier, vestibule 200 (+ option cuisine)",
+    city: "Laval (Québec)",
+    gst: "TPS",
+    qst: "TVQ",
+    date: "Date : 2026-11-14",
+    client: "Client :",
+    intro:
+      "Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée, de la cage d'escalier et du vestibule 200 à l'étage, avec les petites réparations du bas des murs. La cuisine A208 est proposée en option.",
+    cols: ["#", "Description", "Qté", "Prix unit.", "Montant"],
+    rows: ["Total des articles", "Frais généraux 10 %", "Profit 5 %", "TPS 5 %", "TVQ 9,975 %", "TOTAL"],
+    asked: "SOMMAIRE — travaux demandés",
+    option: "Option — Cuisine A208",
+    withKitchen: "Avec la cuisine",
+    wallsLine: (sqft: number, kitchen: number, rate: string) => `Murs peints : ${sqft} pi² (+ ${kitchen} cuisine) — ${rate}/pi² avant frais`,
+    hoursLine: (h: string, k: string) => `Main-d'œuvre : ${h} h (+ ${k} h cuisine)`,
+    quantities: (a: (n: number) => string) =>
+      `<b>Quantités</b> : relevées sur notre dessin des plans fournis, ajusté aux superficies imprimées (murs : ${a(WALLS.entrance)} hall, ${a(WALLS.stair)} escalier, ${a(WALLS.vestibule)} vestibule, ${a(WALLS.kitchen)} cuisine). Elles seront confirmées au mesurage sur place; le prix suit les quantités réelles.`,
+    includes:
+      "<b>Comprend</b> : la peinture (gris pâle à moyen, choisi par le client), la protection, les petites réparations du bas des murs et le nettoyage chaque jour.",
+    excludes:
+      "<b>Exclus</b> : plafonds et plafond suspendu, portes et cadres, rampes et garde-corps, marches, réparations majeures du placoplâtre (125 $ par réparation si on en trouve), gris foncé (supplément de 0,95 $/pi²). Valide 30 jours.",
+  },
+  en: {
+    money: (cents: number) =>
+      "$" + (cents / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    area: (n: number) => n.toLocaleString("en-CA") + " sq ft",
+    title: "Estimate — Painting of the common areas",
+    heading: "Estimate — Painting of the daycare's common areas",
+    textTitle: "ESTIMATE — Daycare: entrance hall, stairwell, Vestibule 200 (+ kitchen option)",
+    city: "Laval, Quebec",
+    gst: "GST",
+    qst: "QST",
+    date: "Date: 2026-11-14",
+    client: "Client:",
+    intro:
+      "New grey colour, two coats, on the walls of the entrance hall, the stairwell and Vestibule 200 upstairs, with the small repairs at the bottom of the walls. The kitchen A208 is offered as an option.",
+    cols: ["#", "Description", "Qty", "Unit price", "Amount"],
+    rows: ["Items total", "Overhead 10 %", "Profit 5 %", "GST 5 %", "QST 9.975 %", "TOTAL"],
+    asked: "SUMMARY — work requested",
+    option: "Option — Kitchen A208",
+    withKitchen: "With the kitchen",
+    wallsLine: (sqft: number, kitchen: number, rate: string) => `Painted walls: ${sqft} sq ft (+ ${kitchen} kitchen) — ${rate}/sq ft before overhead`,
+    hoursLine: (h: string, k: string) => `Labour: ${h} h (+ ${k} h kitchen)`,
+    quantities: (a: (n: number) => string) =>
+      `<b>Quantities</b>: taken from our drawing of the plans provided, matched to the printed areas (walls: ${a(WALLS.entrance)} hall, ${a(WALLS.stair)} stairwell, ${a(WALLS.vestibule)} vestibule, ${a(WALLS.kitchen)} kitchen). They will be confirmed by measuring on site; the price follows the actual quantities.`,
+    includes:
+      "<b>Includes</b>: the paint (light to medium grey, chosen by the client), protection, the small repairs at the bottom of the walls, and cleanup every day.",
+    excludes:
+      "<b>Excludes</b>: ceilings and the suspended ceiling, doors and frames, railings and guards, steps, major drywall repairs ($125 per repair if any are found), dark grey (extra $0.95/sq ft). Valid 30 days.",
+  },
+} as const;
 
 type Totals = ReturnType<typeof buildGarderieDevis>["base"]["totals"];
-const rowsOf = (x: Totals): [string, number][] => [
-  ["Total des articles", x.itemsCents],
-  ["Frais généraux 10 %", x.generalsCents],
-  ["Profit 5 %", x.profitCents],
-  ["TPS 5 %", x.gstCents],
-  ["TVQ 9,975 %", x.qstCents],
-  ["TOTAL", x.totalCents],
-];
 
-describe("worked sample — daycare common areas, grey", () => {
-  it("prices the repaint", () => {
-    const { base, kitchen } = buildGarderieDevis();
-    const out: string[] = ["DEVIS — Garderie : hall d'entrée, cage d'escalier, vestibule 200 (+ option cuisine)", ""];
-    const print = (lines: AllocatedLine[]) =>
-      lines.forEach((l, i) => {
-        out.push(
-          `${String(i + 1).padEnd(4)}${(l.itemCode ?? "PROVISION").padEnd(18)}${l.name.slice(0, 50).padEnd(52)}` +
-            `${`${t.qty(l.quantity)} ${unitLabel(l.unit, "fr")}`.padStart(12)}${money(l.baseCents).padStart(13)}${money(l.totalCents).padStart(13)}`,
-        );
-        out.push(`      [${l.roomName}] CALC: ${l.calc}`);
-        if (l.note) out.push(`      NOTE: ${l.note}`);
-      });
-    print(base.lines);
-    out.push("", "SOMMAIRE — travaux demandés");
-    rowsOf(base.totals).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${money(v).padStart(14)}`));
-    out.push("", "OPTION — cuisine A208");
-    print(kitchen.lines);
-    rowsOf(kitchen.totals).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${money(v).padStart(14)}`));
-    out.push("", `  ${"Avec la cuisine".padEnd(28)}${money(base.totals.totalCents + kitchen.totals.totalCents).padStart(14)}`);
-    const sqft = WALLS.entrance + WALLS.stair + WALLS.vestibule;
-    out.push(`  Murs peints : ${sqft} pi² (+ ${WALLS.kitchen} cuisine) — ${money(Math.round(base.totals.itemsCents / sqft))}/pi² avant frais`);
-    const hours = (ls: AllocatedLine[]) => ls.reduce((h, l) => h + l.laborHours, 0);
-    out.push(`  Main-d'œuvre : ${hours(base.lines).toFixed(1)} h (+ ${hours(kitchen.lines).toFixed(1)} h cuisine)`);
-    const text = out.join("\n");
-    console.log("\n" + text + "\n");
-    writeFileSync("/tmp/garderie-devis.txt", text);
+function write(locale: Locale, stem: string) {
+  const c = COPY[locale];
+  const t = ESTIMATOR_STRINGS[locale];
+  const { base, kitchen } = buildGarderieDevis(locale);
+  const rowsOf = (x: Totals): [string, number][] =>
+    [x.itemsCents, x.generalsCents, x.profitCents, x.gstCents, x.qstCents, x.totalCents].map((v, i) => [c.rows[i], v]);
+  const qty = (l: AllocatedLine) => `${t.qty(l.quantity)} ${unitLabel(l.unit, locale)}`;
 
-    const client = process.env.GARDERIE_CLIENT ?? "—";
-    const address = process.env.GARDERIE_ADDRESS ?? "—";
-    const table = (lines: AllocatedLine[]) => {
-      let zone = "";
-      let n = 0;
-      return lines
-        .map((l) => {
-          const head = l.roomName !== zone ? `<tr class="z"><td colspan="5">${esc((zone = l.roomName))}</td></tr>` : "";
-          n += 1;
-          return `${head}<tr><td>${n}</td><td><b>${esc(l.name)}</b><div class="c">${esc(l.calc ?? "")}</div>${
-            l.note ? `<div class="n">${esc(l.note)}</div>` : ""
-          }</td><td class="r">${t.qty(l.quantity)} ${unitLabel(l.unit, "fr")}</td><td class="r">${money(
-            l.replaceRateCents ?? 0,
-          )}</td><td class="r">${money(l.baseCents)}</td></tr>`;
-        })
-        .join("");
-    };
-    const summary = (x: Totals) =>
-      `<table class="s">${rowsOf(x).map(([k, v]) => `<tr><td>${k}</td><td class="r">${money(v)}</td></tr>`).join("")}</table>`;
-    const head = `<tr><th>#</th><th>Description</th><th class="r">Qté</th><th class="r">Prix unit.</th><th class="r">Montant</th></tr>`;
-    const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Devis — Peinture des aires communes</title>
+  const out: string[] = [c.textTitle, ""];
+  const print = (lines: AllocatedLine[]) =>
+    lines.forEach((l, i) => {
+      out.push(
+        `${String(i + 1).padEnd(4)}${(l.itemCode ?? "PROVISION").padEnd(18)}${l.name.slice(0, 50).padEnd(52)}` +
+          `${qty(l).padStart(12)}${c.money(l.baseCents).padStart(13)}${c.money(l.totalCents).padStart(13)}`,
+      );
+      out.push(`      [${l.roomName}] CALC: ${l.calc}`);
+      if (l.note) out.push(`      NOTE: ${l.note}`);
+    });
+  print(base.lines);
+  out.push("", c.asked);
+  rowsOf(base.totals).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${c.money(v).padStart(14)}`));
+  out.push("", c.option.toUpperCase());
+  print(kitchen.lines);
+  rowsOf(kitchen.totals).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${c.money(v).padStart(14)}`));
+  out.push("", `  ${c.withKitchen.padEnd(28)}${c.money(base.totals.totalCents + kitchen.totals.totalCents).padStart(14)}`);
+  const sqft = WALLS.entrance + WALLS.stair + WALLS.vestibule;
+  out.push(`  ${c.wallsLine(sqft, WALLS.kitchen, c.money(Math.round(base.totals.itemsCents / sqft)))}`);
+  const hours = (ls: AllocatedLine[]) => ls.reduce((h, l) => h + l.laborHours, 0);
+  out.push(`  ${c.hoursLine(hours(base.lines).toFixed(1), hours(kitchen.lines).toFixed(1))}`);
+  const text = out.join("\n");
+  console.log("\n" + text + "\n");
+  writeFileSync(`${stem}.txt`, text);
+
+  const client = process.env.GARDERIE_CLIENT ?? "—";
+  const address = process.env.GARDERIE_ADDRESS ?? "—";
+  const table = (lines: AllocatedLine[]) => {
+    let zone = "";
+    let n = 0;
+    return lines
+      .map((l) => {
+        const head = l.roomName !== zone ? `<tr class="z"><td colspan="5">${esc((zone = l.roomName))}</td></tr>` : "";
+        n += 1;
+        return `${head}<tr><td>${n}</td><td><b>${esc(l.name)}</b><div class="c">${esc(l.calc ?? "")}</div>${
+          l.note ? `<div class="n">${esc(l.note)}</div>` : ""
+        }</td><td class="r">${qty(l)}</td><td class="r">${c.money(l.replaceRateCents ?? 0)}</td><td class="r">${c.money(l.baseCents)}</td></tr>`;
+      })
+      .join("");
+  };
+  const summary = (x: Totals) =>
+    `<table class="s">${rowsOf(x).map(([k, v]) => `<tr><td>${k}</td><td class="r">${c.money(v)}</td></tr>`).join("")}</table>`;
+  const [h0, h1, h2, h3, h4] = c.cols;
+  const head = `<tr><th>${h0}</th><th>${h1}</th><th class="r">${h2}</th><th class="r">${h3}</th><th class="r">${h4}</th></tr>`;
+  const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><title>${c.title}</title>
 <style>
 @page{size:letter;margin:1.3cm}body{font:10pt/1.35 -apple-system,Helvetica,Arial,sans-serif;color:#1d2433}
 .h{display:flex;justify-content:space-between;border-bottom:3px solid #1f5fa8;padding-bottom:10px;margin-bottom:14px}
@@ -98,23 +151,27 @@ tr.z td{background:#eef3fa;font-weight:700;border-bottom:1px solid #c9d6ea;paddi
 .opt{break-inside:avoid}
 .x{margin-top:18px;font-size:8.5pt;color:#555}.x p{margin:4px 0}
 </style></head><body>
-<div class="h"><div><b>Renovision AnA inc.</b><div>Laval (Québec) · 579-999-5979 · info@renovisionana.ca · renovisionana.ca</div></div>
-<div class="r">TPS 778981019 RT0001<br>TVQ 1230209096 IC0001<br>Date : 2026-11-14</div></div>
-<h1>Devis — Peinture des aires communes de la garderie</h1>
-<div class="m">Client : ${esc(client)} · ${esc(address)}<br>
-Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée, de la cage d'escalier et du vestibule 200 à l'étage, avec les petites réparations du bas des murs. La cuisine A208 est proposée en option.</div>
+<div class="h"><div><b>Renovision AnA inc.</b><div>${c.city} · 579-999-5979 · info@renovisionana.ca · renovisionana.ca</div></div>
+<div class="r">${c.gst} 778981019 RT0001<br>${c.qst} 1230209096 IC0001<br>${c.date}</div></div>
+<h1>${c.heading}</h1>
+<div class="m">${c.client} ${esc(client)} · ${esc(address)}<br>
+${c.intro}</div>
 <table>${head}${table(base.lines)}</table>
 ${summary(base.totals)}
-<div class="opt"><h2>Option — Cuisine A208</h2>
+<div class="opt"><h2>${c.option}</h2>
 <table>${head}${table(kitchen.lines)}</table>
 ${summary(kitchen.totals)}</div>
-<table class="g"><tr><td>Total avec la cuisine</td><td class="r">${money(base.totals.totalCents + kitchen.totals.totalCents)}</td></tr></table>
+<table class="g"><tr><td>${c.withKitchen}</td><td class="r">${c.money(base.totals.totalCents + kitchen.totals.totalCents)}</td></tr></table>
 <div class="x">
-<p><b>Quantités</b> : relevées sur notre dessin des plans fournis, ajusté aux superficies imprimées (murs : ${pi2(WALLS.entrance)} hall, ${pi2(WALLS.stair)} escalier, ${pi2(WALLS.vestibule)} vestibule, ${pi2(WALLS.kitchen)} cuisine). Elles seront confirmées au mesurage sur place; le prix suit les quantités réelles.</p>
-<p><b>Comprend</b> : la peinture (gris pâle à moyen, choisi par le client), la protection, les petites réparations du bas des murs et le nettoyage chaque jour.</p>
-<p><b>Exclus</b> : plafonds et plafond suspendu, portes et cadres, rampes et garde-corps, marches, réparations majeures du placoplâtre (125 $ par réparation si on en trouve), gris foncé (supplément de 0,95 $/pi²). Valide 30 jours.</p>
+<p>${c.quantities(c.area)}</p>
+<p>${c.includes}</p>
+<p>${c.excludes}</p>
 </div>
 </body></html>`;
-    writeFileSync("/tmp/garderie-devis.html", html);
-  });
+  writeFileSync(`${stem}.html`, html);
+}
+
+describe("worked sample — daycare common areas, grey", () => {
+  it("prices the repaint, in French", () => write("fr", "/tmp/garderie-devis"));
+  it("prices the repaint, in English", () => write("en", "/tmp/garderie-devis.en"));
 });
