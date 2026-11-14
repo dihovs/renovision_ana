@@ -97,6 +97,7 @@ const COPY = {
     project: "Garderie — peinture des aires communes",
     description: (kitchen: string) =>
       `Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée et de l'escalier (rez-de-chaussée) et du vestibule 200 (étage), avec les petites réparations du bas des murs. ` +
+      `Tous les matériaux sont fournis par nous et compris dans le prix : la peinture, le plâtre pour les réparations et tout le matériel de protection. ` +
       `Plans redessinés par nous à partir des plans fournis, ajustés aux superficies imprimées; hauteurs relevées sur les photos, à confirmer sur place. ` +
       `Option : la cuisine A208, ${kitchen} taxes incluses, en plus.`,
     kitchenNote: (kitchen: string) => `Option : peinture de la cuisine, ${kitchen} taxes incluses, en plus du total de ce document.`,
@@ -107,6 +108,7 @@ const COPY = {
     project: "Daycare — painting of the common areas",
     description: (kitchen: string) =>
       `New grey colour, two coats, on the walls of the entrance hall and stairs (ground floor) and Vestibule 200 (2nd floor), with the small repairs at the bottom of the walls. ` +
+      `All materials are supplied by us and included in the price: the paint, the plaster for the repairs, and all the protection materials. ` +
       `Plans redrawn by us from the plans provided, matched to the printed areas; heights read from the photos, to be confirmed on site. ` +
       `Option: the kitchen A208, ${kitchen} taxes included, extra.`,
     kitchenNote: (kitchen: string) => `Option: painting the kitchen, ${kitchen} taxes included, on top of this document's total.`,

@@ -38,6 +38,10 @@ const COPY = {
     client: "Client :",
     intro:
       "Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée, de la cage d'escalier et du vestibule 200 à l'étage, avec les petites réparations du bas des murs. La cuisine A208 est proposée en option.",
+    materials: `<b>Tous les matériaux sont fournis par Renovision AnA et compris dans le prix — vous n'avez rien à acheter.</b>
+<ul><li><b>Peinture</b> : le gris pâle à moyen de votre choix, deux couches (fini lavable dans la cuisine, si retenue).</li>
+<li><b>Plâtre</b> : composé à joints pour les réparations, papier sablé et apprêt sur les réparations.</li>
+<li><b>Protection</b> : toiles, plastique, papier et ruban de masquage pour les planchers, les marches, les portes et le plafond suspendu.</li></ul>`,
     cols: ["#", "Description", "Qté", "Prix unit.", "Montant"],
     rows: ["Total des articles", "Frais généraux 10 %", "Profit 5 %", "TPS 5 %", "TVQ 9,975 %", "TOTAL"],
     asked: "SOMMAIRE — travaux demandés",
@@ -48,7 +52,7 @@ const COPY = {
     quantities: (a: (n: number) => string) =>
       `<b>Quantités</b> : relevées sur notre dessin des plans fournis, ajusté aux superficies imprimées (murs : ${a(WALLS.entrance)} hall, ${a(WALLS.stair)} escalier, ${a(WALLS.vestibule)} vestibule, ${a(WALLS.kitchen)} cuisine). Elles seront confirmées au mesurage sur place; le prix suit les quantités réelles.`,
     includes:
-      "<b>Comprend</b> : la peinture (gris pâle à moyen, choisi par le client), la protection, les petites réparations du bas des murs et le nettoyage chaque jour.",
+      "<b>Comprend</b> : la main-d'œuvre et tous les matériaux (peinture, plâtre, protection), les petites réparations du bas des murs et le nettoyage chaque jour.",
     excludes:
       "<b>Exclus</b> : plafonds et plafond suspendu, portes et cadres, rampes et garde-corps, marches, réparations majeures du placoplâtre (125 $ par réparation si on en trouve), gris foncé (supplément de 0,95 $/pi²). Valide 30 jours.",
   },
@@ -66,6 +70,10 @@ const COPY = {
     client: "Client:",
     intro:
       "New grey colour, two coats, on the walls of the entrance hall, the stairwell and Vestibule 200 upstairs, with the small repairs at the bottom of the walls. The kitchen A208 is offered as an option.",
+    materials: `<b>All materials are supplied by Renovision AnA and included in the price — you have nothing to buy.</b>
+<ul><li><b>Paint</b>: the light-to-medium grey of your choice, two coats (washable finish in the kitchen, if chosen).</li>
+<li><b>Plaster</b>: joint compound for the repairs, sandpaper, and primer on the repairs.</li>
+<li><b>Protection</b>: drop cloths, plastic, masking paper and tape for the floors, the steps, the doors and the suspended ceiling.</li></ul>`,
     cols: ["#", "Description", "Qty", "Unit price", "Amount"],
     rows: ["Items total", "Overhead 10 %", "Profit 5 %", "GST 5 %", "QST 9.975 %", "TOTAL"],
     asked: "SUMMARY — work requested",
@@ -76,7 +84,7 @@ const COPY = {
     quantities: (a: (n: number) => string) =>
       `<b>Quantities</b>: taken from our drawing of the plans provided, matched to the printed areas (walls: ${a(WALLS.entrance)} hall, ${a(WALLS.stair)} stairwell, ${a(WALLS.vestibule)} vestibule, ${a(WALLS.kitchen)} kitchen). They will be confirmed by measuring on site; the price follows the actual quantities.`,
     includes:
-      "<b>Includes</b>: the paint (light to medium grey, chosen by the client), protection, the small repairs at the bottom of the walls, and cleanup every day.",
+      "<b>Includes</b>: the labour and all the materials (paint, plaster, protection), the small repairs at the bottom of the walls, and cleanup every day.",
     excludes:
       "<b>Excludes</b>: ceilings and the suspended ceiling, doors and frames, railings and guards, steps, major drywall repairs ($125 per repair if any are found), dark grey (extra $0.95/sq ft). Valid 30 days.",
   },
@@ -149,6 +157,7 @@ tr.z td{background:#eef3fa;font-weight:700;border-bottom:1px solid #c9d6ea;paddi
 .s{width:46%;margin:12px 0 0 auto;break-inside:avoid}.s td{border:none;padding:3px 5px}.s tr:last-child td{font-weight:700;font-size:12pt;border-top:2px solid #1d2433}
 .g{width:46%;margin:16px 0 0 auto;border:2px solid #1f5fa8;break-inside:avoid}.g td{border:none;padding:6px 8px;font-weight:700}
 .opt{break-inside:avoid}
+.mat{border:2px solid #1f5fa8;background:#eef3fa;padding:8px 12px;margin:0 0 14px;font-size:9.5pt}.mat b:first-child{color:#1f5fa8}.mat ul{margin:5px 0 0 18px;padding:0}.mat li{margin:2px 0}
 .x{margin-top:18px;font-size:8.5pt;color:#555}.x p{margin:4px 0}
 </style></head><body>
 <div class="h"><div><b>Renovision AnA inc.</b><div>${c.city} · 579-999-5979 · info@renovisionana.ca · renovisionana.ca</div></div>
@@ -156,6 +165,7 @@ tr.z td{background:#eef3fa;font-weight:700;border-bottom:1px solid #c9d6ea;paddi
 <h1>${c.heading}</h1>
 <div class="m">${c.client} ${esc(client)} · ${esc(address)}<br>
 ${c.intro}</div>
+<div class="mat">${c.materials}</div>
 <table>${head}${table(base.lines)}</table>
 ${summary(base.totals)}
 <div class="opt"><h2>${c.option}</h2>

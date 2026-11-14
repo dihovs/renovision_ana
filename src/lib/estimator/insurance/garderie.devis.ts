@@ -27,8 +27,9 @@ import { RESTAURATION_CT_TRAILER, type EstimateLine } from "./types";
  *
  * No competitor document: every line is an operator line at our catalogue
  * rate, its quantity read off our drawing (garderie.job.ts → roomFigures).
- * The rates include the paint (PNT-WALL-2: two coats, standard light
- * colour).
+ * The rates include the materials, and the lines say so: the paint
+ * (PNT-WALL-2: two coats, standard light colour), the plaster, sandpaper and
+ * primer for the patches (PNT-PREP-MIN), the protection (GEN-SITE-PREP-MD).
  *
  * Operator calls:
  *  - **Prep where the damage is**: PNT-PREP-MIN on a 3 ft band along the
@@ -52,7 +53,8 @@ import { RESTAURATION_CT_TRAILER, type EstimateLine } from "./types";
 export const GARDERIE_TRAILER = RESTAURATION_CT_TRAILER;
 const BAND_FT = 3;
 
-const shape = (key: GarderieRoomShape["key"]) => ROOM_SHAPES.find((s) => s.key === key)!;
+const shape = (key: GarderieRoomShape["key"]) =>
+  ROOM_SHAPES.find((s) => s.key === key)!;
 const ftin = (v: number) => {
   const inches = Math.round(v * 12);
   return `${Math.floor(inches / 12)}'-${inches % 12}"`;
@@ -70,9 +72,25 @@ type Spec = {
 };
 
 function writer(locale: Locale) {
-  const ft = (v: number) => v.toLocaleString(locale === "fr" ? "fr-CA" : "en-CA", { maximumFractionDigits: 1 });
+  const ft = (v: number) =>
+    v.toLocaleString(locale === "fr" ? "fr-CA" : "en-CA", {
+      maximumFractionDigits: 1,
+    });
   const say = (fr: string, en: string) => (locale === "fr" ? fr : en);
-  return { ft, say };
+  // We supply every material (owner, 14 Nov 2026) and the client must read
+  // it on the line itself, not only in the fine print.
+  const supplied = {
+    paint: say("Peinture fournie par nous.", "Paint supplied by us."),
+    plaster: say(
+      "Plâtre (composé à joints), papier sablé et apprêt fournis par nous.",
+      "Plaster (joint compound), sandpaper and primer supplied by us.",
+    ),
+    protection: say(
+      "Toiles, plastique, papier et ruban de masquage fournis par nous.",
+      "Drop cloths, plastic, masking paper and tape supplied by us.",
+    ),
+  };
+  return { ft, say, supplied };
 }
 
 function line(s: Spec, locale: Locale): EstimateLine {
@@ -88,7 +106,11 @@ function line(s: Spec, locale: Locale): EstimateLine {
     activity: "install",
     itemCode: s.code ?? null,
     removalItemCode: null,
-    name: s.provision?.name ?? (locale === "fr" ? item?.nameFr : item?.name) ?? item?.name ?? "",
+    name:
+      s.provision?.name ??
+      (locale === "fr" ? item?.nameFr : item?.name) ??
+      item?.name ??
+      "",
     unit: s.provision?.unit ?? item!.unit,
     quantity: s.quantity,
     calc: s.calc,
@@ -108,10 +130,22 @@ function wallCalc(key: GarderieRoomShape["key"], locale: Locale) {
   const { ft, say } = writer(locale);
   const s = shape(key);
   const f = roomFigures(s);
-  const parts = [say(`${ft(f.walledFt)} pi lin. de murs`, `${ft(f.walledFt)} lin ft of wall`) + ` × ${ftin(s.ceilingFt)} = ${ft(f.wallGrossSqFt)}`];
-  if (f.openingSqFt) parts.push(`− ${ft(f.openingSqFt)} ${say("portes et fenêtres", "doors and windows")}`);
-  if (f.extraSqFt) parts.push(`+ ${ft(f.extraSqFt)} ${say("murets", "half-walls")}`);
-  if (f.hiddenSqFt) parts.push(`− ${ft(f.hiddenSqFt)} ${say("derrière comptoirs et électroménagers", "behind counters and appliances")}`);
+  const parts = [
+    say(
+      `${ft(f.walledFt)} pi lin. de murs`,
+      `${ft(f.walledFt)} lin ft of wall`,
+    ) + ` × ${ftin(s.ceilingFt)} = ${ft(f.wallGrossSqFt)}`,
+  ];
+  if (f.openingSqFt)
+    parts.push(
+      `− ${ft(f.openingSqFt)} ${say("portes et fenêtres", "doors and windows")}`,
+    );
+  if (f.extraSqFt)
+    parts.push(`+ ${ft(f.extraSqFt)} ${say("murets", "half-walls")}`);
+  if (f.hiddenSqFt)
+    parts.push(
+      `− ${ft(f.hiddenSqFt)} ${say("derrière comptoirs et électroménagers", "behind counters and appliances")}`,
+    );
   return { sqft: Math.round(f.paintSqFt), calc: parts.join(" ") };
 }
 
@@ -128,7 +162,7 @@ function bandCalc(key: GarderieRoomShape["key"], locale: Locale) {
 }
 
 function specs(locale: Locale): Spec[] {
-  const { ft, say } = writer(locale);
+  const { ft, say, supplied } = writer(locale);
   const hallWall = wallCalc("entrance", locale);
   const hallBand = bandCalc("entrance", locale);
   const vestWall = wallCalc("vestibule", locale);
@@ -137,7 +171,15 @@ function specs(locale: Locale): Spec[] {
   const stairBand = Math.round(2 * STAIRWELL.runFt * BAND_FT);
   return [
     // Hall d'entrée et escalier
-    { key: "entrance-prep", room: "entrance", section: "walls", code: "PNT-PREP-MIN", quantity: hallBand.sqft, calc: hallBand.calc },
+    {
+      key: "entrance-prep",
+      room: "entrance",
+      section: "walls",
+      code: "PNT-PREP-MIN",
+      quantity: hallBand.sqft,
+      calc: hallBand.calc,
+      note: supplied.plaster,
+    },
     {
       key: "entrance-paint",
       room: "entrance",
@@ -145,10 +187,13 @@ function specs(locale: Locale): Spec[] {
       code: "PNT-WALL-2",
       quantity: hallWall.sqft,
       calc: hallWall.calc,
-      note: say(
-        "Gris, deux couches par-dessus le bleu pâle actuel. La façade vitrée n'a que ses deux trumeaux à peindre.",
-        "Grey, two coats over the current light blue. The glass storefront has only its two piers to paint.",
-      ),
+      note:
+        supplied.paint +
+        " " +
+        say(
+          "Gris, deux couches par-dessus le bleu pâle actuel. La façade vitrée n'a que ses deux trumeaux à peindre.",
+          "Grey, two coats over the current light blue. The glass storefront has only its two piers to paint.",
+        ),
     },
     {
       key: "stair-prep",
@@ -160,6 +205,7 @@ function specs(locale: Locale): Spec[] {
         `2 côtés × ${ft(STAIRWELL.runFt)} pi × ${BAND_FT} pi — le long des marches et des mains courantes`,
         `2 sides × ${ft(STAIRWELL.runFt)} ft × ${BAND_FT} ft — along the steps and the handrails`,
       ),
+      note: supplied.plaster,
     },
     {
       key: "stair-paint",
@@ -169,8 +215,11 @@ function specs(locale: Locale): Spec[] {
       quantity: stair,
       calc:
         say("Cage d'escalier : ", "Stairwell: ") +
-        STAIRWELL.parts.map((p) => `${p.label[locale].toLowerCase()} ${ft(p.sqft)}`).join(" + "),
-      note: say("Gris, deux couches.", "Grey, two coats."),
+        STAIRWELL.parts
+          .map((p) => `${p.label[locale].toLowerCase()} ${ft(p.sqft)}`)
+          .join(" + "),
+      note:
+        supplied.paint + " " + say("Gris, deux couches.", "Grey, two coats."),
     },
     {
       key: "stair-platform",
@@ -185,10 +234,21 @@ function specs(locale: Locale): Spec[] {
         unit: "job",
       },
       quantity: 1,
-      calc: say("Pour atteindre le haut des murs au-dessus des marches", "To reach the top of the walls over the steps"),
+      calc: say(
+        "Pour atteindre le haut des murs au-dessus des marches",
+        "To reach the top of the walls over the steps",
+      ),
     },
     // Vestibule 200
-    { key: "vestibule-prep", room: "vestibule", section: "walls", code: "PNT-PREP-MIN", quantity: vestBand.sqft, calc: vestBand.calc },
+    {
+      key: "vestibule-prep",
+      room: "vestibule",
+      section: "walls",
+      code: "PNT-PREP-MIN",
+      quantity: vestBand.sqft,
+      calc: vestBand.calc,
+      note: supplied.plaster,
+    },
     {
       key: "vestibule-paint",
       room: "vestibule",
@@ -196,10 +256,13 @@ function specs(locale: Locale): Spec[] {
       code: "PNT-WALL-2",
       quantity: vestWall.sqft,
       calc: vestWall.calc,
-      note: say(
-        "Gris, deux couches, jusqu'au plafond suspendu. Comprend le palier de l'ascenseur, l'alcôve et les murets autour de l'escalier.",
-        "Grey, two coats, up to the suspended ceiling. Includes the elevator landing, the alcove and the half-walls around the stairs.",
-      ),
+      note:
+        supplied.paint +
+        " " +
+        say(
+          "Gris, deux couches, jusqu'au plafond suspendu. Comprend le palier de l'ascenseur, l'alcôve et les murets autour de l'escalier.",
+          "Grey, two coats, up to the suspended ceiling. Includes the elevator landing, the alcove and the half-walls around the stairs.",
+        ),
     },
     // Chantier
     {
@@ -212,10 +275,13 @@ function specs(locale: Locale): Spec[] {
         "Toiles sur la céramique et les marches, masquage des cadres, plinthes, plafond suspendu, portes vitrées, porte d'ascenseur et rampes; retrait de l'ancien ruban",
         "Drop cloths on the tile and the steps; masking of the frames, baseboards, suspended ceiling, glass doors, elevator door and railings; old tape removed",
       ),
-      note: say(
-        "Passage gardé libre : l'entrée sert aussi aux autres locataires.",
-        "Passage kept clear: the entrance also serves the building's other tenants.",
-      ),
+      note:
+        supplied.protection +
+        " " +
+        say(
+          "Passage gardé libre : l'entrée sert aussi aux autres locataires.",
+          "Passage kept clear: the entrance also serves the building's other tenants.",
+        ),
     },
     {
       key: "clean",
@@ -223,14 +289,24 @@ function specs(locale: Locale): Spec[] {
       section: "misc",
       code: "GEN-CLEAN-DAY",
       quantity: 3,
-      calc: say("3 jours — l'entrée reste propre et passable chaque soir", "3 days — the entrance left clean and passable every evening"),
+      calc: say(
+        "3 jours — l'entrée reste propre et passable chaque soir",
+        "3 days — the entrance left clean and passable every evening",
+      ),
     },
-    { key: "travel", room: null, section: "misc", code: "GEN-TRAVEL", quantity: 3, calc: say("3 jours × 1 h", "3 days × 1 h") },
+    {
+      key: "travel",
+      room: null,
+      section: "misc",
+      code: "GEN-TRAVEL",
+      quantity: 3,
+      calc: say("3 jours × 1 h", "3 days × 1 h"),
+    },
   ];
 }
 
 function kitchenSpecs(locale: Locale): Spec[] {
-  const { say } = writer(locale);
+  const { say, supplied } = writer(locale);
   const wall = wallCalc("kitchen", locale);
   return [
     {
@@ -239,7 +315,10 @@ function kitchenSpecs(locale: Locale): Spec[] {
       section: "misc",
       code: "GEN-FURN-MOVE",
       quantity: 1,
-      calc: say("1 h — dégager les comptoirs, protéger les électroménagers", "1 h — clear the counters, protect the appliances"),
+      calc: say(
+        "1 h — dégager les comptoirs, protéger les électroménagers",
+        "1 h — clear the counters, protect the appliances",
+      ),
     },
     {
       key: "kitchen-prep",
@@ -247,7 +326,11 @@ function kitchenSpecs(locale: Locale): Spec[] {
       section: "walls",
       code: "PNT-PREP-MIN",
       quantity: wall.sqft,
-      calc: say("Tous les murs peints : dégraissage, petits trous, ponçage", "Every painted wall: degreasing, small holes, sanding"),
+      calc: say(
+        "Tous les murs peints : dégraissage, petits trous, ponçage",
+        "Every painted wall: degreasing, small holes, sanding",
+      ),
+      note: supplied.plaster,
     },
     {
       key: "kitchen-paint",
@@ -256,10 +339,13 @@ function kitchenSpecs(locale: Locale): Spec[] {
       code: "PNT-WALL-2",
       quantity: wall.sqft,
       calc: wall.calc,
-      note: say(
-        "Fini lavable (velours ou semi-lustré), deux couches. Le nouveau mur avec porte au bas de la cuisine est compté comme existant.",
-        "Washable finish (eggshell or semi-gloss), two coats. The new wall with the door at the bottom of the kitchen is counted as existing.",
-      ),
+      note:
+        supplied.paint +
+        " " +
+        say(
+          "Fini lavable (velours ou semi-lustré), deux couches. Le nouveau mur avec porte au bas de la cuisine est compté comme existant.",
+          "Washable finish (eggshell or semi-gloss), two coats. The new wall with the door at the bottom of the kitchen is counted as existing.",
+        ),
     },
   ];
 }
@@ -273,5 +359,9 @@ function priced(list: Spec[], locale: Locale) {
 }
 
 export function buildGarderieDevis(locale: Locale = "fr") {
-  return { base: priced(specs(locale), locale), kitchen: priced(kitchenSpecs(locale), locale), trailer: GARDERIE_TRAILER };
+  return {
+    base: priced(specs(locale), locale),
+    kitchen: priced(kitchenSpecs(locale), locale),
+    trailer: GARDERIE_TRAILER,
+  };
 }
