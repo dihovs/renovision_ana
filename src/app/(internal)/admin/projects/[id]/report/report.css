@@ -315,6 +315,10 @@
 .report .estimate-summary { margin-top: 6mm; break-inside: avoid; }
 .report .estimate-summary-table { max-width: 90mm; margin-left: auto; }
 .report .estimate-summary-table td { padding: 1.2mm 2mm; font-size: 9.5pt; }
+/* An option's three-row total on its room's page: tight, so it stays on
+   the sheet with the table it totals. */
+.report .estimate-summary.compact { margin-top: 1.5mm; }
+.report .estimate-summary.compact .estimate-summary-table td { padding: 0.7mm 2mm; font-size: 9pt; }
 .report .estimate-summary-table td:last-child { text-align: right; font-weight: 600; }
 .report .estimate-summary-table .total td {
   font-weight: 700; font-size: 11pt; border-top: 0.75pt solid var(--rule-strong);
@@ -422,6 +426,11 @@
   align-items: start;
   margin-top: 4mm;
 }
+/* No locator (the only room on its storey): the drawing is the only child
+   and takes the whole row. Left in the `auto` track it shrank to its
+   min-content — a 15 mm thumbnail above a 1:81 scale bar (daycare hall 310,
+   14 Nov 2026). */
+.report .room-body > :only-child { grid-column: 1 / -1; }
 @media (max-width: 640px) {
   .report .room-body { grid-template-columns: 1fr; }
   .report .locator { width: 100%; }

@@ -31,7 +31,7 @@ import { AFFECTED_AREA_FILL } from "./planPalette";
 import { unitDays, type EquipmentPlacement, type MoistureReading } from "@/lib/crm/dryingLog";
 import type { CompanySetting, CustomFieldDef } from "@/lib/crm/settings";
 import { isFieldVisible } from "@/lib/crm/settings";
-import ReportEstimateTable, { groupLinesByApartment } from "./ReportEstimateTable";
+import ReportEstimateTable, { groupLinesByApartment, groupLinesByRoom, optionTotalLabel } from "./ReportEstimateTable";
 import type {
   AllocatedLine,
   EstimateTotals,
@@ -202,7 +202,22 @@ export type ReportData = {
     lines: AllocatedLine[];
     totals: EstimateTotals;
     trailer: TrailerSettings;
+    /** Priced options the client may add (the daycare's kitchen). Each is
+        itemized and totalled on its own and never counted in the document's
+        total; with `roomScanId` it prints on that room's page. */
+    options?: { label: string; roomScanId?: string | null; lines: AllocatedLine[]; totals: EstimateTotals }[];
   };
+  /**
+   * **Where the priced lines print.** `end`: one Estimate section after the
+   * rooms (the claim report, as it always was). `rooms`: the owner's way of
+   * making an estimate (14 Nov 2026) — *"in the beginning, we give the
+   * entire floor plan, and then after we go room by room… the floor plan
+   * with the dimensions of that room, and then the price with the itemized
+   * description in the room."* Each room's lines print on that room's own
+   * page under its plan; only the job-wide lines and the summary are left
+   * for the end. Defaults to `rooms` on a quote, `end` on a claim.
+   */
+  estimatePlacement?: "end" | "rooms";
   /**
    * **Who the document is for.** `claim` (the default) is the restoration
    * report that goes to a carrier: the person is the insured, the claim's
@@ -296,6 +311,14 @@ const PHOTOS_PER_PAGE = 6;
  * The report printed the id, so a page headed "▼ 2nd" read as a fragment.
  * One vocabulary, `floors.ts`, decides both.
  */
+/** Money as the estimate table prints it: `1 928,33` / `1,928.33`. */
+function formatMoney(locale: Locale, cents: number): string {
+  return (cents / 100).toLocaleString(locale === "fr" ? "fr-CA" : "en-CA", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function floorLabel(level: string, t: ReportStrings, locale: Locale): string {
   // The document's language wins over the operator's. `floors.ts` owns both
   // spellings so a storey cannot be named one way on the contents page and
@@ -462,7 +485,9 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     locale = "fr",
     estimate,
     purpose = "claim",
+    estimatePlacement,
   } = data;
+  const estimateInRooms = (estimatePlacement ?? (purpose === "quote" ? "rooms" : "end")) === "rooms";
   const t = REPORT_STRINGS[locale];
   // Every figure in the document goes through these, so a French report
   // prints `78,64 m²` rather than `78.64 m²`. On a page that is mostly
@@ -621,6 +646,23 @@ export default function ReportDocument({ data }: { data: ReportData }) {
         rooms.find((room) => room.id === roomScanId)?.apartment ?? null,
       )
     : null;
+  /** Room by room, in the order the rooms print (see `estimatePlacement`). */
+  const roomOrder = sections.flatMap((section) => section.rooms.map((room) => room.id));
+  const estimateByRoom =
+    estimate && estimateInRooms ? groupLinesByRoom(estimate.lines, roomOrder) : null;
+  const estimateOptions = estimate?.options ?? [];
+  /** An option's items number on from the estimate's own, so "item 12" is
+      one line in the whole document. */
+  const optionStarts = (() => {
+    let running = estimate ? estimate.lines.filter((l) => !l.removed).length : 0;
+    return estimateOptions.map((option) => {
+      const start = running;
+      running += option.lines.filter((l) => !l.removed).length;
+      return start;
+    });
+  })();
+  const optionOnRoomPage = (option: { roomScanId?: string | null }) =>
+    estimateInRooms && Boolean(option.roomScanId) && roomOrder.includes(option.roomScanId!);
 
   // Everything that used to crowd the cover now has a page of its own, and
   // that page only exists when it has something on it.
@@ -700,7 +742,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       const unitLines = section.unit
         ? estimateGroups?.units.get(section.unit)?.lines ?? []
         : [];
-      if (section.unit && unitLines.length > 0) {
+      if (!estimateInRooms && section.unit && unitLines.length > 0) {
         unitEstimatePages.set(
           section.unit,
           push("estimate", t.estimate, t.unit(section.unit), section.unit),
@@ -1500,6 +1542,35 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               )}
             </>
           )}
+          {/* The room's own priced lines, under its plan and figures — and
+              any option priced in this room, totalled apart. */}
+          {estimate && estimateByRoom && (estimateByRoom.rooms.get(room.id)?.lines.length ?? 0) > 0 && (
+            <ReportEstimateTable
+              lines={estimateByRoom.rooms.get(room.id)!.lines}
+              startIndex={estimateByRoom.rooms.get(room.id)!.startIndex}
+              trailer={estimate.trailer}
+              locale={locale}
+              purpose={purpose}
+              heading={t.estimate}
+            />
+          )}
+          {estimate &&
+            estimateOptions.map((option, index) =>
+              optionOnRoomPage(option) && option.roomScanId === room.id ? (
+                <ReportEstimateTable
+                  key={`option-${index}`}
+                  lines={option.lines}
+                  totals={option.totals}
+                  startIndex={optionStarts[index]}
+                  trailer={estimate.trailer}
+                  locale={locale}
+                  purpose={purpose}
+                  heading={option.label}
+                  totalLabel={optionTotalLabel(locale)}
+                  compactTotals
+                />
+              ) : null,
+            )}
           <PageFoot
             n={roomPages.get(room.id)?.page ?? 0}
             of={totalPages}
@@ -1674,13 +1745,60 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               that belongs to no single door — débris, nettoyage final,
               frais généraux — and then the document's one grand total. */}
           <ReportEstimateTable
-            lines={estimateGroups?.project.lines ?? []}
-            startIndex={estimateGroups?.project.startIndex ?? 0}
+            lines={(estimateByRoom ?? estimateGroups)?.project.lines ?? []}
+            startIndex={(estimateByRoom ?? estimateGroups)?.project.startIndex ?? 0}
             totals={estimate.totals}
             trailer={estimate.trailer}
             locale={locale}
             purpose={purpose}
           />
+          {/* Options not already printed on a room's page, itemized here. */}
+          {estimateOptions.map((option, index) =>
+            optionOnRoomPage(option) ? null : (
+              <ReportEstimateTable
+                key={`option-${index}`}
+                lines={option.lines}
+                totals={option.totals}
+                startIndex={optionStarts[index]}
+                trailer={estimate.trailer}
+                locale={locale}
+                purpose={purpose}
+                heading={option.label}
+                totalLabel={optionTotalLabel(locale)}
+              />
+            ),
+          )}
+          {/* What each option adds, and the total with all of them — the
+              document's own total above stays the work asked for. */}
+          {estimateOptions.length > 0 && (
+            <div className="estimate-summary">
+              <p className="marker marker-2">
+                {locale === "fr" ? "Options — non comprises dans le total" : "Options — not included in the total"}
+              </p>
+              <table className="listing estimate-summary-table">
+                <tbody>
+                  {estimateOptions.map((option, index) => (
+                    <tr key={`option-total-${index}`}>
+                      <td>{option.label}</td>
+                      <td className="num">
+                        {formatMoney(locale, option.totals.totalCents)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="total">
+                    <td>{locale === "fr" ? "TOTAL AVEC LES OPTIONS" : "TOTAL WITH THE OPTIONS"}</td>
+                    <td className="num">
+                      {formatMoney(
+                        locale,
+                        estimate.totals.totalCents +
+                          estimateOptions.reduce((sum, option) => sum + option.totals.totalCents, 0),
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
           <PageFoot n={estimatePage} of={totalPages} company={company} t={t} />
         </section>
       )}

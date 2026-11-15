@@ -30,9 +30,10 @@ import { GARDERIE_TRAILER, buildGarderieDevis } from "@/lib/estimator/insurance/
  * - **Photos**: five of her six; the one with a passer-by in it is left out.
  *   Not in the repo (client data): GARDERIE_PHOTO_DIR holds them with a
  *   manifest.json of `{ roomKey: [{ file, note }] }`.
- * - **Lines**: the work she asked for. The kitchen is an option, priced on
- *   its own in the devis, so it is not in this document's total; its price
- *   is quoted in the project description.
+ * - **Lines**: room by room, each room's priced lines under its own plan
+ *   (the owner's way, `estimatePlacement: "rooms"`, the quote default); the
+ *   job-wide lines and the summary at the end. The kitchen is an option:
+ *   itemized on its own page, totalled apart, never in the document's total.
  * - **Client and address** come from GARDERIE_CLIENT / GARDERIE_ADDRESS.
  * - **Languages**: printed in French and in English. A photo's `noteEn` is
  *   its caption in the English copy.
@@ -100,7 +101,7 @@ const COPY = {
       `Tous les matériaux sont fournis par nous et compris dans le prix : la peinture, le plâtre pour les réparations et tout le matériel de protection. ` +
       `Plans redessinés par nous à partir des plans fournis, ajustés aux superficies imprimées; hauteurs relevées sur les photos, à confirmer sur place. ` +
       `Option : la cuisine A208, ${kitchen} taxes incluses, en plus.`,
-    kitchenNote: (kitchen: string) => `Option : peinture de la cuisine, ${kitchen} taxes incluses, en plus du total de ce document.`,
+    option: "Option — Cuisine A208 (non comprise dans le total)",
     client: "Garderie",
     property: "Adresse à confirmer",
   },
@@ -111,7 +112,7 @@ const COPY = {
       `All materials are supplied by us and included in the price: the paint, the plaster for the repairs, and all the protection materials. ` +
       `Plans redrawn by us from the plans provided, matched to the printed areas; heights read from the photos, to be confirmed on site. ` +
       `Option: the kitchen A208, ${kitchen} taxes included, extra.`,
-    kitchenNote: (kitchen: string) => `Option: painting the kitchen, ${kitchen} taxes included, on top of this document's total.`,
+    option: "Option — Kitchen A208 (not included in the total)",
     client: "Daycare",
     property: "Address to be confirmed",
   },
@@ -135,7 +136,8 @@ function buildData(locale: Locale): ReportData {
       wallLengthM: m(figures.perimeterFt),
       ceilingHeightM: m(shape.ceilingFt),
       stairCount: 0,
-      notes: shape.option ? c.kitchenNote(kitchen) : null,
+      // The kitchen's option prints itemized on its own page (estimate.options).
+      notes: null,
       planX: m(shape.atFt.x),
       planY: m(shape.atFt.y),
       objects: planObjects(shape, locale),
@@ -177,7 +179,12 @@ function buildData(locale: Locale): ReportData {
     // Her sheets carry no north arrow.
     northDeg: null,
     wallThicknessM: WALL_THICKNESS_M,
-    estimate: { lines: devis.base.lines, totals: devis.base.totals, trailer: GARDERIE_TRAILER },
+    estimate: {
+      lines: devis.base.lines,
+      totals: devis.base.totals,
+      trailer: GARDERIE_TRAILER,
+      options: [{ label: c.option, roomScanId: roomId("kitchen"), lines: devis.kitchen.lines, totals: devis.kitchen.totals }],
+    },
     // A private client's quote, not an insurance claim.
     purpose: "quote",
   };

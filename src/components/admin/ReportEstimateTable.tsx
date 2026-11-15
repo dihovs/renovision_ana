@@ -87,6 +87,8 @@ const TRAILER_LABEL: Record<Locale, {
   total: string;
   /** The bottom line of a private client's quote: no claim to be the value of. */
   quoteTotal: string;
+  /** The bottom line of a priced option, which the document total leaves out. */
+  optionTotal: string;
   labor: string;
   frGeneraux: string;
 }> = {
@@ -100,6 +102,7 @@ const TRAILER_LABEL: Record<Locale, {
     qst: (pct) => `TVQ ${pct}`,
     total: "VALEUR À NEUF",
     quoteTotal: "TOTAL",
+    optionTotal: "TOTAL DE L'OPTION",
     labor: "Main-d'œuvre incorporée",
     frGeneraux: "Frais généraux",
   },
@@ -113,10 +116,16 @@ const TRAILER_LABEL: Record<Locale, {
     qst: (pct) => `QST ${pct}`,
     total: "REPLACEMENT COST VALUE",
     quoteTotal: "TOTAL",
+    optionTotal: "OPTION TOTAL",
     labor: "Labor incorporated",
     frGeneraux: "General conditions",
   },
 };
+
+/** The bottom-line label of a priced option, in the document's language. */
+export function optionTotalLabel(locale: Locale): string {
+  return TRAILER_LABEL[locale].optionTotal;
+}
 
 function money(locale: Locale, cents: number): string {
   return (cents / 100).toLocaleString(locale === "fr" ? "fr-CA" : "en-CA", {
@@ -160,7 +169,12 @@ function RoomSection({
   startIndex,
   unitSubtotal,
   purpose = "claim",
+  heading,
 }: {
+  /** The block's title where it is not the room's name — on a room's own
+      page the room is already the page's title, so the table is headed
+      "Estimate" there. */
+  heading?: string;
   roomName: string;
   lines: AllocatedLine[];
   locale: Locale;
@@ -189,7 +203,7 @@ function RoomSection({
     };
     return (
       <div className="estimate-room">
-        <p className="marker marker-2">{roomName}</p>
+        <p className="marker marker-2">{heading ?? roomName}</p>
         <table className="listing estimate-table quote">
           <thead>
             <tr>
@@ -229,7 +243,7 @@ function RoomSection({
 
   return (
     <div className="estimate-room">
-      <p className="marker marker-2">{roomName}</p>
+      <p className="marker marker-2">{heading ?? roomName}</p>
       <table className="listing estimate-table">
         <thead>
           <tr>
@@ -351,6 +365,33 @@ export function groupLinesByApartment(
   return { units, project: { lines: project, startIndex: running } };
 }
 
+/** The visible lines split by room, in the order the document prints its
+    rooms — for a devis printed room by room, each room's lines on its own
+    page (`estimatePlacement: "rooms"`). Lines on no listed room (the job's
+    own: protection, cleanup, travel) are the remainder, printed at the end
+    with the summary. One `#` run across all of it, as above. */
+export function groupLinesByRoom(
+  lines: AllocatedLine[],
+  roomOrder: string[],
+): { rooms: Map<string, { lines: AllocatedLine[]; startIndex: number }>; project: { lines: AllocatedLine[]; startIndex: number } } {
+  const visible = lines.filter((l) => !l.removed);
+  const rooms = new Map<string, { lines: AllocatedLine[]; startIndex: number }>();
+  for (const id of roomOrder) rooms.set(id, { lines: [], startIndex: 0 });
+  const project: AllocatedLine[] = [];
+  for (const line of visible) {
+    const bucket = line.roomScanId ? rooms.get(line.roomScanId) : undefined;
+    if (bucket) bucket.lines.push(line);
+    else project.push(line);
+  }
+  let running = 0;
+  for (const id of roomOrder) {
+    const bucket = rooms.get(id)!;
+    bucket.startIndex = running;
+    running += bucket.lines.length;
+  }
+  return { rooms, project: { lines: project, startIndex: running } };
+}
+
 export default function ReportEstimateTable({
   lines,
   totals,
@@ -359,7 +400,19 @@ export default function ReportEstimateTable({
   startIndex = 0,
   subtotalUnit,
   purpose = "claim",
+  heading,
+  totalLabel,
+  compactTotals = false,
 }: {
+  /** The summary in three rows — overhead and profit, taxes, total — for a
+      priced option printed on its room's page, where the full six-row
+      sommaire would fall onto a sheet of its own. The document's own
+      summary is always the full one. */
+  compactTotals?: boolean;
+  /** Replaces the room-name heading of each block (see RoomSection). */
+  heading?: string;
+  /** Replaces the summary's bottom-line label — a priced option's total. */
+  totalLabel?: string;
   /** Exactly what `allocateLines` produces — nothing recomputed here. Where
       the devis is split apartment by apartment this is one unit's slice of
       it; the arithmetic is the same either way, because every figure is
@@ -424,6 +477,7 @@ export default function ReportEstimateTable({
           <RoomSection
             key={key}
             roomName={group.name}
+            heading={heading}
             lines={group.lines}
             locale={locale}
             startIndex={startIndex}
@@ -444,7 +498,29 @@ export default function ReportEstimateTable({
           apartment and the project-level lines. A per-apartment block passes
           no totals and prints none: five trailers each claiming to be the
           VALEUR À NEUF is how a devis loses an argument it had won. */}
-      {totals && (
+      {totals && compactTotals && (
+        <div className="estimate-summary compact">
+          <table className="listing estimate-summary-table">
+            <tbody>
+              <tr>
+                <td>
+                  {tl.generals(pct(locale, trailer.generalsPct))} + {tl.profit(pct(locale, trailer.profitPct), profitBasisLabel)}
+                </td>
+                <td className="num">{money(locale, totals.generalsCents + totals.profitCents)}</td>
+              </tr>
+              <tr>
+                <td>{locale === "fr" ? "TPS + TVQ" : "GST + QST"}</td>
+                <td className="num">{money(locale, totals.gstCents + totals.qstCents)}</td>
+              </tr>
+              <tr className="total">
+                <td>{totalLabel ?? (purpose === "quote" ? tl.quoteTotal : tl.total)}</td>
+                <td className="num">{money(locale, totals.totalCents)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      {totals && !compactTotals && (
       <div className="estimate-summary">
         <p className="marker marker-2">{locale === "fr" ? "Sommaire" : "Summary"}</p>
         <table className="listing estimate-summary-table">
@@ -470,7 +546,7 @@ export default function ReportEstimateTable({
               <td className="num">{money(locale, totals.qstCents)}</td>
             </tr>
             <tr className="total">
-              <td>{purpose === "quote" ? tl.quoteTotal : tl.total}</td>
+              <td>{totalLabel ?? (purpose === "quote" ? tl.quoteTotal : tl.total)}</td>
               <td className="num">{money(locale, totals.totalCents)}</td>
             </tr>
           </tbody>
