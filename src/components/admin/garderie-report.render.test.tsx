@@ -178,6 +178,8 @@ function buildData(locale: Locale): ReportData {
     northDeg: null,
     wallThicknessM: WALL_THICKNESS_M,
     estimate: { lines: devis.base.lines, totals: devis.base.totals, trailer: GARDERIE_TRAILER },
+    // A private client's quote, not an insurance claim.
+    purpose: "quote",
   };
 }
 

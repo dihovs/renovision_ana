@@ -40,6 +40,8 @@ export type ReportStrings = {
   bathroom: string;
   summary: string;
   insured: string;
+  /** The same person on a private client's quote (`purpose: "quote"`). */
+  client: string;
   property: string;
   workStarted: string;
   reportPrepared: string;
@@ -165,6 +167,7 @@ const en: ReportStrings = {
   bathroom: "Bathroom",
   summary: "Summary",
   insured: "Insured",
+  client: "Client",
   property: "Property",
   workStarted: "Work started",
   reportPrepared: "Report prepared",
@@ -279,6 +282,7 @@ const fr: ReportStrings = {
   // `Assuré` is the insurance term, not `Client` — this document goes to a
   // carrier, and the carrier's file calls that person the insured.
   insured: "Assuré",
+  client: "Client",
   property: "Immeuble",
   workStarted: "Début des travaux",
   reportPrepared: "Rapport préparé le",

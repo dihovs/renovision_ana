@@ -204,6 +204,15 @@ export type ReportData = {
     trailer: TrailerSettings;
   };
   /**
+   * **Who the document is for.** `claim` (the default) is the restoration
+   * report that goes to a carrier: the person is the insured, the claim's
+   * fields print, the total is the replacement cost value. `quote` is the
+   * same document for a private client paying for work they asked for (the
+   * daycare repaint, 14 Nov 2026): the person is the client, and there is no
+   * claim, no adjuster and no depreciation to speak of.
+   */
+  purpose?: "claim" | "quote";
+  /**
    * **The language of the DOCUMENT, not of the app.**
    *
    * His ask, 21 Aug 2026: *"our reports need to be in French. But me,
@@ -452,6 +461,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
     layout = "full",
     locale = "fr",
     estimate,
+    purpose = "claim",
   } = data;
   const t = REPORT_STRINGS[locale];
   // Every figure in the document goes through these, so a French report
@@ -922,7 +932,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <p className="marker">{t.summary}</p>
           <div className="cover-grid">
             <dl>
-              <dt>{t.insured}</dt>
+              <dt>{purpose === "quote" ? t.client : t.insured}</dt>
               <dd>{client?.name ?? "—"}</dd>
               <dt>{t.property}</dt>
               <dd>{property ?? "—"}</dd>
@@ -932,6 +942,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               <dd>{date(generatedAt)}</dd>
             </dl>
 
+            {purpose === "claim" && (
             <dl>
               {shownClaim.length === 0 ? (
                 <>
@@ -947,6 +958,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                 ))
               )}
             </dl>
+            )}
           </div>
 
           {/* Wall area alone here: floor area, floors and rooms are on the
@@ -1583,6 +1595,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             subtotalUnit={section.unit}
             trailer={estimate.trailer}
             locale={locale}
+            purpose={purpose}
           />
           <PageFoot
             n={unitEstimatePages.get(section.unit) ?? 0}
@@ -1658,6 +1671,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
             totals={estimate.totals}
             trailer={estimate.trailer}
             locale={locale}
+            purpose={purpose}
           />
           <PageFoot n={estimatePage} of={totalPages} company={company} t={t} />
         </section>

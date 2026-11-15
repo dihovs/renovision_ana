@@ -85,6 +85,8 @@ const TRAILER_LABEL: Record<Locale, {
   gst: (pct: string) => string;
   qst: (pct: string) => string;
   total: string;
+  /** The bottom line of a private client's quote: no claim to be the value of. */
+  quoteTotal: string;
   labor: string;
   frGeneraux: string;
 }> = {
@@ -97,6 +99,7 @@ const TRAILER_LABEL: Record<Locale, {
     gst: (pct) => `TPS ${pct}`,
     qst: (pct) => `TVQ ${pct}`,
     total: "VALEUR À NEUF",
+    quoteTotal: "TOTAL",
     labor: "Main-d'œuvre incorporée",
     frGeneraux: "Frais généraux",
   },
@@ -109,6 +112,7 @@ const TRAILER_LABEL: Record<Locale, {
     gst: (pct) => `GST ${pct}`,
     qst: (pct) => `QST ${pct}`,
     total: "REPLACEMENT COST VALUE",
+    quoteTotal: "TOTAL",
     labor: "Labor incorporated",
     frGeneraux: "General conditions",
   },
@@ -304,6 +308,7 @@ export default function ReportEstimateTable({
   locale = "fr",
   startIndex = 0,
   subtotalUnit,
+  purpose = "claim",
 }: {
   /** Exactly what `allocateLines` produces — nothing recomputed here. Where
       the devis is split apartment by apartment this is one unit's slice of
@@ -322,6 +327,9 @@ export default function ReportEstimateTable({
       Σ of the block's own line totals — the same column the room totals above
       it add up, so a reader can check it by adding the rows they can see. */
   subtotalUnit?: string | null;
+  /** `quote`: a private client's estimate — a plain TOTAL, and none of the
+      claim's fine print (labour incorporated, depreciation). See ReportData. */
+  purpose?: "claim" | "quote";
 }) {
   const tl = TRAILER_LABEL[locale];
   const t = REPORT_STRINGS[locale];
@@ -411,23 +419,27 @@ export default function ReportEstimateTable({
               <td className="num">{money(locale, totals.qstCents)}</td>
             </tr>
             <tr className="total">
-              <td>{tl.total}</td>
+              <td>{purpose === "quote" ? tl.quoteTotal : tl.total}</td>
               <td className="num">{money(locale, totals.totalCents)}</td>
             </tr>
           </tbody>
         </table>
+        {purpose === "claim" && (
         <p className="fineprint estimate-labor">
           {tl.labor} : {formatNumber(locale, totals.totalLaborHours, 2)} h
         </p>
+        )}
         {/* The Québec restorer convention the conventions doc documents
             verbatim (§1) — a computed ACV column would be a claim an
             estimator working from a floor plan and a devis has no basis to
             make; the carrier's own adjuster is the one who applies it. */}
+        {purpose === "claim" && (
         <p className="fineprint">
           {locale === "fr"
             ? "La dépréciation est laissée à la discrétion de l'assureur et/ou de l'expert en sinistre. Aucune dépréciation n'est appliquée ci-dessus — Valeur à neuf = Sinistre net."
             : "Depreciation is left to the insurer's/adjuster's discretion. None is applied above — replacement cost value equals the net claim."}
         </p>
+        )}
       </div>
       )}
     </div>
