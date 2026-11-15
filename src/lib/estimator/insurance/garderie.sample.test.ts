@@ -45,7 +45,10 @@ const COPY = {
     cols: ["#", "Description", "Qté", "Prix unit.", "Montant"],
     rows: ["Total des articles", "Frais généraux 10 %", "Profit 5 %", "TPS 5 %", "TVQ 9,975 %", "TOTAL"],
     asked: "SOMMAIRE — travaux demandés",
-    option: "Option — Cuisine A208",
+    option: "Option — Cuisine A208 (non comprise dans le total ci-dessus)",
+    optionNote:
+      "Article optionnel, à ajouter si vous le souhaitez. Ce prix vaut s'il est fait en même temps que les travaux ci-dessus.",
+    totals: ["TOTAL (sans la cuisine)", "TOTAL — option cuisine"],
     withKitchen: "Avec la cuisine",
     wallsLine: (sqft: number, kitchen: number, rate: string) => `Murs peints : ${sqft} pi² (+ ${kitchen} cuisine) — ${rate}/pi² avant frais`,
     hoursLine: (h: string, k: string) => `Main-d'œuvre : ${h} h (+ ${k} h cuisine)`,
@@ -77,7 +80,9 @@ const COPY = {
     cols: ["#", "Description", "Qty", "Unit price", "Amount"],
     rows: ["Items total", "Overhead 10 %", "Profit 5 %", "GST 5 %", "QST 9.975 %", "TOTAL"],
     asked: "SUMMARY — work requested",
-    option: "Option — Kitchen A208",
+    option: "Option — Kitchen A208 (not included in the total above)",
+    optionNote: "Optional item, to add if you wish. This price holds when it is done at the same time as the work above.",
+    totals: ["TOTAL (without the kitchen)", "TOTAL — kitchen option"],
     withKitchen: "With the kitchen",
     wallsLine: (sqft: number, kitchen: number, rate: string) => `Painted walls: ${sqft} sq ft (+ ${kitchen} kitchen) — ${rate}/sq ft before overhead`,
     hoursLine: (h: string, k: string) => `Labour: ${h} h (+ ${k} h kitchen)`,
@@ -96,8 +101,8 @@ function write(locale: Locale, stem: string) {
   const c = COPY[locale];
   const t = ESTIMATOR_STRINGS[locale];
   const { base, kitchen } = buildGarderieDevis(locale);
-  const rowsOf = (x: Totals): [string, number][] =>
-    [x.itemsCents, x.generalsCents, x.profitCents, x.gstCents, x.qstCents, x.totalCents].map((v, i) => [c.rows[i], v]);
+  const rowsOf = (x: Totals, last: string): [string, number][] =>
+    [x.itemsCents, x.generalsCents, x.profitCents, x.gstCents, x.qstCents, x.totalCents].map((v, i) => [i === 5 ? last : c.rows[i], v]);
   const qty = (l: AllocatedLine) => `${t.qty(l.quantity)} ${unitLabel(l.unit, locale)}`;
 
   const out: string[] = [c.textTitle, ""];
@@ -112,10 +117,10 @@ function write(locale: Locale, stem: string) {
     });
   print(base.lines);
   out.push("", c.asked);
-  rowsOf(base.totals).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${c.money(v).padStart(14)}`));
+  rowsOf(base.totals, c.totals[0]).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${c.money(v).padStart(14)}`));
   out.push("", c.option.toUpperCase());
   print(kitchen.lines);
-  rowsOf(kitchen.totals).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${c.money(v).padStart(14)}`));
+  rowsOf(kitchen.totals, c.totals[1]).forEach(([k, v]) => out.push(`  ${k.padEnd(28)}${c.money(v).padStart(14)}`));
   out.push("", `  ${c.withKitchen.padEnd(28)}${c.money(base.totals.totalCents + kitchen.totals.totalCents).padStart(14)}`);
   const sqft = WALLS.entrance + WALLS.stair + WALLS.vestibule;
   out.push(`  ${c.wallsLine(sqft, WALLS.kitchen, c.money(Math.round(base.totals.itemsCents / sqft)))}`);
@@ -140,8 +145,8 @@ function write(locale: Locale, stem: string) {
       })
       .join("");
   };
-  const summary = (x: Totals) =>
-    `<table class="s">${rowsOf(x).map(([k, v]) => `<tr><td>${k}</td><td class="r">${c.money(v)}</td></tr>`).join("")}</table>`;
+  const summary = (x: Totals, last: string) =>
+    `<table class="s">${rowsOf(x, last).map(([k, v]) => `<tr><td>${k}</td><td class="r">${c.money(v)}</td></tr>`).join("")}</table>`;
   const [h0, h1, h2, h3, h4] = c.cols;
   const head = `<tr><th>${h0}</th><th>${h1}</th><th class="r">${h2}</th><th class="r">${h3}</th><th class="r">${h4}</th></tr>`;
   const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><title>${c.title}</title>
@@ -156,7 +161,7 @@ tr.z td{background:#eef3fa;font-weight:700;border-bottom:1px solid #c9d6ea;paddi
 .c{font-size:8.5pt;color:#555}.n{font-size:8.5pt;color:#8a5a00}
 .s{width:46%;margin:12px 0 0 auto;break-inside:avoid}.s td{border:none;padding:3px 5px}.s tr:last-child td{font-weight:700;font-size:12pt;border-top:2px solid #1d2433}
 .g{width:46%;margin:16px 0 0 auto;border:2px solid #1f5fa8;break-inside:avoid}.g td{border:none;padding:6px 8px;font-weight:700}
-.opt{break-inside:avoid}
+.opt{break-inside:avoid}.on{margin:-2px 0 8px;font-size:9pt;color:#555;font-style:italic}
 .mat{border:2px solid #1f5fa8;background:#eef3fa;padding:8px 12px;margin:0 0 14px;font-size:9.5pt}.mat b:first-child{color:#1f5fa8}.mat ul{margin:5px 0 0 18px;padding:0}.mat li{margin:2px 0}
 .x{margin-top:18px;font-size:8.5pt;color:#555}.x p{margin:4px 0}
 </style></head><body>
@@ -167,10 +172,11 @@ tr.z td{background:#eef3fa;font-weight:700;border-bottom:1px solid #c9d6ea;paddi
 ${c.intro}</div>
 <div class="mat">${c.materials}</div>
 <table>${head}${table(base.lines)}</table>
-${summary(base.totals)}
+${summary(base.totals, c.totals[0])}
 <div class="opt"><h2>${c.option}</h2>
+<p class="on">${c.optionNote}</p>
 <table>${head}${table(kitchen.lines)}</table>
-${summary(kitchen.totals)}</div>
+${summary(kitchen.totals, c.totals[1])}</div>
 <table class="g"><tr><td>${c.withKitchen}</td><td class="r">${c.money(base.totals.totalCents + kitchen.totals.totalCents)}</td></tr></table>
 <div class="x">
 <p>${c.quantities(c.area)}</p>
