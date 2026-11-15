@@ -936,8 +936,13 @@ export default function ReportDocument({ data }: { data: ReportData }) {
               <dd>{client?.name ?? "—"}</dd>
               <dt>{t.property}</dt>
               <dd>{property ?? "—"}</dd>
-              <dt>{t.workStarted}</dt>
-              <dd>{date(project.started_on)}</dd>
+              {/* A quote is read before any work starts. */}
+              {purpose === "claim" && (
+                <>
+                  <dt>{t.workStarted}</dt>
+                  <dd>{date(project.started_on)}</dd>
+                </>
+              )}
               <dt>{t.reportPrepared}</dt>
               <dd>{date(generatedAt)}</dd>
             </dl>
@@ -1121,7 +1126,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
                   })),
               }))}
             />
-            <PlanLegend t={northDeg === null ? t : { ...t, legendNote: t.legendNoteNorth }} />
+            <PlanLegend
+              t={northDeg === null ? t : { ...t, legendNote: t.legendNoteNorth }}
+              damage={purpose === "claim"}
+            />
             <PageFoot
               n={levelPages.get(levelKey(section.unit, level)) ?? 0}
               of={totalPages}
@@ -1684,7 +1692,7 @@ export default function ReportDocument({ data }: { data: ReportData }) {
       <section className="page signature">
         <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
         <p className="fineprint">
-          {t.signingAcknowledges}
+          {purpose === "quote" ? t.signingAcceptsQuote : t.signingAcknowledges}
         </p>
         <div className="signature-grid">
           {[t.signature, t.signatureDate, t.printedFullName, t.phone].map((label) => (
@@ -1708,7 +1716,10 @@ export default function ReportDocument({ data }: { data: ReportData }) {
           <Running project={project.name} address={property} totals={headerTotals} identity={identity} />
           <table className="measure definitions">
             <tbody>
-              {Object.values(measureDefinitions(locale)).map((meaning) => (
+              {Object.values(measureDefinitions(locale))
+                // Volume is there to size drying equipment: a claim's figure.
+                .filter((meaning) => purpose === "claim" || meaning.id !== "volume")
+                .map((meaning) => (
                 <tr key={meaning.id}>
                   <th>{meaning.title}</th>
                   <td>{meaning.definition}</td>

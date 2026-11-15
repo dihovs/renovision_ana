@@ -283,6 +283,12 @@
 .report .estimate-table td:nth-child(2) { width: 14%; }
 .report .estimate-table th:nth-child(4),
 .report .estimate-table td:nth-child(4) { width: 12%; }
+/* A private client's quote (purpose "quote"): # · Description · Qty · Unit
+   price · Amount — the description takes the room the code column had. */
+.report .estimate-table.quote th:nth-child(2),
+.report .estimate-table.quote td:nth-child(2) { width: auto; }
+.report .estimate-table.quote th:nth-child(n+3),
+.report .estimate-table.quote td:nth-child(n+3) { width: 13%; white-space: nowrap; }
 .report .estimate-section-row td {
   padding-top: 2.5mm; font-size: 7pt; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; color: var(--ink-4); border-bottom: none;

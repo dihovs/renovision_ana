@@ -87,6 +87,8 @@ export type ReportStrings = {
   printedFullName: string;
   phone: string;
   signingAcknowledges: string;
+  /** The signature page of a private client's quote: accepting it. */
+  signingAcceptsQuote: string;
   drying: string;
   equipment: string;
   quantity: string;
@@ -215,6 +217,7 @@ const en: ReportStrings = {
   phone: "Phone",
   signingAcknowledges:
     "Signing acknowledges that the areas, measurements and photographs in this report were taken at the property on the dates shown.",
+  signingAcceptsQuote: "Signing accepts this estimate: the work, the price and the conditions described above.",
   drying: "Drying record",
   equipment: "Equipment",
   quantity: "Qty",
@@ -333,6 +336,7 @@ const fr: ReportStrings = {
   phone: "Téléphone",
   signingAcknowledges:
     "La signature atteste que les superficies, les mesures et les photographies contenues dans ce rapport ont été relevées à l'immeuble aux dates indiquées.",
+  signingAcceptsQuote: "La signature confirme l'acceptation de ce devis : les travaux, le prix et les conditions décrits ci-dessus.",
   drying: "Registre de séchage",
   equipment: "Équipement",
   quantity: "Qté",

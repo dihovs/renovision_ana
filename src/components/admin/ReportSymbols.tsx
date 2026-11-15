@@ -51,7 +51,11 @@ const THIN = { fill: "none", stroke: "#1b1c1f", strokeWidth: 1 };
  */
 export function PlanLegend({
   t,
+  damage = true,
 }: {
+  /** The affected-area and keyed-marker symbols. Off on a private client's
+      quote, which marks no damage. */
+  damage?: boolean;
   /** The legend's own six lines, in the document's language. */
   t: {
     keyToDrawing: string;
@@ -91,6 +95,7 @@ export function PlanLegend({
           {t.legendOpening}
         </span>
       </div>
+      {damage && (
       <div className="legend-row">
         <span className="legend-item">
           <PlanSymbol>
@@ -125,6 +130,7 @@ export function PlanLegend({
           {t.legendKeyed}
         </span>
       </div>
+      )}
       <p className="legend-note">{t.legendNote}</p>
     </div>
   );

@@ -159,11 +159,15 @@ function RoomSection({
   locale,
   startIndex,
   unitSubtotal,
+  purpose = "claim",
 }: {
   roomName: string;
   lines: AllocatedLine[];
   locale: Locale;
   startIndex: number;
+  /** `quote`: the private client's columns — no catalogue code, no per-line
+      overhead or tax; unit price and amount, as on our two-page devis. */
+  purpose?: "claim" | "quote";
   /** On the unit's last room: the unit's sous-total, printed as this table's
       last row — see the caller for why it lives here. */
   unitSubtotal?: { label: string; cents: number };
@@ -176,6 +180,52 @@ function RoomSection({
   }
   const roomTotalCents = lines.reduce((sum, l) => sum + l.totalCents, 0);
   let running = startIndex;
+
+  if (purpose === "quote") {
+    const amountCents = lines.reduce((sum, l) => sum + l.baseCents, 0);
+    const unitCents = (l: AllocatedLine) => {
+      const rate = (l.removeRateCents ?? 0) + (l.replaceRateCents ?? 0);
+      return rate || (l.quantity ? Math.round(l.baseCents / l.quantity) : l.baseCents);
+    };
+    return (
+      <div className="estimate-room">
+        <p className="marker marker-2">{roomName}</p>
+        <table className="listing estimate-table quote">
+          <thead>
+            <tr>
+              <th className="num">#</th>
+              <th>Description</th>
+              <th className="num">{locale === "fr" ? "Qté" : "Qty"}</th>
+              <th className="num">{locale === "fr" ? "Prix unit." : "Unit price"}</th>
+              <th className="num">{locale === "fr" ? "Montant" : "Amount"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line) => {
+              running += 1;
+              return (
+                <tr key={line.key}>
+                  <td className="num">{running}</td>
+                  <td>
+                    {lineItemName(line.itemCode ?? line.removalItemCode, locale, line.name)}
+                    {line.calc && <div className="estimate-calc">{line.calc}</div>}
+                    {line.note && <div className="estimate-calc estimate-note">{line.note}</div>}
+                  </td>
+                  <td className="num">{quantity(locale, line.quantity, line.unit)}</td>
+                  <td className="num">{money(locale, unitCents(line))}</td>
+                  <td className="num">{money(locale, line.baseCents)}</td>
+                </tr>
+              );
+            })}
+            <tr className="total">
+              <td colSpan={4}>{`Total — ${roomName}`}</td>
+              <td className="num">{money(locale, amountCents)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
     <div className="estimate-room">
@@ -377,6 +427,7 @@ export default function ReportEstimateTable({
             lines={group.lines}
             locale={locale}
             startIndex={startIndex}
+            purpose={purpose}
             unitSubtotal={
               last
                 ? {
