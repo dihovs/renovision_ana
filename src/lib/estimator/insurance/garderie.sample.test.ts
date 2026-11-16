@@ -147,7 +147,7 @@ function write(locale: Locale, stem: string, supply: GarderieSupply = "ours") {
   writeFileSync(`${stem}.txt`, text);
 
   const client = process.env.GARDERIE_CLIENT ?? "—";
-  const address = process.env.GARDERIE_ADDRESS ?? "—";
+  const address = process.env.GARDERIE_ADDRESS ?? "";
   const table = (lines: AllocatedLine[]) => {
     let zone = "";
     let n = 0;
@@ -184,7 +184,7 @@ tr.z td{background:#eef3fa;font-weight:700;border-bottom:1px solid #c9d6ea;paddi
 <div class="h"><div><b>Renovision AnA inc.</b><div>${c.city} · 579-999-5979 · info@renovisionana.ca · renovisionana.ca</div></div>
 <div class="r">${c.gst} 778981019 RT0001<br>${c.qst} 1230209096 IC0001<br>${c.date}</div></div>
 <h1>${c.heading}${tag}</h1>
-<div class="m">${c.client} ${esc(client)} · ${esc(address)}<br>
+<div class="m">${c.client} ${esc(client)}${address ? ` · ${esc(address)}` : ""}<br>
 ${c.intro}</div>
 <div class="mat">${theirs ? c.clientMaterials : c.materials}</div>
 <table>${head}${table(base.lines)}</table>
