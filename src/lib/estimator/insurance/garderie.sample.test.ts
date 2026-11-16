@@ -3,7 +3,7 @@ import { describe, it } from "vitest";
 import type { Locale } from "@/i18n/translations";
 import { unitLabel } from "../catalog";
 import { ESTIMATOR_STRINGS } from "./strings";
-import { buildGarderieDevis } from "./garderie.devis";
+import { buildGarderieDevis, clientPaintNeeds, type GarderieSupply } from "./garderie.devis";
 import { ROOM_SHAPES, roomFigures, stairwellSqFt } from "./garderie.job";
 import type { AllocatedLine } from "./types";
 
@@ -13,6 +13,7 @@ import type { AllocatedLine } from "./types";
  * NOTE and writes a printable HTML, in French and in English. Asserts nothing.
  * Run: npx vitest run garderie.sample
  *   → /tmp/garderie-devis.{txt,html} (fr), /tmp/garderie-devis.en.{txt,html}
+ *   and the version where she buys the paint: /tmp/garderie-devis.labour{,.en}.{txt,html}
  * Client and address come from env (GARDERIE_CLIENT, GARDERIE_ADDRESS) so no
  * client data lands in the repo.
  */
@@ -21,6 +22,7 @@ const painted = (key: string) => Math.round(roomFigures(ROOM_SHAPES.find((r) => 
 const WALLS = { entrance: painted("entrance"), stair: Math.round(stairwellSqFt()), vestibule: painted("vestibule"), kitchen: painted("kitchen") };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const NEED = clientPaintNeeds();
 
 /** The document's own words, per language. */
 const COPY = {
@@ -38,6 +40,10 @@ const COPY = {
     client: "Client :",
     intro:
       "Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée, de la cage d'escalier et du vestibule 200 à l'étage, avec les petites réparations du bas des murs. La cuisine A208 est proposée en option.",
+    labourTag: " — peinture fournie par le client",
+    clientMaterials: `<b>Vous fournissez la peinture et l'apprêt; nous fournissons tout le reste.</b>
+<ul><li><b>Par vous</b> : environ ${NEED.base.paintGal} gallons (3,78 L) du gris de votre choix pour deux couches et ${NEED.base.primerGal} gallon d'apprêt (cuisine, si retenue : ${NEED.kitchen.paintGal} gallons de plus en fini lavable et ${NEED.kitchen.primerGal} d'apprêt). Même code de couleur et même fini partout, sur place au début des travaux.</li>
+<li><b>Par nous</b> : le plâtre et le papier sablé pour les réparations, et toute la protection : toiles, plastique, papier et ruban de masquage.</li></ul>`,
     materials: `<b>Tous les matériaux sont fournis par Renovision AnA et compris dans le prix — vous n'avez rien à acheter.</b>
 <ul><li><b>Peinture</b> : le gris pâle à moyen de votre choix, deux couches (fini lavable dans la cuisine, si retenue).</li>
 <li><b>Plâtre</b> : composé à joints pour les réparations, papier sablé et apprêt sur les réparations.</li>
@@ -56,6 +62,8 @@ const COPY = {
       `<b>Quantités</b> : relevées sur notre dessin des plans fournis, ajusté aux superficies imprimées (murs : ${a(WALLS.entrance)} hall, ${a(WALLS.stair)} escalier, ${a(WALLS.vestibule)} vestibule, ${a(WALLS.kitchen)} cuisine). Elles seront confirmées au mesurage sur place; le prix suit les quantités réelles.`,
     includes:
       "<b>Comprend</b> : la main-d'œuvre et tous les matériaux (peinture, plâtre, protection), les petites réparations du bas des murs et le nettoyage chaque jour.",
+    clientIncludes:
+      "<b>Comprend</b> : la main-d'œuvre, le plâtre et tout le matériel de protection, les petites réparations du bas des murs et le nettoyage chaque jour.",
     excludes:
       "<b>Exclus</b> : plafonds et plafond suspendu, portes et cadres, rampes et garde-corps, marches, réparations majeures du placoplâtre (125 $ par réparation si on en trouve), gris foncé (supplément de 0,95 $/pi²). Valide 30 jours.",
   },
@@ -73,6 +81,10 @@ const COPY = {
     client: "Client:",
     intro:
       "New grey colour, two coats, on the walls of the entrance hall, the stairwell and Vestibule 200 upstairs, with the small repairs at the bottom of the walls. The kitchen A208 is offered as an option.",
+    labourTag: " — client-supplied paint",
+    clientMaterials: `<b>You supply the paint and the primer; we supply everything else.</b>
+<ul><li><b>By you</b>: about ${NEED.base.paintGal} gallons (3.78 L) of the grey of your choice for two coats and ${NEED.base.primerGal} gallon of primer (kitchen, if chosen: ${NEED.kitchen.paintGal} more gallons in a washable finish and ${NEED.kitchen.primerGal} more of primer). Same colour code and finish on every can, on site when we start.</li>
+<li><b>By us</b>: the plaster and sandpaper for the repairs, and all the protection: drop cloths, plastic, masking paper and tape.</li></ul>`,
     materials: `<b>All materials are supplied by Renovision AnA and included in the price — you have nothing to buy.</b>
 <ul><li><b>Paint</b>: the light-to-medium grey of your choice, two coats (washable finish in the kitchen, if chosen).</li>
 <li><b>Plaster</b>: joint compound for the repairs, sandpaper, and primer on the repairs.</li>
@@ -90,6 +102,8 @@ const COPY = {
       `<b>Quantities</b>: taken from our drawing of the plans provided, matched to the printed areas (walls: ${a(WALLS.entrance)} hall, ${a(WALLS.stair)} stairwell, ${a(WALLS.vestibule)} vestibule, ${a(WALLS.kitchen)} kitchen). They will be confirmed by measuring on site; the price follows the actual quantities.`,
     includes:
       "<b>Includes</b>: the labour and all the materials (paint, plaster, protection), the small repairs at the bottom of the walls, and cleanup every day.",
+    clientIncludes:
+      "<b>Includes</b>: the labour, the plaster and all the protection materials, the small repairs at the bottom of the walls, and cleanup every day.",
     excludes:
       "<b>Excludes</b>: ceilings and the suspended ceiling, doors and frames, railings and guards, steps, major drywall repairs ($125 per repair if any are found), dark grey (extra $0.95/sq ft). Valid 30 days.",
   },
@@ -97,15 +111,17 @@ const COPY = {
 
 type Totals = ReturnType<typeof buildGarderieDevis>["base"]["totals"];
 
-function write(locale: Locale, stem: string) {
+function write(locale: Locale, stem: string, supply: GarderieSupply = "ours") {
   const c = COPY[locale];
   const t = ESTIMATOR_STRINGS[locale];
-  const { base, kitchen } = buildGarderieDevis(locale);
+  const { base, kitchen } = buildGarderieDevis(locale, supply);
+  const theirs = supply === "client-paint";
+  const tag = theirs ? c.labourTag : "";
   const rowsOf = (x: Totals, last: string): [string, number][] =>
     [x.itemsCents, x.generalsCents, x.profitCents, x.gstCents, x.qstCents, x.totalCents].map((v, i) => [i === 5 ? last : c.rows[i], v]);
   const qty = (l: AllocatedLine) => `${t.qty(l.quantity)} ${unitLabel(l.unit, locale)}`;
 
-  const out: string[] = [c.textTitle, ""];
+  const out: string[] = [c.textTitle + tag, ""];
   const print = (lines: AllocatedLine[]) =>
     lines.forEach((l, i) => {
       out.push(
@@ -149,7 +165,7 @@ function write(locale: Locale, stem: string) {
     `<table class="s">${rowsOf(x, last).map(([k, v]) => `<tr><td>${k}</td><td class="r">${c.money(v)}</td></tr>`).join("")}</table>`;
   const [h0, h1, h2, h3, h4] = c.cols;
   const head = `<tr><th>${h0}</th><th>${h1}</th><th class="r">${h2}</th><th class="r">${h3}</th><th class="r">${h4}</th></tr>`;
-  const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><title>${c.title}</title>
+  const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><title>${c.title}${tag}</title>
 <style>
 @page{size:letter;margin:1.3cm}body{font:10pt/1.35 -apple-system,Helvetica,Arial,sans-serif;color:#1d2433}
 .h{display:flex;justify-content:space-between;border-bottom:3px solid #1f5fa8;padding-bottom:10px;margin-bottom:14px}
@@ -167,10 +183,10 @@ tr.z td{background:#eef3fa;font-weight:700;border-bottom:1px solid #c9d6ea;paddi
 </style></head><body>
 <div class="h"><div><b>Renovision AnA inc.</b><div>${c.city} · 579-999-5979 · info@renovisionana.ca · renovisionana.ca</div></div>
 <div class="r">${c.gst} 778981019 RT0001<br>${c.qst} 1230209096 IC0001<br>${c.date}</div></div>
-<h1>${c.heading}</h1>
+<h1>${c.heading}${tag}</h1>
 <div class="m">${c.client} ${esc(client)} · ${esc(address)}<br>
 ${c.intro}</div>
-<div class="mat">${c.materials}</div>
+<div class="mat">${theirs ? c.clientMaterials : c.materials}</div>
 <table>${head}${table(base.lines)}</table>
 ${summary(base.totals, c.totals[0])}
 <div class="opt"><h2>${c.option}</h2>
@@ -180,7 +196,7 @@ ${summary(kitchen.totals, c.totals[1])}</div>
 <table class="g"><tr><td>${c.withKitchen}</td><td class="r">${c.money(base.totals.totalCents + kitchen.totals.totalCents)}</td></tr></table>
 <div class="x">
 <p>${c.quantities(c.area)}</p>
-<p>${c.includes}</p>
+<p>${theirs ? c.clientIncludes : c.includes}</p>
 <p>${c.excludes}</p>
 </div>
 </body></html>`;
@@ -190,4 +206,6 @@ ${summary(kitchen.totals, c.totals[1])}</div>
 describe("worked sample — daycare common areas, grey", () => {
   it("prices the repaint, in French", () => write("fr", "/tmp/garderie-devis"));
   it("prices the repaint, in English", () => write("en", "/tmp/garderie-devis.en"));
+  it("prices it with her paint, in French", () => write("fr", "/tmp/garderie-devis.labour", "client-paint"));
+  it("prices it with her paint, in English", () => write("en", "/tmp/garderie-devis.labour.en", "client-paint"));
 });

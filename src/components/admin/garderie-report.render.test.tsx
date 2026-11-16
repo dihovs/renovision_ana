@@ -18,7 +18,12 @@ import {
   roomId,
   sqftToSqm,
 } from "@/lib/estimator/insurance/garderie.job";
-import { GARDERIE_TRAILER, buildGarderieDevis } from "@/lib/estimator/insurance/garderie.devis";
+import {
+  GARDERIE_TRAILER,
+  buildGarderieDevis,
+  clientPaintNeeds,
+  type GarderieSupply,
+} from "@/lib/estimator/insurance/garderie.devis";
 
 /**
  * Our report for the daycare's common areas — her plans redrawn by us
@@ -42,6 +47,8 @@ import { GARDERIE_TRAILER, buildGarderieDevis } from "@/lib/estimator/insurance/
  *   GARDERIE_PHOTO_DIR=… npx vitest run --config vitest.render.mts garderie-report
  *
  * → /tmp/garderie-report.{html,pdf} (fr), /tmp/garderie-report.en.{html,pdf}
+ *   and the version where she buys the paint and primer (garderie.devis.ts):
+ *   /tmp/garderie-report.labour{,.en}.{html,pdf}
  */
 
 const PHOTO_DIR = process.env.GARDERIE_PHOTO_DIR || "/tmp/garderie-photos";
@@ -92,13 +99,20 @@ const money = (cents: number, locale: Locale) =>
     ? (cents / 100).toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $"
     : "$" + (cents / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const NEED = clientPaintNeeds();
+
 /** The project's own words, per language. */
 const COPY = {
   fr: {
     project: "Garderie — peinture des aires communes",
-    description: (kitchen: string) =>
+    title: "Garderie — peinture (la peinture du client)",
+    materials: (supply: GarderieSupply) =>
+      supply === "client-paint"
+        ? `La peinture et l'apprêt sont fournis par vous (environ ${NEED.base.paintGal} gallons de gris et ${NEED.base.primerGal} gallon d'apprêt; ${NEED.kitchen.paintGal} gallons et ${NEED.kitchen.primerGal} gallon de plus pour la cuisine); le plâtre pour les réparations et tout le matériel de protection sont fournis par nous et compris dans le prix. `
+        : `Tous les matériaux sont fournis par nous et compris dans le prix : la peinture, le plâtre pour les réparations et tout le matériel de protection. `,
+    description: (kitchen: string, materials: string) =>
       `Nouvelle couleur grise, deux couches, sur les murs du hall d'entrée et de l'escalier (rez-de-chaussée) et du vestibule 200 (étage), avec les petites réparations du bas des murs. ` +
-      `Tous les matériaux sont fournis par nous et compris dans le prix : la peinture, le plâtre pour les réparations et tout le matériel de protection. ` +
+      materials +
       `Plans redessinés par nous à partir des plans fournis, ajustés aux superficies imprimées; hauteurs relevées sur les photos, à confirmer sur place. ` +
       `Option : la cuisine A208, ${kitchen} taxes incluses, en plus.`,
     option: "Option — Cuisine A208 (non comprise dans le total)",
@@ -107,9 +121,14 @@ const COPY = {
   },
   en: {
     project: "Daycare — painting of the common areas",
-    description: (kitchen: string) =>
+    title: "Daycare — painting, client-supplied paint",
+    materials: (supply: GarderieSupply) =>
+      supply === "client-paint"
+        ? `The paint and the primer are supplied by you (about ${NEED.base.paintGal} gallons of grey and ${NEED.base.primerGal} gallon of primer; ${NEED.kitchen.paintGal} more gallons and ${NEED.kitchen.primerGal} more gallon for the kitchen); the plaster for the repairs and all the protection materials are supplied by us and included in the price. `
+        : `All materials are supplied by us and included in the price: the paint, the plaster for the repairs, and all the protection materials. `,
+    description: (kitchen: string, materials: string) =>
       `New grey colour, two coats, on the walls of the entrance hall and stairs (ground floor) and Vestibule 200 (2nd floor), with the small repairs at the bottom of the walls. ` +
-      `All materials are supplied by us and included in the price: the paint, the plaster for the repairs, and all the protection materials. ` +
+      materials +
       `Plans redrawn by us from the plans provided, matched to the printed areas; heights read from the photos, to be confirmed on site. ` +
       `Option: the kitchen A208, ${kitchen} taxes included, extra.`,
     option: "Option — Kitchen A208 (not included in the total)",
@@ -118,9 +137,9 @@ const COPY = {
   },
 } as const;
 
-function buildData(locale: Locale): ReportData {
+function buildData(locale: Locale, supply: GarderieSupply): ReportData {
   const c = COPY[locale];
-  const devis = buildGarderieDevis(locale);
+  const devis = buildGarderieDevis(locale, supply);
   const kitchen = money(devis.kitchen.totals.totalCents, locale);
   const manifest = loadManifest();
 
@@ -163,8 +182,8 @@ function buildData(locale: Locale): ReportData {
       qstNumber: "1230209096 IC0001",
     },
     project: {
-      name: c.project,
-      description: c.description(kitchen),
+      name: supply === "client-paint" ? c.title : c.project,
+      description: c.description(kitchen, c.materials(supply)),
       started_on: "2026-11-14",
     },
     client: { name: process.env.GARDERIE_CLIENT || c.client },
@@ -190,14 +209,15 @@ function buildData(locale: Locale): ReportData {
   };
 }
 
-async function emit(locale: Locale, htmlPath: string, pdfPath: string): Promise<void> {
-  const body = renderToStaticMarkup(<ReportDocument data={buildData(locale)} />);
+async function emit(locale: Locale, htmlPath: string, pdfPath: string, supply: GarderieSupply = "ours"): Promise<void> {
+  const data = buildData(locale, supply);
+  const body = renderToStaticMarkup(<ReportDocument data={data} />);
   const css = readFileSync("src/app/(internal)/admin/projects/[id]/report/report.css", "utf8");
   const html = `<!doctype html>
 <html lang="${locale}">
 <head>
 <meta charset="utf-8" />
-<title>${COPY[locale].project}</title>
+<title>${data.project.name}</title>
 <style>${css}</style>
 <style>
   /* The cover map comes from our signed-in route (/api/admin/staticmap),
@@ -240,5 +260,11 @@ describe("our report — daycare common areas, grey", () => {
   }, 180_000);
   it("renders both floor plans, the rooms, the photos and our priced lines, in English", async () => {
     await emit("en", "/tmp/garderie-report.en.html", "/tmp/garderie-report.en.pdf");
+  }, 180_000);
+  it("renders the version with her paint, in French", async () => {
+    await emit("fr", "/tmp/garderie-report.labour.html", "/tmp/garderie-report.labour.pdf", "client-paint");
+  }, 180_000);
+  it("renders the version with her paint, in English", async () => {
+    await emit("en", "/tmp/garderie-report.labour.en.html", "/tmp/garderie-report.labour.en.pdf", "client-paint");
   }, 180_000);
 });
